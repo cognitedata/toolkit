@@ -1,7 +1,6 @@
 import re
 import sys
 import urllib
-import urllib.request
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -194,16 +193,6 @@ default_organization_dir = "{organization_dir.name}"''',
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
         cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
-
-        # Try to fetch the latest checksum from the published checksum.txt
-        default_checksum_match = re.search(r'checksum\s*=\s*"(sha256:[a-fA-F0-9]+)"', cdf_toml_content)
-        if default_checksum_match:
-            default_checksum = default_checksum_match.group(1)
-            latest_checksum = _fetch_latest_checksum()
-            if latest_checksum and latest_checksum != default_checksum:
-                cdf_toml_content = cdf_toml_content.replace(default_checksum, latest_checksum)
-                print(f"Updated library checksum to {latest_checksum}")
-
         destination.write_text(cdf_toml_content, encoding="utf-8")
 
 
@@ -239,25 +228,6 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
 
 
 _CDF_TOML: CDFToml | None = None
-
-_LIBRARY_CHECKSUM_URL = "https://github.com/cognitedata/library/releases/download/latest/checksum.txt"
-
-
-def _fetch_latest_checksum(url: str = _LIBRARY_CHECKSUM_URL) -> str | None:
-    """Fetch the latest checksum from the published checksum.txt file.
-
-    Returns the checksum as 'sha256:<hex>' or None on any failure.
-    """
-    try:
-        request = urllib.request.Request(url, headers={"User-Agent": "cognite-toolkit"})
-        with urllib.request.urlopen(request, timeout=30) as response:
-            content = response.read().decode("utf-8").strip()
-        if content.startswith("sha256:"):
-            return content
-        return f"sha256:{content}"
-    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError) as e:
-        print(f"Could not fetch latest library checksum, using default. Reason: {e!s}")
-        return None
 
 
 if __name__ == "__main__":

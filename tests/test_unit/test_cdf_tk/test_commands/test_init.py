@@ -11,8 +11,6 @@ from cognite_toolkit._cdf_tk.commands.init import InitCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from tests.test_unit.utils import MockQuestionary
 
-_MOCK_CHECKSUM_FETCH = patch("cognite_toolkit._cdf_tk.cdf_toml._fetch_latest_checksum", return_value=None)
-
 
 class TestInitCommand:
     @staticmethod
@@ -44,7 +42,6 @@ class TestInitCommand:
             ]
             with (
                 patch.object(CDFToml, "load", classmethod(self._mock_cdf_toml_load_non_loaded)),
-                _MOCK_CHECKSUM_FETCH,
                 MockQuestionary(
                     [
                         "cognite_toolkit._cdf_tk.commands.init",
@@ -76,7 +73,6 @@ class TestInitCommand:
             ]
             with (
                 patch.object(CDFToml, "load", classmethod(self._mock_cdf_toml_load_non_loaded)),
-                _MOCK_CHECKSUM_FETCH,
                 MockQuestionary(
                     [
                         "cognite_toolkit._cdf_tk.commands.init",

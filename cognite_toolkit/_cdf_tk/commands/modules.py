@@ -286,10 +286,7 @@ class ModulesCommand(ToolkitCommand):
         user_environments: list[str] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
-        library_checksum: str | None = None,
     ) -> None:
-        _ = library_checksum
-
         if not organization_dir:
             organization_dir = ModulesCommand._prompt_organization_dir()
 
