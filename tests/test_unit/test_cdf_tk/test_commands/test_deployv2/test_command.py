@@ -131,10 +131,30 @@ class TestReadBuildDirectory:
         actual: type[Exception] | ReadBuildDirectory
         try:
             actual = DeployV2Command.read_build_directory(Path("build"), include)
+            self._standardize(actual)
         except Exception as e:
             actual = type(e)
 
+        if isinstance(expected, ReadBuildDirectory):
+            self._standardize(expected)
+
         assert actual == expected
+
+    def _standardize(self, read_dir: ReadBuildDirectory) -> None:
+        """The read_build_directory function depends on .glob() that is not deterministic in the order
+        it returns files and folders."""
+        read_dir.invalid_directories.sort()
+        self._standardize_resource_directories(read_dir.resource_directories)
+        self._standardize_resource_directories(read_dir.skipped_directories)
+
+    def _standardize_resource_directories(self, resource_directories: list[ResourceDirectory]) -> None:
+        resource_directories.sort(key=lambda r: r.directory)
+        for dir_ in resource_directories:
+            dir_.invalid_files.sort()
+            dir_.files_by_crud = {
+                key: sorted(value)
+                for key, value in sorted(dir_.files_by_crud.items(), key=lambda item: item[0].__name__)
+            }
 
 
 class TestCreateDeploymentPlan:
