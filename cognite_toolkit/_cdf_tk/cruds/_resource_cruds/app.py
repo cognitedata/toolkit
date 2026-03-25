@@ -6,7 +6,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DuneAppFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
@@ -40,7 +39,7 @@ class AppCRUD(ResourceCRUD[ExternalId, AppRequest, AppResponse]):
     _doc_url = "Files/operation/initFileUpload"
     metadata_value_limit = 512
     support_update = True
-    _toolkit_hash_key = "cdf-toolkit-app-hash"
+    _TOOLKIT_HASH_KEY = "cdf-toolkit-app-hash"
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
@@ -110,7 +109,7 @@ class AppCRUD(ResourceCRUD[ExternalId, AppRequest, AppResponse]):
             file_external_id = f"{item['appExternalId']}-{item['version']}"
             app_rootdir = Path(self.resource_build_path / item["appExternalId"])
             self.app_dir_by_file_external_id[file_external_id] = app_rootdir
-            item[self._toolkit_hash_key] = self._create_hash_values(app_rootdir)
+            item[self._TOOLKIT_HASH_KEY] = self._create_hash_values(app_rootdir)
 
         return raw_list
 
@@ -155,16 +154,6 @@ class AppCRUD(ResourceCRUD[ExternalId, AppRequest, AppResponse]):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
-    def _upload_zip(self, upload_url: str, content: bytes) -> None:
-        request = RequestMessage(
-            endpoint_url=upload_url,
-            method="PUT",
-            content_type="application/zip",
-            data_content=content,
-        )
-        result = self.client.http_client.request_single_retries(request)
-        result.get_success_or_raise(request)
-
     def _deploy_zip(self, item: AppRequest, *, overwrite: bool) -> AppResponse:
         feid = item.external_id
         app_rootdir = self.app_dir_by_file_external_id[feid]
@@ -176,7 +165,7 @@ class AppCRUD(ResourceCRUD[ExternalId, AppRequest, AppResponse]):
             response = responses[0]
             if not response.upload_url:
                 raise ToolkitRequiredValueError("Files init response missing upload_url for zip upload.")
-            self._upload_zip(response.upload_url, zip_bytes)
+            self.client.tool.filemetadata.upload_content(zip_bytes, response.upload_url, "application/zip")
             return response
 
     def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:

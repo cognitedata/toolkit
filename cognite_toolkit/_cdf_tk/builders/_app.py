@@ -2,6 +2,8 @@ import shutil
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from cognite_toolkit._cdf_tk.builders._base import Builder
 from cognite_toolkit._cdf_tk.cruds import AppCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -18,6 +20,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
 
 
 class AppBuilder(Builder):
@@ -93,33 +96,27 @@ class AppBuilder(Builder):
         raw_apps = raw_content if isinstance(raw_content, list) else [raw_content]
         warnings = WarningList[FileReadWarning]()
         for raw_app in raw_apps:
-            app_external_id = raw_app.get("appExternalId")
-            if not app_external_id:
+            try:
+                app_config = AppsYAML.model_validate(raw_app)
+            except ValidationError as e:
                 warnings.append(
                     HighSeverityWarning(
-                        f"App in {source_file.source.path.as_posix()!r} has no appExternalId defined. "
-                        f"This is used to match the app to the app directory.",
+                        f"App in {source_file.source.path.as_posix()!r} has invalid configuration: {e}",
                     ),
                 )
                 continue
-            if not raw_app.get("version"):
-                warnings.append(
-                    HighSeverityWarning(
-                        f"App {app_external_id} in {source_file.source.path.as_posix()!r} has no version defined.",
-                    ),
-                )
 
-            app_directory = source_file.source.path.with_name(app_external_id)
+            app_directory = source_file.source.path.with_name(app_config.app_external_id)
 
             if not app_directory.is_dir():
                 raise ToolkitNotADirectoryError(
-                    f"App directory not found for appExternalId {app_external_id} defined in {source_file.source.path.as_posix()!r}.",
+                    f"App directory not found for appExternalId {app_config.app_external_id} defined in {source_file.source.path.as_posix()!r}.",
                 )
 
-            destination = self.build_dir / self.resource_folder / app_external_id
+            destination = self.build_dir / self.resource_folder / app_config.app_external_id
             if destination.exists():
                 raise ToolkitFileExistsError(
-                    f"App {app_external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory.",
+                    f"App {app_config.app_external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory.",
                 )
             shutil.copytree(app_directory, destination, ignore=shutil.ignore_patterns("__pycache__"))
 
