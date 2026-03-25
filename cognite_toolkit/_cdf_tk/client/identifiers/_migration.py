@@ -17,6 +17,11 @@ class AssetCentricExternalId(Identifier):
     def __str__(self) -> str:
         return f"{self.resource_type}_externalId={self.external_id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"resourceType-{self.resource_type}.externalId-{self.external_id}"
+        return f"{self.resource_type}.{self.external_id}"
+
     @property
     def id_value(self) -> str:
         """Generic name of the identifier.

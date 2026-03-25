@@ -173,6 +173,7 @@ class AssetMappingClassicRequestId(RequestResource, Identifier):
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
 
 
+
 class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequestId]):
     node_id: int
     asset_id: int | None = None

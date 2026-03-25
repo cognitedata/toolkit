@@ -20,6 +20,11 @@ class SpaceId(Identifier):
     def __str__(self) -> str:
         return self.space
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}"
+        return self.space
+
 
 class DataModelingId(Identifier, ABC):
     type: str
@@ -49,6 +54,11 @@ class ContainerId(DataModelingId):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"
+
     def as_tuple(self) -> tuple[str, str]:
         return self.space, self.external_id
 
@@ -70,12 +80,22 @@ class ViewNoVersionId(DataModelingId):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}-externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"
+
 
 class ViewId(ViewNoVersionId):
     version: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}-externalId.{self.external_id}version-{self.version}"
+        return f"{self.space}.{self.external_id}.{self.version}"
 
     def as_property_reference(self, property_id: str) -> list[str]:
         return [self.space, f"{self.external_id}/{self.version}", property_id]
@@ -96,12 +116,22 @@ class DataModelNoVersionId(Identifier):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"
+
 
 class DataModelId(DataModelNoVersionId):
     version: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}.version-{self.version}"
+        return f"{self.space}.{self.external_id}.{self.version}"
 
 
 class InstanceDefinitionId(Identifier):
@@ -111,6 +141,11 @@ class InstanceDefinitionId(Identifier):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"
 
     def dump(
         self, camel_case: bool = True, exclude_extra: bool = False, include_instance_type: bool = True
@@ -182,6 +217,11 @@ class EdgeTypeId(Identifier):
     def __str__(self) -> str:
         return f"{self.type!s}(direction={self.direction})"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"type-{self.type._as_filename(False)}.direction-{self.direction}"
+        return f"{self.type._as_filename(False)}.{self.direction}"
+
     @model_validator(mode="before")
     def parse_str(cls, value: Any) -> Any:
         if not isinstance(value, str):
@@ -205,6 +245,11 @@ class ContainerDirectId(Identifier):
     def __str__(self) -> str:
         return f"{self.source!s}.{self.identifier}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"source-{self.source._as_filename(False)}.identifier-{self.identifier}"
+        return f"{self.source._as_filename(False)}.{self.identifier}"
+
 
 class ViewDirectId(Identifier):
     source: ViewId
@@ -213,6 +258,11 @@ class ViewDirectId(Identifier):
     def __str__(self) -> str:
         return f"{self.source!s}.{self.identifier}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"source-{self.source._as_filename(False)}.identifier-{self.identifier}"
+        return f"{self.source._as_filename(False)}.{self.identifier}"
+
 
 class ContainerIndexId(ContainerId):
     identifier: str
@@ -220,12 +270,22 @@ class ContainerIndexId(ContainerId):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(index={self.identifier})"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"{super()._as_filename(include_type)}.identifier-{self.identifier}"
+        return f"{super()._as_filename(include_type)}.{self.identifier}"
+
 
 class ContainerConstraintId(ContainerId):
     identifier: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(constraint={self.identifier})"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"{super()._as_filename(include_type)}.identifier-{self.identifier}"
+        return f"{super()._as_filename(include_type)}.{self.identifier}"
 
 
 class DatapointSubscriptionTimeSeriesId(Identifier):
@@ -243,6 +303,22 @@ class DatapointSubscriptionTimeSeriesId(Identifier):
         else:
             return "undefined"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if self.external_id is not None:
+            if include_type:
+                return f"externalId-{self.external_id}"
+            return self.external_id
+        elif self.id is not None:
+            if include_type:
+                return f"id-{self.id}"
+            return str(self.id)
+        elif self.instance_id is not None:
+            if include_type:
+                return f"instanceId-{self.instance_id._as_filename(False)}"
+            return f"{self.instance_id._as_filename(False)}"
+        else:
+            return "undefined"
+
 
 class InstanceId(Identifier):
     """This is an instance identifier. It is used in the classic timeseries/files API
@@ -253,3 +329,8 @@ class InstanceId(Identifier):
 
     def __str__(self) -> str:
         return f"instanceId='{self.instance_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"instanceId-{self.instance_id._as_filename(False)}"
+        return f"{self.instance_id._as_filename(False)}"
