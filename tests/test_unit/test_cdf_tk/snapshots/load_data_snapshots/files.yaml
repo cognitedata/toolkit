@@ -1,3 +1,5 @@
 FileMetadataResponse:
 - externalId: my_file
+  metadata:
+    cognite-toolkit-hash: 3b3228e6
   name: my_file.txt
