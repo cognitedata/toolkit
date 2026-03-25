@@ -65,6 +65,7 @@ from tests.test_unit.utils import FakeCogniteResourceGenerator
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
 
+@pytest.mark.skipif(not Flags.v08.is_enabled(), "The snapshot is v0.8 specific")
 @pytest.mark.parametrize(
     "loader_cls",
     [
