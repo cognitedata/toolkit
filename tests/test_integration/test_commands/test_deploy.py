@@ -130,7 +130,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     changed_resources = get_changed_resources(env_vars, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=False)
+    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=True)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 

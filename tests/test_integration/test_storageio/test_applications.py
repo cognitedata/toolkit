@@ -62,7 +62,6 @@ def canvas_raw_data(canvas_event: EventResponse) -> dict[str, Any]:
         "containerReferences": [
             {
                 "externalId": f"{canvas_id}_{event_ref}",
-                "instanceType": "node",
                 "space": "IndustrialCanvasInstanceSpace",
                 "chartsId": None,
                 "containerReferenceType": "event",
