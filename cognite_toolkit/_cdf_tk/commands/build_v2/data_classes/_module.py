@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Generic, Literal, TypeAlias, get_args
@@ -67,6 +68,13 @@ class BuildVariable(BaseModel):
                 else:
                     formatted_items.append(str(item))
             return f"({', '.join(formatted_items)})"
+
+    @classmethod
+    def substitute(cls, content: str, variables: "list[BuildVariable]", file_suffix: FileSuffix = ".yaml") -> str:
+        for variable in variables:
+            pattern, replace = variable.get_pattern_replace_pair(file_suffix)
+            content = re.sub(pattern, replace, content)
+        return content
 
 
 class ModuleId(Identifier):

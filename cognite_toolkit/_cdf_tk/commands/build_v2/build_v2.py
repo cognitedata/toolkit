@@ -1,12 +1,11 @@
 import os
-import re
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
@@ -409,7 +408,7 @@ class BuildV2Command(ToolkitCommand):
         # Content read successfully.
         substituted_content = content
         if variables:
-            substituted_content = self._substitute_variables_content(content, variables, ".yaml")
+            substituted_content = crud_class.substitute_variables_content(content, variables)
 
         try:
             parsed_yaml = read_yaml_content(substituted_content)
@@ -495,18 +494,9 @@ class BuildV2Command(ToolkitCommand):
         for extra_file in extra_files:
             if isinstance(extra_file, SuccessExtra) and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT:
                 # We check that it is a valid suffix above.
-                extra_file.content = cls._substitute_variables_content(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
+                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
             output.append(extra_file)
         return output
-
-    @classmethod
-    def _substitute_variables_content(
-        cls, content: str, variables: list[BuildVariable], file_suffix: Literal[".yaml", ".sql", ".yml", ".json"]
-    ) -> str:
-        for variable in variables:
-            pattern, replace = variable.get_pattern_replace_pair(file_suffix)
-            content = re.sub(pattern, replace, content)
-        return content
 
     def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
         errors = humanize_validation_error(error)
