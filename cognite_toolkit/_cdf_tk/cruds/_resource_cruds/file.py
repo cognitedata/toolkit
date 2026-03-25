@@ -18,6 +18,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal, final
 
+from rich.console import Console
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -78,6 +81,10 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
     class _MetadataKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
+        super().__init__(client, build_dir, console)
+        self._filepath_by_external_id: dict[str, Path] = {}
 
     @property
     def display_name(self) -> str:
@@ -146,7 +153,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         if stem.lower().endswith(self.kind.lower()):
             stem = stem[: -len(self.kind)]
         for item in raw_files:
-            source_file = item.get("$FILEPATH")
+            source_file = item.pop("$FILEPATH", None)
             if source_file is None:
                 if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
                     source_file = candidate
@@ -161,7 +168,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                     item["metadata"] = {}
                 # Store hash for efficient diffing
                 item["metadata"][self._MetadataKey.FILECONTENT_HASH] = file_hash
-            item["$FILEPATH"] = source_file
+            self._filepath_by_external_id[self.get_id(item).external_id] = source_file
         return raw_files
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
@@ -173,7 +180,10 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
             )
         if asset_external_ids := resource.pop("assetExternalIds", None):
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
-        return FileMetadataRequest.model_validate(resource)
+        request = FileMetadataRequest.model_validate(resource)
+        if request.external_id:
+            request.filepath = self._filepath_by_external_id.get(request.external_id, None)
+        return request
 
     def dump_resource(self, resource: FileMetadataResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -271,6 +281,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     class _SourceContextKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
 
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None = None) -> None:
+        super().__init__(client, build_dir, console)
+        self._filepath_by_node_id: dict[NodeId, Path] = {}
+
     @property
     def display_name(self) -> str:
         return "cognite files"
@@ -306,7 +320,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         if stem.lower().endswith(self.kind.lower()):
             stem = stem[: -len(self.kind)]
         for item in raw_files:
-            source_file = item.get("$FILEPATH")
+            source_file = item.pop("$FILEPATH", None)
             if source_file is None:
                 if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
                     source_file = candidate
@@ -327,8 +341,13 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
                     self.display_name,
                     self.client.console,
                 )
-            item["$FILEPATH"] = source_file
+            self._filepath_by_node_id[self.get_id(item)] = source_file
         return raw_files
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> CogniteFileRequest:
+        request = super().load_resource(resource, is_dry_run)
+        request.filepath = self._filepath_by_node_id[self.get_id(resource)]
+        return request
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
