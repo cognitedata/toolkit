@@ -15,9 +15,12 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.cdf_client import ResponseItems
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalOrExternalId,
@@ -42,7 +45,9 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, Res
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import (
@@ -71,6 +76,9 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
+
+    class _MetadataKey:
+        filecontent_hash = "cognite-toolkit-hash"
 
     @property
     def display_name(self) -> str:
@@ -131,6 +139,32 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_files = super().load_resource_file(filepath, environment_variables)
+        stem = filepath.stem
+        if stem.lower().endswith(self.kind.lower()):
+            stem = stem[: -len(self.kind)]
+        for item in raw_files:
+            source_file = item.get("$FILEPATH")
+            if source_file is None:
+                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                    source_file = candidate
+                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
+                    source_file = filepath.parent / name
+                else:
+                    # No filepath found
+                    continue
+            if Flags.v08.is_enabled():
+                file_hash = calculate_hash(source_file, shorten=True)
+                if "metadata" not in item:
+                    item["metadata"] = {}
+                # Store hash for efficient diffing
+                item["metadata"][self._MetadataKey.filecontent_hash] = file_hash
+            item["$FILEPATH"] = source_file
+        return raw_files
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -153,13 +187,58 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return dumped
 
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.create(items, overwrite=True)
+        responses = self.client.tool.filemetadata.create(items, overwrite=True)
+        if Flags.v08.is_enabled():
+            for response in responses:
+                self._try_upload_file_content(response)
+        return responses
+
+    def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
+        if response.filepath and response.upload_url:
+            fileupoad = RequestMessage(
+                endpoint_url=response.upload_url,
+                method="PUT",
+                content_type=response.mime_type or "application/octet-stream",
+                data_content=response.filepath.read_bytes(),
+            )
+            upload_response = self.client.http_client.request_single_retries(fileupoad)
+            upload_response.get_success_or_raise(fileupoad)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.update(items, mode="replace")
+        responses = self.client.tool.filemetadata.update(items, mode="replace")
+        if Flags.v08.is_enabled():
+            response_by_external_id = {
+                response.external_id: response for response in responses if response.external_id is not None
+            }
+            for item in items:
+                if not (item.external_id and item.external_id in response_by_external_id):
+                    continue
+                response = response_by_external_id[item.external_id]
+                if (
+                    item.filepath
+                    and (response.metadata or {}).get(self._MetadataKey.filecontent_hash)
+                    != (item.metadata or {})[self._MetadataKey.filecontent_hash]
+                ):
+                    # Need to reupload the file content
+                    url_request = RequestMessage(
+                        endpoint_url=self.client.config.create_api_url("/files/uploadlink"),
+                        method="POST",
+                        body_content={
+                            "items": {"externalId": item.external_id},
+                        },
+                    )
+                    url_response = self.client.http_client.request_single_retries(url_request)
+                    responses_with_url = ResponseItems[FileMetadataResponse].model_validate(url_response).items
+                    if len(responses_with_url) != 0:
+                        raise RuntimeError(
+                            f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
+                        )
+                    response_with_url = responses_with_url[0]
+                    self._try_upload_file_content(response_with_url)
+        return responses
 
     def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:

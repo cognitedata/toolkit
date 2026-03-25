@@ -64,7 +64,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             )
             response = self._http_client.request_single_retries(request)
             result = response.get_success_or_raise(request)
-            results.append(FileMetadataResponse.model_validate_json(result.body))
+            file_response = FileMetadataResponse.model_validate_json(result.body)
+            file_response.filepath = item.filepath
+            results.append(file_response)
         return results
 
     def retrieve(
