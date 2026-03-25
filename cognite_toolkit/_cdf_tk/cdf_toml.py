@@ -80,7 +80,6 @@ class ModulesConfig:
 @dataclass
 class Library:
     url: str
-    checksum: str
 
     def __post_init__(self) -> None:
         self._validate()
@@ -102,10 +101,7 @@ class Library:
         if "url" not in raw:
             raise ValueError("Library configuration must contain 'url' field.")
 
-        if "checksum" not in raw:
-            raise ValueError("Library configuration must contain 'checksum' field.")
-
-        return cls(**raw)
+        return cls(url=raw["url"])
 
 
 @dataclass
