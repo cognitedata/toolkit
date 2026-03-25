@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
     FILE_ANNOTATIONS_ID,
@@ -186,6 +187,27 @@ class AssetMapping(MigrationMapping):
 class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
     instance_id: NodeUntypedId
+
+    def get_record_property_mapping(self, mappings_by_external_id: dict[str, RecordPropertyMapping]) -> RecordPropertyMapping:
+        """Resolve the record property mapping for this row (events-to-records).
+
+        Uses ``ingestionMapping`` (the same CSV field as instance migration). The value must match
+        ``externalId`` of an entry in the YAML ``mappings`` list. If the YAML defines only one mapping,
+        this column may be omitted.
+        """
+        if self.ingestion_mapping is not None:
+            try:
+                return mappings_by_external_id[self.ingestion_mapping]
+            except KeyError as e:
+                raise ToolkitValueError(
+                    f"Unknown mapping externalId {self.ingestion_mapping!r}. "
+                    f"Defined in target YAML: {sorted(mappings_by_external_id)}."
+                ) from e
+        if len(mappings_by_external_id) == 1:
+            return next(iter(mappings_by_external_id.values()))
+        raise ToolkitValueError(
+            "ingestionMapping is required in the CSV when the target YAML defines multiple mappings."
+        )
 
 
 class TimeSeriesMapping(MigrationMapping):
