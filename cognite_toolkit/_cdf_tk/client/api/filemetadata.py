@@ -294,7 +294,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 method="POST",
                 body_content={"items": [item.dump()]},
             )
-            url_response = self._http_client.request_single_retries(url_request)
-            responses_with_url = ResponseItems[FileMetadataResponse].model_validate(url_response).items
+            url_response = self._http_client.request_single_retries(url_request).get_success_or_raise(url_request)
+            responses_with_url = ResponseItems[FileMetadataResponse].model_validate_json(url_response.body).items
             results.extend(responses_with_url)
         return results

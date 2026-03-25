@@ -77,7 +77,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     _doc_url = "Files/operation/initFileUpload"
 
     class _MetadataKey:
-        filecontent_hash = "cognite-toolkit-hash"
+        FILECONTENT_HASH = "cognite-toolkit-hash"
 
     @property
     def display_name(self) -> str:
@@ -160,7 +160,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 if "metadata" not in item:
                     item["metadata"] = {}
                 # Store hash for efficient diffing
-                item["metadata"][self._MetadataKey.filecontent_hash] = file_hash
+                item["metadata"][self._MetadataKey.FILECONTENT_HASH] = file_hash
             item["$FILEPATH"] = source_file
         return raw_files
 
@@ -211,12 +211,12 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 response = response_by_external_id[item.external_id]
                 if (
                     item.filepath
-                    and (response.metadata or {}).get(self._MetadataKey.filecontent_hash)
-                    != (item.metadata or {})[self._MetadataKey.filecontent_hash]
+                    and (response.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
+                    != (item.metadata or {})[self._MetadataKey.FILECONTENT_HASH]
                 ):
                     # Need to reupload the file content
                     responses_with_url = self.client.tool.filemetadata.get_upload_url([item.as_id()])
-                    if len(responses_with_url) != 0:
+                    if len(responses_with_url) != 1:
                         raise RuntimeError(
                             f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
                         )
@@ -269,7 +269,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     TEXT_FIELD_MAX_LENGTH = 32_000
 
     class _SourceContextKey:
-        filecontent_hash = "cognite-toolkit-hash"
+        FILECONTENT_HASH = "cognite-toolkit-hash"
 
     @property
     def display_name(self) -> str:
@@ -317,7 +317,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
                     continue
             if Flags.v08.is_enabled():
                 file_hash = calculate_hash(source_file, shorten=True)
-                extra_str = f"{self._SourceContextKey.filecontent_hash}: {file_hash}"
+                extra_str = f"{self._SourceContextKey.FILECONTENT_HASH}: {file_hash}"
                 # Store hash on source_context for efficient diffing
                 item["sourceContext"] = suffix_description(
                     extra_str,
