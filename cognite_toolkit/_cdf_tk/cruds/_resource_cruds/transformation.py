@@ -82,7 +82,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -93,6 +93,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     calculate_secure_hash,
     humanize_collection,
     in_dict,
@@ -249,6 +250,38 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                         version=destination.data_model.version,
                     ),
                 )
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for a Transformation resource.
+
+        This includes an optional .sql file with the query.
+        """
+        # Check if queryFile is specified in the YAML
+        query_file: Path | None = None
+        if "queryFile" in item:
+            query_file = filepath.parent / Path(item["queryFile"])
+        else:
+            # Check for conventional file names: {stem}.sql or {external_id}.sql
+            sql_candidates = [
+                filepath.parent / f"{filepath.stem}.sql",
+                filepath.parent / f"{identifier.external_id}.sql",
+            ]
+            query_file = next((p for p in sql_candidates if p.exists()), None)
+
+        if query_file is None or not query_file.exists():
+            # No external SQL file - query might be inline, which is valid
+            return
+
+        content = safe_read(query_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=query_file,
+            source_hash=source_hash,
+            suffix=".sql",
+            content=content,
+            description="transformation query",
+        )
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:

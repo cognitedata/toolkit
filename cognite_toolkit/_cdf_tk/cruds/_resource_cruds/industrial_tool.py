@@ -6,6 +6,7 @@ from typing import Any, Literal, final
 
 from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
+from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -20,18 +21,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
+from .file import FileMetadataCRUD
 
 
 @final
@@ -92,6 +95,68 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         if resource.data_set_external_id:
             yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for a Streamlit resource.
+
+        This includes the required application code directory.
+        """
+        app_path = filepath.with_name(identifier.external_id)
+        if not app_path.is_dir():
+            yield FailedReadExtra(
+                code="NOT-EXISTING",
+                error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
+                source_path=app_path,
+            )
+            return
+        if "entrypoint" not in item:
+            yield FailedReadExtra(
+                code="MISSING",
+                error=f"Cannot creat Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
+                source_path=app_path,
+            )
+            return
+
+        # This mutates the input object, but it is the easiest way to pass
+        # the hash-value.
+        # This hash value is used to determine whether to redeploy the function.
+        content = cls._as_json_string(app_path, item["entrypoint"])
+        item[cls._metadata_hash_key] = calculate_hash(content, shorten=True)
+
+        # This hash value is used to determine whether you can deploy from the build folder.
+        # (avoid the user running cdf build, modify the source code, then cdf deploy)
+        source_hash = calculate_directory_hash(app_path)
+
+        # We don't yield content here as the directory is processed during create/update
+        # The application code is uploaded separately via _as_json_string method
+        yield SuccessExtra(
+            source_path=app_path,
+            source_hash=source_hash,
+            suffix=".json",
+            content=content,
+            description="Streamlit application code",
+        )
+        try:
+            file_metadata = yaml_safe_dump(StreamlitRequest.model_validate(item).dump(context="api"))
+        except ValidationError as e:
+            # avoid circular import
+            from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+
+            error_str = "\n - ".join(humanize_validation_error(e))
+            yield FailedReadExtra(
+                code="INVALID",
+                source_path=app_path,
+                error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",
+            )
+        else:
+            yield SuccessExtra(
+                source_path=app_path,
+                source_hash=source_hash,
+                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                content=file_metadata,
+                description="Streamlit app",
+            )
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
@@ -104,7 +169,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         for item in raw_list:
             external_id = self.get_id(item).external_id
             self._source_file_by_external_id[external_id] = filepath
-            content = self._as_json_string(external_id, item["entrypoint"])
+            content = self._as_json_string(filepath.with_name(external_id), item["entrypoint"])
             item[self._metadata_hash_key] = calculate_hash(content, shorten=True)
         return raw_list
 
@@ -123,10 +188,9 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
             dumped.pop("theme")
         return dumped
 
+    @classmethod
     @lru_cache
-    def _as_json_string(self, external_id: str, entrypoint: str) -> str:
-        source_file = self._source_file_by_external_id[external_id]
-        app_path = source_file.with_name(external_id)
+    def _as_json_string(cls, app_path: Path, entrypoint: str) -> str:
         if not app_path.exists():
             raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
         requirements_txt = app_path / "requirements.txt"
@@ -134,13 +198,12 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         if requirements_txt.exists():
             requirements_txt_lines = safe_read(requirements_txt).splitlines()
         else:
-            requirements_txt_lines = [str(r) for r in self.recommended_packages()]
+            requirements_txt_lines = [str(r) for r in cls.recommended_packages()]
         files = {
             py_file.relative_to(app_path).as_posix(): {"content": {"text": safe_read(py_file), "$case": "text"}}
             for py_file in app_path.rglob("*.py")
             if py_file.is_file()
         }
-
         return json.dumps(
             {
                 "entrypoint": entrypoint,
@@ -171,7 +234,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
         created: list[StreamlitResponse] = []
         for item in items:
-            content = self._as_json_string(item.external_id, item.entrypoint)
+            source_file = self._source_file_by_external_id[item.external_id]
+            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
             responses = self.client.tool.streamlit.create([item])
             for response in responses:
                 if not response.upload_url:
@@ -186,7 +250,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
         updated: list[StreamlitResponse] = []
         for item in items:
-            content = self._as_json_string(item.external_id, item.entrypoint)
+            source_file = self._source_file_by_external_id[item.external_id]
+            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
             responses = self.client.tool.streamlit.create([item], overwrite=True)
             for response in responses:
                 if not response.upload_url:

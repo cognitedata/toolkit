@@ -13,10 +13,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
+    humanize_collection,
+    load_yaml_inject_variables,
+    safe_read,
+    sanitize_filename,
+)
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
 # docs are not published yet; link to the API reference root.
@@ -156,6 +162,43 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
     @classmethod
     def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield RuleSetCRUD, ExternalId(external_id=resource.rule_set_external_id)
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: RuleSetVersionId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for a RuleSetVersion resource.
+
+        This includes an optional .ttl file with the rules.
+        """
+        # If rules are inline, no extra file needed
+        if "rules" in item:
+            return
+
+        rule_set_id = item.get("ruleSetExternalId", item.get("rule_set_external_id", filepath.stem))
+
+        # Look for .ttl by convention: {stem}.ttl or {rule_set_external_id}.ttl
+        ttl_candidates = [
+            filepath.parent / f"{filepath.stem}.ttl",
+            filepath.parent / f"{rule_set_id}.ttl",
+        ]
+        ttl_path = next((p for p in ttl_candidates if p.exists()), None)
+
+        if ttl_path is None:
+            yield FailedReadExtra(
+                source_path=filepath,
+                code="MISSING",
+                error=f"Missing rules for {rule_set_id!r} in {filepath.as_posix()}. No 'rules' field found and no .ttl file found. Expected one of: {humanize_collection(ttl_candidates)}",
+            )
+            return
+
+        content = safe_read(ttl_path, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=ttl_path,
+            source_hash=source_hash,
+            suffix=".ttl",
+            content=content,
+            description="rule set rules",
+        )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
