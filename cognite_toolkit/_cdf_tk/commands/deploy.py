@@ -20,11 +20,13 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.cruds import (
     DataCRUD,
+    FunctionCRUD,
     Loader,
     RawDatabaseCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
     ResourceWorker,
+    StreamlitCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionCRUD, SimulatorRoutineRevisionCRUD
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
@@ -306,7 +308,12 @@ class DeployCommand(ToolkitCommand):
                         "the upload command."
                     )
                 )
-            loader = loader_cls.create_loader(client, build_dir)
+            if issubclass(loader_cls, FunctionCRUD | StreamlitCRUD):
+                # In v0.8, we use filio CRUDs (FileMetadata/CogniteFile) to upload the function/streamlit code.
+                # This is the legacy deploy command, which has to do it the old way.
+                loader: Loader = loader_cls(client, build_dir, client.console, use_fileio=False)
+            else:
+                loader = loader_cls.create_loader(client, build_dir)
 
             resource_result: DeployResult | None
             if isinstance(loader, ResourceCRUD):
