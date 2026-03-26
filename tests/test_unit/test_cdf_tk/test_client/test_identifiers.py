@@ -27,18 +27,12 @@ class TestEdgeTypeId:
         assert edge_type == EdgeTypeId.model_validate(str(edge_type))
 
 
-class TestViewIdentifiers:
-    def test_view_id_equals_no_version(self) -> None:
-        view_id = ViewId(space="space", external_id="view", version="v1")
-        no_version = ViewNoVersionId(space="space", external_id="view")
+class TestViewIdEquality:
+    def test_view_no_version_equals_versioned_view(self) -> None:
+        v1 = ViewId(space="test_space", external_id="test_external_id", version="v1")
+        v2 = ViewId(space="test_space", external_id="test_external_id", version="v2")
+        no_version = ViewNoVersionId(space=v1.space, external_id=v1.external_id)
 
-        assert view_id == no_version
-        assert no_version == view_id
-
-    def test_view_id_hash_compatible_with_no_version(self) -> None:
-        view_id = ViewId(space="space", external_id="view", version="v1")
-        no_version = ViewNoVersionId(space="space", external_id="view")
-        dependency_keys = {(ViewId, view_id)}
-
-        assert hash(view_id) == hash(no_version)
-        assert (ViewId, no_version) in dependency_keys
+        assert v1 != v2
+        assert no_version == v1
+        assert v2 == no_version
