@@ -5,6 +5,11 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    AmbiguousSelection,
+    MisplacedModule,
+    NonExistingModuleName,
+)
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
 
 
@@ -142,8 +147,8 @@ class TestModuleSourceParser:
             ),
             pytest.param(
                 {"mixed_list": ["a", {"key": "value"}]},
-                {"", "mixed_list"},
-                {"", "mixed_list"},
+                {""},
+                {""},
                 {},
                 ["Invalid variable type in list for variable mixed_list."],
                 id="Mixed list types returns error",
@@ -161,7 +166,285 @@ class TestModuleSourceParser:
         build_variables, errors = ModuleSourceParser._parse_variables(
             variables, {Path(path) for path in available_paths}, {Path(path) for path in selected_paths}
         )
-        actual_error_messages = [error.message for error in errors]
+        actual_error_messages = [error.error.message for error in errors]
         assert actual_error_messages == error_messages
         actual_variables = {path.as_posix(): var_list for path, var_list in build_variables.items()}
         assert actual_variables == expected_variables
+
+
+class TestGetModulePathFromResourceFilePath:
+    @pytest.mark.parametrize(
+        "resource_file, expected_module_path, expected_resource_folder",
+        [
+            pytest.param(
+                Path("modules/moduleA/data_modeling/my.Space.yaml"),
+                Path("modules/moduleA"),
+                "data_modeling",
+                id="Valid data_modeling file",
+            ),
+            pytest.param(
+                Path("modules/nested/moduleB/transformations/my.Transformation.yaml"),
+                Path("modules/nested/moduleB"),
+                "transformations",
+                id="Nested module with transformations",
+            ),
+            pytest.param(
+                Path("modules/moduleA/my.yaml"),
+                None,
+                None,
+                id="File not in resource folder",
+            ),
+            pytest.param(
+                Path("random_file.yaml"),
+                None,
+                None,
+                id="File at root level",
+            ),
+        ],
+    )
+    def test_get_module_path_from_resource_file_path(
+        self,
+        resource_file: Path,
+        expected_module_path: Path | None,
+        expected_resource_folder: str | None,
+    ) -> None:
+        module_path, resource_folder = ModuleSourceParser._get_module_path_from_resource_file_path(resource_file)
+        assert module_path == expected_module_path
+        assert resource_folder == expected_resource_folder
+
+
+class TestExpandParents:
+    @pytest.mark.parametrize(
+        "module_ids, expected_paths",
+        [
+            pytest.param(
+                [Path("modules/moduleA")],
+                {Path(""), Path("modules"), Path("modules/moduleA")},
+                id="Single module",
+            ),
+            pytest.param(
+                [Path("modules/nested/moduleA"), Path("modules/moduleB")],
+                {
+                    Path(""),
+                    Path("modules"),
+                    Path("modules/nested"),
+                    Path("modules/nested/moduleA"),
+                    Path("modules/moduleB"),
+                },
+                id="Multiple modules with different depths",
+            ),
+            pytest.param(
+                [],
+                {Path("")},
+                id="Empty module list",
+            ),
+        ],
+    )
+    def test_expand_parents(self, module_ids: list[Path], expected_paths: set[Path]) -> None:
+        result = ModuleSourceParser._expand_parents(module_ids)
+        assert result == expected_paths
+
+
+class TestSelectModules:
+    @pytest.mark.parametrize(
+        "module_paths, selection, expected_selected",
+        [
+            pytest.param(
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                {Path("modules/moduleA")},
+                [Path("modules/moduleA")],
+                id="Select by exact path",
+            ),
+            pytest.param(
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                {"moduleA"},
+                [Path("modules/moduleA")],
+                id="Select by module name",
+            ),
+            pytest.param(
+                [Path("modules/nested/moduleA"), Path("modules/moduleB")],
+                {Path("modules/nested")},
+                [Path("modules/nested/moduleA")],
+                id="Select by parent path",
+            ),
+            pytest.param(
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                {Path("modules")},
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                id="Select all by common parent",
+            ),
+            pytest.param(
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                {"nonexistent"},
+                [],
+                id="No match returns empty",
+            ),
+        ],
+    )
+    def test_select_modules(
+        self,
+        module_paths: list[Path],
+        selection: set[Path | str],
+        expected_selected: list[Path],
+    ) -> None:
+        result = ModuleSourceParser._select_modules(module_paths, selection)
+        assert result == expected_selected
+
+
+class TestGetNonExistingModuleNames:
+    @pytest.mark.parametrize(
+        "selected_module_names, available_names, expected_result",
+        [
+            pytest.param(
+                {"moduleA", "moduleB"},
+                {"moduleA", "moduleB"},
+                [],
+                id="All modules exist",
+            ),
+            pytest.param(
+                {"moduleA", "moduleC"},
+                {"moduleA", "moduleB"},
+                [NonExistingModuleName(name="moduleC", closest_matches=["moduleB", "moduleA"])],
+                id="One module does not exist with close match",
+            ),
+            pytest.param(
+                {"xyz"},
+                {"moduleA", "moduleB"},
+                [NonExistingModuleName(name="xyz", closest_matches=[])],
+                id="No close matches",
+            ),
+            pytest.param(
+                set(),
+                {"moduleA", "moduleB"},
+                [],
+                id="Empty selection",
+            ),
+        ],
+    )
+    def test_get_non_existing_module_names(
+        self,
+        selected_module_names: set[str],
+        available_names: set[str],
+        expected_result: list[NonExistingModuleName],
+    ) -> None:
+        result = ModuleSourceParser._get_non_existing_module_names(selected_module_names, available_names)
+        assert result == expected_result
+
+
+class TestGetAmbiguousSelection:
+    @pytest.mark.parametrize(
+        "module_paths_by_name, selected_modules, expected_result",
+        [
+            pytest.param(
+                {"moduleA": [Path("modules/moduleA")], "moduleB": [Path("modules/moduleB")]},
+                {"moduleA"},
+                [],
+                id="No ambiguous modules",
+            ),
+            pytest.param(
+                {
+                    "moduleA": [Path("modules/team1/moduleA"), Path("modules/team2/moduleA")],
+                    "moduleB": [Path("modules/moduleB")],
+                },
+                {"moduleA"},
+                [
+                    AmbiguousSelection(
+                        name="moduleA",
+                        module_paths=[Path("modules/team1/moduleA"), Path("modules/team2/moduleA")],
+                        is_selected=True,
+                    )
+                ],
+                id="Ambiguous module selected by name",
+            ),
+            pytest.param(
+                {
+                    "moduleA": [Path("modules/team1/moduleA"), Path("modules/team2/moduleA")],
+                },
+                {Path("modules/team1/moduleA")},
+                [
+                    AmbiguousSelection(
+                        name="moduleA",
+                        module_paths=[Path("modules/team1/moduleA"), Path("modules/team2/moduleA")],
+                        is_selected=False,
+                    )
+                ],
+                id="Ambiguous module not selected by name (selected by path)",
+            ),
+        ],
+    )
+    def test_get_ambiguous_selection(
+        self,
+        module_paths_by_name: dict[str, list[Path]],
+        selected_modules: set[str | Path],
+        expected_result: list[AmbiguousSelection],
+    ) -> None:
+        result = ModuleSourceParser._get_ambiguous_selection(module_paths_by_name, selected_modules)
+        assert result == expected_result
+
+
+class TestGetMisplacedModules:
+    @pytest.mark.parametrize(
+        "module_ids, available_paths, expected_result",
+        [
+            pytest.param(
+                [Path("modules/moduleA"), Path("modules/moduleB")],
+                {Path(""), Path("modules"), Path("modules/moduleA"), Path("modules/moduleB")},
+                [],
+                id="No misplaced modules",
+            ),
+            pytest.param(
+                [],
+                {Path("")},
+                [],
+                id="Empty module list",
+            ),
+        ],
+    )
+    def test_get_misplaced_modules(
+        self,
+        module_ids: list[Path],
+        available_paths: set[Path],
+        expected_result: list[MisplacedModule],
+    ) -> None:
+        result = ModuleSourceParser._get_misplaced_modules(module_ids, available_paths)
+        assert result == expected_result
+
+
+class TestParseVariablesEdgeCases:
+    def test_numeric_variables(self) -> None:
+        variables = {"int_var": 42, "float_var": 3.14, "bool_var": True}
+        available_paths = {Path("")}
+        selected_paths = {Path("")}
+
+        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+
+        assert len(errors) == 0
+        assert Path("") in build_variables
+        vars_list = build_variables[Path("")]
+        assert len(vars_list) == 3
+        # Check values are preserved with correct types
+        values = {v.id.name: v.value for v in vars_list}
+        assert values == {"int_var": 42, "float_var": 3.14, "bool_var": True}
+
+    def test_deeply_nested_variables(self) -> None:
+        variables = {"modules": {"team": {"project": {"var1": "value1"}}}}
+        available_paths = {Path(""), Path("modules"), Path("modules/team"), Path("modules/team/project")}
+        selected_paths = available_paths.copy()
+
+        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+
+        assert len(errors) == 0
+        assert Path("modules/team/project") in build_variables
+        assert build_variables[Path("modules/team/project")][0].value == "value1"
+
+    def test_list_of_dicts_with_multiple_variables(self) -> None:
+        variables = {"modules": {"moduleA": [{"var1": "a", "var2": "x"}, {"var1": "b", "var2": "y"}]}}
+        available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
+        selected_paths = available_paths.copy()
+
+        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+
+        assert len(errors) == 0
+        module_vars = build_variables.get(Path("modules/moduleA"), [])
+        # Should have 4 variables: var1 and var2 for each iteration
+        assert len(module_vars) == 4

@@ -1,7 +1,6 @@
 import difflib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from itertools import groupby
 from pathlib import Path
 from typing import Any, cast
 
@@ -198,7 +197,7 @@ class ModuleSourceParser:
                         invalid_variables.append(
                             InvalidBuildVariable(
                                 id=subpath,
-                                value=value,
+                                value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=ModelSyntaxWarning(
@@ -211,22 +210,3 @@ class ModuleSourceParser:
                 else:
                     raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
         return variables_by_path, invalid_variables
-
-    @classmethod
-    def _organize_variables_by_module(
-        cls, variables_by_path: dict[RelativeDirPath, list[BuildVariable]], selected_modules: set[RelativeDirPath]
-    ) -> dict[RelativeDirPath, dict[int, list[BuildVariable]]]:
-        module_path_by_relative_paths: dict[frozenset[RelativeDirPath], RelativeDirPath] = {
-            frozenset([module, *list(module.parents)]): module for module in selected_modules
-        }
-        variables_by_module: dict[RelativeDirPath, dict[int, list[BuildVariable]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        for variable_path, variables in variables_by_path.items():
-            for module_paths, module in module_path_by_relative_paths.items():
-                if variable_path in module_paths:
-                    for iteration, variable in groupby(
-                        sorted(variables, key=lambda v: v.iteration or 0), key=lambda v: v.iteration or 0
-                    ):
-                        variables_by_module[module][iteration or 0].extend(variable)
-        return dict(variables_by_module)
