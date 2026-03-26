@@ -104,7 +104,14 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
     @classmethod
     def _optional_header_names(cls) -> set[str]:
-        return { "dataSetId", "ingestionMapping", "ingestionView", "consumerViewSpace", "consumerViewExternalId", "consumerViewVersion", }
+        return {
+            "dataSetId",
+            "ingestionMapping",
+            "ingestionView",
+            "consumerViewSpace",
+            "consumerViewExternalId",
+            "consumerViewVersion",
+        }
 
     def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
