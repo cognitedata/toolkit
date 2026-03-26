@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleParser
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
