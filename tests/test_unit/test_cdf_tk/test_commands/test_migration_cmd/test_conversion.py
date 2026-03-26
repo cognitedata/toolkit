@@ -1730,7 +1730,7 @@ class TestAssetCentricToRecord:
         record_mapping = self._make_record_mapping({})  # empty mapping
         container_properties = self._make_container_properties()
 
-        record, _ = asset_centric_to_record(
+        record, issue = asset_centric_to_record(
             event,
             instance_id=self.INSTANCE_ID,
             record_mapping=record_mapping,
@@ -1739,3 +1739,4 @@ class TestAssetCentricToRecord:
         )
 
         assert record is None
+        assert issue.no_mappable_properties

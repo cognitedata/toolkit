@@ -2,6 +2,8 @@ from typing import Any
 
 from pydantic import JsonValue, field_serializer, field_validator
 
+from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
+
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 
@@ -21,7 +23,7 @@ class RecordId(Identifier):
 
 class RecordSource(BaseModelObject):
     source: ContainerId
-    properties: dict[str, JsonValue]
+    properties: dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]]
 
     @field_serializer("source", mode="plain")
     def serialize_source(self, value: ContainerId) -> Any:
@@ -44,7 +46,7 @@ class RecordResponse(ResponseResource[RecordRequest]):
 
     space: str
     external_id: str
-    properties: dict[ContainerId, dict[str, JsonValue]] | None = None
+    properties: dict[ContainerId, dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]]] | None = None
 
     @field_validator("properties", mode="before")
     def parse_reference(cls, value: Any) -> Any:
@@ -66,12 +68,10 @@ class RecordResponse(ResponseResource[RecordRequest]):
         return parsed
 
     @field_serializer("properties", mode="plain")
-    def serialize_properties(
-        self, value: dict[ContainerId, dict[str, JsonValue]] | None
-    ) -> dict[str, dict[str, dict[str, JsonValue]]] | None:
+    def serialize_properties(self, value: dict[ContainerId, dict[str, Any]] | None) -> Any:
         if value is None:
             return None
-        serialized: dict[str, dict[str, dict[str, JsonValue]]] = {}
+        serialized: dict[str, dict[str, Any]] = {}
         for source_ref, props in value.items():
             space = source_ref.space
             if space not in serialized:
