@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -708,9 +709,17 @@ class BuildV2Command(ToolkitCommand):
                 if NeatPlugin.installed() and client and data_model_files:
                     neat = NeatPlugin(client)
                     for data_model_file in data_model_files:
-                        for insight in neat.validate(data_model_file.parent, data_model_file):
-                            if insight not in built_module.insights:
-                                insights.append(insight)
+                        try:
+                            for insight in neat.validate(data_model_file.parent, data_model_file):
+                                if insight not in built_module.insights:
+                                    insights.append(insight)
+                        except Exception as e:
+                            self.warn(
+                                HighSeverityWarning(
+                                    f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}"
+                                )
+                            )
+                            continue
         return insights
 
     def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
