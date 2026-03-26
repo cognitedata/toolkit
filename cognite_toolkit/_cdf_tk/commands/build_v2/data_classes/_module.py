@@ -148,7 +148,7 @@ class BuildSource(BaseModel):
     misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
     non_existing_module_names: list[NonExistingModuleName] = Field(default_factory=list)
     invalid_variables: list[InvalidBuildVariable] = Field(default_factory=list)
-    orphan_yaml_files: list[AbsoluteFilePath] = Field(default_factory=list)
+    orphan_yaml_files: list[RelativeDirPath] = Field(default_factory=list)
 
     @property
     def total_files(self) -> int:
