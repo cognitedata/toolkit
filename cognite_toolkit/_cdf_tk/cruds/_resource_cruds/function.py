@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -85,12 +86,16 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         build_path: Path | None,
         console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+        use_fileio: bool = Flags.v08.is_enabled(),
     ):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
+        self.filemetadata_path_by_external_id: dict[str, Path] = {}
+        self.cognitefile_path_by_external_id: dict[str, Path] = {}
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
+        self.use_filio = use_fileio
 
     @cached_property
     def project_data_modeling_status(self) -> Literal["HYBRID", "DATA_MODELING_ONLY"]:
@@ -142,26 +147,40 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        if filepath.parent.name != self.folder_name:
-            # Functions configs needs to be in the root function folder.
-            # This is to allow arbitrary YAML files inside the function code folder.
-            return []
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to compare functions as function code must be compared.")
-
         raw_list = super().load_resource_file(filepath, environment_variables)
-        for item in raw_list:
-            item_id = self.get_id(item)
-            external_id = item_id.external_id
-            function_rootdir = Path(self.resource_build_path / external_id)
-            self.function_dir_by_external_id[external_id] = function_rootdir
-            if "metadata" not in item:
-                item["metadata"] = {}
-            value = self._create_hash_values(function_rootdir)
-            item["metadata"][self._MetadataKey.function_hash] = value
-            if "secrets" in item:
-                item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
+        filestem = filepath.stem
+        if filestem.lower().endswith(self.kind.lower()):
+            filestem = filestem[: -len(self.kind)].rstrip(".")
 
+        if self.use_filio:
+            for item in raw_list:
+                if "metadata" not in item:
+                    item["metadata"] = {}
+                if "secrets" in item:
+                    item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
+                external_id = self.get_id(item).external_id
+                if (filemetadata := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").exists():
+                    self.filemetadata_path_by_external_id[external_id] = filemetadata
+                elif (cognitefile := filepath.parent / f"{filestem}.{CogniteFileCRUD.kind}.yaml").exists():
+                    self.cognitefile_path_by_external_id[external_id] = cognitefile
+        else:
+            if filepath.parent.name != self.folder_name:
+                # Functions configs needs to be in the root function folder.
+                # This is to allow arbitrary YAML files inside the function code folder.
+                return []
+            if self.resource_build_path is None:
+                raise ValueError("build_path must be set to compare functions as function code must be compared.")
+            for item in raw_list:
+                item_id = self.get_id(item)
+                external_id = item_id.external_id
+                function_rootdir = Path(self.resource_build_path / external_id)
+                self.function_dir_by_external_id[external_id] = function_rootdir
+                if "metadata" not in item:
+                    item["metadata"] = {}
+                value = self._create_hash_values(function_rootdir)
+                item["metadata"][self._MetadataKey.function_hash] = value
+                if "secrets" in item:
+                    item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
         return raw_list
 
     @classmethod
@@ -404,11 +423,17 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         return False
 
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
-        created: list[FunctionResponse] = []
         if not self._is_activated("create"):
-            return created
+            return []
+        if self.use_filio:
+            return self._create_with_fileio(items)
+        else:
+            return self._legacy_create(items)
+
+    def _legacy_create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        created: list[FunctionResponse] = []
         for item in items:
             external_id = item.external_id or item.name
             file_id = self._upload_function_code(external_id, item)
@@ -432,6 +457,77 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 self._warn_if_cpu_or_memory_changed(created_item, item)
                 created.append(created_item)
         return created
+
+    def _create_with_fileio(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
+        cognite_files, filemetadata_files = self._as_file_by_external_id(items)
+        file_id_by_external_id = self._upload_files(cognite_files, filemetadata_files)
+        created: list[FunctionResponse] = []
+        for item in items:
+            external_id = item.as_id().external_id
+            file_id = file_id_by_external_id.get(external_id)
+            if file_id is None:
+                raise ResourceCreationError(
+                    f"Failed to find uploaded file for function {external_id}. This is required to create the function. "
+                    "Wait and try again.\nIf the problem persists, please contact Cognite support."
+                )
+            failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+                [file_id], timeout_seconds=self._file_upload_timeout_seconds
+            )
+            if file_id in failed_upload:
+                raise ResourceCreationError(
+                    f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
+                    "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
+                    " problem persists, please contact Cognite support."
+                    "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
+                    f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
+                )
+
+            # Create a copy with the file_id set
+            item_to_create = item.model_copy(update={"fileId": file_id.id})
+            result = self.client.tool.functions.create([item_to_create])
+            if result:
+                created_item = result[0]
+                self._warn_if_cpu_or_memory_changed(created_item, item)
+                created.append(created_item)
+        return created
+
+    def _as_file_by_external_id(self, items: Sequence[FunctionRequest]) -> tuple[dict[Path, str], dict[Path, str]]:
+        filemetadata_files: dict[Path, str] = {}
+        cognite_files: dict[Path, str] = {}
+        missing: list[str] = []
+        for item in items:
+            if item.external_id is None:
+                continue
+            if filemetadata_path := self.filemetadata_path_by_external_id.get(item.external_id):
+                filemetadata_files[filemetadata_path] = item.external_id
+            elif cognitefile_path := self.cognitefile_path_by_external_id.get(item.external_id):
+                cognite_files[cognitefile_path] = item.external_id
+            else:
+                missing.append(item.external_id)
+        if missing:
+            raise ResourceCreationError(
+                f"Failed to create functions. Missing function code files for {humanize_collection(missing)}"
+            )
+        return cognite_files, filemetadata_files
+
+    def _upload_files(
+        self, cognite_files: dict[Path, str], filemetadata_files: dict[Path, str]
+    ) -> dict[str, InternalId]:
+        file_id_by_external_id: dict[str, InternalId] = {}
+        if filemetadata_files:
+            fileio = FileMetadataCRUD(self.client, None, None)
+            file_request = fileio.load_resource_files(list(filemetadata_files.keys()))
+            fileresponse = fileio.create(file_request)
+            file_id_by_external_id.update(zip(filemetadata_files.values(), [InternalId(id=f.id) for f in fileresponse]))
+        if cognite_files:
+            cognitefileio = CogniteFileCRUD(self.client, None, None)
+            cognitefile_request = cognitefileio.load_resource_files(list(cognite_files.keys()))
+            cognitefile_response = cognitefileio.create(cognitefile_request)
+            dm_fileresponse = self.client.tool.filemetadata.retrieve(
+                [node.as_instance_id() for node in cognitefile_response]
+            )
+            file_id_by_external_id.update(zip(cognite_files.values(), [InternalId(id=f.id) for f in dm_fileresponse]))
+        return file_id_by_external_id
 
     def _upload_function_code(self, external_id: str, item: FunctionRequest) -> InternalId:
         """Uploads the function code to CDF.

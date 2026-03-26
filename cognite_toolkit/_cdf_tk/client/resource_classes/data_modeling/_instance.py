@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     EdgeId,
+    InstanceId,
     NodeId,
     NodeUntypedId,
     ViewId,
@@ -176,6 +177,12 @@ class InstanceSlimDefinition(BaseModelObject):
             return NodeId(space=self.space, external_id=self.external_id)
         else:
             return EdgeId(space=self.space, external_id=self.external_id)
+
+    def as_instance_id(self) -> InstanceId:
+        node_id = self.as_id()
+        if not isinstance(node_id, NodeId):
+            raise ValueError(f"Cannot create instance ID from an {self.instance_type}.")
+        return InstanceId(instance_id=node_id)
 
 
 InstanceRequest: TypeAlias = Annotated[

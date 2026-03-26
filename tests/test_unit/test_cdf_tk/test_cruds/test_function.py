@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -17,6 +18,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -25,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -67,6 +70,7 @@ class TestFunctionLoader:
         loader.load_resource(dict(resource), is_dry_run=False)
         client.lookup.data_sets.id.assert_called_with("ds_new", False)
 
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
@@ -84,7 +88,6 @@ secrets:
             created_time=0,
             status="Ready",
             metadata={
-                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
                 FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
@@ -217,46 +220,51 @@ secrets:
         assert len(capabilities) == 2
         assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
-    def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
+    @pytest.fixture()
+    def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionCRUD]:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
-            (tmp_path / "my_func").mkdir()
-            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+            loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
+            function_id = "my_func"
+            filestem = function_id
+            filemetadata = tmp_path / f"{filestem}.FileMetadata.yaml"
+            filemetadata.write_text(f"externalId: {function_id}\nname: my_func\n")
+            (tmp_path / f"{filestem}.zip").touch(exist_ok=True)
 
-            created_response = FunctionResponse(
-                id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
-            )
-            client.tool.functions.create.return_value = [created_response]
+            loader.filemetadata_path_by_external_id[function_id] = filemetadata
 
-            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+            client.tool.filemetadata.create.return_value = [
+                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name=function_id)
+            ]
+            yield loader
 
-            with (
-                patch.object(loader, "_is_activated", return_value=True),
-                patch.object(loader, "_upload_function_code", return_value=InternalId(id=42)),
-            ):
-                result = loader.create([item])
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
+    def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionCRUD) -> None:
+        function_io = function_io_with_file
+        client = function_io.client
+        client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
+        created_response = FunctionResponse(
+            id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
+        )
+        client.tool.functions.create.return_value = [created_response]
+
+        with patch.object(function_io, "_is_activated", return_value=True):
+            result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
 
         assert result == [created_response]
 
-    def test_create_raises_timeout_when_file_not_uploaded(self, tmp_path: Path) -> None:
-        with monkeypatch_toolkit_client() as client:
-            file_id = InternalId(id=42)
-            client.tool.filemetadata.await_file_uploaded.return_value = {file_id}, 0.0
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=0)
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
-            (tmp_path / "my_func").mkdir()
-            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
+    def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionCRUD) -> None:
+        function_io = function_io_with_file
+        client = function_io.client
+        client.tool.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
 
-            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+        item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 
-            with (
-                patch.object(loader, "_is_activated", return_value=True),
-                patch.object(loader, "_upload_function_code", return_value=file_id),
-                pytest.raises(ResourceCreationError, match="timed out"),
-            ):
-                loader.create([item])
+        with (
+            patch.object(function_io, "_is_activated", return_value=True),
+            pytest.raises(ResourceCreationError, match="timed out"),
+        ):
+            function_io.create([item])
 
 
 class TestFunctionScheduleLoader:
