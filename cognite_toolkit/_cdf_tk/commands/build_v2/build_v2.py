@@ -17,7 +17,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -563,24 +563,6 @@ class BuildV2Command(ToolkitCommand):
                 )
         return built_resources
 
-    @staticmethod
-    def _dependency_present_in_build(
-        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]],
-        crud_cls: type[ResourceCRUD],
-        dependency_id: Identifier,
-    ) -> bool:
-        if (crud_cls, dependency_id) in built_resource_ids:
-            return True
-        if crud_cls is ViewCRUD and type(dependency_id) is ViewNoVersionId:
-            return any(
-                isinstance(ident, ViewId)
-                and ident.space == dependency_id.space
-                and ident.external_id == dependency_id.external_id
-                for built_crud, ident in built_resource_ids
-                if built_crud is ViewCRUD
-            )
-        return False
-
     def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
@@ -592,7 +574,7 @@ class BuildV2Command(ToolkitCommand):
         for module in built_modules:
             for resource in module.resources:
                 for crud_cls, dependency_id in resource.dependencies:
-                    if not self._dependency_present_in_build(built_resource_ids, crud_cls, dependency_id):
+                    if (crud_cls, dependency_id) not in built_resource_ids:
                         missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
         insights = InsightList()
         code = "MISSING-DEPENDENCY"

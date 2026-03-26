@@ -8,7 +8,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
@@ -233,6 +233,38 @@ class TestDependencyValidationSearchConfig:
         )
         insights = BuildV2Command()._dependency_validation([module], tlk_client)
         assert any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
+
+    def test_search_config_dependency_satisfied_by_local_view(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        module, source_file, build_file = self._minimal_module(tmp_path)
+        view_ref = ViewNoVersionId(space="my_space", external_id="View1")
+        module.resources.append(
+            BuiltResource(
+                identifier=ViewId(space="my_space", external_id="View1", version="v1"),
+                source_hash="h-view",
+                type=ResourceType(resource_folder=ViewCRUD.folder_name, kind=ViewCRUD.kind),
+                source_path=AbsoluteFilePath(source_file.resolve()),
+                build_path=AbsoluteFilePath(build_file.resolve()),
+                crud_cls=ViewCRUD,
+                dependencies=set(),
+            )
+        )
+        module.resources.append(
+            BuiltResource(
+                identifier=view_ref,
+                source_hash="h",
+                type=ResourceType(
+                    resource_folder=SearchConfigCRUD.folder_name,
+                    kind=SearchConfigCRUD.kind,
+                ),
+                source_path=AbsoluteFilePath(source_file.resolve()),
+                build_path=AbsoluteFilePath(build_file.resolve()),
+                crud_cls=SearchConfigCRUD,
+                dependencies={(ViewCRUD, view_ref)},
+            )
+        )
+
+        insights = BuildV2Command()._dependency_validation([module], tlk_client)
+        assert not any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
 
 
 class TestValidateBuildParameters:
