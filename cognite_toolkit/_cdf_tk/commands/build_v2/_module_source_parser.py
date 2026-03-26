@@ -12,9 +12,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
     RelativeFilePath,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, AmbiguousSelection, \
+    MisplacedModule
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
+
 
 
 class ModuleSourceParser:
@@ -25,21 +27,51 @@ class ModuleSourceParser:
         self.selected_modules = selected_modules
         self.organization_dir = organization_dir
         self.errors = InsightList()
+        self.ambiguous_selection: list[AmbiguousSelection] = []
+        self.misplaced_modules: list[MisplacedModule] = []
+        self.non_existing_module_names: list[str] = []
+        self.orphan_yaml_files: list[AbsoluteDirPath] = []
 
     def parse(self, yaml_files: list[RelativeFilePath], variables: dict[str, Any]) -> list[ModuleSource]:
-        source_by_module_id, orphans = self._find_modules(yaml_files, self.organization_dir)
+        source_by_module_id, orphans_yaml_files = self._find_modules(yaml_files, self.organization_dir)
+        self.orphan_yaml_files = orphans_yaml_files
         module_ids = list(source_by_module_id.keys())
-        errors = self._validate_modules(module_ids, self.selected_modules, orphans)
-        if errors:
-            self.errors.extend(errors)
-            return []
         selected_modules = self._select_modules(module_ids, self.selected_modules)
-        available_paths = {parent for module_id in source_by_module_id.keys() for parent in module_id.parents} | set(
-            module_ids
+        available_paths = (
+                {Path("")} | set(module_ids) | {parent for module in module_ids for parent in module.parents}
         )
-        selected_paths = {parent for module_id in selected_modules for parent in module_id.parents} | set(
-            selected_modules
+        selected_paths = (
+                {Path("")} | set(selected_modules) | {parent for module in selected_modules for parent in module.parents}
         )
+        module_paths_by_name: dict[str, list[RelativeDirPath]] = defaultdict(list)
+        for module_path in module_ids:
+            module_paths_by_name[module_path.name].append(module_path)
+
+        self.ambiguous_selection = [
+            AmbiguousSelection(
+                name=name,
+                module_paths=module_paths,
+                is_selected=name in self.selected_modules,
+            )
+            for name, module_paths in module_paths_by_name.items()
+            if len(module_paths) > 1
+        ]
+
+        # If any module is inside another module. -> Error.
+        for module_path in module_ids:
+            if parent_modules := (available_paths.intersection(module_paths_by_name[module_path.name]) - {module_path}):
+                self.misplaced_modules.append(
+                    MisplacedModule(
+                        id=module_path,
+                        parent_modules=sorted(parent_modules)
+                    )
+                )
+
+        # Any selected module by name that does not match any found module -> Error.
+        self.non_existing_modules = sorted({name for name in self.selected_modules if isinstance(name, str)} - set(module_paths_by_name.keys()))
+
+        # Orphan files with resource kind set -> Error.
+
         build_variables, errors = self._parse_variables(variables, available_paths, selected_paths)
         if errors:
             self.errors.extend(errors)
@@ -99,19 +131,6 @@ class ModuleSourceParser:
                 return parent.parent, cast(ResourceTypes, parent.name)
         return None, None
 
-    @classmethod
-    def _validate_modules(
-        cls,
-        module_paths: list[RelativeDirPath],
-        selection: set[RelativeDirPath | str],
-        orphan_files: list[RelativeDirPath],
-    ) -> list[ModelSyntaxWarning]:
-        # Todo: Check the following
-        # 1) If any module is inside another module. -> Error.
-        # 2) If any selection by name is ambiguous (matches multiple found modules) -> Error.
-        # 3) Any selected module by name that does not match any found module -> Error.
-        # 4) If any orphan files that have a resource kind set are found -> Error.
-        return []
 
     @classmethod
     def _select_modules(

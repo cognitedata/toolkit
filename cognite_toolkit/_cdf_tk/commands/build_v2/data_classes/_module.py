@@ -98,9 +98,8 @@ class ModuleId(Identifier):
 
 class ModuleSource(BaseModel):
     """Class used to describe source for module"""
-
-    path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
+    path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     resource_files_by_folder: dict[ResourceTypes, list[AbsoluteFilePath]] = Field(default_factory=dict)
     variables: list[BuildVariable] = Field(default_factory=list)
     iteration: int = 0
@@ -116,14 +115,32 @@ class ModuleSource(BaseModel):
     def total_files(self) -> int:
         return sum(len(files) for files in self.resource_files_by_folder.values())
 
+class AmbiguousSelection(BaseModel):
+    name: str
+    module_paths: list[RelativeDirPath]
+    is_selected: bool
+
+class MisplacedModule(BaseModel):
+    id: RelativeDirPath
+    parent_modules: list[RelativeDirPath]
+
 
 class BuildSource(BaseModel):
     """Class used to describe source for build"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    module_dir: Path
+    module_dir: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     modules: list[ModuleSource]
+
+    ambiguous_selection: list[AmbiguousSelection] = Field(default_factory=list)
+    misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
+    non_existing_module_names: list[str] = Field(default_factory=list)
+
+    invalid_variables: list[BuildVariable]
+    orphan_yaml_files: list[AbsoluteFilePath]
+
     insights: InsightList = Field(default_factory=InsightList)
+
 
     @property
     def total_files(self) -> int:
