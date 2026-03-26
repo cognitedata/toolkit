@@ -1,17 +1,17 @@
+from collections.abc import Iterable
+
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import WorkflowCRUD
-from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
-from cognite_toolkit._cdf_tk.yaml_classes import WorkflowYAML
+from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule
 
-BASE_CODE = "TOOLKIT-WORKFLOW"
+BASE_CODE = "AUTH"
 
 
-class WorkflowDatasetMissing(ToolkitResourceRule[WorkflowYAML]):
+class CheckDataSetMissing(ToolkitLocalRule):
     """
-    Checks that workflows have a dataset association.
+    Checks that resources that can be scoped to a dataset are scoped to a dataset.
 
     ## What it does
-    Verifies that each workflow has a `data_set_external_id` specified, associating it with a dataset.
+    For example, if you have a workflow, it checks that `dataSetExternalId` is specified.
 
     ## Why is this bad?
     The dataset ID identifies which dataset a workflow is associated with. A user must have access to this
@@ -35,21 +35,16 @@ class WorkflowDatasetMissing(ToolkitResourceRule[WorkflowYAML]):
     """
 
     code = f"{BASE_CODE}-001"
-    resource_type = WorkflowCRUD.kind
     insight_type = Recommendation
 
-    def validate(self) -> list[Recommendation]:
-
-        recommendations: list[Recommendation] = []
-
-        for resource in self.resources:
-            if not resource.data_set_external_id:
-                recommendations.append(
-                    Recommendation(
-                        message=f"{resource.as_id()!s} is missing dataset association.",
-                        code=self.code,
-                        fix="Add dataset association to the workflow.",
-                    )
+    def validate(self) -> Iterable[Recommendation]:
+        for resource, source_file in self._get_validated_resources_with_file():
+            if "data_set_external_id" not in type(resource).model_fields:
+                continue
+            data_set_external_id = getattr(resource, "data_set_external_id", None)
+            if data_set_external_id is None:
+                yield Recommendation(
+                    message=f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}",
+                    code=self.code,
+                    fix=f"Add a dataset association to the {source_file.resource_type!s}.",
                 )
-
-        return recommendations

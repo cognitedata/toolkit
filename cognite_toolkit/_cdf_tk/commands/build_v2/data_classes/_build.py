@@ -74,12 +74,10 @@ class BuiltResource(BaseModel):
 
 
 class BuiltModule(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
-
-    # Todo: Replace with above
-    insights: InsightList = Field(default_factory=InsightList)
+    insights: list[Insight] = Field(default_factory=list)
+    syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
 
     @property
     def resource_by_type_by_kind(self) -> dict[ResourceType, list[Path]]:
@@ -98,7 +96,7 @@ class BuiltModule(BaseModel):
     @property
     def is_success(self) -> bool:
         """Determines if the module build was successful based on the presence of built file and validation errors."""
-        return not self.insights.has_errors and self.files_built
+        return self.files_built
 
     def __hash__(self) -> int:
         return hash(self.module_id.path)

@@ -1,47 +1,61 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import ClassVar, Generic, TypeVar
+from collections.abc import Iterable
+from typing import ClassVar
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Recommendation
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
-from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
-T_Resources = TypeVar("T_Resources", bound=Sequence[ToolkitResource] | Module)
 
-
-class ToolkitRule(ABC, Generic[T_Resources]):
+class ToolkitRule(ABC):
     """A base rule class that defines the structure for all validation rules in the toolkit.
     It is defined in a such way to enable two different types of subclasses:
-    - rules that validate individual resources (e.g. DataModelRule)
+    - Rules that validates
     - and rules that validate across resources in a module (e.g. ModuleRule).
 
     """
 
     code: ClassVar[str]
-    resource_type: ClassVar[str]
-    insight_type: ClassVar[type[ConsistencyError] | type[Recommendation]]
     alpha: ClassVar[bool] = False
     fixable: ClassVar[bool] = False
 
-    def __init__(
-        self,
-        resources: T_Resources,
-    ) -> None:
-        self.resources: T_Resources = resources
-
     @abstractmethod
-    def validate(self) -> list[ConsistencyError] | list[Recommendation] | list[ConsistencyError | Recommendation]:
-        """Execute rule validation."""
-        ...
+    def validate(self) -> Iterable[Insight]:
+        raise NotImplementedError()
 
 
-class ToolkitResourceRule(Generic[T_Resource], ToolkitRule[Sequence[T_Resource]]):
-    """Rule for toolkit resource validation principles."""
+class ToolkitLocalRule(ToolkitRule):
+    """Rule validating a module
 
-    pass
+    Args:
+        module: The module to validate.
+    """
+
+    def __init__(self, module: Module) -> None:
+        self.module = module
+
+    def _get_validated_resources_with_file(self) -> Iterable[tuple[ToolkitResource, SuccessfulReadYAMLFile]]:
+        for file in self.module.files:
+            if not isinstance(file, SuccessfulReadYAMLFile):
+                continue
+            for resource in file.resources:
+                if resource.validated is not None:
+                    yield resource.validated, file
 
 
-class ToolkitModuleRule(ToolkitRule[Module]):
-    """Rule for toolkit module validation principles."""
+class ToolkitGlobalRule(ToolkitRule):
+    """Rule validating the modules as a whole.
 
-    pass
+    Args:
+        module: The module to validate.
+        client: The ToolkitClient to use. This is required by some rules.
+
+    """
+
+    REQUIRES_CLIENT: ClassVar[bool] = False
+
+    def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
+        self.modules = modules
+        self.client = client

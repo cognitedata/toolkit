@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
@@ -101,6 +101,7 @@ class BuildV2Command(ToolkitCommand):
 
         self._display_build_folder(build_folder, console)
 
+        # Todo: This should only take in build_folder
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
 
         # Todo: Some mixpanel tracking.
@@ -399,7 +400,7 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        orchestrator = RulesOrchestrator()
+        validator = LocalRulesOrchestrator()
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -412,7 +413,7 @@ class BuildV2Command(ToolkitCommand):
                 module = self._import_module(source)
 
                 # Local validation of module
-                insights = orchestrator.run(module)
+                insights = validator.run(module)
                 built_resources = self._export_resources(module.files, resource_counter, build_dir)
 
                 built_modules.append(
@@ -420,6 +421,11 @@ class BuildV2Command(ToolkitCommand):
                         module_id=module.id,
                         resources=built_resources,
                         insights=insights,
+                        syntax_warnings_by_source={
+                            file.source_path: file.syntax_warning
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
+                        },
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -628,9 +634,6 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
-                        # Todo Find a better solution for syntax warnings
-                        #     This solution leads to duplicates.
-                        syntax_warning=file.syntax_warning,
                     )
                 )
         return built_resources
