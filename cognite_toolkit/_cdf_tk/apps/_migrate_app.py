@@ -708,12 +708,16 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand(client=client)
         cmd.run(
-            lambda: cmd.migrate(
+            lambda: cmd.migrate(  # type: ignore[misc]
                 selectors=[selected],
                 data=RecordsMigrationIO(
                     client, stream_external_id=migration_config.stream_external_id, skip_existing=skip_existing
                 ),
-                mapper=AssetCentricToRecordMapper(client, mappings_by_external_id=mappings_by_external_id, default_mapping=migration_config.default_mapping),  # type: ignore[arg-type]
+                mapper=AssetCentricToRecordMapper(
+                    client,
+                    mappings_by_external_id=mappings_by_external_id,
+                    default_mapping=migration_config.default_mapping,
+                ),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,

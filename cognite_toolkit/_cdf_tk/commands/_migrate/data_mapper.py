@@ -57,7 +57,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
@@ -248,9 +248,15 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
 
 
 class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtended, RecordRequest]):
-    def __init__(self, client: ToolkitClient, mappings_by_external_id: dict[str, RecordPropertyMapping]) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        mappings_by_external_id: dict[str, RecordPropertyMapping],
+        default_mapping: str | None = None,
+    ) -> None:
         super().__init__(client)
         self._mappings_by_external_id = mappings_by_external_id
+        self._default_mapping = default_mapping
         self._container_properties_by_mapping_external_id: dict[str, dict[str, ContainerPropertyDefinition]] = {}
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
@@ -269,7 +275,10 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
     def _record_mapping_for_row(self, mapping: MigrationMapping) -> RecordPropertyMapping:
         if not isinstance(mapping, EventMapping):
             raise ToolkitValueError("Records migration only supports Event mapping rows.")
-        return mapping.get_record_property_mapping(self._mappings_by_external_id)
+        return mapping.get_record_property_mapping(
+            self._mappings_by_external_id,
+            self._default_mapping,
+        )
 
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
@@ -279,7 +288,7 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
         record, conversion_issue = asset_centric_to_record(
             item.resource,
-            instance_id=NodeId(
+            instance_id=RecordId(
                 space=row_mapping.instance_id.space, external_id=row_mapping.instance_id.external_id
             ),
             record_mapping=record_mapping,
