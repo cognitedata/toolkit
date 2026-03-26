@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -309,7 +309,7 @@ def asset_centric_to_dm(
 
 def asset_centric_to_record(
     resource: AssetCentricResourceExtended,
-    instance_id: NodeId,
+    instance_id: RecordId,
     record_mapping: RecordPropertyMapping,
     container_properties: dict[str, ContainerPropertyDefinition],
     direct_relation_cache: DirectRelationCache,
@@ -340,7 +340,7 @@ def asset_centric_to_record(
     issue = ConversionIssue(
         id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
         asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
-        instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
+        instance_id=instance_id,
     )
 
     properties = create_properties(

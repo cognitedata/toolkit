@@ -29,9 +29,7 @@ class RecordMigrationConfig(BaseModelObject):
         seen: set[str] = set()
         for mapping in self.mappings:
             if mapping.external_id in seen:
-                raise ValueError(
-                    f"Duplicate externalId in record property mappings: {mapping.external_id!r}"
-                )
+                raise ValueError(f"Duplicate externalId in record property mappings: {mapping.external_id!r}")
             seen.add(mapping.external_id)
         if self.default_mapping is not None and self.default_mapping not in seen:
             raise ValueError(
@@ -42,7 +40,7 @@ class RecordMigrationConfig(BaseModelObject):
 
 
 def load_record_migration_config_yaml(yaml_content: str) -> RecordMigrationConfig:
-    """Parse YAML into ``RecordMigrationConfig`` for events-to-records."""
+    """Parse YAML into `RecordMigrationConfig` for events-to-records."""
     content = read_yaml_content(yaml_content)
     if not isinstance(content, dict):
         raise ToolkitValueError(

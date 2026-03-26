@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
-    ContainerPropertyDefinition,
     ContainerId,
     ContainerPropertyDefinition,
     DateProperty,
@@ -42,7 +41,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
