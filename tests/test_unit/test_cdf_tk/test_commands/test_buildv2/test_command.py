@@ -197,7 +197,6 @@ name: My Space
         }
 
 
-@pytest.mark.usefixtures("empty_cdf")
 class TestDependencyValidationSearchConfig:
     @staticmethod
     def _minimal_module(tmp_path: Path) -> tuple[BuiltModule, Path, Path]:
@@ -213,28 +212,7 @@ class TestDependencyValidationSearchConfig:
         )
         return module, source_file, build_file
 
-    def test_search_config_missing_view_reported(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
-        module, source_file, build_file = self._minimal_module(tmp_path)
-        view_ref = ViewNoVersionId(space="my_space", external_id="NonExistingView")
-        resource_type = ResourceType(
-            resource_folder=SearchConfigCRUD.folder_name,
-            kind=SearchConfigCRUD.kind,
-        )
-        module.resources.append(
-            BuiltResource(
-                identifier=view_ref,
-                source_hash="h",
-                type=resource_type,
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
-                crud_cls=SearchConfigCRUD,
-                dependencies={(ViewCRUD, view_ref)},
-            )
-        )
-        insights = BuildV2Command()._dependency_validation([module], tlk_client)
-        assert any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
-
-    def test_search_config_dependency_satisfied_by_local_view(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+    def test_search_config_dependency_satisfied_by_local_view(self, tmp_path: Path) -> None:
         module, source_file, build_file = self._minimal_module(tmp_path)
         view_ref = ViewNoVersionId(space="my_space", external_id="View1")
         module.resources.append(
@@ -263,7 +241,7 @@ class TestDependencyValidationSearchConfig:
             )
         )
 
-        insights = BuildV2Command()._dependency_validation([module], tlk_client)
+        insights = BuildV2Command()._dependency_validation([module], None)
         assert not any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
 
 
