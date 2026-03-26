@@ -159,6 +159,8 @@ class AssetCentricMapper(
 
             if conversion_issue.missing_instance_space:
                 self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.no_mappable_properties:
+                self.logger.tracker.add_issue(identifier, "No properties could be mapped to target")
             if conversion_issue.failed_conversions:
                 self.logger.tracker.add_issue(identifier, "Failed conversions")
             if conversion_issue.invalid_instance_property_types:
