@@ -2,10 +2,8 @@ from typing import Any
 
 from pydantic import JsonValue, field_serializer, field_validator
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
-
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId
 
 
 class RecordId(Identifier):
