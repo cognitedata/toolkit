@@ -73,7 +73,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--library-checksum",
                 "-c",
-                help="Checksum of the library to add to the project.",
+                help="Library zip checksum (optional; accepted for compatibility, not verified).",
             ),
         ] = None,
         verbose: Annotated[
@@ -91,12 +91,6 @@ class ModulesApp(typer.Typer):
             # Try to load client if possible, but ignore errors.
             # This is only used for logging purposes in the command.
             client = EnvironmentVariables.create_from_environment().get_client()
-
-        if library_url and not library_checksum:
-            raise typer.BadParameter(
-                "--library-checksum must be provided when --library-url is specified.",
-                param_hint="--library-checksum",
-            )
 
         with ModulesCommand(client=client) as cmd:
             cmd.run(

@@ -25,6 +25,11 @@ class InternalUnwrappedId(Identifier):
     def __str__(self) -> str:
         return f"id={self.id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return str(self.id)
+
     @model_serializer
     def serialize(self) -> int:
         return self.id
@@ -48,6 +53,11 @@ class InternalId(InternalOrExternalIdDefinitionId):
     def __str__(self) -> str:
         return f"id={self.id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return str(self.id)
+
     def as_unwrapped(self) -> InternalUnwrappedId:
         return InternalUnwrappedId(id=self.id)
 
@@ -63,6 +73,11 @@ class ExternalId(InternalOrExternalIdDefinitionId):
     def __str__(self) -> str:
         return f"externalId='{self.external_id}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"externalId-{self.external_id}"
+        return self.external_id
+
 
 InternalOrExternalId = Annotated[InternalId | ExternalId, Field(discriminator="type")]
 
@@ -73,12 +88,22 @@ class NameId(Identifier):
     def __str__(self) -> str:
         return f"name='{self.name}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"name-{self.name}"
+        return self.name
+
 
 class RawDatabaseId(Identifier):
     name: str = Field(alias="name", validation_alias=AliasChoices("dbName", "name"))
 
     def __str__(self) -> str:
         return f"name='{self.name}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"name-{self.name}"
+        return self.name
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Dump the resource to a dictionary.
@@ -98,6 +123,11 @@ class RawTableId(Identifier):
     def __str__(self) -> str:
         return f"{self.db_name}.{self.name}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dbName-{self.db_name}.name-{self.name}"
+        return f"{self.db_name}.{self.name}"
+
 
 class SequenceRowId(Identifier):
     external_id: str = Field(description="ExternalId of the sequence")
@@ -107,6 +137,12 @@ class SequenceRowId(Identifier):
         rows_str = ", ".join(str(row) for row in self.rows)
         return f"externalId='{self.external_id}', rows=[{rows_str}]"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        rows_str = "-".join(str(row) for row in self.rows)
+        if include_type:
+            return f"externalId-{self.external_id}.rows-{rows_str}"
+        return f"{self.external_id}.{rows_str}"
+
 
 class ExtractionPipelineConfigId(Identifier):
     external_id: str
@@ -114,6 +150,11 @@ class ExtractionPipelineConfigId(Identifier):
 
     def __str__(self) -> str:
         return f"externalId='{self.external_id}', revision={self.revision}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"externalId-{self.external_id}.revision-{self.revision}"
+        return f"{self.external_id}.{self.revision}"
 
 
 class WorkflowVersionId(Identifier):
@@ -123,6 +164,11 @@ class WorkflowVersionId(Identifier):
     def __str__(self) -> str:
         return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"workflowExternalId-{self.workflow_external_id}.version-{self.version}"
+        return f"{self.workflow_external_id}.{self.version}"
+
 
 class ThreeDModelRevisionId(Identifier):
     model_id: int = Field(exclude=True)
@@ -131,12 +177,22 @@ class ThreeDModelRevisionId(Identifier):
     def __str__(self) -> str:
         return f"modelId={self.model_id}, id={self.id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"modelId-{self.model_id}.id-{self.id}"
+        return f"{self.model_id}.{self.id}"
+
 
 class DataSetId(Identifier):
     data_set_id: int
 
     def __str__(self) -> str:
         return f"dataSetId={self.data_set_id}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dataSetId-{self.data_set_id}"
+        return str(self.data_set_id)
 
 
 class DataProductVersionId(Identifier):
@@ -146,6 +202,11 @@ class DataProductVersionId(Identifier):
     def __str__(self) -> str:
         return f"dataProductExternalId='{self.data_product_external_id}', version='{self.version}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dataProductExternalId-{self.data_product_external_id}.version-{self.version}"
+        return f"{self.data_product_external_id}.{self.version}"
+
 
 class TransformationNotificationId(Identifier):
     transformation_external_id: str
@@ -154,6 +215,11 @@ class TransformationNotificationId(Identifier):
     def __str__(self) -> str:
         return f"transformationExternalId='{self.transformation_external_id}', destination='{self.destination}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"transformationExternalId-{self.transformation_external_id}.destination-{self.destination}"
+        return f"{self.transformation_external_id}.{self.destination}"
+
 
 class PrincipalId(Identifier):
     id: str
@@ -161,12 +227,22 @@ class PrincipalId(Identifier):
     def __str__(self) -> str:
         return f"id='{self.id}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return self.id
+
 
 class UserProfileId(Identifier):
     user_identifier: str
 
     def __str__(self) -> str:
         return f"userIdentifier='{self.user_identifier}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"userIdentifier-{self.user_identifier}"
+        return self.user_identifier
 
 
 class PrincipalLoginId(Identifier):
@@ -176,6 +252,11 @@ class PrincipalLoginId(Identifier):
     def __str__(self) -> str:
         return f"principal='{self.principal}', id='{self.id}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"principal-{self.principal}.id-{self.id}"
+        return f"{self.principal}.{self.id}"
+
 
 class RuleSetVersionId(Identifier):
     rule_set_external_id: str
@@ -184,6 +265,11 @@ class RuleSetVersionId(Identifier):
     def __str__(self) -> str:
         return f"ruleSetExternalId='{self.rule_set_external_id}', version='{self.version}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"ruleSetExternalId-{self.rule_set_external_id}.version-{self.version}"
+        return f"{self.rule_set_external_id}.{self.version}"
+
 
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
@@ -191,3 +277,8 @@ class SignalSinkId(Identifier):
 
     def __str__(self) -> str:
         return f"type='{self.type}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"type-{self.type}.externalId-{self.external_id}"
+        return f"{self.type}.{self.external_id}"
