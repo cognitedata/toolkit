@@ -266,19 +266,5 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         return -1
 
     def drop_data(self, ids: Sequence[RawTableId]) -> int:
-        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            try:
-                existing_tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
-                existing_names = {table.name for table in existing_tables}
-            except CogniteAPIError as e:
-                if db_name in {item.get("name") for item in e.missing or []}:
-                    continue
-                raise e
-            tables_to_delete = [
-                RAWTableResponse(db_name=db_name, name=table.name)
-                for table in raw_tables
-                if table.name in existing_names
-            ]
-            if tables_to_delete:
-                self.client.tool.raw.tables.delete([table.as_id() for table in tables_to_delete])
+        self.delete(ids)
         return -1
