@@ -23,8 +23,7 @@ from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
-class ModuleSourceParser:
-    MODULE_ERROR_CODE = "MOD_001"
+class ModuleParser:
     VARIABLE_ERROR_CODE = "CONFIG_VARIABLE_001"
 
     @classmethod

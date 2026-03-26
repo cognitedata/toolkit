@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleParser
 
-from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
@@ -66,7 +66,7 @@ class TestModuleSourceParser:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.touch()
 
-        found_modules, orphans = ModuleSourceParser._find_modules([Path(yaml_file) for yaml_file in yaml_files], org)
+        found_modules, orphans = ModuleParser._find_modules([Path(yaml_file) for yaml_file in yaml_files], org)
         actual_modules = {
             module.as_posix(): {
                 resource_folder: [file.relative_to(org).as_posix() for file in files]
@@ -175,7 +175,7 @@ class TestModuleSourceParser:
         expected_variables: dict[str, dict[int | None, list[BuildVariable]]],
         error_messages: list[str],
     ) -> None:
-        build_variables, errors = ModuleSourceParser._parse_variables(
+        build_variables, errors = ModuleParser._parse_variables(
             variables, {Path(path) for path in available_paths}, {Path(path) for path in selected_paths}
         )
         actual_error_messages = [error.error.message for error in errors]
@@ -220,7 +220,7 @@ class TestGetModulePathFromResourceFilePath:
         expected_module_path: Path | None,
         expected_resource_folder: str | None,
     ) -> None:
-        module_path, resource_folder = ModuleSourceParser._get_module_path_from_resource_file_path(resource_file)
+        module_path, resource_folder = ModuleParser._get_module_path_from_resource_file_path(resource_file)
         assert module_path == expected_module_path
         assert resource_folder == expected_resource_folder
 
@@ -253,7 +253,7 @@ class TestExpandParents:
         ],
     )
     def test_expand_parents(self, module_ids: list[Path], expected_paths: set[Path]) -> None:
-        result = ModuleSourceParser._expand_parents(module_ids)
+        result = ModuleParser._expand_parents(module_ids)
         assert result == expected_paths
 
 
@@ -299,7 +299,7 @@ class TestSelectModules:
         selection: set[Path | str],
         expected_selected: list[Path],
     ) -> None:
-        result = ModuleSourceParser._select_modules(module_paths, selection)
+        result = ModuleParser._select_modules(module_paths, selection)
         assert result == expected_selected
 
 
@@ -339,7 +339,7 @@ class TestGetNonExistingModuleNames:
         available_names: set[str],
         expected_result: list[NonExistingModuleName],
     ) -> None:
-        result = ModuleSourceParser._get_non_existing_module_names(selected_module_names, available_names)
+        result = ModuleParser._get_non_existing_module_names(selected_module_names, available_names)
         assert result == expected_result
 
 
@@ -390,7 +390,7 @@ class TestGetAmbiguousSelection:
         selected_modules: set[str | Path],
         expected_result: list[AmbiguousSelection],
     ) -> None:
-        result = ModuleSourceParser._get_ambiguous_selection(module_paths_by_name, selected_modules)
+        result = ModuleParser._get_ambiguous_selection(module_paths_by_name, selected_modules)
         assert result == expected_result
 
 
@@ -415,7 +415,7 @@ class TestGetMisplacedModules:
         module_ids: set[Path],
         expected_result: list[MisplacedModule],
     ) -> None:
-        result = ModuleSourceParser._get_misplaced_modules(module_ids)
+        result = ModuleParser._get_misplaced_modules(module_ids)
         assert result == expected_result
 
 
@@ -425,7 +425,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path("")}
         selected_paths = {Path("")}
 
-        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
 
         assert len(errors) == 0
         assert Path("") in build_variables
@@ -440,7 +440,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path(""), Path("modules"), Path("modules/team"), Path("modules/team/project")}
         selected_paths = available_paths.copy()
 
-        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
 
         assert len(errors) == 0
         assert Path("modules/team/project") in build_variables
@@ -451,7 +451,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
         selected_paths = available_paths.copy()
 
-        build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
 
         assert len(errors) == 0
         module_vars = build_variables.get(Path("modules/moduleA"), {})
