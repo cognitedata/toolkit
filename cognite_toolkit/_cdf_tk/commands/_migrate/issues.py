@@ -168,6 +168,7 @@ class ConversionIssue(MigrationIssue):
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
     ignored_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_space: str | None = None
+    no_mappable_properties: bool = False
 
     @property
     def has_issues(self) -> bool:
@@ -178,6 +179,7 @@ class ConversionIssue(MigrationIssue):
             or self.invalid_instance_property_types
             or self.failed_conversions
             or self.missing_instance_space
+            or self.no_mappable_properties
         )
 
     @field_serializer("asset_centric_id")

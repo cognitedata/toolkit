@@ -353,19 +353,14 @@ def asset_centric_to_record(
         container_id=record_mapping.container_id,
     )
 
-    sources: list[RecordSource] = []
-    if properties:
-        sources.append(
-            RecordSource(
-                source=record_mapping.container_id,
-                properties=properties,
-            )
-        )
+    if not properties:
+        issue.no_mappable_properties = True
+        return None, issue
 
     record = RecordRequest(
         space=instance_id.space,
         external_id=instance_id.external_id,
-        sources=sources,
+        sources=[RecordSource(source=record_mapping.container_id, properties=properties)],
     )
     return record, issue
 
