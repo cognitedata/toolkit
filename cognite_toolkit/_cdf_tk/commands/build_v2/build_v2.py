@@ -226,7 +226,7 @@ class BuildV2Command(ToolkitCommand):
             errors.append("ambiguous selected")
         if misplaced_modules_count:
             summary_lines.append(
-                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the modules."
+                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
             )
             border_color = 2
             errors.append("misplaced modules")
@@ -304,8 +304,10 @@ class BuildV2Command(ToolkitCommand):
             console.print(table)
 
         if errors:
+            console.print("\n")
             raise ToolkitValueError(
-                f"Cannot build {module_dir_display.as_posix()}. You are not allowed to have {humanize_collection(errors)}"
+                f"Cannot build {module_dir_display.as_posix()!r}. You are not allowed to have"
+                f" {humanize_collection(errors)}."
             )
         return None
 
@@ -491,6 +493,12 @@ class BuildV2Command(ToolkitCommand):
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
                 error=f"Failed to parse YAML content: {yaml_error!s}",
+            )
+        if parsed_yaml is None:
+            return FailedReadYAMLFile(
+                source_path=resource_file,
+                code="EMPTY-YAML",
+                error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
             )
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
