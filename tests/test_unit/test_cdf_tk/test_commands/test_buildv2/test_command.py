@@ -8,14 +8,19 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     FailedReadYAMLFile,
+    ModuleId,
+    ResourceType,
     SuccessfulReadYAMLFile,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds import SearchConfigCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
@@ -190,6 +195,54 @@ name: My Space
             "syntax_warnings": 1,
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
+
+
+class TestDependencyValidationSearchConfig:
+    @staticmethod
+    def _minimal_module(tmp_path: Path) -> tuple[BuiltModule, Path, Path]:
+        mod_path = tmp_path / "modules" / "my"
+        mod_path.mkdir(parents=True)
+        source_file = mod_path / "1-x.SearchConfig.yaml"
+        source_file.touch()
+        build_file = mod_path / "1-x-out.SearchConfig.yaml"
+        build_file.touch()
+        module = BuiltModule(
+            module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
+            resources=[],
+        )
+        return module, source_file, build_file
+
+    def test_search_config_dependency_satisfied_by_local_view(self, tmp_path: Path) -> None:
+        module, source_file, build_file = self._minimal_module(tmp_path)
+        view_ref = ViewNoVersionId(space="my_space", external_id="View1")
+        module.resources.append(
+            BuiltResource(
+                identifier=ViewId(space="my_space", external_id="View1", version="v1"),
+                source_hash="h-view",
+                type=ResourceType(resource_folder=ViewCRUD.folder_name, kind=ViewCRUD.kind),
+                source_path=AbsoluteFilePath(source_file.resolve()),
+                build_path=AbsoluteFilePath(build_file.resolve()),
+                crud_cls=ViewCRUD,
+                dependencies=set(),
+            )
+        )
+        module.resources.append(
+            BuiltResource(
+                identifier=view_ref,
+                source_hash="h",
+                type=ResourceType(
+                    resource_folder=SearchConfigCRUD.folder_name,
+                    kind=SearchConfigCRUD.kind,
+                ),
+                source_path=AbsoluteFilePath(source_file.resolve()),
+                build_path=AbsoluteFilePath(build_file.resolve()),
+                crud_cls=SearchConfigCRUD,
+                dependencies={(ViewCRUD, view_ref)},
+            )
+        )
+
+        insights = BuildV2Command()._dependency_validation([module], None)
+        assert not any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
 
 
 class TestValidateBuildParameters:
