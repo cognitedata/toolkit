@@ -134,7 +134,7 @@ class MisplacedModule(BaseModel):
 
 class NonExistingModuleName(BaseModel):
     name: str
-    closest_matches: list[RelativeDirPath]
+    closest_matches: list[str]
 
 
 class BuildSource(BaseModel):

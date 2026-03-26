@@ -190,13 +190,7 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
-        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
-        module_sources = parser.parse(build.yaml_files, build.variables)
-        return BuildSource(
-            module_dir=build.module_dir,
-            modules=module_sources,
-            insights=parser.errors,
-        )
+        return ModuleSourceParser.parse(build)
 
     def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
         module_count = len(build_source.modules)
