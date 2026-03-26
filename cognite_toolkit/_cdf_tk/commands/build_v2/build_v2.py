@@ -17,7 +17,6 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -57,7 +56,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
@@ -582,13 +581,9 @@ class BuildV2Command(ToolkitCommand):
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 crud = crud_cls(client, None, None)
                 display_name = crud.display_name
-                retrieved = crud.retrieve(list(expected_by_identifier.keys()))
-                existing_in_cdf: set[Identifier] = set()
-                for cdf_item in retrieved:
-                    item_id = crud.get_id(cdf_item)
-                    existing_in_cdf.add(item_id)
-                    if crud_cls is ViewCRUD:
-                        existing_in_cdf.add(ViewNoVersionId(space=item_id.space, external_id=item_id.external_id))
+                existing_in_cdf = {
+                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
+                }
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
                         expected_resources = expected_by_identifier[identifier]
