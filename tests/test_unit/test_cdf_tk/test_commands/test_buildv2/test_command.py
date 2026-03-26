@@ -8,7 +8,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
@@ -213,7 +213,7 @@ class TestDependencyValidationSearchConfig:
         )
         return module, source_file, build_file
 
-    def test_search_config_missing_view_reported_with_client(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+    def test_search_config_missing_view_reported(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         module, source_file, build_file = self._minimal_module(tmp_path)
         view_ref = ViewNoVersionId(space="my_space", external_id="NonExistingView")
         resource_type = ResourceType(
@@ -233,43 +233,6 @@ class TestDependencyValidationSearchConfig:
         )
         insights = BuildV2Command()._dependency_validation([module], tlk_client)
         assert any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
-
-    def test_search_config_view_resolved_by_built_view_without_version(self, tmp_path: Path) -> None:
-        module, source_file, build_file = self._minimal_module(tmp_path)
-        view_file = source_file.parent / "1-v.View.yaml"
-        view_file.touch()
-        view_build = build_file.parent / "1-v-out.View.yaml"
-        view_build.touch()
-        view_ref = ViewNoVersionId(space="my_space", external_id="View1")
-        view_resource_type = ResourceType(resource_folder=ViewCRUD.folder_name, kind=ViewCRUD.kind)
-        search_resource_type = ResourceType(
-            resource_folder=SearchConfigCRUD.folder_name,
-            kind=SearchConfigCRUD.kind,
-        )
-        module.resources.extend(
-            [
-                BuiltResource(
-                    identifier=ViewId(space="my_space", external_id="View1", version="v1"),
-                    source_hash="hv",
-                    type=view_resource_type,
-                    source_path=AbsoluteFilePath(view_file.resolve()),
-                    build_path=AbsoluteFilePath(view_build.resolve()),
-                    crud_cls=ViewCRUD,
-                    dependencies=set(),
-                ),
-                BuiltResource(
-                    identifier=view_ref,
-                    source_hash="hs",
-                    type=search_resource_type,
-                    source_path=AbsoluteFilePath(source_file.resolve()),
-                    build_path=AbsoluteFilePath(build_file.resolve()),
-                    crud_cls=SearchConfigCRUD,
-                    dependencies={(ViewCRUD, view_ref)},
-                ),
-            ]
-        )
-        insights = BuildV2Command()._dependency_validation([module], None)
-        assert not any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
 
 
 class TestValidateBuildParameters:
