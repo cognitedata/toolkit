@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    HTTPResult,
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
@@ -203,22 +202,16 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 _ = response.get_success_or_raise(request)
         return results
 
-    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
-        """Uploads file content to CDF.
-
-        Args:
-            data_content: Content to be uploaded.
-            upload_url: Upload URL.
-            mime_type: MIME type to upload. None for no MIME type.
-        """
-        return self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=upload_url,
-                method="PUT",
-                content_type=mime_type or "application/octet-stream",
-                data_content=data_content,
-            )
+    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> None:
+        """Uploads file content to the signed upload URL (same flow as ``upload_file`` for in-memory bytes)."""
+        request = RequestMessage(
+            endpoint_url=upload_url,
+            method="PUT",
+            content_type=mime_type or "application/octet-stream",
+            data_content=data_content,
         )
+        upload_response = self._http_client.request_single_retries(request)
+        upload_response.get_success_or_raise(request)
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.

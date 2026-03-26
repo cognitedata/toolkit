@@ -5,6 +5,7 @@ from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes import app as app_resources
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
@@ -53,6 +54,15 @@ class StreamlitFilter(ClassicFilter):
         if self.creator is not None:
             body["metadata"] = {"creator": self.creator}
         body["directoryPrefix"] = streamlit_.STREAMLIT_DIRECTORY
+        return body
+
+
+class DuneAppFilter(ClassicFilter):
+    """List filter for Dune app zips stored under ``/dune-apps/``."""
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        body = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+        body["directoryPrefix"] = app_resources.DUNE_APPS_DIRECTORY
         return body
 
 
