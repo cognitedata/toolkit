@@ -81,7 +81,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console)
+        self._display_module_sources(build_source, console, parameters.verbose)
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -192,7 +192,7 @@ class BuildV2Command(ToolkitCommand):
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
         return ModuleSourceParser.parse(build)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
+    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -257,6 +257,52 @@ class BuildV2Command(ToolkitCommand):
                 expand=False,
             )
         )
+
+        # Print detailed issue information
+        if ambiguous_selected_count:
+            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Matching Paths", style="dim")
+            for selection in build_source.ambiguous_selection:
+                if selection.is_selected:
+                    paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
+                    table.add_row(selection.name, paths_str)
+            console.print(table)
+
+        if misplaced_modules_count:
+            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            table.add_column("Module Path", style="red")
+            table.add_column("Parent Modules", style="dim")
+            for misplaced in build_source.misplaced_modules:
+                parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
+                table.add_row(misplaced.id.as_posix(), parents_str)
+            console.print(table)
+
+        if non_existing_module_count:
+            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Closest Matches", style="dim")
+            for non_existing in build_source.non_existing_module_names:
+                matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
+                table.add_row(non_existing.name, matches_str)
+            console.print(table)
+
+        if invalid_variable_count:
+            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            table.add_column("Variable Path", style="red")
+            table.add_column("Error", style="dim")
+            for invalid_var in build_source.invalid_variables:
+                table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
+            console.print(table)
+
+        if verbose and orphan_yaml_count:
+            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+            table.add_column("File Path", style="yellow")
+            for orphan_file in build_source.orphan_yaml_files:
+                display_path = relative_to_if_possible(orphan_file)
+                table.add_row(display_path.as_posix())
+            console.print(table)
+
         if errors:
             raise ToolkitValueError(
                 f"Cannot build {module_dir_display.as_posix()}. You are not allowed to have {humanize_collection(errors)}"
