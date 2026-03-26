@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
     ContainerId,
+    ContainerPropertyDefinition,
     DateProperty,
     DirectNodeRelation,
     EdgeId,
@@ -119,7 +120,7 @@ class TestCreateProperties:
     EVENT_CENTRIC_ID = AssetCentricId(resource_type="event", id_=456)
 
     @pytest.mark.parametrize(
-        "dumped,view_properties,property_mapping,expected_properties,expected_issue",
+        "dumped,property_definitions,property_mapping,expected_properties,expected_issue,container_id",
         [
             pytest.param(
                 {"name": "MyAsset", "description": "An asset,", "metadata": {"categoryNo": "1"}},
@@ -146,7 +147,36 @@ class TestCreateProperties:
                 {"name": "nameId", "description": "descriptionId", "metadata.categoryNo": "categoryNoId"},
                 {"nameId": "MyAsset", "descriptionId": "An asset,", "categoryNoId": 1},
                 ConversionIssue(id=str(ASSET_CENTRIC_ID), instance_id=INSTANCE_ID, asset_centric_id=ASSET_CENTRIC_ID),
+                None,
                 id="Basic property mapping with integer conversion and no issues",
+            ),
+            pytest.param(
+                {"name": "MyAsset", "description": "An asset,", "metadata": {"categoryNo": "1"}},
+                {
+                    "nameId": ContainerPropertyDefinition(
+                        type=TextProperty(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "descriptionId": ContainerPropertyDefinition(
+                        type=TextProperty(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "categoryNoId": ContainerPropertyDefinition(
+                        type=Int64Property(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                },
+                {"name": "nameId", "description": "descriptionId", "metadata.categoryNo": "categoryNoId"},
+                {"nameId": "MyAsset", "descriptionId": "An asset,", "categoryNoId": 1},
+                ConversionIssue(id=str(ASSET_CENTRIC_ID), instance_id=INSTANCE_ID, asset_centric_id=ASSET_CENTRIC_ID),
+                CONTAINER_ID,
+                id="Basic property mapping with container property definitions",
             ),
             pytest.param(
                 {"name": "MyAsset", "created": "2023-01-01T12:00:00Z", "active": True},
@@ -177,6 +207,7 @@ class TestCreateProperties:
                     "activeId": True,
                 },
                 ConversionIssue(id=str(ASSET_CENTRIC_ID), asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
+                None,
                 id="Multiple data types conversion",
             ),
             pytest.param(
@@ -203,6 +234,7 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                     missing_asset_centric_properties=["description"],
                 ),
+                None,
                 id="Missing property in flattened dump",
             ),
             pytest.param(
@@ -223,6 +255,7 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                     missing_instance_properties=["descriptionId"],
                 ),
+                None,
                 id="Missing property in view properties",
             ),
             pytest.param(
@@ -247,6 +280,7 @@ class TestCreateProperties:
                         InvalidPropertyDataType(property_id="nameId", expected_type="ViewCorePropertyResponse")
                     ],
                 ),
+                None,
                 id="Invalid property type",
             ),
             pytest.param(
@@ -271,6 +305,7 @@ class TestCreateProperties:
                         )
                     ],
                 ),
+                None,
                 id="Conversion error",
             ),
             pytest.param(
@@ -291,6 +326,7 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                     missing_asset_centric_properties=["name"],
                 ),
+                None,
                 id="Empty dictionary",
             ),
             pytest.param(
@@ -316,6 +352,7 @@ class TestCreateProperties:
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                 ),
+                None,
                 id="List of simple types (labels to list of strings)",
             ),
             pytest.param(
@@ -352,6 +389,7 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["labels[1].externalId"],
                 ),
+                None,
                 id="Mapping the first label and entire metadata.",
             ),
             pytest.param(
@@ -382,6 +420,7 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["metadata.category"],
                 ),
+                None,
                 id="Duplicated mapping target",
             ),
             pytest.param(
@@ -410,6 +449,7 @@ class TestCreateProperties:
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                 ),
+                None,
                 id="Japanese characters in property names and values",
             ),
         ],
@@ -417,17 +457,26 @@ class TestCreateProperties:
     def test_create_properties(
         self,
         dumped: dict[str, Any],
-        view_properties: dict[str, ViewResponseProperty],
+        property_definitions: dict[str, ViewResponseProperty] | dict[str, ContainerPropertyDefinition],
         property_mapping: dict[str, str],
         expected_properties: dict[str, JsonValue],
         expected_issue: ConversionIssue,
+        container_id: ContainerId | None,
         direct_relation_cache: DirectRelationCache,
     ) -> None:
         issue = ConversionIssue(
             asset_centric_id=self.ASSET_CENTRIC_ID, instance_id=self.INSTANCE_ID, id=str(self.ASSET_CENTRIC_ID)
         )
 
-        properties = create_properties(dumped, view_properties, property_mapping, "asset", issue, direct_relation_cache)
+        properties = create_properties(
+            dumped,
+            property_definitions,
+            property_mapping,
+            "asset",
+            issue,
+            direct_relation_cache,
+            container_id,
+        )
 
         assert properties == expected_properties
 
