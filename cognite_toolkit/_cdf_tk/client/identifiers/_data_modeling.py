@@ -85,9 +85,27 @@ class ViewNoVersionId(DataModelingId):
             return f"space-{self.space}.externalId-{self.external_id}"
         return f"{self.space}.{self.external_id}"
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ViewNoVersionId):
+            return self.space == other.space and self.external_id == other.external_id
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.space, self.external_id))
+
 
 class ViewId(ViewNoVersionId):
     version: str
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ViewId):
+            return self.space == other.space and self.external_id == other.external_id and self.version == other.version
+        if isinstance(other, ViewNoVersionId):
+            return self.space == other.space and self.external_id == other.external_id
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.space, self.external_id, self.version))
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
