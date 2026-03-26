@@ -78,6 +78,10 @@ class BuildVariable(BaseModel):
         return content
 
 
+class InvalidBuildVariable(BuildVariable):
+    error: ModelSyntaxWarning
+
+
 class ModuleId(Identifier):
     model_config = ConfigDict(frozen=True)
     id: RelativeDirPath
@@ -98,6 +102,7 @@ class ModuleId(Identifier):
 
 class ModuleSource(BaseModel):
     """Class used to describe source for module"""
+
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
     path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     resource_files_by_folder: dict[ResourceTypes, list[AbsoluteFilePath]] = Field(default_factory=dict)
@@ -115,14 +120,21 @@ class ModuleSource(BaseModel):
     def total_files(self) -> int:
         return sum(len(files) for files in self.resource_files_by_folder.values())
 
+
 class AmbiguousSelection(BaseModel):
     name: str
     module_paths: list[RelativeDirPath]
     is_selected: bool
 
+
 class MisplacedModule(BaseModel):
     id: RelativeDirPath
     parent_modules: list[RelativeDirPath]
+
+
+class NonExistingModuleName(BaseModel):
+    name: str
+    closest_matches: list[RelativeDirPath]
 
 
 class BuildSource(BaseModel):
@@ -134,13 +146,12 @@ class BuildSource(BaseModel):
 
     ambiguous_selection: list[AmbiguousSelection] = Field(default_factory=list)
     misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
-    non_existing_module_names: list[str] = Field(default_factory=list)
+    non_existing_module_names: list[NonExistingModuleName] = Field(default_factory=list)
+    invalid_variables: list[InvalidBuildVariable] = Field(default_factory=list)
+    orphan_yaml_files: list[AbsoluteFilePath] = Field(default_factory=list)
 
-    invalid_variables: list[BuildVariable]
-    orphan_yaml_files: list[AbsoluteFilePath]
-
+    # Todo: Delete
     insights: InsightList = Field(default_factory=InsightList)
-
 
     @property
     def total_files(self) -> int:

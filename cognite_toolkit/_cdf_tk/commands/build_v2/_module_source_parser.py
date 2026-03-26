@@ -12,11 +12,14 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
     RelativeFilePath,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, AmbiguousSelection, \
-    MisplacedModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    AmbiguousSelection,
+    BuildVariable,
+    InvalidBuildVariable,
+    MisplacedModule,
+)
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
-
 
 
 class ModuleSourceParser:
@@ -31,17 +34,15 @@ class ModuleSourceParser:
         self.misplaced_modules: list[MisplacedModule] = []
         self.non_existing_module_names: list[str] = []
         self.orphan_yaml_files: list[AbsoluteDirPath] = []
+        self.invalid_variables: list[InvalidBuildVariable] = []
 
     def parse(self, yaml_files: list[RelativeFilePath], variables: dict[str, Any]) -> list[ModuleSource]:
-        source_by_module_id, orphans_yaml_files = self._find_modules(yaml_files, self.organization_dir)
-        self.orphan_yaml_files = orphans_yaml_files
+        source_by_module_id = self._find_modules(yaml_files, self.organization_dir)
         module_ids = list(source_by_module_id.keys())
         selected_modules = self._select_modules(module_ids, self.selected_modules)
-        available_paths = (
-                {Path("")} | set(module_ids) | {parent for module in module_ids for parent in module.parents}
-        )
+        available_paths = {Path("")} | set(module_ids) | {parent for module in module_ids for parent in module.parents}
         selected_paths = (
-                {Path("")} | set(selected_modules) | {parent for module in selected_modules for parent in module.parents}
+            {Path("")} | set(selected_modules) | {parent for module in selected_modules for parent in module.parents}
         )
         module_paths_by_name: dict[str, list[RelativeDirPath]] = defaultdict(list)
         for module_path in module_ids:
@@ -57,25 +58,15 @@ class ModuleSourceParser:
             if len(module_paths) > 1
         ]
 
-        # If any module is inside another module. -> Error.
         for module_path in module_ids:
             if parent_modules := (available_paths.intersection(module_paths_by_name[module_path.name]) - {module_path}):
-                self.misplaced_modules.append(
-                    MisplacedModule(
-                        id=module_path,
-                        parent_modules=sorted(parent_modules)
-                    )
-                )
+                self.misplaced_modules.append(MisplacedModule(id=module_path, parent_modules=sorted(parent_modules)))
 
-        # Any selected module by name that does not match any found module -> Error.
-        self.non_existing_modules = sorted({name for name in self.selected_modules if isinstance(name, str)} - set(module_paths_by_name.keys()))
+        self.non_existing_modules = sorted(
+            {name for name in self.selected_modules if isinstance(name, str)} - set(module_paths_by_name.keys())
+        )
 
-        # Orphan files with resource kind set -> Error.
-
-        build_variables, errors = self._parse_variables(variables, available_paths, selected_paths)
-        if errors:
-            self.errors.extend(errors)
-            return []
+        build_variables = self._parse_variables(variables, available_paths, selected_paths)
         return self._create_module_soruces(selected_modules, source_by_module_id, build_variables)
 
     def _create_module_soruces(
@@ -97,17 +88,15 @@ class ModuleSourceParser:
                 module_sources.append(source)
         return module_sources
 
-    @classmethod
     def _find_modules(
-        cls, yaml_files: list[RelativeFilePath], organization_dir: Path
-    ) -> tuple[dict[RelativeDirPath, ModuleSource], list[RelativeDirPath]]:
+        self, yaml_files: list[RelativeFilePath], organization_dir: Path
+    ) -> dict[RelativeDirPath, ModuleSource]:
         """Organizes YAML files by their module (top-level folder in the modules directory)."""
         source_by_module_id: dict[RelativeDirPath, ModuleSource] = {}
-        orphan_files: list[RelativeDirPath] = []
         for yaml_file in yaml_files:
             if yaml_file.name in EXCL_FILES:
                 continue
-            relative_module_path, resource_folder = cls._get_module_path_from_resource_file_path(yaml_file)
+            relative_module_path, resource_folder = self._get_module_path_from_resource_file_path(yaml_file)
             if relative_module_path and resource_folder:
                 if relative_module_path not in source_by_module_id:
                     source_by_module_id[relative_module_path] = ModuleSource(
@@ -119,8 +108,8 @@ class ModuleSourceParser:
                     source.resource_files_by_folder[resource_folder] = []
                 source.resource_files_by_folder[resource_folder].append(organization_dir / yaml_file)
             else:
-                orphan_files.append(yaml_file)
-        return source_by_module_id, orphan_files
+                self.orphan_yaml_files.append(yaml_file)
+        return source_by_module_id
 
     @staticmethod
     def _get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
@@ -130,7 +119,6 @@ class ModuleSourceParser:
                 # so this cast is safe.
                 return parent.parent, cast(ResourceTypes, parent.name)
         return None, None
-
 
     @classmethod
     def _select_modules(
@@ -144,29 +132,10 @@ class ModuleSourceParser:
             or any(parent in selection for parent in module_path.parents)
         ]
 
-    @classmethod
-    def _parse_module_variables(
-        cls,
-        variables: dict[str, Any],
-        available_modules: set[RelativeDirPath],
-        selected_modules: set[RelativeDirPath],
-    ) -> tuple[dict[RelativeDirPath, dict[int, list[BuildVariable]]], list[ModelSyntaxWarning]]:
-        all_available_paths = (
-            {Path("")} | available_modules | {parent for module in available_modules for parent in module.parents}
-        )
-        selected_paths = (
-            {Path("")} | selected_modules | {parent for module in selected_modules for parent in module.parents}
-        )
-        parsed_variables, errors = cls._parse_variables(variables, all_available_paths, selected_paths)
-        variable_by_module = cls._organize_variables_by_module(parsed_variables, selected_modules)
-        return variable_by_module, errors
-
-    @classmethod
     def _parse_variables(
-        cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
-    ) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[ModelSyntaxWarning]]:
+        self, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
+    ) -> dict[RelativeDirPath, list[BuildVariable]]:
         variables_by_path: dict[RelativeDirPath, list[BuildVariable]] = defaultdict(list)
-        errors: list[ModelSyntaxWarning] = []
         to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any]]] = [(Path(""), None, variables)]
         while to_check:
             path, iteration, subdict = to_check.pop()
@@ -180,12 +149,18 @@ class ModuleSourceParser:
                     if subpath in available_paths:
                         to_check.append((subpath, iteration, value))
                     else:
-                        errors.append(
-                            ModelSyntaxWarning(
-                                code=cls.VARIABLE_ERROR_CODE,
-                                message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
-                                f"folder structure inside the {MODULES} directory.",
-                                fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
+                        self.invalid_variables.append(
+                            InvalidBuildVariable(
+                                id=subpath,
+                                value=str(value),
+                                is_selected=path in selected_paths,
+                                iteration=iteration,
+                                error=ModelSyntaxWarning(
+                                    code=self.VARIABLE_ERROR_CODE,
+                                    message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
+                                    f"folder structure inside the {MODULES} directory.",
+                                    fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
+                                ),
                             )
                         )
                 elif isinstance(value, list):
@@ -199,16 +174,22 @@ class ModuleSourceParser:
                         for idx, item in enumerate(value, start=1):
                             to_check.append((subpath, idx, item))
                     else:
-                        errors.append(
-                            ModelSyntaxWarning(
-                                code=cls.VARIABLE_ERROR_CODE,
-                                message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
-                                fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
+                        self.invalid_variables.append(
+                            InvalidBuildVariable(
+                                id=subpath,
+                                value=value,
+                                is_selected=path in selected_paths,
+                                iteration=iteration,
+                                error=ModelSyntaxWarning(
+                                    code=self.VARIABLE_ERROR_CODE,
+                                    message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
+                                    fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
+                                ),
                             )
                         )
                 else:
                     raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
-        return variables_by_path, errors
+        return variables_by_path
 
     @classmethod
     def _organize_variables_by_module(
