@@ -86,15 +86,19 @@ class TestModuleSourceParser:
                 {"", "modules", "modules/moduleA", "modules/moduleB"},
                 {"", "modules", "modules/moduleA"},
                 {
-                    ".": [
-                        BuildVariable(id=Path("var1"), value="value1", is_selected=True, iteration=None),
-                        BuildVariable(id=Path("var2"), value="value2", is_selected=True, iteration=None),
-                    ],
-                    "modules/moduleB": [
-                        BuildVariable(
-                            id=Path("modules/moduleB/var3"), value="value3", is_selected=False, iteration=None
-                        )
-                    ],
+                    ".": {
+                        None: [
+                            BuildVariable(id=Path("var1"), value="value1", is_selected=True, iteration=None),
+                            BuildVariable(id=Path("var2"), value="value2", is_selected=True, iteration=None),
+                        ]
+                    },
+                    "modules/moduleB": {
+                        None: [
+                            BuildVariable(
+                                id=Path("modules/moduleB/var3"), value="value3", is_selected=False, iteration=None
+                            )
+                        ]
+                    },
                 },
                 [],
                 id="Simple string variables at root level",
@@ -104,9 +108,13 @@ class TestModuleSourceParser:
                 {"", "modules", "modules/moduleA"},
                 {"", "modules", "modules/moduleA"},
                 {
-                    "modules/moduleA": [
-                        BuildVariable(id=Path("modules/moduleA/var1"), value="value1", is_selected=True, iteration=None)
-                    ],
+                    "modules/moduleA": {
+                        None: [
+                            BuildVariable(
+                                id=Path("modules/moduleA/var1"), value="value1", is_selected=True, iteration=None
+                            )
+                        ]
+                    },
                 },
                 [],
                 id="Nested variables in module path",
@@ -127,7 +135,11 @@ class TestModuleSourceParser:
                 {""},
                 {""},
                 {
-                    ".": [BuildVariable(id=Path("list_var"), value=["a", "b", "c"], is_selected=True, iteration=None)],
+                    ".": {
+                        None: [
+                            BuildVariable(id=Path("list_var"), value=["a", "b", "c"], is_selected=True, iteration=None)
+                        ]
+                    },
                 },
                 [],
                 id="List of strings as single variable",
@@ -137,10 +149,10 @@ class TestModuleSourceParser:
                 {"", "modules", "modules/moduleA"},
                 {"", "modules", "modules/moduleA"},
                 {
-                    "modules/moduleA": [
-                        BuildVariable(id=Path("modules/moduleA/var1"), value="b", is_selected=True, iteration=2),
-                        BuildVariable(id=Path("modules/moduleA/var1"), value="a", is_selected=True, iteration=1),
-                    ],
+                    "modules/moduleA": {
+                        2: [BuildVariable(id=Path("modules/moduleA/var1"), value="b", is_selected=True, iteration=2)],
+                        1: [BuildVariable(id=Path("modules/moduleA/var1"), value="a", is_selected=True, iteration=1)],
+                    },
                 },
                 [],
                 id="List of dicts creates iterations",
@@ -160,7 +172,7 @@ class TestModuleSourceParser:
         variables: dict[str, Any],
         available_paths: set[str],
         selected_paths: set[str],
-        expected_variables: dict[str, list[BuildVariable]],
+        expected_variables: dict[str, dict[int | None, list[BuildVariable]]],
         error_messages: list[str],
     ) -> None:
         build_variables, errors = ModuleSourceParser._parse_variables(
@@ -168,7 +180,7 @@ class TestModuleSourceParser:
         )
         actual_error_messages = [error.error.message for error in errors]
         assert actual_error_messages == error_messages
-        actual_variables = {path.as_posix(): var_list for path, var_list in build_variables.items()}
+        actual_variables = {path.as_posix(): iteration_dict for path, iteration_dict in build_variables.items()}
         assert actual_variables == expected_variables
 
 
@@ -417,7 +429,7 @@ class TestParseVariablesEdgeCases:
 
         assert len(errors) == 0
         assert Path("") in build_variables
-        vars_list = build_variables[Path("")]
+        vars_list = build_variables[Path("")][None]
         assert len(vars_list) == 3
         # Check values are preserved with correct types
         values = {v.id.name: v.value for v in vars_list}
@@ -432,7 +444,7 @@ class TestParseVariablesEdgeCases:
 
         assert len(errors) == 0
         assert Path("modules/team/project") in build_variables
-        assert build_variables[Path("modules/team/project")][0].value == "value1"
+        assert build_variables[Path("modules/team/project")][None][0].value == "value1"
 
     def test_list_of_dicts_with_multiple_variables(self) -> None:
         variables = {"modules": {"moduleA": [{"var1": "a", "var2": "x"}, {"var1": "b", "var2": "y"}]}}
@@ -442,6 +454,8 @@ class TestParseVariablesEdgeCases:
         build_variables, errors = ModuleSourceParser._parse_variables(variables, available_paths, selected_paths)
 
         assert len(errors) == 0
-        module_vars = build_variables.get(Path("modules/moduleA"), [])
-        # Should have 4 variables: var1 and var2 for each iteration
-        assert len(module_vars) == 4
+        module_vars = build_variables.get(Path("modules/moduleA"), {})
+        # Should have 2 iterations with 2 variables each
+        assert len(module_vars) == 2
+        assert len(module_vars[1]) == 2
+        assert len(module_vars[2]) == 2
