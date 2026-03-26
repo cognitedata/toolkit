@@ -191,7 +191,6 @@ if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
 
-@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="The snapshots are v0.8 specific")
 @pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_complete_org(
     organization_dir: Path,

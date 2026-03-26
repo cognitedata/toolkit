@@ -126,7 +126,6 @@ FunctionResponse:
   runtime: py311
 GraphQLDataModelResponse:
 - description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
-  dml: AssetHierarchy.graphql
   externalId: AssetHierarchy
   graphQlDml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n\
     \  description: String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n\
