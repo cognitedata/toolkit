@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxWarning,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
-    SUPPORTED_VARIABLE_REPLACEMENT,
+    SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
     BuildVariable,
     FailedReadYAMLFile,
@@ -401,6 +401,10 @@ class BuildV2Command(ToolkitCommand):
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
         try:
+            # The file hash has to be calculated here as the .safe_read
+            # modifies the content for certain kinds of resources such at for example data modeling resources that have
+            # version.
+            file_hash = calculate_hash(resource_file, shorten=True)
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
             return FailedReadYAMLFile(
@@ -423,8 +427,6 @@ class BuildV2Command(ToolkitCommand):
                 code="YAML-PARSE-ERROR",
                 error=f"Failed to parse YAML content: {yaml_error!s}",
             )
-
-        file_hash = calculate_hash(content, shorten=True)
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
         args: dict[str, Any] = dict(
@@ -497,7 +499,7 @@ class BuildV2Command(ToolkitCommand):
             if (
                 isinstance(extra_file, SuccessExtra)
                 and extra_file.content
-                and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT
+                and extra_file.suffix in SUPPORTS_VARIABLE_REPLACEMENT
             ):
                 # We check that it is a valid suffix above.
                 extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
