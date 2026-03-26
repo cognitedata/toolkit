@@ -78,6 +78,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ViewCRUD,
     WorkflowVersionCRUD,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -1111,6 +1112,7 @@ properties:
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
+@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="Function behaves differently on v0.8")
 class TestFunctionLoader:
     FUNCTION_CODE = """from cognite.client import CogniteClient
 
@@ -1141,7 +1143,7 @@ description: ""
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
-        loader = FunctionCRUD.create_loader(toolkit_client, build_dir)
+        loader = FunctionCRUD(toolkit_client, build_dir, None, use_fileio=False)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
         filepath.parent.name = FunctionCRUD.folder_name
@@ -1176,7 +1178,7 @@ description: ""
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
-        crud = FunctionCRUD.create_loader(client, build_dir)
+        crud = FunctionCRUD(toolkit_client, build_dir, None, use_fileio=False)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml

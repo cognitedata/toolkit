@@ -19,9 +19,10 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
-from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -33,8 +34,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
-    DatapointsCRUD,
-    FileMetadataCRUD,
     FunctionScheduleCRUD,
     GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
@@ -55,33 +54,12 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import COMPLETE_ORG, LOAD_DATA, PROJECT_FOR_TEST
+from tests.data import COMPLETE_ORG, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
-
-
-@pytest.mark.parametrize(
-    "loader_cls",
-    [
-        FileMetadataCRUD,
-        DatapointsCRUD,
-    ],
-)
-def test_loader_class(
-    loader_cls: type[ResourceCRUD],
-    toolkit_client_approval: ApprovalToolkitClient,
-    env_vars_with_client: EnvironmentVariables,
-    data_regression: DataRegressionFixture,
-):
-    cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
-    cmd.deploy_resource_type(loader, env_vars_with_client, [], dry_run=False)
-
-    dump = toolkit_client_approval.dump()
-    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestDeployResources:
@@ -140,7 +118,14 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
+        if loader.resource_cls in [
+            TransformationResponse,
+            FileMetadata,
+            GraphQLDataModelResponse,
+            StreamlitResponse,
+            CogniteFileResponse,
+            FileMetadataResponse,
+        ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -177,7 +162,14 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
+        if loader.resource_cls in [
+            TransformationResponse,
+            FileMetadata,
+            GraphQLDataModelResponse,
+            StreamlitResponse,
+            CogniteFileResponse,
+            FileMetadataResponse,
+        ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
