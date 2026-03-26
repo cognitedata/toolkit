@@ -188,25 +188,28 @@ class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
     instance_id: NodeUntypedId
 
-    def get_record_property_mapping(self, mappings_by_external_id: dict[str, RecordPropertyMapping]) -> RecordPropertyMapping:
+    def get_record_property_mapping(
+        self,
+        mappings_by_external_id: dict[str, RecordPropertyMapping],
+        default_mapping: str | None = None,
+    ) -> RecordPropertyMapping:
         """Resolve the record property mapping for this row (events-to-records).
 
-        Uses ``ingestionMapping`` (the same CSV field as instance migration). The value must match
-        ``externalId`` of an entry in the YAML ``mappings`` list. If the YAML defines only one mapping,
-        this column may be omitted.
+        Resolution order:
+        1. ``ingestionMapping`` column in the CSV row.
+        2. ``defaultMapping`` field from the YAML config.
         """
-        if self.ingestion_mapping is not None:
+        resolved = self.ingestion_mapping or default_mapping
+        if resolved is not None:
             try:
-                return mappings_by_external_id[self.ingestion_mapping]
+                return mappings_by_external_id[resolved]
             except KeyError as e:
                 raise ToolkitValueError(
-                    f"Unknown mapping externalId {self.ingestion_mapping!r}. "
+                    f"Unknown mapping externalId {resolved!r}. "
                     f"Defined in target YAML: {sorted(mappings_by_external_id)}."
                 ) from e
-        if len(mappings_by_external_id) == 1:
-            return next(iter(mappings_by_external_id.values()))
         raise ToolkitValueError(
-            "ingestionMapping is required in the CSV when the target YAML defines multiple mappings."
+            "ingestionMapping is required in the CSV (or set defaultMapping in the YAML config)."
         )
 
 
