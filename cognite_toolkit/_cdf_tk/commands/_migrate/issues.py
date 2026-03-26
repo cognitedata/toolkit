@@ -190,7 +190,7 @@ class ConversionIssue(MigrationIssue):
         }
 
     @field_serializer("instance_id")
-    def serialize_instance_id(self, instance_id: NodeId | RecordId) -> dict[str, Any]:
+    def serialize_instance_id(self, instance_id: NodeId | RecordId) -> dict[str, str]:
         return {"space": instance_id.space, "externalId": instance_id.external_id}
 
 
