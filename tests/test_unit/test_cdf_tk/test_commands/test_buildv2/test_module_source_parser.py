@@ -384,29 +384,26 @@ class TestGetAmbiguousSelection:
 
 class TestGetMisplacedModules:
     @pytest.mark.parametrize(
-        "module_ids, available_paths, expected_result",
+        "module_ids, expected_result",
         [
             pytest.param(
-                [Path("modules/moduleA"), Path("modules/moduleB")],
-                {Path(""), Path("modules"), Path("modules/moduleA"), Path("modules/moduleB")},
+                {Path("modules/moduleA"), Path("modules/moduleB")},
                 [],
                 id="No misplaced modules",
             ),
             pytest.param(
-                [],
-                {Path("")},
-                [],
-                id="Empty module list",
+                {Path("modules/moduleA"), Path("modules/moduleA/moduleB")},
+                [MisplacedModule(id=Path("modules/moduleA/moduleB"), parent_modules=[Path("modules/moduleA")])],
+                id="One misplaced module that is a child of another module in the list",
             ),
         ],
     )
     def test_get_misplaced_modules(
         self,
-        module_ids: list[Path],
-        available_paths: set[Path],
+        module_ids: set[Path],
         expected_result: list[MisplacedModule],
     ) -> None:
-        result = ModuleSourceParser._get_misplaced_modules(module_ids, available_paths)
+        result = ModuleSourceParser._get_misplaced_modules(module_ids)
         assert result == expected_result
 
 

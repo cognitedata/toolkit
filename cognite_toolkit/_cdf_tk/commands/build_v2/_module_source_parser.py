@@ -61,7 +61,7 @@ class ModuleSourceParser:
             non_existing_module_names=cls._get_non_existing_module_names(
                 {name for name in build.selected_modules if isinstance(name, str)}, set(module_paths_by_name.keys())
             ),
-            misplaced_modules=cls._get_misplaced_modules(module_ids, available_paths),
+            misplaced_modules=cls._get_misplaced_modules(set(module_ids)),
             ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, build.selected_modules),
             orphan_yaml_files=orphan_yaml_files,
         )
@@ -127,12 +127,11 @@ class ModuleSourceParser:
         return non_existing
 
     @classmethod
-    def _get_misplaced_modules(
-        cls, module_ids: Iterable[RelativeDirPath], available_paths: set[Path]
-    ) -> list[MisplacedModule]:
+    def _get_misplaced_modules(cls, module_ids: set[RelativeDirPath]) -> list[MisplacedModule]:
         misplaced_modules: list[MisplacedModule] = []
-        for module_path in module_ids:
-            if parent_modules := (available_paths.intersection({module_path}) - {module_path}):
+        for module_path in sorted(module_ids):
+            module_parents = set(module_path.parents)
+            if parent_modules := (module_ids & module_parents):
                 misplaced_modules.append(MisplacedModule(id=module_path, parent_modules=sorted(parent_modules)))
         return misplaced_modules
 
