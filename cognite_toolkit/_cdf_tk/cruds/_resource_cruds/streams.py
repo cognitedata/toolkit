@@ -114,4 +114,7 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         if stream.settings and stream.settings.limits.max_filtering_interval:
             td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
             max_interval_ms = int(td.total_seconds() * 1000)
-        return [{"gte": window_start, "lt": window_end} for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms)]
+        return [
+            {"gte": window_start, "lt": window_end}
+            for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms)
+        ]

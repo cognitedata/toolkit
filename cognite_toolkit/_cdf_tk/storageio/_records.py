@@ -58,9 +58,7 @@ class RecordIO(
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
-        for last_updated_time in stream_crud.last_updated_time_windows(
-            selector.stream.external_id, start_ms=start_ms
-        ):
+        for last_updated_time in stream_crud.last_updated_time_windows(selector.stream.external_id, start_ms=start_ms):
             body: dict[str, object] = {
                 "filter": sync_filter,
                 "aggregates": {"total": {"count": {}}},
