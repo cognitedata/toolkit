@@ -325,7 +325,7 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
 
 def create_properties(
     dumped: dict[str, Any],
-    properties: Mapping[str, ViewResponseProperty | ContainerPropertyDefinition],
+    properties: dict[str, ViewResponseProperty] | dict[str, ContainerPropertyDefinition],
     property_mapping: dict[str, str],
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
