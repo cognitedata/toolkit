@@ -45,11 +45,11 @@ class ModuleSourceParser:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             source = source_by_module_id[module]
-            module_build_variables = build_variables.get(module, [])
+            module_build_variables = build_variables.get(module, {})
             if module_build_variables:
-                for iteration, module_variable in enumerate(module_build_variables, start=1):
+                for iteration, variables in module_build_variables.items():
                     module_sources.append(
-                        source.model_copy(update={"variables": module_variable, "iteration": iteration})
+                        source.model_copy(update={"variables": variables, "iteration": iteration or 0})
                     )
             else:
                 module_sources.append(source)
@@ -152,8 +152,10 @@ class ModuleSourceParser:
     @classmethod
     def _parse_variables(
         cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
-    ) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[InvalidBuildVariable]]:
-        variables_by_path: dict[RelativeDirPath, list[BuildVariable]] = defaultdict(list)
+    ) -> tuple[dict[RelativeDirPath, dict[int | None, list[BuildVariable]]], list[InvalidBuildVariable]]:
+        variables_by_path_and_iteration: dict[RelativeDirPath, dict[int | None, list[BuildVariable]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
         invalid_variables: list[InvalidBuildVariable] = []
         to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any]]] = [(Path(""), None, variables)]
         while to_check:
@@ -161,7 +163,7 @@ class ModuleSourceParser:
             for key, value in subdict.items():
                 subpath = path / key
                 if isinstance(value, str | float | int | bool):
-                    variables_by_path[path].append(
+                    variables_by_path_and_iteration[path][iteration].append(
                         BuildVariable(id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration)
                     )
                 elif isinstance(value, dict):
@@ -184,7 +186,7 @@ class ModuleSourceParser:
                         )
                 elif isinstance(value, list):
                     if all(isinstance(item, str | float | int | bool) for item in value):
-                        variables_by_path[path].append(
+                        variables_by_path_and_iteration[path][iteration].append(
                             BuildVariable(
                                 id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration
                             )
@@ -208,4 +210,4 @@ class ModuleSourceParser:
                         )
                 else:
                     raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
-        return variables_by_path, invalid_variables
+        return variables_by_path_and_iteration, invalid_variables
