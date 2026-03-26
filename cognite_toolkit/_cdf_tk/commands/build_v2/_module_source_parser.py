@@ -45,9 +45,14 @@ class ModuleSourceParser:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             source = source_by_module_id[module]
-            module_build_variables = build_variables.get(module, {})
-            if module_build_variables:
-                for iteration, variables in module_build_variables.items():
+            module_specific_variables: dict[int | None, list[BuildVariable]] = defaultdict(list)
+            for path in [module, *module.parents]:
+                if path_variables := build_variables.get(path):
+                    for iteration, variables in path_variables.items():
+                        module_specific_variables[iteration].extend(variables)
+
+            if module_specific_variables:
+                for iteration, variables in module_specific_variables.items():
                     module_sources.append(
                         source.model_copy(update={"variables": variables, "iteration": iteration or 0})
                     )
