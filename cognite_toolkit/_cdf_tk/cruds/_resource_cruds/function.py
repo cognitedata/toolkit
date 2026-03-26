@@ -423,9 +423,8 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         return False
 
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
-        created: list[FunctionResponse] = []
         if not self._is_activated("create"):
-            return created
+            return []
         if self.use_filio:
             return self._create_with_fileio(items)
         else:
@@ -484,7 +483,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 )
 
             # Create a copy with the file_id set
-            item_to_create = item.model_copy(update={"fileId": file_id})
+            item_to_create = item.model_copy(update={"fileId": file_id.id})
             result = self.client.tool.functions.create([item_to_create])
             if result:
                 created_item = result[0]

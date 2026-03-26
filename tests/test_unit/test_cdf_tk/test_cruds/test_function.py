@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -219,60 +220,51 @@ secrets:
         assert len(capabilities) == 2
         assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
-    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
-    def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
+    @pytest.fixture()
+    def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionCRUD]:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
-            (tmp_path / "my_func").mkdir()
             loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
+            function_id = "my_func"
+            filestem = function_id
+            filemetadata = tmp_path / f"{filestem}.FileMetadata.yaml"
+            filemetadata.write_text(f"externalId: {function_id}\nname: my_func\n")
+            (tmp_path / f"{filestem}.zip").touch(exist_ok=True)
 
-            filemetadata = tmp_path / "my_func.FileMetadata.yaml"
-            filemetadata.write_text("externalId: my_func\nname: my_func\n")
-            loader.filemetadata_path_by_external_id["my_func"] = filemetadata
+            loader.filemetadata_path_by_external_id[function_id] = filemetadata
 
-            created_response = FunctionResponse(
-                id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
-            )
-            client.tool.functions.create.return_value = [created_response]
-            # V0.8
             client.tool.filemetadata.create.return_value = [
-                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name="my_func")
+                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name=function_id)
             ]
+            yield loader
 
-            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
+    def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionCRUD) -> None:
+        function_io = function_io_with_file
+        client = function_io.client
+        client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
+        created_response = FunctionResponse(
+            id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
+        )
+        client.tool.functions.create.return_value = [created_response]
 
-            with (
-                patch.object(loader, "_is_activated", return_value=True),
-                # V0.8u
-                patch.object(loader, "_upload_function_code", return_value=InternalId(id=42)),
-            ):
-                result = loader.create([item])
+        with patch.object(function_io, "_is_activated", return_value=True):
+            result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
 
         assert result == [created_response]
 
     @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
-    def test_create_raises_timeout_when_file_not_uploaded(self, tmp_path: Path) -> None:
-        with monkeypatch_toolkit_client() as client:
-            file_id = InternalId(id=42)
-            client.tool.filemetadata.await_file_uploaded.return_value = {file_id}, 0.0
-            (tmp_path / "my_func").mkdir()
-            loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
+    def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionCRUD) -> None:
+        function_io = function_io_with_file
+        client = function_io.client
+        client.tool.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
 
-            filemetadata = tmp_path / "my_func.FileMetadata.yaml"
-            filemetadata.write_text("externalId: my_func\nname: my_func\n")
-            loader.filemetadata_path_by_external_id["my_func"] = filemetadata
-            client.tool.filemetadata.create.return_value = [
-                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name="my_func")
-            ]
+        item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 
-            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
-
-            with (
-                patch.object(loader, "_is_activated", return_value=True),
-                patch.object(loader, "_upload_function_code", return_value=file_id),
-                pytest.raises(ResourceCreationError, match="timed out"),
-            ):
-                loader.create([item])
+        with (
+            patch.object(function_io, "_is_activated", return_value=True),
+            pytest.raises(ResourceCreationError, match="timed out"),
+        ):
+            function_io.create([item])
 
 
 class TestFunctionScheduleLoader:
