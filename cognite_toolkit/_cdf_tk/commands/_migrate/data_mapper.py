@@ -45,6 +45,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -56,8 +58,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
@@ -266,9 +266,7 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
             if container_key not in seen_container:
                 containers = self.client.tool.containers.retrieve([record_mapping.container_id])
                 if not containers:
-                    raise ToolkitValueError(
-                        f"Container {record_mapping.container_id!r} was not found in CDF"
-                    )
+                    raise ToolkitValueError(f"Container {record_mapping.container_id!r} was not found in CDF")
                 seen_container[container_key] = containers[0].properties
             self._container_properties_by_mapping_external_id[external_id] = seen_container[container_key]
 
@@ -288,21 +286,20 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
         record, conversion_issue = asset_centric_to_record(
             item.resource,
-            instance_id=RecordId(
-                space=row_mapping.instance_id.space, external_id=row_mapping.instance_id.external_id
-            ),
+            instance_id=RecordId(space=row_mapping.instance_id.space, external_id=row_mapping.instance_id.external_id),
             record_mapping=record_mapping,
             container_properties=container_properties,
             direct_relation_cache=self._direct_relation_cache,
         )
         if row_mapping.instance_id.space == MISSING_INSTANCE_SPACE:
-            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {row_mapping.data_set_id!r}"
-        if record is not None and not record.sources:
+            conversion_issue.missing_instance_space = (
+                f"Missing instance space for dataset ID {row_mapping.data_set_id!r}"
+            )
+        if record is None and not conversion_issue.has_issues:
             self.logger.tracker.add_issue(
                 str(item.mapping.as_asset_centric_id()),
-                "No properties could be successfully mapped (at least one property is required to create a record)",
+                "No properties could be mapped to the target container, at least one property is required to create a record",
             )
-            return None, conversion_issue
         return record, conversion_issue
 
 
