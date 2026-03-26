@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._insights import ModelSyntaxWarning
-from ._types import AbsoluteFilePath, RelativeDirPath
+from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
@@ -148,7 +148,7 @@ class BuildSource(BaseModel):
     misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
     non_existing_module_names: list[NonExistingModuleName] = Field(default_factory=list)
     invalid_variables: list[InvalidBuildVariable] = Field(default_factory=list)
-    orphan_yaml_files: list[RelativeDirPath] = Field(default_factory=list)
+    orphan_yaml_files: list[RelativeFilePath] = Field(default_factory=list)
 
     @property
     def total_files(self) -> int:
