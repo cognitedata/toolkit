@@ -203,37 +203,56 @@ class BuildV2Command(ToolkitCommand):
                 for resource_type in module.resource_files_by_folder.keys()
             }
         )
+        ambiguous_selected_count = sum(1 for selection in build_source.ambiguous_selection if selection.is_selected)
+        misplaced_modules_count = len(build_source.misplaced_modules)
+        non_existing_module_count = len(build_source.non_existing_module_names)
+        invalid_variable_count = len(build_source.invalid_variables)
+        orphan_yaml_count = len(build_source.orphan_yaml_files)
 
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{total_files}[/] total resource files",
             f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
         ]
+        border_color = 0
         if read_variables:
             summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
-
-        has_issues = False
-        if build_source.insights:
-            summary_lines.append(f"[red]✗[/] [bold]{len(build_source.insights)}[/] issues found while reading modules")
-            has_issues = True
+        if ambiguous_selected_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+            )
+            border_color = 2
+        if misplaced_modules_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the modules."
+            )
+            border_color = 2
+        if non_existing_module_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
+            )
+            border_color = 2
+        if invalid_variable_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
+            )
+            border_color = 2
+        if orphan_yaml_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
+            )
+            border_color = max(border_color, 1)
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
         console.print(
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
+                border_style=border_style,
                 expand=False,
             )
         )
-        if build_source.insights:
-            table = Table(title="Reading module issues", expand=False, show_edge=False)
-            table.add_column("Type", style="dim")
-            table.add_column("Code", style="dim")
-            table.add_column("Description", style="dim")
-            table.add_column("Fix", style="dim")
-            for issue in build_source.insights:
-                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
-            console.print(table)
+
         return None
 
     @classmethod

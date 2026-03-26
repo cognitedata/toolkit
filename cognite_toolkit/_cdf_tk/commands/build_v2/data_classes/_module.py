@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, 
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import InsightList, ModelSyntaxWarning
+from ._insights import ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
@@ -149,9 +149,6 @@ class BuildSource(BaseModel):
     non_existing_module_names: list[NonExistingModuleName] = Field(default_factory=list)
     invalid_variables: list[InvalidBuildVariable] = Field(default_factory=list)
     orphan_yaml_files: list[AbsoluteFilePath] = Field(default_factory=list)
-
-    # Todo: Delete
-    insights: InsightList = Field(default_factory=InsightList)
 
     @property
     def total_files(self) -> int:
