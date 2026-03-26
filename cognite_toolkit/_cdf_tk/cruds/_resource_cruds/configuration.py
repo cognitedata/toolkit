@@ -5,6 +5,7 @@ from typing import Any, Literal, final
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -65,6 +66,10 @@ class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, Search
     @classmethod
     def as_str(cls, id: ViewNoVersionId) -> str:
         return sanitize_filename(f"{id.external_id}_{id.space}")
+
+    @classmethod
+    def get_dependencies(cls, resource: SearchConfigYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield ViewCRUD, resource.as_id()
 
     def dump_resource(self, resource: SearchConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
