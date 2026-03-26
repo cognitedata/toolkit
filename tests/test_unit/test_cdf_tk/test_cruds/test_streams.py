@@ -59,9 +59,7 @@ class TestStreamCRUDIterLastUpdatedTimeWindows:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.cruds._resource_cruds.streams.time.time", lambda: _NOW_MS / 1000)
         with monkeypatch_toolkit_client() as client:
             client.streams.retrieve.return_value = [StreamResponse.model_validate(_IMMUTABLE_STREAM)]
-            windows = list(
-                StreamCRUD.create_loader(client).iter_last_updated_time_windows("my-stream", start_ms=start_ms)
-            )
+            windows = StreamCRUD.create_loader(client).last_updated_time_windows("my-stream", start_ms=start_ms)
 
         assert windows == expected
 
@@ -81,15 +79,13 @@ class TestStreamCRUDIterLastUpdatedTimeWindows:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.cruds._resource_cruds.streams.time.time", lambda: _NOW_MS / 1000)
         with monkeypatch_toolkit_client() as client:
             client.streams.retrieve.return_value = [StreamResponse.model_validate(_MUTABLE_STREAM)]
-            windows = list(
-                StreamCRUD.create_loader(client).iter_last_updated_time_windows("my-stream", start_ms=start_ms)
-            )
+            windows = StreamCRUD.create_loader(client).last_updated_time_windows("my-stream", start_ms=start_ms)
 
         assert windows == expected
 
     def test_unknown_stream_yields_no_windows(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.streams.retrieve.return_value = []
-            windows = list(StreamCRUD.create_loader(client).iter_last_updated_time_windows("unknown-stream"))
+            windows = StreamCRUD.create_loader(client).last_updated_time_windows("unknown-stream")
 
         assert windows == []

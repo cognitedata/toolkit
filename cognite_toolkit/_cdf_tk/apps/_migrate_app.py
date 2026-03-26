@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -410,7 +411,7 @@ class MigrateApp(typer.Typer):
         skip_existing: bool,
         kind: AssetCentricKind,
         resource_type: str,
-        container_id: ContainerId,
+        container_id: ContainerId | None = None,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -444,6 +445,11 @@ class MigrateApp(typer.Typer):
             )
         else:
             # Interactive selection of data set.
+            if container_id is None:
+                raise ToolkitValueError(
+                    "container_id is required when neither mapping_file nor data_set_id is provided "
+                    "(interactive migration)."
+                )
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
             asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(

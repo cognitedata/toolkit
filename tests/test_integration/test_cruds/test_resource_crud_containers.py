@@ -8,14 +8,15 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, RawTableCRUD, TimeSeriesCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -213,3 +214,27 @@ class Test3DModelLoader:
             if created is not None:
                 with suppress(ToolkitAPIError):
                     toolkit_client.tool.three_d.models_classic.delete([created[0].as_id()])
+
+
+class TestRawTableCRUD:
+    def test_drop_existing_and_non_existing(
+        self, toolkit_client: ToolkitClient, toolkit_raw_database: RAWDatabaseResponse
+    ) -> None:
+        client = toolkit_client
+        table_existing = RAWTableRequest(db_name=toolkit_raw_database.name, name="test_drop_existing_table")
+        non_existing = RawTableId(db_name=toolkit_raw_database.name, name="test_drop_non_existing_table")
+        try:
+            client.tool.raw.tables.create([table_existing])
+        except ToolkitAPIError:
+            # Assume it is existing
+            ...
+
+        raw_table_io = RawTableCRUD(client, None, None)
+
+        raw_table_io.drop_data([table_existing.as_id(), non_existing])
+
+        try:
+            client.tool.raw.tables.delete([table_existing.as_id()])
+        except ToolkitAPIError:
+            # The deletion went correctly
+            ...

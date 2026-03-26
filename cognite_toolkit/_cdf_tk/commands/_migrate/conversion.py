@@ -8,10 +8,17 @@ from typing import Any, ClassVar, Generic, cast
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, EdgeTypeId, ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    AssetCentricExternalId,
+    ContainerId,
+    EdgeTypeId,
+    ExternalId,
+    InternalId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeId,
     EdgeProperty,
@@ -318,50 +325,64 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
 
 def create_properties(
     dumped: dict[str, Any],
-    view_properties: dict[str, ViewResponseProperty],
+    properties: dict[str, ViewResponseProperty] | dict[str, ContainerPropertyDefinition],
     property_mapping: dict[str, str],
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
+    container_id: ContainerId | None = None,
 ) -> dict[str, JsonValue | NodeId | list[NodeId]]:
     """
-    Create properties for a data model instance from an asset-centric resource.
+    Create properties for a data model instance or record from an asset-centric resource.
+
+    When ``container_id`` is provided the values in ``properties`` are treated as
+    ``ContainerPropertyDefinition`` objects (records/streams path).  Otherwise they must be
+    ``ViewResponseProperty`` objects (FDM/view path).
 
     Args:
         dumped: Dict representation of the asset-centric resource.
-        view_properties: Defined properties referenced in the view source mapping.
-        property_mapping:  Mapping from asset-centric property IDs to data model property IDs.
+        properties: Defined properties referenced in the mapping.
+        property_mapping: Mapping from asset-centric property JSON-paths to target property IDs.
         resource_type: The type of the asset-centric resource (e.g., "asset", "timeseries").
         issue: ConversionIssue object to log any issues encountered during conversion.
-        direct_relation_cache: Cache for direct relation references to look up target of direct relations.
+        direct_relation_cache: Cache for direct relation references.
+        container_id: Target container ID, only used if container properties are being populated
 
     Returns:
-        Dict of property IDs to PropertyValueWrite objects.
+        Dict of property IDs to property values.
 
     """
     flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
-    properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
+    result: dict[str, JsonValue | NodeId | list[NodeId]] = {}
     ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
             continue
-        if prop_id not in view_properties:
+        if prop_id not in properties:
             continue
-        if prop_id in properties:
+        if prop_id in result:
             ignored_asset_centric_properties.add(prop_json_path)
             continue
-        dm_prop = view_properties[prop_id]
-        if not isinstance(dm_prop, ViewCorePropertyResponse):
+        prop_def = properties[prop_id]
+        if isinstance(prop_def, ContainerPropertyDefinition):
+            if container_id is None:
+                raise ValueError("Cannot create mapping directly to container property without providing Container ID")
+            destination_container_property = (container_id, prop_id)
+        elif isinstance(prop_def, ViewCorePropertyResponse):
+            destination_container_property = (prop_def.container, prop_def.container_property_identifier)
+        else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type=ViewCorePropertyResponse.__name__)
             )
             continue
+        data_type = prop_def.type
+        nullable = prop_def.nullable or False
         try:
             value = asset_centric_convert_to_primary_property(
                 flatten_dump[prop_json_path],
-                dm_prop.type,
-                dm_prop.nullable or False,
-                destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
+                data_type,
+                nullable,
+                destination_container_property=destination_container_property,
                 source_property=(resource_type, prop_json_path),
                 direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
             )
@@ -372,12 +393,12 @@ def create_properties(
             continue
         if isinstance(value, datetime):
             # Convert datetime to ISO format string, as the data model expects datetimes as strings in ISO format.
-            properties[prop_id] = value.isoformat(timespec="milliseconds")
+            result[prop_id] = value.isoformat(timespec="milliseconds")
         elif isinstance(value, date):
             # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
-            properties[prop_id] = value.isoformat()
+            result[prop_id] = value.isoformat()
         else:
-            properties[prop_id] = value
+            result[prop_id] = value
 
     issue.ignored_asset_centric_properties = sorted(
         (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
@@ -390,9 +411,9 @@ def create_properties(
             for prop_id in property_mapping.values()
             if not (prop_id.startswith("edge.") or prop_id.startswith("node."))
         }
-        - set(view_properties.keys())
+        - set(properties.keys())
     )
-    return properties
+    return result
 
 
 def create_edge_properties(
