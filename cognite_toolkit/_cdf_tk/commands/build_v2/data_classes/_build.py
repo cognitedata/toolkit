@@ -68,6 +68,8 @@ class BuiltResource(BaseModel):
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceCRUD]
     dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+
+    # Todo: remove
     syntax_warning: ModelSyntaxWarning | None = None
 
 
@@ -76,7 +78,7 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
 
-    # Replace with above
+    # Todo: Replace with above
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -108,6 +110,10 @@ class BuildFolder(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     path: Path
     built_modules: list[BuiltModule] = Field(default_factory=list)
+
+    syntax_warnings: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+
+    # Todo: Remove
     dependency_insights: InsightList = Field(default_factory=InsightList)
     global_insights: InsightList = Field(default_factory=InsightList)
 

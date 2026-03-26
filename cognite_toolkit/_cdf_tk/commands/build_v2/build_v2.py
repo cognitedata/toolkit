@@ -344,7 +344,6 @@ class BuildV2Command(ToolkitCommand):
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
 
-        # Todo optimize by only searching for yaml files in the selected modules paths if selection is provided.
         yaml_files = [
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
