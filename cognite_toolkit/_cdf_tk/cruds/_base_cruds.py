@@ -442,6 +442,24 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
 
         return BuildVariable.substitute(content, variables, ".yaml")
 
+    def load_resource_files(
+        self,
+        filepaths: list[Path],
+        environment_variables: dict[str, str | None] | None = None,
+        is_dry_run: bool = False,
+    ) -> list[T_RequestResource]:
+        """Loads the resources from the given filepaths.
+
+        This is a convenience method that combines .load_resource_file and load_resource to load all resources
+        from the given filepaths.
+        """
+        request_items: list[T_RequestResource] = []
+        for file in filepaths:
+            raw = self.load_resource_file(file, environment_variables)
+            for item in raw:
+                request_items.append(self.load_resource(item, is_dry_run))
+        return request_items
+
 
 class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """This is the base class for all resource CRUD' containers.

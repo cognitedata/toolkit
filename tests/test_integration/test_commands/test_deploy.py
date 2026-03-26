@@ -11,10 +11,13 @@ from mypy.checkexpr import defaultdict
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
+    CogniteFileCRUD,
+    FileMetadataCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GraphQLCRUD,
@@ -130,13 +133,25 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     changed_resources = get_changed_resources(env_vars, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=False)
+    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=True)
     assert not changed_source_files, "Pulling the same source should not change anything"
+
+
+def create_loader(loader_cls: type[ResourceCRUD], client: ToolkitClient, build_dir: Path) -> ResourceCRUD:
+    if issubclass(loader_cls, FunctionCRUD | StreamlitCRUD):
+        # In v0.8, we use filio CRUDs (FileMetadata/CogniteFile) to upload the function/streamlit code.
+        # This is the legacy deploy command, which has to do it the old way.
+        return loader_cls(client, build_dir, client.console, use_fileio=False)
+    elif issubclass(loader_cls, FileMetadataCRUD | CogniteFileCRUD):
+        return loader_cls(client, build_dir, client.console, support_upload=False)
+    else:
+        return loader_cls.create_loader(client, build_dir)
 
 
 def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> dict[str, set[Any]]:
     changed_resources: dict[str, set[Any]] = {}
     client = env_vars.get_client()
+    print("Looking for changed resources ...")
     for loader_cls in RESOURCE_CRUD_LIST:
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
@@ -144,10 +159,12 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}:
             # Data Products and Rule Sets APIs are not yet available on the test server.
             continue
-        loader = loader_cls.create_loader(client, build_dir)
+
+        loader = create_loader(loader_cls, client, build_dir)
+
         worker = ResourceWorker(loader, "deploy")
         files = worker.load_files()
-        resources = worker.prepare_resources(files, environment_variables=env_vars.dump())
+        resources = worker.prepare_resources(files, environment_variables=env_vars.dump(), verbose=True)
         if changed := (set(loader.get_ids(resources.to_update)) - {dm.NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
@@ -180,7 +197,9 @@ def get_changed_source_files(
             or loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}
         ):
             continue
-        loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
+
+        loader = create_loader(loader_cls, env_vars.get_client(), build_dir)
+
         resources = built_modules.get_resources(
             None, loader.folder_name, loader.kind, is_supported_file=loader.is_supported_file
         )

@@ -14,7 +14,7 @@ from ._insights import InsightList, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
-SUPPORTED_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
+SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
 
 
 class BuildVariable(BaseModel):
@@ -28,21 +28,21 @@ class BuildVariable(BaseModel):
         return self.id.name
 
     def get_pattern_replace_pair(self, file_suffix: FileSuffix = ".yaml") -> tuple[str, str]:
-        replace = self.value
+        substitution = self.value
         pattern = rf"{{{{\s*{self.name}\s*}}}}"
         if file_suffix in (".yaml", ".yml", ".json"):
             # Preserve data types for YAML
-            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                replace = f'"{replace}"'
+            if isinstance(substitution, str) and (substitution.isdigit() or substitution.endswith(":")):
+                substitution = f'"{substitution}"'
                 pattern = rf"'{pattern}'|{pattern}|\"{pattern}\""
-            elif replace is None:
-                replace = "null"
+            elif substitution is None:
+                substitution = "null"
         elif file_suffix == ".sql":
-            if isinstance(replace, list):
-                replace = self._format_list_as_sql_tuple(replace)
+            if isinstance(substitution, list):
+                substitution = self._format_list_as_sql_tuple(substitution)
         else:
             raise NotImplementedError(f"{file_suffix!r} is not supported for variable replacement")
-        return pattern, str(replace)
+        return pattern, str(substitution)
 
     @staticmethod
     def _format_list_as_sql_tuple(replace: list[str | bool | int | float]) -> str:

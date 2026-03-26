@@ -104,7 +104,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
     @classmethod
     def _optional_header_names(cls) -> set[str]:
-        return {"dataSetId", "ingestionView", "consumerViewSpace", "consumerViewExternalId", "consumerViewVersion"}
+        return {"dataSetId", "ingestionMapping", "consumerViewSpace", "consumerViewExternalId", "consumerViewVersion"}
 
     def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
@@ -149,13 +149,13 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
         text = Text()
         text.append(f"Migrating {len(self)} {resource_type}", style="bold")
-        if "ingestionView" in self.columns:
+        if "ingestionMapping" in self.columns:
             text.append("\n[green]Mapping column set[/green]")
         else:
             text.append(
-                "\n[WARNING] 'ingestionView' column not set in CSV file. This is NOT recommended. "
+                "\n[WARNING] 'ingestionMapping' column not set in CSV file. This is NOT recommended. "
                 f"All {resource_type}s will be ingested into CogniteCore. If you want to ingest the {resource_type}s "
-                f"into your own data modeling views, please add an 'ingestionView' column to the CSV file.",
+                f"into your own data modeling views, please add an 'ingestionMapping' column to the CSV file.",
                 style="red",
             )
         if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
