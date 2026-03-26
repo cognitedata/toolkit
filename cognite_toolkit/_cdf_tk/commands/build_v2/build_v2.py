@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -215,6 +215,7 @@ class BuildV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
         ]
         border_color = 0
+        errors: list[str] = []
         if read_variables:
             summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
         if ambiguous_selected_count:
@@ -222,21 +223,25 @@ class BuildV2Command(ToolkitCommand):
                 f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
             )
             border_color = 2
+            errors.append("ambiguous selected")
         if misplaced_modules_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the modules."
             )
             border_color = 2
+            errors.append("misplaced modules")
         if non_existing_module_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
             )
             border_color = 2
+            errors.append("non existing modules")
         if invalid_variable_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
             )
             border_color = 2
+            errors.append("invalid variables")
         if orphan_yaml_count:
             summary_lines.append(
                 f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
@@ -252,7 +257,10 @@ class BuildV2Command(ToolkitCommand):
                 expand=False,
             )
         )
-
+        if errors:
+            raise ToolkitValueError(
+                f"Cannot build {module_dir_display.as_posix()}. You are not allowed to have {humanize_collection(errors)}"
+            )
         return None
 
     @classmethod
