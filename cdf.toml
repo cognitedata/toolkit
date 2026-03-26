@@ -18,7 +18,7 @@ create = true
 extend-download = true
 extend-upload = true
 simulators = true
-v08 = false
+v08 = true
 data-products = true
 deployment-pack = true
 
@@ -35,5 +35,4 @@ version = "0.0.0"
 
 
 [library.toolkit-data]
-url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip" 
-checksum = "sha256:b70c207a78d6c94e0977a733571420b250ca641ac8802d8310f1ffe05bf7b2eb"
+url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip"

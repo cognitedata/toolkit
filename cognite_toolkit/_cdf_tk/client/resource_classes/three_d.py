@@ -150,6 +150,11 @@ class AssetMappingDMRequestId(RequestResource, Identifier):
     def __str__(self) -> str:
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"modelId-{self.model_id}.revisionId-{self.revision_id}.nodeId-{self.node_id}.assetInstanceId-{self.asset_instance_id.space}.{self.asset_instance_id.external_id}"
+        return f"{self.model_id}.{self.revision_id}.{self.node_id}.{self.asset_instance_id.space}.{self.asset_instance_id.external_id}"
+
 
 class AssetMappingClassicRequestId(RequestResource, Identifier):
     node_id: int
@@ -171,6 +176,17 @@ class AssetMappingClassicRequestId(RequestResource, Identifier):
             else "noAsset"
         )
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if self.asset_id is not None:
+            asset_part = f"assetId-{self.asset_id}"
+        elif self.asset_instance_id is not None:
+            asset_part = f"assetInstance-{self.asset_instance_id.space}.{self.asset_instance_id.external_id}"
+        else:
+            asset_part = "noAsset"
+        if include_type:
+            return f"modelId-{self.model_id}.revisionId-{self.revision_id}.nodeId-{self.node_id}.{asset_part}"
+        return f"{self.model_id}.{self.revision_id}.{self.node_id}.{asset_part}"
 
 
 class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequestId]):

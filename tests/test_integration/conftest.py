@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
+    RAWDatabaseResponse,
     RAWTableRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
@@ -145,6 +146,19 @@ def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
 @pytest.fixture(scope="session")
 def toolkit_space(cognite_client: CogniteClient) -> Space:
     return cognite_client.data_modeling.spaces.apply(SpaceApply(space="toolkit_test_space"))
+
+
+@pytest.fixture(scope="session")
+def toolkit_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseResponse:
+    client = toolkit_client
+    name = "toolkit_integration_test_db"
+    for batch in client.tool.raw.databases.iterate(limit=None):
+        for db in batch:
+            if db.name == name:
+                return db
+    created = client.tool.raw.databases.create([RAWDatabaseRequest(name=name)])
+    assert len(created) == 1
+    return created[0]
 
 
 @pytest.fixture(scope="session")

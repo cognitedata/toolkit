@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -117,6 +117,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
 
     def list(
         self,
+        filter: dict[str, Any] | None = None,
         limit: int | None = 100,
     ) -> list[EventResponse]:
         """List all events in CDF.
@@ -124,4 +125,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         Returns:
             List of EventResponse objects.
         """
-        return self._list(limit=limit)
+        body: dict[str, Any] | None = None
+        if filter:
+            body = {"filter": filter}
+        return self._list(limit=limit, body=body)

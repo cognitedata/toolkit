@@ -104,14 +104,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
     @classmethod
     def _optional_header_names(cls) -> set[str]:
-        return {
-            "dataSetId",
-            "ingestionMapping",
-            "ingestionView",
-            "consumerViewSpace",
-            "consumerViewExternalId",
-            "consumerViewVersion",
-        }
+        return {"dataSetId", "ingestionMapping", "consumerViewSpace", "consumerViewExternalId", "consumerViewVersion"}
 
     def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
@@ -156,7 +149,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
         text = Text()
         text.append(f"Migrating {len(self)} {resource_type}", style="bold")
-        if "ingestionMapping" in self.columns or "ingestionView" in self.columns:
+        if "ingestionMapping" in self.columns:
             text.append("\n[green]Mapping column set[/green]")
         else:
             text.append(

@@ -5,7 +5,6 @@ import sys
 import tempfile
 import zipfile
 from collections import Counter
-from hashlib import sha256
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal
@@ -58,7 +57,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -290,6 +288,8 @@ class ModulesCommand(ToolkitCommand):
         library_url: str | None = None,
         library_checksum: str | None = None,
     ) -> None:
+        _ = library_checksum
+
         if not organization_dir:
             organization_dir = ModulesCommand._prompt_organization_dir()
 
@@ -298,11 +298,7 @@ class ModulesCommand(ToolkitCommand):
         # Determine which library to use (if any)
         library: Library | None = None
         if library_url:
-            if not library_checksum:
-                raise ToolkitRequiredValueError(
-                    "The '--library-checksum' is required when '--library-url' is provided."
-                )
-            library = Library(url=library_url, checksum=library_checksum)
+            library = Library(url=library_url)
         elif not (organization_dir / CDFToml.file_name).exists():
             # Load default library from resources when cdf.toml doesn't exist
             default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
@@ -887,7 +883,6 @@ class ModulesCommand(ToolkitCommand):
                     )
                     file_path = self._temp_download_dir / filename
                     self._download(library.url, file_path)
-                    self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
                     packages = Packages().load(file_path.parent)
                     if packages.warnings:
@@ -995,40 +990,6 @@ class ModulesCommand(ToolkitCommand):
 
         except requests.exceptions.RequestException as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
-
-    def _validate_checksum(self, checksum: str, file_path: Path) -> None:
-        """
-        Compares the checksum of the downloaded file with the expected checksum.
-        """
-
-        if checksum.lower().startswith("sha256:"):
-            checksum = checksum[7:]
-        else:
-            raise ToolkitValueError(f"Unsupported checksum format: {checksum}. Expected 'sha256:' prefix")
-
-        chunk_size: int = 8192
-        sha256_hash = sha256()
-        try:
-            with open(file_path, "rb") as f:
-                # Read the file in chunks to handle large files efficiently
-                for chunk in iter(lambda: f.read(chunk_size), b""):
-                    sha256_hash.update(chunk)
-            calculated = sha256_hash.hexdigest()
-        except OSError as e:
-            raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
-        except Exception as e:
-            raise ToolkitError(f"Unexpected error during checksum calculation for {file_path}: {e}") from e
-
-        if calculated != checksum:
-            self.warn(
-                HighSeverityWarning(
-                    f"The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
-                    "Please verify the checksum with the source and update cdf.toml if needed.\n"
-                    "This may indicate that the package content has changed."
-                )
-            )
-        else:
-            print("[green]✓ Checksum verified[/green]")
 
     def _unpack(self, file_path: Path) -> None:
         """

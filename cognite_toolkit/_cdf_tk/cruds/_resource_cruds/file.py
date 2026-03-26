@@ -15,8 +15,12 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Literal, final
 
+from rich.console import Console
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -42,7 +46,9 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, Res
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import (
@@ -51,6 +57,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import (
     space_scoped_resource,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
@@ -71,6 +78,20 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
+
+    class _MetadataKey:
+        FILECONTENT_HASH = "cognite-toolkit-hash"
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        support_upload: bool = Flags.v08.is_enabled(),
+    ) -> None:
+        super().__init__(client, build_dir, console)
+        self._filepath_by_external_id: dict[str, Path] = {}
+        self.support_upload = support_upload
 
     @property
     def display_name(self) -> str:
@@ -131,6 +152,32 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_files = super().load_resource_file(filepath, environment_variables)
+        stem = filepath.stem
+        if stem.lower().endswith(self.kind.lower()):
+            stem = stem[: -len(self.kind)].rstrip(".")
+        for item in raw_files:
+            source_file = item.pop("$FILEPATH", None)
+            if source_file is None:
+                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                    source_file = candidate
+                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
+                    source_file = filepath.parent / name
+                else:
+                    # No filepath found
+                    continue
+            if self.support_upload:
+                file_hash = calculate_hash(source_file, shorten=True)
+                if "metadata" not in item:
+                    item["metadata"] = {}
+                # Store hash for efficient diffing
+                item["metadata"][self._MetadataKey.FILECONTENT_HASH] = file_hash
+            self._filepath_by_external_id[self.get_id(item).external_id] = source_file
+        return raw_files
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -140,7 +187,10 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
             )
         if asset_external_ids := resource.pop("assetExternalIds", None):
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
-        return FileMetadataRequest.model_validate(resource)
+        request = FileMetadataRequest.model_validate(resource)
+        if request.external_id:
+            request.filepath = self._filepath_by_external_id.get(request.external_id, None)
+        return request
 
     def dump_resource(self, resource: FileMetadataResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -153,13 +203,42 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return dumped
 
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.create(items, overwrite=True)
+        responses = self.client.tool.filemetadata.create(items, overwrite=True)
+        if self.support_upload:
+            for response in responses:
+                self._try_upload_file_content(response)
+        return responses
+
+    def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
+        if response.filepath and response.upload_url:
+            self.client.tool.filemetadata.upload_file(response.filepath, response.upload_url, response.mime_type)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.update(items, mode="replace")
+        responses = self.client.tool.filemetadata.update(items, mode="replace")
+        if self.support_upload:
+            response_by_external_id = {
+                response.external_id: response for response in responses if response.external_id is not None
+            }
+            for item in items:
+                if not (item.external_id and item.external_id in response_by_external_id):
+                    continue
+                response = response_by_external_id[item.external_id]
+                if (
+                    item.filepath
+                    and (response.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
+                    != (item.metadata or {})[self._MetadataKey.FILECONTENT_HASH]
+                ):
+                    # Need to reupload the file content
+                    responses_with_url = self.client.tool.filemetadata.get_upload_url([item.as_id()])
+                    if len(responses_with_url) != 1:
+                        raise RuntimeError(
+                            f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
+                        )
+                    self._try_upload_file_content(responses_with_url[0])
+        return responses
 
     def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
@@ -203,6 +282,22 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
+    # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
+    TEXT_FIELD_MAX_LENGTH = 32_000
+
+    class _SourceContextKey:
+        FILECONTENT_HASH = "cognite-toolkit-hash"
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        support_upload: bool = Flags.v08.is_enabled(),
+    ) -> None:
+        super().__init__(client, build_dir, console)
+        self._filepath_by_node_id: dict[NodeId, Path] = {}
+        self.support_upload = support_upload
 
     @property
     def display_name(self) -> str:
@@ -230,6 +325,43 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         yield FilesAcl(actions=sorted(actions), scope=AllScope())
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_files = super().load_resource_file(filepath, environment_variables)
+        stem = filepath.stem
+        if stem.lower().endswith(self.kind.lower()):
+            stem = stem[: -len(self.kind)].rstrip(".")
+        for item in raw_files:
+            source_file = item.pop("$FILEPATH", None)
+            if source_file is None:
+                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                    source_file = candidate
+                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
+                    source_file = filepath.parent / name
+                else:
+                    # No filepath found
+                    continue
+            if self.support_upload:
+                file_hash = calculate_hash(source_file, shorten=True)
+                extra_str = f"{self._SourceContextKey.FILECONTENT_HASH}: {file_hash}"
+                # Store hash on source_context for efficient diffing
+                item["sourceContext"] = suffix_description(
+                    extra_str,
+                    item.get("sourceContext"),
+                    self.TEXT_FIELD_MAX_LENGTH,
+                    self.get_id(item),
+                    self.display_name,
+                    self.client.console,
+                )
+            self._filepath_by_node_id[self.get_id(item)] = source_file
+        return raw_files
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> CogniteFileRequest:
+        request = super().load_resource(resource, is_dry_run)
+        request.filepath = self._filepath_by_node_id[self.get_id(resource)]
+        return request
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
@@ -264,20 +396,43 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.cognite_files.create(items)
+        responses = self.client.tool.cognite_files.create(items)
+        if self.support_upload:
+            for item in items:
+                self._try_upload_file_content(item)
+        return responses
+
+    def _try_upload_file_content(self, item: CogniteFileRequest) -> None:
+        if item.filepath:
+            upload_urls = self.client.tool.filemetadata.get_upload_url([item.as_instance_id()])
+            if upload_urls and upload_urls[0].upload_url:
+                self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
-        return self.client.tool.cognite_files.retrieve(
-            [NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids]
-        )
+        return self.client.tool.cognite_files.retrieve(ids)
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.cognite_files.create(items)
+        responses = self.client.tool.cognite_files.create(items)
+        if self.support_upload:
+            items_by_id = {
+                response.as_id(): response
+                # We know that file responses will always be NodeIds.
+                for response in self.client.tool.cognite_files.retrieve([item.as_id() for item in responses])  # type:ignore[misc]
+            }
+            for item in items:
+                if not item.filepath:
+                    continue
+                existing_file = items_by_id.get(item.as_id())
+                # Check if content hash has changed
+                if existing_file and existing_file.source_context == item.source_context:
+                    # Content hasn't changed, skip upload
+                    continue
+                # Need to upload the file content
+                self._try_upload_file_content(item)
+        return responses
 
     def delete(self, ids: Sequence[NodeId]) -> int:
-        return len(
-            self.client.tool.cognite_files.delete([NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids])
-        )
+        return len(self.client.tool.cognite_files.delete(ids))
 
     def _iterate(
         self,

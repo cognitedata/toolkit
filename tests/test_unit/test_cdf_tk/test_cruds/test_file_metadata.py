@@ -1,12 +1,13 @@
 from collections.abc import Iterable
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -17,6 +18,7 @@ def file_metadata_config_cases() -> Iterable[tuple]:
 name: A file.txt
 dataSetExternalId: ds_files
 source: sharepointABC
+$FILEPATH: some_file.txt
 """,
         ["1.A file.txt"],
         [
@@ -25,6 +27,7 @@ source: sharepointABC
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             )
         ],
         id="Single file as mapping",
@@ -34,10 +37,12 @@ source: sharepointABC
   name: A file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
+  $FILEPATH: some_file.txt
 - externalId: sharepointABC2
   name: Another file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
+  $FILEPATH: some_other_file.txt
 """,
         ["1.A file.txt", "1.Another file.txt"],
         [
@@ -46,18 +51,21 @@ source: sharepointABC
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
             FileMetadataRequest(
                 external_id="sharepointABC2",
                 source="sharepointABC",
                 name="Another file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
         ],
         id="Multiple files as array",
     )
 
 
+@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="FileMetadata behaves differently on v0.8")
 class TestLoadResources:
     @pytest.mark.parametrize("yaml_content, files, expected", list(file_metadata_config_cases()))
     def test_load_resources(
@@ -68,12 +76,13 @@ class TestLoadResources:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
+        fileio = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
-        raw_list = loader.load_resource_file(filepath, {})
-        resources = [loader.load_resource(item, is_dry_run=False) for item in raw_list]
+
+        with patch(f"{FileMetadataCRUD.__module__}.calculate_hash", return_value="hash"):
+            resources = fileio.load_resource_files([filepath], is_dry_run=False)
 
         assert [resource.dump() for resource in resources] == [item.dump() for item in expected]
 

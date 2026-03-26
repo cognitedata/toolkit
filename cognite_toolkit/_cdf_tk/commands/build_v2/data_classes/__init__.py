@@ -10,6 +10,7 @@ from ._lineage import BuildLineage
 from ._module import (
     BuildVariable,
     FailedReadYAMLFile,
+    FileSuffix,
     Module,
     ModuleSource,
     ReadYAMLFile,
@@ -29,6 +30,7 @@ __all__ = [
     "ConfigYAML",
     "ConsistencyError",
     "FailedReadYAMLFile",
+    "FileSuffix",
     "Insight",
     "InsightList",
     "ModelSyntaxWarning",

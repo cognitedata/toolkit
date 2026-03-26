@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from pydantic import Field, JsonValue
@@ -21,6 +22,8 @@ class FileMetadata(BaseModelObject):
     source_created_time: int | None = None
     source_modified_time: int | None = None
     security_categories: list[int] | None = None
+    # This is not part of the API, but it is very useful when creating a file with content.
+    filepath: Path | None = Field(default=None, exclude=True, alias="$FILEPATH")
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
