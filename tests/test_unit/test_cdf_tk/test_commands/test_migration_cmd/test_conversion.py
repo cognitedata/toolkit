@@ -475,7 +475,7 @@ class TestCreateProperties:
             "asset",
             issue,
             direct_relation_cache,
-            container_id=container_id,
+            container_id,
         )
 
         assert properties == expected_properties
