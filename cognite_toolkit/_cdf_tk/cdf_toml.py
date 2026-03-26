@@ -229,7 +229,6 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
 
 _CDF_TOML: CDFToml | None = None
 
-
 if __name__ == "__main__":
     from pprint import pprint
 
