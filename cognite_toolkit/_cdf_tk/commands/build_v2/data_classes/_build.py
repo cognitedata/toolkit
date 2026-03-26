@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import InsightList, ModelSyntaxWarning
+from ._insights import Insight, InsightList, ModelSyntaxWarning
 from ._module import ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -112,6 +112,7 @@ class BuildFolder(BaseModel):
     built_modules: list[BuiltModule] = Field(default_factory=list)
 
     syntax_warnings: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    insights_by_validation_type: dict[str, list[Insight]] = Field(default_factory=dict)
 
     # Todo: Remove
     dependency_insights: InsightList = Field(default_factory=InsightList)

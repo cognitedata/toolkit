@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
+    Insight,
     InsightList,
     ModelSyntaxWarning,
 )
@@ -87,9 +88,7 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
-        dependency_insights = self._dependency_validation(built_modules, client)
-
-        global_insights = self._global_validation(built_modules, client)
+        insights_by_validation = self._validate_modules(built_modules, client)
 
         # Calculate build duration
         build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
@@ -97,8 +96,7 @@ class BuildV2Command(ToolkitCommand):
         build_folder = BuildFolder(
             path=parameters.build_dir,
             built_modules=built_modules,
-            dependency_insights=dependency_insights,
-            global_insights=global_insights,
+            insights_by_validation_type=insights_by_validation,
         )
 
         self._display_build_folder(build_folder, console)
@@ -636,6 +634,16 @@ class BuildV2Command(ToolkitCommand):
                     )
                 )
         return built_resources
+
+    def _validate_modules(
+        self, built_modules: list[BuiltModule], client: ToolkitClient | None
+    ) -> dict[str, list[Insight]]:
+        dependency_insights = self._dependency_validation(built_modules, client)
+        global_insights = self._global_validation(built_modules, client)
+        return {
+            "dependencies": dependency_insights.data,
+            "neat": global_insights.data,
+        }
 
     def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
