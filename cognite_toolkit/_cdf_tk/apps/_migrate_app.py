@@ -8,9 +8,7 @@ import typer
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import (
-    load_record_migration_config_yaml,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -682,8 +680,8 @@ class MigrateApp(typer.Typer):
         """Migrate Events to records (Streams API)."""
         client = EnvironmentVariables.create_from_environment().get_client()
         try:
-            migration_config = load_record_migration_config_yaml(config_file.read_text())
-        except ToolkitValueError as exc:
+            migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
+        except Exception as exc:
             raise typer.BadParameter(str(exc)) from exc
         if data_set_id is not None and migration_config.default_mapping is None:
             raise typer.BadParameter(
