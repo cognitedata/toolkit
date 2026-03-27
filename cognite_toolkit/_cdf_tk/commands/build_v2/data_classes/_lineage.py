@@ -134,7 +134,7 @@ class BuildLineage(_BaseLineageModel):
         return round(value, 2) if value is not None else None
 
     @classmethod
-    def from_build(cls, build: BuildFolder) -> "BuildLineage":
+    def from_build(cls, build: BuildFolder, cdf_project: str | None = None) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
         module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
@@ -156,6 +156,7 @@ class BuildLineage(_BaseLineageModel):
             module_lineage=module_lineage,
             modules_summary=modules_summary,
             insights_summary=insights_summary,
+            cdf_project=cdf_project,
         )
 
     def to_yaml(self) -> str:

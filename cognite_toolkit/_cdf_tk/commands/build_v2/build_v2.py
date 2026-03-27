@@ -109,7 +109,7 @@ class BuildV2Command(ToolkitCommand):
 
         self._display_build_folder(build_folder, parameters.config_yaml_name or "", console, parameters.verbose)
 
-        self._write_results(build_folder)
+        self._write_results(build_folder, client.config.project if client else None)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -889,7 +889,7 @@ class BuildV2Command(ToolkitCommand):
 
         return None
 
-    def _write_results(self, build: BuildFolder) -> None:
+    def _write_results(self, build: BuildFolder, cdf_project: str | None = None) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
         insight_file = build.build_dir / "insights.csv"
@@ -899,5 +899,5 @@ class BuildV2Command(ToolkitCommand):
             safe_write(insight_file, insight_file_content)
 
         lineage_file = build.build_dir / BuildLineage.filename
-        lineage = BuildLineage.from_build(build).to_yaml()
+        lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
         safe_write(lineage_file, lineage)
