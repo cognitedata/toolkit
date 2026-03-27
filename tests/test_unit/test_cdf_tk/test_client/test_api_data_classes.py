@@ -22,9 +22,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
     Disabled,
+    LogicalCheckConfig,
     ScheduleConfig,
     SimulatorRoutineConfiguration,
     SimulatorRoutineRevisionRequest,
+    SteadyStateDetectionConfig,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
@@ -379,8 +381,20 @@ class TestSimulatorRoutineRevision:
             configuration=SimulatorRoutineConfiguration(
                 schedule=ScheduleConfig(cron_expression="0 0 * * *"),
                 data_sampling=Disabled(),
-                logical_check=[],
-                steady_state_detection=[],
+                logical_check=[
+                    LogicalCheckConfig(
+                        timeseries_external_id="my_timeseries", aggregate="average", operator="le", value=5.0
+                    )
+                ],
+                steady_state_detection=[
+                    SteadyStateDetectionConfig(
+                        timeseries_external_id="my_timeseries",
+                        aggregate="average",
+                        min_section_size=40,
+                        var_threshold=4.0,
+                        slope_threshold=3.0,
+                    )
+                ],
             ),
         )
 
@@ -390,8 +404,25 @@ class TestSimulatorRoutineRevision:
             "configuration": {
                 "schedule": {"cronExpression": "0 0 * * *", "enabled": True},
                 "dataSampling": {"enabled": False},
-                "logicalCheck": [],
-                "steadyStateDetection": [],
+                "logicalCheck": [
+                    {
+                        "aggregate": "average",
+                        "enabled": True,
+                        "operator": "le",
+                        "timeseriesExternalId": "my_timeseries",
+                        "value": 5.0,
+                    }
+                ],
+                "steadyStateDetection": [
+                    {
+                        "aggregate": "average",
+                        "enabled": True,
+                        "minSectionSize": 40,
+                        "slopeThreshold": 3.0,
+                        "timeseriesExternalId": "my_timeseries",
+                        "varThreshold": 4.0,
+                    }
+                ],
             },
         }
 
