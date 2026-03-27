@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, TypeAlias
 
 import questionary
 from rich.console import Console
@@ -47,10 +47,12 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
+Operation: TypeAlias = Literal["deploy", "clean"]
+
 
 @dataclass
 class DeployOptions:
-    operation: Literal["deploy", "clean"] = "deploy"
+    operation: Operation = "deploy"
     cdf_project: str | None = None
     dry_run: bool = False
     include: Sequence[str] | None = None
@@ -60,6 +62,10 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
+
+    @property
+    def operation_noun(self) -> str:
+        return {"deploy": "deployment", "clean": "deletion"}[self.operation]
 
 
 @dataclass
@@ -196,12 +202,12 @@ class DeployV2Command(ToolkitCommand):
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
-        self._display_startup(build_dir.path, client.config.project, client.console)
+        self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
         plan = self.create_deployment_plan(build_dir)
 
-        self._display_plan(plan, client.console)
+        self._display_plan(plan, options.operation, options.operation_noun, client.console)
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
@@ -217,7 +223,7 @@ class DeployV2Command(ToolkitCommand):
             self._merge_clean_results(results, clean_result)
 
         # Todo: Some mixpanel tracking??
-        self._display_results(results, client.console, options.verbose)
+        self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
 
         return results
 
@@ -282,10 +288,10 @@ class DeployV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
-    def _display_startup(self, build_dir: Path, cdf_project: str, console: Console) -> None:
+    def _display_startup(self, operation: str, build_dir: Path, cdf_project: str, console: Console) -> None:
         console.print(
             Panel(
-                f"Deploying {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
+                f"{operation.title()}ing {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
                 f"  - CDF project {cdf_project!r}",
                 expand=False,
             )
@@ -420,22 +426,22 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, plan: list[DeploymentStep], console: Console) -> None:
+    def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:
         if not plan:
-            console.print("[bold yellow]No resources to deploy.[/]")
+            console.print(f"[bold yellow]No resources to {operation}.[/]")
             return
 
         step_count = len(plan)
         total_files = sum(len(step.files) for step in plan)
 
         summary_lines = [
-            f"[green]✓[/] [bold]{step_count}[/] resource types to deploy",
-            f"[green]✓[/] [bold]{total_files}[/] resources to deploy",
+            f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+            f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
         ]
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title="[bold]Deployment plan[/]",
+                title=f"[bold]{operation_noun.title()} plan[/]",
                 border_style="green",
                 expand=False,
             )
@@ -460,7 +466,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task("Starting deployment", total=total_files)
+            task_id = progress.add_task(f"Starting {options.operation_noun}", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -488,16 +494,16 @@ class DeployV2Command(ToolkitCommand):
 
                 if options.dry_run:
                     result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
-                    progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
+                    progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
-                    progress.update(task_id, description=f"Deploying {resource_name} to CDF")
+                    progress.update(task_id, description=f"{options.operation.title()}ing {resource_name} to CDF")
                     result = cls.deploy_resources(crud, resources_to_deploy, step.skipped_cruds, options.deployment_dir)
-                    progress.update(task_id, description=f"Deployed {resource_name} successfully.")
+                    progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")
 
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            progress.update(task_id, description="Finished deploying.")
+            progress.update(task_id, description=f"Finished {options.operation}ing.")
         return results
 
     @classmethod
@@ -781,13 +787,17 @@ class DeployV2Command(ToolkitCommand):
                 result += other_result
 
     @classmethod
-    def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
+    def _display_results(
+        cls, results: Sequence[DeploymentResult], operation: str, operation_noun: str, console: Console, verbose: bool
+    ) -> None:
         if not results:
-            console.print("No resources were deployed.")
+            console.print(f"No resources were {operation}ed.")
             return
 
         is_dry_run = results[0].is_dry_run
-        title = "Deployment Summary (dry run)" if is_dry_run else "Deployment Summary"
+        title = f"{operation_noun.title()} Summary"
+        if is_dry_run:
+            title += " (dry run)"
         table = Table(title=title, show_lines=False)
         table.add_column("Resource", style="cyan")
         if is_dry_run:
@@ -803,7 +813,7 @@ class DeployV2Command(ToolkitCommand):
         table.add_column("Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right", style="cyan")
         if is_dry_run:
-            table.add_column("Can deploy", justify="right")
+            table.add_column(f"Can {operation}", justify="right")
 
         total = DeploymentResult(
             "All",
@@ -858,7 +868,7 @@ class DeployV2Command(ToolkitCommand):
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
             console.print(
-                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during deployment. "
+                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
                 f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
                 f"Use --verbose flag to get details about all skipped resources."
             )
