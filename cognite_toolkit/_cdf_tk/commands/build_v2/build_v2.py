@@ -852,7 +852,9 @@ class BuildV2Command(ToolkitCommand):
             table.add_column("Path")
             table.add_column("Variables")
             for source_path, variables in unresolved_files.items():
-                table.add_row(relative_to_if_possible(source_path).as_posix(), humanize_collection(variables))
+                table.add_row(
+                    relative_to_if_possible(source_path).as_posix(), humanize_collection(variables, sort=False)
+                )
             console.print(table)
 
         if verbose and ignored_files:
