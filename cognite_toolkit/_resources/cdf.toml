@@ -14,5 +14,5 @@ data = false
 functions = false
 
 
-[library.toolkit-data]
-url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip"
+[library.cognite]
+url = "https://github.com/cognitedata/library/releases/download/latest/packages.zip"
