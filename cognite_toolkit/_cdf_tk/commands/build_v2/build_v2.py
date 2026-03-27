@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -490,22 +491,31 @@ class BuildV2Command(ToolkitCommand):
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
+        unresolved_variables = self._find_unresolved_variables(substituted_content)
         try:
             parsed_yaml = read_yaml_content(substituted_content)
         except yaml.YAMLError as yaml_error:
-            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
-            #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
-            #  Jira: CDF-27203
+            if unresolved_variables:
+                error = (
+                    f"Failed to parse YAML content. "
+                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}."
+                    f"Error: {yaml_error!s}"
+                )
+            else:
+                error = f"Failed to parse YAML content: {yaml_error!s}"
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
-                error=f"Failed to parse YAML content: {yaml_error!s}",
+                error=error,
+                unresolved_variables=unresolved_variables,
             )
+
         if parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="EMPTY-YAML",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
+                unresolved_variables=unresolved_variables,
             )
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
@@ -536,6 +546,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
                 ],
+                unresolved_variables=unresolved_variables,
                 **args,
             )
         # Is instance list
@@ -568,7 +579,14 @@ class BuildV2Command(ToolkitCommand):
                     extra_files=extra_files,
                 )
             )
-        return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
+        return SuccessfulReadYAMLFile(
+            syntax_warning=syntax_warning, resources=read_resources, **args, unresolved_variables=unresolved_variables
+        )
+
+    @classmethod
+    def _find_unresolved_variables(cls, content: str) -> list[str]:
+        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        return list(all_unmatched)
 
     @classmethod
     def _substitute_variables_extra_content(

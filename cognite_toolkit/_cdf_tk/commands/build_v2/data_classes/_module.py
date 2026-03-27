@@ -173,6 +173,7 @@ class ResourceType(BaseModel):
 
 class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath
+    unresolved_variables: list[str] = Field(default_factory=list)
 
 
 class FailedReadYAMLFile(ReadYAMLFile):
