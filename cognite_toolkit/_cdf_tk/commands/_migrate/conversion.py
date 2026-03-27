@@ -41,6 +41,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -303,6 +305,64 @@ def asset_centric_to_dm(
         raise RuntimeError(f"Unexpected instance_id type {type(instance_id)}")
 
     return instance, issue
+
+
+def asset_centric_to_record(
+    resource: AssetCentricResourceExtended,
+    instance_id: RecordId,
+    record_mapping: RecordPropertyMapping,
+    container_properties: dict[str, ContainerPropertyDefinition],
+    direct_relation_cache: DirectRelationCache,
+) -> tuple[RecordRequest | None, ConversionIssue]:
+    """Convert an asset-centric resource to a record request.
+
+    Args:
+        resource: The asset-centric resource to convert.
+        instance_id: The target record space and external_id.
+        record_mapping: The record property mapping defining the target container and property mapping.
+        container_properties: Property definitions from the target container (for type validation/coercion).
+        direct_relation_cache: Cache for direct relation references.
+
+    Returns:
+        A tuple of the RecordRequest (or None on failure) and any conversion issues.
+    """
+    resource_type = _lookup_resource_type(resource)
+    dumped = resource.dump()
+    try:
+        id_ = dumped.pop("id")
+    except KeyError as e:
+        raise ValueError("Resource must have an 'id' field.") from e
+    if not isinstance(id_, int):
+        raise TypeError(f"Resource 'id' field must be an int, got {type(id_)}.")
+    dumped.pop("dataSetId", None)
+    dumped.pop("externalId", None)
+
+    issue = ConversionIssue(
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
+        instance_id=instance_id,
+    )
+
+    properties = create_properties(
+        dumped,
+        container_properties,
+        record_mapping.property_mapping,
+        resource_type,
+        issue=issue,
+        direct_relation_cache=direct_relation_cache,
+        container_id=record_mapping.container_id,
+    )
+
+    if not properties:
+        issue.no_mappable_properties = True
+        return None, issue
+
+    record = RecordRequest(
+        space=instance_id.space,
+        external_id=instance_id.external_id,
+        sources=[RecordSource(source=record_mapping.container_id, properties=properties)],
+    )
+    return record, issue
 
 
 def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:

@@ -40,6 +40,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -50,6 +52,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
     create_properties,
@@ -1672,3 +1675,68 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestAssetCentricToRecord:
+    CONTAINER_ID = ContainerId(space="my_stream_space", external_id="EventContainer")
+    INSTANCE_ID = RecordId(space="my_space", external_id="event_42")
+
+    def _make_record_mapping(self, property_mapping: dict[str, str]) -> RecordPropertyMapping:
+        return RecordPropertyMapping(
+            external_id="my_event_mapping",
+            container_id=self.CONTAINER_ID,
+            property_mapping=property_mapping,
+        )
+
+    def _make_container_properties(self) -> dict[str, ContainerPropertyDefinition]:
+        return {
+            "description": ContainerPropertyDefinition(
+                type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+            ),
+            "startTime": ContainerPropertyDefinition(
+                type=TimestampProperty(), nullable=True, immutable=False, auto_increment=False
+            ),
+        }
+
+    def test_basic_event_conversion(self) -> None:
+        event = EventResponse(
+            id=42,
+            description="An event",
+            start_time=0,
+            created_time=1,
+            last_updated_time=2,
+        )
+        record_mapping = self._make_record_mapping({"description": "description"})
+        container_properties = self._make_container_properties()
+
+        record, issue = asset_centric_to_record(
+            event,
+            instance_id=self.INSTANCE_ID,
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=DirectRelationCache(MagicMock(spec=ToolkitClient)),
+        )
+
+        assert not issue.has_issues
+        assert record is not None
+        assert record.space == self.INSTANCE_ID.space
+        assert record.external_id == self.INSTANCE_ID.external_id
+        assert len(record.sources) == 1
+        assert record.sources[0].source == self.CONTAINER_ID
+        assert record.sources[0].properties["description"] == "An event"
+
+    def test_no_mappable_properties_returns_none(self) -> None:
+        event = EventResponse(id=1, description="Event", created_time=0, last_updated_time=0)
+        record_mapping = self._make_record_mapping({})  # empty mapping
+        container_properties = self._make_container_properties()
+
+        record, issue = asset_centric_to_record(
+            event,
+            instance_id=self.INSTANCE_ID,
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=DirectRelationCache(MagicMock(spec=ToolkitClient)),
+        )
+
+        assert record is None
+        assert issue.no_mappable_properties
