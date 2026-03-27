@@ -204,7 +204,9 @@ class DeployV2Command(ToolkitCommand):
         self._display_plan(plan, client.console)
 
         clean_result: Sequence[DeploymentResult] | None = None
-        if options.drop:
+        if options.drop and (options.operation == "clean" or not options.dry_run):
+            # If we are deploying and it is dry-run, we skip this step, as apply_plan accounts
+            # for drop in dry-run mode.
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
                 return clean_result
