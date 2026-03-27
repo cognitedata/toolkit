@@ -167,6 +167,9 @@ class ResourceType(BaseModel):
         folder_name = self.resource_folder
         return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
 
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.resource_folder})"
+
 
 class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath

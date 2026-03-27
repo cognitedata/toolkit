@@ -1,12 +1,12 @@
 from ._auth import CheckDataSetMissing
-from ._base import ToolkitGlobalRule, ToolkitLocalRule, ToolkitRule
-from ._orchestrator import GlobalRulesOrchestrator, LocalRulesOrchestrator
+from ._base import ToolkitGlobalRulSet, ToolkitLocalRule, ToolkitRule
+from ._orchestrator import LocalRulesOrchestrator, get_global_rules_registry
 
 __all__ = [
     "CheckDataSetMissing",
-    "GlobalRulesOrchestrator",
+    "get_global_rules_registry",
     "LocalRulesOrchestrator",
-    "ToolkitGlobalRule",
+    "ToolkitGlobalRulSet",
     "ToolkitLocalRule",
     "ToolkitRule",
 ]

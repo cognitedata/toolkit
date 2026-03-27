@@ -2,12 +2,14 @@ import os
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Literal
 
 import yaml
+from prompt_toolkit.shortcuts import ProgressBar
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
@@ -33,12 +35,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    Insight,
-    InsightList,
-    ModelSyntaxWarning,
-)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -49,7 +46,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadYAMLFile,
     SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import (
@@ -57,10 +53,10 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
+
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
+from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -70,6 +66,20 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
+
+
+@dataclass
+class ValidationStep:
+    status: RuleSetStatus
+    rule: ToolkitGlobalRulSet
+
+
+@dataclass
+class ValidationResult:
+    name: str
+    insights: list[Insight]
+    failed: list[FailedValidation]
+
 
 
 class BuildV2Command(ToolkitCommand):
@@ -88,7 +98,10 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
-        insights_by_validation = self._validate_modules(built_modules, client)
+        plan = self._create_validation_plan(built_modules, client)
+        if parameters.verbose:
+            self._display_validation_plan(plan)
+        validation_results = self._run_validation(plan, console)
 
         # Calculate build duration
         build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
@@ -96,7 +109,7 @@ class BuildV2Command(ToolkitCommand):
         build_folder = BuildFolder(
             path=parameters.build_dir,
             built_modules=built_modules,
-            insights_by_validation_type=insights_by_validation,
+            validation_results=validation_results,
         )
 
         self._display_build_folder(build_folder, console)
@@ -400,7 +413,10 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        validator = LocalRulesOrchestrator()
+        validator = LocalRulesOrchestrator(
+            exclude_rule_codes=None,
+            enable_alpha_validators=False,
+        )
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -638,99 +654,45 @@ class BuildV2Command(ToolkitCommand):
                 )
         return built_resources
 
-    def _validate_modules(
-        self, built_modules: list[BuiltModule], client: ToolkitClient | None
-    ) -> dict[str, list[Insight]]:
-        dependency_insights = self._dependency_validation(built_modules, client)
-        global_insights = self._global_validation(built_modules, client)
-        return {
-            "dependencies": dependency_insights.data,
-            "neat": global_insights.data,
-        }
+    def _create_validation_plan(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> list[ValidationStep]:
+        all_rules = get_global_rules_registry()
+        plan: list[ValidationStep] = []
+        for rule_cls in all_rules:
+            rule = rule_cls(built_modules, client=client)
 
-    def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
-        """CDF dependency validations are validations that require checking the existence of resources in CDF."""
-        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
-            (resource.crud_cls, resource.identifier) for module in built_modules for resource in module.resources
-        }
-        missing_locally_by_crud_cls: dict[type[ResourceCRUD], dict[Identifier, list[BuiltResource]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        for module in built_modules:
-            for resource in module.resources:
-                for crud_cls, dependency_id in resource.dependencies:
-                    if (crud_cls, dependency_id) not in built_resource_ids:
-                        missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
-        insights = InsightList()
-        code = "MISSING-DEPENDENCY"
-        if client:
-            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                crud = crud_cls(client, None, None)
-                display_name = crud.display_name
-                existing_in_cdf = {
-                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
-                }
-                if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
-                    for identifier in missing:
-                        expected_resources = expected_by_identifier[identifier]
-                        referenced_str = " - ".join(
-                            f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
-                            for resource in expected_resources
-                        )
-                        insights.append(
-                            ConsistencyError(
-                                code=code,
-                                message=f"{identifier} {display_name} does not exist locally or in CDF. It is referenced by: \n{referenced_str}",
-                                fix=f"Ensure that {display_name} exists or removed the reference to it.",
-                            )
-                        )
+            status = rule.get_status()
+            plan.append(ValidationStep(status=status, rule=rule))
+        return plan
 
-        else:
-            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                resource_type_name = f"{crud_cls.kind.lower()} ({crud_cls.folder_name})"
-                for identifier, expected_resources in expected_by_identifier.items():
-                    referenced_str = " - ".join(
-                        f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
-                        for resource in expected_resources
-                    )
-                    insights.append(
-                        ConsistencyError(
-                            code=code,
-                            message=f"{identifier} {resource_type_name} does not exist. It is referenced by: \n{referenced_str}",
-                            fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
-                            f"Or ensure that {resource_type_name} exists or removed the reference to it.",
-                        )
-                    )
+    def _display_validation_plan(self, plan: list[ValidationStep]) -> None:
+        # Todo: Implement
+        return None
 
-        return insights
+    def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
+        with Progress(console=console) as progress:
+            ready_step_count = sum(1 for step in plan if step.status == "ready")
+            validating_task = progress.add_task("Checking modules", total=ready_step_count)
+            validation_results: list[ValidationResult] = []
+            for step in plan:
+                if step.status != "ready":
+                    continue
+                display_name = step.rule.DISPLAY_NAME
+                progress.update(validating_task, description=f"Checking {display_name}...")
 
-    def _global_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
-        """This validation is performed per resource type and not per individual resource and against CDF
-        for all modules. This validation will leverage external plugins such as NEAT.
-        """
-        # Can be parallelized with number of plugins.
-        # Neat is done inside the global validation.
-        insights = InsightList()
-        for built_module in built_modules:
-            if not built_module.files_built:
-                continue
-            data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
-            if data_model_files := built_module.resource_by_type_by_kind.get(data_model_type):
-                if NeatPlugin.installed() and client and data_model_files:
-                    neat = NeatPlugin(client)
-                    for data_model_file in data_model_files:
-                        try:
-                            for insight in neat.validate(data_model_file.parent, data_model_file):
-                                if insight not in built_module.insights:
-                                    insights.append(insight)
-                        except Exception as e:
-                            self.warn(
-                                HighSeverityWarning(
-                                    f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}"
-                                )
-                            )
-                            continue
-        return insights
+                insights: list[Insight] = []
+                failures: list[FailedValidation] = []
+                for result in step.rule.validate():
+                    if isinstance(result, FailedValidation):
+                        failures.append(result)
+                    else:
+                        insights.append(result)
+
+                validation_results.append(
+                    ValidationResult(name=display_name, insights=insights, failed=failures)
+                )
+                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
+            progress.update(validating_task, description=f"Finished checking modules")
+        return validation_results
 
     def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
         module_count = len(build_folder.built_modules)

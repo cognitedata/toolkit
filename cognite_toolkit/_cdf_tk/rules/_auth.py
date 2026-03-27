@@ -34,7 +34,7 @@ class CheckDataSetMissing(ToolkitLocalRule):
     ```
     """
 
-    code = f"{BASE_CODE}-001"
+    CODE = f"{BASE_CODE}-001"
     insight_type = Recommendation
 
     def validate(self) -> Iterable[Recommendation]:
@@ -45,6 +45,6 @@ class CheckDataSetMissing(ToolkitLocalRule):
             if data_set_external_id is None:
                 yield Recommendation(
                     message=f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}",
-                    code=self.code,
+                    code=self.CODE,
                     fix=f"Add a dataset association to the {source_file.resource_type!s}.",
                 )
