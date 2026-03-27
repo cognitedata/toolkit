@@ -1,4 +1,5 @@
 import builtins
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -8,7 +9,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
-from ._module import ModuleId, ResourceType
+from ._module import BuildVariable, FailedReadYAMLFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -74,6 +75,7 @@ class BuiltModule(BaseModel):
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
 
     @property
     def files_built(self) -> bool:
@@ -111,10 +113,14 @@ class BuildFolder(BaseModel):
     """Built folder acts as a container holding all built modules and insights from the build process."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    path: Path
-    built_modules: list[BuiltModule] = Field(default_factory=list)
+    organization_dir: AbsoluteDirPath
+    build_dir: AbsoluteDirPath
+    started_at: datetime
+    finished_at: datetime
 
+    built_modules: list[BuiltModule] = Field(default_factory=list)
     validation_results: list[ValidationResult] = Field(default_factory=list)
+    all_variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
     def all_insights(self) -> InsightList:
@@ -126,3 +132,8 @@ class BuildFolder(BaseModel):
         for result in self.validation_results:
             insights.extend(result.insights)
         return insights
+
+    @property
+    def build_duration_seconds(self) -> float:
+        """Duration of the build in seconds."""
+        return (self.finished_at - self.started_at).total_seconds()

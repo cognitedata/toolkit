@@ -93,17 +93,19 @@ class BuildV2Command(ToolkitCommand):
             self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
-        # Calculate build duration
-        build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
-
         build_folder = BuildFolder(
-            path=parameters.build_dir, built_modules=built_modules, validation_results=validation_results
+            organization_dir=parameters.organization_dir,
+            build_dir=parameters.build_dir,
+            built_modules=built_modules,
+            validation_results=validation_results,
+            all_variables=build_source.all_variables,
+            started_at=build_start_time,
+            finished_at=datetime.now(timezone.utc),
         )
 
         self._display_build_folder(build_folder, console)
 
-        # Todo: This should only take in build_folder
-        self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
+        self._write_results(build_folder)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -430,6 +432,7 @@ class BuildV2Command(ToolkitCommand):
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
                         },
+                        failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -741,6 +744,7 @@ class BuildV2Command(ToolkitCommand):
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
         syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
+
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources",
@@ -769,7 +773,7 @@ class BuildV2Command(ToolkitCommand):
                 suffix.append("all checks passed")
             summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
 
-        build_dir_display = relative_to_if_possible(build_folder.path).as_posix()
+        build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
         console.print(
@@ -802,25 +806,15 @@ class BuildV2Command(ToolkitCommand):
                 )
         return None
 
-    def _write_results(
-        self,
-        parameters: BuildParameters,
-        build_folder: BuildFolder,
-        timestamp: datetime | None = None,
-        duration: float | None = None,
-    ) -> None:
+    def _write_results(self, build: BuildFolder) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = build_folder.path / "insights.csv"
-        insight_file.parent.mkdir(parents=True, exist_ok=True)
+        insight_file = build.build_dir / "insights.csv"
 
-        insight_file_content = build_folder.all_insights.to_csv()
+        insight_file_content = build.all_insights.to_csv()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
-        lineage_file = build_folder.path / BuildLineage.filename
-        lineage_file.parent.mkdir(parents=True, exist_ok=True)
-        lineage = BuildLineage.from_build_parameters_and_results(
-            parameters, build_folder, timestamp, duration
-        ).to_yaml()
+        lineage_file = build.build_dir / BuildLineage.filename
+        lineage = BuildLineage.from_build(build).to_yaml()
         safe_write(lineage_file, lineage)

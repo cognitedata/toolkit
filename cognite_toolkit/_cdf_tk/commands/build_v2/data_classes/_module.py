@@ -154,6 +154,13 @@ class BuildSource(BaseModel):
     def total_files(self) -> int:
         return sum(module.total_files for module in self.modules)
 
+    @property
+    def all_variables(self) -> list[BuildVariable]:
+        variables: dict[Path, BuildVariable] = {}
+        for module in self.modules:
+            variables.update({variable.id: variable for variable in module.variables})
+        return list(variables.values())
+
 
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)
