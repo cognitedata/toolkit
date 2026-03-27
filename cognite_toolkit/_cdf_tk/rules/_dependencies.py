@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
 
-class Dependencies(ToolkitGlobalRulSet):
+class DependencyRuleSet(ToolkitGlobalRulSet):
     CODE_PREFIX = "MISSING-DEPENDENCY"
     DISPLAY_NAME = "dependencies"
 

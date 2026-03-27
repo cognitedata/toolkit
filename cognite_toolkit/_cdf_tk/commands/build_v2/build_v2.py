@@ -691,11 +691,11 @@ class BuildV2Command(ToolkitCommand):
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
         with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status == "ready")
+            ready_step_count = sum(1 for step in plan if step.status.code == "ready")
             validating_task = progress.add_task("Checking modules", total=ready_step_count)
             validation_results: list[ValidationResult] = []
             for step in plan:
-                if step.status != "ready":
+                if step.status.code != "ready":
                     continue
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Checking {display_name}...")

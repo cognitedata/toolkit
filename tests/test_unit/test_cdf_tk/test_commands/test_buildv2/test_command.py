@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, Res
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 BASE_URL = "http://neat.cognitedata.com"
 
@@ -188,7 +189,7 @@ name: My Space
         my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
         assert {
             "resource_count": len(my_module.resources),
-            "syntax_warnings": sum(1 for r in my_module.resources if r.syntax_warning is not None),
+            "syntax_warnings": len(my_module.syntax_warnings_by_source),
             "insight_codes": {i.code for i in folder.all_insights if i.code},
         } == {
             "resource_count": 1,
@@ -240,9 +241,8 @@ class TestDependencyValidationSearchConfig:
                 dependencies={(ViewCRUD, view_ref)},
             )
         )
-
-        insights = BuildV2Command()._dependency_validation([module], None)
-        assert not any(getattr(i, "code", None) == "MISSING-DEPENDENCY" for i in insights)
+        result = list(DependencyRuleSet([module]).validate())
+        assert len(result) == 0
 
 
 class TestValidateBuildParameters:
