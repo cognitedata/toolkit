@@ -42,10 +42,11 @@ class FailedValidation(BaseModel):
     message: str
     source: str
 
+
 class RuleSetStatus(BaseModel):
     code: Literal["ready", "skip", "unavailable"]
     message: str | None = None
-    source: str
+
 
 class ToolkitGlobalRulSet(ABC):
     """Validation of all modules as a whole.

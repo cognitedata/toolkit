@@ -1,68 +1,64 @@
-from ._base import ToolkitGlobalRulSet, ToolkitRule
-
-
-class NeatRules(ToolkitRule):
-    code = "NEAT"
-
-    def __init__(self):
-
-    def _global_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
-        """This validation is performed per resource type and not per individual resource and against CDF
-        for all modules. This validation will leverage external plugins such as NEAT.
-        """
-        # Can be parallelized with number of plugins.
-        # Neat is done inside the global validation.
-        insights = InsightList()
-        for built_module in built_modules:
-            if not built_module.files_built:
-                continue
-            data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
-            if data_model_files := built_module.resource_by_type_by_kind.get(data_model_type):
-                if NeatPlugin.installed() and client and data_model_files:
-                    neat = NeatPlugin(client)
-                    for data_model_file in data_model_files:
-                        try:
-                            for insight in neat.validate(data_model_file.parent, data_model_file):
-                                if insight not in built_module.insights:
-                                    insights.append(insight)
-                        except Exception as e:
-                            self.warn(
-                                HighSeverityWarning(
-                                    f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}"
-                                )
-                            )
-                            continue
-        return insights
-
-
-
-
-
+from collections.abc import Iterable
+from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite.neat._client import NeatClient
+
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
-    InsightList,
+    Insight,
     ModelSyntaxWarning,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.cruds import DataModelCRUD
+
+from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
 if TYPE_CHECKING:
     from cognite.neat._toolkit_adapter import NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
-class NeatPlugin:
-    def __init__(self, client: ToolkitClient) -> None:
-        from cognite.neat._toolkit_adapter import NeatClient
+class NeatRules(ToolkitGlobalRulSet):
+    CODE_PREFIX = "NEAT"
+    DISPLAY_NAME = "Neat (data modeling)"
 
-        self._client = NeatClient(client._config)
-        self._cdf_snapshot: SchemaSnapshot | None = None
-        self._cdf_limits: SchemaLimits | None = None
+    def get_status(self) -> RuleSetStatus:
+        is_installed = self.installed()
+        if is_installed and self.client:
+            return RuleSetStatus(
+                code="ready",
+                message="Neat is installed and will be used to validate data models. This validation may take a while since it needs to fetch the entire CDF snapshot.",
+            )
+        missing: list[str] = []
+        if not is_installed:
+            missing.append("Neat is not installed. Install with `pip install cognite-neat`.")
+        if not self.client:
+            missing.append("Neat requires a client. Provide client credentials to use Neat for validation.")
+        message = "Neat is unavailable. " + " ".join(missing)
+        return RuleSetStatus(code="unavailable", message=message)
 
-    def validate(self, data_model_dir: Path, data_model_file: Path) -> InsightList:
+    def validate(self) -> Iterable[Insight | FailedValidation]:
+        data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
+        for module in self.modules:
+            if data_model_files := module.resource_by_type_by_kind.get(data_model_type):
+                for data_model_file in data_model_files:
+                    try:
+                        yield from self._validate_model(data_model_file.parent, data_model_file)
+                    except Exception as e:
+                        yield FailedValidation(
+                            message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
+                            source=data_model_file.as_posix(),
+                        )
+
+    @classmethod
+    def installed(cls) -> bool:
+        """Check if neat is installed"""
+        return find_spec("cognite.neat") is not None
+
+    def _validate_model(self, data_model_dir: Path, data_model_file: Path) -> Iterable[Insight]:
         """Validates a data model using Neat and returns a list of insights.
 
         Args:
@@ -83,14 +79,14 @@ class NeatPlugin:
         schema = importer.to_data_model()
 
         orchestrator = DmsDataModelRulesOrchestrator(
-            cdf_snapshot=self.cdf_snapshot, limits=self.cdf_limits, modus_operandi="rebuild"
+            cdf_snapshot=self._cdf_snapshot, limits=self._cdf_limits, modus_operandi="rebuild"
         )
         orchestrator.run(schema)
 
-        return self.issues_to_insights(orchestrator.issues)
+        yield from self.issues_to_insights(orchestrator.issues)
 
     @classmethod
-    def issues_to_insights(cls, issues: NeatIssueList) -> InsightList:
+    def issues_to_insights(cls, issues: NeatIssueList) -> Iterable[Insight]:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -101,35 +97,30 @@ class NeatPlugin:
         """
         from cognite.neat._toolkit_adapter import NeatConsistencyError, NeatModelSyntaxError, NeatRecommendation
 
-        insights = InsightList()
-
         for issue in issues:
             if isinstance(issue, NeatModelSyntaxError):
-                insights.append(ModelSyntaxWarning.model_validate(issue.model_dump()))
+                yield ModelSyntaxWarning.model_validate(issue.model_dump())
             elif isinstance(issue, NeatRecommendation):
-                insights.append(Recommendation.model_validate(issue.model_dump()))
+                yield Recommendation.model_validate(issue.model_dump())
             elif isinstance(issue, NeatConsistencyError):
-                insights.append(ConsistencyError.model_validate(issue.model_dump()))
+                yield ConsistencyError.model_validate(issue.model_dump())
 
-        return insights
+    @cached_property
+    def _neat_client(self) -> NeatClient:
+        if self.client is None:
+            raise RuntimeError(
+                "NeatRules requires a client to be provided to fetch CDF snapshot and limits for validation. Please provide client credentials."
+            )
+        return NeatClient(self.client._config)
 
-    @property
-    def cdf_limits(self) -> SchemaLimits:
+    @cached_property
+    def _cdf_limits(self) -> SchemaLimits:
         from cognite.neat._toolkit_adapter import SchemaLimits
 
-        if not self._cdf_limits:
-            self._cdf_limits = SchemaLimits.from_api_response(self._client.statistics.project())
-        return self._cdf_limits
+        return SchemaLimits.from_api_response(self._neat_client.statistics.project())
 
-    @property
-    def cdf_snapshot(self) -> SchemaSnapshot:
+    @cached_property
+    def _cdf_snapshot(self) -> SchemaSnapshot:
         from cognite.neat._data_model._snapshot import SchemaSnapshot
 
-        if not self._cdf_snapshot:
-            self._cdf_snapshot = SchemaSnapshot.fetch_entire_cdf(self._client)
-        return self._cdf_snapshot
-
-    @classmethod
-    def installed(cls) -> bool:
-        """Check if neat is installed"""
-        return find_spec("cognite.neat") is not None
+        return SchemaSnapshot.fetch_entire_cdf(self._neat_client)

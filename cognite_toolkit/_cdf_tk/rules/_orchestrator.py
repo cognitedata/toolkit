@@ -2,7 +2,7 @@ from collections.abc import Set
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
-from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRulSet, ToolkitLocalRule, ToolkitRule
+from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRulSet, ToolkitLocalRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 _LOCAL_RULES_REGISTRY: list[type[ToolkitLocalRule]] | None = None
@@ -32,21 +32,19 @@ def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGl
     return _GLOBAL_RULES_REGISTRY
 
 
-class RuleOrchestrator:
+class LocalRulesOrchestrator:
     def __init__(self, exclude_rule_codes: Set[str] | None = None, enable_alpha_validators: bool = False) -> None:
         self.exclude_rule_codes = exclude_rule_codes or set()
         self._enable_alpha_validators = enable_alpha_validators
 
-    def can_run_rule(self, rule_cls: type[ToolkitRule]) -> bool:
-        if rule_cls.code in self.exclude_rule_codes:
+    def can_run_rule(self, rule_cls: type[ToolkitLocalRule]) -> bool:
+        if rule_cls.CODE in self.exclude_rule_codes:
             return False
-        if not rule_cls.alpha:
+        if not rule_cls.IS_ALPHA:
             return True
         # Alpha Rule
         return self._enable_alpha_validators
 
-
-class LocalRulesOrchestrator(RuleOrchestrator):
     def run(self, module: Module) -> list[Insight]:
         """Run all applicable rules on the provided modules while updating modules insights.
 
