@@ -736,7 +736,15 @@ class DeployV2Command(ToolkitCommand):
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
     def _merge_results(self, results: Sequence[DeploymentResult], other: Sequence[DeploymentResult]) -> None:
-        raise NotImplementedError()
+        """Merge results from the clean operation into the deploy results.
+
+        This modifies `results` in place, adding counts from `other` (typically the clean/delete operation).
+        Results are matched by resource_name.
+        """
+        other_by_name = {result.resource_name: result for result in other}
+        for result in results:
+            if clean_result := other_by_name.get(result.resource_name):
+                result += clean_result
 
     @classmethod
     def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
