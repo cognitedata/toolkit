@@ -617,7 +617,7 @@ class DeployV2Command(ToolkitCommand):
                             identifier,
                             code="NOT-EXISTING",
                             source_file=resource.source_files[0],
-                            reason="Identifier does not exist in CDF",
+                            reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
                     )
                     continue
@@ -627,7 +627,7 @@ class DeployV2Command(ToolkitCommand):
                             identifier,
                             code="HAS-DATA",
                             source_file=resource.source_files[0],
-                            reason="Resource has data and --drop-data flag is not set, skipping deletion to avoid data loss",
+                            reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
                     )
                     continue
@@ -789,8 +789,6 @@ class DeployV2Command(ToolkitCommand):
         other_by_name = {result.resource_name: result for result in clean_results}
         for result in results:
             if other_result := other_by_name.get(result.resource_name):
-                # We do not include skipped from the clean results.
-                other_result.skipped.clear()
                 result += other_result
 
     @classmethod
