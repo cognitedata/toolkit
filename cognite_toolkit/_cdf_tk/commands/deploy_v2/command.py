@@ -50,6 +50,7 @@ from cognite_toolkit._version import __version__
 
 @dataclass
 class DeployOptions:
+    operation: Literal["deploy", "clean"] = "deploy"
     cdf_project: str | None = None
     dry_run: bool = False
     include: Sequence[str] | None = None
@@ -202,7 +203,16 @@ class DeployV2Command(ToolkitCommand):
 
         self._display_plan(plan, client.console)
 
+        clean_result: Sequence[DeploymentResult] | None = None
+        if options.drop:
+            clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
+            if options.operation == "clean":
+                return clean_result
+
         results = self.apply_plan(client, plan, options)
+
+        if clean_result is not None:
+            self._merge_results(results, clean_result)
 
         # Todo: Some mixpanel tracking??
         self._display_results(results, client.console, options.verbose)
@@ -431,7 +441,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def apply_plan(
-        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions
+        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, is_delete: bool = False
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
 
@@ -724,6 +734,9 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
+
+    def _merge_results(self, results: Sequence[DeploymentResult], other: Sequence[DeploymentResult]) -> None:
+        raise NotImplementedError()
 
     @classmethod
     def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
