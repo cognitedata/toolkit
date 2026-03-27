@@ -5,6 +5,7 @@ from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
 
@@ -160,13 +161,14 @@ class ConversionIssue(MigrationIssue):
 
     type: Literal["conversion"] = "conversion"
     asset_centric_id: AssetCentricId
-    instance_id: NodeUntypedId
+    instance_id: NodeUntypedId | RecordId
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
     ignored_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_space: str | None = None
+    no_mappable_properties: bool = False
 
     @property
     def has_issues(self) -> bool:
@@ -177,6 +179,7 @@ class ConversionIssue(MigrationIssue):
             or self.invalid_instance_property_types
             or self.failed_conversions
             or self.missing_instance_space
+            or self.no_mappable_properties
         )
 
     @field_serializer("asset_centric_id")

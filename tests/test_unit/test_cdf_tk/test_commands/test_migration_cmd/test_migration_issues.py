@@ -64,6 +64,7 @@ class TestMigrationIssues:
             "missingInstanceProperties": [],
             "ignoredAssetCentricProperties": [],
             "missingInstanceSpace": None,
+            "noMappableProperties": False,
         }
 
     def test_conversion_issue_with_all_fields(self) -> None:
@@ -94,6 +95,7 @@ class TestMigrationIssues:
             "failedConversions": [{"propertyId": "value", "value": "not_a_number", "error": "Cannot convert to float"}],
             "ignoredAssetCentricProperties": [],
             "missingInstanceSpace": None,
+            "noMappableProperties": False,
         }
 
     def test_write_issue_minimal(self) -> None:
