@@ -438,6 +438,11 @@ class BuildV2Command(ToolkitCommand):
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
                         ignored_files=module.ignored_files,
+                        unresolved_variables_by_source={
+                            file.source_path: file.unresolved_variables
+                            for file in module.files
+                            if file.unresolved_variables
+                        },
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -755,6 +760,12 @@ class BuildV2Command(ToolkitCommand):
         failed_read_file_count = len(failed_read_files)
         ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
         ignore_file_count = len(ignored_files)
+        unresolved_files = {
+            source_path: variables
+            for module in build_folder.built_modules
+            for source_path, variables in module.unresolved_variables_by_source.items()
+        }
+        unresolved_file_count = len(unresolved_files)
 
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
@@ -767,6 +778,13 @@ class BuildV2Command(ToolkitCommand):
                 f"    ensure all your resources are included in the build."
             )
             border_color = max(border_color, 2)
+        if unresolved_file_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
+                f"    Make sure to define the variables in the config.{config_yaml_name}.yaml file and that they are correctly placed in the variables section matching the file path."
+            )
+            border_color = max(border_color, 2)
+
         if ignored_files:
             most_common = Counter([file.code for file in ignored_files]).most_common(3)
             most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
@@ -829,6 +847,13 @@ class BuildV2Command(ToolkitCommand):
                     f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
                     style="dim",
                 )
+        if verbose and unresolved_files:
+            table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
+            table.add_column("Path")
+            table.add_column("Variables")
+            for source_path, variables in unresolved_files.items():
+                table.add_row(relative_to_if_possible(source_path).as_posix(), humanize_collection(variables))
+            console.print(table)
 
         if verbose and ignored_files:
             table = Table(title="Ignored Files", expand=False, show_edge=False)

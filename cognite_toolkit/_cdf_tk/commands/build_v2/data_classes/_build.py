@@ -75,6 +75,7 @@ class BuiltModule(BaseModel):
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
