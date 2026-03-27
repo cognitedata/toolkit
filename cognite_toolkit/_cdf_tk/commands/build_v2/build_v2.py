@@ -89,7 +89,7 @@ class BuildV2Command(ToolkitCommand):
 
         plan = self._create_validation_plan(built_modules, client)
         if parameters.verbose:
-            self._display_validation_plan(plan)
+            self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
         # Calculate build duration
@@ -653,8 +653,40 @@ class BuildV2Command(ToolkitCommand):
             plan.append(ValidationStep(status=status, rule=rule))
         return plan
 
-    def _display_validation_plan(self, plan: list[ValidationStep]) -> None:
-        # Todo: Implement
+    def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
+        ready_count = sum(1 for step in plan if step.status.code == "ready")
+        skip_count = sum(1 for step in plan if step.status.code == "skip")
+        unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
+
+        summary_lines = [f"[green]✓[/] [bold]{ready_count}[/] validations ready to run"]
+        border_color = 0
+        if skip_count:
+            summary_lines.append(f"[yellow]![/] [bold]{skip_count}[/] validations skipped")
+            border_color = max(border_color, 1)
+        if unavailable_count:
+            summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
+            border_color = max(border_color, 1)
+
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title="[bold]Validation Plan[/]",
+                border_style=border_style,
+                expand=False,
+            )
+        )
+
+        table = Table(title="Validation Steps", expand=False, show_edge=False)
+        table.add_column("Validation", style="bold")
+        table.add_column("Status", style="dim")
+        table.add_column("Message", style="dim")
+        for step in plan:
+            status_style = {"ready": "green", "skip": "yellow", "unavailable": "yellow"}[step.status.code]
+            status_display = f"[{status_style}]{step.status.code}[/]"
+            message = step.status.message or "-"
+            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
+        console.print(table)
         return None
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
