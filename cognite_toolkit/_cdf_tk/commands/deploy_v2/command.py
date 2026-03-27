@@ -480,6 +480,8 @@ class DeployV2Command(ToolkitCommand):
                     cdf_resource_by_id,
                     console,
                     options,
+                    is_delete,
+                    is_data_resource=isinstance(crud, ResourceContainerCRUD),
                 )
 
                 if options.dry_run:
@@ -572,6 +574,8 @@ class DeployV2Command(ToolkitCommand):
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console,
         options: DeployOptions,
+        is_delete: bool,
+        is_data_resource: bool,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, resource in resource_by_id.items():
@@ -590,29 +594,53 @@ class DeployV2Command(ToolkitCommand):
             resources.missing_env_vars_by_id[identifier] = resource.missing_env_vars
 
             cdf_resource = cdf_by_id.get(identifier)
-            if cdf_resource is None:
-                resources.to_create.append(resource.request)
-                continue
-            cdf_dict = crud.dump_resource(cdf_resource, resource.raw_dict)
-            if not options.force_update and cdf_dict == resource.raw_dict:
-                resources.unchanged.append(identifier)
-                continue
-            if crud.support_update:
-                resources.to_update.append(resource.request)
-            else:
-                resources.to_delete.append(identifier)
-                resources.to_create.append(resource.request)
-            if options.verbose:
-                diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
-                for sensitive in crud.sensitive_strings(resource.request):
-                    diff_str = diff_str.replace(sensitive, "********")
-                console.print(
-                    Panel(
-                        diff_str,
-                        title=f"{crud.display_name}: {identifier}",
-                        expand=False,
+
+            if is_delete:
+                if cdf_resource is None:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="NOT-EXISTING",
+                            source_file=resource.source_files[0],
+                            reason="Identifier does not exist in CDF",
+                        )
                     )
-                )
+                    continue
+                if not options.drop_data and is_data_resource:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="HAS-DATA",
+                            source_file=resource.source_files[0],
+                            reason="Resource has data and --drop-data flag is not set, skipping deletion to avoid data loss",
+                        )
+                    )
+                    continue
+                resources.to_delete.append(identifier)
+            else:
+                if cdf_resource is None:
+                    resources.to_create.append(resource.request)
+                    continue
+                cdf_dict = crud.dump_resource(cdf_resource, resource.raw_dict)
+                if not options.force_update and cdf_dict == resource.raw_dict:
+                    resources.unchanged.append(identifier)
+                    continue
+                if crud.support_update:
+                    resources.to_update.append(resource.request)
+                else:
+                    resources.to_delete.append(identifier)
+                    resources.to_create.append(resource.request)
+                if options.verbose:
+                    diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
+                    for sensitive in crud.sensitive_strings(resource.request):
+                        diff_str = diff_str.replace(sensitive, "********")
+                    console.print(
+                        Panel(
+                            diff_str,
+                            title=f"{crud.display_name}: {identifier}",
+                            expand=False,
+                        )
+                    )
         return resources
 
     @classmethod
