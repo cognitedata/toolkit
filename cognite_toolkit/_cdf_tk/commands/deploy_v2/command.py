@@ -205,7 +205,7 @@ class DeployV2Command(ToolkitCommand):
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
-            # If we are deploying and it is dry-run, we skip this step, as apply_plan accounts
+            # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
             # for drop in dry-run mode.
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
@@ -214,7 +214,7 @@ class DeployV2Command(ToolkitCommand):
         results = self.apply_plan(client, plan, options)
 
         if clean_result is not None:
-            self._merge_results(results, clean_result)
+            self._merge_clean_results(results, clean_result)
 
         # Todo: Some mixpanel tracking??
         self._display_results(results, client.console, options.verbose)
@@ -765,16 +765,20 @@ class DeployV2Command(ToolkitCommand):
     def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
-    def _merge_results(self, results: Sequence[DeploymentResult], other: Sequence[DeploymentResult]) -> None:
+    def _merge_clean_results(
+        self, results: Sequence[DeploymentResult], clean_results: Sequence[DeploymentResult]
+    ) -> None:
         """Merge results from the clean operation into the deploy results.
 
         This modifies `results` in place, adding counts from `other` (typically the clean/delete operation).
         Results are matched by resource_name.
         """
-        other_by_name = {result.resource_name: result for result in other}
+        other_by_name = {result.resource_name: result for result in clean_results}
         for result in results:
-            if clean_result := other_by_name.get(result.resource_name):
-                result += clean_result
+            if other_result := other_by_name.get(result.resource_name):
+                # We do not include skipped from the clean results.
+                other_result.skipped.clear()
+                result += other_result
 
     @classmethod
     def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
