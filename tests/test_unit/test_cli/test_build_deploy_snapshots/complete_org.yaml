@@ -699,8 +699,8 @@ SearchConfigResponse:
   useAsDescription: summary
   useAsName: title
   view:
-    externalId: complex-view
-    space: complex-space
+    externalId: complex_view
+    space: complex_space
 - columnsLayout:
   - property: name
     selected: true
@@ -709,8 +709,8 @@ SearchConfigResponse:
   useAsDescription: description
   useAsName: name
   view:
-    externalId: test-view
-    space: test-space
+    externalId: test_view
+    space: test_space
 SecurityCategoryResponse:
 - name: sc_demo_category
 SequenceResponse:
