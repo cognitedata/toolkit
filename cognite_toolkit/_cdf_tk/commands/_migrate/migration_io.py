@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
@@ -41,7 +41,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
@@ -89,12 +89,28 @@ class AssetCentricMigrationIO(
         bookmark: Bookmark | None = None,
     ) -> Iterator[Page]:
         file_location = bookmark if isinstance(bookmark, FileBookmark) else None
+
         if isinstance(selector, MigrationCSVFileSelector):
+            instance_spaces = list({SpaceId(space=item.instance_id.space) for item in selector.items})
             iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
+            space_source = self.client.migration.space_source.retrieve(
+                data_set_external_id=selector.data_set_external_id
+            )
+            if space_source is None:
+                raise ToolkitValueError(
+                    f"Could not instance space that {selector.data_set_external_id!r} is mapping to. Have you run `cdf migrate data-sets`?"
+                )
+            instance_spaces = [SpaceId(space=space_source.space)]
             iterator = self._stream_given_dataset(selector, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        existing = self.client.tool.spaces.retrieve(instance_spaces)
+        if missing := set(instance_spaces).difference({item.as_id() for item in existing}):
+            raise ToolkitValueError(
+                f"The following instance spaces do not exist in CDF: {humanize_collection(missing)}. Please create these spaces before running the migration."
+            )
+
         yield from (
             Page(
                 worker_id="main",
