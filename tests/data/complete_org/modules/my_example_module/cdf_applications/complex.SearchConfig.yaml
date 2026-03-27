@@ -1,6 +1,6 @@
 view:
-  externalId: complex-view
-  space: complex-space
+  externalId: complex_view
+  space: complex_space
 useAsName: title
 useAsDescription: summary
 columnsLayout:
