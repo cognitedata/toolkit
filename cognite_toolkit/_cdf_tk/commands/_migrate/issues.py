@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_serializer
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
@@ -188,10 +188,6 @@ class ConversionIssue(MigrationIssue):
             "resourceType": asset_centric_id.resource_type,
             "id": asset_centric_id.id_,
         }
-
-    @field_serializer("instance_id")
-    def serialize_instance_id(self, instance_id: NodeId | RecordId) -> dict[str, str]:
-        return {"space": instance_id.space, "externalId": instance_id.external_id}
 
 
 class WriteIssue(MigrationIssue):
