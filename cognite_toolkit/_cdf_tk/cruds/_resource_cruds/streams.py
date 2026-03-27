@@ -1,5 +1,5 @@
 import time
-from collections.abc import Hashable, Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from datetime import timedelta
 from typing import Any, Literal, final
 
@@ -87,14 +87,14 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         all_streams = self.client.streams.list()
         return iter(all_streams)
 
-    def iter_last_updated_time_windows(
+    def last_updated_time_windows(
         self, stream_external_id: str, start_ms: int | None = None
-    ) -> Iterator[dict[str, int] | None]:
-        """Yield lastUpdatedTime filter dicts to use in record queries.
+    ) -> list[dict[str, int] | None]:
+        """Return lastUpdatedTime filter dicts to use in record queries.
 
-        Each yielded dict is {"gte": ..., "lt": ...} representing one query window.
-        None is yielded for Mutable streams with no start_ms — meaning no time filter is needed.
-        Yields nothing if the stream does not exist.
+        Each dict is {"gte": ..., "lt": ...} representing one query window.
+        None is returned for Mutable streams with no start_ms — meaning no time filter is needed.
+        Returns an empty list if the stream does not exist.
 
         Immutable streams enforce a maxFilteringInterval per request, so the range
         [start_ms (or stream.createdTime), now) is split into consecutive windows.
@@ -102,19 +102,19 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         """
         streams = self.retrieve(ExternalId.from_external_ids([stream_external_id]))
         if not streams:
-            return
+            return []
         stream = streams[0]
         now_ms = int(time.time() * 1000)
         if stream.type == "Mutable":
             if start_ms is None:
-                yield None
-            else:
-                yield {"gte": start_ms, "lt": now_ms}
-            return
+                return [None]
+            return [{"gte": start_ms, "lt": now_ms}]
         effective_start_ms = start_ms if start_ms is not None else stream.created_time
         max_interval_ms: int | None = None
         if stream.settings and stream.settings.limits.max_filtering_interval:
             td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
             max_interval_ms = int(td.total_seconds() * 1000)
-        for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms):
-            yield {"gte": window_start, "lt": window_end}
+        return [
+            {"gte": window_start, "lt": window_end}
+            for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms)
+        ]
