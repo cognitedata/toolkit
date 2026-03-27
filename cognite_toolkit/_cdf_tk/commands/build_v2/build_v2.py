@@ -53,7 +53,6 @@ from cognite_toolkit._cdf_tk.cruds import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
     ToolkitValueError,
@@ -860,7 +859,6 @@ class BuildV2Command(ToolkitCommand):
 
                 table.add_row(failed_file.code, failed_file.error, display_path, fix)
             console.print(table)
-            raise ToolkitError(f"Cannot continue with {failed_read_file_count} failed read YAML files.")
 
         return None
 
