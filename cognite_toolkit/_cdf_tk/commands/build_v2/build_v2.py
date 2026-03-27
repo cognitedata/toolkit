@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
     BuildLineage,
@@ -59,7 +59,8 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -81,7 +82,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console)
+        self._display_module_sources(build_source, console, parameters.verbose)
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -190,15 +191,9 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
-        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
-        module_sources = parser.parse(build.yaml_files, build.variables)
-        return BuildSource(
-            module_dir=build.module_dir,
-            modules=module_sources,
-            insights=parser.errors,
-        )
+        return ModuleParser.parse(build)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
+    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -209,37 +204,112 @@ class BuildV2Command(ToolkitCommand):
                 for resource_type in module.resource_files_by_folder.keys()
             }
         )
+        ambiguous_selected_count = sum(1 for selection in build_source.ambiguous_selection if selection.is_selected)
+        misplaced_modules_count = len(build_source.misplaced_modules)
+        non_existing_module_count = len(build_source.non_existing_module_names)
+        invalid_variable_count = len(build_source.invalid_variables)
+        orphan_yaml_count = len(build_source.orphan_yaml_files)
 
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{total_files}[/] total resource files",
             f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
         ]
+        border_color = 0
+        errors: list[str] = []
         if read_variables:
             summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
-
-        has_issues = False
-        if build_source.insights:
-            summary_lines.append(f"[red]✗[/] [bold]{len(build_source.insights)}[/] issues found while reading modules")
-            has_issues = True
+        if ambiguous_selected_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+            )
+            border_color = 2
+            errors.append("ambiguous selected")
+        if misplaced_modules_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
+            )
+            border_color = 2
+            errors.append("misplaced modules")
+        if non_existing_module_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
+            )
+            border_color = 2
+            errors.append("non existing modules")
+        if invalid_variable_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
+            )
+            border_color = 2
+            errors.append("invalid variables")
+        if orphan_yaml_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
+            )
+            border_color = max(border_color, 1)
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
         console.print(
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
+                border_style=border_style,
                 expand=False,
             )
         )
-        if build_source.insights:
-            table = Table(title="Reading module issues", expand=False, show_edge=False)
-            table.add_column("Type", style="dim")
-            table.add_column("Code", style="dim")
-            table.add_column("Description", style="dim")
-            table.add_column("Fix", style="dim")
-            for issue in build_source.insights:
-                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+
+        # Print detailed issue information
+        if ambiguous_selected_count:
+            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Matching Paths", style="dim")
+            for selection in build_source.ambiguous_selection:
+                if selection.is_selected:
+                    paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
+                    table.add_row(selection.name, paths_str)
             console.print(table)
+
+        if misplaced_modules_count:
+            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            table.add_column("Module Path", style="red")
+            table.add_column("Parent Modules", style="dim")
+            for misplaced in build_source.misplaced_modules:
+                parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
+                table.add_row(misplaced.id.as_posix(), parents_str)
+            console.print(table)
+
+        if non_existing_module_count:
+            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Closest Matches", style="dim")
+            for non_existing in build_source.non_existing_module_names:
+                matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
+                table.add_row(non_existing.name, matches_str)
+            console.print(table)
+
+        if invalid_variable_count:
+            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            table.add_column("Variable Path", style="red")
+            table.add_column("Error", style="dim")
+            for invalid_var in build_source.invalid_variables:
+                table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
+            console.print(table)
+
+        if verbose and orphan_yaml_count:
+            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+            table.add_column("File Path", style="yellow")
+            for orphan_file in build_source.orphan_yaml_files:
+                display_path = relative_to_if_possible(orphan_file)
+                table.add_row(display_path.as_posix())
+            console.print(table)
+
+        if errors:
+            console.print("\n")
+            raise ToolkitValueError(
+                f"Cannot build {module_dir_display.as_posix()!r}. You are not allowed to have"
+                f" {humanize_collection(errors)}."
+            )
         return None
 
     @classmethod
@@ -424,6 +494,12 @@ class BuildV2Command(ToolkitCommand):
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
                 error=f"Failed to parse YAML content: {yaml_error!s}",
+            )
+        if parsed_yaml is None:
+            return FailedReadYAMLFile(
+                source_path=resource_file,
+                code="EMPTY-YAML",
+                error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
             )
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
@@ -633,9 +709,17 @@ class BuildV2Command(ToolkitCommand):
                 if NeatPlugin.installed() and client and data_model_files:
                     neat = NeatPlugin(client)
                     for data_model_file in data_model_files:
-                        for insight in neat.validate(data_model_file.parent, data_model_file):
-                            if insight not in built_module.insights:
-                                insights.append(insight)
+                        try:
+                            for insight in neat.validate(data_model_file.parent, data_model_file):
+                                if insight not in built_module.insights:
+                                    insights.append(insight)
+                        except Exception as e:
+                            self.warn(
+                                HighSeverityWarning(
+                                    f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}"
+                                )
+                            )
+                            continue
         return insights
 
     def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
