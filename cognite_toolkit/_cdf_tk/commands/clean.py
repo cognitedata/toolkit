@@ -343,7 +343,14 @@ class CleanCommand(ToolkitCommand):
             if include is not None and folder_name not in include:
                 continue
             if folder_name in read_resource_folders:
-                selected_loaders.update({loader_cls: loader_cls.dependencies for loader_cls in loader_classes})
+                selected_loaders.update(
+                    {
+                        loader_cls: (loader_cls.dependencies | {FileCRUD})
+                        if issubclass(loader_cls, SimulatorModelRevisionCRUD)
+                        else loader_cls.dependencies
+                        for loader_cls in loader_classes
+                    }
+                )
                 continue
             if not (build_dir / folder_name).is_dir():
                 continue
