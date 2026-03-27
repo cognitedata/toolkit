@@ -585,8 +585,11 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _find_unresolved_variables(cls, content: str) -> list[str]:
-        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
-        return list(all_unmatched)
+        return [
+            # Removing the '{{' and '}}'
+            variable[2:-2].strip()
+            for variable in re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        ]
 
     @classmethod
     def _substitute_variables_extra_content(
