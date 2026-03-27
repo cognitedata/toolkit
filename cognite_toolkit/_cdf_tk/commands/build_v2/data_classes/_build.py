@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
-from ._module import BuildVariable, FailedReadYAMLFile, ModuleId, ResourceType
+from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -76,6 +76,7 @@ class BuiltModule(BaseModel):
     insights: list[Insight] = Field(default_factory=list)
     syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
+    ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
     @property
     def files_built(self) -> bool:

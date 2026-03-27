@@ -52,7 +52,12 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
+    ToolkitFileNotFoundError,
+    ToolkitNotADirectoryError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
@@ -94,7 +99,7 @@ class BuildV2Command(ToolkitCommand):
         validation_results = self._run_validation(plan, console)
 
         build_folder = BuildFolder(
-            organization_dir=parameters.organization_dir,
+            organization_dir=parameters.organization_dir.resolve(),
             build_dir=parameters.build_dir,
             built_modules=built_modules,
             validation_results=validation_results,
@@ -103,7 +108,7 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(build_folder, console)
+        self._display_build_folder(build_folder, parameters.config_yaml_name or "", console, parameters.verbose)
 
         self._write_results(build_folder)
 
@@ -433,6 +438,7 @@ class BuildV2Command(ToolkitCommand):
                             if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
+                        ignored_files=module.ignored_files,
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -501,11 +507,11 @@ class BuildV2Command(ToolkitCommand):
             if unresolved_variables:
                 error = (
                     f"Failed to parse YAML content. "
-                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}."
+                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}.\n"
                     f"Error: {yaml_error!s}"
                 )
             else:
-                error = f"Failed to parse YAML content: {yaml_error!s}"
+                error = f"Failed to parse YAML content.\n{yaml_error!s}"
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
@@ -737,31 +743,51 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
+    def _display_build_folder(
+        self, build_folder: BuildFolder, config_yaml_name: str, console: Console, verbose: bool
+    ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
         resource_type_count = len(
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
         syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
+        failed_read_files = [file for module in build_folder.built_modules for file in module.failed_files]
+        failed_read_file_count = len(failed_read_files)
+        ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
+        ignore_file_count = len(ignored_files)
 
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{resource_count}[/] resources",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        has_issues = False
+        border_color = 0
+        if failed_read_file_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{failed_read_file_count}[/] resource files failed to be read.\n    These files are ignored in the build, but you should fix the issues to\n"
+                f"    ensure all your resources are included in the build."
+            )
+            border_color = max(border_color, 2)
+        if ignored_files:
+            most_common = Counter([file.code for file in ignored_files]).most_common(3)
+            most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
+            summary_lines.append(
+                f"[yellow]![/] [bold]{ignore_file_count}[/] resource files were ignored. The most common reasons {most_common_str}."
+            )
+            border_color = max(border_color, 1)
+
         if syntax_warning_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
             )
-            has_issues = True
+            border_color = max(border_color, 1)
+
         for validation in build_folder.validation_results:
             if validation.failed:
                 prefix = "[red]✗[/]"
             elif validation.insights:
                 prefix = "[yellow]![/]"
-                has_issues = True
+                border_color = max(border_color, 1)
             else:
                 prefix = "[green]✓[/]"
             suffix: list[str] = []
@@ -780,7 +806,7 @@ class BuildV2Command(ToolkitCommand):
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
-                border_style="yellow" if has_issues else "green",
+                border_style={0: "green", 1: "yellow", 2: "red"}[border_color],
                 expand=False,
             )
         )
@@ -804,6 +830,38 @@ class BuildV2Command(ToolkitCommand):
                     f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
                     style="dim",
                 )
+
+        if verbose and ignored_files:
+            table = Table(title="Ignored Files", expand=False, show_edge=False)
+            table.add_column("Code", style="bold")
+            table.add_column("Path", style="bold")
+            table.add_column("Reason", style="bold")
+            for file in ignored_files:
+                table.add_row(file.code, relative_to_if_possible(file.filepath).as_posix(), file.reason)
+            console.print(table)
+
+        if failed_read_file_count:
+            available_variable_names = {variable.name for variable in build_folder.all_variables}
+            table = Table(title="Failed Read Files", expand=False, show_edge=True, border_style="red", show_lines=True)
+            table.add_column(
+                "Code",
+            )
+            table.add_column("Description")
+            table.add_column("File Path")
+            table.add_column("Fix")
+            for failed_file in failed_read_files:
+                display_path = relative_to_if_possible(failed_file.source_path).as_posix()
+                fix = ""
+                if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
+                    fix = (
+                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the config.{config_yaml_name}.yaml.\n"
+                        "Make sure they are placed correctly in the variables section matching the file path."
+                    )
+
+                table.add_row(failed_file.code, failed_file.error, display_path, fix)
+            console.print(table)
+            raise ToolkitError(f"Cannot continue with {failed_read_file_count} failed read YAML files.")
+
         return None
 
     def _write_results(self, build: BuildFolder) -> None:
