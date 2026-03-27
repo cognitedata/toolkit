@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from cognite.neat._toolkit_adapter import NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
-class NeatRules(ToolkitGlobalRulSet):
+class NeatRuleSet(ToolkitGlobalRulSet):
     CODE_PREFIX = "NEAT"
     DISPLAY_NAME = "Neat (data modeling)"
 
