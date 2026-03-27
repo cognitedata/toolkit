@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeId,
     SpaceId,
     ViewId,
+    ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ContainerFilter,
@@ -813,7 +814,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
             batches.append(current_batch)
         return batches
 
-    def retrieve(self, ids: Sequence[ViewId]) -> list[ViewResponse]:
+    def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:
         return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
 
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:

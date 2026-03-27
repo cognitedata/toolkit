@@ -87,7 +87,7 @@ class NeatRuleSet(ToolkitGlobalRulSet):
         yield from self.issues_to_insights(orchestrator.issues)
 
     @classmethod
-    def issues_to_insights(cls, issues: NeatIssueList) -> Iterable[Insight]:
+    def issues_to_insights(cls, issues: "NeatIssueList") -> Iterable[Insight]:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -107,7 +107,7 @@ class NeatRuleSet(ToolkitGlobalRulSet):
                 yield ConsistencyError.model_validate(issue.model_dump())
 
     @cached_property
-    def _neat_client(self) -> NeatClient:
+    def _neat_client(self) -> "NeatClient":
         if self.client is None:
             raise RuntimeError(
                 "NeatRules requires a client to be provided to fetch CDF snapshot and limits for validation. Please provide client credentials."
@@ -115,13 +115,13 @@ class NeatRuleSet(ToolkitGlobalRulSet):
         return NeatClient(self.client._config)
 
     @cached_property
-    def _cdf_limits(self) -> SchemaLimits:
+    def _cdf_limits(self) -> "SchemaLimits":
         from cognite.neat._toolkit_adapter import SchemaLimits
 
         return SchemaLimits.from_api_response(self._neat_client.statistics.project())
 
     @cached_property
-    def _cdf_snapshot(self) -> SchemaSnapshot:
+    def _cdf_snapshot(self) -> "SchemaSnapshot":
         from cognite.neat._data_model._snapshot import SchemaSnapshot
 
         return SchemaSnapshot.fetch_entire_cdf(self._neat_client)

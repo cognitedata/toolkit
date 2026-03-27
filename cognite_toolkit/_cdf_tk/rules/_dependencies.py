@@ -33,6 +33,7 @@ class DependencyRuleSet(ToolkitGlobalRulSet):
                 for crud_cls, dependency_id in resource.dependencies:
                     if (crud_cls, dependency_id) not in built_resource_ids:
                         missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
+
         if self.client:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 crud = crud_cls(self.client, None, None)
