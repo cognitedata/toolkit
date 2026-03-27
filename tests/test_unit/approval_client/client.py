@@ -61,13 +61,14 @@ from requests import Response
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
     InstanceRequest,
     NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
@@ -764,6 +765,35 @@ class ApprovalToolkitClient:
                 for item in items
             ]
 
+        def create_cognite_file(items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
+            created_resources[resource_cls.__name__].extend(items)
+            return [
+                InstanceSlimDefinition(
+                    instance_type="node",
+                    version=1,
+                    was_modified=True,
+                    space=item.space,
+                    external_id=item.external_id,
+                    created_time=1,
+                    last_updated_time=2,
+                )
+                for item in items
+            ]
+
+        def create_filemetadata_v2(
+            items: Sequence[FileMetadataRequest], overwrite: bool = False
+        ) -> list[FileMetadataResponse]:
+            return [
+                FileMetadataResponse(
+                    **item.dump(),
+                    created_time=1,
+                    last_updated_time=2,
+                    id=LookUpAPIMock.create_id(item.external_id or "unknown"),
+                    uploaded=True,
+                )
+                for item in items
+            ]
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -784,6 +814,8 @@ class ApprovalToolkitClient:
                 create,
                 create_hosted_extractor_source,
                 create_instances_pydantic,
+                create_cognite_file,
+                create_filemetadata_v2,
             ]
         }
         if mock_method not in available_create_methods:

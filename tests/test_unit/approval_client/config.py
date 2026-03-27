@@ -803,7 +803,7 @@ API_RESOURCES = [
         resource_cls=CogniteFileResponse,
         _write_cls=CogniteFileRequest,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "create": [Method(api_class_method="create", mock_class_method="create_cognite_file")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
@@ -881,7 +881,7 @@ API_RESOURCES = [
         resource_cls=FileMetadataResponse,
         _write_cls=FileMetadataRequest,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "create": [Method(api_class_method="create", mock_class_method="create_filemetadata_v2")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve_filemetadata"),
             ],

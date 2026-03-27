@@ -1,0 +1,404 @@
+APMConfigResponse:
+- externalId: default_infield_config_minimal
+  instanceType: node
+  sources:
+  - properties:
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      featureConfiguration:
+        rootLocationConfigurations:
+        - appDataInstanceSpace: sp_infield_oid_app_data
+          assetExternalId: WMT:VAL
+          checklistAdmins:
+          - gp_infield_oid_checklist_admins
+          dataSetId: 7982613576047462211
+          sourceDataInstanceSpace: sp_asset_oid_source
+          templateAdmins:
+          - gp_infield_oid_template_admins
+      name: Infield APM App Config
+    source:
+      externalId: APM_Config
+      space: APM_Config
+      type: view
+      version: '1'
+  space: APM_Config
+AssetResponse:
+- dataSetId: 9434864499692429728
+  description: This is the root asset on Drammen
+  externalId: Drammen_root
+  name: RootAsset
+  source: doctrino
+- dataSetId: 8534518845016003109
+  description: This is the root asset on Oslo
+  externalId: Oslo_root
+  name: RootAsset
+  source: doctrino
+CogniteFileResponse:
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      mimeType: text/plain
+      name: anotherfile.txt
+      sourceContext: 'cognite-toolkit-hash: 736fbca0'
+      sourceCreatedTime: '2023-01-01T00:00:00Z'
+      sourceCreatedUser: I
+      sourceUpdatedTime: '2024-01-01T00:00:00Z'
+      sourceUpdatedUser: Myself
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
+DataProductResponse:
+- description: Curated data product.
+  externalId: my_data_product
+  isGoverned: true
+  name: My Data Product
+  schemaSpace: sp_schema
+  tags:
+  - tag
+DataProductVersionResponse:
+- dataModel:
+    externalId: my_data_model
+    version: '1'
+    views:
+    - externalId: my_view
+      instanceSpaces:
+        read:
+        - sp_data
+        write:
+        - sp_data
+  description: Initial version of the data product.
+  status: published
+  version: 1.0.0
+DataSetResponse:
+- description: This is the dataset for all assets on Drammen
+  externalId: ds_Drammen_assets
+  name: Dataset for assets on Drammen
+- description: This is the dataset for all assets on Oslo
+  externalId: ds_Oslo_assets
+  name: Dataset for assets on Oslo
+- description: This dataset is used for all the resources in the complete_org.
+  externalId: ds_complete_org
+  name: Example dataset.
+FunctionResponse:
+- description: Uses multiple modules.
+  externalId: fn_multi_file_function
+  fileId: 13877181645287870980
+  metadata:
+    cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
+    version: '1'
+  name: Multi File Function
+  owner: doctrino
+  runtime: py311
+GraphQLDataModelResponse:
+- description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
+  externalId: AssetHierarchy
+  graphQlDml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n\
+    \  description: String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n\
+    \  description: String\n}\n\n\ntype Country {\n  name: String!\n  iso3166Alpha2:\
+    \ String!\n  iso3166Alpha3: String!\n  iso3166Numeric: String!\n  parent: GeoRegion\n\
+    \  flag: String\n}\n\n\ntype Product {\n  name: String!\n  description: String\n\
+    }\n\n\ntype TimeZone {\n  name: String!\n  description: String\n}\n\ntype SiteType\
+    \ {\n  name: String!\n  description: String\n}\n\ntype Language {\n  name: String!\n\
+    \  description: String\n  LanCode: String\n  sapCode: String\n  enablonCode: String\n\
+    }\n\ntype CoordinateReferenceSystem {\n  id: String!\n  name: String!\n}\n\ntype\
+    \ Company {\n    name: String!\n    description: String\n    code: String\n}\n\
+    \ninterface Hierarchical {\n  code: String\n  active: Boolean\n  parent: Hierarchical\n\
+    \  path: [String]\n  level: Int\n}\n"
+  name: Asset Hierarchy
+  preserveDml: true
+  space: sp_schema
+  version: '3_0_2'
+InFieldCDMLocationConfigResponse:
+- externalId: my_location_config
+  instanceType: node
+  sources:
+  - properties:
+      accessManagement:
+        checklistAdmins:
+        - gp_infield_checklist_admins
+        - gp_location_admins
+        templateAdmins:
+        - gp_infield_template_admins
+        - gp_location_admins
+      dataExplorationConfig:
+        defaultView: asset_hierarchy
+        enabled: true
+        filters:
+        - type: status
+          values:
+          - active
+          - inactive
+        - type: location
+          values:
+          - plant_a
+          - plant_b
+        searchEnabled: true
+      dataFilters:
+        assets:
+          instanceSpaces:
+          - sp_my_data_space
+          path:
+            externalId: asset_hierarchy_root
+            space: sp_my_data_space
+        files:
+          instanceSpaces:
+          - sp_my_data_space
+          - sp_shared_space
+          path:
+            externalId: root_location_path
+            space: sp_my_data_space
+        maintenanceOrders:
+          instanceSpaces:
+          - sp_maintenance_space
+        notifications:
+          instanceSpaces:
+          - sp_notifications_space
+        operations:
+          instanceSpaces:
+          - sp_operations_space
+        timeseries:
+          instanceSpaces:
+          - sp_my_data_space
+      dataStorage:
+        appInstanceSpace: sp_infield_app_space
+        rootLocation:
+          externalId: location_root_node
+          space: sp_my_data_space
+      description: Example InField CDM location configuration for demonstration purposes
+      disciplines:
+      - externalId: discipline_electrical
+        name: Electrical
+      - externalId: discipline_mechanical
+        name: Mechanical
+      - externalId: discipline_instrumentation
+        name: Instrumentation
+      - externalId: discipline_civil
+        name: Civil
+      featureToggles:
+        documents: true
+        media: true
+        notifications: true
+        templateChecklistFlow: false
+        threeD: true
+        trends: true
+        workorders: true
+      name: My Location Configuration
+      viewMappings:
+        asset:
+          externalId: CogniteAsset
+          space: cdf_core
+          version: v1
+        maintenanceOrder:
+          externalId: MaintenanceOrder
+          space: sp_maintenance_space
+          version: v1
+        notification:
+          externalId: Notification
+          space: sp_notifications_space
+          version: v1
+        operation:
+          externalId: Operation
+          space: sp_operations_space
+          version: v1
+    source:
+      externalId: InFieldCDMLocationConfig
+      space: infield_cdm_source_desc_sche_asset_file_ts
+      type: view
+      version: v1
+  space: sp_instance
+InFieldLocationConfigResponse:
+- accessManagement:
+    checklistAdmins:
+    - cdf_group_checklist_admins
+    - cdf_group_superusers
+    templateAdmins:
+    - cdf_group_template_admins
+    - cdf_group_superusers
+  appInstanceSpace: my_app_instance_space
+  dataExplorationConfig:
+    activities:
+      enabled: true
+      showCompleted: true
+    assets:
+      enabled: true
+      showHierarchy: true
+    documents:
+      enabled: true
+      supportedFormats:
+      - pdf
+      - docx
+    externalId: data_exploration_config_shared
+    notifications:
+      enabled: true
+      pushEnabled: false
+    observations:
+      defaultView: list
+      enabled: true
+  dataFilters:
+    general:
+      spaces:
+      - my_space_001
+      - my_space_002
+  externalId: my_location_config_001
+  featureToggles:
+    documents: true
+    media: true
+    notifications: true
+    templateChecklistFlow: true
+    threeD: true
+    trends: true
+    workorderChecklistFlow: false
+    workorders: true
+  instanceType: node
+  rootLocationExternalId: location_filter_main_facility
+  space: sp_instance
+ResourceViewMappingResponse:
+- externalId: testing_default_asset_mapping
+  instanceType: node
+  sources:
+  - properties:
+      propertyMapping:
+        description: description
+        metadata.altName: alias
+        name: name
+      resourceType: asset
+      viewId:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: view
+        version: v1
+    source:
+      externalId: ResourceViewMapping
+      space: cognite_migration
+      type: view
+      version: v1
+  space: cognite_migration
+RuleSetResponse:
+- externalId: my-rule-set
+  name: My Rule Set
+RuleSetVersionResponse:
+- rules:
+  - '@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+    @prefix ex: <http://example.org/> .
+
+    ex:MyShape a sh:NodeShape .
+
+    '
+  version: 1.0.0
+SimulatorModelResponse:
+- dataSetId: 7982613576047462211
+  description: This is an example simulator model for demonstration purposes.
+  externalId: my_simulator_model
+  name: My Simulator Model
+  simulatorExternalId: integration-test-simulator
+  type: SteadyState
+SimulatorModelRevisionResponse:
+- description: This is a revision of the example simulator model for demonstration
+    purposes.
+  externalId: my_simulator_model_revision
+  fileId: 13770889679571710424
+  modelExternalId: my_simulator_model
+SimulatorRoutineResponse:
+- description: This is an example simulator routine for demonstration purposes.
+  externalId: my_simulator_routine
+  modelExternalId: my_simulator_model
+  name: My Simulator Routine
+  simulatorIntegrationExternalId: integration-test-simulator-integration
+SimulatorRoutineRevisionResponse:
+- configuration:
+    dataSampling:
+      enabled: true
+      granularity: 1
+      samplingWindow: 15
+      validationWindow: 5
+    inputs:
+    - name: Cold water Temperature
+      referenceId: CWT
+      unit:
+        name: C
+        quantity: temperature
+      value: 10.0
+      valueType: DOUBLE
+    - name: Cold Water Pressure
+      referenceId: CWP
+      unit:
+        name: bar
+        quantity: pressure
+      value:
+      - 3.6
+      valueType: DOUBLE_ARRAY
+    logicalCheck:
+    - aggregate: average
+      enabled: true
+      operator: lt
+      timeseriesExternalId: simulator_routine_revision_logical_check
+      value: 75.8
+    outputs:
+    - name: Shower Temperature
+      referenceId: ST
+      unit:
+        name: C
+        quantity: temperature
+      valueType: DOUBLE
+    schedule:
+      enabled: false
+    steadyStateDetection:
+    - aggregate: average
+      enabled: true
+      minSectionSize: 1
+      slopeThreshold: 0.5
+      varThreshold: 3.5
+  externalId: my_simulator_routine_revision
+  routineExternalId: my_simulator_routine
+  script:
+  - description: Set Inputs
+    order: 1
+    steps:
+    - arguments:
+        objectName: Cold Water
+        objectProperty: Temperature
+        referenceId: CWT
+      description: Set Cold water Temperature
+      order: 1
+      stepType: Set
+    - arguments:
+        objectName: Cold Water
+        objectProperty: Pressure
+        referenceId: CWP
+      description: Set Cold Water Pressure
+      order: 2
+      stepType: Set
+  - description: Solve the flowsheet
+    order: 2
+    steps:
+    - arguments:
+        command: Solve
+      order: 1
+      stepType: Command
+  - description: Set simulator outputs
+    order: 3
+    steps:
+    - arguments:
+        objectName: Shower
+        objectProperty: Temperature
+        referenceId: ST
+      order: 1
+      stepType: Get
+SpaceResponse:
+- space: sp_instance
+- space: sp_schema
+StreamResponse:
+- externalId: my-stream2
+  settings:
+    template:
+      name: ImmutableTestStream
+TimeSeriesResponse:
+- externalId: simulator_routine_revision_logical_check
+  isStep: false
+  isString: false
+  name: Simulator Routine Revision Logical Check
