@@ -710,7 +710,7 @@ class BuildV2Command(ToolkitCommand):
 
                 validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
                 progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description="Finished checking modules")
+            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
     def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
