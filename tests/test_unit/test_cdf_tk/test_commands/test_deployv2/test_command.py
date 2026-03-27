@@ -463,7 +463,7 @@ class TestApplyPlan:
         if issubclass(case.crud_cls, SpaceCRUD):
             client.tool.spaces.retrieve.return_value = case.cdf_resources
         elif issubclass(case.crud_cls, FunctionScheduleCRUD):
-            client.functions.status.return_value.code = "activated"
+            client.functions.status.return_value.status = "activated"
             function_responses = []
             for resource in case.cdf_resources:
                 if hasattr(resource, "function_id") and resource.function_id is not None:
