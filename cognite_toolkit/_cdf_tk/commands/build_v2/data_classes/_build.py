@@ -80,15 +80,6 @@ class BuiltModule(BaseModel):
     syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
 
     @property
-    def resource_by_type_by_kind(self) -> dict[ResourceType, list[Path]]:
-        """Organizes built files by their resource type and kind."""
-        resource_by_type: dict[ResourceType, list[Path]] = defaultdict(list)
-        for resource in self.resources:
-            resource_by_type[resource.type].append(resource.build_path)
-
-        return dict(resource_by_type)
-
-    @property
     def files_built(self) -> bool:
         """Indicates whether any files were built for this module."""
         return len(self.resources) > 0

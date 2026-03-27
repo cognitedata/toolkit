@@ -43,14 +43,15 @@ class NeatRules(ToolkitGlobalRulSet):
     def validate(self) -> Iterable[Insight | FailedValidation]:
         data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
         for module in self.modules:
-            if data_model_files := module.resource_by_type_by_kind.get(data_model_type):
-                for data_model_file in data_model_files:
+            for resource in module.resources:
+                if resource.type == data_model_type:
+                    data_model_file = resource.build_path
                     try:
                         yield from self._validate_model(data_model_file.parent, data_model_file)
                     except Exception as e:
                         yield FailedValidation(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
-                            source=data_model_file.as_posix(),
+                            source=str(resource.identifier),
                         )
 
     @classmethod
