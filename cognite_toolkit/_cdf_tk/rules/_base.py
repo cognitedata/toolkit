@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import FailedValidation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
@@ -36,11 +37,6 @@ class ToolkitLocalRule(ABC):
             for resource in file.resources:
                 if resource.validated is not None:
                     yield resource.validated, file
-
-
-class FailedValidation(BaseModel):
-    message: str
-    source: str
 
 
 class RuleSetStatus(BaseModel):

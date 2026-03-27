@@ -1,15 +1,14 @@
 import os
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast, Literal
+from typing import Any, cast
 
 import yaml
-from prompt_toolkit.shortcuts import ProgressBar
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
@@ -18,7 +17,6 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -34,7 +32,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -53,7 +51,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
@@ -72,14 +69,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 class ValidationStep:
     status: RuleSetStatus
     rule: ToolkitGlobalRulSet
-
-
-@dataclass
-class ValidationResult:
-    name: str
-    insights: list[Insight]
-    failed: list[FailedValidation]
-
 
 
 class BuildV2Command(ToolkitCommand):
@@ -107,9 +96,7 @@ class BuildV2Command(ToolkitCommand):
         build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
 
         build_folder = BuildFolder(
-            path=parameters.build_dir,
-            built_modules=built_modules,
-            validation_results=validation_results,
+            path=parameters.build_dir, built_modules=built_modules, validation_results=validation_results
         )
 
         self._display_build_folder(build_folder, console)
@@ -654,7 +641,9 @@ class BuildV2Command(ToolkitCommand):
                 )
         return built_resources
 
-    def _create_validation_plan(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> list[ValidationStep]:
+    def _create_validation_plan(
+        self, built_modules: list[BuiltModule], client: ToolkitClient | None
+    ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
@@ -687,45 +676,46 @@ class BuildV2Command(ToolkitCommand):
                     else:
                         insights.append(result)
 
-                validation_results.append(
-                    ValidationResult(name=display_name, insights=insights, failed=failures)
-                )
+                validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
                 progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description=f"Finished checking modules")
+            progress.update(validating_task, description="Finished checking modules")
         return validation_results
 
     def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
-
-        resource_insight_count = sum(
-            1
-            for module in build_folder.built_modules
-            for resource in module.resources
-            if resource.syntax_warning is not None
-        )
-        dependency_insight_count = len(build_folder.dependency_insights)
-        global_insight_count = len(build_folder.global_insights)
-
         resource_type_count = len(
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
-
+        syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources",
             f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
         ]
         has_issues = False
-        if resource_insight_count:
-            summary_lines.append(f"[yellow]![/] [bold]{resource_insight_count}[/] resource insights found.")
+        if syntax_warning_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
+            )
             has_issues = True
-        if dependency_insight_count:
-            summary_lines.append(f"[red]✗[/] [bold]{dependency_insight_count}[/] missing dependencies found.")
-            has_issues = True
-        if global_insight_count:
-            summary_lines.append(f"[yellow]![/] [bold]{global_insight_count}[/] global insights found.")
-            has_issues = True
+        for validation in build_folder.validation_results:
+            if validation.failed:
+                prefix = "[red]✗[/]"
+            elif validation.insights:
+                prefix = "[yellow]![/]"
+                has_issues = True
+            else:
+                prefix = "[green]✓[/]"
+            suffix: list[str] = []
+            if validation.failed:
+                suffix.append(f"failed {len(validation.failed)} checks")
+            if validation.insights:
+                suffix.append(f"found {len(validation.insights)} insights")
+            if not validation.failed and not validation.insights:
+                suffix.append("all checks passed")
+            summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
+
         build_dir_display = relative_to_if_possible(build_folder.path)
         console.print(
             Panel(
@@ -735,6 +725,7 @@ class BuildV2Command(ToolkitCommand):
                 expand=False,
             )
         )
+
         all_insights = build_folder.all_insights
         if all_insights:
             table = Table(title="Insights", expand=False, show_edge=False)
