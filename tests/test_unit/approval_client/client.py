@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import hashlib
 import io
 import itertools
@@ -51,7 +52,7 @@ from cognite.client.data_classes.data_modeling import (
     VersionedDataModelingId,
     View,
 )
-from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier, InstanceId
+from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
@@ -60,7 +61,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
@@ -967,14 +968,26 @@ class ApprovalToolkitClient:
 
         def retrieve_filemetadata(
             items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-        ) -> list[FileMetadataResponse]:
-            if len(items) == 1 and isinstance(items[0], InternalId):
-                return [
+        ) -> builtins.list[FileMetadataResponse]:
+            filemetadata_responses: builtins.list[FileMetadataResponse] = []
+            for item in items:
+                if isinstance(item, InternalId):
+                    id = item.id
+                    external_id = str(id)
+                elif isinstance(item, ExternalId):
+                    id = LookUpAPIMock.create_id(item.external_id or "unknown")
+                    external_id = item.external_id or "unknown"
+                elif isinstance(item, InstanceId):
+                    id = LookUpAPIMock.create_id(item.instance_id.external_id)
+                    external_id = item.instance_id.external_id
+                else:
+                    id = 37
+                filemetadata_responses.append(
                     FileMetadataResponse(
-                        id=items[0].id, uploaded=True, created_time=0, last_updated_time=1, name="file"
+                        id=id, uploaded=True, created_time=0, last_updated_time=1, external_id=external_id, name="file"
                     )
-                ]
-            return []
+                )
+            return filemetadata_responses
 
         available_retrieve_methods = {
             fn.__name__: fn
