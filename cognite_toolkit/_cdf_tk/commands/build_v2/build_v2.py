@@ -748,11 +748,13 @@ class BuildV2Command(ToolkitCommand):
                 suffix.append("all checks passed")
             summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
 
-        build_dir_display = relative_to_if_possible(build_folder.path)
+        build_dir_display = relative_to_if_possible(build_folder.path).as_posix()
+        if not build_dir_display.endswith("/"):
+            build_dir_display = f"{build_dir_display}/"
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title=f"[bold]Built to ({build_dir_display.as_posix()})[/]",
+                title=f"[bold]Built to directory {build_dir_display}[/]",
                 border_style="yellow" if has_issues else "green",
                 expand=False,
             )
