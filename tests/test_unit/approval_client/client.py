@@ -77,6 +77,7 @@ from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TE
 from cognite_toolkit._cdf_tk.cruds import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
+from tests.constants import CDF_PROJECT
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -163,7 +164,7 @@ class ApprovalToolkitClient:
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
         credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
-        project = "test_project"
+        project = CDF_PROJECT
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project=project,
