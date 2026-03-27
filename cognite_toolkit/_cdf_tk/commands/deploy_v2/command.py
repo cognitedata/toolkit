@@ -201,7 +201,9 @@ class DeployV2Command(ToolkitCommand):
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._validate_cdf_project(build_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
+        self._validate_cdf_project(
+            build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT, client.console
+        )
         self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
@@ -362,7 +364,12 @@ class DeployV2Command(ToolkitCommand):
                 console.print(table)
 
     def _validate_cdf_project(
-        self, build_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
+        self,
+        build_dir: ReadBuildDirectory,
+        operation: str,
+        cli_cdf_project: str | None,
+        client_cdf_project: str,
+        console: Console,
     ) -> None:
         """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
@@ -381,7 +388,7 @@ class DeployV2Command(ToolkitCommand):
             )
         elif cli_cdf_project is None and build_dir.cdf_project is None:
             typed_project = questionary.text(
-                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
+                f"Enter the name of CDF project you are {operation}ing. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
             ).unsafe_ask()
             if typed_project != client_cdf_project:
                 raise ToolkitValidationError(
