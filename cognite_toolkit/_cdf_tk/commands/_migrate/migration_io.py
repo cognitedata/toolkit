@@ -99,7 +99,7 @@ class AssetCentricMigrationIO(
             )
             if space_source is None:
                 raise ToolkitValueError(
-                    f"Could not instance space that {selector.data_set_external_id!r} is mapping to. Have you run `cdf migrate data-sets`?"
+                    f"Missing instance space that maps to {selector.data_set_external_id!r}. Have you run `cdf migrate data-sets`?"
                 )
             instance_spaces = [SpaceId(space=space_source.space)]
             iterator = self._stream_given_dataset(selector, limit)
