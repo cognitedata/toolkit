@@ -981,6 +981,7 @@ class ApprovalToolkitClient:
                     id = LookUpAPIMock.create_id(item.instance_id.external_id)
                     external_id = item.instance_id.external_id
                 else:
+                    external_id = "unknown"
                     id = 37
                 filemetadata_responses.append(
                     FileMetadataResponse(
