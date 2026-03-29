@@ -1399,6 +1399,10 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             filestem = filestem[: -len(cls.kind)].removesuffix(".").rstrip()
 
         graphql_file = filepath.parent / f"{filestem}.graphql"
+        if not graphql_file.is_file() and filepath.with_suffix(".graphql").exists():
+            # Fallback
+            graphql_file = filepath.with_suffix(".graphql")
+
         return graphql_file
 
     @classmethod
