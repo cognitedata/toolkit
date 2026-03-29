@@ -5,9 +5,11 @@ and fails if they have changed.
 If the changes are desired, you can update the snapshot by running `pytest tests/ --force-regen`.
 """
 
+import os
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pytest import MonkeyPatch
@@ -263,13 +265,17 @@ def test_build_deploy_v2_complete_orgs(
             config_yaml_name="dev",
         ),
     )
-    DeployV2Command(silent=True, skip_tracking=True).deploy(
-        env_vars=env_vars_with_client,
-        user_build_dir=build_tmp_path,
-        options=DeployOptions(
-            environment_variables=env_vars_with_client.dump(),
-        ),
-    )
+    with patch.dict(
+        os.environ,
+        {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
+    ):
+        DeployV2Command(silent=True, skip_tracking=True).deploy(
+            env_vars=env_vars_with_client,
+            user_build_dir=build_tmp_path,
+            options=DeployOptions(
+                environment_variables=env_vars_with_client.dump(),
+            ),
+        )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()
     assert not not_mocked, (

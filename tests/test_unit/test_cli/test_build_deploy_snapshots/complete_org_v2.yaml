@@ -306,8 +306,8 @@ FunctionResponse:
 - cpu: 0.6
   description: Returns the input data, secrets, and function info.
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: pytest
+    ENV_TYPE: dev
   externalId: fn_first_function
   fileId: 16394514322001950830
   functionPath: ./src/handler.py
