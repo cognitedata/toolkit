@@ -197,15 +197,16 @@ name: String}""",
         yaml_file.read_text.return_value = f"""space: {space}
 externalId: {external_id}
 version: {version}
-dml: model.graphql
 """
+        yaml_file.stem = f"{external_id}.GraphQLSchema"
 
         graphql_file = MagicMock(spec=Path)
         graphql_file.read_text.return_value = model
-        graphql_file.name = "model.graphql"
+        graphql_file.name = f"{external_id}.graphql"
         graphql_file.is_file.return_value = True
 
-        yaml_file.with_suffix.return_value = graphql_file
+        yaml_file.parent = MagicMock(spec=Path)
+        yaml_file.parent.__truediv__ = MagicMock(return_value=graphql_file)
         return yaml_file
 
 
