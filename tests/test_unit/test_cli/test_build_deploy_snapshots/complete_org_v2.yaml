@@ -292,6 +292,26 @@ ExtractionPipelineResponse:
   - dbName: db_complete_org
     tableName: asset
   source: doctrino
+FileMetadataResponse:
+- dataSetId: 13045366179566211942
+  externalId: fn_first_function
+  metadata:
+    cognite-toolkit-hash: 7182ff77
+  mimeType: application/zip
+  name: first_example_function.zip
+- dataSetId: null
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    cognite-toolkit-hash: 66a6b32d
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: 'true'
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 FunctionResponse:
 - description: This function stores its code in a Cognite File.
   externalId: fn_data_modeling_only_function
