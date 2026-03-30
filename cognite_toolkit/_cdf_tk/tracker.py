@@ -89,12 +89,12 @@ class Tracker:
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return False
 
+        distinct_id = self.get_distinct_id()
         if self.client:
             user_info = UserInfo.load(self.client)
-            distinct_id = user_info.id
             event_information.update(user_info.model_dump(exclude_none=True))
-        else:
-            distinct_id = self.get_distinct_id()
+            if user_info.id:
+                distinct_id = user_info.id
 
         def track() -> None:
             with suppress(ConnectionError, MixpanelException):
