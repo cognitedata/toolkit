@@ -13,21 +13,24 @@ from typing import Any
 from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
+from cognite_toolkit._cdf_tk.utils.user import UserInfo
 from cognite_toolkit._version import __version__
 
 _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, skip_tracking: bool = False) -> None:
+    def __init__(self, skip_tracking: bool = False, client: ToolkitClient | None = None) -> None:
         self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = self.opted_out or skip_tracking
+        self.client = client
         self._cdf_toml = CDFToml.load()
 
     @cached_property
@@ -81,10 +84,15 @@ class Tracker:
         return self._track(f"command{cmd.capitalize()}", event_information)
 
     def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
-        if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return False
 
-        distinct_id = self.get_distinct_id()
+        if self.client:
+            user_info = UserInfo.load(self.client)
+            distinct_id = user_info.id
+            event_information.update(user_info.model_dump(exclude_none=True))
+        else:
+            distinct_id = self.get_distinct_id()
 
         def track() -> None:
             # If we are unable to connect to Mixpanel, we don't want to crash the program
