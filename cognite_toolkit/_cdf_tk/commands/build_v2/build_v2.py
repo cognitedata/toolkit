@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -51,7 +52,11 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
+    ToolkitNotADirectoryError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
@@ -92,17 +97,19 @@ class BuildV2Command(ToolkitCommand):
             self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
-        # Calculate build duration
-        build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
-
         build_folder = BuildFolder(
-            path=parameters.build_dir, built_modules=built_modules, validation_results=validation_results
+            organization_dir=parameters.organization_dir.resolve(),
+            build_dir=parameters.build_dir,
+            built_modules=built_modules,
+            validation_results=validation_results,
+            all_variables=build_source.all_variables,
+            started_at=build_start_time,
+            finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(build_folder, console)
+        self._display_build_folder(build_folder, parameters.config_yaml_name or "", console, parameters.verbose)
 
-        # Todo: This should only take in build_folder
-        self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
+        self._write_results(build_folder)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -429,6 +436,13 @@ class BuildV2Command(ToolkitCommand):
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
                         },
+                        failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
+                        ignored_files=module.ignored_files,
+                        unresolved_variables_by_source={
+                            file.source_path: file.unresolved_variables
+                            for file in module.files
+                            if file.unresolved_variables
+                        },
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -490,22 +504,31 @@ class BuildV2Command(ToolkitCommand):
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
+        unresolved_variables = self._find_unresolved_variables(substituted_content)
         try:
             parsed_yaml = read_yaml_content(substituted_content)
         except yaml.YAMLError as yaml_error:
-            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
-            #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
-            #  Jira: CDF-27203
+            if unresolved_variables:
+                error = (
+                    f"Failed to parse YAML content. "
+                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}.\n"
+                    f"Error: {yaml_error!s}"
+                )
+            else:
+                error = f"Failed to parse YAML content.\n{yaml_error!s}"
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
-                error=f"Failed to parse YAML content: {yaml_error!s}",
+                error=error,
+                unresolved_variables=unresolved_variables,
             )
+
         if parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="EMPTY-YAML",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
+                unresolved_variables=unresolved_variables,
             )
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
@@ -536,6 +559,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
                 ],
+                unresolved_variables=unresolved_variables,
                 **args,
             )
         # Is instance list
@@ -568,7 +592,17 @@ class BuildV2Command(ToolkitCommand):
                     extra_files=extra_files,
                 )
             )
-        return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
+        return SuccessfulReadYAMLFile(
+            syntax_warning=syntax_warning, resources=read_resources, **args, unresolved_variables=unresolved_variables
+        )
+
+    @classmethod
+    def _find_unresolved_variables(cls, content: str) -> list[str]:
+        return [
+            # Removing the '{{' and '}}'
+            variable[2:-2].strip()
+            for variable in re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        ]
 
     @classmethod
     def _substitute_variables_extra_content(
@@ -713,30 +747,64 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
+    def _display_build_folder(
+        self, build_folder: BuildFolder, config_yaml_name: str, console: Console, verbose: bool
+    ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
         resource_type_count = len(
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
         syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
+        failed_read_files = [file for module in build_folder.built_modules for file in module.failed_files]
+        failed_read_file_count = len(failed_read_files)
+        ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
+        ignore_file_count = len(ignored_files)
+        unresolved_files = {
+            source_path: variables
+            for module in build_folder.built_modules
+            for source_path, variables in module.unresolved_variables_by_source.items()
+        }
+        unresolved_file_count = len(unresolved_files)
+
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{resource_count}[/] resources",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        has_issues = False
+        border_color = 0
+        if failed_read_file_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{failed_read_file_count}[/] resource files failed to be read.\n    These files are ignored in the build, but you should fix the issues to\n"
+                f"    ensure all your resources are included in the build."
+            )
+            border_color = max(border_color, 2)
+        if unresolved_file_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
+                f"    Make sure to define the variables in the config.{config_yaml_name}.yaml file and that they are correctly placed in the variables section matching the file path."
+            )
+            border_color = max(border_color, 2)
+
+        if ignored_files:
+            most_common = Counter([file.code for file in ignored_files]).most_common(3)
+            most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
+            summary_lines.append(
+                f"[yellow]![/] [bold]{ignore_file_count}[/] resource files were ignored. The most common reasons {most_common_str}."
+            )
+            border_color = max(border_color, 1)
+
         if syntax_warning_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
             )
-            has_issues = True
+            border_color = max(border_color, 1)
+
         for validation in build_folder.validation_results:
             if validation.failed:
                 prefix = "[red]✗[/]"
             elif validation.insights:
                 prefix = "[yellow]![/]"
-                has_issues = True
+                border_color = max(border_color, 1)
             else:
                 prefix = "[green]✓[/]"
             suffix: list[str] = []
@@ -748,14 +816,14 @@ class BuildV2Command(ToolkitCommand):
                 suffix.append("all checks passed")
             summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
 
-        build_dir_display = relative_to_if_possible(build_folder.path).as_posix()
+        build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
         console.print(
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
-                border_style="yellow" if has_issues else "green",
+                border_style={0: "green", 1: "yellow", 2: "red"}[border_color],
                 expand=False,
             )
         )
@@ -779,27 +847,57 @@ class BuildV2Command(ToolkitCommand):
                     f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
                     style="dim",
                 )
+        if verbose and unresolved_files:
+            table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
+            table.add_column("Path")
+            table.add_column("Variables")
+            for source_path, variables in unresolved_files.items():
+                table.add_row(
+                    relative_to_if_possible(source_path).as_posix(), humanize_collection(variables, sort=False)
+                )
+            console.print(table)
+
+        if verbose and ignored_files:
+            table = Table(title="Ignored Files", expand=False, show_edge=False)
+            table.add_column("Code", style="bold")
+            table.add_column("Path", style="bold")
+            table.add_column("Reason", style="bold")
+            for file in ignored_files:
+                table.add_row(file.code, relative_to_if_possible(file.filepath).as_posix(), file.reason)
+            console.print(table)
+
+        if failed_read_file_count:
+            available_variable_names = {variable.name for variable in build_folder.all_variables}
+            table = Table(title="Failed Read Files", expand=False, show_edge=True, border_style="red", show_lines=True)
+            table.add_column(
+                "Code",
+            )
+            table.add_column("Description")
+            table.add_column("File Path")
+            table.add_column("Fix")
+            for failed_file in failed_read_files:
+                display_path = relative_to_if_possible(failed_file.source_path).as_posix()
+                fix = ""
+                if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
+                    fix = (
+                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the config.{config_yaml_name}.yaml.\n"
+                        "Make sure they are placed correctly in the variables section matching the file path."
+                    )
+
+                table.add_row(failed_file.code, failed_file.error, display_path, fix)
+            console.print(table)
+
         return None
 
-    def _write_results(
-        self,
-        parameters: BuildParameters,
-        build_folder: BuildFolder,
-        timestamp: datetime | None = None,
-        duration: float | None = None,
-    ) -> None:
+    def _write_results(self, build: BuildFolder) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = build_folder.path / "insights.csv"
-        insight_file.parent.mkdir(parents=True, exist_ok=True)
+        insight_file = build.build_dir / "insights.csv"
 
-        insight_file_content = build_folder.all_insights.to_csv()
+        insight_file_content = build.all_insights.to_csv()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
-        lineage_file = build_folder.path / BuildLineage.filename
-        lineage_file.parent.mkdir(parents=True, exist_ok=True)
-        lineage = BuildLineage.from_build_parameters_and_results(
-            parameters, build_folder, timestamp, duration
-        ).to_yaml()
+        lineage_file = build.build_dir / BuildLineage.filename
+        lineage = BuildLineage.from_build(build).to_yaml()
         safe_write(lineage_file, lineage)

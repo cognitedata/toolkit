@@ -551,3 +551,48 @@ class TestReadResourceFile:
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
         assert has_syntax_warning == (result.syntax_warning is not None)
+
+
+class TestFindUnresolvedVariables:
+    @pytest.mark.parametrize(
+        "content, expected",
+        [
+            pytest.param(
+                """space: '{{ instanceSpace }}'
+name: 'Instance space'
+description: This space contains data
+""",
+                ["instanceSpace"],
+                id="Single unresolved variable",
+            ),
+            pytest.param(
+                """externalId: '{{ directRelationJob }}'
+config:
+  state:
+    rawDatabase: {{ rawStateDatabase}}
+    rawTable: {{ rawStateTable }}
+  data:
+    annotationSpace: '{{annotationSpace}}'
+    directRelationMappings:
+      - startNodeView:
+          space: {{schemaSpace }}
+          externalId: CogniteFile
+          version: v1
+          directRelationProperty: assets
+""",
+                ["directRelationJob", "rawStateDatabase", "rawStateTable", "annotationSpace", "schemaSpace"],
+                id="Multiple unresolved variables",
+            ),
+            pytest.param(
+                """name: daily-8am-utc
+cronExpression: 0 8 * * *
+description: 'Run every day at 8am UTC cdf-auth: a353e490'
+functionExternalId: fn_first_function
+""",
+                [],
+                id="No unresolved variables",
+            ),
+        ],
+    )
+    def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
+        assert BuildV2Command._find_unresolved_variables(content) == expected

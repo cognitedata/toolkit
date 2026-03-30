@@ -15,7 +15,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxWarning,
@@ -150,16 +150,10 @@ class BuildLineage(_BaseLineageModel):
         return round(value, 2) if value is not None else None
 
     @classmethod
-    def from_build_parameters_and_results(
-        cls,
-        parameters: BuildParameters,
-        folder: BuildFolder,
-        timestamp: datetime | None = None,
-        duration: float | None = None,
-    ) -> "BuildLineage":
+    def from_build(cls, build: BuildFolder) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
-        module_lineage = [ModuleLineageItem.from_built_module(module) for module in folder.built_modules]
+        module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
         modules_summary = {
             "processed": len(module_lineage),
             "succeeded": sum(1 for module in module_lineage if module.is_success),
@@ -171,10 +165,10 @@ class BuildLineage(_BaseLineageModel):
                 insights_summary[insight_type] += count
 
         return cls(
-            timestamp=timestamp or datetime.now(),
-            duration=duration,
-            organization_dir=parameters.organization_dir,
-            build_dir=parameters.build_dir,
+            timestamp=build.started_at,
+            duration=build.build_duration_seconds,
+            organization_dir=build.organization_dir,
+            build_dir=build.build_dir,
             module_lineage=module_lineage,
             modules_summary=modules_summary,
             insights_summary=insights_summary,
