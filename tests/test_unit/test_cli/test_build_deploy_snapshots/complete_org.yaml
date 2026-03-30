@@ -315,6 +315,8 @@ FileMetadata:
   name: first_example_function.zip
   overwrite: true
 FileMetadataResponse:
+- externalId: classicFileMetadata
+  name: file
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: classicFileMetadata

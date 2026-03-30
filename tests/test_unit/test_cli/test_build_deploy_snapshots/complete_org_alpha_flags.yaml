@@ -98,6 +98,8 @@ FileMetadata:
   name: Multi_File_Function.zip
   overwrite: true
 FileMetadataResponse:
+- externalId: my_simulator_model_revision_file
+  name: file
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: my_simulator_model_revision_file
@@ -106,6 +108,8 @@ FileMetadataResponse:
   mimeType: application/plain
   name: simulator_model_revision.txt
   source: doctrino
+- externalId: shopConfigFile
+  name: file
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile

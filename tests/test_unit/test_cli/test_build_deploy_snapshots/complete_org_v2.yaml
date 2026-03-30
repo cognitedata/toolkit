@@ -293,10 +293,18 @@ ExtractionPipelineResponse:
     tableName: asset
   source: doctrino
 FileMetadataResponse:
+- dataSetId: 7982613576047462211
+  directory: /files
+  externalId: classicFileMetadata
+  metadata:
+    origin: cognite-toolkit
+  mimeType: text/plain
+  name: classicfile.txt
+  source: doctrino
 - dataSetId: 13045366179566211942
   externalId: fn_first_function
   metadata:
-    cognite-toolkit-hash: 7182ff77
+    cognite-toolkit-hash: 605a0d45
   mimeType: application/zip
   name: first_example_function.zip
 - dataSetId: null
@@ -304,7 +312,7 @@ FileMetadataResponse:
   externalId: myapp
   metadata:
     cdf-toolkit-app-hash: c59dc2b6
-    cognite-toolkit-hash: 66a6b32d
+    cognite-toolkit-hash: c59dc2b6
     creator: doctrino@github.com
     description: This is a super app
     entrypoint: main.py
