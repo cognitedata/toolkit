@@ -44,11 +44,7 @@ class ModuleParser:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             source = source_by_module_id[module]
-            module_specific_variables: dict[int | None, list[BuildVariable]] = defaultdict(list)
-            for path in [module, *module.parents]:
-                if path_variables := build_variables.get(path):
-                    for iteration, variables in path_variables.items():
-                        module_specific_variables[iteration].extend(variables)
+            module_specific_variables = cls._as_module_variables(build_variables, module)
 
             if module_specific_variables:
                 for iteration, variables in module_specific_variables.items():
@@ -69,6 +65,28 @@ class ModuleParser:
             ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, build.selected_modules),
             orphan_yaml_files=orphan_yaml_files,
         )
+
+    @classmethod
+    def _as_module_variables(
+        cls, build_variables: dict[Path, dict[int | None, list[BuildVariable]]], module: Path
+    ) -> dict[int | None, list[BuildVariable]]:
+        module_specific_variables: dict[int | None, list[BuildVariable]] = defaultdict(list)
+        for path in [module, *module.parents]:
+            if path_variables := build_variables.get(path):
+                for iteration, variables in path_variables.items():
+                    module_specific_variables[iteration].extend(variables)
+        if len(module_specific_variables) <= 1 or None not in module_specific_variables:
+            return module_specific_variables
+
+        # There is multiple iterations with shared variables
+        shared_variables = module_specific_variables[None]
+        variables_by_iteration: dict[int | None, list[BuildVariable]] = defaultdict(list)
+        for iteration, variables in module_specific_variables.items():
+            if iteration is None:
+                continue
+            variables_by_iteration[iteration].extend(variables)
+            variables_by_iteration[iteration].extend(shared_variables)
+        return variables_by_iteration
 
     @classmethod
     def _find_modules(

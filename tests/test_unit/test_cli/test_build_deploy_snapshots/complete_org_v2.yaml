@@ -26,6 +26,21 @@ AssetResponse:
   name: RootAsset
   source: doctrino
 CogniteFileResponse:
+- externalId: $FILENAME
+  instanceType: node
+  sources:
+  - properties:
+      mimeType: text/plain
+      name: $FILENAME
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
 - externalId: MyVanillaFile
   instanceType: node
   sources:
@@ -45,21 +60,19 @@ CogniteFileResponse:
       type: view
       version: v1
   space: sp_nodes
-- externalId: my.CogniteFile.yaml
+- externalId: fn_data_modeling_only_function
   instanceType: node
   sources:
   - properties:
-      mimeType: text/plain
-      name: my.CogniteFile.yaml
-      tags:
-      - tag1
-      - tag2
+      mimeType: application/zip
+      name: DataModelingOnly function
+      sourceContext: 'cognite-toolkit-hash: zipfil-hash-not-supported'
     source:
       externalId: CogniteFile
       space: cdf_cdm
       type: view
       version: v1
-  space: sp_complete_org_files
+  space: sp_instance
 ContainerResponse:
 - description: Container with a description property
   externalId: DescriptionContainer
@@ -244,22 +257,6 @@ DatapointSubscriptionResponse:
       value: ts_value
   name: My Subscription
   partitionCount: 1
-Datapoints:
-- args: []
-  dataframe:
-    empty_count: 0
-    first_row:
-      cdf_tooklit:example_timeseries: 0.943
-      cdf_tooklit:example_timeseries:2: 0.9213
-    index_name: timestamp
-    last_row:
-      cdf_tooklit:example_timeseries: 0.9356
-      cdf_tooklit:example_timeseries:2: 0.9153
-    nan_count: 1
-    null_count: 1
-    shape: 5x2
-  kwargs: {}
-  name: missing
 EventResponse:
 - assetIds:
   - 13458544937205513867
@@ -293,30 +290,7 @@ ExtractionPipelineResponse:
   - dbName: db_complete_org
     tableName: asset
   source: doctrino
-FileCRUD:
-- externalId: MyVanillaFile
-  filehash: 0f18a9c5
-  space: sp_nodes
-  type: node
-- external_id: classicFileMetadata
-  filehash: de91f3a0
-- externalId: fn_data_modeling_only_function
-  filehash: 22a54716
-  space: sp_instance
-  type: node
-- externalId: my.CogniteFile.yaml
-  filehash: 6d889d00
-  space: sp_complete_org_files
-  type: node
-FileMetadata:
-- data_set_id: 13045366179566211942
-  external_id: fn_first_function
-  id: 64
-  name: first_example_function.zip
-  overwrite: true
 FileMetadataResponse:
-- externalId: classicFileMetadata
-  name: file
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: classicFileMetadata
@@ -325,10 +299,29 @@ FileMetadataResponse:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
+- dataSetId: 13045366179566211942
+  externalId: fn_first_function
+  metadata:
+    cognite-toolkit-hash: zipfil-hash-not-supported
+  mimeType: application/zip
+  name: first_example_function.zip
+- dataSetId: null
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    cognite-toolkit-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: 'true'
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 FunctionResponse:
 - description: This function stores its code in a Cognite File.
   externalId: fn_data_modeling_only_function
-  fileId: 8
+  fileId: 11277631680081523610
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=a6647f8a;handler.py=e00d5c6f;requirements.txt=71207964
@@ -339,10 +332,10 @@ FunctionResponse:
 - cpu: 0.6
   description: Returns the input data, secrets, and function info.
   envVars:
-    CDF_ENV: dev
+    CDF_ENV: pytest
     ENV_TYPE: dev
   externalId: fn_first_function
-  fileId: 64
+  fileId: 16394514322001950830
   functionPath: ./src/handler.py
   indexUrl: https://pypi.org/simple
   memory: 0.6
@@ -366,17 +359,6 @@ FunctionScheduleResponse:
   name: daily-8am-utc
   nonce: dummy-nonce
 GroupResponse:
-- capabilities:
-  - projectsAcl:
-      actions:
-      - LIST
-      - READ
-      scope:
-        all: {}
-  metadata:
-    origin: cognite-toolkit
-  name: gp_all_scoped_complete_org
-  sourceId: '1234567890123456'
 - capabilities:
   - timeSeriesAcl:
       actions:
@@ -508,32 +490,6 @@ LocationFilterResponse:
 - description: This is a description of the location.
   externalId: main-location
   name: Main location name
-Node:
-- externalId: fn_data_modeling_only_function
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      mimeType: application/zip
-      name: DataModelingOnly_function.zip
-      source: null
-      sourceContext: null
-      sourceCreatedTime: null
-      sourceCreatedUser: null
-      sourceId: null
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
-      tags: null
-    source:
-      externalId: CogniteFile
-      space: cdf_cdm
-      type: view
-      version: v1
-  space: sp_instance
 RAWDatabaseResponse:
 - name: db_complete_org
 RAWTableResponse:
@@ -657,27 +613,6 @@ RobotMapResponse:
   externalId: robotMap
   mapType: POINTCLOUD
   name: Robot navigation map
-Row:
-- args: []
-  dataframe:
-    empty_count: 0
-    first_row:
-      categoryId: 1
-      description: This is an example
-      name: Example 1
-    index_name: key
-    last_row:
-      categoryId: 2
-      description: This is a third example
-      name: Example 3
-    nan_count: 0
-    null_count: 0
-    shape: 3x3
-  kwargs:
-    db_name: db_complete_org
-    ensure_parent: false
-    table_name: asset
-  name: db_complete_org_asset_False
 SearchConfigResponse:
 - columnsLayout:
   - property: title
@@ -785,43 +720,11 @@ SpaceResponse:
 - space: sp_instance
 - space: sp_nodes
 - space: sp_schema
-StreamlitResponse:
-- dataSetId: 7982613576047462211
-  directory: /streamlit-apps/
-  externalId: myapp
-  metadata:
-    cdf-toolkit-app-hash: c59dc2b6
-    creator: doctrino@github.com
-    description: This is a super app
-    entrypoint: main.py
-    name: MySuperApp
-    published: 'true'
-    thumbnail: data:image/webp;base64,....
-  name: MySuperApp-source.json
 ThreeDModelClassicRequest:
 - dataSetId: 7982613576047462211
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
-TimeSeriesResponse:
-- dataSetId: 13045366179566211942
-  description: This is an example timeseries used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
-  externalId: cdf_tooklit:example_timeseries
-  isStep: false
-  isString: false
-  metadata:
-    foo: bar
-  name: CDF Toolkit Example Timeseries
-- dataSetId: 13045366179566211942
-  description: This is an example timeseries used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
-  externalId: cdf_tooklit:example_timeseries:2
-  isStep: false
-  isString: false
-  metadata:
-    bar: foo
-  name: CDF Toolkit Example Timeseries 2
 TransformationNotificationResponse:
 - destination: jane.smith@example.com
   transformationExternalId: tr_first_transformation
@@ -851,8 +754,6 @@ TransformationResponse:
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
-  query: "-- cdf-auth: f164c472\nselect\n  cast(`externalId` as STRING) as externalId\n\
-    from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character\n"
   sourceNonce:
     cdfProjectName: pytest-project
     clientId: dummy-123
