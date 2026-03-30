@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import zipfile
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
 from pathlib import Path
@@ -57,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import (
     space_scoped_resource,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_zipfile_hash
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
@@ -170,7 +170,10 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                     # No filepath found
                     continue
             if self.support_upload:
-                file_hash = calculate_hash(source_file, shorten=True)
+                if filepath.suffix == ".zip" and zipfile.is_zipfile(source_file):
+                    file_hash = calculate_zipfile_hash(source_file, shorten=True)
+                else:
+                    file_hash = calculate_hash(source_file, shorten=True)
                 if "metadata" not in item:
                     item["metadata"] = {}
                 # Store hash for efficient diffing

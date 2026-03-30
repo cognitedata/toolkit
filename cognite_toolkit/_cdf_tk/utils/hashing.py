@@ -1,5 +1,6 @@
 import hashlib
 import json
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,36 @@ def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     elif isinstance(content, str):
         content = content.encode("utf-8")
     sha256_hash.update(content)
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
+
+
+def calculate_zipfile_hash(filepath: Path, shorten: bool = False) -> str:
+    """Calculate a hash of a zip file based on its contents, ignoring zip metadata.
+
+    This produces a consistent hash independent of OS by:
+    - Sorting files by their archive name
+    - Hashing only the file contents (not metadata like timestamps, permissions, etc.)
+    - Normalizing line endings in text content
+    """
+    sha256_hash = hashlib.sha256()
+
+    with zipfile.ZipFile(filepath, "r") as zf:
+        # Sort by name to ensure consistent ordering across platforms
+        for info in sorted(zf.infolist(), key=lambda x: x.filename):
+            # Skip directories (they have no content to hash)
+            if info.is_dir():
+                continue
+            # Include the normalized filename in the hash for structural integrity
+            sha256_hash.update(info.filename.replace("\\", "/").encode("utf-8"))
+            # Read and hash the file content
+            with zf.open(info) as f:
+                content = f.read()
+                # Normalize line endings for consistency across platforms
+                sha256_hash.update(content.replace(b"\r\n", b"\n"))
+
     calculated = sha256_hash.hexdigest()
     if shorten:
         return calculated[:8]
