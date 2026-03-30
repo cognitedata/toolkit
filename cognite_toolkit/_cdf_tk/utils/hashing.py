@@ -1,6 +1,5 @@
 import hashlib
 import json
-import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -49,7 +48,7 @@ def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
 def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
-        if content.suffix == ".zip" and zipfile.is_zipfile(content):
+        if content.suffix == ".zip":
             return calculate_zipfile_hash(content, shorten=shorten)
         # Get rid of Windows line endings to make the hash consistent across platforms.
         content = content.read_bytes().replace(b"\r\n", b"\n")
@@ -65,11 +64,25 @@ def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
 def calculate_zipfile_hash(filepath: Path, shorten: bool = False) -> str:
     """Calculate a hash of a zip file based on its contents, ignoring zip metadata.
 
-    It works by extracting the zip file to a temporary directory and
-    calculating the hash of the extracted contents using `calculate_directory_hash`.
+    It reads the contents directly from the zip file without extracting,
+    which ensures consistent hashing across platforms.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with zipfile.ZipFile(filepath) as zip_file:
-            zip_file.extractall(tmpdir)
-        calculated_hash = calculate_directory_hash(Path(tmpdir), shorten=shorten)
+    sha256_hash = hashlib.sha256()
+
+    with zipfile.ZipFile(filepath) as zip_file:
+        # Sort by name to ensure consistent ordering across platforms
+        for info in sorted(zip_file.infolist(), key=lambda x: x.filename):
+            # Skip directories
+            if info.is_dir():
+                continue
+            # Include the filename in the hash (using forward slashes for consistency)
+            sha256_hash.update(info.filename.replace("\\", "/").encode("utf-8"))
+            # Read and hash the file contents
+            content = zip_file.read(info.filename)
+            # Normalize line endings for consistent hashing across platforms
+            sha256_hash.update(content.replace(b"\r\n", b"\n"))
+
+    calculated_hash = sha256_hash.hexdigest()
+    if shorten:
+        return calculated_hash[:8]
     return calculated_hash

@@ -160,7 +160,9 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
-                if candidate := next((file for file in filepath.parent.glob(f"{stem}*") if file != filepath), None):
+                if candidate := next(
+                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
+                ):
                     source_file = candidate
                 elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
                     source_file = filepath.parent / name
