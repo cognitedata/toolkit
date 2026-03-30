@@ -69,7 +69,7 @@
         "run",
         "function",
         "local",
-        "--env=local",
+        "--config-yaml=local",
         "-o",
         "./cognite_toolkit/"
       ],
@@ -137,7 +137,7 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "build",
-        "--env=local",
+        "--config-yaml=local",
         "--verbose",
         "-o",
         "cognite_toolkit"
@@ -271,7 +271,7 @@
       "args": [
         "init"
         //"--dry-run",
-        //"--env=local",
+        //"--config-yaml=local",
         //"--include=transformations"
         //"--init-dir=foo",
         //"--help",
