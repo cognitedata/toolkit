@@ -60,8 +60,7 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
-        known_commands = self._collect_known_commands()
-        subcommands = self._parse_sys_args(known_commands)
+        subcommands = self._parse_sys_args(self._collect_known_commands())
         event_information = {
             "userInput": " ".join(subcommands),
             "toolkitVersion": __version__,
@@ -89,34 +88,23 @@ class Tracker:
         distinct_id = self.get_distinct_id()
 
         def track() -> None:
-            # If we are unable to connect to Mixpanel, we don't want to crash the program
             with suppress(ConnectionError, MixpanelException):
-                self.mp.track(
-                    distinct_id,
-                    event_name,
-                    event_information,
-                )
+                self.mp.track(distinct_id, event_name, event_information)
 
         if IN_BROWSER:
-            # Pyodide does not support threading
             track()
         else:
-            thread = threading.Thread(
-                target=track,
-                daemon=False,
-            )
-            thread.start()
+            threading.Thread(target=track, daemon=False).start()
 
         return True
 
     def get_distinct_id(self) -> str:
-        cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
-        cicd = self._cicd
-        if cache.exists():
-            return cache.read_text()
+        cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
+        if cache_file.exists():
+            return cache_file.read_text()
 
-        distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
-        cache.write_text(distinct_id)
+        distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
+        cache_file.write_text(distinct_id)
         with suppress(ConnectionError, MixpanelException):
             self.mp.people_set(
                 distinct_id,
@@ -131,20 +119,7 @@ class Tracker:
 
     @staticmethod
     def _parse_sys_args(known_commands: frozenset[str]) -> list[str]:
-        """Extract only known command/subcommand names from sys.argv, discarding all flag values."""
-        subcommands: list[str] = []
-        last_key: str | None = None
-        if sys.argv and len(sys.argv) > 1:
-            for arg in sys.argv[1:]:
-                if arg.startswith("--") and "=" in arg:
-                    last_key = None
-                elif arg.startswith("--"):
-                    last_key = arg.removeprefix("--")
-                elif last_key:
-                    last_key = None
-                elif arg in known_commands:
-                    subcommands.append(arg)
-        return subcommands
+        return [arg for arg in sys.argv[1:] if arg in known_commands]
 
     @staticmethod
     def _collect_known_commands() -> frozenset[str]:
@@ -162,19 +137,11 @@ class Tracker:
             app = getattr(module, "_app", None)
             if app is None:
                 return frozenset()
-            click_group = typer_main.get_command(app)
             names: set[str] = set()
-            Tracker._collect_click_command_names(click_group, names)
+            _collect_click_command_names(typer_main.get_command(app), names)
             return frozenset(names)
         except (ImportError, AttributeError):
             return frozenset()
-
-    @staticmethod
-    def _collect_click_command_names(group: "Command", names: set[str]) -> None:
-        if hasattr(group, "commands"):
-            for name, cmd in group.commands.items():
-                names.add(name)
-                Tracker._collect_click_command_names(cmd, names)
 
     @property
     def _cicd(self) -> str:
@@ -185,3 +152,10 @@ class Tracker:
 
     def disable(self) -> None:
         self._opt_status_file.write_text("opted-out")
+
+
+def _collect_click_command_names(group: "Command", names: set[str]) -> None:
+    if hasattr(group, "commands"):
+        for name, cmd in group.commands.items():
+            names.add(name)
+            _collect_click_command_names(cmd, names)
