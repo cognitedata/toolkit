@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 import respx
 from httpx import Response
@@ -8,6 +9,7 @@ from httpx import Response
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -39,6 +41,19 @@ class TestAssetCentricMigrationIOAdapter:
             }
             for i in range(N)
         ]
+        respx.post(
+            config.create_api_url("/models/spaces/byids"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        SpaceResponse(space="mySpace", created_time=1, last_updated_time=1, is_global=False).dump()
+                    ]
+                },
+            )
+        )
+
         respx_mock.post(config.create_api_url("/assets/byids")).mock(
             side_effect=[
                 Response(status_code=200, json={"items": items[: AssetIO.CHUNK_SIZE]}),
