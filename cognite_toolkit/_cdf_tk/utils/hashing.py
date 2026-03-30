@@ -48,7 +48,7 @@ def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
 def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
-        if content.suffix == ".zip":
+        if content.suffix == ".zip" and zipfile.is_zipfile(content):
             return calculate_zipfile_hash(content, shorten=shorten)
         # Get rid of Windows line endings to make the hash consistent across platforms.
         content = content.read_bytes().replace(b"\r\n", b"\n")
