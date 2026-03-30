@@ -881,7 +881,10 @@ API_RESOURCES = [
         resource_cls=FileMetadataResponse,
         _write_cls=FileMetadataRequest,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_filemetadata_v2")],
+            "create": [
+                Method(api_class_method="create", mock_class_method="create_filemetadata_v2"),
+                Method(api_class_method="update", mock_class_method="create_filemetadata_v2"),
+            ],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve_filemetadata"),
             ],

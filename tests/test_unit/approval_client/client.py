@@ -781,9 +781,7 @@ class ApprovalToolkitClient:
                 for item in items
             ]
 
-        def create_filemetadata_v2(
-            items: Sequence[FileMetadataRequest], overwrite: bool = False
-        ) -> list[FileMetadataResponse]:
+        def create_filemetadata_v2(items: Sequence[FileMetadataRequest], **_) -> list[FileMetadataResponse]:
             created_resources[resource_cls.__name__].extend(items)
             return [
                 FileMetadataResponse(
