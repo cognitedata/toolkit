@@ -71,9 +71,32 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         Returns:
             List of retrieved ViewResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
-        )
+        view_ids: list[ViewId] = []
+        no_version_ids: list[ViewNoVersionId] = []
+        for view_id in items:
+            if isinstance(view_id, ViewId):
+                view_ids.append(view_id)
+            else:
+                no_version_ids.append(view_id)
+
+        results: list[ViewResponse] = []
+        # The API does not support mixing ViewId and ViewNoVersionId in the same request.
+        if view_ids:
+            results.extend(
+                self._request_item_response(
+                    view_ids, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
+                )
+            )
+        if no_version_ids:
+            results.extend(
+                self._request_item_response(
+                    no_version_ids,
+                    method="retrieve",
+                    params={"includeInheritedProperties": include_inherited_properties},
+                )
+            )
+
+        return results
 
     def delete(self, items: Sequence[ViewId]) -> None:
         """Delete views from CDF.

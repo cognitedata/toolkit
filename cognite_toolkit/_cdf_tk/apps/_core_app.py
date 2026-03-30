@@ -54,10 +54,11 @@ class CoreApp(typer.Typer):
         if Flags.v08.is_enabled():
             self.command("build")(self.build_v2)
             self.command("deploy")(self.deploy_v2)
+            self.command("clean")(self.clean_v2)
         else:
             self.command()(self.build)
             self.command()(self.deploy)
-        self.command()(self.clean)
+            self.command()(self.clean)
 
     def common(
         self,
@@ -418,6 +419,21 @@ class CoreApp(typer.Typer):
                 " and provide a report of the changes that would be made.",
             ),
         ] = False,
+        drop: Annotated[
+            bool,
+            typer.Option(
+                "--drop",
+                "-d",
+                help="Whether to drop existing configurations, drop per resource if present.",
+            ),
+        ] = False,
+        drop_data: Annotated[
+            bool,
+            typer.Option(
+                "--drop-data",
+                help="Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+            ),
+        ] = False,
         include: Annotated[
             list[str] | None,
             typer.Option(
@@ -468,6 +484,8 @@ class CoreApp(typer.Typer):
                 options=DeployOptions(
                     cdf_project=cdf_project,
                     dry_run=dry_run,
+                    drop=drop,
+                    drop_data=drop_data,
                     include=include,
                     force_update=force_update,
                     verbose=verbose,
@@ -542,5 +560,86 @@ class CoreApp(typer.Typer):
                 module,
                 verbose,
                 all_modules=False,
+            )
+        )
+
+    def clean_v2(
+        self,
+        ctx: typer.Context,
+        build_dir: Annotated[
+            Path,
+            typer.Argument(
+                help="Where to find the resource configurations to clean.",
+                allow_dash=True,
+            ),
+        ] = Path("./build"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present",
+            ),
+        ] = False,
+        drop_data: Annotated[
+            bool,
+            typer.Option(
+                "--drop-data",
+                help="Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+            ),
+        ] = False,
+        include: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--include",
+                help=f"Specify which resource types to clean, supported types: {AVAILABLE_DATA_TYPES}",
+            ),
+        ] = None,
+        clean_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"clean_logs_{TODAY!s}"),
+        cdf_project: Annotated[
+            str | None,
+            typer.Option(
+                "--cdf-project",
+                help="The CDF Project you are cleaning. This is used to verify against the credentials you have set."
+                "If it is not passed, Toolkit will validate against the CDF project the configurations were built"
+                "for, and if that is missing you will be prompted for it.",
+            ),
+        ] = None,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Cleans the resources in the build directory from the CDF project."""
+        # Override cluster and project from the options/env variables
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
+        cmd.run(
+            lambda: cmd.deploy(
+                env_vars=env_vars,
+                user_build_dir=build_dir,
+                options=DeployOptions(
+                    operation="clean",
+                    cdf_project=cdf_project,
+                    drop=True,
+                    drop_data=drop_data,
+                    dry_run=dry_run,
+                    include=include,
+                    force_update=False,
+                    verbose=verbose,
+                    environment_variables=env_vars.dump(),
+                    deployment_dir=clean_dir,
+                ),
             )
         )

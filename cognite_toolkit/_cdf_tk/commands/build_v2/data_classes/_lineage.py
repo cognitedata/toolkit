@@ -95,7 +95,6 @@ class ModuleLineageItem(_BaseLineageModel):
     @classmethod
     def from_built_module(cls, module: BuiltModule) -> "ModuleLineageItem":
         """Construct lineage item from built module."""
-
         resource_lineage = []
         for resource in module.resources:
             resource_lineage.append(
@@ -110,7 +109,7 @@ class ModuleLineageItem(_BaseLineageModel):
             module_id=module.module_id.id.as_posix(),
             module_path=module.module_id.path,
             resource_lineage=resource_lineage,
-            insights_summary=module.insights.summary,
+            insights_summary=module.all_insights.summary,
         )
 
 

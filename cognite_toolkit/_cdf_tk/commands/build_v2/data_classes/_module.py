@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, 
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import InsightList, ModelSyntaxWarning
-from ._types import AbsoluteFilePath, RelativeDirPath
+from ._insights import ModelSyntaxWarning
+from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
@@ -78,6 +78,10 @@ class BuildVariable(BaseModel):
         return content
 
 
+class InvalidBuildVariable(BuildVariable):
+    error: ModelSyntaxWarning
+
+
 class ModuleId(Identifier):
     model_config = ConfigDict(frozen=True)
     id: RelativeDirPath
@@ -99,8 +103,8 @@ class ModuleId(Identifier):
 class ModuleSource(BaseModel):
     """Class used to describe source for module"""
 
-    path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
+    path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     resource_files_by_folder: dict[ResourceTypes, list[AbsoluteFilePath]] = Field(default_factory=dict)
     variables: list[BuildVariable] = Field(default_factory=list)
     iteration: int = 0
@@ -117,13 +121,34 @@ class ModuleSource(BaseModel):
         return sum(len(files) for files in self.resource_files_by_folder.values())
 
 
+class AmbiguousSelection(BaseModel):
+    name: str
+    module_paths: list[RelativeDirPath]
+    is_selected: bool
+
+
+class MisplacedModule(BaseModel):
+    id: RelativeDirPath
+    parent_modules: list[RelativeDirPath]
+
+
+class NonExistingModuleName(BaseModel):
+    name: str
+    closest_matches: list[str]
+
+
 class BuildSource(BaseModel):
     """Class used to describe source for build"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    module_dir: Path
+    module_dir: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     modules: list[ModuleSource]
-    insights: InsightList = Field(default_factory=InsightList)
+
+    ambiguous_selection: list[AmbiguousSelection] = Field(default_factory=list)
+    misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
+    non_existing_module_names: list[NonExistingModuleName] = Field(default_factory=list)
+    invalid_variables: list[InvalidBuildVariable] = Field(default_factory=list)
+    orphan_yaml_files: list[RelativeFilePath] = Field(default_factory=list)
 
     @property
     def total_files(self) -> int:
@@ -141,6 +166,9 @@ class ResourceType(BaseModel):
         kind = self.kind
         folder_name = self.resource_folder
         return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.resource_folder})"
 
 
 class ReadYAMLFile(BaseModel):
