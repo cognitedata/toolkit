@@ -140,3 +140,28 @@ class TestTracker:
 
         finally:
             sys.argv = original_argv
+
+    def test_positional_arg_not_a_command_is_excluded(self) -> None:
+        """Verify that a bare positional arg (e.g. a secret name) passed after a known subcommand
+        is not tracked — e.g. 'cdf data upload dir secret_name'."""
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ["cdf", "data", "upload", "dir", "secret_name"]
+            known = frozenset({"data", "upload", "dir", "download", "purge"})
+            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
+                tracker = Tracker(skip_tracking=False)
+
+                with (
+                    patch.object(Tracker, "_collect_known_commands", return_value=known),
+                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
+                ):
+                    tracker.track_cli_command([], "success", "test")
+
+                    mock_track_internal.assert_called_once()
+                    _, event_information = mock_track_internal.call_args.args
+
+                    assert event_information["subcommands"] == ["data", "upload", "dir"]
+                    assert "secret_name" not in str(event_information)
+
+        finally:
+            sys.argv = original_argv
