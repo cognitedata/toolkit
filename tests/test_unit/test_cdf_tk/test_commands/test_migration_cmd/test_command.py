@@ -31,7 +31,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceSource,
+    NodeRequest,
+    SpaceResponse,
+    ViewId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -203,6 +208,18 @@ class TestMigrationCommand:
             + "\n".join(f"{1000 + i},{space},asset_{i},{ASSET_ID},cdf_cdm,CogniteAsset,v1" for i in range(len(assets)))
         )
 
+        # Retrieve space
+        respx.post(
+            config.create_api_url("/models/spaces/byids"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
+                },
+            )
+        )
+
         # Asset retrieve ids
         respx.post(
             config.create_api_url("/assets/byids"),
@@ -317,6 +334,17 @@ class TestMigrationCommand:
         csv_content = (
             "id,space,externalId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n"
             f"{assets[0].id},{space},{assets[0].external_id},{ASSET_ID},cdf_cdm,CogniteAsset,v1"
+        )
+        # Retrieve space
+        respx.post(
+            config.create_api_url("/models/spaces/byids"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
+                },
+            )
         )
 
         # Asset retrieve ids
