@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, TypeAlias
 
 import questionary
 from rich.console import Console
@@ -47,9 +47,12 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
+Operation: TypeAlias = Literal["deploy", "clean"]
+
 
 @dataclass
 class DeployOptions:
+    operation: Operation = "deploy"
     cdf_project: str | None = None
     dry_run: bool = False
     include: Sequence[str] | None = None
@@ -59,6 +62,10 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
+
+    @property
+    def operation_noun(self) -> str:
+        return {"deploy": "deployment", "clean": "deletion"}[self.operation]
 
 
 @dataclass
@@ -194,18 +201,31 @@ class DeployV2Command(ToolkitCommand):
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._validate_cdf_project(build_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
-        self._display_startup(build_dir.path, client.config.project, client.console)
+        self._validate_cdf_project(
+            build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT, client.console
+        )
+        self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
         plan = self.create_deployment_plan(build_dir)
 
-        self._display_plan(plan, client.console)
+        self._display_plan(plan, options.operation, options.operation_noun, client.console)
+
+        clean_result: Sequence[DeploymentResult] | None = None
+        if options.drop and (options.operation == "clean" or not options.dry_run):
+            # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
+            # for drop in dry-run mode.
+            clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
+            if options.operation == "clean":
+                return clean_result
 
         results = self.apply_plan(client, plan, options)
 
+        if clean_result is not None:
+            self._merge_clean_results(results, clean_result)
+
         # Todo: Some mixpanel tracking??
-        self._display_results(results, client.console, options.verbose)
+        self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
 
         return results
 
@@ -270,10 +290,10 @@ class DeployV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
-    def _display_startup(self, build_dir: Path, cdf_project: str, console: Console) -> None:
+    def _display_startup(self, operation: str, build_dir: Path, cdf_project: str, console: Console) -> None:
         console.print(
             Panel(
-                f"Deploying {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
+                f"{operation.title()}ing {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
                 f"  - CDF project {cdf_project!r}",
                 expand=False,
             )
@@ -344,7 +364,12 @@ class DeployV2Command(ToolkitCommand):
                 console.print(table)
 
     def _validate_cdf_project(
-        self, build_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
+        self,
+        build_dir: ReadBuildDirectory,
+        operation: str,
+        cli_cdf_project: str | None,
+        client_cdf_project: str,
+        console: Console,
     ) -> None:
         """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
@@ -363,7 +388,7 @@ class DeployV2Command(ToolkitCommand):
             )
         elif cli_cdf_project is None and build_dir.cdf_project is None:
             typed_project = questionary.text(
-                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
+                f"Enter the name of CDF project you are {operation}ing. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
             ).unsafe_ask()
             if typed_project != client_cdf_project:
                 raise ToolkitValidationError(
@@ -408,22 +433,22 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, plan: list[DeploymentStep], console: Console) -> None:
+    def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:
         if not plan:
-            console.print("[bold yellow]No resources to deploy.[/]")
+            console.print(f"[bold yellow]No resources to {operation}.[/]")
             return
 
         step_count = len(plan)
         total_files = sum(len(step.files) for step in plan)
 
         summary_lines = [
-            f"[green]✓[/] [bold]{step_count}[/] resource types to deploy",
-            f"[green]✓[/] [bold]{total_files}[/] resources to deploy",
+            f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+            f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
         ]
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title="[bold]Deployment plan[/]",
+                title=f"[bold]{operation_noun.title()} plan[/]",
                 border_style="green",
                 expand=False,
             )
@@ -431,7 +456,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def apply_plan(
-        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions
+        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, is_delete: bool = False
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
 
@@ -448,7 +473,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task("Starting deployment", total=total_files)
+            task_id = progress.add_task(f"Starting {options.operation_noun}", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -470,20 +495,22 @@ class DeployV2Command(ToolkitCommand):
                     cdf_resource_by_id,
                     console,
                     options,
+                    is_delete,
+                    is_data_resource=isinstance(crud, ResourceContainerCRUD),
                 )
 
                 if options.dry_run:
                     result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
-                    progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
+                    progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
-                    progress.update(task_id, description=f"Deploying {resource_name} to CDF")
+                    progress.update(task_id, description=f"{options.operation.title()}ing {resource_name} to CDF")
                     result = cls.deploy_resources(crud, resources_to_deploy, step.skipped_cruds, options.deployment_dir)
-                    progress.update(task_id, description=f"Deployed {resource_name} successfully.")
+                    progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")
 
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            progress.update(task_id, description="Finished deploying.")
+            progress.update(task_id, description=f"Finished {options.operation}ing.")
         return results
 
     @classmethod
@@ -562,6 +589,8 @@ class DeployV2Command(ToolkitCommand):
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console,
         options: DeployOptions,
+        is_delete: bool,
+        is_data_resource: bool,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, resource in resource_by_id.items():
@@ -580,29 +609,53 @@ class DeployV2Command(ToolkitCommand):
             resources.missing_env_vars_by_id[identifier] = resource.missing_env_vars
 
             cdf_resource = cdf_by_id.get(identifier)
-            if cdf_resource is None:
-                resources.to_create.append(resource.request)
-                continue
-            cdf_dict = crud.dump_resource(cdf_resource, resource.raw_dict)
-            if not options.force_update and cdf_dict == resource.raw_dict:
-                resources.unchanged.append(identifier)
-                continue
-            if crud.support_update:
-                resources.to_update.append(resource.request)
-            else:
-                resources.to_delete.append(identifier)
-                resources.to_create.append(resource.request)
-            if options.verbose:
-                diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
-                for sensitive in crud.sensitive_strings(resource.request):
-                    diff_str = diff_str.replace(sensitive, "********")
-                console.print(
-                    Panel(
-                        diff_str,
-                        title=f"{crud.display_name}: {identifier}",
-                        expand=False,
+
+            if is_delete:
+                if cdf_resource is None:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="NOT-EXISTING",
+                            source_file=resource.source_files[0],
+                            reason=f"Will not delete {identifier!s} does not exist in CDF",
+                        )
                     )
-                )
+                    continue
+                if not options.drop_data and is_data_resource:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="HAS-DATA",
+                            source_file=resource.source_files[0],
+                            reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
+                        )
+                    )
+                    continue
+                resources.to_delete.append(identifier)
+            else:
+                if cdf_resource is None:
+                    resources.to_create.append(resource.request)
+                    continue
+                cdf_dict = crud.dump_resource(cdf_resource, resource.raw_dict)
+                if not options.force_update and cdf_dict == resource.raw_dict:
+                    resources.unchanged.append(identifier)
+                    continue
+                if crud.support_update:
+                    resources.to_update.append(resource.request)
+                else:
+                    resources.to_delete.append(identifier)
+                    resources.to_create.append(resource.request)
+                if options.verbose:
+                    diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
+                    for sensitive in crud.sensitive_strings(resource.request):
+                        diff_str = diff_str.replace(sensitive, "********")
+                    console.print(
+                        Panel(
+                            diff_str,
+                            title=f"{crud.display_name}: {identifier}",
+                            expand=False,
+                        )
+                    )
         return resources
 
     @classmethod
@@ -725,14 +778,31 @@ class DeployV2Command(ToolkitCommand):
     def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
+    def _merge_clean_results(
+        self, results: Sequence[DeploymentResult], clean_results: Sequence[DeploymentResult]
+    ) -> None:
+        """Merge results from the clean operation into the deploy results.
+
+        This modifies `results` in place, adding counts from `other` (typically the clean/delete operation).
+        Results are matched by resource_name.
+        """
+        other_by_name = {result.resource_name: result for result in clean_results}
+        for result in results:
+            if other_result := other_by_name.get(result.resource_name):
+                result += other_result
+
     @classmethod
-    def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
+    def _display_results(
+        cls, results: Sequence[DeploymentResult], operation: str, operation_noun: str, console: Console, verbose: bool
+    ) -> None:
         if not results:
-            console.print("No resources were deployed.")
+            console.print(f"No resources were {operation}ed.")
             return
 
         is_dry_run = results[0].is_dry_run
-        title = "Deployment Summary (dry run)" if is_dry_run else "Deployment Summary"
+        title = f"{operation_noun.title()} Summary"
+        if is_dry_run:
+            title += " (dry run)"
         table = Table(title=title, show_lines=False)
         table.add_column("Resource", style="cyan")
         if is_dry_run:
@@ -748,7 +818,7 @@ class DeployV2Command(ToolkitCommand):
         table.add_column("Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right", style="cyan")
         if is_dry_run:
-            table.add_column("Can deploy", justify="right")
+            table.add_column(f"Can {operation}", justify="right")
 
         total = DeploymentResult(
             "All",
@@ -803,7 +873,7 @@ class DeployV2Command(ToolkitCommand):
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
             console.print(
-                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during deployment. "
+                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
                 f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
                 f"Use --verbose flag to get details about all skipped resources."
             )
