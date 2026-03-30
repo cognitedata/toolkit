@@ -1,14 +1,15 @@
-from collections.abc import Callable
+from collections.abc import Set
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import InsightList
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
-from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
+from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRulSet, ToolkitLocalRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
-_rules_registry: dict[str, list[type[ToolkitResourceRule]]] | None = None
+_LOCAL_RULES_REGISTRY: list[type[ToolkitLocalRule]] | None = None
+_GLOBAL_RULES_REGISTRY: list[type[ToolkitGlobalRulSet]] | None = None
 
 
-def get_rules_registry(force_reload: bool = False) -> dict[str, list[type[ToolkitResourceRule]]]:
+def get_local_rules_registry(force_reload: bool = False) -> list[type[ToolkitLocalRule]]:
     """Get the registry of rules, optionally forcing a reload.
 
     Args:
@@ -17,45 +18,45 @@ def get_rules_registry(force_reload: bool = False) -> dict[str, list[type[Toolki
     Returns:
         A dictionary mapping resource types to lists of ToolkitRule classes.
     """
-    global _rules_registry
-    if _rules_registry is None or force_reload:
-        registry: dict[str, list[type[ToolkitResourceRule]]] = {}
-        rules = get_concrete_subclasses(ToolkitResourceRule)  # type: ignore
-
-        for rule_cls in rules:
-            registry.setdefault(rule_cls.resource_type, []).append(rule_cls)
-        _rules_registry = registry
-    return _rules_registry
+    global _LOCAL_RULES_REGISTRY
+    if _LOCAL_RULES_REGISTRY is None or force_reload:
+        _LOCAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitLocalRule))  # type: ignore[type-abstract]
+    return _LOCAL_RULES_REGISTRY
 
 
-class RulesOrchestrator:
-    def __init__(
-        self,
-        can_run_validator: Callable[[str, type], bool] | None = None,
-        enable_alpha_validators: bool = False,
-    ) -> None:
-        self._can_run_validator = can_run_validator or (lambda code, issue_type: True)
+def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGlobalRulSet]]:
+    """Get the registry of rules, optionally forcing a reload."""
+    global _GLOBAL_RULES_REGISTRY
+    if _GLOBAL_RULES_REGISTRY is None or force_reload:
+        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitGlobalRulSet))  # type: ignore[type-abstract]
+    return _GLOBAL_RULES_REGISTRY
+
+
+class LocalRulesOrchestrator:
+    def __init__(self, exclude_rule_codes: Set[str] | None = None, enable_alpha_validators: bool = False) -> None:
+        self.exclude_rule_codes = exclude_rule_codes or set()
         self._enable_alpha_validators = enable_alpha_validators
 
-    def run(self, module: Module) -> InsightList:
+    def can_run_rule(self, rule_cls: type[ToolkitLocalRule]) -> bool:
+        if rule_cls.CODE in self.exclude_rule_codes:
+            return False
+        if not rule_cls.IS_ALPHA:
+            return True
+        # Alpha Rule
+        return self._enable_alpha_validators
+
+    def run(self, module: Module) -> list[Insight]:
         """Run all applicable rules on the provided modules while updating modules insights.
 
         Args:
             module: The module to run the rules on.
         """
 
-        rules_registry = get_rules_registry()
-        all_insights = InsightList()
-        for file in module.files:
-            if not isinstance(file, SuccessfulReadYAMLFile):
+        rules_registry = get_local_rules_registry()
+        all_insights: list[Insight] = []
+        for rule_cls in rules_registry:
+            if not self.can_run_rule(rule_cls):
                 continue
-            for rule in rules_registry.get(file.resource_type.kind, []):
-                if rule.alpha and not self._enable_alpha_validators:
-                    continue
-
-                if self._can_run_validator(rule.code, rule.insight_type):
-                    for resource in file.resources:
-                        if resource.validated is not None:
-                            if insights := rule([resource.validated]).validate():
-                                all_insights.extend(insights)
+            rule = rule_cls(module)
+            all_insights.extend(rule.validate())
         return all_insights
