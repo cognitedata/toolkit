@@ -5,14 +5,24 @@ and fails if they have changed.
 If the changes are desired, you can update the snapshot by running `pytest tests/ --force-regen`.
 """
 
+import os
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    BuildV2Command,
+    CleanCommand,
+    DeployCommand,
+    DeployOptions,
+    DeployV2Command,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -230,6 +240,52 @@ def test_build_deploy_complete_org(
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{organization_dir.name}.yaml")
+
+    for group_calls in toolkit_client_approval.auth_create_group_calls():
+        lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
+        assert not lost_capabilities, (
+            f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
+        )
+
+
+@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="Requires v8.")
+@pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
+def test_build_deploy_v2_complete_orgs(
+    organization_dir: Path,
+    build_tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    data_regression,
+) -> None:
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=organization_dir,
+            build_dir=build_tmp_path,
+            config_yaml_name="dev",
+        ),
+    )
+    with patch.dict(
+        os.environ,
+        {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
+    ):
+        DeployV2Command(silent=True, skip_tracking=True).deploy(
+            env_vars=env_vars_with_client,
+            user_build_dir=build_tmp_path,
+            options=DeployOptions(
+                environment_variables=env_vars_with_client.dump(),
+            ),
+        )
+
+    not_mocked = toolkit_client_approval.not_mocked_calls()
+    assert not not_mocked, (
+        f"The following APIs have been called without being mocked: {not_mocked}, "
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
+    )
+
+    dump = toolkit_client_approval.dump()
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{organization_dir.name}_v2.yaml")
 
     for group_calls in toolkit_client_approval.auth_create_group_calls():
         lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities

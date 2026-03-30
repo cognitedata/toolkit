@@ -82,24 +82,13 @@ DataSetResponse:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
-FileCRUD:
-- externalId: MyExtendedFile
-  filehash: c7fbc0e8
-  space: sp_nodes
-  type: node
-- external_id: my_simulator_model_revision_file
-  filehash: edf1f778
-- external_id: shopConfigFile
-  filehash: b1f3b6ef
-FileMetadata:
-- data_set_id: 7982613576047462211
-  external_id: fn_multi_file_function
-  id: 64
-  name: Multi_File_Function.zip
-  overwrite: true
 FileMetadataResponse:
-- externalId: my_simulator_model_revision_file
-  name: file
+- dataSetId: 7982613576047462211
+  externalId: fn_multi_file_function
+  metadata:
+    cognite-toolkit-hash: zipfil-hash-not-supported
+  mimeType: application/zip
+  name: Multi_File_Function.zip
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: my_simulator_model_revision_file
@@ -108,8 +97,6 @@ FileMetadataResponse:
   mimeType: application/plain
   name: simulator_model_revision.txt
   source: doctrino
-- externalId: shopConfigFile
-  name: file
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
@@ -121,7 +108,7 @@ FileMetadataResponse:
 FunctionResponse:
 - description: Uses multiple modules.
   externalId: fn_multi_file_function
-  fileId: 64
+  fileId: 13877181645287870980
   metadata:
     cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
     version: '1'
