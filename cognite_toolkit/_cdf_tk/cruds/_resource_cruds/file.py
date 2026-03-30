@@ -362,7 +362,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> CogniteFileRequest:
         request = super().load_resource(resource, is_dry_run)
-        request.filepath = self._filepath_by_node_id[self.get_id(resource)]
+        request.filepath = self._filepath_by_node_id.get(self.get_id(resource))
         return request
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:

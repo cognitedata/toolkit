@@ -40,7 +40,6 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: anotherfile.txt
-      sourceContext: 'cognite-toolkit-hash: 736fbca0'
       sourceCreatedTime: '2023-01-01T00:00:00Z'
       sourceCreatedUser: I
       sourceUpdatedTime: '2024-01-01T00:00:00Z'
