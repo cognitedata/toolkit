@@ -24,7 +24,6 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 class Tracker:
     def __init__(self, skip_tracking: bool = False) -> None:
-        self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = self.opted_out or skip_tracking
@@ -58,9 +57,10 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
-        subcommands, optional_args = self._parse_sys_args()
+        known_commands = self._collect_known_commands()
+        subcommands = self._parse_sys_args(known_commands)
         event_information = {
-            "userInput": self.user_command,
+            "userInput": " ".join(subcommands),
             "toolkitVersion": __version__,
             "$os": platform.system(),
             "pythonVersion": platform.python_version(),
@@ -70,7 +70,6 @@ class Tracker:
             "result": type(result).__name__ if isinstance(result, Exception) else result,
             "error": str(result) if isinstance(result, Exception) else "",
             "subcommands": subcommands,
-            **optional_args,
             "alphaFlags": [name for name, value in self._cdf_toml.alpha_flags.items() if value],
             "plugins": [name for name, value in self._cdf_toml.plugins.items() if value],
         }
@@ -128,30 +127,51 @@ class Tracker:
         return distinct_id
 
     @staticmethod
-    def _parse_sys_args() -> tuple[list[str], dict[str, str | bool]]:
-        optional_args: dict[str, str | bool] = {}
+    def _parse_sys_args(known_commands: frozenset[str]) -> list[str]:
+        """Extract only known command/subcommand names from sys.argv, discarding all flag values."""
         subcommands: list[str] = []
         last_key: str | None = None
         if sys.argv and len(sys.argv) > 1:
             for arg in sys.argv[1:]:
                 if arg.startswith("--") and "=" in arg:
-                    if last_key:
-                        optional_args[last_key] = True
-                    key, value = arg.split("=", maxsplit=1)
-                    optional_args[key.removeprefix("--")] = value
+                    last_key = None
                 elif arg.startswith("--"):
-                    if last_key:
-                        optional_args[last_key] = True
                     last_key = arg.removeprefix("--")
                 elif last_key:
-                    optional_args[last_key] = arg
                     last_key = None
-                else:
+                elif arg in known_commands:
                     subcommands.append(arg)
+        return subcommands
 
-            if last_key:
-                optional_args[last_key] = True
-        return subcommands, optional_args
+    @staticmethod
+    def _collect_known_commands() -> frozenset[str]:
+        """Collect all registered CLI command names by introspecting the loaded Typer app.
+
+        Uses sys.modules to avoid a circular import — the app module is always loaded
+        before tracking runs, so no explicit import is needed here.
+        """
+        module = sys.modules.get("cognite_toolkit._cdf")
+        if module is None:
+            return frozenset()
+        try:
+            import typer.main as typer_main
+
+            app = getattr(module, "_app", None)
+            if app is None:
+                return frozenset()
+            click_group = typer_main.get_command(app)
+            names: set[str] = set()
+            Tracker._collect_click_command_names(click_group, names)
+            return frozenset(names)
+        except Exception:
+            return frozenset()
+
+    @staticmethod
+    def _collect_click_command_names(group: Any, names: set[str]) -> None:
+        if hasattr(group, "commands"):
+            for name, cmd in group.commands.items():
+                names.add(name)
+                Tracker._collect_click_command_names(cmd, names)
 
     @property
     def _cicd(self) -> str:

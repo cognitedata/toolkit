@@ -65,23 +65,78 @@ class TestTracker:
         original_argv = sys.argv.copy()
         try:
             sys.argv = ["cdf", "modules", "upgrade", "--dry-run"]
+            known = frozenset({"modules", "upgrade", "build", "deploy", "clean"})
             with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
                 tracker = Tracker(skip_tracking=False)
                 tracker._opt_status = "opted-in"
 
-                with patch.object(tracker, "_track", return_value=True) as mock_track_internal:
+                with (
+                    patch.object(Tracker, "_collect_known_commands", return_value=known),
+                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
+                ):
                     tracker.track_cli_command([], "success", "test")
 
                     mock_track_internal.assert_called_once()
                     _, event_information = mock_track_internal.call_args.args
 
-                    # Verify subcommands is a list
                     assert "subcommands" in event_information
                     assert isinstance(event_information["subcommands"], list)
                     assert event_information["subcommands"] == ["modules", "upgrade"]
 
-                    # Verify no positionalArg0, positionalArg1, etc. fields exist
                     assert "positionalArg0" not in event_information
                     assert "positionalArg1" not in event_information
+
+        finally:
+            sys.argv = original_argv
+
+    def test_sensitive_flag_values_are_excluded(self) -> None:
+        """Verify that flag values (potentially sensitive) are not included in tracked data."""
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ["cdf", "deploy", "--project", "my-secret-project", "--env-file", "/secret/.env"]
+            known = frozenset({"deploy", "build", "clean"})
+            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
+                tracker = Tracker(skip_tracking=False)
+
+                with (
+                    patch.object(Tracker, "_collect_known_commands", return_value=known),
+                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
+                ):
+                    tracker.track_cli_command([], "success", "test")
+
+                    mock_track_internal.assert_called_once()
+                    _, event_information = mock_track_internal.call_args.args
+
+                    assert event_information["subcommands"] == ["deploy"]
+                    assert event_information["userInput"] == "deploy"
+                    assert "my-secret-project" not in str(event_information)
+                    assert "/secret/.env" not in str(event_information)
+                    assert "project" not in event_information
+                    assert "env-file" not in event_information
+
+        finally:
+            sys.argv = original_argv
+
+    def test_unknown_positional_args_are_excluded(self) -> None:
+        """Verify that positional args that aren't known commands are filtered out."""
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ["cdf", "build", "path/to/my/build_dir"]
+            known = frozenset({"build", "deploy", "clean"})
+            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
+                tracker = Tracker(skip_tracking=False)
+
+                with (
+                    patch.object(Tracker, "_collect_known_commands", return_value=known),
+                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
+                ):
+                    tracker.track_cli_command([], "success", "test")
+
+                    mock_track_internal.assert_called_once()
+                    _, event_information = mock_track_internal.call_args.args
+
+                    assert event_information["subcommands"] == ["build"]
+                    assert "path/to/my/build_dir" not in str(event_information)
+
         finally:
             sys.argv = original_argv
