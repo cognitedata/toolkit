@@ -4,8 +4,6 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cognite.neat._client import NeatClient
-
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
@@ -18,7 +16,7 @@ from cognite_toolkit._cdf_tk.cruds import DataModelCRUD
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
 if TYPE_CHECKING:
-    from cognite.neat._toolkit_adapter import NeatIssueList, SchemaLimits, SchemaSnapshot
+    from cognite.neat._toolkit_adapter import NeatClient, NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
 class NeatRuleSet(ToolkitGlobalRulSet):
