@@ -336,7 +336,9 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
-                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                if candidate := next(
+                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
+                ):
                     source_file = candidate
                 elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
                     source_file = filepath.parent / name
