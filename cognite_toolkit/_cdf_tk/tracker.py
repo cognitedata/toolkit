@@ -8,7 +8,10 @@ from collections import Counter
 from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from click import Command
 
 from mixpanel import Consumer, Mixpanel, MixpanelException
 
@@ -163,11 +166,11 @@ class Tracker:
             names: set[str] = set()
             Tracker._collect_click_command_names(click_group, names)
             return frozenset(names)
-        except Exception:
+        except (ImportError, AttributeError):
             return frozenset()
 
     @staticmethod
-    def _collect_click_command_names(group: Any, names: set[str]) -> None:
+    def _collect_click_command_names(group: "Command", names: set[str]) -> None:
         if hasattr(group, "commands"):
             for name, cmd in group.commands.items():
                 names.add(name)

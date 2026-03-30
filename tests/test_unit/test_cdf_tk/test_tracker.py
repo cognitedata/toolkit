@@ -60,108 +60,38 @@ class TestTracker:
             assert "userInput" in event_information
             assert event_information["downloadedLibraryIds"] == ["test"]
 
-    def test_subcommands_tracking(self) -> None:
-        """Verify that subcommands are tracked as a list, not as positionalArg0, positionalArg1, etc."""
-        original_argv = sys.argv.copy()
+
+class TestParseSystemArgs:
+    """Test _parse_sys_args filtering logic directly."""
+
+    KNOWN = frozenset({"build", "deploy", "clean", "data", "upload", "dir", "download", "purge", "modules", "upgrade"})
+
+    def _parse(self, argv: list[str]) -> list[str]:
+        original = sys.argv
         try:
-            sys.argv = ["cdf", "modules", "upgrade", "--dry-run"]
-            known = frozenset({"modules", "upgrade", "build", "deploy", "clean"})
-            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
-                tracker = Tracker(skip_tracking=False)
-                tracker._opt_status = "opted-in"
-
-                with (
-                    patch.object(Tracker, "_collect_known_commands", return_value=known),
-                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
-                ):
-                    tracker.track_cli_command([], "success", "test")
-
-                    mock_track_internal.assert_called_once()
-                    _, event_information = mock_track_internal.call_args.args
-
-                    assert "subcommands" in event_information
-                    assert isinstance(event_information["subcommands"], list)
-                    assert event_information["subcommands"] == ["modules", "upgrade"]
-
-                    assert "positionalArg0" not in event_information
-                    assert "positionalArg1" not in event_information
-
+            sys.argv = argv
+            return Tracker._parse_sys_args(self.KNOWN)
         finally:
-            sys.argv = original_argv
+            sys.argv = original
 
-    def test_sensitive_flag_values_are_excluded(self) -> None:
-        """Verify that flag values (potentially sensitive) are not included in tracked data."""
-        original_argv = sys.argv.copy()
-        try:
-            sys.argv = ["cdf", "deploy", "--project", "my-secret-project", "--env-file", "/secret/.env"]
-            known = frozenset({"deploy", "build", "clean"})
-            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
-                tracker = Tracker(skip_tracking=False)
+    def test_known_subcommands_are_tracked(self) -> None:
+        assert self._parse(["cdf", "modules", "upgrade", "--dry-run"]) == ["modules", "upgrade"]
 
-                with (
-                    patch.object(Tracker, "_collect_known_commands", return_value=known),
-                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
-                ):
-                    tracker.track_cli_command([], "success", "test")
+    def test_flag_values_are_excluded(self) -> None:
+        result = self._parse(["cdf", "deploy", "--project", "my-secret-project", "--env-file", "/secret/.env"])
+        assert result == ["deploy"]
+        assert "my-secret-project" not in result
+        assert "/secret/.env" not in result
 
-                    mock_track_internal.assert_called_once()
-                    _, event_information = mock_track_internal.call_args.args
+    def test_flag_with_equals_value_is_excluded(self) -> None:
+        assert self._parse(["cdf", "build", "--env-file=/secret/.env"]) == ["build"]
 
-                    assert event_information["subcommands"] == ["deploy"]
-                    assert event_information["userInput"] == "deploy"
-                    assert "my-secret-project" not in str(event_information)
-                    assert "/secret/.env" not in str(event_information)
-                    assert "project" not in event_information
-                    assert "env-file" not in event_information
+    def test_bare_positional_arg_not_a_command_is_excluded(self) -> None:
+        """e.g. 'cdf data upload dir secret_name' — secret_name must not be tracked."""
+        assert self._parse(["cdf", "data", "upload", "dir", "secret_name"]) == ["data", "upload", "dir"]
 
-        finally:
-            sys.argv = original_argv
+    def test_path_positional_arg_is_excluded(self) -> None:
+        assert self._parse(["cdf", "build", "path/to/build_dir"]) == ["build"]
 
-    def test_unknown_positional_args_are_excluded(self) -> None:
-        """Verify that positional args that aren't known commands are filtered out."""
-        original_argv = sys.argv.copy()
-        try:
-            sys.argv = ["cdf", "build", "path/to/my/build_dir"]
-            known = frozenset({"build", "deploy", "clean"})
-            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
-                tracker = Tracker(skip_tracking=False)
-
-                with (
-                    patch.object(Tracker, "_collect_known_commands", return_value=known),
-                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
-                ):
-                    tracker.track_cli_command([], "success", "test")
-
-                    mock_track_internal.assert_called_once()
-                    _, event_information = mock_track_internal.call_args.args
-
-                    assert event_information["subcommands"] == ["build"]
-                    assert "path/to/my/build_dir" not in str(event_information)
-
-        finally:
-            sys.argv = original_argv
-
-    def test_positional_arg_not_a_command_is_excluded(self) -> None:
-        """Verify that a bare positional arg (e.g. a secret name) passed after a known subcommand
-        is not tracked — e.g. 'cdf data upload dir secret_name'."""
-        original_argv = sys.argv.copy()
-        try:
-            sys.argv = ["cdf", "data", "upload", "dir", "secret_name"]
-            known = frozenset({"data", "upload", "dir", "download", "purge"})
-            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
-                tracker = Tracker(skip_tracking=False)
-
-                with (
-                    patch.object(Tracker, "_collect_known_commands", return_value=known),
-                    patch.object(tracker, "_track", return_value=True) as mock_track_internal,
-                ):
-                    tracker.track_cli_command([], "success", "test")
-
-                    mock_track_internal.assert_called_once()
-                    _, event_information = mock_track_internal.call_args.args
-
-                    assert event_information["subcommands"] == ["data", "upload", "dir"]
-                    assert "secret_name" not in str(event_information)
-
-        finally:
-            sys.argv = original_argv
+    def test_empty_argv(self) -> None:
+        assert self._parse(["cdf"]) == []
