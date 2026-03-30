@@ -282,7 +282,7 @@ class CoreApp(typer.Typer):
                 "-c",
                 help="The name of the config YAML file to use. It expected to be named config.<name>.yaml and be located in the organization directory.",
             ),
-        ] = CDF_TOML.cdf.default_config_yaml,
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
