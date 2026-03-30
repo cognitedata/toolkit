@@ -8,7 +8,7 @@ from collections import Counter
 from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from click import Command
