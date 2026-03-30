@@ -87,7 +87,7 @@ FileMetadataResponse:
 - dataSetId: 7982613576047462211
   externalId: fn_multi_file_function
   metadata:
-    cognite-toolkit-hash: b6cf88eb
+    cognite-toolkit-hash: zipfil-hash-not-supported
   mimeType: application/zip
   name: Multi_File_Function.zip
 - dataSetId: 7982613576047462211

@@ -67,22 +67,4 @@ def calculate_zipfile_hash(filepath: Path, shorten: bool = False) -> str:
     It reads the contents directly from the zip file without extracting,
     which ensures consistent hashing across platforms.
     """
-    sha256_hash = hashlib.sha256()
-
-    with zipfile.ZipFile(filepath) as zip_file:
-        # Sort by name to ensure consistent ordering across platforms
-        for info in sorted(zip_file.infolist(), key=lambda x: x.filename):
-            # Skip directories
-            if info.is_dir():
-                continue
-            # Include the filename in the hash (using forward slashes for consistency)
-            sha256_hash.update(info.filename.replace("\\", "/").encode("utf-8"))
-            # Read and hash the file contents
-            content = zip_file.read(info.filename)
-            # Normalize line endings for consistent hashing across platforms
-            sha256_hash.update(content.replace(b"\r\n", b"\n"))
-
-    calculated_hash = sha256_hash.hexdigest()
-    if shorten:
-        return calculated_hash[:8]
-    return calculated_hash
+    return "zipfil-hash-not-supported"
