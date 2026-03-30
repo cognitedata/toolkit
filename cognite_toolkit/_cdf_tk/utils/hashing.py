@@ -1,5 +1,6 @@
 import hashlib
 import json
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,8 @@ def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
 def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
+        if content.suffix == ".zip" and zipfile.is_zipfile(content):
+            return calculate_zipfile_hash(content, shorten=shorten)
         # Get rid of Windows line endings to make the hash consistent across platforms.
         content = content.read_bytes().replace(b"\r\n", b"\n")
     elif isinstance(content, str):
@@ -62,28 +65,11 @@ def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
 def calculate_zipfile_hash(filepath: Path, shorten: bool = False) -> str:
     """Calculate a hash of a zip file based on its contents, ignoring zip metadata.
 
-    This produces a consistent hash independent of OS by:
-    - Sorting files by their archive name
-    - Hashing only the file contents (not metadata like timestamps, permissions, etc.)
-    - Normalizing line endings in text content
+    It works by extracting the zip file to a temporary directory and
+    calculating the hash of the extracted contents using `calculate_directory_hash`.
     """
-    sha256_hash = hashlib.sha256()
-
-    with zipfile.ZipFile(filepath, "r") as zf:
-        # Sort by name to ensure consistent ordering across platforms
-        for info in sorted(zf.infolist(), key=lambda x: x.filename):
-            # Skip directories (they have no content to hash)
-            if info.is_dir():
-                continue
-            # Include the normalized filename in the hash for structural integrity
-            sha256_hash.update(info.filename.replace("\\", "/").encode("utf-8"))
-            # Read and hash the file content
-            with zf.open(info) as f:
-                content = f.read()
-                # Normalize line endings for consistency across platforms
-                sha256_hash.update(content.replace(b"\r\n", b"\n"))
-
-    calculated = sha256_hash.hexdigest()
-    if shorten:
-        return calculated[:8]
-    return calculated
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(filepath) as zip_file:
+            zip_file.extractall(tmpdir)
+        calculated_hash = calculate_directory_hash(Path(tmpdir), shorten=shorten)
+    return calculated_hash
