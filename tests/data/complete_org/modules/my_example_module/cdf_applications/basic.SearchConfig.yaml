@@ -1,6 +1,6 @@
 view:
-  externalId: test-view
-  space: test-space
+  externalId: test_view
+  space: test_space
 useAsName: name
 useAsDescription: description
 columnsLayout:

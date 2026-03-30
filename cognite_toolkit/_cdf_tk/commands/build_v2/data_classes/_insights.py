@@ -1,11 +1,12 @@
 import csv
 import io
 from collections import UserList, defaultdict
+from typing import TypeAlias
 
 from pydantic import BaseModel
 
 
-class Insight(BaseModel):
+class InsightDefinition(BaseModel):
     """Base class for all insights"""
 
     message: str
@@ -17,31 +18,26 @@ class Insight(BaseModel):
         return cls.__name__
 
 
-class ModelSyntaxWarning(Insight):
+class ModelSyntaxWarning(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
     ...
 
 
-class ConsistencyError(Insight):
+class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
     ...
 
 
-class ConsistencyWarning(Insight):
-    """Typically handles validations with extras=True, where internal representation might be off sync with
-    CDF API definition.
-    """
-
-    ...
-
-
-class Recommendation(Insight):
+class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
     ...
+
+
+Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation
 
 
 class InsightList(UserList[Insight]):
