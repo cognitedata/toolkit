@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import hashlib
 import io
 import itertools
@@ -51,7 +52,7 @@ from cognite.client.data_classes.data_modeling import (
     VersionedDataModelingId,
     View,
 )
-from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier, InstanceId
+from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
@@ -60,14 +61,15 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
     InstanceRequest,
     NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
@@ -77,6 +79,7 @@ from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TE
 from cognite_toolkit._cdf_tk.cruds import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
+from tests.constants import CDF_PROJECT
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -163,7 +166,7 @@ class ApprovalToolkitClient:
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
         credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
-        project = "test_project"
+        project = CDF_PROJECT
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project=project,
@@ -763,6 +766,34 @@ class ApprovalToolkitClient:
                 for item in items
             ]
 
+        def create_cognite_file(items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
+            created_resources[resource_cls.__name__].extend(items)
+            return [
+                InstanceSlimDefinition(
+                    instance_type="node",
+                    version=1,
+                    was_modified=True,
+                    space=item.space,
+                    external_id=item.external_id,
+                    created_time=1,
+                    last_updated_time=2,
+                )
+                for item in items
+            ]
+
+        def create_filemetadata_v2(items: Sequence[FileMetadataRequest], **_) -> list[FileMetadataResponse]:
+            created_resources[resource_cls.__name__].extend(items)
+            return [
+                FileMetadataResponse(
+                    **item.dump(),
+                    created_time=1,
+                    last_updated_time=2,
+                    id=LookUpAPIMock.create_id(item.external_id or "unknown"),
+                    uploaded=True,
+                )
+                for item in items
+            ]
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -783,6 +814,8 @@ class ApprovalToolkitClient:
                 create,
                 create_hosted_extractor_source,
                 create_instances_pydantic,
+                create_cognite_file,
+                create_filemetadata_v2,
             ]
         }
         if mock_method not in available_create_methods:
@@ -934,14 +967,27 @@ class ApprovalToolkitClient:
 
         def retrieve_filemetadata(
             items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-        ) -> list[FileMetadataResponse]:
-            if len(items) == 1 and isinstance(items[0], InternalId):
-                return [
+        ) -> builtins.list[FileMetadataResponse]:
+            filemetadata_responses: builtins.list[FileMetadataResponse] = []
+            for item in items:
+                if isinstance(item, InternalId):
+                    id = item.id
+                    external_id = str(id)
+                elif isinstance(item, ExternalId):
+                    id = LookUpAPIMock.create_id(item.external_id or "unknown")
+                    external_id = item.external_id or "unknown"
+                elif isinstance(item, InstanceId):
+                    id = LookUpAPIMock.create_id(item.instance_id.external_id)
+                    external_id = item.instance_id.external_id
+                else:
+                    external_id = "unknown"
+                    id = 37
+                filemetadata_responses.append(
                     FileMetadataResponse(
-                        id=items[0].id, uploaded=True, created_time=0, last_updated_time=1, name="file"
+                        id=id, uploaded=True, created_time=0, last_updated_time=1, external_id=external_id, name="file"
                     )
-                ]
-            return []
+                )
+            return filemetadata_responses
 
         available_retrieve_methods = {
             fn.__name__: fn

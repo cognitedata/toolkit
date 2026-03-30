@@ -459,3 +459,43 @@ class TestParseVariablesEdgeCases:
         assert len(module_vars) == 2
         assert len(module_vars[1]) == 2
         assert len(module_vars[2]) == 2
+
+
+class TestAsModuleVariables:
+    TOP_LEVEL = BuildVariable(value="value1", id=Path("modules/top"), is_selected=True)
+    ITERATION_1 = BuildVariable(value="value2", id=Path("modules/iteration1"), is_selected=True)
+    ITERATION_2 = BuildVariable(value="value2", id=Path("modules/iteration2"), is_selected=True)
+
+    @pytest.mark.parametrize(
+        "variables, module, actual",
+        [
+            pytest.param(
+                {
+                    Path("modules"): {None: [TOP_LEVEL]},
+                    Path("modules/my_module"): {
+                        1: [ITERATION_1],
+                        2: [ITERATION_2],
+                    },
+                },
+                Path("modules/my_module"),
+                {
+                    1: [ITERATION_1, TOP_LEVEL],
+                    2: [ITERATION_2, TOP_LEVEL],
+                },
+                id="Module executed in two iterations",
+            ),
+            pytest.param(
+                {Path("modules"): {None: [TOP_LEVEL]}},
+                Path("modules/my_module"),
+                {None: [TOP_LEVEL]},
+                id="No iteration.",
+            ),
+        ],
+    )
+    def test_as_module_variables(
+        self,
+        variables: dict[Path, dict[int | None, list[BuildVariable]]],
+        module: Path,
+        actual: dict[int | None, list[BuildVariable]],
+    ) -> None:
+        assert ModuleParser._as_module_variables(variables, module) == actual

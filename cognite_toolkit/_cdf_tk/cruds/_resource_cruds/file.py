@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
 from pathlib import Path
@@ -162,7 +160,9 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
-                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                if candidate := next(
+                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
+                ):
                     source_file = candidate
                 elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
                     source_file = filepath.parent / name
@@ -336,7 +336,9 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
-                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                if candidate := next(
+                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
+                ):
                     source_file = candidate
                 elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
                     source_file = filepath.parent / name
@@ -360,7 +362,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> CogniteFileRequest:
         request = super().load_resource(resource, is_dry_run)
-        request.filepath = self._filepath_by_node_id[self.get_id(resource)]
+        request.filepath = self._filepath_by_node_id.get(self.get_id(resource))
         return request
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
