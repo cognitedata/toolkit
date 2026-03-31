@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):
@@ -28,7 +27,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/models/views", item_limit=VIEW_UPSERT_BATCH_LIMIT),
+                "upsert": Endpoint(method="POST", path="/models/views", item_limit=100),
                 "retrieve": Endpoint(method="POST", path="/models/views/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/views/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/views", item_limit=1000),
