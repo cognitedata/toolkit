@@ -274,7 +274,8 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             sleep_time *= 2
         return to_check, elapsed_time
 
-    def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> None:
+    def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> SuccessResponse:
+        # Todo: If file size is above 5000 MB - 5,000,000,000 bytes, do a multipart file upload.
         fileupoad = RequestMessage(
             endpoint_url=upload_url,
             method="PUT",
@@ -282,7 +283,8 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             data_content=filepath.read_bytes(),
         )
         upload_response = self._http_client.request_single_retries(fileupoad)
-        upload_response.get_success_or_raise(fileupoad)
+        success = upload_response.get_success_or_raise(fileupoad)
+        return success
 
     def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
         """Get a URL to upload a file to CDF for one or more file metadata entries."""

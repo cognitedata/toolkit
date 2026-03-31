@@ -31,6 +31,7 @@ class HTTPResult(HTTPBaseModel):
                 duplicated=self.error.duplicated,  # type: ignore[arg-type]
                 code=self.error.code,
                 request=request,
+                response=self,
             )
         elif isinstance(self, FailedRequest):
             raise ToolkitAPIError(f"Request failed with error: {self.error}", request=request)
