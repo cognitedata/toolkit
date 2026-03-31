@@ -74,8 +74,11 @@ class UploadApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
         if not skip_verify_cdf_project:
+            client.console.print(
+                f"You are about to upload data to the CDF project [bold]{client.config.project}[/bold], as set in your environment variables."
+            )
             typed_project = questionary.text(
-                f"Enter the name of CDF project you are uploading to. This must match the CDF_PROJECT={client.config.project!r} in you environment variables.\n",
+                "To confirm, please type the name of the project: ",
             ).unsafe_ask()
             if typed_project != client.config.project:
                 client.console.print(
