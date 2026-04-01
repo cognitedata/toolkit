@@ -774,7 +774,7 @@ class RunWorkflowCommand(ToolkitCommand):
         if not wait:
             return True
 
-        workflow = client.workflows.versions.retrieve(id_)
+        workflow = client.workflows.versions.retrieve(WorkflowVersionId(id_.workflow_external_id, id_.version))
         if workflow is None:
             raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
 
