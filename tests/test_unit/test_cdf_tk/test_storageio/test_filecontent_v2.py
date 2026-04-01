@@ -28,6 +28,7 @@ class TestFileMetadataContentIO:
                 )
             ),
             file_directory=file_directory,
+            guess_mime_type=True,
         )
         selector.dump_to_file(tmp_path)
 
@@ -39,6 +40,8 @@ class TestFileMetadataContentIO:
 
             chunks = io.read_chunks(reader, selector)
             requests = (io.json_chunk_to_data(page) for page in chunks)
-            result = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
+            result_pages = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
+            assert len(result_pages) == 1
+            results = result_pages[0]
 
-            assert len(result) == len(files)
+            assert len(results) == len(files)

@@ -1,9 +1,11 @@
+import json
+import mimetypes
 from abc import ABC
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, DirectoryPath, field_validator, json
+from pydantic import ConfigDict, DirectoryPath, field_validator
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -34,10 +36,13 @@ class FileMetadataTemplate(SelectorObject):
     name: str
     external_id: str
 
-    def create_instance(self, filepath: Path) -> dict[str, Any]:
+    def create_instance(self, filepath: Path, guess_mime_type: bool) -> dict[str, Any]:
         json_str = self.model_dump_json(by_alias=True)
         output = json.loads(json_str.replace(FILENAME_VARIABLE, filepath.name))
         output[FILEPATH] = filepath
+        if "mimeType" not in output and guess_mime_type:
+            me_type, _ = mimetypes.guess_type(filepath)
+            output["mimeType"] = me_type
         return output
 
     @field_validator("name", "external_id")
@@ -59,6 +64,7 @@ class FileMetadataTemplateSelector(FileMetadataContentSelector):
     type: Literal["FileMetadataTemplate"] = "FileMetadataTemplate"
     template: FileMetadataTemplate
     file_directory: DirectoryPath
+    guess_mime_type: bool
 
     def __str__(self) -> str:
         return self.type
@@ -188,7 +194,10 @@ class FileMetadataContentIO(
         for chunk in chunker_sequence(reader.input_files, cls.CHUNK_SIZE):
             yield Page(
                 worker_id="main",
-                items=[DataItem(tracking_id=item.as_posix(), item=template.create_instance(item)) for item in chunk],
+                items=[
+                    DataItem(tracking_id=item.as_posix(), item=template.create_instance(item, selector.guess_mime_type))
+                    for item in chunk
+                ],
             )
 
     @classmethod
