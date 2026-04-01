@@ -191,7 +191,7 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
         if asset_external_ids := resource.pop("assetExternalIds", None):
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
         request = FileMetadataRequest.model_validate(resource)
-        if request.external_id:
+        if request.external_id and not request.filepath:
             request.filepath = self._filepath_by_external_id.get(request.external_id, None)
         return request
 
