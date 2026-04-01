@@ -860,7 +860,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
         self.resource_view_mappings: list[ResourceViewMappingResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        mappings = self.client.migration.resource_view_mapping.list(limit=-1)
+        mappings = self.client.migration.resource_view_mapping.list(limit=None)
         if not mappings:
             raise ToolkitMissingResourceError("No resource view mappings found")
         self.resource_view_mappings = list(mappings)

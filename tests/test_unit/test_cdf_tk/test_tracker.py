@@ -60,28 +60,38 @@ class TestTracker:
             assert "userInput" in event_information
             assert event_information["downloadedLibraryIds"] == ["test"]
 
-    def test_subcommands_tracking(self) -> None:
-        """Verify that subcommands are tracked as a list, not as positionalArg0, positionalArg1, etc."""
-        original_argv = sys.argv.copy()
+
+class TestParseSystemArgs:
+    """Test _parse_sys_args filtering logic directly."""
+
+    KNOWN = frozenset({"build", "deploy", "clean", "data", "upload", "dir", "download", "purge", "modules", "upgrade"})
+
+    def _parse(self, argv: list[str]) -> list[str]:
+        original = sys.argv
         try:
-            sys.argv = ["cdf", "modules", "upgrade", "--dry-run"]
-            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
-                tracker = Tracker(skip_tracking=False)
-                tracker._opt_status = "opted-in"
-
-                with patch.object(tracker, "_track", return_value=True) as mock_track_internal:
-                    tracker.track_cli_command([], "success", "test")
-
-                    mock_track_internal.assert_called_once()
-                    _, event_information = mock_track_internal.call_args.args
-
-                    # Verify subcommands is a list
-                    assert "subcommands" in event_information
-                    assert isinstance(event_information["subcommands"], list)
-                    assert event_information["subcommands"] == ["modules", "upgrade"]
-
-                    # Verify no positionalArg0, positionalArg1, etc. fields exist
-                    assert "positionalArg0" not in event_information
-                    assert "positionalArg1" not in event_information
+            sys.argv = argv
+            return Tracker._parse_sys_args(self.KNOWN)
         finally:
-            sys.argv = original_argv
+            sys.argv = original
+
+    def test_known_subcommands_are_tracked(self) -> None:
+        assert self._parse(["cdf", "modules", "upgrade", "--dry-run"]) == ["modules", "upgrade"]
+
+    def test_flag_values_are_excluded(self) -> None:
+        result = self._parse(["cdf", "deploy", "--project", "my-secret-project", "--env-file", "/secret/.env"])
+        assert result == ["deploy"]
+        assert "my-secret-project" not in result
+        assert "/secret/.env" not in result
+
+    def test_flag_with_equals_value_is_excluded(self) -> None:
+        assert self._parse(["cdf", "build", "--env-file=/secret/.env"]) == ["build"]
+
+    def test_bare_positional_arg_not_a_command_is_excluded(self) -> None:
+        """e.g. 'cdf data upload dir secret_name' — secret_name must not be tracked."""
+        assert self._parse(["cdf", "data", "upload", "dir", "secret_name"]) == ["data", "upload", "dir"]
+
+    def test_path_positional_arg_is_excluded(self) -> None:
+        assert self._parse(["cdf", "build", "path/to/build_dir"]) == ["build"]
+
+    def test_empty_argv(self) -> None:
+        assert self._parse(["cdf"]) == []

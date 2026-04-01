@@ -3,7 +3,7 @@ from cognite.neat._utils.auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 # Import one of the concrete Identifier subclasses to ensure they are registered in the test
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId, ViewId, ViewNoVersionId
 
 
 class TestIdentifiers:
@@ -25,3 +25,14 @@ class TestEdgeTypeId:
         edge_type = EdgeTypeId(type=NodeId(space="test_space", external_id="test_external_id"), direction="outwards")
 
         assert edge_type == EdgeTypeId.model_validate(str(edge_type))
+
+
+class TestViewIdEquality:
+    def test_view_no_version_equals_versioned_view(self) -> None:
+        v1 = ViewId(space="test_space", external_id="test_external_id", version="v1")
+        v2 = ViewId(space="test_space", external_id="test_external_id", version="v2")
+        no_version = ViewNoVersionId(space=v1.space, external_id=v1.external_id)
+
+        assert v1 != v2
+        assert no_version == v1
+        assert v2 == no_version

@@ -8,26 +8,32 @@ from collections import Counter
 from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from click import Command
 
 from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
+from cognite_toolkit._cdf_tk.utils.user import UserInfo
 from cognite_toolkit._version import __version__
 
 _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, skip_tracking: bool = False) -> None:
+    def __init__(self, skip_tracking: bool = False, client: ToolkitClient | None = None) -> None:
         self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = self.opted_out or skip_tracking
+        self.client = client
         self._cdf_toml = CDFToml.load()
 
     @cached_property
@@ -58,9 +64,9 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
-        subcommands, optional_args = self._parse_sys_args()
+        subcommands = self._parse_sys_args(self._collect_known_commands())
         event_information = {
-            "userInput": self.user_command,
+            "userInput": " ".join(subcommands),
             "toolkitVersion": __version__,
             "$os": platform.system(),
             "pythonVersion": platform.python_version(),
@@ -70,7 +76,6 @@ class Tracker:
             "result": type(result).__name__ if isinstance(result, Exception) else result,
             "error": str(result) if isinstance(result, Exception) else "",
             "subcommands": subcommands,
-            **optional_args,
             "alphaFlags": [name for name, value in self._cdf_toml.alpha_flags.items() if value],
             "plugins": [name for name, value in self._cdf_toml.plugins.items() if value],
         }
@@ -81,40 +86,34 @@ class Tracker:
         return self._track(f"command{cmd.capitalize()}", event_information)
 
     def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
-        if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return False
 
         distinct_id = self.get_distinct_id()
+        if self.client:
+            user_info = UserInfo.load(self.client)
+            event_information.update(user_info.model_dump(exclude_none=True))
+            if user_info.id:
+                distinct_id = user_info.id
 
         def track() -> None:
-            # If we are unable to connect to Mixpanel, we don't want to crash the program
             with suppress(ConnectionError, MixpanelException):
-                self.mp.track(
-                    distinct_id,
-                    event_name,
-                    event_information,
-                )
+                self.mp.track(distinct_id, event_name, event_information)
 
         if IN_BROWSER:
-            # Pyodide does not support threading
             track()
         else:
-            thread = threading.Thread(
-                target=track,
-                daemon=False,
-            )
-            thread.start()
+            threading.Thread(target=track, daemon=False).start()
 
         return True
 
     def get_distinct_id(self) -> str:
-        cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
-        cicd = self._cicd
-        if cache.exists():
-            return cache.read_text()
+        cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
+        if cache_file.exists():
+            return cache_file.read_text()
 
-        distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
-        cache.write_text(distinct_id)
+        distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
+        cache_file.write_text(distinct_id)
         with suppress(ConnectionError, MixpanelException):
             self.mp.people_set(
                 distinct_id,
@@ -128,30 +127,30 @@ class Tracker:
         return distinct_id
 
     @staticmethod
-    def _parse_sys_args() -> tuple[list[str], dict[str, str | bool]]:
-        optional_args: dict[str, str | bool] = {}
-        subcommands: list[str] = []
-        last_key: str | None = None
-        if sys.argv and len(sys.argv) > 1:
-            for arg in sys.argv[1:]:
-                if arg.startswith("--") and "=" in arg:
-                    if last_key:
-                        optional_args[last_key] = True
-                    key, value = arg.split("=", maxsplit=1)
-                    optional_args[key.removeprefix("--")] = value
-                elif arg.startswith("--"):
-                    if last_key:
-                        optional_args[last_key] = True
-                    last_key = arg.removeprefix("--")
-                elif last_key:
-                    optional_args[last_key] = arg
-                    last_key = None
-                else:
-                    subcommands.append(arg)
+    def _parse_sys_args(known_commands: frozenset[str]) -> list[str]:
+        return [arg for arg in sys.argv[1:] if arg in known_commands]
 
-            if last_key:
-                optional_args[last_key] = True
-        return subcommands, optional_args
+    @staticmethod
+    def _collect_known_commands() -> frozenset[str]:
+        """Collect all registered CLI command names by introspecting the loaded Typer app.
+
+        Uses sys.modules to avoid a circular import — the app module is always loaded
+        before tracking runs, so no explicit import is needed here.
+        """
+        module = sys.modules.get("cognite_toolkit._cdf")
+        if module is None:
+            return frozenset()
+        try:
+            import typer.main as typer_main
+
+            app = getattr(module, "_app", None)
+            if app is None:
+                return frozenset()
+            names: set[str] = set()
+            _collect_click_command_names(typer_main.get_command(app), names)
+            return frozenset(names)
+        except (ImportError, AttributeError):
+            return frozenset()
 
     @property
     def _cicd(self) -> str:
@@ -162,3 +161,10 @@ class Tracker:
 
     def disable(self) -> None:
         self._opt_status_file.write_text("opted-out")
+
+
+def _collect_click_command_names(group: "Command", names: set[str]) -> None:
+    if hasattr(group, "commands"):
+        for name, cmd in group.commands.items():
+            names.add(name)
+            _collect_click_command_names(cmd, names)

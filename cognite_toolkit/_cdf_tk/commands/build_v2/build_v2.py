@@ -1,7 +1,9 @@
 import os
+import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
@@ -16,9 +18,8 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
     BuildLineage,
@@ -32,12 +33,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    InsightList,
-    ModelSyntaxWarning,
-)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -48,7 +45,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadYAMLFile,
     SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import (
@@ -56,10 +52,14 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
+    ToolkitNotADirectoryError,
+    ToolkitValueError,
+)
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
+from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -68,6 +68,12 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
+
+
+@dataclass
+class ValidationStep:
+    status: RuleSetStatus
+    rule: ToolkitGlobalRulSet
 
 
 class BuildV2Command(ToolkitCommand):
@@ -81,28 +87,29 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console)
+        self._display_module_sources(build_source, console, parameters.verbose)
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
-        dependency_insights = self._dependency_validation(built_modules, client)
-
-        global_insights = self._global_validation(built_modules, client)
-
-        # Calculate build duration
-        build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
+        plan = self._create_validation_plan(built_modules, client)
+        if parameters.verbose:
+            self._display_validation_plan(plan, console)
+        validation_results = self._run_validation(plan, console)
 
         build_folder = BuildFolder(
-            path=parameters.build_dir,
+            organization_dir=parameters.organization_dir.resolve(),
+            build_dir=parameters.build_dir,
             built_modules=built_modules,
-            dependency_insights=dependency_insights,
-            global_insights=global_insights,
+            validation_results=validation_results,
+            all_variables=build_source.all_variables,
+            started_at=build_start_time,
+            finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(build_folder, console)
+        self._display_build_folder(build_folder, parameters.config_yaml_name or "", console, parameters.verbose)
 
-        self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
+        self._write_results(build_folder, client.config.project if client else None)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -190,15 +197,9 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
-        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
-        module_sources = parser.parse(build.yaml_files, build.variables)
-        return BuildSource(
-            module_dir=build.module_dir,
-            modules=module_sources,
-            insights=parser.errors,
-        )
+        return ModuleParser.parse(build)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
+    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -209,37 +210,112 @@ class BuildV2Command(ToolkitCommand):
                 for resource_type in module.resource_files_by_folder.keys()
             }
         )
+        ambiguous_selected_count = sum(1 for selection in build_source.ambiguous_selection if selection.is_selected)
+        misplaced_modules_count = len(build_source.misplaced_modules)
+        non_existing_module_count = len(build_source.non_existing_module_names)
+        invalid_variable_count = len(build_source.invalid_variables)
+        orphan_yaml_count = len(build_source.orphan_yaml_files)
 
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{total_files}[/] total resource files",
             f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
         ]
+        border_color = 0
+        errors: list[str] = []
         if read_variables:
             summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
-
-        has_issues = False
-        if build_source.insights:
-            summary_lines.append(f"[red]✗[/] [bold]{len(build_source.insights)}[/] issues found while reading modules")
-            has_issues = True
+        if ambiguous_selected_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+            )
+            border_color = 2
+            errors.append("ambiguous selected")
+        if misplaced_modules_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
+            )
+            border_color = 2
+            errors.append("misplaced modules")
+        if non_existing_module_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
+            )
+            border_color = 2
+            errors.append("non existing modules")
+        if invalid_variable_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
+            )
+            border_color = 2
+            errors.append("invalid variables")
+        if orphan_yaml_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
+            )
+            border_color = max(border_color, 1)
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
         console.print(
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
+                border_style=border_style,
                 expand=False,
             )
         )
-        if build_source.insights:
-            table = Table(title="Reading module issues", expand=False, show_edge=False)
-            table.add_column("Type", style="dim")
-            table.add_column("Code", style="dim")
-            table.add_column("Description", style="dim")
-            table.add_column("Fix", style="dim")
-            for issue in build_source.insights:
-                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+
+        # Print detailed issue information
+        if ambiguous_selected_count:
+            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Matching Paths", style="dim")
+            for selection in build_source.ambiguous_selection:
+                if selection.is_selected:
+                    paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
+                    table.add_row(selection.name, paths_str)
             console.print(table)
+
+        if misplaced_modules_count:
+            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            table.add_column("Module Path", style="red")
+            table.add_column("Parent Modules", style="dim")
+            for misplaced in build_source.misplaced_modules:
+                parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
+                table.add_row(misplaced.id.as_posix(), parents_str)
+            console.print(table)
+
+        if non_existing_module_count:
+            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            table.add_column("Module Name", style="red")
+            table.add_column("Closest Matches", style="dim")
+            for non_existing in build_source.non_existing_module_names:
+                matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
+                table.add_row(non_existing.name, matches_str)
+            console.print(table)
+
+        if invalid_variable_count:
+            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            table.add_column("Variable Path", style="red")
+            table.add_column("Error", style="dim")
+            for invalid_var in build_source.invalid_variables:
+                table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
+            console.print(table)
+
+        if verbose and orphan_yaml_count:
+            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+            table.add_column("File Path", style="yellow")
+            for orphan_file in build_source.orphan_yaml_files:
+                display_path = relative_to_if_possible(orphan_file)
+                table.add_row(display_path.as_posix())
+            console.print(table)
+
+        if errors:
+            console.print("\n")
+            raise ToolkitValueError(
+                f"Cannot build {module_dir_display.as_posix()!r}. You are not allowed to have"
+                f" {humanize_collection(errors)}."
+            )
         return None
 
     @classmethod
@@ -274,7 +350,6 @@ class BuildV2Command(ToolkitCommand):
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
 
-        # Todo optimize by only searching for yaml files in the selected modules paths if selection is provided.
         yaml_files = [
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
@@ -332,7 +407,10 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        orchestrator = RulesOrchestrator()
+        validator = LocalRulesOrchestrator(
+            exclude_rule_codes=None,
+            enable_alpha_validators=False,
+        )
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -345,7 +423,7 @@ class BuildV2Command(ToolkitCommand):
                 module = self._import_module(source)
 
                 # Local validation of module
-                insights = orchestrator.run(module)
+                insights = validator.run(module)
                 built_resources = self._export_resources(module.files, resource_counter, build_dir)
 
                 built_modules.append(
@@ -353,6 +431,18 @@ class BuildV2Command(ToolkitCommand):
                         module_id=module.id,
                         resources=built_resources,
                         insights=insights,
+                        syntax_warnings_by_source={
+                            file.source_path: file.syntax_warning
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
+                        },
+                        failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
+                        ignored_files=module.ignored_files,
+                        unresolved_variables_by_source={
+                            file.source_path: file.unresolved_variables
+                            for file in module.files
+                            if file.unresolved_variables
+                        },
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -414,16 +504,31 @@ class BuildV2Command(ToolkitCommand):
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
+        unresolved_variables = self._find_unresolved_variables(substituted_content)
         try:
             parsed_yaml = read_yaml_content(substituted_content)
         except yaml.YAMLError as yaml_error:
-            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
-            #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
-            #  Jira: CDF-27203
+            if unresolved_variables:
+                error = (
+                    f"Failed to parse YAML content. "
+                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}.\n"
+                    f"Error: {yaml_error!s}"
+                )
+            else:
+                error = f"Failed to parse YAML content.\n{yaml_error!s}"
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="YAML-PARSE-ERROR",
-                error=f"Failed to parse YAML content: {yaml_error!s}",
+                error=error,
+                unresolved_variables=unresolved_variables,
+            )
+
+        if parsed_yaml is None:
+            return FailedReadYAMLFile(
+                source_path=resource_file,
+                code="EMPTY-YAML",
+                error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
+                unresolved_variables=unresolved_variables,
             )
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
@@ -454,6 +559,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
                 ],
+                unresolved_variables=unresolved_variables,
                 **args,
             )
         # Is instance list
@@ -486,7 +592,17 @@ class BuildV2Command(ToolkitCommand):
                     extra_files=extra_files,
                 )
             )
-        return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
+        return SuccessfulReadYAMLFile(
+            syntax_warning=syntax_warning, resources=read_resources, **args, unresolved_variables=unresolved_variables
+        )
+
+    @classmethod
+    def _find_unresolved_variables(cls, content: str) -> list[str]:
+        return [
+            # Removing the '{{' and '}}'
+            variable[2:-2].strip()
+            for variable in re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        ]
 
     @classmethod
     def _substitute_variables_extra_content(
@@ -555,130 +671,163 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
-                        # Todo Find a better solution for syntax warnings
-                        #     This solution leads to duplicates.
-                        syntax_warning=file.syntax_warning,
                     )
                 )
         return built_resources
 
-    def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
-        """CDF dependency validations are validations that require checking the existence of resources in CDF."""
-        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
-            (resource.crud_cls, resource.identifier) for module in built_modules for resource in module.resources
-        }
-        missing_locally_by_crud_cls: dict[type[ResourceCRUD], dict[Identifier, list[BuiltResource]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        for module in built_modules:
-            for resource in module.resources:
-                for crud_cls, dependency_id in resource.dependencies:
-                    if (crud_cls, dependency_id) not in built_resource_ids:
-                        missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
-        insights = InsightList()
-        code = "MISSING-DEPENDENCY"
-        if client:
-            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                crud = crud_cls(client, None, None)
-                display_name = crud.display_name
-                existing_in_cdf = {
-                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
-                }
-                if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
-                    for identifier in missing:
-                        expected_resources = expected_by_identifier[identifier]
-                        referenced_str = " - ".join(
-                            f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
-                            for resource in expected_resources
-                        )
-                        insights.append(
-                            ConsistencyError(
-                                code=code,
-                                message=f"{identifier} {display_name} does not exist locally or in CDF. It is referenced by: \n{referenced_str}",
-                                fix=f"Ensure that {display_name} exists or removed the reference to it.",
-                            )
-                        )
+    def _create_validation_plan(
+        self, built_modules: list[BuiltModule], client: ToolkitClient | None
+    ) -> list[ValidationStep]:
+        all_rules = get_global_rules_registry()
+        plan: list[ValidationStep] = []
+        for rule_cls in all_rules:
+            rule = rule_cls(built_modules, client=client)
 
-        else:
-            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                resource_type_name = f"{crud_cls.kind.lower()} ({crud_cls.folder_name})"
-                for identifier, expected_resources in expected_by_identifier.items():
-                    referenced_str = " - ".join(
-                        f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
-                        for resource in expected_resources
-                    )
-                    insights.append(
-                        ConsistencyError(
-                            code=code,
-                            message=f"{identifier} {resource_type_name} does not exist. It is referenced by: \n{referenced_str}",
-                            fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
-                            f"Or ensure that {resource_type_name} exists or removed the reference to it.",
-                        )
-                    )
+            status = rule.get_status()
+            plan.append(ValidationStep(status=status, rule=rule))
+        return plan
 
-        return insights
+    def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
+        ready_count = sum(1 for step in plan if step.status.code == "ready")
+        skip_count = sum(1 for step in plan if step.status.code == "skip")
+        unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
 
-    def _global_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
-        """This validation is performed per resource type and not per individual resource and against CDF
-        for all modules. This validation will leverage external plugins such as NEAT.
-        """
-        # Can be parallelized with number of plugins.
-        # Neat is done inside the global validation.
-        insights = InsightList()
-        for built_module in built_modules:
-            if not built_module.files_built:
-                continue
-            data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
-            if data_model_files := built_module.resource_by_type_by_kind.get(data_model_type):
-                if NeatPlugin.installed() and client and data_model_files:
-                    neat = NeatPlugin(client)
-                    for data_model_file in data_model_files:
-                        for insight in neat.validate(data_model_file.parent, data_model_file):
-                            if insight not in built_module.insights:
-                                insights.append(insight)
-        return insights
+        summary_lines = [f"[green]✓[/] [bold]{ready_count}[/] validations ready to run"]
+        border_color = 0
+        if skip_count:
+            summary_lines.append(f"[yellow]![/] [bold]{skip_count}[/] validations skipped")
+            border_color = max(border_color, 1)
+        if unavailable_count:
+            summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
+            border_color = max(border_color, 1)
 
-    def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
-        module_count = len(build_folder.built_modules)
-        resource_count = sum(len(module.resources) for module in build_folder.built_modules)
-
-        resource_insight_count = sum(
-            1
-            for module in build_folder.built_modules
-            for resource in module.resources
-            if resource.syntax_warning is not None
-        )
-        dependency_insight_count = len(build_folder.dependency_insights)
-        global_insight_count = len(build_folder.global_insights)
-
-        resource_type_count = len(
-            {resource.type for module in build_folder.built_modules for resource in module.resources}
-        )
-
-        summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{resource_count}[/] resources",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-        ]
-        has_issues = False
-        if resource_insight_count:
-            summary_lines.append(f"[yellow]![/] [bold]{resource_insight_count}[/] resource insights found.")
-            has_issues = True
-        if dependency_insight_count:
-            summary_lines.append(f"[red]✗[/] [bold]{dependency_insight_count}[/] missing dependencies found.")
-            has_issues = True
-        if global_insight_count:
-            summary_lines.append(f"[yellow]![/] [bold]{global_insight_count}[/] global insights found.")
-            has_issues = True
-        build_dir_display = relative_to_if_possible(build_folder.path)
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title=f"[bold]Built to ({build_dir_display.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
+                title="[bold]Validation Plan[/]",
+                border_style=border_style,
                 expand=False,
             )
         )
+
+        table = Table(title="Validation Steps", expand=False, show_edge=False)
+        table.add_column("Validation", style="bold")
+        table.add_column("Status", style="dim")
+        table.add_column("Message", style="dim")
+        for step in plan:
+            status_style = {"ready": "green", "skip": "yellow", "unavailable": "yellow"}[step.status.code]
+            status_display = f"[{status_style}]{step.status.code}[/]"
+            message = step.status.message or "-"
+            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
+        console.print(table)
+        return None
+
+    def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
+        with Progress(console=console) as progress:
+            ready_step_count = sum(1 for step in plan if step.status.code == "ready")
+            validating_task = progress.add_task("Checking modules", total=ready_step_count)
+            validation_results: list[ValidationResult] = []
+            for step in plan:
+                if step.status.code != "ready":
+                    continue
+                display_name = step.rule.DISPLAY_NAME
+                progress.update(validating_task, description=f"Checking {display_name}...")
+
+                insights: list[Insight] = []
+                failures: list[FailedValidation] = []
+                for result in step.rule.validate():
+                    if isinstance(result, FailedValidation):
+                        failures.append(result)
+                    else:
+                        insights.append(result)
+
+                validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
+                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
+            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
+        return validation_results
+
+    def _display_build_folder(
+        self, build_folder: BuildFolder, config_yaml_name: str, console: Console, verbose: bool
+    ) -> None:
+        module_count = len(build_folder.built_modules)
+        resource_count = sum(len(module.resources) for module in build_folder.built_modules)
+        resource_type_count = len(
+            {resource.type for module in build_folder.built_modules for resource in module.resources}
+        )
+        syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
+        failed_read_files = [file for module in build_folder.built_modules for file in module.failed_files]
+        failed_read_file_count = len(failed_read_files)
+        ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
+        ignore_file_count = len(ignored_files)
+        unresolved_files = {
+            source_path: variables
+            for module in build_folder.built_modules
+            for source_path, variables in module.unresolved_variables_by_source.items()
+        }
+        unresolved_file_count = len(unresolved_files)
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
+        ]
+        border_color = 0
+        if failed_read_file_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{failed_read_file_count}[/] resource files failed to be read.\n    These files are ignored in the build, but you should fix the issues to\n"
+                f"    ensure all your resources are included in the build."
+            )
+            border_color = max(border_color, 2)
+        if unresolved_file_count:
+            summary_lines.append(
+                f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
+                f"    Make sure to define the variables in the config.{config_yaml_name}.yaml file and that they are correctly placed in the variables section matching the file path."
+            )
+            border_color = max(border_color, 2)
+
+        if ignored_files:
+            most_common = Counter([file.code for file in ignored_files]).most_common(3)
+            most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
+            summary_lines.append(
+                f"[yellow]![/] [bold]{ignore_file_count}[/] resource files were ignored. The most common reasons {most_common_str}."
+            )
+            border_color = max(border_color, 1)
+
+        if syntax_warning_count:
+            summary_lines.append(
+                f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
+            )
+            border_color = max(border_color, 1)
+
+        for validation in build_folder.validation_results:
+            if validation.failed:
+                prefix = "[red]✗[/]"
+            elif validation.insights:
+                prefix = "[yellow]![/]"
+                border_color = max(border_color, 1)
+            else:
+                prefix = "[green]✓[/]"
+            suffix: list[str] = []
+            if validation.failed:
+                suffix.append(f"failed {len(validation.failed)} checks")
+            if validation.insights:
+                suffix.append(f"found {len(validation.insights)} insights")
+            if not validation.failed and not validation.insights:
+                suffix.append("all checks passed")
+            summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
+
+        build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
+        if not build_dir_display.endswith("/"):
+            build_dir_display = f"{build_dir_display}/"
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Built to directory {build_dir_display}[/]",
+                border_style={0: "green", 1: "yellow", 2: "red"}[border_color],
+                expand=False,
+            )
+        )
+
         all_insights = build_folder.all_insights
         if all_insights:
             table = Table(title="Insights", expand=False, show_edge=False)
@@ -698,27 +847,57 @@ class BuildV2Command(ToolkitCommand):
                     f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
                     style="dim",
                 )
+        if verbose and unresolved_files:
+            table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
+            table.add_column("Path")
+            table.add_column("Variables")
+            for source_path, variables in unresolved_files.items():
+                table.add_row(
+                    relative_to_if_possible(source_path).as_posix(), humanize_collection(variables, sort=False)
+                )
+            console.print(table)
+
+        if verbose and ignored_files:
+            table = Table(title="Ignored Files", expand=False, show_edge=False)
+            table.add_column("Code", style="bold")
+            table.add_column("Path", style="bold")
+            table.add_column("Reason", style="bold")
+            for file in ignored_files:
+                table.add_row(file.code, relative_to_if_possible(file.filepath).as_posix(), file.reason)
+            console.print(table)
+
+        if failed_read_file_count:
+            available_variable_names = {variable.name for variable in build_folder.all_variables}
+            table = Table(title="Failed Read Files", expand=False, show_edge=True, border_style="red", show_lines=True)
+            table.add_column(
+                "Code",
+            )
+            table.add_column("Description")
+            table.add_column("File Path")
+            table.add_column("Fix")
+            for failed_file in failed_read_files:
+                display_path = relative_to_if_possible(failed_file.source_path).as_posix()
+                fix = ""
+                if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
+                    fix = (
+                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the config.{config_yaml_name}.yaml.\n"
+                        "Make sure they are placed correctly in the variables section matching the file path."
+                    )
+
+                table.add_row(failed_file.code, failed_file.error, display_path, fix)
+            console.print(table)
+
         return None
 
-    def _write_results(
-        self,
-        parameters: BuildParameters,
-        build_folder: BuildFolder,
-        timestamp: datetime | None = None,
-        duration: float | None = None,
-    ) -> None:
+    def _write_results(self, build: BuildFolder, cdf_project: str | None = None) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = build_folder.path / "insights.csv"
-        insight_file.parent.mkdir(parents=True, exist_ok=True)
+        insight_file = build.build_dir / "insights.csv"
 
-        insight_file_content = build_folder.all_insights.to_csv()
+        insight_file_content = build.all_insights.to_csv()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
-        lineage_file = build_folder.path / BuildLineage.filename
-        lineage_file.parent.mkdir(parents=True, exist_ok=True)
-        lineage = BuildLineage.from_build_parameters_and_results(
-            parameters, build_folder, timestamp, duration
-        ).to_yaml()
+        lineage_file = build.build_dir / BuildLineage.filename
+        lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
         safe_write(lineage_file, lineage)

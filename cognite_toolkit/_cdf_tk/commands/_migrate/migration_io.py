@@ -18,9 +18,10 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -29,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
-from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
+from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -47,7 +48,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
@@ -95,12 +96,28 @@ class AssetCentricMigrationIO(
         bookmark: Bookmark | None = None,
     ) -> Iterator[Page]:
         file_location = bookmark if isinstance(bookmark, FileBookmark) else None
+
         if isinstance(selector, MigrationCSVFileSelector):
+            instance_spaces = list({SpaceId(space=item.instance_id.space) for item in selector.items})
             iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
-            iterator = self._stream_given_dataset(selector, limit)
+            space_source = self.client.migration.space_source.retrieve(
+                data_set_external_id=selector.data_set_external_id
+            )
+            if space_source is None:
+                raise ToolkitValueError(
+                    f"Missing instance space that maps to {selector.data_set_external_id!r}. Have you run `cdf migrate data-sets`?"
+                )
+            instance_spaces = [SpaceId(space=space_source.space)]
+            iterator = self._stream_given_dataset(selector, space_source, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        existing = self.client.tool.spaces.retrieve(instance_spaces)
+        if missing := set(instance_spaces).difference({item.as_id() for item in existing}):
+            raise ToolkitValueError(
+                f"The following instance spaces do not exist in CDF: {humanize_collection(missing)}. Please create these spaces before running the migration."
+            )
+
         yield from (
             Page(
                 worker_id="main",
@@ -138,11 +155,10 @@ class AssetCentricMigrationIO(
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
 
     def _stream_given_dataset(
-        self, selector: MigrateDataSetSelector, limit: int | None = None
+        self, selector: MigrateDataSetSelector, space_source: SpaceSource, limit: int | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
-        space_source = self.client.migration.space_source.retrieve(data_set_external_id=selector.data_set_external_id)
-        instance_space = space_source.instance_space if space_source else MISSING_INSTANCE_SPACE
+        instance_space = space_source.instance_space
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for data_item in data_chunk.items:

@@ -1,5 +1,5 @@
 import builtins
-from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -8,8 +8,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import InsightList, ModelSyntaxWarning
-from ._module import ModuleId, ResourceType
+from ._insights import Insight, InsightList, ModelSyntaxWarning
+from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -68,25 +68,16 @@ class BuiltResource(BaseModel):
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceCRUD]
     dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
-    syntax_warning: ModelSyntaxWarning | None = None
 
 
 class BuiltModule(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
-
-    # Replace with above
-    insights: InsightList = Field(default_factory=InsightList)
-
-    @property
-    def resource_by_type_by_kind(self) -> dict[ResourceType, list[Path]]:
-        """Organizes built files by their resource type and kind."""
-        resource_by_type: dict[ResourceType, list[Path]] = defaultdict(list)
-        for resource in self.resources:
-            resource_by_type[resource.type].append(resource.build_path)
-
-        return dict(resource_by_type)
+    insights: list[Insight] = Field(default_factory=list)
+    syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
+    failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
+    ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
     @property
     def files_built(self) -> bool:
@@ -96,37 +87,55 @@ class BuiltModule(BaseModel):
     @property
     def is_success(self) -> bool:
         """Determines if the module build was successful based on the presence of built file and validation errors."""
-        return not self.insights.has_errors and self.files_built
+        return self.files_built
+
+    @property
+    def all_insights(self) -> InsightList:
+        """The list of all insights for this module."""
+        insights = InsightList(self.insights)
+        insights.extend(self.syntax_warnings_by_source.values())
+        return insights
 
     def __hash__(self) -> int:
         return hash(self.module_id.path)
+
+
+class FailedValidation(BaseModel):
+    message: str
+    source: str
+
+
+class ValidationResult(BaseModel):
+    name: str
+    insights: list[Insight]
+    failed: list[FailedValidation]
 
 
 class BuildFolder(BaseModel):
     """Built folder acts as a container holding all built modules and insights from the build process."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    path: Path
+    organization_dir: AbsoluteDirPath
+    build_dir: AbsoluteDirPath
+    started_at: datetime
+    finished_at: datetime
+
     built_modules: list[BuiltModule] = Field(default_factory=list)
-    dependency_insights: InsightList = Field(default_factory=InsightList)
-    global_insights: InsightList = Field(default_factory=InsightList)
+    validation_results: list[ValidationResult] = Field(default_factory=list)
+    all_variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
     def all_insights(self) -> InsightList:
         """Insights from all built modules."""
-        insights = InsightList(self.dependency_insights + self.global_insights)
+        insights = InsightList()
         for module in self.built_modules:
             insights.extend(module.insights)
-            for resource in module.resources:
-                if resource.syntax_warning:
-                    insights.append(resource.syntax_warning)
+            insights.extend(module.syntax_warnings_by_source.values())
+        for result in self.validation_results:
+            insights.extend(result.insights)
         return insights
 
     @property
-    def built_modules_by_success(self) -> dict[bool, list[str]]:
-        """Organizes built modules by their success status."""
-        modules_by_success: dict[bool, list[str]] = {True: [], False: []}
-        for built_module in self.built_modules:
-            modules_by_success[built_module.is_success].append(built_module.module_id.name)
-
-        return modules_by_success
+    def build_duration_seconds(self) -> float:
+        """Duration of the build in seconds."""
+        return (self.finished_at - self.started_at).total_seconds()

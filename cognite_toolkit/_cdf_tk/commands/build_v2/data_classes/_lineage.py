@@ -15,7 +15,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxWarning,
@@ -42,14 +42,6 @@ class ResourceLineageItem(_BaseLineageModel):
     source_hash: str
     type: ResourceType
     built_file: AbsoluteFilePath
-
-    @field_serializer("source_file", "built_file", when_used="json")
-    def serialize_paths(self, value: Path, info: SerializationInfo) -> str:
-        """Serialize absolute paths to strings."""
-        organization_dir = info.context.get("organization_dir") if info.context else None
-        if organization_dir and value.is_relative_to(organization_dir):
-            return value.relative_to(organization_dir).as_posix()
-        return value.as_posix()
 
 
 class ModuleLineageItem(_BaseLineageModel):
@@ -84,33 +76,24 @@ class ModuleLineageItem(_BaseLineageModel):
         else:
             return "FAILED: Unknown reason"
 
-    @field_serializer("module_path", when_used="json")
-    def serialize_module_path(self, value: Path, info: SerializationInfo) -> str:
-        """Serialize module path to relative path."""
-        organization_dir = info.context.get("organization_dir") if info.context else None
-        if organization_dir and value.is_relative_to(organization_dir):
-            return str(value.relative_to(organization_dir))
-        return str(value)
-
     @classmethod
     def from_built_module(cls, module: BuiltModule) -> "ModuleLineageItem":
         """Construct lineage item from built module."""
-
         resource_lineage = []
         for resource in module.resources:
             resource_lineage.append(
                 ResourceLineageItem(
-                    source_file=resource.source_path,
+                    source_file=resource.source_path.resolve(),
                     source_hash=resource.source_hash,
-                    built_file=resource.build_path,
+                    built_file=resource.build_path.resolve(),
                     type=resource.type,
                 )
             )
         return cls(
             module_id=module.module_id.id.as_posix(),
-            module_path=module.module_id.path,
+            module_path=module.module_id.path.resolve(),
             resource_lineage=resource_lineage,
-            insights_summary=module.insights.summary,
+            insights_summary=module.all_insights.summary,
         )
 
 
@@ -151,16 +134,10 @@ class BuildLineage(_BaseLineageModel):
         return round(value, 2) if value is not None else None
 
     @classmethod
-    def from_build_parameters_and_results(
-        cls,
-        parameters: BuildParameters,
-        folder: BuildFolder,
-        timestamp: datetime | None = None,
-        duration: float | None = None,
-    ) -> "BuildLineage":
+    def from_build(cls, build: BuildFolder, cdf_project: str | None = None) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
-        module_lineage = [ModuleLineageItem.from_built_module(module) for module in folder.built_modules]
+        module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
         modules_summary = {
             "processed": len(module_lineage),
             "succeeded": sum(1 for module in module_lineage if module.is_success),
@@ -172,13 +149,14 @@ class BuildLineage(_BaseLineageModel):
                 insights_summary[insight_type] += count
 
         return cls(
-            timestamp=timestamp or datetime.now(),
-            duration=duration,
-            organization_dir=parameters.organization_dir,
-            build_dir=parameters.build_dir,
+            timestamp=build.started_at,
+            duration=build.build_duration_seconds,
+            organization_dir=build.organization_dir,
+            build_dir=build.build_dir,
             module_lineage=module_lineage,
             modules_summary=modules_summary,
             insights_summary=insights_summary,
+            cdf_project=cdf_project,
         )
 
     def to_yaml(self) -> str:

@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
@@ -197,15 +198,16 @@ name: String}""",
         yaml_file.read_text.return_value = f"""space: {space}
 externalId: {external_id}
 version: {version}
-dml: model.graphql
 """
+        yaml_file.stem = f"{external_id}.GraphQLSchema"
 
         graphql_file = MagicMock(spec=Path)
         graphql_file.read_text.return_value = model
-        graphql_file.name = "model.graphql"
+        graphql_file.name = f"{external_id}.graphql"
         graphql_file.is_file.return_value = True
 
-        yaml_file.with_suffix.return_value = graphql_file
+        yaml_file.parent = MagicMock(spec=Path)
+        yaml_file.parent.__truediv__ = MagicMock(return_value=graphql_file)
         return yaml_file
 
 
@@ -349,6 +351,35 @@ class TestViewDeployTopologicalSort:
 
         flat_ids = [view.external_id for batch in batches for view in batch]
         assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
+
+    def test_large_scc_kept_in_single_batch(self) -> None:
+        view_count = VIEW_UPSERT_BATCH_LIMIT + 25
+        views = [
+            ViewRequest(
+                space="sp_space",
+                external_id=f"View_{i}",
+                version="v1",
+                properties={
+                    "ref": ViewCorePropertyRequest(
+                        container=ContainerId(space="sp_space", external_id="some_container"),
+                        container_property_identifier="ref",
+                        source=ViewId(
+                            space="sp_space",
+                            external_id=f"View_{(i + 1) % view_count}",  # Cyclic dependency across all views
+                            version="v1",
+                        ),
+                    )
+                },
+            )
+            for i in range(view_count)
+        ]
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ViewCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches(views)
+
+        assert len(batches) == 1, "All views in one SCC should stay in a single batch"
+        assert len(batches[0]) == view_count
 
     def test_cycle_in_implements_raises(self) -> None:
         view_a = ViewRequest(

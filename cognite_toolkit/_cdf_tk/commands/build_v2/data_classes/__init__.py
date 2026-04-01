@@ -5,7 +5,7 @@ from ._build import (
     BuiltModule,
 )
 from ._config import ConfigYAML
-from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxWarning, Recommendation
+from ._insights import ConsistencyError, InsightDefinition, InsightList, ModelSyntaxWarning, Recommendation
 from ._lineage import BuildLineage
 from ._module import (
     BuildVariable,
@@ -31,7 +31,7 @@ __all__ = [
     "ConsistencyError",
     "FailedReadYAMLFile",
     "FileSuffix",
-    "Insight",
+    "InsightDefinition",
     "InsightList",
     "ModelSyntaxWarning",
     "Module",
