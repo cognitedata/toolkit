@@ -31,7 +31,8 @@ class RunApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute processes in CDF."""
-        RunApp._print_deprecation_warning()
+        if ctx.parent is None or ctx.parent.info_name != "dev":
+            RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run --help[/] for more information.")
 
