@@ -45,7 +45,7 @@ def as_instance_acl_actions(
     if "READ" in actions:
         acl_actions.append("READ")
     if "WRITE" in actions:
-        acl_actions.extend(["WRITE", "WRITE_PROPERTIES"])
+        acl_actions.append("WRITE")
     return acl_actions
 
 
