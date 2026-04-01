@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from . import DataSelector, StorageIOConfig, T_DataResponse, T_Selector
+from . import DataSelector, StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, TableUploadableStorageIO
 from .selectors._base import SelectorObject
 
@@ -100,7 +100,7 @@ class FileMetadataContentIO(
 
     def stream_data(
         self, selector: FileMetadataContentSelector, limit: int | None = None, bookmark: Bookmark | None = None
-    ) -> Iterable[Page[T_DataResponse]]:
+    ) -> Iterable[Page[FileMetadataResponse]]:
         raise NotImplementedError()
 
     def count(self, selector: FileMetadataContentSelector) -> int | None:
@@ -246,6 +246,6 @@ class CogniteFileContentIO(
         self,
         data_chunk: Page[CogniteFileRequest],
         http_client: HTTPClient,
-        selector: T_Selector | None = None,
+        selector: CogniteFileContentSelector | None = None,
     ) -> ItemsResultList:
         raise NotImplementedError()
