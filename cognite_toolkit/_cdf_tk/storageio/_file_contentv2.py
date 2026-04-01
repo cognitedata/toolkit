@@ -74,10 +74,13 @@ class FileMetadataTemplateSelector(FileMetadataContentSelector):
         return [file for file in self.file_directory.iterdir() if file.is_file()]
 
 
-class FileMetadataUploadSelector(DataSelector, ABC):
+class FileMetadataUploadSelector(FileMetadataContentSelector, ABC):
     """Upload all in a given csv/parquest file"""
 
-    kind: Literal["FileMetadataUploadSelector"] = "FileMetadataUploadSelector"
+    type: Literal["FileMetadataUpload"] = "FileMetadataUpload"
+
+    def __str__(self) -> str:
+        return self.type
 
 
 class CogniteFileContentSelector(DataSelector, ABC):

@@ -45,8 +45,11 @@ class DataSelector(SelectorObject, ABC):
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
 
+    def as_filestem(self) -> str:
+        return sanitize_filename(str(self))
+
     def as_filename(self) -> str:
-        return f"{sanitize_filename(str(self))}{DATA_MANIFEST_SUFFIX}"
+        return f"{self.as_filestem()}{DATA_MANIFEST_SUFFIX}"
 
     def dump_to_file(self, directory: Path) -> Path:
         """Dumps the selector to a YAML file in the specified directory.
