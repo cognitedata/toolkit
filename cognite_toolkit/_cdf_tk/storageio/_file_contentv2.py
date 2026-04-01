@@ -157,7 +157,7 @@ class FileMetadataContentIO(
                 error_message=f"Failed to retrieve upload URL for item {item.tracking_id}.",
             )
 
-        return self._upload_file_content(item, request.filepath, request.mime_type, created.upload_url)
+        return self._upload_file_content(request.filepath, created.upload_url, request.mime_type, item.tracking_id)
 
     def _create_file_metadata(
         self, item: DataItem[FileMetadataRequest], request: FileMetadataRequest
@@ -174,16 +174,14 @@ class FileMetadataContentIO(
                 error_message=f"No response returned from CDF for item {item.tracking_id}.",
             )
 
-    def _upload_file_content(
-        self, item: DataItem[FileMetadataRequest], filepath: Path, mime_type: str | None, upload_url: str
-    ) -> Any:
+    def _upload_file_content(self, filepath: Path, upload_url: str, mime_type: str | None, tracking_id: str) -> Any:
         try:
             response = self.client.tool.filemetadata.upload_file(filepath, upload_url, mime_type)
         except ToolkitAPIError as error:
             if error.response is not None:
-                return error.response.as_item_response(item.tracking_id)
+                return error.response.as_item_response(tracking_id)
             raise
-        return response.as_item_response(item.tracking_id)
+        return response.as_item_response(tracking_id)
 
     @classmethod
     def read_chunks(
