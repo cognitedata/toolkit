@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedRequest,
     ItemsResultList,
+    ItemsResultMessage,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
@@ -134,54 +135,55 @@ class FileMetadataContentIO(
         http_client: HTTPClient,
         selector: FileMetadataContentSelector | None = None,
     ) -> ItemsResultList:
-        results = ItemsResultList()
-        for item in data_chunk.items:
-            request = item.item
-            if request.filepath is None:
-                results.append(
-                    ItemsFailedRequest(
-                        ids=[item.tracking_id],
-                        error_message=f"Failed to create upload {item.tracking_id}. Not file path provided ({FILENAME_VARIABLE} is missing).",
-                    )
-                )
-                continue
+        return ItemsResultList(
+            [self._upload_single_item(item) for item in data_chunk],
+        )
 
-            try:
-                created = self.client.tool.filemetadata.create([request], self.overwrite)[0]
-            except ToolkitAPIError as error:
-                if error.response is not None:
-                    results.append(error.response.as_item_response(item.tracking_id))
-                    continue
-                raise error
-            except IndexError:
-                results.append(
-                    ItemsFailedRequest(
-                        ids=[item.tracking_id],
-                        error_message=f"No response returned from CDF for item {item.tracking_id}.",
-                    )
-                )
-                continue
-            if created.upload_url is None:
-                results.append(
-                    ItemsFailedRequest(
-                        ids=[item.tracking_id],
-                        error_message=f"Failed to retrieve upload URL for item {item.tracking_id}.",
-                    )
-                )
-                continue
-            try:
-                response = self.client.tool.filemetadata.upload_file(
-                    request.filepath, created.upload_url, request.mime_type
-                )
-            except ToolkitAPIError as error:
-                if error.response is not None:
-                    results.append(error.response.as_item_response(item.tracking_id))
-                    continue
-                raise error
-            else:
-                results.append(response.as_item_response(item.tracking_id))
+    def _upload_single_item(self, item: DataItem[FileMetadataRequest]) -> ItemsFailedRequest | Any:
+        request = item.item
+        if request.filepath is None:
+            return ItemsFailedRequest(
+                ids=[item.tracking_id],
+                error_message=f"Failed to create {item.tracking_id}. Not file path provided ({FILENAME_VARIABLE} is missing).",
+            )
 
-        return results
+        created = self._create_file_metadata(item, request)
+        if not isinstance(created, FileMetadataResponse):
+            return created
+
+        if created.upload_url is None:
+            return ItemsFailedRequest(
+                ids=[item.tracking_id],
+                error_message=f"Failed to retrieve upload URL for item {item.tracking_id}.",
+            )
+
+        return self._upload_file_content(item, request.filepath, request.mime_type, created.upload_url)
+
+    def _create_file_metadata(
+        self, item: DataItem[FileMetadataRequest], request: FileMetadataRequest
+    ) -> FileMetadataResponse | ItemsResultMessage:
+        try:
+            return self.client.tool.filemetadata.create([request], self.overwrite)[0]
+        except ToolkitAPIError as error:
+            if error.response is not None:
+                return error.response.as_item_response(item.tracking_id)
+            raise
+        except IndexError:
+            return ItemsFailedRequest(
+                ids=[item.tracking_id],
+                error_message=f"No response returned from CDF for item {item.tracking_id}.",
+            )
+
+    def _upload_file_content(
+        self, item: DataItem[FileMetadataRequest], filepath: Path, mime_type: str | None, upload_url: str
+    ) -> Any:
+        try:
+            response = self.client.tool.filemetadata.upload_file(filepath, upload_url, mime_type)
+        except ToolkitAPIError as error:
+            if error.response is not None:
+                return error.response.as_item_response(item.tracking_id)
+            raise
+        return response.as_item_response(item.tracking_id)
 
     @classmethod
     def read_chunks(
