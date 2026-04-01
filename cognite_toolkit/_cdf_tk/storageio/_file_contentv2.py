@@ -56,9 +56,15 @@ class FileMetadataContentSelector(DataSelector, ABC):
 
 
 class FileMetadataTemplateSelector(FileMetadataContentSelector):
-    type: Literal["FileMetadataTemplateSelector"] = "FileMetadataTemplateSelector"
+    type: Literal["FileMetadataTemplate"] = "FileMetadataTemplate"
     template: FileMetadataTemplate
     file_directory: DirectoryPath
+
+    def __str__(self) -> str:
+        return self.type
+
+    def find_data_files(self, input_dir: Path, manifest_file: Path) -> list[Path]:
+        return [file for file in self.file_directory.iterdir() if file.is_file()]
 
 
 class FileMetadataUploadSelector(DataSelector, ABC):
@@ -75,6 +81,8 @@ class FileMetadataContentIO(
     TableUploadableStorageIO[FileMetadataContentSelector, FileMetadataResponse, FileMetadataRequest],
     ConfigurableStorageIO[FileMetadataContentSelector, FileMetadataResponse],
 ):
+    CHUNK_SIZE = 10
+
     def __init__(self, client: ToolkitClient, overwrite: bool = False) -> None:
         super().__init__(client)
         self.overwrite = overwrite
