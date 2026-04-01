@@ -1,7 +1,8 @@
+from collections import Counter
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio._file_contentv2 import (
     FILENAME_VARIABLE,
@@ -44,4 +45,5 @@ class TestFileMetadataContentIO:
             assert len(result_pages) == 1
             results = result_pages[0]
 
-            assert len(results) == len(files)
+            actual = dict(Counter([type(item).__name__ for item in results]))
+            assert actual == {ItemsSuccessResponse.__name__: len(files)}
