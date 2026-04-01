@@ -20,8 +20,15 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     CANVAS_VIEW_ID,
@@ -35,6 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeRequest,
     SpaceResponse,
+    TextProperty,
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
@@ -49,8 +57,14 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+    RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
@@ -65,7 +79,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_ANNOTATIONS_ID,
     create_default_mappings,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
@@ -1118,3 +1131,124 @@ class TestMigrationCommand:
         with monkeypatch_toolkit_client() as client:
             with pytest.raises(ToolkitValueError, match="enough storage capacity"):
                 cmd.validate_stream_capacity(client, stream, 1)
+
+    def test_validate_stream_capacity_no_settings_logs_and_returns(self) -> None:
+        stream = StreamResponse(
+            external_id="no_settings_stream",
+            created_time=0,
+            created_from_template="t",
+            type="Mutable",
+            settings=None,
+        )
+        cmd = MigrationCommand(silent=True)
+        with monkeypatch_toolkit_client() as client:
+            cmd.validate_stream_capacity(client, stream, 10_000)
+
+    def test_validate_stream_exists_raises_when_stream_missing(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = []
+            with pytest.raises(ToolkitMigrationError, match="does not exist"):
+                MigrationCommand.validate_stream_exists(client, "missing_stream")
+
+    def test_validate_stream_exists_returns_stream(self) -> None:
+        stream = self._make_stream(provisioned_records=100, consumed_records=0)
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [stream]
+            result = MigrationCommand.validate_stream_exists(client, "my_stream")
+            assert result is stream
+
+    @pytest.mark.usefixtures("cognite_migration_model")
+    def test_migrate_events_to_records(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        tmp_path: Path,
+    ) -> None:
+        config = toolkit_config
+        space = "my_space"
+        stream_external_id = "test_stream"
+        container_id = ContainerId(space=space, external_id="EventContainer")
+        events = [
+            EventResponse(id=100 + i, external_id=f"event_{i}", description=f"Event {i}", created_time=0, last_updated_time=1)
+            for i in range(2)
+        ]
+
+        # Space validation
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]},
+            )
+        )
+        # Stream retrieve for validate_stream_exists + validate_stream_capacity
+        stream = self._make_stream(provisioned_records=1_000_000, consumed_records=0)
+        respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=stream.dump())
+        )
+        # Event retrieve
+        respx_mock.post(config.create_api_url("/events/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200, json={"items": [e.dump() for e in events]}
+            )
+        )
+        # Container retrieve for mapper.prepare()
+        container = ContainerResponse(
+            space=container_id.space,
+            external_id=container_id.external_id,
+            properties={
+                "description": ContainerPropertyDefinition(
+                    type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+                )
+            },
+            created_time=0,
+            last_updated_time=1,
+            is_global=False,
+        )
+        respx_mock.post(config.create_api_url("/models/containers/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [container.dump()]})
+        )
+        # Records upload — capture the request
+        records_route = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
+            return_value=httpx.Response(status_code=200, json={})
+        )
+
+        csv_file = tmp_path / "events.csv"
+        csv_file.write_text(
+            "id,space,externalId\n" + "\n".join(f"{100 + i},{space},event_{i}" for i in range(len(events)))
+        )
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Events")
+
+        record_mapping = RecordPropertyMapping(
+            external_id="my_mapping",
+            container_id=container_id,
+            property_mapping={"description": "description"},
+        )
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+        results_by_selector = command.migrate(
+            selectors=[selector],
+            data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+            mapper=AssetCentricToRecordMapper(
+                client,
+                mappings_by_external_id={"my_mapping": record_mapping},
+                default_mapping="my_mapping",
+            ),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=False,
+        )
+
+        assert records_route.called
+        upload_body = json.loads(records_route.calls[0].request.content)
+        uploaded = upload_body["items"]
+        assert len(uploaded) == len(events)
+        uploaded_by_id = {item["externalId"]: item for item in uploaded}
+        for i, event in enumerate(events):
+            record = uploaded_by_id[f"event_{i}"]
+            assert record["space"] == space
+            assert record["sources"][0]["source"]["externalId"] == container_id.external_id
+            assert record["sources"][0]["properties"]["description"] == event.description
+
+        result = results_by_selector[str(selector)]
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(events), "unchanged": 0, "skipped": 0}

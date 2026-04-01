@@ -393,13 +393,14 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
     def upload_items(
         self,
-        data_chunk: Sequence[DataItem[RecordRequest]],  # type: ignore[override]
+        data_chunk: Page[RecordRequest],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
+        items: Sequence[DataItem[RecordRequest]] = data_chunk.items
         if self.skip_existing:
-            data_chunk = self._remove_existing(data_chunk, http_client)
-            if not data_chunk:
+            items = self._remove_existing(items, http_client)
+            if not items:
                 return ItemsResultList()
 
         endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
@@ -407,7 +408,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             message=ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(endpoint),
                 method="POST",
-                items=data_chunk,
+                items=items,
             )
         )
 

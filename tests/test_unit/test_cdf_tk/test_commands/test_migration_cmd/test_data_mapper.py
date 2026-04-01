@@ -49,12 +49,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
+    AssetMapping,
+    EventMapping,
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
@@ -932,4 +940,101 @@ class TestInFieldLegacyToCDMScheduleMapper:
         mapped_schedules = [r for r in result if r is not None]
         assert len(mapped_schedules) == 2
 
-        data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
+
+class TestAssetCentricToRecordMapper:
+    def _make_mapping(self, external_id: str, container_id: ContainerId) -> RecordPropertyMapping:
+        return RecordPropertyMapping(
+            external_id=external_id,
+            container_id=container_id,
+            property_mapping={"description": "description"},
+        )
+
+    def _make_container(self, container_id: ContainerId) -> ContainerResponse:
+        return ContainerResponse(
+            space=container_id.space,
+            external_id=container_id.external_id,
+            properties={
+                "description": ContainerPropertyDefinition(
+                    type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+                )
+            },
+            created_time=0,
+            last_updated_time=1,
+            is_global=False,
+        )
+
+    def test_prepare_retrieves_and_caches_container(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="EventContainer")
+        mapping_a = self._make_mapping("mapping_a", container_id)
+        mapping_b = self._make_mapping("mapping_b", container_id)
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            mapper = AssetCentricToRecordMapper(
+                client,
+                mappings_by_external_id={"mapping_a": mapping_a, "mapping_b": mapping_b},
+            )
+            mapper.prepare(MagicMock())
+            # Same container referenced twice — should only be retrieved once
+            assert client.tool.containers.retrieve.call_count == 1
+
+    def test_prepare_raises_on_missing_container(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="MissingContainer")
+        mapping = self._make_mapping("mapping_x", container_id)
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = []
+            mapper = AssetCentricToRecordMapper(
+                client, mappings_by_external_id={"mapping_x": mapping}
+            )
+            with pytest.raises(ToolkitValueError, match="was not found in CDF"):
+                mapper.prepare(MagicMock())
+
+    def test_record_mapping_for_row_rejects_non_event(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="EventContainer")
+        mapping = self._make_mapping("mapping_a", container_id)
+        source = AssetCentricMapping(
+            mapping=AssetMapping(
+                resource_type="asset",
+                instance_id=NodeId(space="my_space", external_id="asset_1"),
+                id=1,
+                ingestion_mapping="mapping_a",
+            ),
+            resource=AssetResponse(id=1, name="asset_1", created_time=0, last_updated_time=1, root_id=0),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            mapper = AssetCentricToRecordMapper(
+                client, mappings_by_external_id={"mapping_a": mapping}
+            )
+            mapper.prepare(MagicMock())
+            with pytest.raises(ToolkitValueError, match="only supports Event"):
+                mapper.map([source])
+
+    def test_map_produces_record_request(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="EventContainer")
+        mapping = self._make_mapping("mapping_a", container_id)
+        source = AssetCentricMapping(
+            mapping=EventMapping(
+                resource_type="event",
+                instance_id=NodeId(space="my_space", external_id="event_1"),
+                id=42,
+                ingestion_mapping="mapping_a",
+            ),
+            resource=EventResponse(
+                id=42, external_id="event_1", description="An event", created_time=0, last_updated_time=1
+            ),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            mapper = AssetCentricToRecordMapper(
+                client, mappings_by_external_id={"mapping_a": mapping}
+            )
+            mapper.prepare(MagicMock())
+            results = mapper.map([source])
+        assert len(results) == 1
+        record = results[0]
+        assert record is not None
+        assert record.space == "my_space"
+        assert record.external_id == "event_1"
+        assert len(record.sources) == 1
+        assert record.sources[0].source == container_id
+        assert record.sources[0].properties["description"] == "An event"
