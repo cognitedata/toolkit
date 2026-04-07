@@ -40,9 +40,7 @@ class RecordsAPI:
             by_space[item.space].append(item.external_id)
 
         results: list[RecordResponse] = []
-        url = self._http_client.config.create_api_url(
-            self._FILTER_ENDPOINT.format(streamId=stream_external_id)
-        )
+        url = self._http_client.config.create_api_url(self._FILTER_ENDPOINT.format(streamId=stream_external_id))
         for space, external_ids in by_space.items():
             for id_batch in chunker_sequence(external_ids, self._FILTER_IN_MAX_VALUES):
                 body: dict[str, JsonValue] = {
@@ -71,7 +69,7 @@ class RecordsAPI:
         filter: dict[str, JsonValue],
         aggregates: dict[str, JsonValue],
         last_updated_time: dict[str, int] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """Run an aggregate query against a stream.
 
         Args:
@@ -87,9 +85,7 @@ class RecordsAPI:
         if last_updated_time is not None:
             body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
 
-        url = self._http_client.config.create_api_url(
-            self._AGGREGATE_ENDPOINT.format(streamId=stream_external_id)
-        )
+        url = self._http_client.config.create_api_url(self._AGGREGATE_ENDPOINT.format(streamId=stream_external_id))
         request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise(request)
@@ -127,9 +123,7 @@ class RecordsAPI:
         if cursor is not None:
             body["cursor"] = cursor
 
-        url = self._http_client.config.create_api_url(
-            self._SYNC_ENDPOINT.format(streamId=stream_external_id)
-        )
+        url = self._http_client.config.create_api_url(self._SYNC_ENDPOINT.format(streamId=stream_external_id))
         request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise(request)
