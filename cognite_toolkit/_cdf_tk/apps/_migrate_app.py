@@ -678,6 +678,8 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Events to records (Streams API)."""
+        if mapping_file is None and data_set_id is None:
+            raise typer.BadParameter("Either --mapping-file or --data-set-id must be provided.")
         client = EnvironmentVariables.create_from_environment().get_client()
         try:
             migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
@@ -686,7 +688,7 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and migration_config.default_mapping is None:
             raise typer.BadParameter(
                 "--data-set-id requires defaultMapping to be set in the config file, "
-                "so all events in the data set are mapped to the same target container."
+                "such that all events in the data set are mapped to the same target container."
             )
         mappings_by_external_id = {m.external_id: m for m in migration_config.mappings}
 
