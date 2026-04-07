@@ -2096,6 +2096,28 @@ class TestCDFResourceAPI:
                 f"documents.unique returned {len(unique_vals)} unique values, expected {cardinality} based on cardinality result",
             )
 
+    @pytest.mark.parametrize(
+        "properties",
+        [
+            pytest.param(tuple([get_args(item) for item in get_args(option)]), id=str(option))
+            for option in get_args(DocumentPropertyPath)
+        ],
+    )
+    def test_document_cardinality_properties(
+        self, properties: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+    ) -> None:
+        """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
+        documents = toolkit_client.tool.documents
+        aggregate_path = documents._method_endpoint_map["aggregate"].path
+        property_ = tuple(item[0] for item in properties if item)
+        try:
+            _ = documents.cardinality(property_)  # type:ignore[arg-type]
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                aggregate_path,
+                f"documents.cardinality({property_!r}) failed: {e!s}",
+            ) from e
+
     def test_annotations_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
         client = toolkit_client
 
