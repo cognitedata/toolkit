@@ -940,35 +940,39 @@ class TestInFieldLegacyToCDMScheduleMapper:
         mapped_schedules = [r for r in result if r is not None]
         assert len(mapped_schedules) == 2
 
+        data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
+
+
+def _make_record_property_mapping(external_id: str, container_id: ContainerId) -> RecordPropertyMapping:
+    return RecordPropertyMapping(
+        external_id=external_id,
+        container_id=container_id,
+        property_mapping={"description": "description"},
+    )
+
+
+def _make_container_response(container_id: ContainerId) -> ContainerResponse:
+    return ContainerResponse(
+        space=container_id.space,
+        external_id=container_id.external_id,
+        properties={
+            "description": ContainerPropertyDefinition(
+                type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+            )
+        },
+        created_time=0,
+        last_updated_time=1,
+        is_global=False,
+    )
+
 
 class TestAssetCentricToRecordMapper:
-    def _make_mapping(self, external_id: str, container_id: ContainerId) -> RecordPropertyMapping:
-        return RecordPropertyMapping(
-            external_id=external_id,
-            container_id=container_id,
-            property_mapping={"description": "description"},
-        )
-
-    def _make_container(self, container_id: ContainerId) -> ContainerResponse:
-        return ContainerResponse(
-            space=container_id.space,
-            external_id=container_id.external_id,
-            properties={
-                "description": ContainerPropertyDefinition(
-                    type=TextProperty(), nullable=True, immutable=False, auto_increment=False
-                )
-            },
-            created_time=0,
-            last_updated_time=1,
-            is_global=False,
-        )
-
     def test_prepare_retrieves_and_caches_container(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
-        mapping_a = self._make_mapping("mapping_a", container_id)
-        mapping_b = self._make_mapping("mapping_b", container_id)
+        mapping_a = _make_record_property_mapping("mapping_a", container_id)
+        mapping_b = _make_record_property_mapping("mapping_b", container_id)
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(
                 client,
                 mappings_by_external_id={"mapping_a": mapping_a, "mapping_b": mapping_b},
@@ -979,7 +983,7 @@ class TestAssetCentricToRecordMapper:
 
     def test_prepare_raises_on_missing_container(self) -> None:
         container_id = ContainerId(space="my_space", external_id="MissingContainer")
-        mapping = self._make_mapping("mapping_x", container_id)
+        mapping = _make_record_property_mapping("mapping_x", container_id)
         with monkeypatch_toolkit_client() as client:
             client.tool.containers.retrieve.return_value = []
             mapper = AssetCentricToRecordMapper(
@@ -990,7 +994,7 @@ class TestAssetCentricToRecordMapper:
 
     def test_map_rejects_non_event_row(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
-        mapping = self._make_mapping("mapping_a", container_id)
+        mapping = _make_record_property_mapping("mapping_a", container_id)
         source = AssetCentricMapping(
             mapping=AssetMapping(
                 resource_type="asset",
@@ -1001,7 +1005,7 @@ class TestAssetCentricToRecordMapper:
             resource=AssetResponse(id=1, name="asset_1", created_time=0, last_updated_time=1, root_id=0),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(
                 client, mappings_by_external_id={"mapping_a": mapping}
             )
@@ -1011,7 +1015,7 @@ class TestAssetCentricToRecordMapper:
 
     def test_map_produces_record_request(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
-        mapping = self._make_mapping("mapping_a", container_id)
+        mapping = _make_record_property_mapping("mapping_a", container_id)
         source = AssetCentricMapping(
             mapping=EventMapping(
                 resource_type="event",
@@ -1024,7 +1028,7 @@ class TestAssetCentricToRecordMapper:
             ),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [self._make_container(container_id)]
+            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(
                 client, mappings_by_external_id={"mapping_a": mapping}
             )

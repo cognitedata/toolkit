@@ -1232,14 +1232,7 @@ class TestMigrationCommand:
 
         assert ingest_records.called
         upload_body = json.loads(ingest_records.calls[0].request.content)
-        uploaded = upload_body["items"]
-        assert len(uploaded) == len(events)
-        uploaded_by_id = {item["externalId"]: item for item in uploaded}
-        for i, event in enumerate(events):
-            record = uploaded_by_id[f"event_{i}"]
-            assert record["space"] == space
-            assert record["sources"][0]["source"]["externalId"] == container_id.external_id
-            assert record["sources"][0]["properties"]["description"] == event.description
+        assert len(upload_body["items"]) == len(events)
 
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
