@@ -281,10 +281,14 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         if not isinstance(mapping, EventMapping):
             raise ToolkitValueError("Records migration only supports Event mapping rows.")
         mapping_key = mapping.ingestion_mapping or self._default_mapping
+        if mapping_key is None:
+            raise ToolkitValueError(
+                "No mapping key: set ingestionMapping on the CSV row or defaultMapping in the config file."
+            )
         try:
             record_mapping = self._mappings_by_external_id[mapping_key]
         except KeyError as e:
-            raise RuntimeError(
+            raise ToolkitValueError(
                 f"No record property mapping for key {mapping_key!r}. "
                 "Set ingestionMapping on the CSV row or defaultMapping in the config to match a key in the record property mappings."
             ) from e

@@ -1,8 +1,9 @@
 from typing import Any
 
-from pydantic import JsonValue, field_serializer, field_validator
+from pydantic import Field, JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId
 
 
@@ -88,3 +89,15 @@ class RecordResponse(ResponseResource[RecordRequest]):
                 RecordSource(source=source_ref, properties=props) for source_ref, props in self.properties.items()
             ]
         return RecordRequest.model_validate(dumped, extra="ignore")
+
+
+class RecordSyncResponse(PagedResponse[RecordResponse]):
+    """Response from the Records /sync endpoint.
+
+    Extends PagedResponse with `has_next` because the records service deviates from
+    the typical API behavior. The records service may return fewer items than requested
+    per page in case of large records being queried. We must therefore rely on `has_next`
+    rather than the number of returned items to decide whether to continue pagination.
+    """
+
+    has_next: bool = Field(alias="hasNext")

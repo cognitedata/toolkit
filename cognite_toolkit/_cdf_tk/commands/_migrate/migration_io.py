@@ -1,9 +1,5 @@
-import json
-from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal, cast
-
-from pydantic import JsonValue
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -313,9 +309,6 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
     KIND = "RecordsMigration"
     CHUNK_SIZE = 500
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
-    FILTER_ENDPOINT = "/streams/{streamId}/records/filter"
-    # Records filter API: multivalued `in` filters allow at most 100 values (see API error range [1, 100]).
-    FILTER_IN_MAX_VALUES = 100
 
     def __init__(self, client: ToolkitClient, stream_external_id: str, skip_existing: bool = False) -> None:
         super().__init__(client)
@@ -323,83 +316,48 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         self.skip_existing = skip_existing
         self._last_updated_time_windows: list[dict[str, int] | None] | None = None
 
-    def _remove_existing(
-        self,
-        data_chunk: Sequence[DataItem[RecordRequest]],
-        http_client: HTTPClient,
-    ) -> list[DataItem[RecordRequest]]:
-        """Return upload items whose (space, externalId) are not already in the stream.
+    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:  # type: ignore[override]
+        """Return a page with items whose (space, externalId) are not already in the stream.
 
-        Marks skipped items on the logger tracker. Groups by space and queries the filter API per group.
+        Marks skipped items on the logger tracker.
         """
-        if not data_chunk:
-            return []
+        if not data_chunk.items:
+            return data_chunk
 
         if self._last_updated_time_windows is None:
             stream_crud = StreamCRUD.create_loader(self.client)
             self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
         last_updated_time_windows = self._last_updated_time_windows
 
-        by_space: dict[str, list[DataItem[RecordRequest]]] = defaultdict(list)
-        for upload_item in data_chunk:
-            by_space[upload_item.item.space].append(upload_item)
-
+        record_ids = [upload_item.item.as_id() for upload_item in data_chunk.items]
         existing_pairs: set[tuple[str, str]] = set()
-        filter_url = self.client.config.create_api_url(self.FILTER_ENDPOINT.format(streamId=self.stream_external_id))
-
-        for space, items in by_space.items():
-            external_ids = [upload_item.item.external_id for upload_item in items]
-            for id_batch in chunker_sequence(external_ids, self.FILTER_IN_MAX_VALUES):
-                batch_list = list(id_batch)
-                for last_updated_time in last_updated_time_windows:
-                    body = cast(
-                        dict[str, JsonValue],
-                        {
-                            "filter": {
-                                "and": [
-                                    {"equals": {"property": ["space"], "value": space}},
-                                    {"in": {"property": ["externalId"], "values": batch_list}},
-                                ]
-                            },
-                            "limit": min(len(batch_list), 1000),
-                        },
-                    )
-                    if last_updated_time is not None:
-                        body["lastUpdatedTime"] = cast(JsonValue, last_updated_time)
-                    request = RequestMessage(
-                        endpoint_url=filter_url,
-                        method="POST",
-                        body_content=body,
-                    )
-                    result = http_client.request_single_retries(request)
-                    response = result.get_success_or_raise(request)
-                    payload = json.loads(response.body)
-                    for record in payload.get("items") or []:
-                        record_space = record.get("space")
-                        external_id = record.get("externalId")
-                        if isinstance(record_space, str) and isinstance(external_id, str):
-                            existing_pairs.add((record_space, external_id))
+        for last_updated_time in last_updated_time_windows:
+            for record in self.client.records.retrieve(
+                stream_external_id=self.stream_external_id,
+                items=record_ids,
+                last_updated_time=last_updated_time,
+            ):
+                existing_pairs.add((record.space, record.external_id))
 
         to_upload: list[DataItem[RecordRequest]] = []
-        for upload_item in data_chunk:
+        for upload_item in data_chunk.items:
             pair = (upload_item.item.space, upload_item.item.external_id)
             if pair in existing_pairs:
                 self.logger.tracker.finalize_item(upload_item.tracking_id, "skipped")
             else:
                 to_upload.append(upload_item)
 
-        return to_upload
+        return data_chunk.create_from(to_upload)
 
-    def upload_items(
+    def upload_items(  # type: ignore[override]
         self,
         data_chunk: Page[RecordRequest],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
-        items: Sequence[DataItem[RecordRequest]] = data_chunk.items
         if self.skip_existing:
-            items = self._remove_existing(items, http_client)
-            if not items:
+            data_chunk = self._remove_existing(data_chunk)
+            if not data_chunk.items:
                 return ItemsResultList()
 
         endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
@@ -407,7 +365,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             message=ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(endpoint),
                 method="POST",
-                items=items,
+                items=data_chunk.items,
             )
         )
 

@@ -32,6 +32,7 @@ from .api.migration import MigrationAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.rulesets import RuleSetsAPI
@@ -121,6 +122,7 @@ class ToolkitClient(CogniteClient):
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
+        self.records = RecordsAPI(http_client)
         self.streams = StreamsAPI(http_client)
 
     @property

@@ -73,6 +73,7 @@ from .api.migration import (
     ResourceViewMappingsAPI,
 )
 from .api.project import ProjectAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.ruleset_versions import RuleSetVersionsAPI
 from .api.rulesets import RuleSetsAPI
@@ -217,6 +218,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
         self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
+        self.records = MagicMock(spec=RecordsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.

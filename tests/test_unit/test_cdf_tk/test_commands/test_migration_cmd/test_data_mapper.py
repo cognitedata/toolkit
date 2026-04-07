@@ -37,9 +37,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyResponse,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -49,11 +54,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
-    ContainerPropertyDefinition,
-    ContainerResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetMapping,
@@ -986,9 +986,7 @@ class TestAssetCentricToRecordMapper:
         mapping = _make_record_property_mapping("mapping_x", container_id)
         with monkeypatch_toolkit_client() as client:
             client.tool.containers.retrieve.return_value = []
-            mapper = AssetCentricToRecordMapper(
-                client, mappings_by_external_id={"mapping_x": mapping}
-            )
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
             with pytest.raises(ToolkitValueError, match="not found in Data Modeling"):
                 mapper.prepare(MagicMock())
 
@@ -1006,9 +1004,7 @@ class TestAssetCentricToRecordMapper:
         )
         with monkeypatch_toolkit_client() as client:
             client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
-            mapper = AssetCentricToRecordMapper(
-                client, mappings_by_external_id={"mapping_a": mapping}
-            )
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             with pytest.raises(ToolkitValueError, match="only supports Event"):
                 mapper.map([source])
@@ -1029,9 +1025,7 @@ class TestAssetCentricToRecordMapper:
         )
         with monkeypatch_toolkit_client() as client:
             client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
-            mapper = AssetCentricToRecordMapper(
-                client, mappings_by_external_id={"mapping_a": mapping}
-            )
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             results = mapper.map([source])
         assert len(results) == 1

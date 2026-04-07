@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 import respx
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
@@ -45,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     UserPrincipal,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -942,3 +945,40 @@ class TestCDFResourceAPI:
         assert len(iterated) == 1
         assert len(iterated[0]) == 1
         assert iterated[0][0].dump() == example
+
+    def test_records_api_retrieve_aggregate_sync(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = RecordsAPI(HTTPClient(config))
+        record = {"space": "my_space", "externalId": "rec_1"}
+        filter_body: dict[str, JsonValue] = {
+            "hasData": [{"type": "container", "space": "my_space", "externalId": "my_container"}]
+        }
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/streams/my_stream/records/filter")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [record]})
+        )
+        retrieved = api.retrieve("my_stream", [RecordId(space="my_space", external_id="rec_1")])
+        assert len(retrieved) == 1
+        assert isinstance(retrieved[0], RecordResponse)
+
+        # Test aggregate
+        respx_mock.post(config.create_api_url("/streams/my_stream/records/aggregate")).mock(
+            return_value=httpx.Response(status_code=200, json={"aggregates": {"total": {"count": 42}}})
+        )
+        agg = api.aggregate("my_stream", filter=filter_body, aggregates={"total": {"count": {}}})
+        assert agg["aggregates"]["total"]["count"] == 42
+
+        # Test sync
+        respx_mock.post(config.create_api_url("/streams/my_stream/records/sync")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [record], "nextCursor": "abc", "hasNext": True})
+        )
+        sources = [
+            {"source": {"type": "container", "space": "my_space", "externalId": "my_container"}, "properties": ["*"]}
+        ]
+        synced = api.sync("my_stream", sources=sources, filter=filter_body, limit=100, initialize_cursor="365d-ago")
+        assert isinstance(synced, RecordSyncResponse)
+        assert len(synced.items) == 1
+        assert synced.has_next is True
