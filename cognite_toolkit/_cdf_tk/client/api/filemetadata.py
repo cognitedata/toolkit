@@ -283,8 +283,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             data_content=filepath.read_bytes(),
         )
         upload_response = self._http_client.request_single_retries(fileupoad)
-        success = upload_response.get_success_or_raise(fileupoad)
-        return success
+        return upload_response.get_success_or_raise(fileupoad)
 
     def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
         """Get a URL to upload a file to CDF for one or more file metadata entries."""
