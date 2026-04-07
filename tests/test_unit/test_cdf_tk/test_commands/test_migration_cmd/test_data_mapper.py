@@ -985,10 +985,10 @@ class TestAssetCentricToRecordMapper:
             mapper = AssetCentricToRecordMapper(
                 client, mappings_by_external_id={"mapping_x": mapping}
             )
-            with pytest.raises(ToolkitValueError, match="was not found in CDF"):
+            with pytest.raises(ToolkitValueError, match="not found in Data Modeling"):
                 mapper.prepare(MagicMock())
 
-    def test_record_mapping_for_row_rejects_non_event(self) -> None:
+    def test_map_rejects_non_event_row(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
         mapping = self._make_mapping("mapping_a", container_id)
         source = AssetCentricMapping(

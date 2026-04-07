@@ -71,7 +71,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     EventMapping,
-    MigrationMapping,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -262,44 +261,49 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         self._container_properties_by_mapping_external_id: dict[str, dict[str, ContainerPropertyDefinition]] = {}
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
-        seen_container: dict[str, dict[str, ContainerPropertyDefinition]] = {}
-        for external_id, record_mapping in self._mappings_by_external_id.items():
-            container_key = f"{record_mapping.container_id.space}:{record_mapping.container_id.external_id}"
-            if container_key not in seen_container:
-                containers = self.client.tool.containers.retrieve([record_mapping.container_id])
-                if not containers:
-                    raise ToolkitValueError(f"Container {record_mapping.container_id!r} was not found in CDF")
-                seen_container[container_key] = containers[0].properties
-            self._container_properties_by_mapping_external_id[external_id] = seen_container[container_key]
-
-    def _record_mapping_for_row(self, mapping: MigrationMapping) -> RecordPropertyMapping:
-        if not isinstance(mapping, EventMapping):
-            raise ToolkitValueError("Records migration only supports Event mapping rows.")
-        mapping_key = mapping.ingestion_mapping or self._default_mapping
-        if mapping_key is None or mapping_key not in self._mappings_by_external_id:
+        unique_container_ids = {m.container_id for m in self._mappings_by_external_id.values()}
+        containers = self.client.tool.containers.retrieve(list(unique_container_ids))
+        container_properties_by_id = {container.as_id(): container.properties for container in containers}
+        missing_container_ids = unique_container_ids - set(container_properties_by_id.keys())
+        if missing_container_ids:
             raise ToolkitValueError(
-                f"No record property mapping found for key {mapping_key!r}. "
-                "Set ingestionMapping in the CSV row or defaultMapping in the config file."
+                f"The following containers were not found in Data Modeling: {humanize_collection(missing_container_ids)}"
             )
-        return self._mappings_by_external_id[mapping_key]
+        self._container_properties_by_mapping_external_id = {
+            external_id: container_properties_by_id[record_mapping.container_id]
+            for external_id, record_mapping in self._mappings_by_external_id.items()
+        }
 
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[RecordRequest | None, ConversionIssue]:
-        row_mapping = item.mapping
-        record_mapping = self._record_mapping_for_row(row_mapping)
-        container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
+        mapping = item.mapping
+        if not isinstance(mapping, EventMapping):
+            raise ToolkitValueError("Records migration only supports Event mapping rows.")
+        mapping_key = mapping.ingestion_mapping or self._default_mapping
+        try:
+            record_mapping = self._mappings_by_external_id[mapping_key]
+        except KeyError as e:
+            raise RuntimeError(
+                f"No record property mapping for key {mapping_key!r}. "
+                "Set ingestionMapping on the CSV row or defaultMapping in the config to match a key in the record property mappings."
+            ) from e
+        try:
+            container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
+        except KeyError as e:
+            raise RuntimeError(
+                f"Container properties for mapping {record_mapping.external_id!r} were not loaded before attempting to map. "
+                "Did you forget to call .prepare()?"
+            ) from e
         record, conversion_issue = asset_centric_to_record(
             item.resource,
-            instance_id=RecordId(space=row_mapping.instance_id.space, external_id=row_mapping.instance_id.external_id),
+            instance_id=RecordId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
             record_mapping=record_mapping,
             container_properties=container_properties,
             direct_relation_cache=self._direct_relation_cache,
         )
-        if row_mapping.instance_id.space == MISSING_INSTANCE_SPACE:
-            conversion_issue.missing_instance_space = (
-                f"Missing instance space for dataset ID {row_mapping.data_set_id!r}"
-            )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
         if record is None and not conversion_issue.has_issues:
             self.logger.tracker.add_issue(
                 str(item.mapping.as_asset_centric_id()),
