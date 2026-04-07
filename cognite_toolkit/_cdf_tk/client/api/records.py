@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from collections.abc import Sequence
 
-
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
