@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
 )
 
 _SOURCE_FILE_METADATA: tuple[str, str] = ("sourceFile", "metadata")
+_UNIQUE_AGGREGATE_LIMIT_MAX = 10_000
 
 
 class DocumentsAPI(CDFResourceAPI[DocumentsApiItem]):
@@ -87,10 +88,10 @@ class DocumentsAPI(CDFResourceAPI[DocumentsApiItem]):
 
     def cardinality(
         self,
+        property: DocumentPropertyPath,
         *,
         query: str | None = None,
         filter: dict[str, Any] | None = None,
-        property: DocumentPropertyPath,
     ) -> int:
         """Approximate number of distinct values (or distinct metadata keys for ``sourceFile``/``metadata``).
 
@@ -113,11 +114,11 @@ class DocumentsAPI(CDFResourceAPI[DocumentsApiItem]):
 
     def unique(
         self,
+        property: DocumentPropertyPath,
         *,
         query: str | None = None,
         filter: dict[str, Any] | None = None,
-        property: DocumentPropertyPath,
-        limit: int,
+        limit: int = 100,
     ) -> list[DocumentUniqueBucket]:
         """Top distinct values for a field, each with a count and normalized ``values`` list.
 
@@ -129,6 +130,8 @@ class DocumentsAPI(CDFResourceAPI[DocumentsApiItem]):
 
         See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsAggregate
         """
+        if not 1 <= limit <= _UNIQUE_AGGREGATE_LIMIT_MAX:
+            raise ValueError(f"Limit must be between 1 and {_UNIQUE_AGGREGATE_LIMIT_MAX}, got {limit}.")
         body = self._search_and_filter_body(query=query, filter=filter)
         if property == _SOURCE_FILE_METADATA:
             body["aggregate"] = "uniqueProperties"
