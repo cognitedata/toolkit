@@ -1148,11 +1148,14 @@ class DocumentsInteractiveSelect:
         if count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
+        suffix = ""
         if count <= self.max_selected:
             choices.append(Choice(title="Finished", value="finished"))
+        else:
+            suffix = f" You have to filter down to below {self.max_selected} documents to continue."
 
         return questionary.select(
-            message=f"{count} documents found. What do you want to do?",
+            message=f"{count} documents found. What do you want to do?{suffix}",
             choices=choices,
         ).unsafe_ask()
 
