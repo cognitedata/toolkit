@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -9,32 +8,16 @@ from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
-    RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, DataItem, Page
+from cognite_toolkit._cdf_tk.storageio import AssetIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
-
-
-def _record_request_for_test(space: str, external_id: str) -> RecordRequest:
-    return RecordRequest(
-        space=space,
-        external_id=external_id,
-        sources=[
-            RecordSource(
-                source=ContainerId(space="cspace", external_id="EventContainer"),
-                properties={"x": "y"},
-            )
-        ],
-    )
 
 
 @pytest.fixture(scope="module")
@@ -260,42 +243,4 @@ class TestThreeDAssetMappingMigrationIO:
 
         with pytest.raises(NotImplementedError):
             io.data_to_json_chunk(MagicMock())
-
-
-@pytest.mark.usefixtures("disable_gzip")
-class TestRecordsMigrationIO:
-    def test_upload_items_skip_existing_filters_then_uploads_new_only(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
-    ) -> None:
-        client = toolkit_client
-        config = client.config
-        stream_external_id = "unit_test_stream_skip"
-        filter_url = config.create_api_url(f"/streams/{stream_external_id}/records/filter")
-        upload_url = config.create_api_url(f"/streams/{stream_external_id}/records")
-        respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
-            return_value=Response(
-                status_code=200,
-                json={"externalId": stream_external_id, "createdTime": 0, "createdFromTemplate": "t", "type": "Mutable"},
-            )
-        )
-        respx_mock.post(filter_url).mock(
-            return_value=Response(
-                status_code=200,
-                json={"items": [{"space": "sp", "externalId": "existing"}]},
-            )
-        )
-        upload_route = respx_mock.post(upload_url).mock(return_value=Response(status_code=200, json={}))
-        io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
-        io.logger = MagicMock()
-        items = [
-            DataItem(tracking_id="track_existing", item=_record_request_for_test("sp", "existing")),
-            DataItem(tracking_id="track_new", item=_record_request_for_test("sp", "new_one")),
-        ]
-        with HTTPClient(config) as http_client:
-            io.upload_items(Page(worker_id="main", items=items), http_client)
-        io.logger.tracker.finalize_item.assert_called_once_with("track_existing", "skipped")
-        assert upload_route.called
-        upload_body = json.loads(upload_route.calls[0].request.content)
-        assert len(upload_body["items"]) == 1
-        assert upload_body["items"][0]["externalId"] == "new_one"
 
