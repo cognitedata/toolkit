@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
-    DocumentPropertyOptions,
+    DOCUMENT_PROPERTY_OPTIONS,
     DocumentPropertyPath,
     DocumentResponse,
 )
@@ -1113,7 +1113,7 @@ class DocumentsInteractiveSelect:
         self._filter: dict[DocumentPropertyPath, Any] = {}
         self._search_query: str | None = None
         metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
-        self._all_filter_options = set(DocumentPropertyOptions) | {
+        self._all_filter_options = set(DOCUMENT_PROPERTY_OPTIONS) | {
             ("sourceFile", "metadata", key.value) for key in metadata_keys
         }
         self._attempted_options: set[DocumentPropertyPath] = set()

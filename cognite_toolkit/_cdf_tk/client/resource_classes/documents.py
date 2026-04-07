@@ -27,7 +27,7 @@ DocumentPropertyPath: TypeAlias = (
     | tuple[Literal["sourceFile"], Literal["metadata"], str]
 )
 
-DocumentPropertyOptions = [
+DOCUMENT_PROPERTY_OPTIONS = [
     tuple([get_args(item)[0] for item in get_args(option)])
     # Excluding the last option
     for option in get_args(DocumentPropertyPath)[:-1]
