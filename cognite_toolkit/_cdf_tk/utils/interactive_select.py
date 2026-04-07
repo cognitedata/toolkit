@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property, lru_cache, partial
-from typing import ClassVar, Literal, TypeVar, get_args, overload
+from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
 from cognite.client import data_modeling as dm
@@ -35,6 +35,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
+    DocumentPropertyOptions,
+    DocumentPropertyPath,
+    DocumentResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -1097,3 +1102,97 @@ class RecordInteractiveSelect:
             validate=lambda choices: True if choices else "You must select at least one space.",
         ).unsafe_ask()
         return selected_spaces
+
+
+class DocumentsInteractiveSelect:
+    MAX_TERMINAL_CHOICES = 100
+
+    def __init__(self, client: ToolkitClient, max_selected: int = 100) -> None:
+        self.client = client
+        self.max_selected = max_selected
+        self._filter: dict[DocumentPropertyPath, Any] = {}
+        metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
+        self._all_filter_options = set(DocumentPropertyOptions) | {
+            tuple(["sourceFile", "metadata", key]) for key in metadata_keys
+        }
+        self._attempted_options: set[DocumentPropertyPath] = set()
+
+    @property
+    def _current_filter(self) -> dict[str, Any] | None:
+        if not self._filter:
+            return None
+        return {"and": list(self._filter.values())}
+
+    def select_documents(self) -> list[DocumentResponse]:
+        while True:
+            count = self.client.tool.documents.count(filter=self._current_filter)
+            action = self._action(count)
+            if action == "abort":
+                raise ToolkitValueError("Aborted document selection.")
+            elif action == "finished":
+                break
+            elif action == "filter":
+                self._update_filter()
+                continue
+            elif action == "name":
+                return self._select_by_name()
+            else:
+                raise NotImplementedError(f"Unknown action: {action!r}")
+
+        return self.client.tool.documents.list(filter=self._current_filter, limit=self.max_selected)
+
+    def _action(self, count: int) -> str:
+        choices = [
+            Choice(title="Filter documents", value="filter"),
+        ]
+        if count <= self.MAX_TERMINAL_CHOICES and count <= self.max_selected:
+            choices.append(Choice(title="Select individual documents by name", value="name"))
+        choices.append(Choice(title="Abort", value="abort"))
+        if count <= self.max_selected:
+            choices.append(Choice(title="Finished", value="finished"))
+
+        return questionary.select(
+            message=f"{count} documents found. What do you want to do?",
+            choices=choices,
+        ).unsafe_ask()
+
+    def _update_filter(self) -> None:
+        available_options = self._all_filter_options - self._attempted_options
+        if len(available_options) == 0:
+            self.client.console.print("No more filtering options available.", style="bold red")
+            return
+        filter_type = questionary.select(
+            "Which property do you want to filter by?",
+            choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
+        ).unsafe_ask()
+
+        buckets = self.client.tool.documents.unique(property=filter_type, filter=self._current_filter)
+        self._attempted_options.add(filter_type)
+        if len(buckets) == 0:
+            self.client.console.print("No documents found for filtering.", style="bold red")
+            return
+        elif len(buckets) == 1:
+            self.client.console.print(
+                f"Only one value found for {filter_type!r}: {buckets[0].values!r}. Automatically applying this filter."
+            )
+            selected_values = buckets[0].values
+        else:
+            selected_values = questionary.select(
+                f"Select values for {filter_type!r}:",
+                choices=[
+                    Choice(title=f"{bucket.values!s} (count {bucket.count})", value=bucket.values) for bucket in buckets
+                ],
+                validate=lambda choices: True if choices else "You must select at least one value.",
+            ).unsafe_ask()
+        self._filter[filter_type] = {"in": {"property": filter_type, "values": selected_values}}
+
+    def _select_by_name(self) -> list[DocumentResponse]:
+        documents = self.client.tool.documents.list(filter=self._current_filter, limit=self.max_selected)
+        choices = [
+            Choice(title=f"{doc.source_file.name} ({doc.mime_type}, {doc.id!r})", value=doc) for doc in documents
+        ]
+        return questionary.checkbox(
+            "Select documents:",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one document.",
+        ).unsafe_ask()
