@@ -1,6 +1,6 @@
-from typing import Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client._types import Metadata
@@ -50,14 +50,14 @@ DocumentPropertyPath: TypeAlias = (
 class DocumentSourceFile(BaseModelObject):
     """Nested source file metadata on a document (Documents API)."""
 
-    name: str | None = None
+    name: str
     directory: str | None = None
     source: str | None = None
     mime_type: str | None = None
     size: int | None = None
     content_hash: str | None = Field(default=None, alias="hash")
     asset_ids: list[int] | None = None
-    labels: list[dict[Literal["externalId"], str]] | None = None
+    labels: list[ExternalId] | None = None
     geo_location: JsonValue | None = None
     data_set_id: int | None = None
     security_categories: list[int] | None = None
@@ -83,16 +83,29 @@ class DocumentResponse(BaseModelObject):
     language: str | None = None
     truncated_content: str | None = None
     asset_ids: list[int] | None = None
-    labels: list[dict[Literal["externalId"], str]] | None = None
+    labels: list[ExternalId] | None = None
     source_file: DocumentSourceFile | None = None
     geo_location: JsonValue | None = None
+
+
+class DocumentSearchHighlight(BaseModelObject):
+    """Highlight snippets for a document search hit (field name → HTML fragments)."""
+
+    name: list[str] | None = None
+    content: list[str] | None = None
 
 
 class DocumentSearchHit(BaseModelObject):
     """One row from ``POST /documents/search``."""
 
     item: DocumentResponse
-    highlight: dict[str, list[str]] | None = None
+    highlight: DocumentSearchHighlight | None = None
+
+
+class DocumentAggregateCountItem(BaseModelObject):
+    """One row from a documents aggregate ``count`` or ``cardinality*`` response."""
+
+    count: int
 
 
 class DocumentUniqueBucket(BaseModelObject):
@@ -100,3 +113,18 @@ class DocumentUniqueBucket(BaseModelObject):
 
     count: int
     values: list[str] | list[float] | list[ExternalId]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_values(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if "values" in out:
+            v = out["values"]
+            out["values"] = list(v) if isinstance(v, list) else [v]
+        elif "value" in out:
+            out["values"] = [out.pop("value")]
+        else:
+            out["values"] = []
+        return out

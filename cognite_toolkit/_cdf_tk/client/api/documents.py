@@ -1,7 +1,7 @@
-import builtins
+from collections.abc import Iterable
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
+    DocumentAggregateCountItem,
     DocumentPropertyPath,
     DocumentResponse,
     DocumentSearchHit,
@@ -25,6 +26,18 @@ _SEARCH_HIGHLIGHT_MAX_LIMIT = 20
 class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     """Documents API (list, search, and aggregate helpers)."""
 
+    @staticmethod
+    def _documents_list_body(
+        filter: dict[str, Any] | None,
+        sort: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if filter is not None:
+            body["filter"] = filter
+        if sort is not None:
+            body["sort"] = sort
+        return body
+
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -38,30 +51,12 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     ) -> PagedResponse[DocumentResponse]:
         return PagedResponse[DocumentResponse].model_validate_json(response.body)
 
-    def list(
-        self,
-        filter: dict[str, Any] | None = None,
-        sort: builtins.list[dict[str, Any]] | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[DocumentResponse]:
-        """List documents with optional filter and sort (``POST /documents/list``).
-
-        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsList
-        """
-        body: dict[str, Any] = {}
-        if filter is not None:
-            body["filter"] = filter
-        if sort is not None:
-            body["sort"] = sort
-        return self._paginate(limit=limit, cursor=cursor, body=body)
-
     def search(
         self,
         *,
         query: str | None = None,
         filter: dict[str, Any] | None = None,
-        sort: builtins.list[dict[str, Any]] | None = None,
+        sort: list[dict[str, Any]] | None = None,
         limit: int = 100,
         cursor: str | None = None,
         highlight: bool = False,
@@ -100,7 +95,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         result = self._http_client.request_single_retries(req).get_success_or_raise(req)
         return PagedResponse[DocumentSearchHit].model_validate_json(result.body)
 
-    def _post_aggregate(self, body: dict[str, Any]) -> builtins.list[dict[str, Any]]:
+    def _post_aggregate(self, body: dict[str, Any]) -> SuccessResponse:
         req = RequestMessage(
             endpoint_url=self._make_url("/documents/aggregate"),
             method="POST",
@@ -108,12 +103,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
             disable_gzip=self._disable_gzip,
             api_version=self._api_version,
         )
-        result = self._http_client.request_single_retries(req).get_success_or_raise(req)
-        payload = result.body_json
-        items = payload.get("items")
-        if not isinstance(items, builtins.list):
-            return []
-        return [item for item in items if isinstance(item, dict)]
+        return self._http_client.request_single_retries(req).get_success_or_raise(req)
 
     @staticmethod
     def _search_and_filter_body(*, query: str | None, filter: dict[str, Any] | None) -> dict[str, Any]:
@@ -125,23 +115,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         return body
 
     @staticmethod
-    def _single_count(items: builtins.list[dict[str, Any]]) -> int:
-        if not items:
-            return 0
-        raw = items[0].get("count")
-        return int(raw) if raw is not None else 0
-
-    @staticmethod
-    def _parse_unique_bucket(raw: dict[str, Any]) -> DocumentUniqueBucket:
-        count = int(raw["count"])
-        if "values" in raw:
-            v = raw["values"]
-            values = builtins.list(v) if isinstance(v, builtins.list) else [v]
-        elif "value" in raw:
-            values = [raw["value"]]
-        else:
-            values = []
-        return DocumentUniqueBucket(count=count, values=values)
+    def _first_aggregate_count(response: SuccessResponse) -> int:
+        items = ResponseItems[DocumentAggregateCountItem].model_validate_json(response.body).items
+        return items[0].count if items else 0
 
     def count(self, *, query: str | None = None, filter: dict[str, Any] | None = None) -> int:
         """Count documents matching optional full-text ``query`` and/or ``filter``.
@@ -150,7 +126,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         """
         body = self._search_and_filter_body(query=query, filter=filter)
         body["aggregate"] = "count"
-        return self._single_count(self._post_aggregate(body))
+        return self._first_aggregate_count(self._post_aggregate(body))
 
     def cardinality(
         self,
@@ -175,8 +151,8 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
             body["path"] = ["sourceFile", "metadata"]
         else:
             body["aggregate"] = "cardinalityValues"
-            body["properties"] = [{"property": builtins.list(property)}]
-        return self._single_count(self._post_aggregate(body))
+            body["properties"] = [{"property": list(property)}]
+        return self._first_aggregate_count(self._post_aggregate(body))
 
     def unique(
         self,
@@ -185,7 +161,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         query: str | None = None,
         filter: dict[str, Any] | None = None,
         limit: int = 100,
-    ) -> builtins.list[DocumentUniqueBucket]:
+    ) -> list[DocumentUniqueBucket]:
         """Top distinct values for a field, each with a count and normalized ``values`` list.
 
         Uses ``uniqueValues`` for almost all paths, and ``uniqueProperties`` when ``property`` is
@@ -204,7 +180,72 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
             body["properties"] = [{"property": ["sourceFile", "metadata"]}]
         else:
             body["aggregate"] = "uniqueValues"
-            body["properties"] = [{"property": builtins.list(property)}]
+            body["properties"] = [{"property": list(property)}]
         body["limit"] = limit
-        raw_items = self._post_aggregate(body)
-        return [self._parse_unique_bucket(item) for item in raw_items]
+        response = self._post_aggregate(body)
+        return ResponseItems[DocumentUniqueBucket].model_validate_json(response.body).items
+
+    def paginate(
+        self,
+        filter: dict[str, Any] | None = None,
+        sort: list[dict[str, Any]] | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[DocumentResponse]:
+        """Fetch one page of documents (``POST /documents/list``).
+
+        Args:
+            filter: Document filter expression.
+            sort: Sort specification (at most one property, per API).
+            limit: Maximum number of items to return per page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            PagedResponse of DocumentResponse objects.
+
+        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsList
+        """
+        body = self._documents_list_body(filter, sort)
+        return self._paginate(limit=limit, cursor=cursor, body=body)
+
+    def iterate(
+        self,
+        filter: dict[str, Any] | None = None,
+        sort: list[dict[str, Any]] | None = None,
+        limit: int | None = 100,
+    ) -> Iterable[list[DocumentResponse]]:
+        """Iterate over document list pages in CDF.
+
+        Args:
+            filter: Document filter expression.
+            sort: Sort specification (at most one property, per API).
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of DocumentResponse objects (one list per page).
+
+        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsList
+        """
+        body = self._documents_list_body(filter, sort)
+        return self._iterate(limit=limit, body=body)
+
+    def list(
+        self,
+        filter: dict[str, Any] | None = None,
+        sort: list[dict[str, Any]] | None = None,
+        limit: int | None = 100,
+    ) -> list[DocumentResponse]:
+        """List documents in CDF.
+
+        Args:
+            filter: Document filter expression.
+            sort: Sort specification (at most one property, per API).
+            limit: Maximum number of items to return. None for all items.
+
+        Returns:
+            List of DocumentResponse objects.
+
+        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsList
+        """
+        body = self._documents_list_body(filter, sort)
+        return self._list(limit=limit, body=body)
