@@ -418,6 +418,7 @@ class MigrateApp(typer.Typer):
         kind: AssetCentricKind,
         resource_type: str,
         container_id: ContainerId | None = None,
+        instance_migration_checks: bool = True,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -431,7 +432,7 @@ class MigrateApp(typer.Typer):
             file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
             selected: AssetCentricMigrationSelector = file_selector
 
-            panel = file_selector.items.print_status()
+            panel = file_selector.items.print_status(instance_migration_checks=instance_migration_checks)
             if panel is not None:
                 client.console.print(panel)
                 if not auto_yes:
@@ -705,6 +706,7 @@ class MigrateApp(typer.Typer):
             kind="Events",
             resource_type="event",
             skip_existing=skip_existing,
+            instance_migration_checks=False,
         )
 
         cmd = MigrationCommand(client=client)

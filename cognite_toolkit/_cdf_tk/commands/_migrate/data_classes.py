@@ -141,7 +141,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             )
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
-    def print_status(self) -> Panel | None:
+    def print_status(self, instance_migration_checks: bool = True) -> Panel | None:
         if not self:
             return None
         first = self[0]
@@ -151,29 +151,30 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         text.append(f"Migrating {len(self)} {resource_type}", style="bold")
         if "ingestionMapping" in self.columns:
             text.append("\n[green]Mapping column set[/green]")
-        else:
+        elif instance_migration_checks:
             text.append(
                 "\n[WARNING] 'ingestionMapping' column not set in CSV file. This is NOT recommended. "
                 f"All {resource_type}s will be ingested into CogniteCore. If you want to ingest the {resource_type}s "
                 f"into your own data modeling views, please add an 'ingestionMapping' column to the CSV file.",
                 style="red",
             )
-        if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
-            consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]
-            if "consumerViewVersion" in self.columns:
-                consumer_columns.append("consumerViewVersion")
-            text.append(
-                "\nPreferred consumer views specified "
-                f"for the mappings using the {humanize_collection(consumer_columns)} columns.",
-                style="green",
-            )
-        else:
-            text.append(
-                "\n[WARNING] Consumer views have not been specified for the instances. "
-                f"This is NOT recommended as this is used to determine which view to use when migrating the {resource_type}s in applications like Canvas. "
-                "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
-                style="red",
-            )
+        if instance_migration_checks:
+            if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
+                consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]
+                if "consumerViewVersion" in self.columns:
+                    consumer_columns.append("consumerViewVersion")
+                text.append(
+                    "\nPreferred consumer views specified "
+                    f"for the mappings using the {humanize_collection(consumer_columns)} columns.",
+                    style="green",
+                )
+            else:
+                text.append(
+                    "\n[WARNING] Consumer views have not been specified for the instances. "
+                    f"This is NOT recommended as this is used to determine which view to use when migrating the {resource_type}s in applications like Canvas. "
+                    "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
+                    style="red",
+                )
 
         return Panel(text, title="Ready for migration", expand=False)
 
