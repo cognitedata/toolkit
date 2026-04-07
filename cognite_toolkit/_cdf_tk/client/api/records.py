@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Any
 
 from pydantic import JsonValue
 
@@ -68,7 +69,7 @@ class RecordsAPI:
         filter: dict[str, JsonValue],
         aggregates: dict[str, JsonValue],
         last_updated_time: dict[str, int] | None = None,
-    ) -> dict[str, JsonValue]:
+    ) -> dict[str, Any]:
         """Run an aggregate query against a stream.
 
         Args:
