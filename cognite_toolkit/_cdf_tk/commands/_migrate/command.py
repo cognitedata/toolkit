@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -99,8 +98,7 @@ class MigrationCommand(ToolkitCommand):
         if needed_capacity and not isinstance(data, ChartIO):
             # Charts are not creating any new nodes.
             if isinstance(data, RecordsMigrationIO):
-                stream = self.validate_stream_exists(data.client, data.stream_external_id)
-                self.validate_stream_capacity(data.client, stream, needed_capacity)
+                self.validate_stream_capacity(data.client, data.stream_external_id, needed_capacity)
             else:
                 self.validate_available_capacity(data.client, needed_capacity)
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
@@ -365,8 +363,7 @@ class MigrationCommand(ToolkitCommand):
 
         return upload_items
 
-    @staticmethod
-    def validate_stream_exists(client: ToolkitClient, stream_external_id: str) -> StreamResponse:
+    def validate_stream_capacity(self, client: ToolkitClient, stream_external_id: str, record_count: int) -> None:
         results = client.streams.retrieve(
             [ExternalId(external_id=stream_external_id)], include_statistics=True, ignore_unknown_ids=True
         )
@@ -375,9 +372,7 @@ class MigrationCommand(ToolkitCommand):
                 f"Stream '{stream_external_id}' does not exist. "
                 "Please create the stream before running a records migration."
             )
-        return results[0]
-
-    def validate_stream_capacity(self, client: ToolkitClient, stream: StreamResponse, record_count: int) -> None:
+        stream = results[0]
         limits = stream.settings.limits if stream.settings else None
         if limits is None:
             self.console(f"Unable to check stream capacity for '{stream.external_id}' (no settings returned).")

@@ -23,12 +23,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
-    ContainerPropertyDefinition,
-    ContainerResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     CANVAS_VIEW_ID,
@@ -45,7 +39,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     LifecycleObject,
     LimitsObject,
@@ -61,11 +61,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
-    AnnotationMigrationIO,
-    AssetCentricMigrationIO,
-    RecordsMigrationIO,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
     COGNITE_MIGRATION_SPACE_ID,
@@ -78,6 +73,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     FILE_ANNOTATIONS_ID,
     create_default_mappings,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+    RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
@@ -196,6 +196,28 @@ def mock_statistics(
         status=200,
     )
     yield rsps
+
+
+def _make_stream_response(
+    provisioned_records: int,
+    consumed_records: int,
+    provisioned_gb: float = 100.0,
+    consumed_gb: float = 0.0,
+    external_id: str = "my_stream",
+) -> StreamResponse:
+    return StreamResponse(
+        external_id=external_id,
+        created_time=0,
+        created_from_template="t",
+        type="Mutable",
+        settings=StreamSettings(
+            lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
+            limits=LimitsObject(
+                max_records_total=ResourceUsage(provisioned=provisioned_records, consumed=consumed_records),
+                max_giga_bytes_total=ResourceUsage(provisioned=provisioned_gb, consumed=consumed_gb),
+            ),
+        ),
+    )
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -1093,69 +1115,33 @@ class TestMigrationCommand:
 
         assert actual == expected
 
-    def _make_stream(
-        self, provisioned_records: int, consumed_records: int, provisioned_gb: float = 100.0, consumed_gb: float = 0.0
-    ) -> StreamResponse:
-        return StreamResponse(
-            external_id="my_stream",
-            created_time=0,
-            created_from_template="t",
-            type="Mutable",
-            settings=StreamSettings(
-                lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
-                limits=LimitsObject(
-                    max_records_total=ResourceUsage(provisioned=provisioned_records, consumed=consumed_records),
-                    max_giga_bytes_total=ResourceUsage(provisioned=provisioned_gb, consumed=consumed_gb),
-                ),
-            ),
-        )
-
-    def test_validate_stream_capacity_sufficient(self) -> None:
-        stream = self._make_stream(provisioned_records=1_000_000, consumed_records=100_000)
-        cmd = MigrationCommand(silent=True)
-        with monkeypatch_toolkit_client() as client:
-            cmd.validate_stream_capacity(client, stream, 500_000)  # should not raise
-
-    def test_validate_stream_capacity_insufficient_records(self) -> None:
-        stream = self._make_stream(provisioned_records=1_000, consumed_records=900)
-        cmd = MigrationCommand(silent=True)
-        with monkeypatch_toolkit_client() as client:
-            with pytest.raises(ToolkitValueError, match="enough record capacity"):
-                cmd.validate_stream_capacity(client, stream, 200)
-
-    def test_validate_stream_capacity_insufficient_storage(self) -> None:
-        stream = self._make_stream(
-            provisioned_records=1_000_000, consumed_records=0, provisioned_gb=10.0, consumed_gb=10.0
-        )
-        cmd = MigrationCommand(silent=True)
-        with monkeypatch_toolkit_client() as client:
-            with pytest.raises(ToolkitValueError, match="enough storage capacity"):
-                cmd.validate_stream_capacity(client, stream, 1)
-
-    def test_validate_stream_capacity_no_settings_logs_and_returns(self) -> None:
-        stream = StreamResponse(
-            external_id="no_settings_stream",
-            created_time=0,
-            created_from_template="t",
-            type="Mutable",
-            settings=None,
-        )
-        cmd = MigrationCommand(silent=True)
-        with monkeypatch_toolkit_client() as client:
-            cmd.validate_stream_capacity(client, stream, 10_000)
-
-    def test_validate_stream_exists_raises_when_stream_missing(self) -> None:
+    def test_validate_stream_capacity_stream_missing(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.streams.retrieve.return_value = []
             with pytest.raises(ToolkitMigrationError, match="does not exist"):
-                MigrationCommand.validate_stream_exists(client, "missing_stream")
+                MigrationCommand(silent=True).validate_stream_capacity(client, "missing_stream", 1)
 
-    def test_validate_stream_exists_returns_stream(self) -> None:
-        stream = self._make_stream(provisioned_records=100, consumed_records=0)
+    def test_validate_stream_capacity_sufficient(self) -> None:
+        stream = _make_stream_response(provisioned_records=1_000_000, consumed_records=100_000)
         with monkeypatch_toolkit_client() as client:
             client.streams.retrieve.return_value = [stream]
-            result = MigrationCommand.validate_stream_exists(client, "my_stream")
-            assert result is stream
+            MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 500_000)
+
+    def test_validate_stream_capacity_insufficient_records(self) -> None:
+        stream = _make_stream_response(provisioned_records=1_000, consumed_records=900)
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [stream]
+            with pytest.raises(ToolkitValueError, match="enough record capacity"):
+                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 200)
+
+    def test_validate_stream_capacity_insufficient_storage(self) -> None:
+        stream = _make_stream_response(
+            provisioned_records=1_000_000, consumed_records=0, provisioned_gb=10.0, consumed_gb=10.0
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [stream]
+            with pytest.raises(ToolkitValueError, match="enough storage capacity"):
+                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 1)
 
     @pytest.mark.usefixtures("cognite_migration_model")
     def test_migrate_events_to_records(
@@ -1169,7 +1155,13 @@ class TestMigrationCommand:
         stream_external_id = "test_stream"
         container_id = ContainerId(space=space, external_id="EventContainer")
         events = [
-            EventResponse(id=100 + i, external_id=f"event_{i}", description=f"Event {i}", created_time=0, last_updated_time=1)
+            EventResponse(
+                id=100 + i,
+                external_id=f"event_{i}",
+                description=f"Event {i}",
+                created_time=0,
+                last_updated_time=1,
+            )
             for i in range(2)
         ]
 
@@ -1177,19 +1169,19 @@ class TestMigrationCommand:
         respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
             return_value=httpx.Response(
                 status_code=200,
-                json={"items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]},
+                json={
+                    "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
+                },
             )
         )
         # Stream retrieve for validate_stream_exists + validate_stream_capacity
-        stream = self._make_stream(provisioned_records=1_000_000, consumed_records=0)
+        stream = _make_stream_response(provisioned_records=1_000_000, consumed_records=0)
         respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
             return_value=httpx.Response(status_code=200, json=stream.dump())
         )
         # Event retrieve
         respx_mock.post(config.create_api_url("/events/byids")).mock(
-            return_value=httpx.Response(
-                status_code=200, json={"items": [e.dump() for e in events]}
-            )
+            return_value=httpx.Response(status_code=200, json={"items": [e.dump() for e in events]})
         )
         # Container retrieve for mapper.prepare()
         container = ContainerResponse(
@@ -1208,7 +1200,7 @@ class TestMigrationCommand:
             return_value=httpx.Response(status_code=200, json={"items": [container.dump()]})
         )
         # Records upload — capture the request
-        records_route = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
+        ingest_records = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
             return_value=httpx.Response(status_code=200, json={})
         )
 
@@ -1238,8 +1230,8 @@ class TestMigrationCommand:
             verbose=False,
         )
 
-        assert records_route.called
-        upload_body = json.loads(records_route.calls[0].request.content)
+        assert ingest_records.called
+        upload_body = json.loads(ingest_records.calls[0].request.content)
         uploaded = upload_body["items"]
         assert len(uploaded) == len(events)
         uploaded_by_id = {item["externalId"]: item for item in uploaded}
