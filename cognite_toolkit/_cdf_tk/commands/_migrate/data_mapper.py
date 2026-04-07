@@ -70,7 +70,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    EventMapping,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -278,8 +277,8 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[RecordRequest | None, ConversionIssue]:
         mapping = item.mapping
-        if not isinstance(mapping, EventMapping):
-            raise ToolkitValueError("Records migration only supports Event mapping rows.")
+        if mapping.resource_type != "event":
+            raise ToolkitValueError("Records migration currently only supports Event mapping rows.")
         mapping_key = mapping.ingestion_mapping or self._default_mapping
         if mapping_key is None:
             raise ToolkitValueError(

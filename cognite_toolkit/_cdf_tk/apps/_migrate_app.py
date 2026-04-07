@@ -66,6 +66,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     APMConfigInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
@@ -678,13 +679,13 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Events to records (Streams API)."""
-        if mapping_file is None and data_set_id is None:
-            raise typer.BadParameter("Either --mapping-file or --data-set-id must be provided.")
         client = EnvironmentVariables.create_from_environment().get_client()
         try:
             migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
         except Exception as exc:
             raise typer.BadParameter(str(exc)) from exc
+        if mapping_file is None and data_set_id is None:
+            data_set_id = EventInteractiveSelect(client, "migrate").select_data_set(allow_empty=False)
         if data_set_id is not None and migration_config.default_mapping is None:
             raise typer.BadParameter(
                 "--data-set-id requires defaultMapping to be set in the config file, "
