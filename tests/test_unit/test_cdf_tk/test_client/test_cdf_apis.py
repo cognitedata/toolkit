@@ -319,9 +319,10 @@ class TestCDFResourceAPI:
         instance = DocumentResponse.model_validate(doc_json)
         config = toolkit_config
         api = DocumentsAPI(HTTPClient(config))
-        list_url = config.create_api_url("/documents/list")
-        search_url = config.create_api_url("/documents/search")
-        aggregate_url = config.create_api_url("/documents/aggregate")
+        endpoints = api._method_endpoint_map
+        list_url = config.create_api_url(endpoints["list"].path)
+        search_url = config.create_api_url(endpoints["search"].path)
+        aggregate_url = config.create_api_url(endpoints["aggregate"].path)
 
         respx_mock.post(list_url).mock(
             return_value=httpx.Response(status_code=200, json={"items": [doc_json], "nextCursor": None})

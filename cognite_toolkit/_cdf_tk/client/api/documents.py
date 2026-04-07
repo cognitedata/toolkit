@@ -19,12 +19,21 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
 
 _SOURCE_FILE_METADATA: tuple[str, str] = ("sourceFile", "metadata")
 _UNIQUE_AGGREGATE_LIMIT_MAX = 10_000
-_DOCUMENTS_SEARCH_PATH = "/documents/search"
 _SEARCH_HIGHLIGHT_MAX_LIMIT = 20
 
 
 class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     """Documents API (list, search, and aggregate helpers)."""
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "aggregate": Endpoint(method="POST", path="/documents/aggregate", item_limit=1000),
+                "list": Endpoint(method="POST", path="/documents/list", item_limit=1000),
+                "search": Endpoint(method="POST", path="/documents/search", item_limit=1000),
+            },
+        )
 
     @staticmethod
     def _documents_list_body(
@@ -37,14 +46,6 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         if sort is not None:
             body["sort"] = sort
         return body
-
-    def __init__(self, http_client: HTTPClient) -> None:
-        super().__init__(
-            http_client=http_client,
-            method_endpoint_map={
-                "list": Endpoint(method="POST", path="/documents/list", item_limit=1000),
-            },
-        )
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -67,9 +68,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
 
         See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsSearch
         """
-        list_endpoint = self._method_endpoint_map["list"]
-        if not 0 < limit <= list_endpoint.item_limit:
-            raise ValueError(f"Limit must be between 1 and {list_endpoint.item_limit}, got {limit}.")
+        search_endpoint = self._method_endpoint_map["search"]
+        if not 0 < limit <= search_endpoint.item_limit:
+            raise ValueError(f"Limit must be between 1 and {search_endpoint.item_limit}, got {limit}.")
         if highlight and limit > _SEARCH_HIGHLIGHT_MAX_LIMIT:
             raise ValueError(
                 f"When highlight is True, limit must be at most {_SEARCH_HIGHLIGHT_MAX_LIMIT}, got {limit}."
@@ -86,8 +87,8 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
             body["search"] = {"query": query}
 
         req = RequestMessage(
-            endpoint_url=self._make_url(_DOCUMENTS_SEARCH_PATH),
-            method="POST",
+            endpoint_url=self._make_url(search_endpoint.path),
+            method=search_endpoint.method,
             body_content=body,
             disable_gzip=self._disable_gzip,
             api_version=self._api_version,
@@ -96,9 +97,10 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         return PagedResponse[DocumentSearchHit].model_validate_json(result.body)
 
     def _post_aggregate(self, body: dict[str, Any]) -> SuccessResponse:
+        aggregate_endpoint = self._method_endpoint_map["aggregate"]
         req = RequestMessage(
-            endpoint_url=self._make_url("/documents/aggregate"),
-            method="POST",
+            endpoint_url=self._make_url(aggregate_endpoint.path),
+            method=aggregate_endpoint.method,
             body_content=body,
             disable_gzip=self._disable_gzip,
             api_version=self._api_version,

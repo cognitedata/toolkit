@@ -38,7 +38,7 @@ DocumentPropertyPath: TypeAlias = (
     | tuple[Literal["sourceFile"], Literal["directory"]]
     | tuple[Literal["sourceFile"], Literal["assetIds"]]
     | tuple[Literal["sourceFile"], Literal["assetExternalIds"]]
-    | tuple[Literal["sourceFile"], Literal["datasetId"]]
+    | tuple[Literal["sourceFile"], Literal["dataSetId"]]
     | tuple[Literal["sourceFile"], Literal["securityCategories"]]
     | tuple[Literal["sourceFile"], Literal["geoLocation"]]
     | tuple[Literal["sourceFile"], Literal["labels"]]
