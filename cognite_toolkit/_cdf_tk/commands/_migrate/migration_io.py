@@ -322,9 +322,6 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         self.stream_external_id = stream_external_id
         self.skip_existing = skip_existing
         self._last_updated_time_windows: list[dict[str, int] | None] | None = None
-        if skip_existing:
-            stream_crud = StreamCRUD.create_loader(self.client)
-            self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
 
     def _remove_existing(
         self,
@@ -338,8 +335,10 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         if not data_chunk:
             return []
 
+        if self._last_updated_time_windows is None:
+            stream_crud = StreamCRUD.create_loader(self.client)
+            self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
         last_updated_time_windows = self._last_updated_time_windows
-        assert last_updated_time_windows is not None
 
         by_space: dict[str, list[DataItem[RecordRequest]]] = defaultdict(list)
         for upload_item in data_chunk:

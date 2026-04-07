@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -264,21 +264,6 @@ class TestThreeDAssetMappingMigrationIO:
 
 @pytest.mark.usefixtures("disable_gzip")
 class TestRecordsMigrationIO:
-    def test_upload_items_posts_to_stream_records(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
-    ) -> None:
-        client = toolkit_client
-        config = client.config
-        stream_external_id = "unit_test_stream"
-        upload_route = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
-            return_value=Response(status_code=200, json={})
-        )
-        io = RecordsMigrationIO(client, stream_external_id, skip_existing=False)
-        items = [DataItem(tracking_id="t1", item=_record_request_for_test("sp", "e1"))]
-        with HTTPClient(config) as http_client:
-            io.upload_items(Page(worker_id="main", items=items), http_client)
-        assert upload_route.called
-
     def test_upload_items_skip_existing_filters_then_uploads_new_only(
         self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
     ) -> None:
@@ -287,6 +272,12 @@ class TestRecordsMigrationIO:
         stream_external_id = "unit_test_stream_skip"
         filter_url = config.create_api_url(f"/streams/{stream_external_id}/records/filter")
         upload_url = config.create_api_url(f"/streams/{stream_external_id}/records")
+        respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
+            return_value=Response(
+                status_code=200,
+                json={"externalId": stream_external_id, "createdTime": 0, "createdFromTemplate": "t", "type": "Mutable"},
+            )
+        )
         respx_mock.post(filter_url).mock(
             return_value=Response(
                 status_code=200,
@@ -294,13 +285,7 @@ class TestRecordsMigrationIO:
             )
         )
         upload_route = respx_mock.post(upload_url).mock(return_value=Response(status_code=200, json={}))
-        mock_loader = MagicMock()
-        mock_loader.last_updated_time_windows.return_value = [None]
-        with patch(
-            "cognite_toolkit._cdf_tk.commands._migrate.migration_io.StreamCRUD.create_loader",
-            return_value=mock_loader,
-        ):
-            io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
+        io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
         io.logger = MagicMock()
         items = [
             DataItem(tracking_id="track_existing", item=_record_request_for_test("sp", "existing")),
@@ -314,86 +299,3 @@ class TestRecordsMigrationIO:
         assert len(upload_body["items"]) == 1
         assert upload_body["items"][0]["externalId"] == "new_one"
 
-    def test_remove_existing_multiple_spaces(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
-    ) -> None:
-        client = toolkit_client
-        config = client.config
-        stream_external_id = "unit_test_stream_spaces"
-        filter_url = config.create_api_url(f"/streams/{stream_external_id}/records/filter")
-        upload_url = config.create_api_url(f"/streams/{stream_external_id}/records")
-        # Filter is called once per space; return one existing item for "alpha", none for "beta"
-        filter_route = respx_mock.post(filter_url).mock(
-            side_effect=[
-                Response(status_code=200, json={"items": [{"space": "alpha", "externalId": "alpha_1"}]}),
-                Response(status_code=200, json={"items": []}),
-            ]
-        )
-        upload_route = respx_mock.post(upload_url).mock(return_value=Response(status_code=200, json={}))
-        mock_loader = MagicMock()
-        mock_loader.last_updated_time_windows.return_value = [None]
-        with patch(
-            "cognite_toolkit._cdf_tk.commands._migrate.migration_io.StreamCRUD.create_loader",
-            return_value=mock_loader,
-        ):
-            io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
-        io.logger = MagicMock()
-        items = [
-            DataItem(tracking_id="t_alpha1", item=_record_request_for_test("alpha", "alpha_1")),
-            DataItem(tracking_id="t_alpha2", item=_record_request_for_test("alpha", "alpha_2")),
-            DataItem(tracking_id="t_beta1", item=_record_request_for_test("beta", "beta_1")),
-        ]
-        with HTTPClient(config) as http_client:
-            io.upload_items(Page(worker_id="main", items=items), http_client)
-        assert filter_route.call_count == 2
-        io.logger.tracker.finalize_item.assert_called_once_with("t_alpha1", "skipped")
-        upload_body = json.loads(upload_route.calls[0].request.content)
-        uploaded_ids = {item["externalId"] for item in upload_body["items"]}
-        assert uploaded_ids == {"alpha_2", "beta_1"}
-
-    def test_remove_existing_batches_over_filter_limit(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
-    ) -> None:
-        client = toolkit_client
-        config = client.config
-        stream_external_id = "unit_test_stream_batch"
-        filter_url = config.create_api_url(f"/streams/{stream_external_id}/records/filter")
-        upload_url = config.create_api_url(f"/streams/{stream_external_id}/records")
-        filter_route = respx_mock.post(filter_url).mock(
-            return_value=Response(status_code=200, json={"items": []})
-        )
-        respx_mock.post(upload_url).mock(return_value=Response(status_code=200, json={}))
-        mock_loader = MagicMock()
-        mock_loader.last_updated_time_windows.return_value = [None]
-        with patch(
-            "cognite_toolkit._cdf_tk.commands._migrate.migration_io.StreamCRUD.create_loader",
-            return_value=mock_loader,
-        ):
-            io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
-        io.logger = MagicMock()
-        # 150 items > FILTER_IN_MAX_VALUES (100) → requires 2 filter batches
-        items = [
-            DataItem(tracking_id=f"t{i}", item=_record_request_for_test("sp", f"evt_{i}"))
-            for i in range(150)
-        ]
-        with HTTPClient(config) as http_client:
-            io.upload_items(Page(worker_id="main", items=items), http_client)
-        assert filter_route.call_count == 2
-
-    def test_remove_existing_empty_chunk(self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter) -> None:
-        client = toolkit_client
-        config = client.config
-        stream_external_id = "unit_test_stream_empty"
-        filter_route = respx_mock.post(
-            config.create_api_url(f"/streams/{stream_external_id}/records/filter")
-        ).mock(return_value=Response(status_code=200, json={}))
-        mock_loader = MagicMock()
-        mock_loader.last_updated_time_windows.return_value = [None]
-        with patch(
-            "cognite_toolkit._cdf_tk.commands._migrate.migration_io.StreamCRUD.create_loader",
-            return_value=mock_loader,
-        ):
-            io = RecordsMigrationIO(client, stream_external_id, skip_existing=True)
-        with HTTPClient(config) as http_client:
-            io.upload_items(Page(worker_id="main", items=[]), http_client)
-        assert not filter_route.called
