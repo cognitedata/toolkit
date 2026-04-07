@@ -1113,7 +1113,7 @@ class DocumentsInteractiveSelect:
         self._filter: dict[DocumentPropertyPath, Any] = {}
         metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
         self._all_filter_options = set(DocumentPropertyOptions) | {
-            tuple(["sourceFile", "metadata", key]) for key in metadata_keys
+            tuple(["sourceFile", "metadata", key.values[0]]) for key in metadata_keys
         }
         self._attempted_options: set[DocumentPropertyPath] = set()
 
@@ -1145,7 +1145,7 @@ class DocumentsInteractiveSelect:
         choices = [
             Choice(title="Filter documents", value="filter"),
         ]
-        if count <= self.MAX_TERMINAL_CHOICES and count <= self.max_selected:
+        if count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
         if count <= self.max_selected:
@@ -1169,22 +1169,22 @@ class DocumentsInteractiveSelect:
         buckets = self.client.tool.documents.unique(property=filter_type, filter=self._current_filter)
         self._attempted_options.add(filter_type)
         if len(buckets) == 0:
-            self.client.console.print("No documents found for filtering.", style="bold red")
+            self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
         elif len(buckets) == 1:
             self.client.console.print(
-                f"Only one value found for {filter_type!r}: {buckets[0].values!r}. Automatically applying this filter."
+                f"Only one value found for {filter_type!r}: {buckets[0].value!r}. Automatically applying this filter."
             )
-            selected_values = buckets[0].values
+            selected_values = [buckets[0].value]
         else:
-            selected_values = questionary.select(
+            selected_values = questionary.checkbox(
                 f"Select values for {filter_type!r}:",
                 choices=[
-                    Choice(title=f"{bucket.values!s} (count {bucket.count})", value=bucket.values) for bucket in buckets
+                    Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
                 ],
-                validate=lambda choices: True if choices else "You must select at least one value.",
+                validator=lambda choices: True if choices else "You must select at least one value.",
             ).unsafe_ask()
-        self._filter[filter_type] = {"in": {"property": filter_type, "values": selected_values}}
+        self._filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
 
     def _select_by_name(self) -> list[DocumentResponse]:
         documents = self.client.tool.documents.list(filter=self._current_filter, limit=self.max_selected)
@@ -1194,5 +1194,5 @@ class DocumentsInteractiveSelect:
         return questionary.checkbox(
             "Select documents:",
             choices=choices,
-            validate=lambda choices: True if choices else "You must select at least one document.",
+            validator=lambda choices: True if choices else "You must select at least one document.",
         ).unsafe_ask()
