@@ -596,9 +596,7 @@ class MockQuestionary:
         self.answers = answers
         self.monkeypatch = monkeypatch
 
-    def select(self, *args, choices: list[Choice] | None = None, **kwargs) -> MockQuestion:
-        if choices is None:
-            choices = kwargs.get("choices")
+    def select(self, _: str, choices: list[Choice] | None = None, **__) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
     def confirm(self, *_, **__) -> MockQuestion:

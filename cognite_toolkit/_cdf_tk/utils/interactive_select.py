@@ -1155,7 +1155,7 @@ class DocumentsInteractiveSelect:
             suffix = f" You have to filter down to below {self.max_selected} documents to continue."
 
         return questionary.select(
-            message=f"{count} documents found. What do you want to do?{suffix}",
+            f"{count} documents found. What do you want to do?{suffix}",
             choices=choices,
         ).unsafe_ask()
 
