@@ -70,7 +70,7 @@ class RunApp(typer.Typer):
             str | None,
             typer.Option(
                 "--external-id",
-                "-e",
+                "-x",
                 help="External id of the workflow to run. If not provided, you will be prompted to select one.",
             ),
         ] = None,
@@ -78,7 +78,7 @@ class RunApp(typer.Typer):
             str | None,
             typer.Option(
                 "--version",
-                "-v",
+                "-n",
                 help="Version of the workflow to run. If not provided, the first found version will be used.",
             ),
         ] = None,

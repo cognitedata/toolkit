@@ -9,6 +9,7 @@ from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation
 from cognite.client.data_classes.workflows import (
     WorkflowExecution,
+    WorkflowVersionId,
 )
 
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
@@ -245,3 +246,46 @@ class TestRunWorkflow:
             is True
         )
         assert toolkit_client_approval.mock_client.workflows.executions.retrieve_detailed.call_count == 2
+
+    def test_run_workflow_wait_passes_sdk_workflow_version_id(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        """Regression test: retrieve must be called with the SDK's WorkflowVersionId,
+        not the toolkit's internal WorkflowVersionId, otherwise WorkflowIds.load raises
+        ValueError: Invalid input to WorkflowIds.load."""
+        toolkit_client_approval.mock_client.workflows.executions.run.return_value = WorkflowExecution(
+            id="1234567890",
+            workflow_external_id="workflow",
+            status="running",
+            created_time=int(datetime.now().timestamp() / 1000),
+            version="v1",
+        )
+        wf_task = MagicMock()
+        wf_task.timeout = 60
+        wf_task.retries = 1
+        wf_version = MagicMock()
+        wf_version.workflow_definition.tasks = [wf_task]
+        retrieve_mock = MagicMock(return_value=wf_version)
+        toolkit_client_approval.mock_client.workflows.versions.retrieve = retrieve_mock
+        toolkit_client_approval.mock_client.workflows.executions.retrieve_detailed.return_value = MagicMock(
+            status="completed", executed_tasks=[]
+        )
+
+        RunWorkflowCommand().run_workflow(
+            env_vars_with_client,
+            organization_dir=RUN_DATA,
+            build_env_name="dev",
+            external_id="workflow",
+            version="v1",
+            wait=True,
+        )
+
+        retrieve_mock.assert_called_once()
+        (called_with,) = retrieve_mock.call_args.args
+        assert isinstance(called_with, WorkflowVersionId), (
+            f"retrieve() must receive the SDK's WorkflowVersionId, got {type(called_with).__qualname__}"
+        )
+        assert called_with.workflow_external_id == "workflow"
+        assert called_with.version == "v1"
