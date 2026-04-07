@@ -1114,7 +1114,7 @@ class DocumentsInteractiveSelect:
         self._search_query: str | None = None
         metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
         self._all_filter_options = set(DocumentPropertyOptions) | {
-            tuple(["sourceFile", "metadata", key.values[0]]) for key in metadata_keys
+            ("sourceFile", "metadata", key.value) for key in metadata_keys
         }
         self._attempted_options: set[DocumentPropertyPath] = set()
 
