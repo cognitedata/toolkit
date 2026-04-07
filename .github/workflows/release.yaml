@@ -30,7 +30,7 @@ jobs:
         env:
           IS_GITHUB_ACTIONS: "true"
         run: uv run pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n8
-      - uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: cognitedata/toolkit
