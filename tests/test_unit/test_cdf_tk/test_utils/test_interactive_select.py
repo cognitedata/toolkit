@@ -14,6 +14,7 @@ from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
@@ -32,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
     DocumentResponse,
+    DocumentSearchHit,
     DocumentSourceFile,
     DocumentUniqueBucket,
 )
@@ -1353,4 +1355,25 @@ class TestDocumentsInteractiveSelect:
             "and": [{"in": {"property": ["mimeType"], "values": ["application/pdf"]}}],
         }
         client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
+        assert result == docs
+
+    def test_select_documents_search_then_finished(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+        answers = ["search", "turbine", "finished"]
+        search_page = PagedResponse[DocumentSearchHit](
+            items=[DocumentSearchHit(item=d) for d in docs],
+        )
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 2
+            client.tool.documents.search.return_value = search_page
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        client.tool.documents.search.assert_called_once_with(query="turbine", filter=None, limit=100)
+        client.tool.documents.list.assert_not_called()
         assert result == docs

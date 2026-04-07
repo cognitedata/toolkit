@@ -1111,6 +1111,7 @@ class DocumentsInteractiveSelect:
         self.client = client
         self.max_selected = max_selected
         self._filter: dict[DocumentPropertyPath, Any] = {}
+        self._search_query: str | None = None
         metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
         self._all_filter_options = set(DocumentPropertyOptions) | {
             tuple(["sourceFile", "metadata", key.values[0]]) for key in metadata_keys
@@ -1125,7 +1126,7 @@ class DocumentsInteractiveSelect:
 
     def select_documents(self) -> list[DocumentResponse]:
         while True:
-            count = self.client.tool.documents.count(filter=self._current_filter)
+            count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
             action = self._action(count)
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
@@ -1134,16 +1135,20 @@ class DocumentsInteractiveSelect:
             elif action == "filter":
                 self._update_filter()
                 continue
+            elif action == "search":
+                self._prompt_search_query()
+                continue
             elif action == "name":
                 return self._select_by_name()
             else:
                 raise NotImplementedError(f"Unknown action: {action!r}")
 
-        return self.client.tool.documents.list(filter=self._current_filter, limit=self.max_selected)
+        return self._documents_list_or_search(limit=self.max_selected)
 
     def _action(self, count: int) -> str:
         choices = [
             Choice(title="Filter documents", value="filter"),
+            Choice(title="Search documents (full-text query)", value="search"),
         ]
         if count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
@@ -1153,9 +1158,12 @@ class DocumentsInteractiveSelect:
             choices.append(Choice(title="Finished", value="finished"))
         else:
             suffix = f" You have to filter down to below {self.max_selected} documents to continue."
+        query_note = ""
+        if self._search_query is not None:
+            query_note = f' Active full-text query: "{self._search_query}".'
 
         return questionary.select(
-            f"{count} documents found. What do you want to do?{suffix}",
+            f"{count} documents found. What do you want to do?{query_note}{suffix}",
             choices=choices,
         ).unsafe_ask()
 
@@ -1169,7 +1177,9 @@ class DocumentsInteractiveSelect:
             choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
         ).unsafe_ask()
 
-        buckets = self.client.tool.documents.unique(property=filter_type, filter=self._current_filter)
+        buckets = self.client.tool.documents.unique(
+            property=filter_type, filter=self._current_filter, query=self._search_query
+        )
         self._attempted_options.add(filter_type)
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
@@ -1189,8 +1199,26 @@ class DocumentsInteractiveSelect:
             ).unsafe_ask()
         self._filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
 
+    def _prompt_search_query(self) -> None:
+        answer = questionary.text(
+            "Full-text search query (empty clears search and uses list/filter only):",
+            default=self._search_query or "",
+        ).unsafe_ask()
+        stripped = (answer or "").strip()
+        self._search_query = stripped or None
+
+    def _documents_list_or_search(self, *, limit: int) -> list[DocumentResponse]:
+        if self._search_query is None:
+            return self.client.tool.documents.list(filter=self._current_filter, limit=limit)
+        page = self.client.tool.documents.search(
+            query=self._search_query,
+            filter=self._current_filter,
+            limit=limit,
+        )
+        return [hit.item for hit in page.items]
+
     def _select_by_name(self) -> list[DocumentResponse]:
-        documents = self.client.tool.documents.list(filter=self._current_filter, limit=self.max_selected)
+        documents = self._documents_list_or_search(limit=self.max_selected)
         choices = [
             Choice(title=f"{doc.source_file.name} ({doc.mime_type}, {doc.id!r})", value=doc) for doc in documents
         ]
