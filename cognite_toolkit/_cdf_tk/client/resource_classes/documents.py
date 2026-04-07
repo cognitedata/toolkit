@@ -73,7 +73,7 @@ class DocumentResponse(BaseModelObject):
     title: str | None = None
     author: str | None = None
     producer: str | None = None
-    created_time: int | None = None
+    created_time: int
     modified_time: int | None = None
     last_indexed_time: int | None = None
     mime_type: str | None = None
@@ -84,7 +84,7 @@ class DocumentResponse(BaseModelObject):
     truncated_content: str | None = None
     asset_ids: list[int] | None = None
     labels: list[ExternalId] | None = None
-    source_file: DocumentSourceFile | None = None
+    source_file: DocumentSourceFile
     geo_location: JsonValue | None = None
 
 
