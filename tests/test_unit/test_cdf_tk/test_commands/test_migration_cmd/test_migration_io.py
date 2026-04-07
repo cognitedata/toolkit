@@ -243,4 +243,3 @@ class TestThreeDAssetMappingMigrationIO:
 
         with pytest.raises(NotImplementedError):
             io.data_to_json_chunk(MagicMock())
-
