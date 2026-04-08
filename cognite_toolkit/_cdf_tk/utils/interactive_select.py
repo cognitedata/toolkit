@@ -1212,6 +1212,10 @@ class DocumentsInteractiveSelect:
         ).unsafe_ask()
         stripped = (answer or "").strip()
         self._search_query = stripped or None
+        count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
+        if count == 0:
+            self.client.console.print("No documents found.", style="bold red")
+            self._search_query = None
 
     def _documents_list_or_search(self, *, limit: int) -> list[DocumentResponse]:
         if self._search_query is None:
