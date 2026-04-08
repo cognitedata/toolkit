@@ -946,9 +946,7 @@ class TestCDFResourceAPI:
         assert len(iterated[0]) == 1
         assert iterated[0][0].dump() == example
 
-    def test_records_api_retrieve_sync(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = RecordsAPI(HTTPClient(config))
         record = {"space": "my_space", "externalId": "rec_1"}
