@@ -1106,7 +1106,7 @@ class RecordInteractiveSelect:
 
 class DocumentsInteractiveSelect:
     MAX_TERMINAL_CHOICES = 100
-    # This can be increased by implementing pagination
+    # This can be increased by implementing pagination for the /documents/search endpoint
     MAX_SEARCH_RESULTS = 1_000
 
     def __init__(self, client: ToolkitClient, max_selected: int = 100) -> None:
