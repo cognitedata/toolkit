@@ -1214,7 +1214,7 @@ class DocumentsInteractiveSelect:
         self._search_query = stripped or None
         count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
         if count == 0:
-            self.client.console.print("No documents found.", style="bold red")
+            self.client.console.print("No documents found. Clearing search query.", style="bold red")
             self._search_query = None
 
     def _documents_list_or_search(self, *, limit: int) -> list[DocumentResponse]:
