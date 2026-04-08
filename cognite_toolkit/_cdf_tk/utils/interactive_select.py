@@ -1106,17 +1106,20 @@ class RecordInteractiveSelect:
 
 class DocumentsInteractiveSelect:
     MAX_TERMINAL_CHOICES = 100
+    # This can be increased by implementing pagination
+    MAX_SEARCH_RESULTS = 1_000
 
     def __init__(self, client: ToolkitClient, max_selected: int = 100) -> None:
         self.client = client
         self.max_selected = max_selected
         self._filter: dict[DocumentPropertyPath, Any] = {}
         self._search_query: str | None = None
-        metadata_keys = client.tool.documents.unique(("sourceFile", "metadata"))
-        self._all_filter_options = set(DOCUMENT_PROPERTY_OPTIONS) | {
-            ("sourceFile", "metadata", key.value) for key in metadata_keys
-        }
         self._attempted_options: set[DocumentPropertyPath] = set()
+
+    @cached_property
+    def _all_filter_options(self) -> set[DocumentPropertyPath]:
+        metadata_keys = self.client.tool.documents.unique(("sourceFile", "metadata"))
+        return set(DOCUMENT_PROPERTY_OPTIONS) | {("sourceFile", "metadata", str(key.value)) for key in metadata_keys}
 
     @property
     def _current_filter(self) -> dict[str, Any] | None:
@@ -1148,8 +1151,11 @@ class DocumentsInteractiveSelect:
     def _action(self, count: int) -> str:
         choices = [
             Choice(title="Filter documents", value="filter"),
-            Choice(title="Search documents (full-text query)", value="search"),
         ]
+        if self.max_selected <= self.MAX_SEARCH_RESULTS:
+            choices.append(
+                Choice(title="Search documents (full-text query)", value="search"),
+            )
         if count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
