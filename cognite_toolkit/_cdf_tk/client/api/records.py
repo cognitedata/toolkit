@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -58,8 +59,8 @@ class RecordsAPI:
                 request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
                 result = self._http_client.request_single_retries(request)
                 response = result.get_success_or_raise(request)
-                payload = json.loads(response.body)
-                results.extend(RecordResponse.model_validate(r) for r in payload.get("items") or [])
+                page = PagedResponse[RecordResponse].model_validate_json(response.body)
+                results.extend(page.items)
 
         return results
 
