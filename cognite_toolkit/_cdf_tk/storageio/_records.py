@@ -1,6 +1,6 @@
 import json
 from collections.abc import Iterable
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from pydantic import JsonValue
 
@@ -56,7 +56,7 @@ class RecordIO(
             request = RequestMessage(endpoint_url=aggregate_url, method="POST", body_content=body)
             result = self.client.http_client.request_single_retries(request)
             response = result.get_success_or_raise(request)
-            data: dict[str, Any] = json.loads(response.body)
+            data = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
         return total
 
