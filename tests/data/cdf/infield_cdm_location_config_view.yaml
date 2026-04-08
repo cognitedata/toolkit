@@ -1,17 +1,17 @@
-space: infield_cdm_source_desc_sche_asset_file_ts
+space: cdf_infield
 externalId: InFieldCDMLocationConfig
 name: InFieldCDMLocationConfig
 filter:
   hasData:
   - type: container
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: cdf_infield
     externalId: InFieldCDMLocationConfig
 implements: []
 version: v1
 properties:
   name:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: name
@@ -19,7 +19,7 @@ properties:
     description: Name of the location configuration
   description:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: description
@@ -27,7 +27,7 @@ properties:
     description: Description of the location configuration
   featureToggles:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: featureToggles
@@ -35,7 +35,7 @@ properties:
     description: Feature toggles for the location
   dataFilters:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: dataFilters
@@ -43,7 +43,7 @@ properties:
     description: Data filters for the location
   dataStorage:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: dataStorage
@@ -51,7 +51,7 @@ properties:
     description: Data storage configuration for the location
   viewMappings:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: viewMappings
@@ -59,7 +59,7 @@ properties:
     description: View mappings for the location
   accessManagement:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: accessManagement
@@ -67,7 +67,7 @@ properties:
     description: Access management configuration for the location
   disciplines:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: disciplines
@@ -75,7 +75,7 @@ properties:
     description: Discipline configuration for the location
   dataExplorationConfig:
     container:
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       externalId: InFieldCDMLocationConfig
       type: container
     containerPropertyIdentifier: dataExplorationConfig

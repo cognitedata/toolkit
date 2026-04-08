@@ -7,7 +7,7 @@
     version: v1
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: ConditionalAction
     version: v1
     type: view
@@ -22,7 +22,7 @@
     version: v5
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: FieldObservation
     version: v1
     type: view
@@ -48,7 +48,7 @@
     version: v7
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: Checklist
     version: v1
     type: view
@@ -63,7 +63,7 @@
     version: v4
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: MeasurementReading
     version: v1
     type: view
@@ -80,7 +80,7 @@
     version: v8
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: Template
     version: v1
     type: view
@@ -95,7 +95,7 @@
     version: v1
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: Action
     version: v1
     type: view
@@ -110,7 +110,7 @@
     version: v1
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: Condition
     version: v1
     type: view
@@ -125,7 +125,7 @@
     version: v7
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: ChecklistItem
     version: v1
     type: view
@@ -143,7 +143,7 @@
     version: v7
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: TemplateItem
     version: v1
     type: view
@@ -160,7 +160,7 @@
     version: v4
     type: view
   destinationView:
-    space: {{schemaSpace}}
+    space: cdf_infield
     externalId: Schedule
     version: v1
     type: view
