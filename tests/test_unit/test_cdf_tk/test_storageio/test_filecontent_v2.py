@@ -14,9 +14,9 @@ from cognite_toolkit._cdf_tk.storageio._file_contentv2 import (
     FILEPATH,
     FileMetadataContentIO,
     FileMetadataContentSelector,
+    FileMetadataFilesSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
-    FileMetadataUploadSelector,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
@@ -58,7 +58,7 @@ class TestFileMetadataContentIO:
         text_file.write_text("This is a test file.")
         json_file.write_text('{"key": "value"}')
 
-        selector = FileMetadataUploadSelector()
+        selector = FileMetadataFilesSelector()
         selector.dump_to_file(tmp_path)
         csv_file = f"""externalId,name,{FILEPATH}\n
 my_json_file,my_json_file.json,{json_file.relative_to(tmp_path)}\n

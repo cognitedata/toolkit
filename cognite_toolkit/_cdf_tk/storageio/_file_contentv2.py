@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, DirectoryPath, field_validator
+from pydantic import ConfigDict, DirectoryPath, Field, field_validator
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsResultMessage,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
@@ -74,10 +75,16 @@ class FileMetadataTemplateSelector(FileMetadataContentSelector):
         return [file for file in self.file_directory.iterdir() if file.is_file()]
 
 
-class FileMetadataUploadSelector(FileMetadataContentSelector, ABC):
-    """Upload all in a given csv/parquest file"""
+class FileMetadataFilesSelector(FileMetadataContentSelector, ABC):
+    """Download/upload individual files.
 
-    type: Literal["FileMetadataUpload"] = "FileMetadataUpload"
+    For download, the ids field must be set.
+    For upload, all files in a csv/parquest file are uploaded.
+
+    """
+
+    type: Literal["FileMetadataFiles"] = "FileMetadataFiles"
+    ids: tuple[InternalId, ...] | None = Field(None, exclude=True, description="(Only used for download)")
 
     def __str__(self) -> str:
         return self.type
@@ -98,13 +105,30 @@ class FileMetadataContentIO(
         self.overwrite = overwrite
         self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
 
+    def _verify_selector(self, selector: FileMetadataContentSelector) -> tuple[InternalId, ...]:
+        if isinstance(selector, FileMetadataFilesSelector) and selector.ids:
+            return selector.ids
+        raise NotImplementedError(f"{selector.type} does not support download")
+
     def stream_data(
         self, selector: FileMetadataContentSelector, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
-        raise NotImplementedError()
+        file_ids = self._verify_selector(selector)
+        for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
+            file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
+            if len(file_metadata) != len(chunk) and (
+                missing_file_ids := {file.as_internal_id() for file in file_metadata} - set(chunk)
+            ):
+                for file_id in missing_file_ids:
+                    self.logger.tracker.add_issue(str(file_id.id), "Missing in CDF")
+                    self.logger.tracker.finalize_item(str(file_id.id), "failure")
+            yield Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=str(file.id), item=file) for file in file_metadata],
+            )
 
     def count(self, selector: FileMetadataContentSelector) -> int | None:
-        raise NotImplementedError()
+        return len(self._verify_selector(selector))
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelector | None = None
@@ -138,9 +162,7 @@ class FileMetadataContentIO(
         http_client: HTTPClient,
         selector: FileMetadataContentSelector | None = None,
     ) -> ItemsResultList:
-        return ItemsResultList(
-            [self._upload_single_item(item) for item in data_chunk],
-        )
+        return ItemsResultList([self._upload_single_item(item) for item in data_chunk])
 
     def _upload_single_item(self, item: DataItem[FileMetadataRequest]) -> ItemsFailedRequest | Any:
         request = item.item
