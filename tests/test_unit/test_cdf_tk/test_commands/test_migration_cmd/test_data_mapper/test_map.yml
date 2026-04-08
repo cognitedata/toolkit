@@ -20,7 +20,7 @@ schedules:
       until: '2026-01-01T00:00:00Z'
     source:
       externalId: Schedule
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       type: view
       version: v1
   space: target_space
@@ -47,7 +47,7 @@ schedules:
       until: '2027-06-01T00:00:00Z'
     source:
       externalId: Schedule
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       type: view
       version: v1
   space: target_space
