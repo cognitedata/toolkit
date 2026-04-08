@@ -11,7 +11,6 @@ module-repeat = true
 profile = true
 infield = true
 migrate = true
-infield-migrate = true
 streams = true
 create = true
 extend-download = true

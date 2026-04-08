@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
@@ -91,9 +90,8 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        if Flags.INFIELD_MIGRATE.is_enabled():
-            self.command("infield-configs")(self.infield_configs)
-            self.command("infield-data")(self.infield_data)
+        self.command("infield-configs")(self.infield_configs)
+        self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
