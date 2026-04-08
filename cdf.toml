@@ -12,7 +12,6 @@ profile = true
 infield = true
 migrate = true
 infield-migrate = true
-infield-dev = true
 streams = true
 create = true
 extend-download = true

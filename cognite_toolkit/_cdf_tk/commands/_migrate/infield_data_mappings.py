@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, safe_read
 
 
 def create_infield_data_mappings(
-    schema_space: str = "infield_cdm_source_desc_sche_asset_file_ts", extra: ExtraValues | None = None
+    schema_space: str = "cdf_infield", extra: ExtraValues | None = None
 ) -> list[ViewToViewMapping]:
     mappings_path = Path(__file__).parent / "infield_data_mappings.yaml"
 
