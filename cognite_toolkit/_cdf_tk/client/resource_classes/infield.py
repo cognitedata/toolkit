@@ -22,9 +22,7 @@ INFIELD_ON_CDM_DATA_MODEL = DataModelId(
     external_id="InFieldOnCDM",
     version="v1",
 )
-INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewId(
-    space="cdf_infield", external_id="InFieldCDMLocationConfig", version="v1"
-)
+INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="InFieldCDMLocationConfig", version="v1")
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
