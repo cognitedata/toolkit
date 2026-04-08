@@ -43,8 +43,7 @@ class RecordIO(
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
-        http_client = self.client.http_client
-        aggregate_url = http_client.config.create_api_url(
+        aggregate_url = self.client.http_client.config.create_api_url(
             self._AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         )
         for last_updated_time in stream_crud.last_updated_time_windows(selector.stream.external_id, start_ms=start_ms):
@@ -55,7 +54,7 @@ class RecordIO(
             if last_updated_time is not None:
                 body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
             request = RequestMessage(endpoint_url=aggregate_url, method="POST", body_content=body)
-            result = http_client.request_single_retries(request)
+            result = self.client.http_client.request_single_retries(request)
             response = result.get_success_or_raise(request)
             data: dict[str, Any] = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
