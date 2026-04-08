@@ -1,7 +1,5 @@
-import json
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any
 
 from pydantic import JsonValue
 
@@ -13,7 +11,6 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 class RecordsAPI:
     _FILTER_ENDPOINT = "/streams/{streamId}/records/filter"
-    _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
     _SYNC_ENDPOINT = "/streams/{streamId}/records/sync"
     _FILTER_IN_MAX_VALUES = 100
 
@@ -63,34 +60,6 @@ class RecordsAPI:
                 results.extend(page.items)
 
         return results
-
-    def aggregate(
-        self,
-        stream_external_id: str,
-        filter: dict[str, JsonValue],
-        aggregates: dict[str, JsonValue],
-        last_updated_time: dict[str, int] | None = None,
-    ) -> dict[str, Any]:
-        """Run an aggregate query against a stream.
-
-        Args:
-            stream_external_id: External ID of the stream.
-            filter: Filter expression for the records.
-            aggregates: Aggregation specification, e.g. {"total": {"count": {}}}.
-            last_updated_time: Optional time range filter, e.g. {"gte": ..., "lt": ...}.
-
-        Returns:
-            Parsed response body containing the aggregation results.
-        """
-        body: dict[str, JsonValue] = {"filter": filter, "aggregates": aggregates}
-        if last_updated_time is not None:
-            body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
-
-        url = self._http_client.config.create_api_url(self._AGGREGATE_ENDPOINT.format(streamId=stream_external_id))
-        request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
-        result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise(request)
-        return json.loads(response.body)
 
     def sync(
         self,
