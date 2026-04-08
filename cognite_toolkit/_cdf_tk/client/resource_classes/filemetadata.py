@@ -19,7 +19,7 @@ class FileMetadata(BaseModelObject):
     metadata: Metadata | None = None
     asset_ids: list[int] | None = None
     data_set_id: int | None = None
-    labels: list[dict[Literal["externalId"], str]] | None = None
+    labels: list[ExternalId] | None = None
     geo_location: JsonValue | None = None
     source_created_time: int | None = None
     source_modified_time: int | None = None

@@ -1,6 +1,7 @@
 import json
 import mimetypes
 from abc import ABC
+from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
@@ -17,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsResultMessage,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
@@ -104,8 +105,12 @@ class FileMetadataContentIO(
         super().__init__(client)
         self.overwrite = overwrite
         self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
+        self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelector | None, set[int]] = defaultdict(set)
+        self._downloaded_labels_by_selector: dict[FileMetadataContentSelector | None, set[ExternalId]] = defaultdict(
+            set
+        )
 
-    def _verify_selector(self, selector: FileMetadataContentSelector) -> tuple[InternalId, ...]:
+    def _verify_download_selector(self, selector: FileMetadataContentSelector) -> tuple[InternalId, ...]:
         if isinstance(selector, FileMetadataFilesSelector) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")
@@ -113,22 +118,31 @@ class FileMetadataContentIO(
     def stream_data(
         self, selector: FileMetadataContentSelector, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
-        file_ids = self._verify_selector(selector)
+        file_ids = self._verify_download_selector(selector)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
+
             if len(file_metadata) != len(chunk) and (
-                missing_file_ids := {file.as_internal_id() for file in file_metadata} - set(chunk)
+                missing_file_ids := ({file.as_internal_id() for file in file_metadata} - set(chunk))
             ):
                 for file_id in missing_file_ids:
                     self.logger.tracker.add_issue(str(file_id.id), "Missing in CDF")
                     self.logger.tracker.finalize_item(str(file_id.id), "failure")
+
+            for file in file_metadata:
+                filepath = self._download_content(file)
+                file.filepath = filepath
+
             yield Page(
                 worker_id="main",
                 items=[DataItem(tracking_id=str(file.id), item=file) for file in file_metadata],
             )
 
     def count(self, selector: FileMetadataContentSelector) -> int | None:
-        return len(self._verify_selector(selector))
+        return len(self._verify_download_selector(selector))
+
+    def _download_content(self, file_metadata: FileMetadataResponse) -> Path:
+        raise NotImplementedError()
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelector | None = None
@@ -148,10 +162,38 @@ class FileMetadataContentIO(
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataRequest:
         return self._crud.load_resource(item_json)
 
+    def _populate_id_cache(
+        self, items: Iterable[FileMetadataResponse], selector: FileMetadataContentSelector | None = None
+    ) -> None:
+        data_set_ids: set[int] = set()
+        asset_ids: set[int] = set()
+        security_ids: set[int] = set()
+        label_ids: set[ExternalId] = set()
+        for item in items:
+            if item.data_set_id is not None:
+                data_set_ids.add(item.data_set_id)
+            if item.asset_ids is not None:
+                asset_ids.update(item.asset_ids)
+            if item.security_categories is not None:
+                security_ids.update(item.security_categories)
+            if item.labels:
+                label_ids.update(item.labels)
+        self._downloaded_data_sets_by_selector[selector].update(data_set_ids)
+        self._downloaded_labels_by_selector[selector].update(label_ids)
+
     def data_to_json_chunk(
         self, data_chunk: Page[FileMetadataResponse], selector: FileMetadataContentSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
-        raise NotImplementedError()
+        # Ensure data sets/assets/security-categories are looked up to populate cache.
+        # This is to avoid looking up each data set id individually in the .dump_resource call
+        self._populate_id_cache(di.item for di in data_chunk.items)
+        dumped: list[DataItem[dict[str, JsonVal]]] = []
+        for item in data_chunk.items:
+            dumped_item = self._crud.dump_resource(item.item)
+            # Preserve filepath
+            dumped_item[FILEPATH] = item.item.filepath
+            dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
+        return data_chunk.create_from(dumped)
 
     def configurations(self, selector: FileMetadataContentSelector) -> Iterable[StorageIOConfig]:
         raise NotImplementedError()
