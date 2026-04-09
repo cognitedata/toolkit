@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.cruds import FunctionScheduleCRUD, RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
@@ -277,6 +277,35 @@ def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> F
     if schedule.function_id is not None:
         schedule.function_id = None
     return schedule
+
+
+@pytest.fixture(scope="session")
+def persistent_schedule_with_data_yaml(
+    toolkit_client: ToolkitClient,
+    toolkit_client_config: ToolkitClientConfig,
+    dummy_function: Function,
+) -> str:
+    """YAML for a stable function schedule with input data; ensured once per session (not torn down)."""
+    assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
+    cred = toolkit_client_config.credentials
+    schedule_yaml = f"""name: toolkit_test_not_redeploy_schedule_with_data
+functionExternalId: {dummy_function.external_id}
+cronExpression: 0 0 1 1 *
+data:
+  some: data
+authentication:
+  clientId: {cred.client_id}
+  clientSecret: {cred.client_secret}
+"""
+    loader = FunctionScheduleCRUD(toolkit_client, None, None)
+    filepath = MagicMock(spec=Path)
+    filepath.read_text.return_value = schedule_yaml
+    resource_dict = loader.load_resource_file(filepath, {})
+    resource = loader.load_resource(resource_dict[0])
+    identifier = loader.get_id(resource)
+    if not loader.retrieve([identifier]):
+        _ = loader.create([resource])
+    return schedule_yaml
 
 
 @pytest.fixture()
