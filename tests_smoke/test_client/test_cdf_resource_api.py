@@ -84,7 +84,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
     DatapointSubscriptionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentPropertyPath
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -2090,26 +2090,22 @@ class TestCDFResourceAPI:
 
         # The cardinality endpoint seems to be broken, it returns total and not cardinality.
         # add this back in, when it is fixed.
-        if len(unique_vals) != cardinality and False:
+        if len(unique_vals) == cardinality:
             raise EndpointAssertionError(
                 aggregate_endpoint.path,
-                f"documents.unique returned {len(unique_vals)} unique values, expected {cardinality} based on cardinality result",
+                "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
     @pytest.mark.parametrize(
-        "properties",
-        [
-            pytest.param(tuple([get_args(item) for item in get_args(option)]), id=str(option))
-            for option in get_args(DocumentPropertyPath)
-        ],
+        "property_",
+        [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
     )
     def test_document_cardinality_properties(
-        self, properties: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+        self, property_: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
     ) -> None:
         """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
         documents = toolkit_client.tool.documents
         aggregate_path = documents._method_endpoint_map["aggregate"].path
-        property_ = tuple(item[0] for item in properties if item)
         try:
             _ = documents.cardinality(property_)  # type:ignore[arg-type]
         except ToolkitAPIError as e:

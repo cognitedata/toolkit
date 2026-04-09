@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, get_args
 
 from pydantic import Field, JsonValue, model_validator
 
@@ -26,6 +26,13 @@ DocumentPropertyPath: TypeAlias = (
     | tuple[Literal["sourceFile"], Literal["metadata"]]
     | tuple[Literal["sourceFile"], Literal["metadata"], str]
 )
+
+
+DOCUMENT_PROPERTY_OPTIONS: list[DocumentPropertyPath] = [
+    tuple([get_args(item)[0] for item in get_args(option)])
+    # Excluding the last option as it contains a free-form string.
+    for option in get_args(DocumentPropertyPath)[:-1]
+]
 
 
 class DocumentSourceFile(BaseModelObject):
