@@ -1,6 +1,6 @@
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -230,7 +230,7 @@ class DeployV2Command(ToolkitCommand):
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             self._display_deprecation_warning(raw_files, client.console)
-            UploadCommand.upload_data(raw_files, client, client.console, options.dry_run, options.verbose)
+            UploadCommand.upload_data(raw_files, client, options.dry_run, client.console, options.verbose)  # type: ignore[arg-type]
 
         return results
 
@@ -896,11 +896,11 @@ class DeployV2Command(ToolkitCommand):
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
 
     @classmethod
-    def _find_raw_tables(cls, build_lineage: BuildLineage) -> dict[RawTableSelector, list[Path]]:
+    def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
         raise NotImplementedError()
 
     @classmethod
-    def _display_deprecation_warning(cls, raw_files: dict[RawTableSelector, list[Path]], console: Console) -> None:
+    def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
         raw_table_count = len(raw_files)
         file_count = sum(len(files) for files in raw_files.values())
         console.print(
