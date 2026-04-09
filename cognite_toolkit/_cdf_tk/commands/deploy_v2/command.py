@@ -201,9 +201,7 @@ class DeployV2Command(ToolkitCommand):
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._validate_cdf_project(
-            build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT, client.console
-        )
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
         self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
@@ -369,7 +367,6 @@ class DeployV2Command(ToolkitCommand):
         operation: str,
         cli_cdf_project: str | None,
         client_cdf_project: str,
-        console: Console,
     ) -> None:
         """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
