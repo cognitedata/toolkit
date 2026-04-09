@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -185,3 +187,28 @@ class ChartData(ChartObject):
     monitoring_jobs: list[MonitoringJob] | None = None
     event_filters: list[EventFilter] | None = None
     activities_collection: list[ChartActivity] | None = None
+
+
+class MonitoringModel(ChartObject):
+    external_id: Literal["double_threshold"] | None = None
+    timeseries_id: int | None = None
+    timeseries_external_id: str | None = None
+    timeseries_instances_id: NodeUntypedId | None = None
+    granularity: str | None = None
+    lower_threshold: float | None = None
+    upper_threshold: float | None = None
+
+
+class MonitoringUpdate(ChartObject):
+    external_id: str
+    name: str | None = None
+    channel_id: int | None = None
+    model: MonitoringModel | None = None
+
+
+class ScheduledCalculationUpdate(ChartObject):
+    external_id: str
+    name: str | None = None
+    description: str | None = None
+    target_timeseries_external_id: str | None = None
+    target_timeseries_instances_id: NodeUntypedId | None = None
