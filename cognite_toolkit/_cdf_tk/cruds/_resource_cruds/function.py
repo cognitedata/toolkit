@@ -761,6 +761,9 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 if schedule.function_id == func.id:
                     schedule.function_external_id = func_external_id
                     if schedule.name in names_by_function[func_external_id]:
+                        # Schedule data is not returned in the list call. Instead, we have to use a
+                        # separate request to get the data.
+                        schedule.data = self.client.tool.functions.schedules.input_data(schedule.id).data
                         schedules.append(schedule)
         return schedules
 
