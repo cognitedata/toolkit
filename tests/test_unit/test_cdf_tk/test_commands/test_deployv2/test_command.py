@@ -8,7 +8,10 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleData,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
@@ -478,5 +481,6 @@ class TestApplyPlan:
                     )
             client.tool.functions.retrieve.return_value = function_responses
             client.tool.functions.schedules.list.return_value = case.cdf_resources
+            client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
