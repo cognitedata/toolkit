@@ -15,6 +15,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
@@ -42,6 +43,7 @@ class ResourceLineageItem(_BaseLineageModel):
     source_hash: str
     type: ResourceType
     built_file: AbsoluteFilePath
+    identifier: Identifier
 
 
 class ModuleLineageItem(_BaseLineageModel):
@@ -87,6 +89,7 @@ class ModuleLineageItem(_BaseLineageModel):
                     source_hash=resource.source_hash,
                     built_file=resource.build_path.resolve(),
                     type=resource.type,
+                    identifier=resource.identifier,
                 )
             )
         return cls(
