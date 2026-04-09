@@ -79,6 +79,14 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         return body or None
 
     def input_data(self, schedule_id: int) -> FunctionScheduleData:
+        """Retrieve the input data to the associated function schedule..
+
+        Args:
+            schedule_id: The schedule ID to retrieve.
+
+        Returns:
+            The input data to the associated function schedule.
+        """
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(f"/functions/schedules/{schedule_id}/input_data"),
             method="GET",
