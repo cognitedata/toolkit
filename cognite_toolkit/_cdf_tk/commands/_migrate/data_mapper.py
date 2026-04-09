@@ -552,7 +552,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         for job in monitoring_jobs:
             if isinstance(job.source_id, str) and job.source_id in uuid_generator:
                 new_uuid = uuid_generator[job.source_id]
-                updated_monitoring_jobs.append(job.model_copy(update={"source_id": new_uuid}))
+                updated_monitoring_jobs.append(
+                    job.model_copy(update={"source_id": new_uuid, "source_type": "coreTimeseries"})
+                )
                 backend_updates.append(
                     MonitoringUpdate(
                         external_id=str(job.id),
