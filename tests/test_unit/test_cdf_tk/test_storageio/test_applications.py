@@ -1,21 +1,27 @@
 import json
 from datetime import datetime
 
+import httpx
 import pytest
 import responses
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     ContainerReferenceItem,
     IndustrialCanvasResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartData,
+    MonitoringUpdate,
+    ScheduledCalculationUpdate,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, DataItem, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -152,6 +158,49 @@ class TestChartIO:
             for chunk in chunks:
                 all_external_ids.extend(di.item.external_id for di in chunk.items)
             assert all_external_ids == expected_external_ids
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_chart_calls_sidecar_endpoints_before_put(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        call_order: list[str] = []
+
+        def mark(name: str):
+            def _handler(request: httpx.Request) -> httpx.Response:
+                call_order.append(name)
+                return httpx.Response(200, json={})
+
+            return _handler
+
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = []
+            io = ChartIO(client)
+            chart = ChartRequest(
+                external_id="upload_chart_sidecar_test",
+                visibility="PUBLIC",
+                data=ChartData(
+                    version=1,
+                    name="upload_chart_sidecar_test",
+                    date_from="2025-01-01T00:00:00.000Z",
+                    date_to="2025-12-31T23:59:59.999Z",
+                ),
+                monitoring_updates=[MonitoringUpdate(external_id="mon-1")],
+                scheduled_calculation_updates=[ScheduledCalculationUpdate(external_id="sched-1")],
+            )
+            page = Page(worker_id="main", items=[DataItem(tracking_id=chart.external_id, item=chart)])
+            respx_mock.post(toolkit_config.create_app_url(io.MONITORING_UPDATE_ENDPOINT)).mock(
+                side_effect=mark("monitoring")
+            )
+            respx_mock.post(toolkit_config.create_app_url(io.SCHEDULED_CALCULATION_UPDATE_ENDPOINT)).mock(
+                side_effect=mark("scheduled")
+            )
+            respx_mock.put(toolkit_config.create_app_url(io.UPLOAD_ENDPOINT)).mock(side_effect=mark("put_charts"))
+
+            with HTTPClient(toolkit_config) as http_client:
+                results = io.upload_items(page, http_client)
+
+        assert call_order == ["monitoring", "scheduled", "put_charts"]
+        assert all(isinstance(r, ItemsSuccessResponse) for r in results)
 
 
 class TestCanvasIO:

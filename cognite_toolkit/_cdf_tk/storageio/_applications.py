@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import chain
 from typing import Any
 
@@ -7,8 +7,12 @@ from cognite.client.data_classes.data_modeling import EdgeId
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedRequest,
+    FailedResponse,
     HTTPClient,
+    HTTPResult,
     RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
@@ -47,6 +51,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
     UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
+    MONITORING_UPDATE_ENDPOINT = "/charts/monitoringtasks/update"
+    SCHEDULED_CALCULATION_UPDATE_ENDPOINT = "/charts/calculations/schedules/update"
 
     def __init__(self, client: ToolkitClient, skip_existing: bool = False) -> None:
         super().__init__(client)
@@ -167,6 +173,38 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         item["tsId"] = ts_id
         return ChartRequest._load(item_json)
 
+    @staticmethod
+    def _format_chart_sidecar_failure(operation_label: str, response: HTTPResult) -> str:
+        if isinstance(response, FailedResponse):
+            return f"{operation_label} failed ({response.status_code}): {response.error.message}"
+        if isinstance(response, FailedRequest):
+            return f"{operation_label} failed: {response.error}"
+        return f"{operation_label} failed: unexpected {type(response).__name__}"
+
+    @staticmethod
+    def _post_chart_sidecar_update(
+        http_client: HTTPClient,
+        endpoint_url: str,
+        dumped_item: dict[str, Any],
+    ) -> HTTPResult:
+        return http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=endpoint_url,
+                method="POST",
+                body_content={"items": [dumped_item]},
+            )
+        )
+
+    def _iter_chart_sidecar_update_payloads(self, chart: ChartRequest) -> Iterator[tuple[str, dict[str, Any], str]]:
+        for mu in chart.monitoring_updates or []:
+            yield (self.MONITORING_UPDATE_ENDPOINT, mu.dump(), "Monitoring task update")
+        for scu in chart.scheduled_calculation_updates or []:
+            yield (
+                self.SCHEDULED_CALCULATION_UPDATE_ENDPOINT,
+                scu.dump(),
+                "Scheduled calculation update",
+            )
+
     def upload_items(
         self,
         data_chunk: Page[ChartRequest],
@@ -176,15 +214,37 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         config = http_client.config
         to_create: list[DataItem[ChartRequest]] = []
         to_update: list[DataItem[ChartRequest]] = []
+        results = ItemsResultList()
         for item in data_chunk.items:
-            if item.item.external_id in self.existing_charts and not self._skip_existing:
+            chart = item.item
+            sidecar_failed = False
+            # Update monitoring and scheduled calculations backends.
+            for endpoint, dumped, label in self._iter_chart_sidecar_update_payloads(chart):
+                response = self._post_chart_sidecar_update(http_client, config.create_app_url(endpoint), dumped)
+                if not isinstance(response, SuccessResponse):
+                    results.append(response.as_item_response(item.tracking_id))
+                    sidecar_failed = True
+                    self.logger.log(
+                        LogIssue(
+                            id=item.tracking_id,
+                            message=self._format_chart_sidecar_failure(
+                                f"{label} (chart {chart.external_id!r})",
+                                response,
+                            ),
+                        )
+                    )
+                    break
+            if sidecar_failed:
+                self.logger.tracker.finalize_item(item.tracking_id, "failure")
+                continue
+
+            if chart.external_id in self.existing_charts and not self._skip_existing:
                 to_update.append(item)
-            elif item.item.external_id not in self.existing_charts:
+            elif chart.external_id not in self.existing_charts:
                 to_create.append(item)
             else:
                 self.logger.tracker.finalize_item(item.tracking_id, "skipped")
 
-        results = ItemsResultList()
         if to_create:
             url = config.create_app_url(self.UPLOAD_ENDPOINT)
             results.extend(
