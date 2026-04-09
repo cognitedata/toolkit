@@ -305,8 +305,6 @@ class TestMigrateInfield:
             ctx=MagicMock(),
             source_space=source_space.space,
             target_space=target_space.space,
-            # The schema space used when developing the system model.
-            schema_space="infield_cdm_source_desc_sche_asset_file_ts",
             log_dir=tmp_path,
             dry_run=False,
             verbose=True,

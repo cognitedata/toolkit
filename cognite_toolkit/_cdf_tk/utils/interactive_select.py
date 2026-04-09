@@ -914,7 +914,7 @@ class ResourceViewMappingInteractiveSelect:
         Returns:
             The selected Resource View Mapping.
         """
-        mappings = self.client.migration.resource_view_mapping.list(resource_type=resource_type, limit=-1)
+        mappings = self.client.migration.resource_view_mapping.list(resource_type=resource_type, limit=None)
         if not mappings:
             raise ToolkitMissingResourceError(f"No Resource View Mappings found for resource type {resource_type!r}.")
         choices = [
