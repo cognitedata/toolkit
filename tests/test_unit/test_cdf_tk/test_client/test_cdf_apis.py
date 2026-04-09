@@ -1,3 +1,5 @@
+import gzip
+import json
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -9,6 +11,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
+from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
@@ -30,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFil
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -307,6 +311,85 @@ class TestCDFResourceAPI:
         assert len(iterated) >= 1
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == resource
+
+    def test_documents_api_list_search_aggregate(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        doc_json = {"id": 2089, "createdTime": 1622547800000, "sourceFile": {"name": "example.pdf"}}
+        instance = DocumentResponse.model_validate(doc_json)
+        config = toolkit_config
+        api = DocumentsAPI(HTTPClient(config))
+        endpoints = api._method_endpoint_map
+        list_url = config.create_api_url(endpoints["list"].path)
+        search_url = config.create_api_url(endpoints["search"].path)
+        aggregate_url = config.create_api_url(endpoints["aggregate"].path)
+
+        respx_mock.post(list_url).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [doc_json], "nextCursor": None})
+        )
+        respx_mock.post(search_url).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [{"item": doc_json, "highlight": None}], "nextCursor": None},
+            )
+        )
+
+        def aggregate_response(request: httpx.Request) -> httpx.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            payload = json.loads(raw)
+            agg = payload["aggregate"]
+            if agg in ("count", "cardinalityValues", "cardinalityProperties"):
+                return httpx.Response(status_code=200, json={"items": [{"count": 11}]})
+            if agg in ("uniqueValues", "uniqueProperties"):
+                return httpx.Response(status_code=200, json={"items": [{"count": 2, "values": ["a"]}]})
+            raise AssertionError(f"unexpected aggregate {agg!r}")
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_response)
+
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == instance.dump()
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == instance.dump()
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert items[0].dump() == instance.dump()
+
+        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["title"], "value": "x"}})
+        assert len(search_page.items) == 1
+        assert search_page.items[0].item.dump() == instance.dump()
+
+        assert api.count() == 11
+        assert api.cardinality(("title",)) == 11
+        assert api.cardinality(("sourceFile", "metadata")) == 11
+
+        unique_title = api.unique(("title",), limit=50)
+        assert len(unique_title) == 1
+        assert unique_title[0].count == 2
+        assert unique_title[0].values == ["a"]
+
+        unique_meta = api.unique(("sourceFile", "metadata"), limit=50)
+        assert len(unique_meta) == 1
+        assert unique_meta[0].values == ["a"]
+
+    def test_documents_api_search_and_unique_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = DocumentsAPI(HTTPClient(toolkit_config))
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=1001)
+        with pytest.raises(ValueError, match="limit must be at most 20"):
+            api.search(limit=21, highlight=True)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
+            api.unique(("title",), limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
+            api.unique(("title",), limit=10001)
 
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
