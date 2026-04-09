@@ -184,14 +184,14 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:
         if isinstance(item, dict):
             missing: list[str] = []
-            table_key = "tablename"
             if "dbName" not in item:
                 missing.append("dbName")
             if "tableName" in item:
-                table_key = "name"
+                table_key = "tableName"
             elif "name" in item:
                 table_key = "name"
             else:
+                table_key = "<missing>"
                 missing.append("tableName")
 
             if missing:
