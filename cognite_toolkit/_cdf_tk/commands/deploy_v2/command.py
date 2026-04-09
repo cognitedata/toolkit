@@ -18,12 +18,14 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    RawTableCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
 )
@@ -38,7 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
@@ -897,7 +899,24 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
-        raise NotImplementedError()
+        selections: dict[RawTableSelector, list[Path]] = defaultdict(list)
+        for module in build_lineage.module_lineage:
+            for resource in module.resource_lineage:
+                if (
+                    resource.type.resource_folder == RawTableCRUD.folder_name
+                    and resource.type.kind == RawTableCRUD.kind
+                    and isinstance(resource.identifier, RawTableId)
+                ):
+                    for file_type in ["csv", "parquet"]:
+                        if (data_file := resource.source_file.with_suffix(f".{file_type}")).is_file():
+                            selections[
+                                RawTableSelector(
+                                    table=SelectedTable(
+                                        db_name=resource.identifier.db_name, table_name=resource.identifier.name
+                                    )
+                                )
+                            ].append(data_file)
+        return selections
 
     @classmethod
     def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
