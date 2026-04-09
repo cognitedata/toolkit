@@ -401,9 +401,6 @@ class TestChartMapper:
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
         output_chart = ChartResponse.model_validate(yaml.safe_load(output_chart_path.read_text(encoding="utf-8")))
         source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
-        # These are not yet supported.
-        source.data.monitoring_jobs = None
-        source.data.scheduled_calculation_collection = None
 
         assert len(output_chart.data.core_timeseries_collection or []) == len(source.data.time_series_collection or [])
         core_timeseries = output_chart.data.core_timeseries_collection or []
@@ -451,13 +448,6 @@ class TestChartMapper:
             by_alias=True,
             exclude_unset=True,
             exclude_none=True,
-            exclude={
-                "data": {
-                    # Not yet supported.
-                    "monitoring_jobs",
-                    "scheduled_calculation_collection",
-                },
-            },
         )
         # Manually remove the server side only properties
         for key in ["lastUpdatedTime", "createdTime", "ownerId"]:
