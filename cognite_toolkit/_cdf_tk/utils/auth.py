@@ -256,7 +256,7 @@ class EnvironmentVariables:
         if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
             raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
         args: dict[str, Any] = {
-            field_.name: field_.type(os.environ[field_.name]) if field_.type is int else os.environ[field_.name]  # type: ignore[operator]
+            field_.name: field_.type(os.environ[field_.name]) if field_.type is int else os.environ[field_.name]
             for field_ in cls._fields()
             if field_.name in os.environ
         }
