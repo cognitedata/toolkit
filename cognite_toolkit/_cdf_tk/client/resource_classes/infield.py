@@ -18,13 +18,11 @@ from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 INFIELD_ON_CDM_DATA_MODEL = DataModelId(
-    space="infield_cdm_source_desc_sche_asset_file_ts",
+    space="cdf_infield",
     external_id="InFieldOnCDM",
     version="v1",
 )
-INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewId(
-    space="infield_cdm_source_desc_sche_asset_file_ts", external_id="InFieldCDMLocationConfig", version="v1"
-)
+INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="InFieldCDMLocationConfig", version="v1")
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
