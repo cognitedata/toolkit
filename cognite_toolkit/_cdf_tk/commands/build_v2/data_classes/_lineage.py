@@ -58,6 +58,10 @@ class ResourceLineageItem(_BaseLineageModel):
         resource_type: ResourceType = info.data["type"]
         return resource_type.load_identifier(value)
 
+    @field_serializer("identifier", when_used="always")
+    def serialize_identifier(self, value: Identifier) -> dict[str, Any]:
+        return value.dump()
+
 
 class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""

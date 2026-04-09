@@ -183,10 +183,21 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     @classmethod
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"dbName", "tableName"} if k not in item):
+            missing: list[str] = []
+            table_key = "tablename"
+            if "dbName" not in item:
+                missing.append("dbName")
+            if "tableName" in item:
+                table_key = "name"
+            elif "name" in item:
+                table_key = "name"
+            else:
+                missing.append("tableName")
+
+            if missing:
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return RawTableId(db_name=item["dbName"], name=item["tableName"])
+            return RawTableId(db_name=item["dbName"], name=item[table_key])
         return RawTableId(db_name=item.db_name, name=item.name)
 
     @classmethod
