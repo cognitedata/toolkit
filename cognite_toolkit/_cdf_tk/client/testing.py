@@ -37,6 +37,7 @@ from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
+from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -183,6 +184,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
         self.tool.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
         self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
+        self.tool.documents = MagicMock(spec_set=DocumentsAPI)
         self.tool.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
         self.tool.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
         self.tool.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)

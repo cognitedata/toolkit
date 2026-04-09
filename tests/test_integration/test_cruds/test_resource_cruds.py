@@ -164,6 +164,25 @@ class TestFunctionScheduleLoader:
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
+    def test_not_redeploy_schedule_with_data(
+        self,
+        toolkit_client: ToolkitClient,
+        persistent_schedule_with_data_yaml: str,
+    ) -> None:
+        loader = FunctionScheduleCRUD(toolkit_client, None, None)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = persistent_schedule_with_data_yaml
+
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
 
 @pytest.fixture(scope="session")
 def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:

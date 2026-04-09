@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProduct
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -83,6 +84,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
     DatapointSubscriptionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -278,6 +280,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         PrincipalsAPI,
         PrincipalLoginSessionsAPI,
         UserProfilesAPI,
+        # Search/list/aggregate only; no request examples for generic CRUDL.
+        DocumentsAPI,
         # Special handling due to need for file Id and update.
         AnnotationsAPI,
         # Subscriptions depend on existing sinks and have no retrieve method.
@@ -2048,6 +2052,67 @@ class TestCDFResourceAPI:
                 client.user_profiles._search_endpoint.path, f"Searching user profiles failed: {e!s}"
             ) from None
         # We only care about a 200 response, not whether we got a hit.
+
+    def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""
+        client = toolkit_client.tool
+        documents = client.documents
+        endpoints = documents._method_endpoint_map
+        list_endpoint = endpoints["list"]
+        search_endpoint = endpoints["search"]
+        aggregate_endpoint = endpoints["aggregate"]
+
+        try:
+            _ = documents.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(list_endpoint.path, f"documents.list failed: {e!s}") from e
+
+        try:
+            _ = documents.search(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(search_endpoint.path, f"documents.search failed: {e!s}") from e
+
+        try:
+            _ = documents.count()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(aggregate_endpoint.path, f"documents.count failed: {e!s}") from e
+
+        property_: DocumentPropertyPath = ("mimeType",)
+        try:
+            cardinality = documents.cardinality(property_)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(aggregate_endpoint.path, f"documents.cardinality failed: {e!s}") from e
+
+        try:
+            unique_vals = documents.unique(property_, limit=10_000)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(aggregate_endpoint.path, f"documents.unique failed: {e!s}") from e
+
+        # The cardinality endpoint seems to be broken, it returns total and not cardinality.
+        # add this back in, when it is fixed.
+        if len(unique_vals) == cardinality:
+            raise EndpointAssertionError(
+                aggregate_endpoint.path,
+                "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
+            )
+
+    @pytest.mark.parametrize(
+        "property_",
+        [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
+    )
+    def test_document_cardinality_properties(
+        self, property_: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+    ) -> None:
+        """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
+        documents = toolkit_client.tool.documents
+        aggregate_path = documents._method_endpoint_map["aggregate"].path
+        try:
+            _ = documents.cardinality(property_)  # type:ignore[arg-type]
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                aggregate_path,
+                f"documents.cardinality({property_!r}) failed: {e!s}",
+            ) from e
 
     def test_annotations_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
         client = toolkit_client
