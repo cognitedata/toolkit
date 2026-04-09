@@ -20,11 +20,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartActivity,
     ChartCoreTimeseries,
+    ChartScheduledCalculation,
     ChartSource,
     ChartThreshold,
     ChartTimeseries,
     ChartWorkflow,
     FlowElement,
+    MonitoringJob,
+    MonitoringModel,
+    MonitoringUpdate,
+    ScheduledCalculationUpdate,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -256,13 +261,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         issues: list[ChartMigrationIssue] = []
         for item in source:
             identifier = item.external_id
-            if item.data.scheduled_calculation_collection or item.data.monitoring_jobs:
-                # These are not yet supported.
-                output.append(None)
-                issues.append(self._create_missing_support_issue(item))
-                self.logger.tracker.finalize_item(identifier, "failure")
-                continue
-
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )
@@ -283,14 +281,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         if issues:
             self.logger.log(issues)
         return output
-
-    def _create_missing_support_issue(self, item: ChartResponse) -> ChartMigrationIssue:
-        errors: list[str] = []
-        if item.data.scheduled_calculation_collection:
-            errors.append("Scheduled calculations is not yet supported")
-        if item.data.monitoring_jobs:
-            errors.append("Monitoring jobs is not yet supported")
-        return ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id, errors=errors)
 
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
@@ -341,7 +331,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
 
         uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         time_series_collection = item.data.time_series_collection or []
-        timeseries_core_collection = self._create_timeseries_core_collection(
+        timeseries_core_collection, node_id_by_uuid = self._create_timeseries_core_collection(
             time_series_collection, issue, uuid_generator
         )
         if issue.has_issues:
@@ -358,6 +348,15 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             item.data.workflow_collection or [], uuid_generator
         )
         updated_activities_collection = self._create_activities_collection(event_ids, issue)
+
+        updated_monitoring_collection, monitoring_updates = self._update_monitoring_collection(
+            item.data.monitoring_jobs or [], uuid_generator, node_id_by_uuid
+        )
+        updated_scheduled_calculation_collection, scheduled_calculation_updates = (
+            self._update_scheduled_calculation_collection(
+                item.data.scheduled_calculation_collection or [], uuid_generator, node_id_by_uuid
+            )
+        )
 
         # We cannot use item.as_request_resource() as we need ot set extra="allow" to include all unknown.
         dumped_response = item.model_dump(
@@ -383,12 +382,23 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         if updated_activities_collection:
             mapped_chart.data.activities_collection = updated_activities_collection
             mapped_chart.data.event_filters = None
+
+        if updated_monitoring_collection:
+            mapped_chart.data.monitoring_jobs = updated_monitoring_collection
+        if monitoring_updates:
+            mapped_chart.monitoring_updates = monitoring_updates
+        if updated_scheduled_calculation_collection:
+            mapped_chart.data.scheduled_calculation_collection = updated_scheduled_calculation_collection
+        if scheduled_calculation_updates:
+            mapped_chart.scheduled_calculation_updates = scheduled_calculation_updates
+
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
         self, time_series_collection: list[ChartTimeseries], issue: ChartMigrationIssue, uuid_generator: dict[str, str]
-    ) -> list[ChartCoreTimeseries]:
+    ) -> tuple[list[ChartCoreTimeseries], dict[str, NodeId]]:
         timeseries_core_collection: list[ChartCoreTimeseries] = []
+        node_id_by_uuid: dict[str, NodeId] = {}
         for ts_item in time_series_collection or []:
             node_id, consumer_view_id = self._get_node_id_consumer_view_id(ts_item)
 
@@ -404,9 +414,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 issue.errors.append(f"Missing timeseries id: {ts_item.ts_id!r}")
                 continue
             new_uuid = uuid_generator[ts_item.id]
+            node_id_by_uuid[new_uuid] = node_id
             core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, new_uuid)
             timeseries_core_collection.append(core_timeseries)
-        return timeseries_core_collection
+        return timeseries_core_collection, node_id_by_uuid
 
     def _create_new_timeseries_core(
         self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
@@ -532,6 +543,73 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             )
 
         return activities
+
+    def _update_monitoring_collection(
+        self, monitoring_jobs: list[MonitoringJob], uuid_generator: dict[str, str], node_id_by_uuid: dict[str, NodeId]
+    ) -> tuple[list[MonitoringJob], list[MonitoringUpdate]]:
+        updated_monitoring_jobs: list[MonitoringJob] = []
+        backend_updates: list[MonitoringUpdate] = []
+        for job in monitoring_jobs:
+            if isinstance(job.source_id, str) and job.source_id in uuid_generator:
+                new_uuid = uuid_generator[job.source_id]
+                updated_monitoring_jobs.append(job.model_copy(update={"source_id": new_uuid}))
+                backend_updates.append(
+                    MonitoringUpdate(
+                        external_id=str(job.id),
+                        model=MonitoringModel(
+                            external_id="double_threshold",
+                            timeseries_instances_id=node_id_by_uuid[new_uuid],
+                        ),
+                    )
+                )
+            else:
+                updated_monitoring_jobs.append(job)
+        return updated_monitoring_jobs, backend_updates
+
+    def _update_scheduled_calculation_collection(
+        self,
+        scheduled_calculations: list[ChartScheduledCalculation],
+        uuid_generator: dict[str, str],
+        node_id_by_uuid: dict[str, NodeId],
+    ) -> tuple[list[ChartScheduledCalculation], list[ScheduledCalculationUpdate]]:
+        updated_scheduled_calculations: list[ChartScheduledCalculation] = []
+        backend_updates: list[ScheduledCalculationUpdate] = []
+        for calc in scheduled_calculations:
+            updated_elements: list[FlowElement] = []
+            if calc.flow is None:
+                updated_scheduled_calculations.append(calc)
+                continue
+            has_changes = False
+            for element in calc.flow.elements or []:
+                if (
+                    element.data
+                    and element.data.selected_source_id in uuid_generator
+                    and isinstance(element.data.selected_source_id, str)
+                ):
+                    new_uuid = uuid_generator[element.data.selected_source_id]
+                    new_data = element.data.model_copy(
+                        update={
+                            "selected_source_id": new_uuid,
+                            "type": "coreTimeseries",
+                        }
+                    )
+                    updated_elements.append(element.model_copy(update={"data": new_data}))
+                    has_changes = True
+                    backend_updates.append(
+                        ScheduledCalculationUpdate(
+                            external_id=str(calc.id),
+                            target_timeseries_instances_id=node_id_by_uuid[new_uuid],
+                        )
+                    )
+                else:
+                    updated_elements.append(element)
+            if has_changes:
+                new_flow = calc.flow.model_copy(update={"elements": updated_elements})
+                updated_scheduled_calculations.append(calc.model_copy(update={"flow": new_flow}))
+            else:
+                updated_scheduled_calculations.append(calc)
+
+        return updated_scheduled_calculations, backend_updates
 
 
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
