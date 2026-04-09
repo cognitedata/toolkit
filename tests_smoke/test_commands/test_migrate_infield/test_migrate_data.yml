@@ -3,7 +3,7 @@ instances:
   externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       MeasurementReading/v1:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -19,7 +19,7 @@ instances:
   externalId: 2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       MeasurementReading/v1:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -42,7 +42,7 @@ instances:
   externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       Schedule/v1:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -63,7 +63,7 @@ instances:
   externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       Template/v1:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -83,7 +83,7 @@ instances:
   externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       TemplateItem/v1:
         description: description character limitation test description character limitation
           test description character limitation test description character limitation
@@ -111,7 +111,7 @@ instances:
   externalId: RhIUePwMQI0WDEQQv-xkig
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       Checklist/v1:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -135,7 +135,7 @@ instances:
   externalId: -3Z4iakG1YSFRAfVlazYMA
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       ChecklistItem/v1:
         asset:
           externalId: SmokeAsset
@@ -166,7 +166,7 @@ instances:
   externalId: -iExvo-uJ5JqMTPL2OYN-g
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       Action/v1:
         actionType: Message
         conditionalActions:
@@ -185,7 +185,7 @@ instances:
   externalId: 1DC026YVbKG3QYAOMzJoXw
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       ConditionalAction/v1:
         logic: or
         parentObject:
@@ -196,7 +196,7 @@ instances:
   externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
   instanceType: node
   properties:
-    infield_cdm_source_desc_sche_asset_file_ts:
+    cdf_infield:
       Condition/v1:
         conditionalAction:
           externalId: 1DC026YVbKG3QYAOMzJoXw
@@ -206,6 +206,6 @@ instances:
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
-        sourceView: infield_cdm_source_desc_sche_asset_file_ts/ChecklistItem/v1
+        sourceView: cdf_infield/ChecklistItem/v1
         value: Not applicable
   space: smoke_infield_migration_target_space
