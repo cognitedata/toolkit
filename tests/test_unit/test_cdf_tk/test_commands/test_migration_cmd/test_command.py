@@ -30,7 +30,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartCall,
+    ChartData,
+    ChartSource,
+    ChartThreshold,
+    ChartTimeseries,
+    ChartWorkflow,
+    Flow,
+    FlowData,
+    FlowElement,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeRequest,
@@ -639,6 +649,30 @@ class TestMigrationCommand:
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
                         ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
+                    threshold_collection=[
+                        ChartThreshold(
+                            name="High limit",
+                            source_id="87654321-4321-8765-4321-876543218765",
+                            upper_limit=100.0,
+                            calls=[ChartCall(call_id="c1", hash=1)],
+                        ),
+                    ],
+                    workflow_collection=[
+                        ChartWorkflow(
+                            name="Rolling average",
+                            flow=Flow(
+                                elements=[
+                                    FlowElement(
+                                        data=FlowData(
+                                            type="timeseries",
+                                            selected_source_id="12345678-1234-5678-1234-567812345678",
+                                        ),
+                                    ),
+                                ],
+                            ),
+                            calls=[ChartCall(call_id="c2", hash=2)],
+                        ),
+                    ],
                 ),
                 owner_id="1234",
             )
@@ -771,6 +805,30 @@ class TestMigrationCommand:
                     {
                         "type": "coreTimeseries",
                         "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                    },
+                ],
+                "thresholdCollection": [
+                    {
+                        "name": "High limit",
+                        "sourceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "upperLimit": 100.0,
+                        "calls": [],
+                    },
+                ],
+                "workflowCollection": [
+                    {
+                        "name": "Rolling average",
+                        "flow": {
+                            "elements": [
+                                {
+                                    "data": {
+                                        "type": "coreTimeseries",
+                                        "selectedSourceId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                    },
+                                },
+                            ],
+                        },
+                        "calls": [],
                     },
                 ],
                 "timeSeriesCollection": None,
