@@ -272,6 +272,7 @@ def test_build_deploy_v2_complete_orgs(
         os.environ,
         {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
     ):
+        # Mock /raw/dbs/{dbName}/tables/{tableName}/rows as the deploy command uploads RAW rows.
         respx_mock.route(url__regex=r".*/raw/dbs/[^/]+/tables/[^/]+/rows(?:\?.*)?$").respond(status_code=200)
 
         DeployV2Command(silent=True, skip_tracking=True).deploy(
