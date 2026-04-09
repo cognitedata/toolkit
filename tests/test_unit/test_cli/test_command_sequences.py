@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import respx
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import (
@@ -257,6 +258,7 @@ def test_build_deploy_v2_complete_orgs(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
     data_regression,
+    respx_mock: respx.MockRouter,
 ) -> None:
     BuildV2Command(silent=True, skip_tracking=True).build(
         client=env_vars_with_client.get_client(),
@@ -270,6 +272,8 @@ def test_build_deploy_v2_complete_orgs(
         os.environ,
         {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
     ):
+        respx_mock.route(url__regex=r".*/raw/dbs/[^/]+/tables/[^/]+/rows(?:\?.*)?$").respond(status_code=200)
+
         DeployV2Command(silent=True, skip_tracking=True).deploy(
             env_vars=env_vars_with_client,
             user_build_dir=build_tmp_path,
