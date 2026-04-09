@@ -18,6 +18,7 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
@@ -225,6 +227,10 @@ class DeployV2Command(ToolkitCommand):
 
         # Todo: Some mixpanel tracking??
         self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
+
+        if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
+            self._display_deprecation_warning(raw_files, client.console)
+            UploadCommand.upload_data(raw_files, client, client.console, options.dry_run, options.verbose)
 
         return results
 
@@ -888,3 +894,23 @@ class DeployV2Command(ToolkitCommand):
                 for skip in total.skipped
             ]
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+
+    @classmethod
+    def _find_raw_tables(cls, build_lineage: BuildLineage) -> dict[RawTableSelector, list[Path]]:
+        raise NotImplementedError()
+
+    @classmethod
+    def _display_deprecation_warning(cls, raw_files: dict[RawTableSelector, list[Path]], console: Console) -> None:
+        raw_table_count = len(raw_files)
+        file_count = sum(len(files) for files in raw_files.values())
+        console.print(
+            Panel(
+                f"[yellow]Deprecation Warning[/]\n\n"
+                f"You are deploying {raw_table_count} raw table{'' if raw_table_count == 1 else 's'} based on {file_count} file{'' if file_count == 1 else 's'}.\n\n"
+                f"Support for deploying raw tables through the deploy command will be removed in a future release. "
+                f"Please migrate your raw tables to use the new data plugin. See the documentation for more details.",
+                title="Deprecation Warning",
+                border_style="yellow",
+                expand=False,
+            )
+        )
