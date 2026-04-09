@@ -782,11 +782,11 @@ class TestInFieldLegacyToCDMScheduleMapper:
     TARGET_SPACE = "target_space"
     SCHEDULE_VIEW = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
     DEST_VIEW_ID = ViewId(
-        space="infield_cdm_source_desc_sche_asset_file_ts",
+        space="cdf_infield",
         external_id="Schedule",
         version="v1",
     )
-    CONTAINER_ID = ContainerId(space="infield_cdm_source_desc_sche_asset_file_ts", external_id="Schedule")
+    CONTAINER_ID = ContainerId(space="cdf_infield", external_id="Schedule")
     TEMPLATE_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
     TEMPLATE_ITEM_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceSchedules")
     SPACE_MAPPING: Mapping[str, str] = {SOURCE_SPACE: TARGET_SPACE}

@@ -946,9 +946,7 @@ class TestCDFResourceAPI:
         assert len(iterated[0]) == 1
         assert iterated[0][0].dump() == example
 
-    def test_records_api_retrieve_aggregate_sync(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = RecordsAPI(HTTPClient(config))
         record = {"space": "my_space", "externalId": "rec_1"}
@@ -963,13 +961,6 @@ class TestCDFResourceAPI:
         retrieved = api.retrieve("my_stream", [RecordId(space="my_space", external_id="rec_1")])
         assert len(retrieved) == 1
         assert isinstance(retrieved[0], RecordResponse)
-
-        # Test aggregate
-        respx_mock.post(config.create_api_url("/streams/my_stream/records/aggregate")).mock(
-            return_value=httpx.Response(status_code=200, json={"aggregates": {"total": {"count": 42}}})
-        )
-        agg = api.aggregate("my_stream", filter=filter_body, aggregates={"total": {"count": {}}})
-        assert agg["aggregates"]["total"]["count"] == 42
 
         # Test sync
         respx_mock.post(config.create_api_url("/streams/my_stream/records/sync")).mock(

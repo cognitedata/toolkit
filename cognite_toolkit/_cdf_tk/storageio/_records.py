@@ -1,9 +1,10 @@
+import json
 from collections.abc import Iterable
 from typing import ClassVar
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
@@ -29,6 +30,7 @@ class RecordIO(
     SUPPORTED_COMPRESSIONS: ClassVar[frozenset[str]] = frozenset({".gz"})
     SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+    _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
     # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
@@ -41,13 +43,20 @@ class RecordIO(
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
+        aggregate_url = self.client.http_client.config.create_api_url(
+            self._AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
+        )
         for last_updated_time in stream_crud.last_updated_time_windows(selector.stream.external_id, start_ms=start_ms):
-            data = self.client.records.aggregate(
-                stream_external_id=selector.stream.external_id,
-                filter=sync_filter,
-                aggregates={"total": {"count": {}}},
-                last_updated_time=last_updated_time,
-            )
+            body: dict[str, JsonValue] = {
+                "filter": sync_filter,
+                "aggregates": {"total": {"count": {}}},
+            }
+            if last_updated_time is not None:
+                body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
+            request = RequestMessage(endpoint_url=aggregate_url, method="POST", body_content=body)
+            result = self.client.http_client.request_single_retries(request)
+            response = result.get_success_or_raise(request)
+            data = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
         return total
 

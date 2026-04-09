@@ -97,9 +97,8 @@ class MigrateApp(typer.Typer):
         self.command("3d-mappings")(self.three_d_asset_mapping)
         if Flags.RECORDS_MIGRATE.is_enabled():
             self.command("events-to-records")(self.events_to_records)
-        if Flags.INFIELD_MIGRATE.is_enabled():
-            self.command("infield-configs")(self.infield_configs)
-            self.command("infield-data")(self.infield_data)
+        self.command("infield-configs")(self.infield_configs)
+        self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1496,14 +1495,6 @@ class MigrateApp(typer.Typer):
                 help="The instance space to migrate Infield data to. If not provided, an interactive selection will be performed to select the target instance space.",
             ),
         ] = None,
-        schema_space: Annotated[
-            str,
-            typer.Option(
-                "--schema-space",
-                help="The spaces were the InFieldOnCDM data model is located. This is for the InField developer to test migration before it becomes a system model.",
-                hidden=not Flags.INFIELD_DEV.is_enabled(),
-            ),
-        ] = "cdf_infield",
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -1610,7 +1601,7 @@ class MigrateApp(typer.Typer):
             # to users are preserved.
             "cognite_app_data": "cognite_app_data",
         }
-        infield_mappings = create_infield_data_mappings(schema_space=schema_space)
+        infield_mappings = create_infield_data_mappings()
         schedule_selector = create_infield_schedule_selector()
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None

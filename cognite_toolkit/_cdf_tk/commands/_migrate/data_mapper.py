@@ -540,7 +540,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 updated_collection.append(
                     threshold.model_copy(
                         update={
-                            "sourceId": uuid_generator[threshold.source_id],
+                            "source_id": uuid_generator[threshold.source_id],
                             # We clear out the calls to avoid referencing past timeseries.
                             "calls": [],
                         }
@@ -564,7 +564,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 if element.data and element.data.selected_source_id in uuid_generator:
                     new_data = element.data.model_copy(
                         update={
-                            "selectedSourceId": uuid_generator[element.data.selected_source_id],
+                            "selected_source_id": uuid_generator[element.data.selected_source_id],
                             "type": "coreTimeseries",
                         }
                     )
