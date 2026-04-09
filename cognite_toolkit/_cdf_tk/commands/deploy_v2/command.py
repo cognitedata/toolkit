@@ -197,7 +197,8 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        build_dir = self.read_build_directory(user_build_dir, options.include)
+        build_lineage = self.read_build_lineage(user_build_dir)
+        build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
@@ -228,7 +229,15 @@ class DeployV2Command(ToolkitCommand):
         return results
 
     @classmethod
-    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+    def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
+        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
+            return BuildLineage.from_yaml_file(lineage_path)
+        return None
+
+    @classmethod
+    def read_build_directory(
+        cls, build_dir: Path, include: Sequence[str] | None = None, build_lineage: BuildLineage | None = None
+    ) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -249,10 +258,9 @@ class DeployV2Command(ToolkitCommand):
         # Note we support running without linage. This is for example used when deploying resources
         # with the upload command.from
         cdf_project: str | None = None
-        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
-            lineage = BuildLineage.from_yaml_file(lineage_path)
-            lineage.validate_source_files_unchanged()
-            cdf_project = lineage.cdf_project
+        if build_lineage:
+            build_lineage.validate_source_files_unchanged()
+            cdf_project = build_lineage.cdf_project
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
