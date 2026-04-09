@@ -622,7 +622,7 @@ class PullCommand(ToolkitCommand):
             for resource_dict in resource_list:
                 identifier = loader.get_id(resource_dict)
                 if identifier in local_resource_ids:
-                    local_resource_by_id[identifier] = resource_dict
+                    local_resource_by_id[identifier] = resource_dict  # type:ignore[index]
         return local_resource_by_id
 
     @staticmethod
