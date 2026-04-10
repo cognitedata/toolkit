@@ -210,10 +210,18 @@ name: My Space
         org = tmp_path / "org"
 
         file_metadata = create_resource_file(org, FileMetadataCRUD, FILEMETADATA_YAML)
-        (file_metadata.parent / "text_file.txt").write_text("this is a text file")
+        source_txt = file_metadata.parent / "text_file.txt"
+        expected_content = "this is a text file"
+        source_txt.write_text(expected_content)
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
         _ = cmd.build(parameters, client=None)
+
+        files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
+        assert len(files) == 2
+        file_by_suffix = dict((file.suffix, file) for file in files)
+        assert set(file_by_suffix.keys()) == {".txt", ".yaml"}
+        assert file_by_suffix[".txt"].read_text() == expected_content
 
 
 class TestDependencyValidationSearchConfig:
