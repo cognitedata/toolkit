@@ -75,6 +75,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
+    extra_kinds = frozenset({FileMetadataCRUD.kind, CogniteFileCRUD.kind})
 
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"

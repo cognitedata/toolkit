@@ -54,6 +54,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 
+    extra_kinds = frozenset({FileMetadataCRUD.kind})
+
     def __init__(
         self,
         client: ToolkitClient,
