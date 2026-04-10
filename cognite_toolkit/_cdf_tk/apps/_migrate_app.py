@@ -4,6 +4,8 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from rich.panel import Panel
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
@@ -48,7 +50,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -416,8 +417,7 @@ class MigrateApp(typer.Typer):
         skip_existing: bool,
         kind: AssetCentricKind,
         resource_type: str,
-        container_id: ContainerId | None = None,
-        instance_migration_checks: bool = True,
+        container_id: ContainerId,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -431,16 +431,41 @@ class MigrateApp(typer.Typer):
             file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
             selected: AssetCentricMigrationSelector = file_selector
 
-            panel = file_selector.items.print_status(instance_migration_checks=instance_migration_checks)
-            if panel is not None:
-                client.console.print(panel)
-                if not auto_yes:
-                    proceed = questionary.confirm(
-                        "Do you want to proceed with the migration?", default=False
-                    ).unsafe_ask()
-                    if not proceed:
-                        client.console.print("Migration aborted by user.")
-                        raise typer.Abort()
+            text = Text()
+            text.append(f"Migrating {len(file_selector.items)} {resource_type}", style="bold")
+            if "ingestionMapping" in file_selector.items.columns:
+                text.append("\n[green]Mapping column set[/green]")
+            else:
+                text.append(
+                    "\n[WARNING] 'ingestionMapping' column not set in CSV file. This is NOT recommended. "
+                    f"All {resource_type}s will be ingested into CogniteCore. If you want to ingest the {resource_type}s "
+                    f"into your own data modeling views, please add an 'ingestionMapping' column to the CSV file.",
+                    style="red",
+                )
+            if "consumerViewSpace" in file_selector.items.columns and "consumerViewExternalId" in file_selector.items.columns:
+                consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]
+                if "consumerViewVersion" in file_selector.items.columns:
+                    consumer_columns.append("consumerViewVersion")
+                text.append(
+                    "\nPreferred consumer views specified "
+                    f"for the mappings using the {humanize_collection(consumer_columns)} columns.",
+                    style="green",
+                )
+            else:
+                text.append(
+                    "\n[WARNING] Consumer views have not been specified for the instances. "
+                    f"This is NOT recommended as this is used to determine which view to use when migrating the {resource_type}s in applications like Canvas. "
+                    "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
+                    style="red",
+                )
+            client.console.print(Panel(text, title="Ready for migration", expand=False))
+            if not auto_yes:
+                proceed = questionary.confirm(
+                    "Do you want to proceed with the migration?", default=False
+                ).unsafe_ask()
+                if not proceed:
+                    client.console.print("Migration aborted by user.")
+                    raise typer.Abort()
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
@@ -451,11 +476,6 @@ class MigrateApp(typer.Typer):
             )
         else:
             # Interactive selection of data set.
-            if container_id is None:
-                raise ToolkitValueError(
-                    "container_id is required when neither mapping_file nor data_set_id is provided "
-                    "(interactive migration)."
-                )
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
             asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(
@@ -693,20 +713,23 @@ class MigrateApp(typer.Typer):
             )
         mappings_by_external_id = {m.external_id: m for m in migration_config.mappings}
 
-        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
-            client=client,
-            mapping_file=mapping_file,
-            data_set_id=data_set_id,
-            consumption_view=None,
-            ingestion_mapping=None,
-            dry_run=dry_run,
-            auto_yes=auto_yes,
-            verbose=verbose,
-            kind="Events",
-            resource_type="event",
-            skip_existing=skip_existing,
-            instance_migration_checks=False,
-        )
+        selected: AssetCentricMigrationSelector
+        if data_set_id is not None and mapping_file is not None:
+            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
+        elif mapping_file is not None:
+            selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Events")
+            client.console.print(
+                Panel(f"Migrating {len(selected.items)} events", title="Ready for migration", expand=False)
+            )
+            if not auto_yes:
+                proceed = questionary.confirm(
+                    "Do you want to proceed with the migration?", default=False
+                ).unsafe_ask()
+                if not proceed:
+                    client.console.print("Migration aborted by user.")
+                    raise typer.Abort()
+        elif data_set_id is not None:
+            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Events")
 
         cmd = MigrationCommand(client=client)
         cmd.run(
