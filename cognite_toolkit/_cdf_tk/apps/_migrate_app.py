@@ -1467,7 +1467,7 @@ class MigrateApp(typer.Typer):
             "cognite_app_data": "cognite_app_data",
         }
         infield_mappings = create_infield_data_mappings()
-        schedule_selector = create_infield_schedule_selector()
+        schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
         for mapping in infield_mappings:
