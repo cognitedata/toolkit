@@ -312,6 +312,19 @@ class TestGroupResponse:
 
         GroupResponse.model_validate(data)
 
+    def test_load_known_acl_with_unknown_scope_and_action(self) -> None:
+        data = {
+            "name": "Group 1",
+            "id": 37,
+            "isDeleted": False,
+            "capabilities": [
+                {"agentsAcl": {"actions": ["READ", "UNKNOWN_ACTION"], "scope": {"anUnknownScope": {"ids": [1, 2, 3]}}}}
+            ],
+        }
+        group = GroupResponse.model_validate(data)
+
+        assert group.dump() == data
+
 
 class TestPrincipalSerialization:
     def test_service_account_principal_round_trip(self) -> None:
