@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import yaml
 from pydantic import (
@@ -12,9 +12,12 @@ from pydantic import (
     ValidationError,
     computed_field,
     field_serializer,
+    field_validator,
 )
 from pydantic.alias_generators import to_camel
+from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
@@ -42,6 +45,22 @@ class ResourceLineageItem(_BaseLineageModel):
     source_hash: str
     type: ResourceType
     built_file: AbsoluteFilePath
+    identifier: Identifier
+
+    @field_validator("identifier", mode="plain")
+    @classmethod
+    def load_identifier(cls, value: Any, info: ValidationInfo) -> Any:
+        """Load identifier from dict using ResourceType."""
+        if not isinstance(value, dict):
+            return value
+        if "type" not in info.data:
+            raise ValueError("Resource type must be provided to load identifier")
+        resource_type: ResourceType = info.data["type"]
+        return resource_type.load_identifier(value)
+
+    @field_serializer("identifier", when_used="always")
+    def serialize_identifier(self, value: Identifier) -> dict[str, Any]:
+        return value.dump()
 
 
 class ModuleLineageItem(_BaseLineageModel):
@@ -87,6 +106,7 @@ class ModuleLineageItem(_BaseLineageModel):
                     source_hash=resource.source_hash,
                     built_file=resource.build_path.resolve(),
                     type=resource.type,
+                    identifier=resource.identifier,
                 )
             )
         return cls(

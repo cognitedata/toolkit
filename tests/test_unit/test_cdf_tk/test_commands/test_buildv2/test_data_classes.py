@@ -4,7 +4,9 @@ import pytest
 import yaml
 from pydantic import TypeAdapter
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ResourceLineageItem
 
 
 @pytest.fixture(scope="session")
@@ -197,3 +199,23 @@ query: >-
 
         with pytest.raises(NotImplementedError, match=r"'.txt' is not supported"):
             variable.get_pattern_replace_pair(".txt")  # type: ignore[arg-type]
+
+
+class TestBuildLinage:
+    def test_deserialize_resource_lineage(self, tmp_path: Path) -> None:
+        source_file = tmp_path / "file1.txt"
+        built_file = tmp_path / "file2.txt"
+        source_file.touch()
+        built_file.touch()
+        data = {
+            "sourceFile": source_file.as_posix(),
+            "sourceHash": "123",
+            "type": {
+                "resource_folder": "files",
+                "kind": "FileMetadata",
+            },
+            "builtFile": built_file.as_posix(),
+            "identifier": {"externalId": "some_id"},
+        }
+        linage = ResourceLineageItem.model_validate(data)
+        assert isinstance(linage.identifier, ExternalId)

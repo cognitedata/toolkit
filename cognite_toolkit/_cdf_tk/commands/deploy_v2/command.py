@@ -1,6 +1,6 @@
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -18,11 +18,14 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    RawTableCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
 )
@@ -37,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
@@ -197,13 +201,12 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        build_dir = self.read_build_directory(user_build_dir, options.include)
+        build_lineage = self.read_build_lineage(user_build_dir)
+        build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._validate_cdf_project(
-            build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT, client.console
-        )
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
         self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
@@ -227,10 +230,22 @@ class DeployV2Command(ToolkitCommand):
         # Todo: Some mixpanel tracking??
         self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
 
+        if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
+            self._display_deprecation_warning(raw_files, client.console)
+            UploadCommand.upload_data(raw_files, client, options.dry_run, client.console, options.verbose)  # type: ignore[arg-type]
+
         return results
 
     @classmethod
-    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+    def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
+        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
+            return BuildLineage.from_yaml_file(lineage_path)
+        return None
+
+    @classmethod
+    def read_build_directory(
+        cls, build_dir: Path, include: Sequence[str] | None = None, build_lineage: BuildLineage | None = None
+    ) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -251,10 +266,9 @@ class DeployV2Command(ToolkitCommand):
         # Note we support running without linage. This is for example used when deploying resources
         # with the upload command.from
         cdf_project: str | None = None
-        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
-            lineage = BuildLineage.from_yaml_file(lineage_path)
-            lineage.validate_source_files_unchanged()
-            cdf_project = lineage.cdf_project
+        if build_lineage:
+            build_lineage.validate_source_files_unchanged()
+            cdf_project = build_lineage.cdf_project
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
@@ -369,7 +383,6 @@ class DeployV2Command(ToolkitCommand):
         operation: str,
         cli_cdf_project: str | None,
         client_cdf_project: str,
-        console: Console,
     ) -> None:
         """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
@@ -883,3 +896,40 @@ class DeployV2Command(ToolkitCommand):
                 for skip in total.skipped
             ]
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+
+    @classmethod
+    def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
+        selections: dict[RawTableSelector, list[Path]] = defaultdict(list)
+        for module in build_lineage.module_lineage:
+            for resource in module.resource_lineage:
+                if (
+                    resource.type.resource_folder == RawTableCRUD.folder_name
+                    and resource.type.kind == RawTableCRUD.kind
+                    and isinstance(resource.identifier, RawTableId)
+                ):
+                    for file_type in ["csv", "parquet"]:
+                        if (data_file := resource.source_file.with_suffix(f".{file_type}")).is_file():
+                            selections[
+                                RawTableSelector(
+                                    table=SelectedTable(
+                                        db_name=resource.identifier.db_name, table_name=resource.identifier.name
+                                    )
+                                )
+                            ].append(data_file)
+        return selections
+
+    @classmethod
+    def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
+        raw_table_count = len(raw_files)
+        file_count = sum(len(files) for files in raw_files.values())
+        console.print(
+            Panel(
+                f"[yellow]Deprecation Warning[/]\n\n"
+                f"You are deploying {raw_table_count} raw table{'' if raw_table_count == 1 else 's'} based on {file_count} file{'' if file_count == 1 else 's'}.\n\n"
+                f"Support for deploying raw tables through the deploy command will be removed in a future release. "
+                f"Please migrate your raw tables to use the new data plugin. See the documentation for more details.",
+                title="Deprecation Warning",
+                border_style="yellow",
+                expand=False,
+            )
+        )

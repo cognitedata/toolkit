@@ -1,4 +1,5 @@
 from collections import Counter
+from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
 
@@ -94,7 +95,12 @@ class UploadCommand(ToolkitCommand):
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
-        self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
+
+        total_file_count = sum(len(files) for files in data_files_by_selector.values())
+        if verbose:
+            input_dir_display = self._path_as_display_name(input_dir)
+            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
+        self.upload_data(data_files_by_selector, client, dry_run, console, verbose)
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -200,24 +206,20 @@ class UploadCommand(ToolkitCommand):
                 )
             )
 
-    def _upload_data(
-        self,
-        data_files_by_selector: dict[Selector, list[Path]],
+    @classmethod
+    def upload_data(
+        cls,
+        data_files_by_selector: Mapping[Selector, list[Path]],
         client: ToolkitClient,
         dry_run: bool,
-        input_dir: Path,
         console: Console,
         verbose: bool,
     ) -> None:
-        total_file_count = sum(len(files) for files in data_files_by_selector.values())
-        if verbose:
-            input_dir_display = self._path_as_display_name(input_dir)
-            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
         action = "Would upload" if dry_run else "Uploading"
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
-                io = self._create_selected_io(selector, datafiles[0], client)
+                io = cls._create_selected_io(selector, datafiles[0], client)
                 if io is None:
                     continue
                 schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
@@ -230,14 +232,14 @@ class UploadCommand(ToolkitCommand):
 
                 item_count = io.count_items(reader, selector)
 
-                tracker = ProgressTracker[str]([self._UPLOAD])
+                tracker = ProgressTracker[str]([cls._UPLOAD])
                 executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
                     download_iterable=io.read_chunks(reader, selector),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
                     else io.json_chunk_to_data,
                     write=partial(
-                        self._upload_items,
+                        cls._upload_items,
                         upload_client=upload_client,
                         io=io,
                         dry_run=dry_run,
@@ -247,7 +249,7 @@ class UploadCommand(ToolkitCommand):
                         verbose=verbose,
                     ),
                     total_item_count=item_count,
-                    max_queue_size=self._MAX_QUEUE_SIZE,
+                    max_queue_size=cls._MAX_QUEUE_SIZE,
                     download_description="Reading files",
                     process_description="Processing",
                     write_description=f"{action} {selector.display_name}",
@@ -259,8 +261,8 @@ class UploadCommand(ToolkitCommand):
                 final_action = "Uploaded" if not dry_run else "Would upload"
                 suffix = " successfully" if not dry_run else ""
                 results = tracker.aggregate()
-                success = results.get((self._UPLOAD, "success"), 0)
-                failed = results.get((self._UPLOAD, "failed"), 0)
+                success = results.get((cls._UPLOAD, "success"), 0)
+                failed = results.get((cls._UPLOAD, "failed"), 0)
                 if failed > 0:
                     suffix += f", {failed:,} failed"
                 console.print(
@@ -274,13 +276,16 @@ class UploadCommand(ToolkitCommand):
             display_name = input_path.relative_to(cwd)
         return display_name
 
+    @classmethod
     def _create_selected_io(
-        self, selector: Selector, data_file: Path, client: ToolkitClient
+        cls, selector: Selector, data_file: Path, client: ToolkitClient
     ) -> UploadableStorageIO | None:
         try:
             io_cls = get_upload_io(selector)
         except ValueError as e:
-            self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
+            HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}").print_warning(
+                console=client.console
+            )
             return None
         return io_cls(client)
 
