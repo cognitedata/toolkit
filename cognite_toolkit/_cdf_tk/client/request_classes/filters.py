@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, V
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
-from cognite_toolkit._cdf_tk.utils.interactive_select import ChartFilter
 
 from .base import BaseModelRequest
 
@@ -201,7 +200,7 @@ class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
     created_time: EpochTimestampRange | None = None
 
 
-class ChartMonitorModelFilter(ChartFilter):
+class ChartMonitorModelFilter(Filter):
     timeseries_id: list[int] | None = None
 
 

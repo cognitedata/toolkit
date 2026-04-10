@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeUntypedId
 
 
 class ChartMonitoringJobModel(BaseModelObject, extra="allow"):
@@ -26,7 +26,7 @@ class AlertContext(BaseModelObject, extra="allow"):
 
 
 class ChartMonitoringJob(BaseModelObject, extra="allow"):
-    id: int
+    id: int | None = None
     name: str | None = None
     external_id: str | None = None
     channel_id: int | None = None
@@ -42,6 +42,13 @@ class ChartMonitoringJob(BaseModelObject, extra="allow"):
 
 
 class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, extra="allow"):
+    def as_id(self) -> InternalId | ExternalId:
+        if self.external_id is not None:
+            return ExternalId(external_id=self.external_id)
+        if self.id is not None:
+            return InternalId(id=self.id)
+        raise ValueError("ChartMonitoringJobRequest needs external_id or id for as_id")
+
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         return self.dump()
 

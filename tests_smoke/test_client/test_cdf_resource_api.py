@@ -58,17 +58,26 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
     ThreeDModelRevisionId,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, SequenceRowFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    AnnotationFilter,
+    ChartMonitorJobFilter,
+    SequenceRowFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobModel,
+    ChartMonitoringJobRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -2244,4 +2253,88 @@ class TestCDFResourceAPI:
             client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
             client.tool.workflows.delete([workflow_id])
 
-    def test_chart_monitoring_job(self, toolkit_client: ToolkitClient, smoke_chart: ChartResponse) -> None: ...
+    def test_chart_monitoring_job(self, toolkit_client: ToolkitClient, smoke_chart: ChartResponse) -> None:
+        client = toolkit_client
+        api = client.charts.monitoring_jobs
+        endpoints = api._method_endpoint_map
+        job_external_id = "smoke-test-chart-monitoring-job"
+
+        try:
+            api.delete([ExternalId(external_id=job_external_id)])
+        except ToolkitAPIError:
+            pass
+
+        job_request = ChartMonitoringJobRequest(
+            external_id=job_external_id,
+            name="Smoke test chart monitoring job",
+            source="CHART",
+            source_id=smoke_chart.external_id,
+            interval=60,
+            overlap=0,
+            model=ChartMonitoringJobModel(
+                timeseries_external_id="smoke-test-timeseries",
+                granularity="1m",
+                lower_threshold=0.0,
+                upper_threshold=100.0,
+            ),
+        )
+
+        try:
+            job_id = cast(
+                ExternalId,
+                self.assert_endpoint_method(
+                    lambda: api.create([job_request]),
+                    "create",
+                    endpoints["create"],
+                ),
+            )
+            self.assert_endpoint_method(
+                lambda: api.retrieve([job_id]),
+                "retrieve",
+                endpoints["retrieve"],
+                job_id,
+            )
+
+            list_endpoint = endpoints["list"]
+            try:
+                listed = list(api.list(filter_=ChartMonitorJobFilter(external_ids=[job_external_id]), limit=10))
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"list method failed with error: {e!s}") from e
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed monitoring job, got 0")
+
+            retrieved_for_update = api.retrieve([job_id])
+            update_request = retrieved_for_update[0].as_request_resource()
+            update_request.name = "Smoke test chart monitoring job (updated)"
+            self.assert_endpoint_method(
+                lambda: api.update([update_request]),
+                "update",
+                endpoints["update"],
+                job_id,
+            )
+
+            upsert_request = ChartMonitoringJobRequest(
+                external_id=job_external_id,
+                name="Smoke test chart monitoring job (upserted)",
+                source="CHART",
+                source_id=smoke_chart.external_id,
+                interval=60,
+                overlap=0,
+                model=ChartMonitoringJobModel(
+                    timeseries_external_id="smoke-test-timeseries",
+                    granularity="1m",
+                    lower_threshold=0.0,
+                    upper_threshold=100.0,
+                ),
+            )
+            self.assert_endpoint_method(
+                lambda: api.upsert([upsert_request]),
+                "upsert",
+                endpoints["upsert"],
+                job_id,
+            )
+        finally:
+            try:
+                api.delete([ExternalId(external_id=job_external_id)])
+            except ToolkitAPIError:
+                pass

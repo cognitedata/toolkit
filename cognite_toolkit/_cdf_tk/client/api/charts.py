@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -11,6 +10,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     ChartResponse,
     Visibility,
 )
+
+from .charts_monitoring_job import ChartMonitoringJobAPI
 
 
 class ChartsAPI(CDFResourceAPI[ChartResponse]):
