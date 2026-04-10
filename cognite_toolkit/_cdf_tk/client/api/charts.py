@@ -11,8 +11,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     Visibility,
 )
 
-from .charts_monitoring_job import ChartMonitoringJobAPI
 from .charts_folders import ChartFoldersAPI
+from .charts_monitoring_job import ChartMonitoringJobAPI
+
 
 class ChartsAPI(CDFResourceAPI[ChartResponse]):
     def __init__(self, http_client: HTTPClient) -> None:

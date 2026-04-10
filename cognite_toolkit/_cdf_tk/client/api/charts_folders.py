@@ -1,5 +1,7 @@
 from collections.abc import Sequence
-from typing import Any
+from functools import cached_property
+
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -15,7 +17,7 @@ class ChartFoldersAPI(CDFResourceAPI[ChartFolderResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/charts/monitoring/folders", item_limit=1000),
+                "create": Endpoint(method="POST", path="/charts/monitoring/folders", item_limit=1),
                 "list": Endpoint(method="GET", path="/charts/monitoring/folders", item_limit=1000),
             },
         )
@@ -28,6 +30,10 @@ class ChartFoldersAPI(CDFResourceAPI[ChartFolderResponse]):
     ) -> PagedResponse[ChartFolderResponse]:
         return PagedResponse[ChartFolderResponse].model_validate_json(response.body)
 
+    @cached_property
+    def _adapter(self) -> TypeAdapter[list[ChartFolderResponse]]:
+        return TypeAdapter(list[ChartFolderResponse])
+
     def create(self, items: Sequence[ChartFolderRequest]) -> list[ChartFolderResponse]:
         """Create chart folders in CDF.
 
@@ -36,7 +42,15 @@ class ChartFoldersAPI(CDFResourceAPI[ChartFolderResponse]):
         Returns:
             Created chart folder response objects.
         """
-        return self._request_item_response(items, "create")
+        results: list[ChartFolderResponse] = []
+        create = self._method_endpoint_map["create"]
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(create.path), method=create.method, body_content=item.dump()
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            results.extend(self._adapter.validate_json(response.body))
+        return results
 
     def list(self) -> list[ChartFolderResponse]:
         """List charts folders in CDF.

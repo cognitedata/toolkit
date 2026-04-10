@@ -1,5 +1,7 @@
 from typing import Any, Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
@@ -37,16 +39,17 @@ class ChartMonitoringJobSubscriber(BaseModelObject, extra="allow"):
 
 class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, extra="allow"):
     monitoring_task_name: str | None = None
-    folder_id: int | None = None
+    folder_id: int | None = Field(alias="FolderId")
     evaluate_every: int | None = None
     activation_interval: str | None = None
+    model_external_id: str | None = None
     nonce: str | None = None
-    threshold: float | None = None
+    threshold: int | None = None
     subscribers: list[ChartMonitoringJobSubscriber] | None = None
     current_url: str | None = None
-    timeseries_id: int | None = None
-    timeseries_external_id: str | None = None
-    timeseries_instance_id: NodeUntypedId | None = None
+    time_series_id: int | None = None
+    time_series_external_id: str | None = None
+    time_series_instance_id: NodeUntypedId | None = None
 
     def as_id(self) -> ExternalId:
         raise ValueError(
