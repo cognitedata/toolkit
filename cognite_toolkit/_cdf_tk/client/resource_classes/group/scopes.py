@@ -39,6 +39,11 @@ class ScopeDefinition(BaseModelObject):
         )
 
 
+class AgentExternalIdScope(ScopeDefinition):
+    scope_name: Literal["agentExternalIdScope"] = Field("agentExternalIdScope", exclude=True)
+    external_ids: list[str]
+
+
 class AllScope(ScopeDefinition):
     """Scope that applies to all resources."""
 
@@ -209,6 +214,7 @@ Scope: TypeAlias = Annotated[
         | ExperimentScope
         | AppConfigScope
         | PostgresGatewayUsersScope
+        | AgentExternalIdScope
         | UnknownScope
     ),
     BeforeValidator(_handle_unknown_scope),

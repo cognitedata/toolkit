@@ -21,7 +21,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse, ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
@@ -34,7 +38,6 @@ from ._base import Bookmark, DataItem, Page, UploadableStorageIO
 from .progress import NoBookmark
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
-    FILEPATH,
     FileDataModelingTemplateSelector,
     FileExternalID,
     FileIdentifier,
