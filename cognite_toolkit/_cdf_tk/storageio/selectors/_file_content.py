@@ -10,7 +10,6 @@ from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
 
 FILENAME_VARIABLE = "$FILENAME"
-FILEPATH = "$FILEPATH"
 
 
 class FileContentSelector(DataSelector, ABC):

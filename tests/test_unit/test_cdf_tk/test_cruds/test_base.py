@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
+    FunctionCRUD,
     FunctionScheduleCRUD,
     GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
@@ -311,6 +312,17 @@ authentication:
 """,
         {"my_super_secret_42"},
         id="FunctionScheduleLoader",
+    )
+    yield pytest.param(
+        FunctionCRUD,
+        """externalId: my_function
+name: My Function
+secrets:
+  FIRST: first_secret_value
+  SECOND: second_secret_value
+""",
+        {"first_secret_value", "second_secret_value"},
+        id="FunctionLoader with secrets",
     )
     yield pytest.param(
         TransformationCRUD,

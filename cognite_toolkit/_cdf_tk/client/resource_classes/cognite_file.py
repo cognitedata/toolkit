@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 
 COGNITE_FILE_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
@@ -35,7 +36,7 @@ class CogniteFile(BaseModelObject):
     category: NodeUntypedId | None = None
     type: NodeUntypedId | None = None
     # This is not part of the API, but it is very useful when creating a file with content.
-    filepath: Path | None = Field(default=None, exclude=True, alias="$FILEPATH")
+    filepath: Path | None = Field(default=None, exclude=True, alias=FILEPATH)
 
 
 class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):

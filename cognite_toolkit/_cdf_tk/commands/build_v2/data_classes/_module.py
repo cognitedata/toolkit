@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Generic, Literal, TypeAlias, get_args
+from typing import Any, Generic, Literal, TypeAlias, get_args
 
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
@@ -173,6 +173,9 @@ class ResourceType(BaseModel):
         kind = self.kind
         folder_name = self.resource_folder
         return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+    def load_identifier(self, data: dict[str, Any]) -> Identifier:
+        return self.crud_cls.get_id(data)
 
     def __str__(self) -> str:
         return f"{self.kind} ({self.resource_folder})"

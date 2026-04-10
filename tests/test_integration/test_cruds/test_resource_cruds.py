@@ -164,24 +164,45 @@ class TestFunctionScheduleLoader:
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
+    # The function schedule service is fairly unstable, so we need to rerun the tests if they fail.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
     def test_not_redeploy_schedule_with_data(
         self,
         toolkit_client: ToolkitClient,
-        persistent_schedule_with_data_yaml: str,
+        toolkit_client_config: ToolkitClientConfig,
+        dummy_function: Function,
     ) -> None:
+        assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
+        cred = toolkit_client_config.credentials
+        schedule_name = f"toolkit_test_not_redeploy_schedule_with_data_{RUN_UNIQUE_ID}"
+        schedule_yaml = f"""name: {schedule_name}
+functionExternalId: {dummy_function.external_id}
+cronExpression: 0 0 1 1 *
+data:
+  some: data
+authentication:
+  clientId: {cred.client_id}
+  clientSecret: {cred.client_secret}
+"""
         loader = FunctionScheduleCRUD(toolkit_client, None, None)
         filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = persistent_schedule_with_data_yaml
+        filepath.read_text.return_value = schedule_yaml
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        resource_dict = loader.load_resource_file(filepath, {})
+        resource = loader.load_resource(resource_dict[0])
+        identifier = loader.get_id(resource)
+        try:
+            loader.create([resource])
+            worker = ResourceWorker(loader, "deploy")
+            resources = worker.prepare_resources([filepath])
+            assert {
+                "create": len(resources.to_create),
+                "change": len(resources.to_update),
+                "delete": len(resources.to_delete),
+                "unchanged": len(resources.unchanged),
+            } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        finally:
+            loader.delete([identifier])
 
 
 @pytest.fixture(scope="session")

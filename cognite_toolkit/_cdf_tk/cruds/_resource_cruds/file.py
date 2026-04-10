@@ -30,7 +30,11 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -40,7 +44,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SpaceIDScope,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceContainerCRUD,
+    ResourceCRUD,
+    SuccessExtra,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -150,25 +160,19 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        yield from _iter_file_content_read_extras(filepath, item, kind=cls.kind)
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         raw_files = super().load_resource_file(filepath, environment_variables)
-        stem = filepath.stem
-        if stem.lower().endswith(self.kind.lower()):
-            stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
-            source_file = item.pop("$FILEPATH", None)
+            explicit = item.get(FILEPATH)
+            source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
-                if candidate := next(
-                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
-                ):
-                    source_file = candidate
-                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
-                    source_file = filepath.parent / name
-                else:
-                    # No filepath found
-                    continue
+                continue
             if self.support_upload:
                 file_hash = calculate_hash(source_file, shorten=True)
                 if "metadata" not in item:
@@ -270,6 +274,88 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return deleted_files
 
 
+def _resolve_source_file(
+    yaml_filepath: Path,
+    item: dict[str, Any],
+    *,
+    kind: str,
+    explicit: Path | str | None = None,
+) -> Path | None:
+    """Resolve the source file path for a file resource.
+
+    This function determines the path to the actual file content associated with a
+    YAML resource definition. It uses the following resolution order:
+
+    1. If an explicit path is provided, use it (resolved relative to the YAML file's directory
+       if not absolute).
+    2. Look for a file in the same directory with the same stem as the YAML file (excluding
+       the resource kind suffix, e.g., 'myfile.FileMetadata.yaml' -> 'myfile.*').
+    3. If the item has a 'name' field, check if a file with that name exists in the
+       YAML file's directory.
+
+    Args:
+        yaml_filepath: Path to the YAML file defining the resource.
+        item: Dictionary containing the resource definition.
+        kind: The resource kind (e.g., 'FileMetadata', 'CogniteFile') used to strip
+            suffixes from the YAML filename when searching for matching files.
+        explicit: An explicitly provided file path. If relative, it will be resolved
+            relative to the YAML file's directory.
+
+    Returns:
+        The resolved Path to the source file, or None if no source file could be found.
+    """
+    if explicit is not None:
+        path = Path(explicit)
+        if not path.is_absolute():
+            path = yaml_filepath.parent / path
+        return path
+
+    stem = yaml_filepath.stem
+    if stem.lower().endswith(kind.lower()):
+        stem = stem[: -len(kind)].rstrip(".")
+    if candidate := next(
+        (
+            file
+            for file in sorted(yaml_filepath.parent.glob(f"{stem}*"))
+            if file.is_file() and file != yaml_filepath and file.stem == stem
+        ),
+        None,
+    ):
+        return candidate
+    if isinstance(name := item.get("name"), str):
+        candidate = yaml_filepath.parent / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _iter_file_content_read_extras(
+    filepath: Path,
+    item: dict[str, Any],
+    *,
+    kind: str,
+) -> Iterable[ReadExtra]:
+    explicit = item.get(FILEPATH)
+    source = _resolve_source_file(filepath, item, kind=kind, explicit=explicit)
+    if source is None:
+        # it is optional to include file content.
+        return
+    if not source.is_file():
+        yield FailedReadExtra(
+            code="NOT-EXISTING",
+            error=f"File contents path does not exist: {source.as_posix()}",
+            source_path=source,
+        )
+        return
+    yield SuccessExtra(
+        source_path=source,
+        source_hash=calculate_hash(source, shorten=True),
+        suffix=source.suffix if source.suffix else ".bin",
+        byte_content=source.read_bytes(),
+        description="file contents",
+    )
+
+
 @final
 class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
@@ -326,25 +412,19 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: NodeId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        yield from _iter_file_content_read_extras(filepath, item, kind=cls.kind)
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         raw_files = super().load_resource_file(filepath, environment_variables)
-        stem = filepath.stem
-        if stem.lower().endswith(self.kind.lower()):
-            stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
-            source_file = item.pop("$FILEPATH", None)
+            explicit = item.get(FILEPATH)
+            source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
-                if candidate := next(
-                    (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
-                ):
-                    source_file = candidate
-                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
-                    source_file = filepath.parent / name
-                else:
-                    # No filepath found
-                    continue
+                continue
             if self.support_upload:
                 file_hash = calculate_hash(source_file, shorten=True)
                 extra_str = f"{self._SourceContextKey.FILECONTENT_HASH}: {file_hash}"
