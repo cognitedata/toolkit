@@ -169,7 +169,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     ) -> list[dict[str, Any]]:
         raw_files = super().load_resource_file(filepath, environment_variables)
         for item in raw_files:
-            explicit = item.pop(FILEPATH, None)
+            explicit = item.get(FILEPATH)
             source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
                 continue
@@ -314,7 +314,7 @@ def _resolve_source_file(
     if stem.lower().endswith(kind.lower()):
         stem = stem[: -len(kind)].rstrip(".")
     if candidate := next(
-        (file for file in yaml_filepath.parent.glob(f"{stem}*") if file != yaml_filepath and file.stem == stem),
+        (file for file in sorted(yaml_filepath.parent.glob(f"{stem}*")) if file != yaml_filepath and file.stem == stem),
         None,
     ):
         return candidate
@@ -417,7 +417,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     ) -> list[dict[str, Any]]:
         raw_files = super().load_resource_file(filepath, environment_variables)
         for item in raw_files:
-            explicit = item.pop(FILEPATH, None)
+            explicit = item.get(FILEPATH)
             source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
                 continue
