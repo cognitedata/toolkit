@@ -1,6 +1,6 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import StrictStr, StringConstraints
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -21,61 +21,54 @@ class ChartMonitoringJobModel(BaseModelObject, extra="allow"):
     upper_threshold: float | None = None
 
 
+URL_REGEX = r"^https://([^.]+(\.[^.]+)*\.)?(fusion|local)[\w\-]*(\.[^.]+)*\.(cognite\.com/|cognitedata\.com/|cogniteapp\.com/|cogheim\.net/|cognite\.ai(:4200)?/).+$"
+
+ConstrainedUrl = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=1000, pattern=URL_REGEX),
+]
+
+
 class AlertContext(BaseModelObject, extra="allow"):
-    unsubscribe_url: str | None = None
-    investigate_url: str | None = None
-    edit_url: str | None = None
+    unsubscribe_url: ConstrainedUrl
+    investigate_url: ConstrainedUrl | None = None
+    edit_url: ConstrainedUrl | None = None
 
 
 class ChartMonitoringJob(BaseModelObject, extra="allow"):
+    external_id: str
+    name: StrictStr
+    channel_id: int
+    model: ChartMonitoringJobModel
     source: str | None = None
     source_id: str | None = None
+    metadata: Metadata | None = None
+    alert_context: AlertContext | None = None
 
-
-class ChartMonitoringJobSubscriber(BaseModelObject, extra="allow"):
-    user_identifier: str | None = None
-    email: str | None = None
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, extra="allow"):
-    monitoring_task_name: str | None = None
-    folder_id: int | None = Field(alias="FolderId")
-    evaluate_every: int | None = None
-    activation_interval: str | None = None
-    model_external_id: str | None = None
-    nonce: str | None = None
-    threshold: int | None = None
-    subscribers: list[ChartMonitoringJobSubscriber] | None = None
-    current_url: str | None = None
-    time_series_id: int | None = None
-    time_series_external_id: str | None = None
-    time_series_instance_id: NodeUntypedId | None = None
-
-    def as_id(self) -> ExternalId:
-        raise ValueError(
-            "ChartMonitoringJob does not have an external ID field. Use internal ID for retrieval and deletion."
-        )
+    interval: int | None = None
+    overlap: int | None = None
+    nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         raise NotImplementedError()
 
 
 class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonitoringJobRequest], extra="allow"):
-    id: int | None = None
-    name: str | None = None
-    external_id: str | None = None
-    channel_id: int | None = None
-    interval: int | None = None
-    overlap: int | None = None
-    model: ChartMonitoringJobModel | None = None
-    metadata: Metadata | None = None
+    id: int
+    interval: int
+    overlap: int
     user_identifier: str | None = None
-    status: str | None = None
-    alert_context: AlertContext | None = None
 
     @classmethod
     def request_cls(cls) -> type[ChartMonitoringJobRequest]:
         return ChartMonitoringJobRequest
 
     def as_request_resource(self) -> ChartMonitoringJobRequest:
-        raise NotImplementedError("Cannot be converted to ChartMonitoringJobRequest")
+        dump = self.dump()
+        dump["nonce"] = "<missing>"
+        return ChartMonitoringJobRequest.model_validate(dump, extra="allow")

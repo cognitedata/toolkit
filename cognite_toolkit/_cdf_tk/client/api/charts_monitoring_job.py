@@ -1,8 +1,5 @@
 from collections.abc import Sequence
-from functools import cached_property
 from typing import Any
-
-from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -20,25 +17,19 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/charts/monitoring/monitoringTasks", item_limit=1000),
-                "retrieve": Endpoint(method="POST", path="/charts/monitoring/monitoringTasks/byids", item_limit=1000),
-                "delete": Endpoint(method="POST", path="/charts/monitoring/monitoringTasks/delete", item_limit=1000),
-                "update": Endpoint(method="POST", path="/charts/v2/monitoring/monitoringJob/update", item_limit=1),
+                "create": Endpoint(method="POST", path="/monitoringtasks", item_limit=1),
+                "delete": Endpoint(method="POST", path="/monitoringtasks/delete", item_limit=1),
+                "upsert": Endpoint(method="POST", path="monitoringtasks/upsert", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/monitoringtasks/byids", item_limit=1),
+                "update": Endpoint(method="POST", path="/monitoringtasks/update", item_limit=1),
                 "list": Endpoint(method="POST", path="/monitoringtasks/list", item_limit=1000),
             },
         )
-
-    @cached_property
-    def _adapter(self) -> TypeAdapter[list[ChartMonitoringJobResponse]]:
-        return TypeAdapter(list[ChartMonitoringJobResponse])
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[ChartMonitoringJobResponse]:
         return PagedResponse[ChartMonitoringJobResponse].model_validate_json(response.body)
-
-    def _make_url(self, path: str = "") -> str:
-        return self._http_client.config.create_app_url(path)
 
     def create(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
         """Create monitoring tasks in CDF.
@@ -48,15 +39,7 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         Returns:
             Created monitoring job response objects.
         """
-        results: list[ChartMonitoringJobResponse] = []
-        endpoint = self._method_endpoint_map["create"]
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path), method=endpoint.method, body_content=item.dump()
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-            results.extend(self._adapter.validate_json(response.body))
-        return results
+        return self._request_item_response(items, "create")
 
     def retrieve(self, items: Sequence[InternalId | ExternalId]) -> list[ChartMonitoringJobResponse]:
         """Retrieve monitoring tasks by internal or external ID.
@@ -86,6 +69,16 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         """
         return self._request_item_response(items, "update")
 
+    def upsert(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+        """Upsert monitoring tasks.
+
+        Args:
+            items: Monitoring job request objects to upsert.
+        Returns:
+            Upserted monitoring job response objects.
+        """
+        return self._request_item_response(items, "upsert")
+
     def list(self, filter_: ChartMonitorJobFilter | None = None, limit: int = 100) -> list[ChartMonitoringJobResponse]:
         """List monitoring tasks.
 
@@ -101,7 +94,7 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
             body["filter"] = filter_.dump()
         endpoint = self._method_endpoint_map["list"]
         request = RequestMessage(
-            endpoint_url=self._make_url(endpoint.path),
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
             body_content=body,
         )
