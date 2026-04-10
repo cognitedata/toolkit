@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from typing import Any
 
+from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -29,6 +30,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
                 "list": Endpoint(method="POST", path="/storage/charts/charts/list", item_limit=1000),
             },
         )
+        self.monitoring_jobs = ChartMonitoringJobAPI(http_client)
 
     def _make_url(self, path: str = "") -> str:
         return self._http_client.config.create_app_url(path)
