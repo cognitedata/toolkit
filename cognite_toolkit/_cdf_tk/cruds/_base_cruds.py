@@ -40,10 +40,13 @@ class Loader(ABC):
         build_dir (Path): The path to the build directory
 
     Class attributes:
-        filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
         folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
         dependencies: A set of loaders that must be loaded before this loader.
-        exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into sub directories.
+        allowed_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
     """
 
     folder_name: str
@@ -52,6 +55,7 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
     sub_folder_name: str | None = None
+    extra_kinds: frozenset[str] = frozenset()
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client
