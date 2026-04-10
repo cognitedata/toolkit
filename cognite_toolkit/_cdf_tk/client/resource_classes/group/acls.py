@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .scopes import (
+    AgentExternalIdScope,
     AllScope,
     AppConfigScope,
     AssetRootIDScope,
@@ -80,7 +81,7 @@ class AgentsAcl(Acl):
 
     acl_name: Literal["agentsAcl"] = Field("agentsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScope | AgentExternalIdScope
 
 
 class AnalyticsAcl(Acl):
