@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -18,7 +19,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import (
     FILENAME_VARIABLE,
-    FILEPATH,
     FileExternalID,
     FileInstanceID,
     TemplateNodeId,
