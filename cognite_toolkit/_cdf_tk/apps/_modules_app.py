@@ -48,7 +48,6 @@ class ModulesApp(typer.Typer):
             bool,
             typer.Option(
                 "--all",
-                "-a",
                 help="Copy all available templates.",
             ),
         ] = False,
