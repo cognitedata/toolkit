@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
 )
 
 from .charts_monitoring_job import ChartMonitoringJobAPI
-
+from .charts_folders import ChartFoldersAPI
 
 class ChartsAPI(CDFResourceAPI[ChartResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
@@ -31,6 +31,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
                 "list": Endpoint(method="POST", path="/storage/charts/charts/list", item_limit=1000),
             },
         )
+        self.folders = ChartFoldersAPI(http_client)
         self.monitoring_jobs = ChartMonitoringJobAPI(http_client)
 
     def _make_url(self, path: str = "") -> str:

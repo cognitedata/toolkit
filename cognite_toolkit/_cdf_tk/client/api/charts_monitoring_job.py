@@ -20,7 +20,6 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
                 "create": Endpoint(method="POST", path="/monitoringtasks", item_limit=1000),
                 "retrieve": Endpoint(method="POST", path="/monitoringtasks/byids", item_limit=1000),
                 "delete": Endpoint(method="POST", path="/monitoringtasks/delete", item_limit=1000),
-                "upsert": Endpoint(method="POST", path="/monitoringtasks/upsert", item_limit=1000),
                 "update": Endpoint(method="POST", path="/monitoringtasks/update", item_limit=1),
                 "list": Endpoint(method="POST", path="/monitoringtasks/list", item_limit=1000),
             },
@@ -58,16 +57,6 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
             items: Identifiers to delete.
         """
         self._request_no_response(items, "delete")
-
-    def upsert(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
-        """Create or replace monitoring tasks (upsert).
-
-        Args:
-            items: Monitoring job request objects to upsert.
-        Returns:
-            Upserted monitoring job response objects.
-        """
-        return self._request_item_response(items, "upsert")
 
     def update(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
         """Update monitoring tasks.
