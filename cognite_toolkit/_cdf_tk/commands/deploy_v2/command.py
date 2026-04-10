@@ -288,7 +288,7 @@ class DeployV2Command(ToolkitCommand):
                     if stem.endswith(kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
                         break
-                    elif stem in {kind.casefold() for kind in crud.extra_kinds}:
+                    elif any(stem.endswith(extra_kind.casefold()) for extra_kind in crud.extra_kinds):
                         resources.extra_files.append(yaml_file)
                         break
                 else:
