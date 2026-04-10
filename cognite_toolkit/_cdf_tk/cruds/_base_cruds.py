@@ -45,7 +45,7 @@ class Loader(ABC):
         dependencies: A set of loaders that must be loaded before this loader.
         sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
             when dumping data models to put containers and views into sub directories.
-        allowed_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
             as these contain function code.
     """
 
