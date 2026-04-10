@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import Cognite
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper, AssetCentricToRecordMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
@@ -29,8 +29,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -301,3 +305,39 @@ class TestMigrateFiles:
         assert actual_result == {"failure": 0, "pending": 0, "success": 0, "unchanged": 0, "skipped": 1}, (
             "File already exists."
         )
+
+
+class TestMigrateEventsToRecordsCommand:
+    def test_migrate_events_to_records_by_dataset_dry_run(
+        self,
+        toolkit_client: ToolkitClient,
+        migration_hierarchy_minimal: HierarchyMinimal,
+        toolkit_stream: StreamResponse,
+        toolkit_record_container: ContainerResponse,
+        tmp_path: Path,
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        record_mapping = RecordPropertyMapping(
+            external_id="default",
+            container_id=toolkit_record_container.as_id(),
+            property_mapping={"description": "description"},
+        )
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="Events",
+            data_set_external_id=hierarchy.dataset.external_id,
+        )
+        result = cmd.migrate(
+            selectors=[selector],
+            data=RecordsMigrationIO(client, stream_external_id=toolkit_stream.external_id),
+            mapper=AssetCentricToRecordMapper(
+                client,
+                mappings_by_external_id={"default": record_mapping},
+                default_mapping="default",
+            ),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = {item.status: item.count for item in result[str(selector)]}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}

@@ -951,10 +951,11 @@ def _make_record_property_mapping(external_id: str, container_id: ContainerId) -
     )
 
 
-def _make_container_response(container_id: ContainerId) -> ContainerResponse:
+def _make_record_container_response(container_id: ContainerId) -> ContainerResponse:
     return ContainerResponse(
         space=container_id.space,
         external_id=container_id.external_id,
+        used_for="record",
         properties={
             "description": ContainerPropertyDefinition(
                 type=TextProperty(), nullable=True, immutable=False, auto_increment=False
@@ -976,6 +977,17 @@ class TestAssetCentricToRecordMapper:
             with pytest.raises(ToolkitValueError, match="not found in Data Modeling"):
                 mapper.prepare(MagicMock())
 
+    def test_prepare_raises_on_non_record_container(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="NodeContainer")
+        mapping = _make_record_property_mapping("mapping_x", container_id)
+        node_container = _make_record_container_response(container_id)
+        node_container.used_for = "node"
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [node_container]
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
+            with pytest.raises(ToolkitValueError, match="usedFor='record'"):
+                mapper.prepare(MagicMock())
+
     def test_map_rejects_non_event_row(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
         mapping = _make_record_property_mapping("mapping_a", container_id)
@@ -989,7 +1001,7 @@ class TestAssetCentricToRecordMapper:
             resource=AssetResponse(id=1, name="asset_1", created_time=0, last_updated_time=1, root_id=0),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
+            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             with pytest.raises(ToolkitValueError, match="only supports Event"):
@@ -1010,7 +1022,7 @@ class TestAssetCentricToRecordMapper:
             ),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
+            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             results = mapper.map([source])

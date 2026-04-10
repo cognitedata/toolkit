@@ -268,6 +268,12 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
             raise ToolkitValueError(
                 f"The following containers were not found in Data Modeling: {humanize_collection(missing_container_ids)}"
             )
+        non_record_containers = [c for c in containers if c.used_for != "record"]
+        if non_record_containers:
+            raise ToolkitValueError(
+                f"The following containers are not compatiable with records (requires usedFor='record'): "
+                f"{humanize_collection([c.as_id() for c in non_record_containers])}"
+            )
         self._container_properties_by_mapping_external_id = {
             external_id: container_properties_by_id[record_mapping.container_id]
             for external_id, record_mapping in self._mappings_by_external_id.items()

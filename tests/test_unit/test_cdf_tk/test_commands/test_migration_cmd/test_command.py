@@ -1239,6 +1239,7 @@ class TestMigrationCommand:
         container = ContainerResponse(
             space=container_id.space,
             external_id=container_id.external_id,
+            used_for="record",
             properties={
                 "description": ContainerPropertyDefinition(
                     type=TextProperty(), nullable=True, immutable=False, auto_increment=False
