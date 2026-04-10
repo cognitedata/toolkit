@@ -609,7 +609,7 @@ def _handle_unknown_acl(value: Any) -> Any:
             try:
                 return TypeAdapter(acl_class).validate_python(value)
             except ValidationError as err:
-                if any(not _is_unknown_scope_or_action(error) for error in err.errors()):
+                if all(not _is_unknown_scope_or_action(error) for error in err.errors()):
                     raise err
                 # If the ACL contains an unknown scope or action, we treat it as an
                 # unknown acl.
@@ -620,7 +620,9 @@ def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
     loc = error["loc"]
     if not loc:
         return False
-    return error["type"] == "literal_error" and (loc == ("scope", "scope_name") or loc[0] == "actions")
+    is_unknown_action = loc[0] == "action" and isinstance(loc[-1], int)
+    is_unknown_scope = loc[0] == "scope" and loc[-1] == "scope_name"
+    return error["type"] == "literal_error" and (is_unknown_action or is_unknown_scope)
 
 
 AclType: TypeAlias = Annotated[
