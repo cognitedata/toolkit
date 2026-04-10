@@ -195,7 +195,6 @@ def toolkit_record_container(toolkit_client: ToolkitClient, toolkit_space: Space
         name="Toolkit Test Record Container",
         used_for="record",
         properties={
-            "description": ContainerPropertyDefinition(type=TextProperty()),
             "name": ContainerPropertyDefinition(type=TextProperty()),
         },
     )

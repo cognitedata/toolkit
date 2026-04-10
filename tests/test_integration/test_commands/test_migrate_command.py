@@ -323,7 +323,7 @@ class TestMigrateEventsToRecordsCommand:
         record_mapping = RecordPropertyMapping(
             external_id="default",
             container_id=toolkit_record_container.as_id(),
-            property_mapping={"description": "description"},
+            property_mapping={"type": "name"},
         )
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
