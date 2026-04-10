@@ -281,6 +281,29 @@ def _resolve_source_file(
     kind: str,
     explicit: Path | str | None = None,
 ) -> Path | None:
+    """Resolve the source file path for a file resource.
+
+    This function determines the path to the actual file content associated with a
+    YAML resource definition. It uses the following resolution order:
+
+    1. If an explicit path is provided, use it (resolved relative to the YAML file's directory
+       if not absolute).
+    2. Look for a file in the same directory with the same stem as the YAML file (excluding
+       the resource kind suffix, e.g., 'myfile.FileMetadata.yaml' -> 'myfile.*').
+    3. If the item has a 'name' field, check if a file with that name exists in the
+       YAML file's directory.
+
+    Args:
+        yaml_filepath: Path to the YAML file defining the resource.
+        item: Dictionary containing the resource definition.
+        kind: The resource kind (e.g., 'FileMetadata', 'CogniteFile') used to strip
+            suffixes from the YAML filename when searching for matching files.
+        explicit: An explicitly provided file path. If relative, it will be resolved
+            relative to the YAML file's directory.
+
+    Returns:
+        The resolved Path to the source file, or None if no source file could be found.
+    """
     if explicit is not None:
         path = Path(explicit)
         if not path.is_absolute():
