@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import SearchConfigCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD, SearchConfigCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
@@ -126,6 +126,12 @@ properties:
     containerPropertyIdentifier: name
 """
 
+FILEMETADATA_YAML = """externalId: my_file
+name: the_filename
+$FILEPATH: text_file.txt
+mimeType: text/plain
+"""
+
 
 def create_resource_file(organization_dir: Path, crud: type[ResourceCRUD], resource_yaml: str) -> Path:
     resource_file = organization_dir / MODULES / "my_module" / crud.folder_name / f"my_space.{crud.kind}.yaml"
@@ -197,7 +203,17 @@ name: My Space
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
 
-    def test_build_file_content(self, tmp_path: Path) -> None: ...
+    def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
+        cmd = BuildV2Command()
+
+        # Set up a simple organization with modules folder.
+        org = tmp_path / "org"
+
+        file_metadata = create_resource_file(org, FileMetadataCRUD, FILEMETADATA_YAML)
+        (file_metadata.parent / "text_file.txt").write_text("this is a text file")
+        build_dir = tmp_path / "build"
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        _ = cmd.build(parameters, client=None)
 
 
 class TestDependencyValidationSearchConfig:
