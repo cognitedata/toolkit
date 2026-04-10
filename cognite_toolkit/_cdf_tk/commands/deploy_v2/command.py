@@ -502,6 +502,7 @@ class DeployV2Command(ToolkitCommand):
                 resource_by_id = cls._read_resource_files(crud, step.files, options)
                 if not resource_by_id:
                     # If the CRUD is a GroupScoped and the resources are all scoped.
+                    progress.update(task_id, advance=len(step.files))
                     continue
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
