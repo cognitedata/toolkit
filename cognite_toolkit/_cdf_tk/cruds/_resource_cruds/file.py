@@ -160,34 +160,6 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
-    @staticmethod
-    def resolve_source_file(
-        yaml_filepath: Path,
-        item: dict[str, Any],
-        *,
-        kind: str,
-        explicit: Path | str | None = None,
-    ) -> Path | None:
-        if explicit is not None:
-            path = Path(explicit)
-            if not path.is_absolute():
-                path = yaml_filepath.parent / path
-            return path
-
-        stem = yaml_filepath.stem
-        if stem.lower().endswith(kind.lower()):
-            stem = stem[: -len(kind)].rstrip(".")
-        if candidate := next(
-            (file for file in yaml_filepath.parent.glob(f"{stem}*") if file != yaml_filepath and file.stem == stem),
-            None,
-        ):
-            return candidate
-        if isinstance(name := item.get("name"), str):
-            candidate = yaml_filepath.parent / name
-            if candidate.exists():
-                return candidate
-        return None
-
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         yield from _iter_file_content_read_extras(filepath, item, kind=cls.kind)
@@ -198,7 +170,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         raw_files = super().load_resource_file(filepath, environment_variables)
         for item in raw_files:
             explicit = item.pop(FILEPATH, None)
-            source_file = self.resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
+            source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
                 continue
             if self.support_upload:
@@ -302,6 +274,34 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return deleted_files
 
 
+def _resolve_source_file(
+    yaml_filepath: Path,
+    item: dict[str, Any],
+    *,
+    kind: str,
+    explicit: Path | str | None = None,
+) -> Path | None:
+    if explicit is not None:
+        path = Path(explicit)
+        if not path.is_absolute():
+            path = yaml_filepath.parent / path
+        return path
+
+    stem = yaml_filepath.stem
+    if stem.lower().endswith(kind.lower()):
+        stem = stem[: -len(kind)].rstrip(".")
+    if candidate := next(
+        (file for file in yaml_filepath.parent.glob(f"{stem}*") if file != yaml_filepath and file.stem == stem),
+        None,
+    ):
+        return candidate
+    if isinstance(name := item.get("name"), str):
+        candidate = yaml_filepath.parent / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _iter_file_content_read_extras(
     filepath: Path,
     item: dict[str, Any],
@@ -309,7 +309,7 @@ def _iter_file_content_read_extras(
     kind: str,
 ) -> Iterable[ReadExtra]:
     explicit = item.get(FILEPATH)
-    source = FileMetadataCRUD.resolve_source_file(filepath, item, kind=kind, explicit=explicit)
+    source = _resolve_source_file(filepath, item, kind=kind, explicit=explicit)
     if source is None:
         # it is optional to include file content.
         return
@@ -395,7 +395,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         raw_files = super().load_resource_file(filepath, environment_variables)
         for item in raw_files:
             explicit = item.pop(FILEPATH, None)
-            source_file = FileMetadataCRUD.resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
+            source_file = _resolve_source_file(filepath, item, kind=self.kind, explicit=explicit)
             if source_file is None:
                 continue
             if self.support_upload:
