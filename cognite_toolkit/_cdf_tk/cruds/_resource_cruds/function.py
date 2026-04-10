@@ -338,6 +338,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             resource["fileId"] = -1  # Placeholder, will be set in create()
         return FunctionRequest.model_validate(resource)
 
+    def sensitive_strings(self, item: FunctionRequest) -> Iterable[str]:
+        if item.secrets:
+            yield from item.secrets.values()
+
     def dump_resource(self, resource: FunctionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         if resource.status == "Failed":
             dumped = self.dump_id(ExternalId(external_id=resource.external_id or resource.name))
