@@ -1,4 +1,10 @@
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from typing import Any, Literal
+
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    ResponseResource,
+    UpdatableRequestResource,
+)
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 
@@ -35,7 +41,9 @@ class ChartMonitoringJob(BaseModelObject, extra="allow"):
     alert_context: AlertContext | None = None
 
 
-class ChartMonitoringJobRequest(ChartMonitoringJob, RequestResource, extra="allow"): ...
+class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, extra="allow"):
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        return self.dump()
 
 
 class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonitoringJobRequest], extra="allow"):
