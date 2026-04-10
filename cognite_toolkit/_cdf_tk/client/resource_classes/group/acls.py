@@ -595,7 +595,7 @@ def _get_acl_name(cls: type[Acl]) -> str | None:
 
 
 _KNOWN_ACLS = {
-    name: acl
+    name: TypeAdapter(acl)
     for acl in get_concrete_subclasses(Acl)
     if (name := _get_acl_name(acl)) is not None and name != "unknownAcl"
 }
@@ -605,9 +605,9 @@ def _handle_unknown_acl(value: Any) -> Any:
     if isinstance(value, Acl | UnknownAcl):
         return value
     if isinstance(value, dict) and isinstance(acl_name := value.get(ACL_NAME), str):
-        if acl_class := _KNOWN_ACLS.get(acl_name):
+        if acl_adapter := _KNOWN_ACLS.get(acl_name):
             try:
-                return TypeAdapter(acl_class).validate_python(value)
+                return acl_adapter.validate_python(value)
             except ValidationError as err:
                 if all(not _is_unknown_scope_or_action(error) for error in err.errors()):
                     raise err
