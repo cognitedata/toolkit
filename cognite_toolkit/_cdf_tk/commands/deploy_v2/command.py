@@ -77,6 +77,7 @@ class ResourceDirectory:
     directory: Path
     files_by_crud: dict[type[ResourceCRUD], list[Path]] = field(default_factory=lambda: defaultdict(list))
     invalid_files: list[Path] = field(default_factory=list)
+    extra_files: list[Path] = field(default_factory=list)
 
 
 @dataclass
@@ -283,8 +284,12 @@ class DeployV2Command(ToolkitCommand):
             crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
                 for kind, crud in crud_by_kind.items():
-                    if yaml_file.stem.casefold().endswith(kind.casefold()):
+                    stem = yaml_file.stem.casefold()
+                    if stem.endswith(kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
+                        break
+                    elif stem in {kind.casefold() for kind in crud.extra_kinds}:
+                        resources.extra_files.append(yaml_file)
                         break
                 else:
                     resources.invalid_files.append(yaml_file)
