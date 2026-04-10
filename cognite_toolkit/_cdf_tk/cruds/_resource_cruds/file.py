@@ -314,7 +314,11 @@ def _resolve_source_file(
     if stem.lower().endswith(kind.lower()):
         stem = stem[: -len(kind)].rstrip(".")
     if candidate := next(
-        (file for file in sorted(yaml_filepath.parent.glob(f"{stem}*")) if file != yaml_filepath and file.stem == stem),
+        (
+            file
+            for file in sorted(yaml_filepath.parent.glob(f"{stem}*"))
+            if file.is_file() and file != yaml_filepath and file.stem == stem
+        ),
         None,
     ):
         return candidate
@@ -336,7 +340,7 @@ def _iter_file_content_read_extras(
     if source is None:
         # it is optional to include file content.
         return
-    if not source.exists():
+    if not source.is_file():
         yield FailedReadExtra(
             code="NOT-EXISTING",
             error=f"File contents path does not exist: {source.as_posix()}",
