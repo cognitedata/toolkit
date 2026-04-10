@@ -7,7 +7,8 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, ValidationError, model_serializer, model_validator
+from pydantic_core import ErrorDetails
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -603,10 +604,22 @@ def _handle_unknown_acl(value: Any) -> Any:
     if isinstance(value, Acl | UnknownAcl):
         return value
     if isinstance(value, dict) and isinstance(acl_name := value.get(ACL_NAME), str):
-        acl_class = _KNOWN_ACLS.get(acl_name)
-        if acl_class:
-            return TypeAdapter(acl_class).validate_python(value)
+        if acl_class := _KNOWN_ACLS.get(acl_name):
+            try:
+                return TypeAdapter(acl_class).validate_python(value)
+            except ValidationError as err:
+                if any(not _is_unknown_scope_or_action(error) for error in err.errors()):
+                    raise err
+                # If the ACL contains an unknown scope or action, we treat it as an
+                # unknown acl.
     return UnknownAcl.model_validate(value)
+
+
+def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
+    loc = error["loc"]
+    if not loc:
+        return False
+    return error["type"] == "literal_error" and (loc == ("scope", "scope_name") or loc[0] == "actions")
 
 
 AclType: TypeAlias = Annotated[
