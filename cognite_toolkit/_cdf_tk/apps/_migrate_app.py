@@ -674,10 +674,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Events to records (Streams API)."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        try:
-            migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
-        except Exception as exc:
-            raise typer.BadParameter(str(exc)) from exc
+        migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
         if mapping_file is None and data_set_id is None:
             data_set_id = EventInteractiveSelect(client, "migrate").select_data_set(allow_empty=False)
         if data_set_id is not None and migration_config.default_mapping is None:
@@ -696,9 +693,7 @@ class MigrateApp(typer.Typer):
                 Panel(f"Migrating {len(selected.items)} events", title="Ready for migration", expand=False)
             )
             if not auto_yes:
-                proceed = questionary.confirm(
-                    "Do you want to proceed with the migration?", default=False
-                ).unsafe_ask()
+                proceed = questionary.confirm("Do you want to proceed with the migration?", default=False).unsafe_ask()
                 if not proceed:
                     client.console.print("Migration aborted by user.")
                     raise typer.Abort()
