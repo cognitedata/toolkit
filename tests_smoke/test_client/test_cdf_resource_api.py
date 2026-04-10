@@ -9,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
@@ -67,7 +68,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
@@ -289,6 +291,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Rule sets: parent/child relationship, versions require parent in path.
         RuleSetsAPI,
         RuleSetVersionsAPI,
+        # Requires a Chart.
+        ChartMonitoringJobAPI,
     }
 )
 
@@ -798,6 +802,24 @@ def smoke_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
     retrieved = toolkit_client.tool.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
         return toolkit_client.tool.sequences.create([sequence_request])[0]
+    return retrieved[0]
+
+
+@pytest.fixture(scope="session")
+def smoke_chart(toolkit_client: ToolkitClient) -> ChartResponse:
+    chart_request = ChartRequest(
+        external_id="smoke-test-chart",
+        visibility="PRIVATE",
+        data=ChartData(
+            version=1,
+            name="Smoke Test Chart",
+            date_from="2024-01-01T00:00:00Z",
+            date_to="2026-03-02T00:00:00Z",
+        ),
+    )
+    retrieved = toolkit_client.charts.retrieve([chart_request.as_id()])
+    if len(retrieved) == 0:
+        return toolkit_client.charts.create([chart_request])[0]
     return retrieved[0]
 
 
@@ -2221,3 +2243,5 @@ class TestCDFResourceAPI:
             client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
             client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
             client.tool.workflows.delete([workflow_id])
+
+    def test_chart_monitoring_job(self, toolkit_client: ToolkitClient, smoke_chart: ChartResponse) -> None: ...

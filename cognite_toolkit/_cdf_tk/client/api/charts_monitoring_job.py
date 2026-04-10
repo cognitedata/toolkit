@@ -5,6 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
@@ -78,17 +79,19 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         """
         return self._request_item_response(items, "update")
 
-    def list(self, filter_: dict[str, Any] | None = None) -> list[ChartMonitoringJobResponse]:
+    def list(self, filter_: ChartMonitorJobFilter | None = None, limit: int = 100) -> list[ChartMonitoringJobResponse]:
         """List monitoring tasks.
 
         Args:
-            filter_: Optional filter object for the list request body.
+            filter_: Optional filter to apply when listing monitoring tasks.
+            limit: Maximum number of monitoring tasks to return.
+
         Returns:
             Monitoring job response objects matching the request.
         """
-        body: dict[str, Any] = {}
+        body: dict[str, Any] = {"limit": limit}
         if filter_ is not None:
-            body["filter"] = filter_
+            body["filter"] = filter_.dump()
         endpoint = self._method_endpoint_map["list"]
         request = RequestMessage(
             endpoint_url=self._make_url(endpoint.path),
