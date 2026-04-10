@@ -20,7 +20,9 @@ def record_selector(
     """Ensure records exist in the stream via upsert and return a selector."""
     selector = RecordContainerSelector(
         stream=SelectedStream(external_id=toolkit_stream.external_id),
-        container=SelectedContainer(space=toolkit_record_container.space, external_id=toolkit_record_container.external_id),
+        container=SelectedContainer(
+            space=toolkit_record_container.space, external_id=toolkit_record_container.external_id
+        ),
         initialize_cursor="9999d-ago",
         download_dir_name=None,
         instance_spaces=(toolkit_record_container.space,),

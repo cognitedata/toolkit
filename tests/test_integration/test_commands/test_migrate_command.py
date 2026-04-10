@@ -16,10 +16,15 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.cdf_client import ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper, AssetCentricToRecordMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
@@ -32,9 +37,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
