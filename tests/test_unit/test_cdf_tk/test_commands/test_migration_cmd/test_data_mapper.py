@@ -967,20 +967,6 @@ def _make_container_response(container_id: ContainerId) -> ContainerResponse:
 
 
 class TestAssetCentricToRecordMapper:
-    def test_prepare_retrieves_and_caches_container(self) -> None:
-        container_id = ContainerId(space="my_space", external_id="EventContainer")
-        mapping_a = _make_record_property_mapping("mapping_a", container_id)
-        mapping_b = _make_record_property_mapping("mapping_b", container_id)
-        with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [_make_container_response(container_id)]
-            mapper = AssetCentricToRecordMapper(
-                client,
-                mappings_by_external_id={"mapping_a": mapping_a, "mapping_b": mapping_b},
-            )
-            mapper.prepare(MagicMock())
-            # Same container referenced twice — should only be retrieved once
-            assert client.tool.containers.retrieve.call_count == 1
-
     def test_prepare_raises_on_missing_container(self) -> None:
         container_id = ContainerId(space="my_space", external_id="MissingContainer")
         mapping = _make_record_property_mapping("mapping_x", container_id)

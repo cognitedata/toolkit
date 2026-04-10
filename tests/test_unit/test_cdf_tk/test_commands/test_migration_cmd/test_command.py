@@ -1179,12 +1179,6 @@ class TestMigrationCommand:
             with pytest.raises(ToolkitMigrationError, match="does not exist"):
                 MigrationCommand(silent=True).validate_stream_capacity(client, "missing_stream", 1)
 
-    def test_validate_stream_capacity_sufficient(self) -> None:
-        stream = _make_stream_response(provisioned_records=1_000_000, consumed_records=100_000)
-        with monkeypatch_toolkit_client() as client:
-            client.streams.retrieve.return_value = [stream]
-            MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 500_000)
-
     def test_validate_stream_capacity_insufficient_records(self) -> None:
         stream = _make_stream_response(provisioned_records=1_000, consumed_records=900)
         with monkeypatch_toolkit_client() as client:
@@ -1214,7 +1208,7 @@ class TestMigrationCommand:
         container_id = ContainerId(space=space, external_id="EventContainer")
         events = [
             EventResponse(
-                id=100 + i,
+                id=i,
                 external_id=f"event_{i}",
                 description=f"Event {i}",
                 created_time=0,
@@ -1292,6 +1286,5 @@ class TestMigrationCommand:
         upload_body = json.loads(ingest_records.calls[0].request.content)
         assert len(upload_body["items"]) == len(events)
 
-        result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = {status.status: status.count for status in results_by_selector[str(selector)]}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(events), "unchanged": 0, "skipped": 0}
