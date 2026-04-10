@@ -67,7 +67,8 @@ class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         Returns:
             Updated monitoring job response objects.
         """
-        return self._request_item_response(items, "update")
+        # Mode does not matter.
+        return self._update(items, mode="replace")
 
     def upsert(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
         """Upsert monitoring tasks.

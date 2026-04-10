@@ -2306,8 +2306,9 @@ class TestCDFResourceAPI:
             source_id=smoke_chart.external_id,
             nonce=client.iam.sessions.create().nonce,
         )
+        job_id = request.as_id()
         try:
-            client.charts.monitoring_jobs.delete([request.as_id()])
+            client.charts.monitoring_jobs.delete([job_id])
         except ToolkitAPIError:
             pass
 
@@ -2319,8 +2320,49 @@ class TestCDFResourceAPI:
                 request.as_id(),
             )
 
+            _ = self.assert_endpoint_method(
+                lambda: client.charts.monitoring_jobs.retrieve([job_id]),
+                "retrieve",
+                endpoints["retrieve"],
+                job_id,
+            )
+
+            upsert_request = request.model_copy(
+                update={"name": "upsert_name", "nonce": client.iam.sessions.create().nonce}
+            )
+            try:
+                upserted = client.charts.monitoring_jobs.upsert([upsert_request])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["upsert"].path, f"Failed to upsert {e!s}")
+            if len(upserted) != 1:
+                raise EndpointAssertionError(endpoints["upsert"].path, f"Expected 1 upserted job, got {len(upserted)}")
+            if upserted[0].name != "upsert_name":
+                raise EndpointAssertionError(
+                    endpoints["upsert"].path, "Upsert did not update the job name as expected."
+                )
+
+            try:
+                listed = client.charts.monitoring_jobs.list(limit=100)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Failed to list chart monitoring jobs: {e!s}")
+            if not listed:
+                raise EndpointAssertionError(
+                    endpoints["list"].path, "Expected at least 1 listed chart monitoring job, got 0"
+                )
+
+            update_request = request.model_copy(update={"name": "updated_name"})
+            try:
+                updated = client.charts.monitoring_jobs.update([update_request])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["update"].path, f"Failed to update chart monitoring job: {e!s}")
+            if len(updated) != 1:
+                raise EndpointAssertionError(endpoints["update"].path, f"Expected 1 updated job, got {len(updated)}")
+            if updated[0].name != "updated_name":
+                raise EndpointAssertionError(
+                    endpoints["update"].path, "Update did not update the job name as expected."
+                )
         finally:
             try:
-                client.charts.monitoring_jobs.delete([request.as_id()])
+                client.charts.monitoring_jobs.delete([job_id])
             except ToolkitAPIError:
                 pass

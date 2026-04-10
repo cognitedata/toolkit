@@ -55,7 +55,10 @@ class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, ex
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        raise NotImplementedError()
+        return self.model_dump(
+            exclude={"nonce", "source", "source_id", "metadata", "alert_context", "interval", "overlap"},
+            exclude_none=True,
+        )
 
 
 class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonitoringJobRequest], extra="allow"):
