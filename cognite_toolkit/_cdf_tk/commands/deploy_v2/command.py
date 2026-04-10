@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
     RawTableCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
@@ -260,7 +259,7 @@ class DeployV2Command(ToolkitCommand):
         """
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
-        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
+        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME.keys())
         if include and (invalid := set(include) - available_resource_types):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
