@@ -24,9 +24,8 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
-    GroupAllScopedCRUD,
-    GroupResourceScopedCRUD,
     RawTableCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
@@ -279,28 +278,24 @@ class DeployV2Command(ToolkitCommand):
         for resource_dir in build_dir.iterdir():
             if not resource_dir.is_dir():
                 continue
-            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND:
+            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME:
                 invalid_resource_dirs.append(resource_dir)
                 continue
             resources = ResourceDirectory(resource_dir)
-            crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
+            cruds = RESOURCE_CRUD_BY_FOLDER_NAME[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
-                for kind, crud in crud_by_kind.items():
-                    stem = yaml_file.stem.casefold()
-                    if stem.endswith(kind.casefold()):
+                matched = False
+                stem = yaml_file.stem.casefold()
+                for crud in cruds:
+                    if stem.endswith(crud.kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
-
-                        # Special cases, there are two group CRUDs.
-                        if crud is GroupResourceScopedCRUD:
-                            resources.files_by_crud[GroupAllScopedCRUD].append(yaml_file)
-                        elif crud is GroupAllScopedCRUD:
-                            resources.files_by_crud[GroupResourceScopedCRUD].append(yaml_file)
-                        break
+                        matched = True
                     elif any(stem.endswith(extra_kind.casefold()) for extra_kind in crud.extra_kinds):
                         resources.extra_files.append(yaml_file)
-                        break
-                else:
+                        matched = True
+                if not matched:
                     resources.invalid_files.append(yaml_file)
+
             if include_set is not None and resource_dir.name not in include_set:
                 skipped_resource_dirs.append(resources)
             else:
