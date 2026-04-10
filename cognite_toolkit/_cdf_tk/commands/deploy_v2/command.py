@@ -25,6 +25,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    GroupAllScopedCRUD,
+    GroupResourceScopedCRUD,
     RawTableCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
@@ -287,6 +289,12 @@ class DeployV2Command(ToolkitCommand):
                     stem = yaml_file.stem.casefold()
                     if stem.endswith(kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
+
+                        # Special cases, there are two group CRUDs.
+                        if crud is GroupResourceScopedCRUD:
+                            resources.files_by_crud[GroupAllScopedCRUD].append(yaml_file)
+                        elif crud is GroupAllScopedCRUD:
+                            resources.files_by_crud[GroupResourceScopedCRUD].append(yaml_file)
                         break
                     elif any(stem.endswith(extra_kind.casefold()) for extra_kind in crud.extra_kinds):
                         resources.extra_files.append(yaml_file)
@@ -498,6 +506,9 @@ class DeployV2Command(ToolkitCommand):
                 progress.update(task_id, description=f"Reading {resource_name}")
 
                 resource_by_id = cls._read_resource_files(crud, step.files, options)
+                if not resource_by_id:
+                    # If the CRUD is a GroupScoped and the resources are all scoped.
+                    continue
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
