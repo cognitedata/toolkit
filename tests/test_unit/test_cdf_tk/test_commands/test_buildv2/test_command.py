@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SearchConfigCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
@@ -127,7 +127,7 @@ properties:
 """
 
 
-def create_resource_file(organization_dir: Path, crud: type[ResourceContainerCRUD], resource_yaml: str) -> Path:
+def create_resource_file(organization_dir: Path, crud: type[ResourceCRUD], resource_yaml: str) -> Path:
     resource_file = organization_dir / MODULES / "my_module" / crud.folder_name / f"my_space.{crud.kind}.yaml"
     resource_file.parent.mkdir(parents=True, exist_ok=True)
     resource_file.write_text(resource_yaml)
@@ -196,6 +196,8 @@ name: My Space
             "syntax_warnings": 1,
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
+
+    def test_build_file_content(self, tmp_path: Path) -> None: ...
 
 
 class TestDependencyValidationSearchConfig:

@@ -30,7 +30,11 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -158,7 +162,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         if stem.lower().endswith(self.kind.lower()):
             stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
-            source_file = item.pop("$FILEPATH", None)
+            source_file = item.pop(FILEPATH, None)
             if source_file is None:
                 if candidate := next(
                     (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
@@ -334,7 +338,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         if stem.lower().endswith(self.kind.lower()):
             stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
-            source_file = item.pop("$FILEPATH", None)
+            source_file = item.pop(FILEPATH, None)
             if source_file is None:
                 if candidate := next(
                     (file for file in filepath.parent.glob(f"{stem}*") if file != filepath and file.stem == stem), None
