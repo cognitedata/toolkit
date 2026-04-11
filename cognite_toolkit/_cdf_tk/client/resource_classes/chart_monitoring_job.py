@@ -58,6 +58,7 @@ class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, ex
         return self.model_dump(
             exclude={"nonce", "source", "source_id", "metadata", "alert_context", "interval", "overlap"},
             exclude_none=True,
+            by_alias=True,
         )
 
 

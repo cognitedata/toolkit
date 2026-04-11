@@ -9,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
@@ -76,6 +77,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFo
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobModel,
     ChartMonitoringJobRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    MINUTE_MS,
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
@@ -303,6 +311,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         RuleSetVersionsAPI,
         # Requires a timeseries.
         ChartMonitoringJobsAPI,
+        ChartScheduledCalculationsAPI,
     }
 )
 
@@ -2349,6 +2358,105 @@ class TestCDFResourceAPI:
         finally:
             try:
                 client.charts.monitoring_jobs.delete([job_id])
+            except ToolkitAPIError:
+                pass
+
+    def test_chart_scheduled_calculation(
+        self,
+        toolkit_client: ToolkitClient,
+        smoke_timeseries: TimeSeriesResponse,
+    ) -> None:
+        client = toolkit_client
+        endpoints = client.charts.scheduled_calculations._method_endpoint_map
+
+        source_ts_external_id = smoke_timeseries.external_id
+        if source_ts_external_id is None:
+            raise AssertionError("smoke_timeseries must have external_id for scheduled calculation smoke test.")
+
+        output_ts_request = TimeSeriesRequest(
+            external_id="smoke-test-chart-scheduled-calculation-output-ts",
+            name="Smoke test scheduled calculation output",
+            is_string=False,
+            is_step=True,
+        )
+        output_ts_id = output_ts_request.as_id()
+        retrieved_output = client.tool.timeseries.retrieve([output_ts_id], ignore_unknown_ids=True)
+        if len(retrieved_output) == 0:
+            client.tool.timeseries.create([output_ts_request])
+
+        period_ms = 5 * MINUTE_MS
+        graph = CalculationGraph(
+            granularity="5m",
+            steps=[
+                CalculationStep(
+                    op="PASSTHROUGH",
+                    version=1.0,
+                    inputs=[CalculationInput(type="ts", value=source_ts_external_id)],
+                    raw=True,
+                    step=0,
+                )
+            ],
+        )
+        request = ChartScheduledCalculationRequest(
+            external_id="smoke-test-chart-scheduled-calculation",
+            name="Smoke test chart scheduled calculation",
+            period=period_ms,
+            window_size=period_ms,
+            target_timeseries_external_id=output_ts_request.external_id,
+            graph=graph,
+            nonce=client.iam.sessions.create().nonce,
+        )
+        calc_id = request.as_id()
+        try:
+            client.charts.scheduled_calculations.delete([calc_id])
+        except ToolkitAPIError:
+            pass
+
+        try:
+            _ = self.assert_endpoint_method(
+                lambda: client.charts.scheduled_calculations.create([request]),
+                "create",
+                endpoints["create"],
+                request.as_id(),
+            )
+
+            _ = self.assert_endpoint_method(
+                lambda: client.charts.scheduled_calculations.retrieve([calc_id]),
+                "retrieve",
+                endpoints["retrieve"],
+                calc_id,
+            )
+
+            try:
+                listed = client.charts.scheduled_calculations.list()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Failed to list scheduled calculations: {e!s}")
+            if not listed:
+                raise EndpointAssertionError(
+                    endpoints["list"].path, "Expected at least 1 listed scheduled calculation, got 0"
+                )
+            if not any(item.external_id == request.external_id for item in listed):
+                raise EndpointAssertionError(
+                    endpoints["list"].path,
+                    "Listed scheduled calculations did not include the smoke test calculation.",
+                )
+
+            update_request = request.model_copy(update={"name": "updated_name"})
+            try:
+                updated = client.charts.scheduled_calculations.update([update_request])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["update"].path, f"Failed to update scheduled calculation: {e!s}")
+            if len(updated) != 1:
+                raise EndpointAssertionError(
+                    endpoints["update"].path, f"Expected 1 updated calculation, got {len(updated)}"
+                )
+            if updated[0].name != "updated_name":
+                raise EndpointAssertionError(
+                    endpoints["update"].path, "Update did not update the calculation name as expected."
+                )
+        finally:
+            try:
+                client.charts.scheduled_calculations.delete([calc_id])
             except ToolkitAPIError:
                 pass
 

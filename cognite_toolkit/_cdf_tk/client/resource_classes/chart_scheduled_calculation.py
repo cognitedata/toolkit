@@ -81,7 +81,7 @@ class ChartScheduledCalculation(BaseModelObject):
         description="Calculation window size in milliseconds. If not set, the window size will be equal to the period.",
     )
     target_timeseries_external_id: str | None = None
-    targetTimeseriesInstanceId: NodeUntypedId | None = None
+    target_timeseries_instance_id: NodeUntypedId | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -92,7 +92,7 @@ class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableReque
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        return self.model_dump(exclude={"nonce"}, exclude_none=True)
+        return self.model_dump(exclude={"nonce", "period", "offset", "window_size"}, exclude_none=True, by_alias=True)
 
 
 class ChartScheduledCalculationListResponse(ChartScheduledCalculation):
