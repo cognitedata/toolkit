@@ -10,7 +10,10 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
+from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
+from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
@@ -32,7 +35,16 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
+    ChartFolderRequest,
+    ChartFolderResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobRequest,
+    ChartMonitoringJobResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse
@@ -1056,3 +1068,101 @@ class TestCDFResourceAPI:
         assert isinstance(synced, RecordSyncResponse)
         assert len(synced.items) == 1
         assert synced.has_next is True
+
+    def test_chart_monitoring_jobs_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartMonitoringJobResponse)
+        instance = ChartMonitoringJobResponse.model_validate(resource)
+        config = toolkit_config
+        api = ChartMonitoringJobsAPI(HTTPClient(config))
+        request_item = ChartMonitoringJobRequest.model_validate({**resource, "nonce": "test-nonce"}, extra="ignore")
+
+        # Test create
+        respx_mock.post(config.create_api_url("/monitoringtasks")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/monitoringtasks/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/monitoringtasks/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test upsert
+        respx_mock.post(config.create_api_url("/monitoringtasks/upsert")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        upserted = api.upsert([request_item])
+        assert len(upserted) == 1
+        assert upserted[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/monitoringtasks/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list
+        respx_mock.post(config.create_api_url("/monitoringtasks/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+    def test_chart_folders_api_create_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartFolderResponse)
+        config = toolkit_config
+        api = ChartFoldersAPI(HTTPClient(config))
+        request_item = ChartFolderRequest(
+            folder_external_id="my_folder",
+            folder_name="My Chart Folder",
+        )
+
+        # Test create
+        respx_mock.post(config.create_app_url("/charts/monitoring/folders")).mock(
+            return_value=httpx.Response(status_code=200, json=[resource])
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test list
+        respx_mock.get(config.create_app_url("/charts/monitoring/folders")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+    def test_alert_channels_api_list_method(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(AlertChannelResponse)
+        config = toolkit_config
+        api = AlertChannelsAPI(HTTPClient(config))
+
+        # Test list
+        respx_mock.post(config.create_api_url("/alerts/channels/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
