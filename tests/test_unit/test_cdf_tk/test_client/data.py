@@ -53,6 +53,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
@@ -780,6 +783,27 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "sourceId": "chart_001",
             "interval": 3600,
             "overlap": 0,
+        },
+        ChartScheduledCalculationResponse: {
+            "externalId": "scheduled_calc_001",
+            "name": "Example Scheduled Calculation",
+            "period": 300000,
+            "windowSize": 300000,
+            "targetTimeseriesExternalId": "ts_out_001",
+            "graph": {
+                "granularity": "5m",
+                "steps": [
+                    {
+                        "op": "PASSTHROUGH",
+                        "version": 1.0,
+                        "inputs": [{"type": "ts", "value": "ts_001"}],
+                        "raw": False,
+                        "step": 0,
+                    }
+                ],
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
         },
         ChartFolderResponse: {
             "id": 501,
