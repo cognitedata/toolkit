@@ -205,8 +205,8 @@ class ChartMonitorModelFilter(Filter):
 
 
 class ChartMonitorJobFilter(Filter):
-    external_ids: list[str] | None = None
-    ids: list[int] | None = None
+    external_ids: list[str] | None = Field(default=None, max_length=100)
+    ids: list[int] | None = Field(None, max_length=100)
     channel_ids: list[int] | None = None
     source: str | None = None
     model: ChartMonitorModelFilter | None = None

@@ -11,13 +11,15 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     IndustrialCanvasRequest,
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import ChartMonitoringJobResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -106,11 +108,11 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             ignore_unknown_ids=True,
         )
         calculation_by_id = {calc.external_id: calc for calc in calculations}
-        monitoring_jobs = self.client.charts.monitoring_jobs.retrieve(
-            [InternalId(id=job.id) for chart in chunk for job in chart.data.monitoring_jobs or [] if job.id],
-            ignore_unknown_ids=True,
-        )
-        monitoring_job_by_id = {job.id: job for job in monitoring_jobs}
+        monitoring_job_by_id: dict[int, ChartMonitoringJobResponse] = {}
+        all_job_ids = [job.id for chart in chunk for job in chart.data.monitoring_jobs or [] if job.id is not None]
+        for job_chunk in chunker_sequence(all_job_ids, 100):
+            monitoring_jobs = self.client.charts.monitoring_jobs.list(ChartMonitorJobFilter(ids=job_chunk), limit=100)
+            monitoring_job_by_id.update({job.id: job for job in monitoring_jobs})
 
         for chart in chunk:
             if chart.data.scheduled_calculation_collection is not None:

@@ -42,7 +42,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[InternalId | ExternalId], ignore_unknown_ids: bool = False
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
     ) -> list[ChartMonitoringJobResponse]:
         """Retrieve monitoring tasks by internal or external ID.
 
