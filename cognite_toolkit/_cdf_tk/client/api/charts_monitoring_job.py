@@ -12,14 +12,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import
 )
 
 
-class ChartMonitoringJobAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
+class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/monitoringtasks", item_limit=1),
                 "delete": Endpoint(method="POST", path="/monitoringtasks/delete", item_limit=1),
-                "upsert": Endpoint(method="POST", path="monitoringtasks/upsert", item_limit=1),
+                "upsert": Endpoint(method="POST", path="/monitoringtasks/upsert", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/monitoringtasks/byids", item_limit=1),
                 "update": Endpoint(method="POST", path="/monitoringtasks/update", item_limit=1),
                 "list": Endpoint(method="POST", path="/monitoringtasks/list", item_limit=1000),

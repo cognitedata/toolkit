@@ -9,7 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
-from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobAPI
+from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
@@ -302,7 +302,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         RuleSetsAPI,
         RuleSetVersionsAPI,
         # Requires a Chart.
-        ChartMonitoringJobAPI,
+        ChartMonitoringJobsAPI,
     }
 )
 

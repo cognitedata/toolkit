@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
 )
 
 from .charts_folders import ChartFoldersAPI
-from .charts_monitoring_job import ChartMonitoringJobAPI
+from .charts_monitoring_job import ChartMonitoringJobsAPI
 
 
 class ChartsAPI(CDFResourceAPI[ChartResponse]):
@@ -33,7 +33,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
             },
         )
         self.folders = ChartFoldersAPI(http_client)
-        self.monitoring_jobs = ChartMonitoringJobAPI(http_client)
+        self.monitoring_jobs = ChartMonitoringJobsAPI(http_client)
 
     def _make_url(self, path: str = "") -> str:
         return self._http_client.config.create_app_url(path)

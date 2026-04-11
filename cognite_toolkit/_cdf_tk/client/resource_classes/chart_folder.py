@@ -1,8 +1,9 @@
-from pydantic import Field, JsonValue
+from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertRules
 
 
 class ChartFolderRequest(RequestResource):
@@ -11,11 +12,6 @@ class ChartFolderRequest(RequestResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.folder_external_id)
-
-
-class AlertRules(BaseModelObject):
-    deduplication: JsonValue | None = None
-    excludeSender: JsonValue | None = None
 
 
 class ChartFolderResponse(ResponseResource):
