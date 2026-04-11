@@ -72,7 +72,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFolderRequest, ChartFolderResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFolderRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobModel,
     ChartMonitoringJobRequest,
@@ -301,7 +301,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Rule sets: parent/child relationship, versions require parent in path.
         RuleSetsAPI,
         RuleSetVersionsAPI,
-        # Requires a Chart.
+        # Requires a timeseries.
         ChartMonitoringJobsAPI,
     }
 )
@@ -848,20 +848,6 @@ def smoke_chart(toolkit_client: ToolkitClient) -> ChartResponse:
         if "Not Found" in str(e):
             return toolkit_client.charts.create([chart_request])[0]
         raise EndpointAssertionError("/charts", f"Failed to retrieve or create chart for smoke tests: {e!s}") from e
-
-
-@pytest.fixture(scope="session")
-def smoke_chart_folder(toolkit_client: ToolkitClient) -> ChartFolderResponse:
-    client = toolkit_client
-    request = ChartFolderRequest(
-        folder_external_id="smoke-test-chart-folder",
-        folder_name="Smoke Test Chart Folder",
-    )
-    all_folders = client.charts.folders.list()
-    external_id = request.as_id()
-    if existing := next((folder for folder in all_folders if folder.as_id() == external_id), None):
-        return existing
-    return client.charts.folders.create([request])[0]
 
 
 @pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event", "smoke_container", "smoke_view")
@@ -2289,7 +2275,6 @@ class TestCDFResourceAPI:
         self,
         toolkit_client: ToolkitClient,
         smoke_chart: ChartResponse,
-        smoke_chart_folder: ChartFolderResponse,
         smoke_timeseries: TimeSeriesResponse,
     ) -> None:
         client = toolkit_client
@@ -2366,3 +2351,24 @@ class TestCDFResourceAPI:
                 client.charts.monitoring_jobs.delete([job_id])
             except ToolkitAPIError:
                 pass
+
+    def test_chart_folder(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        request = ChartFolderRequest(
+            folder_external_id="smoke-test-chart-folder",
+            folder_name="Smoke Test Chart Folder",
+        )
+        endpoints = client.charts.folders._method_endpoint_map
+        try:
+            all_folders = client.charts.folders.list()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Failed to list chart folders: {e!s}")
+
+        external_id = request.as_id()
+        is_exiting = any(folder.as_id() == external_id for folder in all_folders)
+        if is_exiting:
+            return
+        try:
+            client.charts.folders.create([request])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["create"].path, f"Failed to create chart folder: {e!s}")
