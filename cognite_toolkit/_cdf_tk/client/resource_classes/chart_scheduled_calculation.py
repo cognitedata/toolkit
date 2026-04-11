@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import Field, JsonValue
 
@@ -79,6 +80,9 @@ class ChartScheduledCalculation(BaseModelObject):
 class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableRequestResource):
     nonce: str
 
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        return self.model_dump(exclude={"nonce"}, exclude_none=True)
+
 
 class ChartScheduledCalculationResponse(ChartScheduledCalculation, ResponseResource[ChartScheduledCalculationRequest]):
     created_time: int | None = None
@@ -88,3 +92,10 @@ class ChartScheduledCalculationResponse(ChartScheduledCalculation, ResponseResou
     @classmethod
     def request_cls(cls) -> type[ChartScheduledCalculationRequest]:
         return ChartScheduledCalculationRequest
+
+    def as_request_resource(self) -> ChartScheduledCalculationRequest:
+        dump = self.model_dump(
+            mode="python", by_alias=True, exclude_unset=True, exclude={"created_time", "last_updated_time", "status"}
+        )
+        dump["nonce"] = "<missing>"
+        return ChartScheduledCalculationRequest.model_validate(dump, extra="allow")
