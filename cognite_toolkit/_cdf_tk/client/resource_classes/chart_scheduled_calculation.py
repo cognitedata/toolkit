@@ -16,10 +16,18 @@ HOUR_MS = MINUTE_MS * 60
 DAY_MS = HOUR_MS * 24
 
 
+class CalculationInput(BaseModelObject):
+    # The literal is to show typical values of type.
+    type: Literal["ts", "const", "result"] | str
+    value: str | float | int
+    param: JsonValue | None = None
+
+
 class CalculationStep(BaseModelObject):
-    op: str
+    # The literal is to show typical values of op.
+    op: Literal["add", "mul", "div", "PASSTHROUGH", "sma", "univariate_polynomial"] | str
     version: float
-    inputs: list[JsonValue]
+    inputs: list[CalculationInput]
     raw: bool
     step: int
     params: dict[str, JsonValue] | None = None
