@@ -20,7 +20,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
                 "create": Endpoint(method="POST", path="/monitoringtasks", item_limit=1),
                 "delete": Endpoint(method="POST", path="/monitoringtasks/delete", item_limit=1),
                 "upsert": Endpoint(method="POST", path="/monitoringtasks/upsert", item_limit=1),
-                "retrieve": Endpoint(method="POST", path="/monitoringtasks/byids", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/monitoringtasks/byids", item_limit=1000),
                 "update": Endpoint(method="POST", path="/monitoringtasks/update", item_limit=1),
                 "list": Endpoint(method="POST", path="/monitoringtasks/list", item_limit=1000),
             },
@@ -41,15 +41,21 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId | ExternalId]) -> list[ChartMonitoringJobResponse]:
+    def retrieve(
+        self, items: Sequence[InternalId | ExternalId], ignore_unknown_ids: bool = False
+    ) -> list[ChartMonitoringJobResponse]:
         """Retrieve monitoring tasks by internal or external ID.
 
         Args:
             items: Identifiers to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown internal or external IDs.
         Returns:
             Retrieved monitoring job response objects.
         """
-        return self._request_item_response(items, "retrieve")
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(items, "retrieve")
+        else:
+            return self._request_item_response(items, "retrieve")
 
     def delete(self, items: Sequence[InternalId | ExternalId]) -> None:
         """Delete monitoring tasks by internal or external ID.

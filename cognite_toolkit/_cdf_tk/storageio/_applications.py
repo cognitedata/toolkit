@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     IndustrialCanvasRequest,
@@ -83,7 +83,37 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
 
         if limit is not None:
             selected_charts = selected_charts[:limit]
+
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
+            calculations = self.client.charts.scheduled_calculations.retrieve(
+                [
+                    ExternalId(external_id=calculation.id)
+                    for chart in chunk
+                    for calculation in chart.data.scheduled_calculation_collection or []
+                    if calculation.id
+                ],
+                ignore_unknown_ids=True,
+            )
+            calculation_by_id = {calc.external_id: calc for calc in calculations}
+            monitoring_jobs = self.client.charts.monitoring_jobs.retrieve(
+                [InternalId(id=job.id) for chart in chunk for job in chart.data.monitoring_jobs or [] if job.id],
+                ignore_unknown_ids=True,
+            )
+            monitoring_job_by_id = {job.id: job for job in monitoring_jobs}
+
+            for chart in chunk:
+                if chart.data.scheduled_calculation_collection is not None:
+                    chart.scheduled_calculations = [
+                        calculation_by_id[calculation.id]
+                        for calculation in chart.data.scheduled_calculation_collection
+                        if calculation.id in calculation_by_id
+                    ]
+                if chart.data.monitoring_jobs is not None:
+                    chart.monitoring_jobs = [
+                        monitoring_job_by_id[job.id]
+                        for job in chart.data.monitoring_jobs
+                        if job.id in monitoring_job_by_id
+                    ]
             yield Page(
                 worker_id="main",
                 items=[DataItem(tracking_id=item.external_id, item=item) for item in chunk],
