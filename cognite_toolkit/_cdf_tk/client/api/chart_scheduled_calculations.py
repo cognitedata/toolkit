@@ -1,11 +1,12 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationListResponse,
     ChartScheduledCalculationRequest,
     ChartScheduledCalculationResponse,
 )
@@ -16,10 +17,10 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/calculations/schedules", item_limit=1000),
+                "create": Endpoint(method="POST", path="/calculations/schedules", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/calculations/schedules/byids", item_limit=1000),
-                "update": Endpoint(method="POST", path="/calculations/schedules/update", item_limit=1000),
-                "delete": Endpoint(method="POST", path="/calculations/schedules/delete", item_limit=1000),
+                "update": Endpoint(method="POST", path="/calculations/schedules/update", item_limit=1),
+                "delete": Endpoint(method="POST", path="/calculations/schedules/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/calculations/schedules", item_limit=1000),
             },
         )
@@ -58,56 +59,20 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
         self._request_no_response(items, "delete")
 
     def update(
-        self, items: Sequence[ChartScheduledCalculationRequest], mode: Literal["patch", "replace"] = "replace"
+        self, items: Sequence[ChartScheduledCalculationRequest], mode: Literal["replace"] = "replace"
     ) -> list[ChartScheduledCalculationResponse]:
         """Update chart scheduled calculations.
 
         Args:
             items: Scheduled calculation request objects to update.
-            mode: Update mode, either "patch" or "replace".
+            mode: Update mode, currently only "replace" is supported.
 
         Returns:
             Updated scheduled calculation response objects.
         """
         return self._update(items, mode=mode)
 
-    def paginate(
-        self,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[ChartScheduledCalculationResponse]:
-        """Fetch a page of chart scheduled calculations from CDF.
-
-        Args:
-            limit: Maximum number of items to return.
-            cursor: Cursor for pagination.
-
-        Returns:
-            PagedResponse of scheduled calculation response objects.
-        """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-        )
-
-    def iterate(
-        self,
-        limit: int | None = 100,
-    ) -> Iterable[list[ChartScheduledCalculationResponse]]:
-        """Iterate over chart scheduled calculations in CDF.
-
-        Args:
-            limit: Maximum number of items to return per page.
-
-        Returns:
-            Iterable of lists of scheduled calculation response objects.
-        """
-        return self._iterate(limit=limit)
-
-    def list(
-        self,
-        limit: int | None = 100,
-    ) -> list[ChartScheduledCalculationResponse]:
+    def list(self) -> list[ChartScheduledCalculationListResponse]:
         """List chart scheduled calculations in CDF.
 
         Args:
@@ -116,4 +81,10 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
         Returns:
             Scheduled calculation response objects.
         """
-        return self._list(limit=limit)
+        endpoint = self._method_endpoint_map["list"]
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method=endpoint.method,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return PagedResponse[ChartScheduledCalculationListResponse].model_validate_json(response.body).items

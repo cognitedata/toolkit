@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
 
 SECOND_MS = 1000
 MINUTE_MS = SECOND_MS * 60
@@ -74,17 +74,29 @@ class ChartScheduledCalculation(BaseModelObject):
     )
     target_timeseries_external_id: str | None = None
     targetTimeseriesInstanceId: NodeUntypedId | None = None
-    graph: CalculationGraph
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableRequestResource):
+    graph: CalculationGraph
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         return self.model_dump(exclude={"nonce"}, exclude_none=True)
 
 
+class ChartScheduledCalculationListResponse(ChartScheduledCalculation):
+    """Response without the calculation graph"""
+
+    created_time: int | None = None
+    last_updated_time: int | None = None
+    status: CalculationTaskStatus | None = None
+
+
 class ChartScheduledCalculationResponse(ChartScheduledCalculation, ResponseResource[ChartScheduledCalculationRequest]):
+    graph: CalculationGraph
     created_time: int | None = None
     last_updated_time: int | None = None
     status: CalculationTaskStatus | None = None
