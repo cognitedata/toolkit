@@ -1129,7 +1129,8 @@ class DownloadApp(typer.Typer):
             bool,
             typer.Option(
                 "--skip-backend-services",
-                help="Skip downloading backend-services for charts,i.e., monitoring jobs and scheduled calculations.",
+                help="Skip downloading backend-services for charts, i.e., monitoring jobs and scheduled calculations.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
             ),
         ] = not Flags.EXTEND_DOWNLOAD.is_enabled(),
         compression: Annotated[
