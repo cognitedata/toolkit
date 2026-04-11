@@ -75,9 +75,6 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
     def list(self) -> list[ChartScheduledCalculationListResponse]:
         """List chart scheduled calculations in CDF.
 
-        Args:
-            limit: Maximum total number of items to return across all pages.
-
         Returns:
             Scheduled calculation response objects.
         """

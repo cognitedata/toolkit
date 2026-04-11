@@ -65,7 +65,7 @@ class ChartScheduledCalculation(BaseModelObject):
         description="Schedule period in milliseconds. It determines the how often the calculation will run"
         + " and the time window for the input and output data."
         + " The minimum period and window is 5 minute and the maximum is 30 days.",
-        ge=MINUTE_MS,
+        ge=5 * MINUTE_MS,
         le=30 * DAY_MS,
         multiple_of=MINUTE_MS,
     )
