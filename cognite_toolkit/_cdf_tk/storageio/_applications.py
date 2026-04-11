@@ -48,7 +48,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT = "/storage/charts/charts"
     UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
 
-    def __init__(self, client: ToolkitClient, skip_existing: bool = False) -> None:
+    def __init__(self, client: ToolkitClient, skip_existing: bool = False, skip_backend_services: bool = False) -> None:
         super().__init__(client)
         # We need to store existing charts as we use different endpoints depending on whether
         # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
@@ -56,6 +56,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         # and is cheaper than doing a lookup for each chart we are about to deploy.
         self._existing_charts: set[str] | None = None
         self._skip_existing = skip_existing
+        self._skip_backend_services = skip_backend_services
 
     @property
     def existing_charts(self) -> set[str]:
@@ -85,40 +86,43 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             selected_charts = selected_charts[:limit]
 
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
-            calculations = self.client.charts.scheduled_calculations.retrieve(
-                [
-                    ExternalId(external_id=calculation.id)
-                    for chart in chunk
-                    for calculation in chart.data.scheduled_calculation_collection or []
-                    if calculation.id
-                ],
-                ignore_unknown_ids=True,
-            )
-            calculation_by_id = {calc.external_id: calc for calc in calculations}
-            monitoring_jobs = self.client.charts.monitoring_jobs.retrieve(
-                [InternalId(id=job.id) for chart in chunk for job in chart.data.monitoring_jobs or [] if job.id],
-                ignore_unknown_ids=True,
-            )
-            monitoring_job_by_id = {job.id: job for job in monitoring_jobs}
-
-            for chart in chunk:
-                if chart.data.scheduled_calculation_collection is not None:
-                    chart.scheduled_calculations = [
-                        calculation_by_id[calculation.id]
-                        for calculation in chart.data.scheduled_calculation_collection
-                        if calculation.id in calculation_by_id
-                    ]
-                if chart.data.monitoring_jobs is not None:
-                    chart.monitoring_jobs = [
-                        monitoring_job_by_id[job.id]
-                        for job in chart.data.monitoring_jobs
-                        if job.id in monitoring_job_by_id
-                    ]
+            if not self._skip_backend_services:
+                self._download_backend_services(chunk)
             yield Page(
                 worker_id="main",
                 items=[DataItem(tracking_id=item.external_id, item=item) for item in chunk],
                 bookmark=NoBookmark(),
             )
+
+    def _download_backend_services(self, chunk: list[ChartResponse]) -> None:
+        """Downloads the backend services monitoring jobs and scheduled calculations for each Chart."""
+        calculations = self.client.charts.scheduled_calculations.retrieve(
+            [
+                ExternalId(external_id=calculation.id)
+                for chart in chunk
+                for calculation in chart.data.scheduled_calculation_collection or []
+                if calculation.id
+            ],
+            ignore_unknown_ids=True,
+        )
+        calculation_by_id = {calc.external_id: calc for calc in calculations}
+        monitoring_jobs = self.client.charts.monitoring_jobs.retrieve(
+            [InternalId(id=job.id) for chart in chunk for job in chart.data.monitoring_jobs or [] if job.id],
+            ignore_unknown_ids=True,
+        )
+        monitoring_job_by_id = {job.id: job for job in monitoring_jobs}
+
+        for chart in chunk:
+            if chart.data.scheduled_calculation_collection is not None:
+                chart.scheduled_calculations = [
+                    calculation_by_id[calculation.id]
+                    for calculation in chart.data.scheduled_calculation_collection
+                    if calculation.id in calculation_by_id
+                ]
+            if chart.data.monitoring_jobs is not None:
+                chart.monitoring_jobs = [
+                    monitoring_job_by_id[job.id] for job in chart.data.monitoring_jobs if job.id in monitoring_job_by_id
+                ]
 
     def count(self, selector: ChartSelector) -> int | None:
         if isinstance(selector, ChartExternalIdSelector):
@@ -147,7 +151,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             self.client.lookup.time_series.external_id(list(timeseries_ids))
 
     def _dump_resource(self, chart: ChartResponse) -> dict[str, JsonVal]:
-        dumped = chart.as_request_resource().dump()
+        request = chart.as_request_resource()
+        dumped = request.dump()
         if isinstance(data := dumped.get("data"), dict) and isinstance(
             collection := data.get("timeSeriesCollection"), list
         ):
@@ -158,6 +163,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     ts_external_id = self.client.lookup.time_series.external_id(ts_id)
                     if ts_external_id is not None:
                         item["tsExternalId"] = ts_external_id
+        if request.monitoring_jobs is not None:
+            dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs]
+        if request.scheduled_calculations is not None:
+            dumped["scheduledCalculations"] = [calculation.dump() for calculation in request.scheduled_calculations]
         return dumped
 
     def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[ChartRequest]:
