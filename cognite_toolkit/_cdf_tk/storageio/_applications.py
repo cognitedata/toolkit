@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     ToolkitAPIError,
 )
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList, ItemsResultMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
@@ -215,7 +215,6 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         http_client: HTTPClient,
         selector: ChartSelector | None = None,
     ) -> ItemsResultList:
-        config = http_client.config
         to_create: list[DataItem[ChartRequest]] = []
         to_update: list[DataItem[ChartRequest]] = []
         for item in data_chunk.items:
@@ -233,29 +232,35 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
 
         results = ItemsResultList()
         if to_create:
-            url = config.create_app_url(self.UPLOAD_ENDPOINT)
-            results.extend(
-                http_client.request_items_retries(
-                    message=ItemsRequest(
-                        endpoint_url=url,
-                        method="PUT",
-                        items=to_create,
-                        extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
-                    )
-                )
-            )
+            results.extend(self._create_charts(to_create, http_client))
         if to_update:
-            for item in to_update:
-                chart = item.item
-                url = config.create_app_url(self.UPDATE_ENDPOINT.format(externalId=chart.external_id))
-                dumped = chart.dump()
-                # The endpoint requires that externalId is not part of the body. Note that
-                # it is already set as a path variable.
-                dumped.pop("externalId", None)
-                update_request = RequestMessage(endpoint_url=url, method="PUT", body_content=dumped)
-                item_response = http_client.request_single_retries(update_request)
-                results.append(item_response.as_item_response(item.tracking_id))
+            results.extend(self._update_charts(to_update, http_client))
         return results
+
+    def _create_charts(self, to_create: list[DataItem[ChartRequest]], http_client: HTTPClient) -> ItemsResultList:
+        url = http_client.config.create_app_url(self.UPLOAD_ENDPOINT)
+        return http_client.request_items_retries(
+            message=ItemsRequest(
+                endpoint_url=url,
+                method="PUT",
+                items=to_create,
+                extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+            )
+        )
+
+    def _update_charts(
+        self, to_update: list[DataItem[ChartRequest]], http_client: HTTPClient
+    ) -> Iterable[ItemsResultMessage]:
+        for item in to_update:
+            chart = item.item
+            url = http_client.config.create_app_url(self.UPDATE_ENDPOINT.format(externalId=chart.external_id))
+            dumped = chart.dump()
+            # The endpoint requires that externalId is not part of the body. Note that
+            # it is already set as a path variable.
+            dumped.pop("externalId", None)
+            update_request = RequestMessage(endpoint_url=url, method="PUT", body_content=dumped)
+            item_response = http_client.request_single_retries(update_request)
+            yield item_response.as_item_response(item.tracking_id)
 
     def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
