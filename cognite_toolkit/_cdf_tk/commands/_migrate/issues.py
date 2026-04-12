@@ -51,9 +51,9 @@ class ChartMigrationIssue(MigrationIssue):
 
     type: Literal["chartMigration"] = "chartMigration"
     chart_external_id: str
-    missing_timeseries_ids: list[int] = Field(default_factory=list)
-    missing_timeseries_external_ids: list[str] = Field(default_factory=list)
-    missing_timeseries_identifier: list[str] = Field(default_factory=list)
+    missing_timeseries_ids: set[int] = Field(default_factory=set)
+    missing_timeseries_external_ids: set[str] = Field(default_factory=set)
+    missing_timeseries_identifier: set[str] = Field(default_factory=set)
     errors: list[str] = Field(default_factory=list)
 
     @property
@@ -65,6 +65,10 @@ class ChartMigrationIssue(MigrationIssue):
             or self.missing_timeseries_identifier
             or self.errors
         )
+
+    @field_serializer("missing_timeseries_ids", "missing_timeseries_external_ids", "missing_timeseries_identifier")
+    def serialize_timeseries_ids(self, values: set[int] | set[str]) -> Any:
+        return sorted(values)
 
 
 class CanvasMigrationIssue(MigrationIssue):
