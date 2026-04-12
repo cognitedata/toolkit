@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
+from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -348,7 +349,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 else:
                     succeeded[ext_id] = updated
             else:
-                if request.nonce == "<missing>":
+                if request.nonce == MISSING_NONCE:
                     # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
                     # most likely grants too broad access.
                     raise NotImplementedError(f"Do not support creating {resource_kind} for {ext_id}")

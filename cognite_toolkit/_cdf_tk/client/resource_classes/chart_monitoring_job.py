@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 
 
 class ChartMonitoringJobModel(BaseModelObject, extra="allow"):
@@ -77,6 +78,6 @@ class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonit
 
     def as_request_resource(self) -> ChartMonitoringJobRequest:
         dump = self.dump()
-        dump["nonce"] = "<missing>"
+        dump["nonce"] = MISSING_NONCE
         dump["id"] = self.id
         return ChartMonitoringJobRequest.model_validate(dump, extra="allow")

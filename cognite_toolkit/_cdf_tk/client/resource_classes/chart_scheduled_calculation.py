@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 
 SECOND_MS = 1000
 MINUTE_MS = SECOND_MS * 60
@@ -117,5 +118,5 @@ class ChartScheduledCalculationResponse(ChartScheduledCalculation, ResponseResou
         dump = self.model_dump(
             mode="python", by_alias=True, exclude_unset=True, exclude={"created_time", "last_updated_time", "status"}
         )
-        dump["nonce"] = "<missing>"
+        dump["nonce"] = MISSING_NONCE
         return ChartScheduledCalculationRequest.model_validate(dump, extra="allow")
