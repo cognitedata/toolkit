@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJob
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -339,7 +339,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 self.logger.tracker.finalize_item(item.tracking_id, "failure")
             if chart.data.monitoring_jobs:
                 # Update internal IDs
-                new_references: list[MonitoringJob] = []
+                new_references: list[MonitoringJobReference] = []
                 for job_reference in chart.data.monitoring_jobs:
                     if job_reference.id is None or job_reference.id not in upserted_job_by_internal_id:
                         new_references.append(job_reference)
