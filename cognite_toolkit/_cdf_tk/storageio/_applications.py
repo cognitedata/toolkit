@@ -20,7 +20,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import ChartMonitoringJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobRequest,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJob
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -264,8 +268,20 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
 
     def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
-        # Todo: What about duplicates. Two charts charting a monitoring job - in theory should not happen.
-        monitoring_job_by_id = {job.as_id(): job for item in items for job in item.item.monitoring_jobs or []}
+        log_entries: list[LogIssue] = []
+        monitoring_job_by_id: dict[ExternalId, tuple[ChartMonitoringJobRequest, str]] = {}
+        for item in items:
+            for job in item.item.monitoring_jobs or []:
+                job_id = job.as_id()
+                if job_id in monitoring_job_by_id:
+                    log_entries.append(
+                        LogIssue(
+                            id=item.tracking_id,
+                            message=f"Duplicated monitoring job ID {job_id} in chart {item.item.external_id}",
+                        )
+                    )
+                else:
+                    monitoring_job_by_id[job_id] = job, item.tracking_id
 
         existing_job_ids = {
             job.as_id()
@@ -274,35 +290,45 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             )
         }
 
-        upserted_job_by_id: dict[ExternalId, ChartMonitoringJobResponse] = {}
+        upserted_job_by_internal_id: dict[int, ChartMonitoringJobResponse] = {}
         failed_jobs: set[ExternalId] = set()
-
-        for job_id, job in monitoring_job_by_id.items():
+        for job_id, (job, tracking_id) in monitoring_job_by_id.items():
             if job_id in existing_job_ids:
                 try:
-                    updated_jobs = self.client.charts.monitoring_jobs.update([job])
+                    updated_job = self.client.charts.monitoring_jobs.update([job])[0]
                 except ToolkitAPIError as e:
-                    self.logger.log(
-                        [LogIssue(id=str(job_id), message=f"Failed to update monitoring job {job_id}: {e}")]
+                    log_entries.append(
+                        LogIssue(id=tracking_id, message=f"Failed to update monitoring job {job_id}: {e}")
                     )
                     failed_jobs.add(job_id)
-                    continue
+                except IndexError:
+                    log_entries.append(
+                        LogIssue(
+                            id=tracking_id, message=f"Failed to update monitoring job {job_id}. No response returned."
+                        )
+                    )
+                    failed_jobs.add(job_id)
                 else:
-                    upserted_job_by_id.update({job.as_id(): updated_job for updated_job in updated_jobs})
+                    upserted_job_by_internal_id[job.id or updated_job.id] = updated_job
             else:
                 if job.nonce == "<missing>":
                     # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
                     # most likely grants too broad access.
                     raise NotImplementedError(f"Do not support creating monitoring jobs for chart {job_id}")
                 try:
-                    created_jobs = self.client.charts.monitoring_jobs.create([job])
+                    created_job = self.client.charts.monitoring_jobs.create([job])[0]
                 except ToolkitAPIError as e:
-                    self.logger.log(
-                        [LogIssue(id=str(job_id), message=f"Failed to create monitoring job {job_id}: {e}")]
+                    log_entries.append(
+                        LogIssue(id=tracking_id, message=f"Failed to create monitoring job {job_id}: {e}")
+                    )
+                    failed_jobs.add(job_id)
+                except IndexError:
+                    log_entries.append(
+                        LogIssue(id=tracking_id, message="Failed to create monitoring job. No response returned.")
                     )
                     failed_jobs.add(job_id)
                 else:
-                    upserted_job_by_id.update({job.as_id(): job for job in created_jobs})
+                    upserted_job_by_internal_id[job.id or created_job.id] = created_job
 
         failed_charts: set[str] = set()
         for item in items:
@@ -311,7 +337,17 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 failed_charts.add(chart.external_id)
                 self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
                 self.logger.tracker.finalize_item(item.tracking_id, "failure")
-            # Todo: Add internal monitoring job ID to Chart.data object.
+            if chart.data.monitoring_jobs:
+                # Update internal IDs
+                new_references: list[MonitoringJob] = []
+                for job_reference in chart.data.monitoring_jobs:
+                    if job_reference.id is None or job_reference.id not in upserted_job_by_internal_id:
+                        new_references.append(job_reference)
+                        continue
+                    upsert_job = upserted_job_by_internal_id[job_reference.id]
+                    new_references.append(job_reference.model_copy(update={"id": upsert_job.id}))
+        if log_entries:
+            self.logger.log(log_entries)
         return failed_charts
 
 
