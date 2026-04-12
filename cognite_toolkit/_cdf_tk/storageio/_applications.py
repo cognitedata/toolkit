@@ -1,6 +1,6 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
-from typing import Any
+from typing import Any, TypeVar
 
 from cognite.client.data_classes.data_modeling import EdgeId
 
@@ -24,6 +24,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationRequest,
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -40,6 +44,17 @@ from .selectors import (
     ChartExternalIdSelector,
     ChartOwnerSelector,
     ChartSelector,
+)
+
+TChartBackendRequest = TypeVar(
+    "TChartBackendRequest",
+    ChartMonitoringJobRequest,
+    ChartScheduledCalculationRequest,
+)
+TChartBackendResponse = TypeVar(
+    "TChartBackendResponse",
+    ChartMonitoringJobResponse,
+    ChartScheduledCalculationResponse,
 )
 
 
@@ -266,22 +281,95 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             item_response = http_client.request_single_retries(update_request)
             yield item_response.as_item_response(item.tracking_id)
 
-    def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
-        """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
+    @staticmethod
+    def _collect_unique_backend_requests(
+        items: list[DataItem[ChartRequest]],
+        get_requests: Callable[[ChartRequest], Sequence[TChartBackendRequest] | None],
+        duplicate_label: str,
+    ) -> tuple[dict[ExternalId, tuple[TChartBackendRequest, str]], list[LogIssue]]:
+        by_external_id: dict[ExternalId, tuple[TChartBackendRequest, str]] = {}
         log_entries: list[LogIssue] = []
-        monitoring_job_by_id: dict[ExternalId, tuple[ChartMonitoringJobRequest, str]] = {}
         for item in items:
-            for job in item.item.monitoring_jobs or []:
-                job_id = job.as_id()
-                if job_id in monitoring_job_by_id:
+            for request in get_requests(item.item) or []:
+                ext_id = request.as_id()
+                if ext_id in by_external_id:
                     log_entries.append(
                         LogIssue(
                             id=item.tracking_id,
-                            message=f"Duplicated monitoring job ID {job_id} in chart {item.item.external_id}",
+                            message=f"Duplicated {duplicate_label} ID {ext_id} in chart {item.item.external_id}",
                         )
                     )
                 else:
-                    monitoring_job_by_id[job_id] = job, item.tracking_id
+                    by_external_id[ext_id] = request, item.tracking_id
+        return by_external_id, log_entries
+
+    def _upsert_unique_backend_requests(
+        self,
+        unique_by_id: dict[ExternalId, tuple[TChartBackendRequest, str]],
+        existing_ids: set[ExternalId],
+        update: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
+        create: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
+        resource_kind: str,
+    ) -> tuple[list[LogIssue], set[ExternalId], dict[ExternalId, TChartBackendResponse]]:
+        log_entries: list[LogIssue] = []
+        failed: set[ExternalId] = set()
+        succeeded: dict[ExternalId, TChartBackendResponse] = {}
+        for ext_id, (request, tracking_id) in unique_by_id.items():
+            if ext_id in existing_ids:
+                try:
+                    updated = update([request])[0]
+                except ToolkitAPIError as e:
+                    log_entries.append(
+                        LogIssue(id=tracking_id, message=f"Failed to update {resource_kind} {ext_id}: {e}")
+                    )
+                    failed.add(ext_id)
+                except IndexError:
+                    log_entries.append(
+                        LogIssue(
+                            id=tracking_id,
+                            message=f"Failed to update {resource_kind} {ext_id}. No response returned.",
+                        )
+                    )
+                    failed.add(ext_id)
+                else:
+                    succeeded[ext_id] = updated
+            else:
+                if request.nonce == "<missing>":
+                    # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
+                    # most likely grants too broad access.
+                    raise NotImplementedError(f"Do not support creating {resource_kind} for {ext_id}")
+                try:
+                    created = create([request])[0]
+                except ToolkitAPIError as e:
+                    log_entries.append(
+                        LogIssue(id=tracking_id, message=f"Failed to create {resource_kind} {ext_id}: {e}")
+                    )
+                    failed.add(ext_id)
+                except IndexError:
+                    log_entries.append(
+                        LogIssue(
+                            id=tracking_id,
+                            message=f"Failed to create {resource_kind}. No response returned.",
+                        )
+                    )
+                    failed.add(ext_id)
+                else:
+                    succeeded[ext_id] = created
+        return log_entries, failed, succeeded
+
+    def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
+        """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
+        log_entries: list[LogIssue] = []
+
+        monitoring_job_by_id, monitoring_dup_logs = self._collect_unique_backend_requests(
+            items, lambda chart: chart.monitoring_jobs, "monitoring job"
+        )
+        log_entries.extend(monitoring_dup_logs)
+
+        calculation_by_id, calculation_dup_logs = self._collect_unique_backend_requests(
+            items, lambda chart: chart.scheduled_calculations, "scheduled calculation"
+        )
+        log_entries.extend(calculation_dup_logs)
 
         existing_job_ids = {
             job.as_id()
@@ -289,56 +377,52 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 list(monitoring_job_by_id.keys()), ignore_unknown_ids=True
             )
         }
+        job_upsert_logs, failed_jobs, succeeded_jobs = self._upsert_unique_backend_requests(
+            monitoring_job_by_id,
+            existing_job_ids,
+            self.client.charts.monitoring_jobs.update,
+            self.client.charts.monitoring_jobs.create,
+            "monitoring job",
+        )
+        log_entries.extend(job_upsert_logs)
+
+        existing_calculation_ids = {
+            calculation.as_id()
+            for calculation in self.client.charts.scheduled_calculations.retrieve(
+                list(calculation_by_id.keys()), ignore_unknown_ids=True
+            )
+        }
+        calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
+            calculation_by_id,
+            existing_calculation_ids,
+            self.client.charts.scheduled_calculations.update,
+            self.client.charts.scheduled_calculations.create,
+            "scheduled calculation",
+        )
+        log_entries.extend(calculation_upsert_logs)
 
         upserted_job_by_internal_id: dict[int, ChartMonitoringJobResponse] = {}
-        failed_jobs: set[ExternalId] = set()
-        for job_id, (job, tracking_id) in monitoring_job_by_id.items():
-            if job_id in existing_job_ids:
-                try:
-                    updated_job = self.client.charts.monitoring_jobs.update([job])[0]
-                except ToolkitAPIError as e:
-                    log_entries.append(
-                        LogIssue(id=tracking_id, message=f"Failed to update monitoring job {job_id}: {e}")
-                    )
-                    failed_jobs.add(job_id)
-                except IndexError:
-                    log_entries.append(
-                        LogIssue(
-                            id=tracking_id, message=f"Failed to update monitoring job {job_id}. No response returned."
-                        )
-                    )
-                    failed_jobs.add(job_id)
-                else:
-                    upserted_job_by_internal_id[job.id or updated_job.id] = updated_job
-            else:
-                if job.nonce == "<missing>":
-                    # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
-                    # most likely grants too broad access.
-                    raise NotImplementedError(f"Do not support creating monitoring jobs for chart {job_id}")
-                try:
-                    created_job = self.client.charts.monitoring_jobs.create([job])[0]
-                except ToolkitAPIError as e:
-                    log_entries.append(
-                        LogIssue(id=tracking_id, message=f"Failed to create monitoring job {job_id}: {e}")
-                    )
-                    failed_jobs.add(job_id)
-                except IndexError:
-                    log_entries.append(
-                        LogIssue(id=tracking_id, message="Failed to create monitoring job. No response returned.")
-                    )
-                    failed_jobs.add(job_id)
-                else:
-                    upserted_job_by_internal_id[job.id or created_job.id] = created_job
+        for ext_id, job_response in succeeded_jobs.items():
+            orig_job, _tracking = monitoring_job_by_id[ext_id]
+            upserted_job_by_internal_id[orig_job.id or job_response.id] = job_response
 
         failed_charts: set[str] = set()
         for item in items:
             chart = item.item
-            if any(job.as_id() in failed_jobs for job in chart.monitoring_jobs or []):
+            job_failed = any(job.as_id() in failed_jobs for job in chart.monitoring_jobs or [])
+            calculation_failed = any(
+                calculation.as_id() in failed_calculations for calculation in chart.scheduled_calculations or []
+            )
+            if job_failed or calculation_failed:
                 failed_charts.add(chart.external_id)
-                self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
+                if job_failed:
+                    self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
+                if calculation_failed:
+                    self.logger.tracker.add_issue(item.tracking_id, "Failed upserting scheduled calculations")
                 self.logger.tracker.finalize_item(item.tracking_id, "failure")
+                continue
+
             if chart.data.monitoring_jobs:
-                # Update internal IDs
                 new_references: list[MonitoringJobReference] = []
                 for job_reference in chart.data.monitoring_jobs:
                     if job_reference.id is None or job_reference.id not in upserted_job_by_internal_id:
@@ -346,6 +430,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         continue
                     upsert_job = upserted_job_by_internal_id[job_reference.id]
                     new_references.append(job_reference.model_copy(update={"id": upsert_job.id}))
+                chart.data = chart.data.model_copy(update={"monitoring_jobs": new_references})
+
         if log_entries:
             self.logger.log(log_entries)
         return failed_charts
