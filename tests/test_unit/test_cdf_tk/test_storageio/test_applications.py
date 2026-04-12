@@ -1,27 +1,157 @@
+import copy
 import json
 from datetime import datetime
+from typing import Any
 
+import httpx
 import pytest
 import responses
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     ContainerReferenceItem,
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobModel,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartData,
+    ChartScheduledCalculationUIElement,
+    ChartTimeseriesUIElement,
+    MonitoringJobReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, DataItem, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
+
+_CHART_TS_EXTERNAL_ID = "shared_ts_ext"
+_CHART_TS_INTERNAL_ID = 4242
+_CHART_EXTERNAL_ID = "chart_shared_backends"
+_CHART_MONITOR_JOB_EXTERNAL_ID = "chart_monitor_job_shared_ts"
+_CHART_CALC_EXTERNAL_ID = "chart_scheduled_calc_shared_ts"
+_CHART_MONITOR_JOB_INTERNAL_ID = 100
+_CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD = 999
+
+
+def _example_scheduled_calculation_response() -> ChartScheduledCalculationResponse:
+    graph = CalculationGraph(
+        granularity="5m",
+        steps=[
+            CalculationStep(
+                op="PASSTHROUGH",
+                version=1.0,
+                inputs=[CalculationInput(type="ts", value=_CHART_TS_EXTERNAL_ID)],
+                raw=False,
+                step=0,
+            )
+        ],
+    )
+    return ChartScheduledCalculationResponse(
+        external_id=_CHART_CALC_EXTERNAL_ID,
+        name="Shared TS scheduled calculation",
+        period=300_000,
+        window_size=300_000,
+        target_timeseries_external_id="shared_ts_calc_output",
+        graph=graph,
+        created_time=1700000000000,
+        last_updated_time=1700000000000,
+    )
+
+
+def _example_monitoring_job_response() -> ChartMonitoringJobResponse:
+    return ChartMonitoringJobResponse(
+        id=_CHART_MONITOR_JOB_INTERNAL_ID,
+        external_id=_CHART_MONITOR_JOB_EXTERNAL_ID,
+        name="Shared TS monitoring job",
+        channel_id=1,
+        model=ChartMonitoringJobModel(
+            timeseries_id=_CHART_TS_INTERNAL_ID,
+            lower_threshold=0.0,
+            upper_threshold=10.0,
+        ),
+        interval=3600,
+        overlap=0,
+        source_id=_CHART_EXTERNAL_ID,
+    )
+
+
+def _example_chart_response_for_download() -> ChartResponse:
+    mj = _example_monitoring_job_response()
+    sc = _example_scheduled_calculation_response()
+    return ChartResponse(
+        external_id=_CHART_EXTERNAL_ID,
+        visibility="PUBLIC",
+        data=ChartData(
+            version=1,
+            name="Shared backends chart",
+            date_from="2025-01-01T00:00:00.000Z",
+            date_to="2025-12-31T23:59:59.999Z",
+            time_series_collection=[
+                ChartTimeseriesUIElement(ts_id=_CHART_TS_INTERNAL_ID, ts_external_id=None),
+            ],
+            monitoring_jobs=[
+                MonitoringJobReference(id=mj.id, source_id="src", source_type="chart"),
+            ],
+            scheduled_calculation_collection=[
+                ChartScheduledCalculationUIElement(id=sc.external_id, name="calc"),
+            ],
+        ),
+        owner_id="99",
+        created_time=1700000000000,
+        last_updated_time=1700000000000,
+    )
+
+
+def _configure_example_backend_download_mocks(
+    client: Any,
+    chart: ChartResponse,
+    monitoring_job: ChartMonitoringJobResponse,
+    scheduled_calc: ChartScheduledCalculationResponse,
+) -> None:
+    client.charts.list.return_value = [chart]
+    client.charts.scheduled_calculations.retrieve.return_value = [scheduled_calc]
+    client.charts.monitoring_jobs.list.return_value = [monitoring_job]
+
+    def lookup_ts_ext(arg: object) -> Any:
+        if isinstance(arg, list):
+            return [_CHART_TS_EXTERNAL_ID for _ in arg]
+        return _CHART_TS_EXTERNAL_ID
+
+    client.lookup.time_series.external_id.side_effect = lookup_ts_ext
+
+
+def _build_example_chart_backend_export_json() -> dict[str, Any]:
+    chart = _example_chart_response_for_download()
+    mj = _example_monitoring_job_response()
+    sc = _example_scheduled_calculation_response()
+    with monkeypatch_toolkit_client() as client:
+        _configure_example_backend_download_mocks(client, chart, mj, sc)
+        io = ChartIO(client)
+        chunk = next(io.stream_data(AllChartsSelector()))
+        return io.data_to_json_chunk(chunk).items[0].item
+
+
+@pytest.fixture
+def example_chart_backend_export_json() -> dict[str, Any]:
+    return _build_example_chart_backend_export_json()
 
 
 @pytest.fixture
@@ -111,6 +241,82 @@ class TestChartIO:
             second = chart_list.items[1]
             assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
             assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
+
+    def test_download_chart_single_timeseries_hits_backends_json(
+        self, example_chart_backend_export_json: dict[str, Any]
+    ) -> None:
+        chart = _example_chart_response_for_download()
+        mj = _example_monitoring_job_response()
+        sc = _example_scheduled_calculation_response()
+        with monkeypatch_toolkit_client() as client:
+            _configure_example_backend_download_mocks(client, chart, mj, sc)
+            io = ChartIO(client)
+            chunk = next(io.stream_data(AllChartsSelector()))
+            got = io.data_to_json_chunk(chunk).items[0].item
+            client.charts.scheduled_calculations.retrieve.assert_called_once()
+            client.charts.monitoring_jobs.list.assert_called_once()
+        assert got == example_chart_backend_export_json
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_upload_chart_from_json_updates_monitoring_job_internal_id(
+        self, toolkit_config: ToolkitClientConfig, example_chart_backend_export_json: dict[str, Any]
+    ) -> None:
+        """Correlate persisted monitoring job internal IDs for upload (see ChartIO._dump_resource job dump)."""
+        export = copy.deepcopy(example_chart_backend_export_json)
+        data_refs = export.get("data", {}).get("monitoringJobs") or []
+        top_jobs = export.get("monitoringJobs") or []
+        if data_refs and top_jobs:
+            ref_id = data_refs[0].get("id")
+            if ref_id is not None and "id" not in top_jobs[0]:
+                top_jobs[0]["id"] = ref_id
+
+        mj = _example_monitoring_job_response()
+        sc = _example_scheduled_calculation_response()
+        mj_after_update = mj.model_copy(update={"id": _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD})
+
+        captured: dict[str, Any] = {}
+
+        def chart_put_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            captured["body"] = payload
+            items = payload.get("items", [])
+            return httpx.Response(status_code=200, json={"items": items})
+
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = []
+
+            def lookup_ts_id(arg: object) -> Any:
+                if isinstance(arg, list):
+                    return [_CHART_TS_INTERNAL_ID for _ in arg]
+                return _CHART_TS_INTERNAL_ID
+
+            client.lookup.time_series.id.side_effect = lookup_ts_id
+
+            client.charts.monitoring_jobs.retrieve.return_value = [mj]
+            client.charts.monitoring_jobs.update.return_value = [mj_after_update]
+            client.charts.scheduled_calculations.retrieve.return_value = [sc]
+            client.charts.scheduled_calculations.update.return_value = [sc]
+
+            io = ChartIO(client)
+            chart_request = io.json_to_resource(export)
+            page = Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=chart_request.external_id, item=chart_request)],
+            )
+
+            charts_put_url = toolkit_config.create_app_url(ChartIO.UPLOAD_ENDPOINT)
+            with HTTPClient(toolkit_config) as http_client:
+                with respx.mock(assert_all_called=False) as mock_router:
+                    mock_router.put(charts_put_url).mock(side_effect=chart_put_callback)
+                    io.upload_items(page, http_client)
+
+            client.charts.monitoring_jobs.update.assert_called_once()
+            client.charts.scheduled_calculations.update.assert_called_once()
+
+        chart_item = captured["body"]["items"][0]
+        assert chart_item["data"]["timeSeriesCollection"][0]["tsExternalId"] == _CHART_TS_EXTERNAL_ID
+        assert chart_item["data"]["timeSeriesCollection"][0]["tsId"] == _CHART_TS_INTERNAL_ID
+        assert chart_item["data"]["monitoringJobs"][0]["id"] == _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
