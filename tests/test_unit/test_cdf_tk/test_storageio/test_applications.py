@@ -94,8 +94,8 @@ def _example_monitoring_job_response() -> ChartMonitoringJobResponse:
 
 
 def _example_chart_response_for_download() -> ChartResponse:
-    mj = _example_monitoring_job_response()
-    sc = _example_scheduled_calculation_response()
+    monitoring_job = _example_monitoring_job_response()
+    calculation = _example_scheduled_calculation_response()
     return ChartResponse(
         external_id=_CHART_EXTERNAL_ID,
         visibility="PUBLIC",
@@ -108,50 +108,16 @@ def _example_chart_response_for_download() -> ChartResponse:
                 ChartTimeseriesUIElement(ts_id=_CHART_TS_INTERNAL_ID, ts_external_id=None),
             ],
             monitoring_jobs=[
-                MonitoringJobReference(id=mj.id, source_id="src", source_type="chart"),
+                MonitoringJobReference(id=monitoring_job.id, source_id="src", source_type="chart"),
             ],
             scheduled_calculation_collection=[
-                ChartScheduledCalculationUIElement(id=sc.external_id, name="calc"),
+                ChartScheduledCalculationUIElement(id=calculation.external_id, name="calc"),
             ],
         ),
         owner_id="99",
         created_time=1700000000000,
         last_updated_time=1700000000000,
     )
-
-
-def _configure_example_backend_download_mocks(
-    client: Any,
-    chart: ChartResponse,
-    monitoring_job: ChartMonitoringJobResponse,
-    scheduled_calc: ChartScheduledCalculationResponse,
-) -> None:
-    client.charts.list.return_value = [chart]
-    client.charts.scheduled_calculations.retrieve.return_value = [scheduled_calc]
-    client.charts.monitoring_jobs.list.return_value = [monitoring_job]
-
-    def lookup_ts_ext(arg: object) -> Any:
-        if isinstance(arg, list):
-            return [_CHART_TS_EXTERNAL_ID for _ in arg]
-        return _CHART_TS_EXTERNAL_ID
-
-    client.lookup.time_series.external_id.side_effect = lookup_ts_ext
-
-
-def _build_example_chart_backend_export_json() -> dict[str, Any]:
-    chart = _example_chart_response_for_download()
-    mj = _example_monitoring_job_response()
-    sc = _example_scheduled_calculation_response()
-    with monkeypatch_toolkit_client() as client:
-        _configure_example_backend_download_mocks(client, chart, mj, sc)
-        io = ChartIO(client)
-        chunk = next(io.stream_data(AllChartsSelector()))
-        return io.data_to_json_chunk(chunk).items[0].item
-
-
-@pytest.fixture
-def example_chart_backend_export_json() -> dict[str, Any]:
-    return _build_example_chart_backend_export_json()
 
 
 @pytest.fixture
@@ -242,20 +208,34 @@ class TestChartIO:
             assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
             assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
 
-    def test_download_chart_single_timeseries_hits_backends_json(
-        self, example_chart_backend_export_json: dict[str, Any]
-    ) -> None:
+    def test_download_chart_single_timeseries_hits_backends_json(self) -> None:
         chart = _example_chart_response_for_download()
-        mj = _example_monitoring_job_response()
-        sc = _example_scheduled_calculation_response()
+        monitoring_job = _example_monitoring_job_response()
+        calculation = _example_scheduled_calculation_response()
         with monkeypatch_toolkit_client() as client:
-            _configure_example_backend_download_mocks(client, chart, mj, sc)
+            client.charts.list.return_value = [chart]
+            client.charts.scheduled_calculations.retrieve.return_value = [calculation]
+            client.charts.monitoring_jobs.list.return_value = [monitoring_job]
+
+            def lookup_ts_ext(arg: object) -> Any:
+                if isinstance(arg, list):
+                    return [_CHART_TS_EXTERNAL_ID for _ in arg]
+                return _CHART_TS_EXTERNAL_ID
+
+            client.lookup.time_series.external_id.side_effect = lookup_ts_ext
+
             io = ChartIO(client)
-            chunk = next(io.stream_data(AllChartsSelector()))
-            got = io.data_to_json_chunk(chunk).items[0].item
+            chunk = next(iter(io.stream_data(AllChartsSelector())))
+            downloaded_chart = io.data_to_json_chunk(chunk).items[0].item
+
             client.charts.scheduled_calculations.retrieve.assert_called_once()
             client.charts.monitoring_jobs.list.assert_called_once()
-        assert got == example_chart_backend_export_json
+
+        expected = chart.as_request_resource().dump()
+        expected["data"]["timeSeriesCollection"] = [{"tsExternalId": "shared_ts_ext"}]
+        expected["monitoringJobs"] = [monitoring_job.as_request_resource().dump()]
+        expected["scheduledCalculations"] = [calculation.as_request_resource().dump()]
+        assert downloaded_chart == expected
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_upload_chart_from_json_updates_monitoring_job_internal_id(
