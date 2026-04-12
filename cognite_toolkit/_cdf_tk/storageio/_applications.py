@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -70,7 +71,12 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT = "/storage/charts/charts"
     UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
 
-    def __init__(self, client: ToolkitClient, skip_existing: bool = False, skip_backend_services: bool = False) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        skip_existing: bool = False,
+        skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
+    ) -> None:
         super().__init__(client)
         # We need to store existing charts as we use different endpoints depending on whether
         # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
@@ -186,7 +192,15 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     if ts_external_id is not None:
                         item["tsExternalId"] = ts_external_id
         if request.monitoring_jobs is not None:
-            dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs]
+            monitoring_jobs: list[dict[str, JsonVal]] = []
+            for job in request.monitoring_jobs or []:
+                dumped_job = job.dump()
+                if job.id is not None:
+                    # We persist the ID since this is what is used when linking a monitoring Job to the
+                    # ChartUI.
+                    dumped_job["id"] = job.id
+                monitoring_jobs.append(dumped_job)
+            dumped["monitoringJobs"] = monitoring_jobs
         if request.scheduled_calculations is not None:
             dumped["scheduledCalculations"] = [calculation.dump() for calculation in request.scheduled_calculations]
         return dumped
