@@ -423,6 +423,13 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 continue
 
             if chart.data.monitoring_jobs:
+                # The Charts UI object references monitoring jobs using the internal ID. If a chart was downloaded
+                # on one CDF project, and uploaded on another, we need up update the internal ID to point to the new one.
+                # Note that we persisted the internal ID of the CDF project we downloaded from, so we can do an easy
+                # lookup.
+                # Furthermore, the Chats UI does not seem to clean up MonitoringJobReferences when monitoring jobs
+                # are deleted, so we can have references pointing to non-existing monitoring jobs. Currently,
+                # we just let these job references to be and do not touch them.
                 new_references: list[MonitoringJobReference] = []
                 for job_reference in chart.data.monitoring_jobs:
                     if job_reference.id is None or job_reference.id not in upserted_job_by_internal_id:
