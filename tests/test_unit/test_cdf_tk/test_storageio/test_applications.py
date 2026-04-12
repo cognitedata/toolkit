@@ -222,7 +222,7 @@ class TestChartIO:
 
             client.lookup.time_series.external_id.side_effect = lookup_ts_ext
 
-            io = ChartIO(client)
+            io = ChartIO(client, skip_existing=False, skip_backend_services=False)
             chunk = next(iter(io.stream_data(AllChartsSelector())))
             downloaded_chart = io.data_to_json_chunk(chunk).items[0].item
 
