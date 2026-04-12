@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOIN
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
@@ -225,6 +226,11 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             else:
                 self.logger.tracker.finalize_item(item.tracking_id, "skipped")
 
+        if not self._skip_backend_services:
+            failed_charts = self._upload_backend_services(to_create + to_update)
+            to_create = [item for item in to_create if item.item.external_id not in failed_charts]
+            to_update = [item for item in to_update if item.item.external_id not in failed_charts]
+
         results = ItemsResultList()
         if to_create:
             url = config.create_app_url(self.UPLOAD_ENDPOINT)
@@ -246,15 +252,61 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 # The endpoint requires that externalId is not part of the body. Note that
                 # it is already set as a path variable.
                 dumped.pop("externalId", None)
-                item_response = http_client.request_single_retries(
-                    RequestMessage(
-                        endpoint_url=url,
-                        method="PUT",
-                        body_content=dumped,
-                    )
-                )
+                update_request = RequestMessage(endpoint_url=url, method="PUT", body_content=dumped)
+                item_response = http_client.request_single_retries(update_request)
                 results.append(item_response.as_item_response(item.tracking_id))
         return results
+
+    def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
+        """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
+        # Todo: What about duplicates. Two charts charting a monitoring job - in theory should not happen.
+        monitoring_job_by_id = {job.as_id(): job for item in items for job in item.item.monitoring_jobs or []}
+
+        existing_job_ids = {
+            job.as_id()
+            for job in self.client.charts.monitoring_jobs.retrieve(
+                list(monitoring_job_by_id.keys()), ignore_unknown_ids=True
+            )
+        }
+
+        upserted_job_by_id: dict[ExternalId, ChartMonitoringJobResponse] = {}
+        failed_jobs: set[ExternalId] = set()
+
+        for job_id, job in monitoring_job_by_id.items():
+            if job_id in existing_job_ids:
+                try:
+                    updated_jobs = self.client.charts.monitoring_jobs.update([job])
+                except ToolkitAPIError as e:
+                    self.logger.log(
+                        [LogIssue(id=str(job_id), message=f"Failed to update monitoring job {job_id}: {e}")]
+                    )
+                    failed_jobs.add(job_id)
+                    continue
+                else:
+                    upserted_job_by_id.update({job.as_id(): updated_job for updated_job in updated_jobs})
+            else:
+                if job.nonce == "<missing>":
+                    # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
+                    # most likely grants too broad access.
+                    raise NotImplementedError(f"Do not support creating monitoring jobs for chart {job_id}")
+                try:
+                    created_jobs = self.client.charts.monitoring_jobs.create([job])
+                except ToolkitAPIError as e:
+                    self.logger.log(
+                        [LogIssue(id=str(job_id), message=f"Failed to create monitoring job {job_id}: {e}")]
+                    )
+                    failed_jobs.add(job_id)
+                else:
+                    upserted_job_by_id.update({job.as_id(): job for job in created_jobs})
+
+        failed_charts: set[str] = set()
+        for item in items:
+            chart = item.item
+            if any(job.as_id() in failed_jobs for job in chart.monitoring_jobs or []):
+                failed_charts.add(chart.external_id)
+                self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
+                self.logger.tracker.finalize_item(item.tracking_id, "failure")
+        return failed_charts
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
