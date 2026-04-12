@@ -306,6 +306,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 failed_charts.add(chart.external_id)
                 self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
                 self.logger.tracker.finalize_item(item.tracking_id, "failure")
+            # Todo: Add internal monitoring job ID to Chart.data object.
         return failed_charts
 
 
