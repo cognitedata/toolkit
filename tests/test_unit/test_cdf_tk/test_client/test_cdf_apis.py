@@ -75,7 +75,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -1166,3 +1166,11 @@ class TestCDFResourceAPI:
         listed = api.list()
         assert len(listed) == 1
         assert listed[0].dump() == resource
+
+
+def test_task_move_type_to_field_handles_none_validation_data() -> None:
+    """Pydantic may supply ValidationInfo.data as None; avoid 'in' on None (deploy dry-run)."""
+    info = MagicMock()
+    info.data = None
+    params = {"function": {"externalId": "f"}}
+    assert Task.move_type_to_field(params, info) is params
