@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast
-from unittest.mock import MagicMock
+from typing import Any, ClassVar
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -66,16 +66,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
 from tests.data import MIGRATION_DIR
-
-
-def _rewrite_ids_in_json(data: Any, id_map: dict[str, str]) -> Any:
-    if isinstance(data, dict):
-        return {k: _rewrite_ids_in_json(v, id_map) for k, v in data.items()}
-    if isinstance(data, list):
-        return [_rewrite_ids_in_json(item, id_map) for item in data]
-    if isinstance(data, str) and data in id_map:
-        return id_map[data]
-    return data
 
 
 class TestAssetCentricToInstanceMapper:
@@ -411,6 +401,7 @@ class TestChartMapper:
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
         output_chart = ChartResponse.model_validate(yaml.safe_load(output_chart_path.read_text(encoding="utf-8")))
         source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
+        # These are not yet supported.
         source.data.monitoring_jobs = None
         source.data.scheduled_calculation_collection = None
 
@@ -447,8 +438,10 @@ class TestChartMapper:
             )
             client.migration.lookup.events = event_lookup
 
-            mapper = ChartMapper(client)
-            mapped_list = mapper.map([source])
+            new_uuids = [core_ts.id for core_ts in core_timeseries]
+            with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
+                mapper = ChartMapper(client)
+                mapped_list = mapper.map([source])
             assert len(mapped_list) == 1
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
@@ -469,17 +462,6 @@ class TestChartMapper:
         # Manually remove the server side only properties
         for key in ["lastUpdatedTime", "createdTime", "ownerId"]:
             expected.pop(key, None)
-        source_ts = source.data.time_series_collection or []
-        id_map = {
-            cast(str, co.id): cast(str, si.id)
-            for co, si in zip(core_timeseries, source_ts, strict=True)
-            if co.id is not None and si.id is not None
-        }
-        expected = _rewrite_ids_in_json(expected, id_map)
-        preserved_ids = {si.id for si in source_ts if si.id is not None}
-        for thr in expected.get("data", {}).get("thresholdCollection") or []:
-            if thr.get("sourceId") in preserved_ids:
-                thr["type"] = "coreTimeseries"
         assert mapped.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True) == expected
 
 

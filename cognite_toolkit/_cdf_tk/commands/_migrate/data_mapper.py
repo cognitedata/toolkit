@@ -272,6 +272,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         issues: list[ChartMigrationIssue] = []
         for item in source:
             identifier = item.external_id
+            # Todo: Check owner of MonitoringJobs (probably not for scheduled calculations)
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )
