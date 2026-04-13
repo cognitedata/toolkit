@@ -9,7 +9,8 @@ from collections.abc import Sequence
 from typing import Any, TypeAlias
 
 from cognite.client.data_classes.capabilities import UnknownScope
-from pydantic import JsonValue, model_validator
+from pydantic import JsonValue, model_serializer, model_validator
+from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -75,6 +76,17 @@ class InspectCapability(BaseModelObject):
         acl_data[ACL_NAME] = acl_name
         value_copy["acl"] = acl_data
         return value_copy
+
+    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
+    # It is.
+    @model_serializer  # type: ignore[type-var]
+    def serialize_acl_name(self, info: FieldSerializationInfo) -> dict[str, Any]:
+        """Serialize 'acl' field back to its specific ACL key (e.g., 'assetsAcl') for API compatibility."""
+        acl_data = self.acl.model_dump(**vars(info))
+        output: dict[str, Any] = {self.acl.acl_name: acl_data}
+        if self.project_scope is not None:
+            output["projectScope" if info.by_alias else "project_scope"] = self.project_scope.model_dump(**vars(info))
+        return output
 
 
 class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
