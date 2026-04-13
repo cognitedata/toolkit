@@ -2365,8 +2365,8 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(endpoints["list"].path, f"Failed to list chart folders: {e!s}")
 
         external_id = request.as_id()
-        is_exiting = any(folder.as_id() == external_id for folder in all_folders)
-        if is_exiting:
+        is_existing = any(folder.as_id() == external_id for folder in all_folders)
+        if is_existing:
             return
         try:
             client.charts.folders.create([request])
