@@ -16,7 +16,6 @@ data:
     id: 050ac967-54a1-45f7-8ab8-d010010057de
     name: "Stor\xF8yodden - Sea water speed"
     color: '#6929c4'
-    tsId: 6489308933506138
     tsExternalId: "EVE-SI-STOR\xD8YODDEN-01-2"
     lineWeight: 1.0
     lineStyle: solid
@@ -40,7 +39,6 @@ data:
     id: b30c0898-929d-4cc4-bd4a-fa3ad0cb339d
     name: "Stor\xF8yodden - Sea water temperature"
     color: '#009d9a'
-    tsId: 1421489173514180
     tsExternalId: "EVE-TI-STOR\xD8YODDEN-01-2"
     lineWeight: 3
     lineStyle: solid
