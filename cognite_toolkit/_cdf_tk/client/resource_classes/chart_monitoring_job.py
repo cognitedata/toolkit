@@ -59,6 +59,7 @@ class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, ex
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        # The excluded fields are immutable, i.e., the cannot be updated.
         return self.model_dump(
             exclude={"nonce", "source", "source_id", "metadata", "alert_context", "interval", "overlap"},
             exclude_none=True,
