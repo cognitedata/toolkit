@@ -4,10 +4,12 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -23,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
@@ -37,6 +40,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
 )
@@ -45,7 +49,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
@@ -62,6 +66,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     APMConfigInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
@@ -90,6 +95,8 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
+        if Flags.RECORDS_MIGRATE.is_enabled():
+            self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
 
@@ -409,7 +416,7 @@ class MigrateApp(typer.Typer):
         skip_existing: bool,
         kind: AssetCentricKind,
         resource_type: str,
-        container_id: ContainerId | None = None,
+        container_id: ContainerId,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -443,11 +450,6 @@ class MigrateApp(typer.Typer):
             )
         else:
             # Interactive selection of data set.
-            if container_id is None:
-                raise ToolkitValueError(
-                    "container_id is required when neither mapping_file nor data_set_id is provided "
-                    "(interactive migration)."
-                )
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
             asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(
@@ -589,6 +591,131 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="events",
+            )
+        )
+
+    @classmethod
+    def events_to_records(
+        cls,
+        ctx: typer.Context,
+        config_file: Annotated[
+            Path,
+            typer.Option(
+                "--config-file",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                readable=True,
+                help="Path to a YAML file containing the target configuration: streamExternalId, resourceType, and one or more mappings "
+                "(each mapping must contain: externalId, containerId and propertyMapping). ",
+            ),
+        ],
+        mapping_file: Annotated[
+            Path | None,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to a CSV file listing which events to migrate. "
+                "Columns: id, space, externalId; ingestionMapping is optional if the YAML defines a single mapping "
+                "or defaultMapping is set in the config file. "
+                "Mutually exclusive with --data-set-id.",
+            ),
+        ] = None,
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="External ID of the data set to migrate all events from. "
+                "Requires defaultMapping to be set in the config file. "
+                "Mutually exclusive with --mapping-file.",
+            ),
+        ] = None,
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, queries the stream for existing records and skips uploads for "
+                "(space, externalId) pairs that already exist.",
+            ),
+        ] = False,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Events to records (Streams API)."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
+        if mapping_file is None and data_set_id is None:
+            data_set_id = EventInteractiveSelect(client, "migrate").select_data_set(allow_empty=False)
+        if data_set_id is not None and migration_config.default_mapping is None:
+            raise typer.BadParameter(
+                "--data-set-id requires defaultMapping to be set in the config file, "
+                "such that all events in the data set are mapped to the same target container."
+            )
+        mappings_by_external_id = {m.external_id: m for m in migration_config.mappings}
+
+        selected: AssetCentricMigrationSelector
+        if data_set_id is not None and mapping_file is not None:
+            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
+        elif mapping_file is not None:
+            selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Events")
+            client.console.print(
+                Panel(f"Migrating {len(selected.items)} events", title="Ready for migration", expand=False)
+            )
+            if not auto_yes:
+                proceed = questionary.confirm("Do you want to proceed with the migration?", default=False).unsafe_ask()
+                if not proceed:
+                    client.console.print("Migration aborted by user.")
+                    raise typer.Abort()
+        elif data_set_id is not None:
+            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Events")
+
+        cmd = MigrationCommand(client=client)
+        cmd.run(
+            lambda: cmd.migrate(  # type: ignore[misc]
+                selectors=[selected],
+                data=RecordsMigrationIO(
+                    client, stream_external_id=migration_config.stream_external_id, skip_existing=skip_existing
+                ),
+                mapper=AssetCentricToRecordMapper(
+                    client,
+                    mappings_by_external_id=mappings_by_external_id,
+                    default_mapping=migration_config.default_mapping,
+                ),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="events_records",
             )
         )
 

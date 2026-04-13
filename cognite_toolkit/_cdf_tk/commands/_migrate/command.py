@@ -15,9 +15,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import RecordsMigrationIO
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.cruds import ResourceWorker
@@ -94,8 +96,11 @@ class MigrationCommand(ToolkitCommand):
         )
 
         if needed_capacity and not isinstance(data, ChartIO):
-            # Chart are not creating any new nodes.
-            self.validate_available_capacity(data.client, needed_capacity)
+            # Charts are not creating any new nodes.
+            if isinstance(data, RecordsMigrationIO):
+                self.validate_stream_capacity(data.client, data.stream_external_id, needed_capacity)
+            else:
+                self.validate_available_capacity(data.client, needed_capacity)
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         with (
             NDJsonWriter(
@@ -146,7 +151,8 @@ class MigrationCommand(ToolkitCommand):
                 executor.raise_on_error()
 
                 action = "Would migrate" if dry_run else "Migrating"
-                console.print(f"{action} {total:,} {selected.display_name} to instances.")
+                target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
+                console.print(f"{action} {total:,} {selected.display_name} to {target}.")
 
         return results_by_selector
 
@@ -356,6 +362,51 @@ class MigrationCommand(ToolkitCommand):
             return None
 
         return upload_items
+
+    def validate_stream_capacity(self, client: ToolkitClient, stream_external_id: str, record_count: int) -> None:
+        results = client.streams.retrieve(
+            [ExternalId(external_id=stream_external_id)], include_statistics=True, ignore_unknown_ids=True
+        )
+        if not results:
+            raise ToolkitMigrationError(
+                f"Stream '{stream_external_id}' does not exist. "
+                "Please create the stream before running a records migration."
+            )
+        stream = results[0]
+        limits = stream.settings.limits if stream.settings else None
+        if limits is None:
+            self.console(f"Unable to check stream capacity for '{stream.external_id}' (no settings returned).")
+            return
+
+        records_usage = limits.max_records_total
+        records_consumed = records_usage.consumed or 0
+        records_available = records_usage.provisioned - records_consumed
+
+        if records_available < record_count:
+            raise ToolkitValueError(
+                f"Stream '{stream.external_id}' does not have enough record capacity. "
+                f"Provisioned: {records_usage.provisioned:,}, consumed: {records_consumed:,}, "
+                f"available: {records_available:,}, needed: {record_count:,}."
+            )
+
+        storage_usage = limits.max_giga_bytes_total
+        storage_consumed = storage_usage.consumed or 0
+        storage_available = storage_usage.provisioned - storage_consumed
+        if storage_available <= 0:
+            raise ToolkitValueError(
+                f"Stream '{stream.external_id}' does not have enough storage capacity. "
+                f"Provisioned: {storage_usage.provisioned:,} GB, consumed: {storage_consumed:,} GB."
+            )
+
+        records_total_after = records_consumed + record_count
+        self.console(
+            f"Stream '{stream.external_id}' has enough capacity. "
+            f"Records after migration: {records_total_after:,} / {records_usage.provisioned:,}. "
+        )
+        self.console(
+            f"Before migration, you've so far used {storage_consumed:,} / {storage_usage.provisioned:,} GB of stream storage. "
+            "Note that storage capacity is NOT considered when checking for capacity, and the migration might fail if you end up going over this limit."
+        )
 
     @staticmethod
     def validate_migration_model_available(client: ToolkitClient) -> None:
