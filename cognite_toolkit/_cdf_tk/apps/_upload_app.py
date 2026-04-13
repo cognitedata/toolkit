@@ -65,7 +65,7 @@ class UploadApp(typer.Typer):
             bool,
             typer.Option(
                 "--skip-strict-mode",
-                help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox project.",
+                help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox projects.",
             ),
         ] = False,
         verbose: Annotated[
@@ -124,6 +124,6 @@ class UploadApp(typer.Typer):
                 verbose=verbose,
                 deploy_resources=deploy_resources,
                 client=client,
-                skip_trict_mode=skip_verify_cdf_project,
+                skip_trict_mode=skip_strict_mode,
             )
         )
