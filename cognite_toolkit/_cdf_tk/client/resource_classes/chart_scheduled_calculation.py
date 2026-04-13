@@ -93,6 +93,7 @@ class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableReque
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        # The excluded fields are immutable, i.e., the cannot be updated.
         return self.model_dump(exclude={"nonce", "period", "offset", "window_size"}, exclude_none=True, by_alias=True)
 
 
@@ -115,8 +116,10 @@ class ChartScheduledCalculationResponse(ChartScheduledCalculation, ResponseResou
         return ChartScheduledCalculationRequest
 
     def as_request_resource(self) -> ChartScheduledCalculationRequest:
+        # Excluding the server set properties.
         dump = self.model_dump(
             mode="python", by_alias=True, exclude_unset=True, exclude={"created_time", "last_updated_time", "status"}
         )
+        # Nonce is not returned, so we set it to missing to ensure we can create the request object.
         dump["nonce"] = MISSING_NONCE
         return ChartScheduledCalculationRequest.model_validate(dump, extra="allow")
