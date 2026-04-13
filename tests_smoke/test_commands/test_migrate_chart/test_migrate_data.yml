@@ -3,7 +3,7 @@ chart:
     coreTimeseriesCollection:
     - color: '#1F91FF'
       enabled: true
-      id: UUID_0
+      id: aaaaaaaa-1111-2222-3333-444444444444
       lineStyle: solid
       lineWeight: 1.0
       name: Smoke Test Timeseries
@@ -19,7 +19,7 @@ chart:
     dateTo: '2025-12-31T23:59:59.999Z'
     name: Smoke Test Chart
     sourceCollection:
-    - id: UUID_0
+    - id: aaaaaaaa-1111-2222-3333-444444444444
       type: coreTimeseries
     version: 1
   externalId: smoke_test_chart_migration

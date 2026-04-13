@@ -34,19 +34,6 @@ def load_toolkit_client(toolkit_client: ToolkitClient) -> None:
         mock_env.create_from_environment.return_value.get_client.return_value = toolkit_client
 
 
-def _replace_uuids(obj: object, uuid_map: dict[str, str]) -> object:
-    """Recursively replace UUIDs in a nested dict/list with stable placeholders."""
-    if isinstance(obj, str) and UUID_PATTERN.fullmatch(obj):
-        if obj not in uuid_map:
-            uuid_map[obj] = f"UUID_{len(uuid_map)}"
-        return uuid_map[obj]
-    if isinstance(obj, dict):
-        return {k: _replace_uuids(v, uuid_map) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_replace_uuids(item, uuid_map) for item in obj]
-    return obj
-
-
 @pytest.fixture()
 def legacy_chart(
     toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_dataset: DataSetResponse
@@ -83,7 +70,7 @@ class TestMigrateChart:
         data_regression: DataRegressionFixture,
     ) -> None:
         if len(legacy_chart.data.time_series_collection or []) == 0:
-            raise AssertionError("Chart migration failed. Legacy chart does not have no time series.")
+            raise AssertionError("Chart migration failed. Legacy chart does not have any time series.")
         if len(legacy_chart.data.core_timeseries_collection or []) != 0:
             raise AssertionError(
                 "Chart migration failed. Legacy chart has core timeseries, expected only classic timeseries."
@@ -122,9 +109,7 @@ class TestMigrateChart:
             )
 
         dumped = migrated_chart.as_request_resource().dump()
-        uuid_map: dict[str, str] = {}
-        stabilised = _replace_uuids(dumped, uuid_map)
-        data_regression.check({"chart": stabilised})
+        data_regression.check({"chart": dumped})
 
 
 def create_migrate_timeseries(
