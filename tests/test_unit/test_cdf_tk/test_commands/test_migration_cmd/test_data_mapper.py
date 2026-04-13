@@ -401,7 +401,9 @@ class TestChartMapper:
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
         target_space = "my_target_space"
         event_count = 4
-        source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
+        raw = yaml.safe_load(input_chart_path.read_text(encoding="utf-8"))
+        input_chart_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        source = ChartResponse.model_validate(raw)
         with monkeypatch_toolkit_client() as client:
             time_series_lookup = MagicMock()
 
@@ -438,7 +440,13 @@ class TestChartMapper:
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
 
-        data_regression.check(mapped.dump(), fullpath=output_chart_path)
+        dumped = mapped.dump()
+        dumped["monitoringJobs"] = [job.dump() for job in mapped.monitoring_jobs or []] or None
+        dumped["scheduledCalculations"] = [
+            calculation.dump() for calculation in mapped.scheduled_calculations or []
+        ] or None
+
+        data_regression.check(dumped, fullpath=output_chart_path)
 
 
 class TestFDMtoCDMMapper:

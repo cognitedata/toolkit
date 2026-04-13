@@ -249,47 +249,47 @@ data:
 externalId: d8008471-1c85-4ac1-96b5-984aa0531ad8
 lastUpdatedTime: 1773837880397
 monitoringJobs:
-  - id: 8744623873811832
-    interval: 300000
-    overlap: 0
-    userIdentifier: 9RGmRdXVoUuZuvDBhm5WNA
-    externalId: monitoringJob-8744623873811832
-    name: Monitoring job for Storøyodden - Sea water temperature
-    channelId: 300-1-028009
-    source: CHARTS
-    sourceId: d8008471-1c85-4ac1-96b5-984aa0531ad8
-    model:
-      timeseriesExternalId: "EVE-TI-STOR\xD8YODDEN-01-2"
-      granularity: 5m
-      externalId: double_threshold
-      lowerThreshold: 0.5
-      upperThreshold: null
+- channelId: 1819715845899748
+  externalId: monitoringJob-8744623873811832
+  id: 8744623873811832
+  interval: 300000
+  model:
+    externalId: double_threshold
+    granularity: 5m
+    lowerThreshold: 0.5
+    timeseriesExternalId: "EVE-TI-STOR\xD8YODDEN-01-2"
+    upperThreshold: null
+  name: "Monitoring job for Stor\xF8yodden - Sea water temperature"
+  overlap: 0
+  source: CHARTS
+  sourceId: d8008471-1c85-4ac1-96b5-984aa0531ad8
+  userIdentifier: 9RGmRdXVoUuZuvDBhm5WNA
 ownerId: 9RGmRdXVoUuZuvDBhm5WNA
 scheduledCalculations:
-  - externalId: Add_10_1773833602688
-    period: 3600000
-    offset: 0
-    target_timeseries_external_id: "EVE-SI-STOR\xD8YODDEN-01-2-add-10"
-    graph:
-      granularity: 5m
-      steps:
-        - op: add
-          version: 1.0
-          raw: true
-          step: 0
-          inputs:
-            - type: ts
-              value: "EVE-SI-STOR\xD8YODDEN-01-2"
-              param: a
-            - type: constant
-              value: 10
-              param: b
-        - op: PASSTHROUGH
-          raw: true
-          step: 1
-          version: 1.0
-          inputs:
-            - type: result
-              value: 5
-              param: series
+- externalId: Add_10_1773833602688
+  graph:
+    granularity: 5m
+    steps:
+    - inputs:
+      - param: a
+        type: ts
+        value: "EVE-SI-STOR\xD8YODDEN-01-2"
+      - param: b
+        type: constant
+        value: 10
+      op: add
+      raw: true
+      step: 0
+      version: 1.0
+    - inputs:
+      - param: series
+        type: result
+        value: 5
+      op: PASSTHROUGH
+      raw: true
+      step: 1
+      version: 1.0
+  offset: 0
+  period: 3600000
+  target_timeseries_external_id: "EVE-SI-STOR\xD8YODDEN-01-2-add-10"
 visibility: PRIVATE

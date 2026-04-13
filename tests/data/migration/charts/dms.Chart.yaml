@@ -262,4 +262,57 @@ data:
     unit: ''
     version: v2
 externalId: d8008471-1c85-4ac1-96b5-984aa0531ad8
+monitoringJobs:
+- channelId: 1819715845899748
+  externalId: monitoringJob-8744623873811832
+  interval: 300000
+  model:
+    externalId: double_threshold
+    granularity: 5m
+    lowerThreshold: 0.5
+    timeseriesExternalId: null
+    timeseriesId: null
+    timeseriesInstanceId:
+      externalId: EVE-TI-STORØYODDEN-01-2
+      space: my_target_space
+    upperThreshold: null
+  name: Monitoring job for Storøyodden - Sea water temperature
+  nonce: <missingNonce>
+  overlap: 0
+  source: CHARTS
+  sourceId: d8008471-1c85-4ac1-96b5-984aa0531ad8
+  userIdentifier: 9RGmRdXVoUuZuvDBhm5WNA
+scheduledCalculations:
+- externalId: Add_10_1773833602688
+  graph:
+    granularity: 5m
+    steps:
+    - inputs:
+      - param: a
+        type: ts
+        value:
+          externalId: EVE-SI-STORØYODDEN-01-2
+          space: my_target_space
+      - param: b
+        type: constant
+        value: 10
+      op: add
+      raw: true
+      step: 0
+      version: 1.0
+    - inputs:
+      - param: series
+        type: result
+        value: 5
+      op: PASSTHROUGH
+      raw: true
+      step: 1
+      version: 1.0
+  nonce: <missingNonce>
+  offset: 0
+  period: 3600000
+  targetTimeseriesExternalId: EVE-SI-STORØYODDEN-01-2-add-10
+  targetTimeseriesInstanceId:
+    externalId: EVE-SI-STORØYODDEN-01-2-add-10
+    space: my_target_space
 visibility: PRIVATE
