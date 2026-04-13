@@ -281,7 +281,6 @@ monitoringJobs:
   overlap: 0
   source: CHARTS
   sourceId: d8008471-1c85-4ac1-96b5-984aa0531ad8
-  userIdentifier: 9RGmRdXVoUuZuvDBhm5WNA
 scheduledCalculations:
 - externalId: Add_10_1773833602688
   graph:
@@ -311,7 +310,7 @@ scheduledCalculations:
   nonce: <missingNonce>
   offset: 0
   period: 3600000
-  targetTimeseriesExternalId: EVE-SI-STORØYODDEN-01-2-add-10
+  targetTimeseriesExternalId: null
   targetTimeseriesInstanceId:
     externalId: EVE-SI-STORØYODDEN-01-2-add-10
     space: my_target_space
