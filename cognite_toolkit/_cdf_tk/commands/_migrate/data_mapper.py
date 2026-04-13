@@ -514,14 +514,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     else:
                         new_inputs.append(input_.model_copy(update={"value": node_id}))
                         has_changed_step = True
-                elif type(input_.value) is int:
-                    ts_id = input_.value
-                    node_id = self.client.migration.lookup.time_series(ts_id)
-                    if node_id is None:
-                        issue.missing_timeseries_ids.add(ts_id)
-                    else:
-                        new_inputs.append(input_.model_copy(update={"value": node_id}))
-                        has_changed_step = True
                 else:
                     new_inputs.append(input_)
             if has_changed_step:
@@ -558,8 +550,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         """
         node_id: NodeId | None = None
         consumer_view_id: ViewId | None = None
-        for id in ids:
-            arg = id.dump(camel_case=False)
+        for identifier in ids:
+            arg = identifier.dump(camel_case=False)
             node_id = self.client.migration.lookup.time_series(**arg)
             consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)
             if node_id is not None:
@@ -625,34 +617,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             else:
                 updated_elements.append(element)
         return updated_elements if has_changes else None
-
-    def _update_scheduled_calculation_collection(
-        self, collection: list[ChartScheduledCalculationUIElement], migrated_ts_ui_ids: set[str]
-    ) -> list[ChartScheduledCalculationUIElement]:
-        updated_collection: list[ChartScheduledCalculationUIElement] = []
-        for scheduled in collection:
-            if scheduled.flow is None:
-                updated_collection.append(scheduled)
-                continue
-            updated_elements: list[FlowElement] = []
-            has_changes = False
-            for element in scheduled.flow.elements or []:
-                if (
-                    element.data
-                    and element.data.selected_source_id is not None
-                    and element.data.selected_source_id in migrated_ts_ui_ids
-                ):
-                    new_data = element.data.model_copy(update={"type": "coreTimeseries"})
-                    updated_elements.append(element.model_copy(update={"data": new_data}))
-                    has_changes = True
-                else:
-                    updated_elements.append(element)
-            if has_changes:
-                new_flow = scheduled.flow.model_copy(update={"elements": updated_elements})
-                updated_collection.append(scheduled.model_copy(update={"flow": new_flow}))
-            else:
-                updated_collection.append(scheduled)
-        return updated_collection
 
     def _update_monitoring_job_references(
         self, references: list[MonitoringJobReference], migrated_ts_ui_ids: set[str]
