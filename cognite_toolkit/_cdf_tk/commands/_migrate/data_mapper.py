@@ -23,6 +23,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
     CalculationGraph,
+    CalculationInput,
+    CalculationStep,
     ChartScheduledCalculationRequest,
     ChartScheduledCalculationResponse,
 )
@@ -472,7 +474,45 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     def _map_scheduled_calculations(
         self, calculations: list[ChartScheduledCalculationResponse], issue: ChartMigrationIssue
     ) -> list[ChartScheduledCalculationRequest]:
-        raise NotImplementedError()
+        new_calculations: list[ChartScheduledCalculationRequest] = []
+        for calculation in calculations:
+            new_calculation = calculation.as_request_resource()
+            if new_calculation.target_timeseries_external_id is not None:
+                node_id = self.client.migration.lookup.time_series(
+                    external_id=new_calculation.target_timeseries_external_id
+                )
+                if node_id is None:
+                    issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
+                    continue
+                new_calculation.target_timeseries_instance_id = node_id
+            new_graph = self._map_calculation_graph(calculation.graph, issue)
+            if new_graph is not None:
+                new_calculation.graph = new_graph
+            new_calculations.append(new_calculation)
+        return new_calculations
+
+    def _map_calculation_graph(self, graph: CalculationGraph, issue: ChartMigrationIssue) -> CalculationGraph | None:
+        has_changed = False
+        new_steps: list[CalculationStep] = []
+        for step in graph.steps:
+            has_changed_step = False
+            new_inputs: list[CalculationInput] = []
+            for input_ in step.inputs:
+                if input_.type == "ts" and isinstance(external_id := input_.value, str):
+                    node_id = self.client.migration.lookup.time_series(external_id=external_id)
+                    if node_id is None:
+                        issue.missing_timeseries_external_ids.add(external_id)
+                    else:
+                        new_inputs.append(input_.model_copy(update={"value": node_id}))
+                        has_changed_step = True
+                else:
+                    new_inputs.append(input_)
+            if has_changed_step:
+                new_steps.append(step.model_copy(update={"inputs": new_inputs}))
+                has_changed = True
+            else:
+                new_steps.append(step)
+        return graph.model_copy(update={"steps": new_steps}) if has_changed else None
 
     def _create_new_timeseries_core(
         self, ts_item: ChartTimeseriesUIElement, node_id: NodeId, consumer_view_id: ViewId | None, element_id: str
@@ -503,8 +543,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         consumer_view_id: ViewId | None = None
         for id in ids:
             arg = id.dump(camel_case=False)
-            node_id = self.client.migration.lookup.time_series(**arg)  # type: ignore[arg-type]
-            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)  # type: ignore[arg-type]
+            node_id = self.client.migration.lookup.time_series(**arg)
+            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)
             if node_id is not None:
                 break
         return node_id, consumer_view_id
@@ -614,85 +654,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             else:
                 updated.append(ref)
         return updated
-
-    def _map_monitoring_job_response(
-        self, job: ChartMonitoringJobResponse, issue: ChartMigrationIssue
-    ) -> ChartMonitoringJobRequest | None:
-        model = job.model
-        node_id: NodeId | None = None
-        if model.timeseries_instance_id is not None:
-            node_id = NodeId.model_validate(model.timeseries_instance_id, strict=False)
-        if node_id is None and model.timeseries_id is not None:
-            node_id = self.client.migration.lookup.time_series(id=model.timeseries_id)
-        if node_id is None and model.timeseries_external_id is not None:
-            node_id = self.client.migration.lookup.time_series(external_id=model.timeseries_external_id)
-        if node_id is None:
-            issue.errors.append(
-                f"Could not resolve timeseries instance for monitoring job {job.external_id!r} "
-                f"(timeseries_id={model.timeseries_id!r}, timeseries_external_id={model.timeseries_external_id!r})."
-            )
-            return None
-        new_model = model.model_copy(
-            update={
-                "timeseries_id": None,
-                "timeseries_external_id": None,
-                "timeseries_instance_id": node_id,
-            }
-        )
-        return job.model_copy(update={"model": new_model}).as_request_resource()
-
-    def _map_calculation_graph(self, graph: CalculationGraph, issue: ChartMigrationIssue) -> CalculationGraph | None:
-        new_steps = []
-        for step in graph.steps:
-            new_inputs = []
-            for inp in step.inputs:
-                if inp.type == "ts" and isinstance(inp.value, str):
-                    node_id = self.client.migration.lookup.time_series(external_id=inp.value)
-                    if node_id is None:
-                        issue.errors.append(
-                            f"Missing timeseries instance for scheduled calculation input external_id={inp.value!r}"
-                        )
-                        return None
-                    new_inputs.append(inp.model_copy(update={"value": node_id}))
-                else:
-                    new_inputs.append(inp)
-            new_steps.append(step.model_copy(update={"inputs": new_inputs}))
-        return graph.model_copy(update={"steps": new_steps})
-
-    def _map_scheduled_calculation_response(
-        self, calculation: ChartScheduledCalculationResponse, issue: ChartMigrationIssue
-    ) -> ChartScheduledCalculationRequest | None:
-        mapped_graph = self._map_calculation_graph(calculation.graph, issue)
-        if mapped_graph is None:
-            return None
-
-        target_node: NodeId | None = None
-        if calculation.target_timeseries_external_id is not None:
-            target_node = self.client.migration.lookup.time_series(
-                external_id=calculation.target_timeseries_external_id
-            )
-            if target_node is None:
-                issue.errors.append(
-                    "Missing timeseries instance for scheduled calculation target "
-                    f"external_id={calculation.target_timeseries_external_id!r}"
-                )
-                return None
-        elif calculation.target_timeseries_instance_id is not None:
-            target_node = NodeId.model_validate(calculation.target_timeseries_instance_id, strict=False)
-        else:
-            issue.errors.append(
-                f"Scheduled calculation {calculation.external_id!r} has no target timeseries reference."
-            )
-            return None
-
-        updated = calculation.model_copy(
-            update={
-                "graph": mapped_graph,
-                "target_timeseries_external_id": None,
-                "target_timeseries_instance_id": target_node,
-            }
-        )
-        return updated.as_request_resource()
 
     def _create_activities_collection(self, event_ids: set[int], issue: ChartMigrationIssue) -> list[ChartActivity]:
         activities: list[ChartActivity] = []
