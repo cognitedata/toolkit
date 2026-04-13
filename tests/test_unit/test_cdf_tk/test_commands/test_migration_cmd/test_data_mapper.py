@@ -402,7 +402,6 @@ class TestChartMapper:
         target_space = "my_target_space"
         event_count = 4
         raw = yaml.safe_load(input_chart_path.read_text(encoding="utf-8"))
-        input_chart_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
         source = ChartResponse.model_validate(raw)
         with monkeypatch_toolkit_client() as client:
             time_series_lookup = MagicMock()
