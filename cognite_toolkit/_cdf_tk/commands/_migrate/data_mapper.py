@@ -567,15 +567,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         updated_collection = []
         for threshold in collection:
             if threshold.source_id is not None and threshold.source_id in migrated_ts_ui_ids:
-                updated_collection.append(
-                    threshold.model_copy(
-                        update={
-                            "type": "coreTimeseries",
-                            # We clear out the calls to avoid referencing past timeseries.
-                            "calls": [],
-                        }
-                    )
-                )
+                # We clear out the calls to avoid referencing past timeseries.
+                updated_collection.append(threshold.model_copy(update={"calls": []}))
             else:
                 updated_collection.append(threshold)
         return updated_collection

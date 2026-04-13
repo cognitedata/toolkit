@@ -748,20 +748,15 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        new_uuids = [
-            uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-            uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-        ]
         selector = ChartExternalIdSelector(external_ids=("my_chart",))
-        with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-            results_by_selector = command.migrate(
-                selectors=[selector],
-                data=ChartIO(client),
-                mapper=ChartMapper(client),
-                log_dir=tmp_path / "logs",
-                dry_run=False,
-                verbose=True,
-            )
+        results_by_selector = command.migrate(
+            selectors=[selector],
+            data=ChartIO(client),
+            mapper=ChartMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=True,
+        )
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0, "skipped": 0}
@@ -782,7 +777,7 @@ class TestMigrationCommand:
                 "coreTimeseriesCollection": [
                     {
                         "type": "coreTimeseries",
-                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "id": "87654321-4321-8765-4321-876543218765",
                         "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
                         "viewReference": {
                             "space": "my_schema_space",
@@ -792,7 +787,7 @@ class TestMigrationCommand:
                     },
                     {
                         "type": "coreTimeseries",
-                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "id": "12345678-1234-5678-1234-567812345678",
                         "nodeReference": {"space": "my_space", "externalId": "node_123"},
                         "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
                     },
@@ -800,17 +795,17 @@ class TestMigrationCommand:
                 "sourceCollection": [
                     {
                         "type": "coreTimeseries",
-                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "id": "87654321-4321-8765-4321-876543218765",
                     },
                     {
                         "type": "coreTimeseries",
-                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "id": "12345678-1234-5678-1234-567812345678",
                     },
                 ],
                 "thresholdCollection": [
                     {
                         "name": "High limit",
-                        "sourceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "sourceId": "87654321-4321-8765-4321-876543218765",
                         "upperLimit": 100.0,
                         "calls": [],
                     },
@@ -823,7 +818,7 @@ class TestMigrationCommand:
                                 {
                                     "data": {
                                         "type": "coreTimeseries",
-                                        "selectedSourceId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                        "selectedSourceId": "12345678-1234-5678-1234-567812345678",
                                     },
                                 },
                             ],
