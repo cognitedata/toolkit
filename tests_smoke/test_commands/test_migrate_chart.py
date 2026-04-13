@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -37,7 +38,7 @@ def load_toolkit_client(toolkit_client: ToolkitClient) -> None:
 @pytest.fixture()
 def legacy_chart(
     toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_dataset: DataSetResponse
-) -> ChartResponse:
+) -> Iterable[ChartResponse]:
     """Create a legacy chart with a classic timeseries and the InstanceSource mapping node."""
     client = toolkit_client
 
@@ -52,12 +53,47 @@ def legacy_chart(
     ts = create_migrate_timeseries(client, ts_external_id, smoke_space.space, smoke_dataset.id)
 
     ts_collection[0].ts_id = ts.id
+    if chart.data.user_info:
+        chart.data.user_info.id = client.user_profiles.me().user_identifier
 
-    # The Chart Create endpoint is an upsert. So this will restore the chart
-    # for each run.
+    if not chart.scheduled_calculations:
+        raise AssertionError("Chart migration failed - no scheduled calculations.")
+
+    calculation = chart.scheduled_calculations[0]
+    if calculation.target_timeseries_external_id is None:
+        raise AssertionError(
+            "Chart migration failed - scheduled calculation does not have a target timeseries external ID."
+        )
+    _ = create_migrate_timeseries(
+        client, calculation.target_timeseries_external_id, smoke_space.space, smoke_dataset.id
+    )
+
+    if not chart.monitoring_jobs:
+        raise AssertionError("Chart migration failed - no monitoring jobs.")
+    monitoring_job = chart.monitoring_jobs[0]
+
+    calculation.nonce = client.iam.sessions.create().nonce
+    monitoring_job.nonce = client.iam.sessions.create().nonce
+
+    if client.charts.scheduled_calculations.retrieve([calculation.as_id()], ignore_unknown_ids=True):
+        client.charts.scheduled_calculations.delete([calculation.as_id()])
+    _ = client.charts.scheduled_calculations.create([calculation])
+
+    if client.charts.monitoring_jobs.retrieve([monitoring_job.as_id()], ignore_unknown_ids=True):
+        client.charts.monitoring_jobs.delete([monitoring_job.as_id()])
+
+    created_job = client.charts.monitoring_jobs.create([monitoring_job])[0]
+    # Update internal ID used to link monitoring job with Chart UI element.
+    chart.monitoring_jobs[0].id = created_job.id
+    chart.data.monitoring_jobs[0].id = created_job.id  # type: ignore[index]
+
     created_charts = client.charts.create([chart])
 
-    return created_charts[0]
+    yield created_charts[0]
+
+    client.charts.scheduled_calculations.delete([calculation.as_id()])
+    client.charts.monitoring_jobs.delete([monitoring_job.as_id()])
+    client.charts.delete([chart.as_id()])
 
 
 class TestMigrateChart:
@@ -109,6 +145,7 @@ class TestMigrateChart:
             )
 
         dumped = migrated_chart.as_request_resource().dump()
+        del dumped["data"]["userInfo"]["id"]
         data_regression.check({"chart": dumped})
 
 

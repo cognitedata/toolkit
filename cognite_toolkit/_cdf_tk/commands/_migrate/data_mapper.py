@@ -490,6 +490,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
                     continue
                 new_calculation.target_timeseries_instance_id = node_id
+                new_calculation.target_timeseries_external_id = None
             new_graph = self._map_calculation_graph(calculation.graph, issue)
             if new_graph is not None:
                 new_calculation.graph = new_graph
