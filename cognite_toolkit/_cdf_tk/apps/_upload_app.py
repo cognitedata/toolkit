@@ -7,6 +7,7 @@ from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
@@ -66,6 +67,7 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--skip-strict-mode",
                 help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox projects.",
+                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
             ),
         ] = False,
         verbose: Annotated[
