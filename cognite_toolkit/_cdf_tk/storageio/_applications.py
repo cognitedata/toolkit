@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
 from typing import Any, TypeVar
 
+from cognite.client.credentials import OAuthDeviceCode
 from cognite.client.data_classes.data_modeling import EdgeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -77,6 +78,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         client: ToolkitClient,
         skip_existing: bool = False,
         skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
+        skip_strict_mode: bool = False,
     ) -> None:
         super().__init__(client)
         # We need to store existing charts as we use different endpoints depending on whether
@@ -86,6 +88,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         self._existing_charts: set[str] | None = None
         self._skip_existing = skip_existing
         self._skip_backend_services = skip_backend_services
+        self._skip_strict_mode = skip_strict_mode
 
     @property
     def existing_charts(self) -> set[str]:
@@ -350,9 +353,21 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = updated
             else:
                 if request.nonce == MISSING_NONCE:
-                    # Do not know how to deal with `nonce`. Creating from the service principal is risky as that
-                    # most likely grants too broad access.
-                    raise NotImplementedError(f"Do not support creating {resource_kind} for {ext_id}")
+                    if self._skip_strict_mode:
+                        request.nonce = self.client.iam.sessions.create().nonce
+                    elif isinstance(self.client.config.credentials, OAuthDeviceCode):
+                        # Reusing the user's credentials.
+                        request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+                    else:
+                        log_entries.append(
+                            LogIssue(
+                                id=tracking_id,
+                                message=f"Failed to create {resource_kind} {ext_id}: missing nonce."
+                                "Either run skip-strict-mode or use device code credentials.",
+                            )
+                        )
+                        failed.add(ext_id)
+                        continue
                 try:
                     created = create([request])[0]
                 except ToolkitAPIError as e:
