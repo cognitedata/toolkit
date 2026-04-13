@@ -297,6 +297,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
 
+        Collects classic identifiers from ``time_series_collection``, monitoring jobs,
+        scheduled calculation targets and graph inputs, so batch lookup can run before
+        per-chart mapping.
+
         Note that the consumption views are also cached as part of the timeseries lookup.
         """
         timeseries_ids: set[int] = set()
@@ -499,10 +503,22 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             has_changed_step = False
             new_inputs: list[CalculationInput] = []
             for input_ in step.inputs:
-                if input_.type == "ts" and isinstance(external_id := input_.value, str):
+                if input_.type != "ts":
+                    new_inputs.append(input_)
+                    continue
+                if isinstance(input_.value, str):
+                    external_id = input_.value
                     node_id = self.client.migration.lookup.time_series(external_id=external_id)
                     if node_id is None:
                         issue.missing_timeseries_external_ids.add(external_id)
+                    else:
+                        new_inputs.append(input_.model_copy(update={"value": node_id}))
+                        has_changed_step = True
+                elif type(input_.value) is int:
+                    ts_id = input_.value
+                    node_id = self.client.migration.lookup.time_series(ts_id)
+                    if node_id is None:
+                        issue.missing_timeseries_ids.add(ts_id)
                     else:
                         new_inputs.append(input_.model_copy(update={"value": node_id}))
                         has_changed_step = True
