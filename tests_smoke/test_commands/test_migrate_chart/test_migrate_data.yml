@@ -19,8 +19,7 @@ chart:
     dateTo: '2027-01-12T07:07:01.808Z'
     liveMode: false
     monitoringJobs:
-    - id: 5240451529153248
-      sourceId: SmokeCalculationOutput_1776064037261
+    - sourceId: SmokeCalculationOutput_1776064037261
       sourceType: scheduledCalculation
     name: Smoke Test Chart Copy
     scheduledCalculationCollection:
@@ -170,4 +169,63 @@ chart:
       unit: ''
       version: v2
   externalId: smoke_test_chart_migration
+  monitoringJobs:
+  - alertContext: null
+    channelId: 156269214542588
+    externalId: smoke_test_chart_migrration_monitoring_job
+    interval: 300000
+    metadata: null
+    model:
+      externalId: double_threshold
+      granularity: 1m
+      lowerThreshold: null
+      timeseriesExternalId: null
+      timeseriesId: 1356054795741013
+      timeseriesInstanceId: null
+      upperThreshold: 42.0
+    name: Check_the_output_of_smoke_test_chart_migration
+    nonce: <missingNonce>
+    overlap: 300000
+    source: CHARTS
+    sourceId: 454972f8-d2e9-4944-a697-7d5c73aabd18
+    status: null
+  scheduledCalculations:
+  - description: null
+    externalId: smoke_test_scheduled_calculation
+    graph:
+      granularity: 30d
+      steps:
+      - inputs:
+        - param: a
+          type: ts
+          value:
+            externalId: smoke_test_chart_ts_1
+            space: toolkit_smoke_test_space
+        - param: b
+          type: const
+          value: 37
+        op: add
+        params:
+          align_timesteps: true
+        raw: true
+        step: 0
+        version: 1.0
+      - inputs:
+        - param: series
+          type: result
+          value: 0
+        op: PASSTHROUGH
+        params: {}
+        raw: true
+        step: 1
+        version: 1.0
+    name: SmokeCalculationOutput
+    nonce: <missingNonce>
+    offset: 0
+    period: 2592000000
+    targetTimeseriesExternalId: null
+    targetTimeseriesInstanceId:
+      externalId: SmokeCalculationOutput_1776064037261_TS
+      space: toolkit_smoke_test_space
+    windowSize: null
   visibility: PUBLIC

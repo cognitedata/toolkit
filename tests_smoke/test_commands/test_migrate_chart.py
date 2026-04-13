@@ -9,7 +9,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
@@ -20,6 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
@@ -128,10 +130,17 @@ class TestMigrateChart:
         else:
             print("No migration log files found. This means there were no issues.")
 
-        migrated_charts = toolkit_client.charts.retrieve([ExternalId(external_id=legacy_chart.external_id)])
-        if len(migrated_charts) != 1:
+        # Use ChartsIO to include backend services.
+        page = next(
+            iter(
+                ChartIO(toolkit_client, skip_backend_services=False).stream_data(
+                    selector=ChartExternalIdSelector(external_ids=(legacy_chart.external_id,))
+                )
+            )
+        )
+        if len(page.items) != 1:
             raise AssertionError("Charts migration failed. Failed to retrieve migrated chart.")
-        migrated_chart = migrated_charts[0]
+        migrated_chart = page.items[0].item
         if migrated_chart.data.time_series_collection:
             classic_ts = [ts.ts_external_id for ts in migrated_chart.data.time_series_collection]
             raise AssertionError(
@@ -144,8 +153,16 @@ class TestMigrateChart:
                 f"Chart migration failed. Expected {classic_refs} migrated timeseries in migrated chart, found {migrated_refs}"
             )
 
-        dumped = migrated_chart.as_request_resource().dump()
+        request = migrated_chart.as_request_resource()
+        dumped = request.dump()
+        dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs or []] or None
+        dumped["scheduledCalculations"] = [
+            calculation.dump() for calculation in request.scheduled_calculations or []
+        ] or None
+        # Changes depending on test run and service principal used.
         del dumped["data"]["userInfo"]["id"]
+        del dumped["data"]["monitoringJobs"][0]["id"]
+
         data_regression.check({"chart": dumped})
 
 
