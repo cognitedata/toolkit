@@ -52,5 +52,7 @@ class GroupCapability(BaseModelObject):
         acl_data = self.acl.model_dump(**vars(info))
         output: dict[str, Any] = {self.acl.acl_name: acl_data}
         if self.project_url_names is not None:
-            output["projectUrlNames"] = self.project_url_names.model_dump(**vars(info))
+            output["projectUrlNames" if info.by_alias else "project_url_names"] = self.project_url_names.model_dump(
+                **vars(info)
+            )
         return output
