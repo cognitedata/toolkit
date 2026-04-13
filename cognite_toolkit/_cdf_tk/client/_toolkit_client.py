@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
+from .api.alerts import AlertsAPI
 from .api.annotations import AnnotationsAPI
 from .api.assets import AssetsAPI
 from .api.canvas import IndustrialCanvasAPI
@@ -126,6 +127,7 @@ class ToolkitClient(CogniteClient):
         self.infield = InfieldAPI(http_client)
         self.records = RecordsAPI(http_client)
         self.streams = StreamsAPI(http_client)
+        self.alerts = AlertsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:
