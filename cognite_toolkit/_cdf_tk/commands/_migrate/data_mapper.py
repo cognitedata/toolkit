@@ -455,10 +455,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         for job in jobs:
             new_job = job.as_request_resource()
             ids: list[InternalId | ExternalId] = []
-            if new_job.model.timeseries_external_id:
-                ids.append(ExternalId(external_id=new_job.model.timeseries_external_id))
             if new_job.model.timeseries_id:
                 ids.append(InternalId(id=new_job.model.timeseries_id))
+            if new_job.model.timeseries_external_id:
+                ids.append(ExternalId(external_id=new_job.model.timeseries_external_id))
             node_id, _ = self._get_node_id_consumer_view_id(ids)
             if node_id is None:
                 if new_job.model.timeseries_external_id is not None:
@@ -512,6 +512,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     node_id = self.client.migration.lookup.time_series(external_id=external_id)
                     if node_id is None:
                         issue.missing_timeseries_external_ids.add(external_id)
+                        new_inputs.append(input_)
                     else:
                         new_inputs.append(input_.model_copy(update={"value": node_id}))
                         has_changed_step = True
