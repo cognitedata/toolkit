@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
@@ -44,6 +45,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationListResponse,
+    ChartScheduledCalculationRequest,
+    ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
@@ -1124,6 +1130,59 @@ class TestCDFResourceAPI:
         listed = api.list(limit=10)
         assert len(listed) == 1
         assert listed[0].dump() == resource
+
+    def test_chart_scheduled_calculations_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+        instance = ChartScheduledCalculationResponse.model_validate(resource)
+        config = toolkit_config
+        api = ChartScheduledCalculationsAPI(HTTPClient(config))
+        request_item = ChartScheduledCalculationRequest.model_validate(
+            {**resource, "nonce": "test-nonce"}, extra="ignore"
+        )
+
+        list_item = {k: v for k, v in resource.items() if k != "graph"}
+        list_expected = ChartScheduledCalculationListResponse.model_validate(list_item).dump()
+
+        # Test create
+        respx_mock.post(config.create_api_url("/calculations/schedules")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/calculations/schedules/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/calculations/schedules/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/calculations/schedules/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list
+        respx_mock.get(config.create_api_url("/calculations/schedules")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [list_item]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == list_expected
 
     def test_chart_folders_api_create_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter

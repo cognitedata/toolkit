@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     Visibility,
 )
 
+from .chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from .charts_folders import ChartFoldersAPI
 from .charts_monitoring_job import ChartMonitoringJobsAPI
 
@@ -34,6 +35,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
         )
         self.folders = ChartFoldersAPI(http_client)
         self.monitoring_jobs = ChartMonitoringJobsAPI(http_client)
+        self.scheduled_calculations = ChartScheduledCalculationsAPI(http_client)
 
     def _make_url(self, path: str = "") -> str:
         return self._http_client.config.create_app_url(path)
