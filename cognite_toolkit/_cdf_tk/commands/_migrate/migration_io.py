@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
@@ -26,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
     AnnotationIO,
@@ -294,6 +296,77 @@ class AssetCentricMigrationIO(
         return PendingInstanceId(
             pending_instance_id=NodeId(space=item.space, external_id=item.external_id),
             id=id_,
+        )
+
+
+class RecordsMigrationIO(AssetCentricMigrationIO):
+    """IO class for migrating asset-centric resources to records.
+
+    Inherits all read-side logic (streaming, counting) from AssetCentricMigrationIO
+    and overrides only the upload path to target a records stream.
+    """
+
+    KIND = "RecordsMigration"
+    CHUNK_SIZE = 500
+    UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+
+    def __init__(self, client: ToolkitClient, stream_external_id: str, skip_existing: bool = False) -> None:
+        super().__init__(client)
+        self.stream_external_id = stream_external_id
+        self.skip_existing = skip_existing
+        self._last_updated_time_windows: list[dict[str, int] | None] | None = None
+
+    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:  # type: ignore[override]
+        """Return a page with items whose (space, externalId) are not already in the stream.
+
+        Marks skipped items on the logger tracker.
+        """
+        if not data_chunk.items:
+            return data_chunk
+
+        if self._last_updated_time_windows is None:
+            stream_crud = StreamCRUD.create_loader(self.client)
+            self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
+        last_updated_time_windows = self._last_updated_time_windows
+
+        record_ids = [upload_item.item.as_id() for upload_item in data_chunk.items]
+        existing_pairs: set[tuple[str, str]] = set()
+        for last_updated_time in last_updated_time_windows:
+            for record in self.client.records.retrieve(
+                stream_external_id=self.stream_external_id,
+                items=record_ids,
+                last_updated_time=last_updated_time,
+            ):
+                existing_pairs.add((record.space, record.external_id))
+
+        to_upload: list[DataItem[RecordRequest]] = []
+        for upload_item in data_chunk.items:
+            pair = (upload_item.item.space, upload_item.item.external_id)
+            if pair in existing_pairs:
+                self.logger.tracker.finalize_item(upload_item.tracking_id, "skipped")
+            else:
+                to_upload.append(upload_item)
+
+        return data_chunk.create_from(to_upload)
+
+    def upload_items(  # type: ignore[override]
+        self,
+        data_chunk: Page[RecordRequest],
+        http_client: HTTPClient,
+        selector: AssetCentricMigrationSelector | None = None,
+    ) -> ItemsResultList:
+        if self.skip_existing:
+            data_chunk = self._remove_existing(data_chunk)
+            if not data_chunk.items:
+                return ItemsResultList()
+
+        endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
+        return http_client.request_items_retries(
+            message=ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(endpoint),
+                method="POST",
+                items=data_chunk.items,
+            )
         )
 
 
