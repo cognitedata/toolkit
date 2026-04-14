@@ -362,7 +362,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         log_entries.append(
                             LogIssue(
                                 id=tracking_id,
-                                message=f"Failed to create {resource_kind} {ext_id}: missing nonce."
+                                message=f"Failed to create {resource_kind} {ext_id}: missing nonce. "
                                 "Either run skip-strict-mode or use device code credentials.",
                             )
                         )
