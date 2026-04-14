@@ -76,6 +76,10 @@ def legacy_chart(
 
     calculation.nonce = client.iam.sessions.create().nonce
     monitoring_job.nonce = client.iam.sessions.create().nonce
+    alert_cannels = client.alerts.channels.list()
+    if len(alert_cannels) == 0:
+        raise AssertionError("Chart migration failed - no alert cannels available.")
+    monitoring_job.channel_id = alert_cannels[0].id
 
     if client.charts.scheduled_calculations.retrieve([calculation.as_id()], ignore_unknown_ids=True):
         client.charts.scheduled_calculations.delete([calculation.as_id()])
@@ -162,6 +166,7 @@ class TestMigrateChart:
         # Changes depending on test run and service principal used.
         del dumped["data"]["userInfo"]["id"]
         del dumped["data"]["monitoringJobs"][0]["id"]
+        del dumped["data"]["monitoringJobs"][0]["channelId"]
 
         data_regression.check({"chart": dumped})
 
