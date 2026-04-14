@@ -369,6 +369,31 @@ class _EventSourceConverter(_SourceConverter):
     source_property = ("event", "source")
 
 
+class _InFieldObservationPriorityConverter(_SpecialCaseDestinationConverter):
+    destination_container_property = (ContainerId(space="cdf_infield", external_id="FieldObservation"), "priority")
+
+    MAPPING_TABLE: ClassVar[Mapping[str, str]] = {
+        "1": "immediate",
+        "2": "within_2_weeks",
+        "3": "within_2_to_4_weeks",
+        "4": "within_4_to_8_weeks",
+        "5": "greater_than_8_weeks",
+        "6": "ta_sd_ppm_high",
+        "7": "ta_sd_ppm_medium",
+        "8": "ta_sd_ppm_low",
+    }
+
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> PropertyValueWrite:
+        value_str = str(value)
+        if value_str in self.MAPPING_TABLE:
+            return self.MAPPING_TABLE[value_str]
+        elif value_str.casefold() in self.MAPPING_TABLE.values():
+            return value_str.casefold()
+        raise ValueError(
+            f"Cannot convert {value!r} to FieldObservation priority. Expected one of: {humanize_collection(self.MAPPING_TABLE.keys())}."
+        )
+
+
 class _TextConverter(_ValueConverter):
     type_str = "text"
     schema_type = "string"

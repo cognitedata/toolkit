@@ -1055,10 +1055,11 @@ def convert_container_properties(
             created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
-                created_value = convert_to_primary_property(
+                created_value = convert_to_primary_property_with_special_cases(
                     value,
                     dm_prop.type,
                     dm_prop.nullable if dm_prop.nullable is not None else True,
+                    destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 )
                 created_properties[dest_prop_id] = serialize_dms(created_value)
             except (ValueError, TypeError, NotImplementedError) as e:
