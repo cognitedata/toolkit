@@ -239,12 +239,13 @@ class ItemsResult:
 
 
 class FileWithAggregationLogger(DataLogger):
-    BATCH_SIZE = 1000
-    NO_WARNINGS = 0
+    BATCH_SIZE: int = 1000
+    NO_WARNINGS: int = 0
 
     def __init__(self, writer: NDJsonWriter) -> None:
         self.tracker = NoOpTracker()
         self._writer = writer
+        self._lock = Lock()
         self._batch: list[LogEntry] = []
         self.aggregations_by_ids: dict[str, list[LogAggregation]] = {}
 
@@ -256,88 +257,98 @@ class FileWithAggregationLogger(DataLogger):
         return None
 
     def register(self, ids: list[str]) -> None:
-        for id in ids:
-            if id not in self.aggregations_by_ids:
-                self.aggregations_by_ids[id] = []
-            else:
-                self.log(
-                    LogEntryV2(
-                        id=id,
-                        label="Toolkit bug - multiple registrations",
-                        severity=Severity.warning,
-                        message=f"Multiple registrations for {id}",
+        with self._lock:
+            for id in ids:
+                if id not in self.aggregations_by_ids:
+                    self.aggregations_by_ids[id] = []
+                else:
+                    self._log_unlocked(
+                        LogEntryV2(
+                            id=id,
+                            label="Toolkit bug - multiple registrations",
+                            severity=Severity.warning,
+                            message=f"Multiple registrations for {id}",
+                        )
                     )
-                )
 
-    def _update_aggregation(self, entries: list[LogEntry]) -> None:
+    def _update_aggregation_unlocked(self, entries: list[LogEntry]) -> None:
+        """Internal method to update aggregations without acquiring the lock."""
         for entry in entries:
             if isinstance(entry, LogEntryV2):
                 if entry.id in self.aggregations_by_ids:
-                    self.aggregations_by_ids[entry.id].append(entry)
+                    self.aggregations_by_ids[entry.id].append(entry.as_aggregation())
                 else:
-                    self.aggregations_by_ids[entry.id] = [entry]
-                    self.log(
+                    self.aggregations_by_ids[entry.id] = [entry.as_aggregation()]
+                    self._log_unlocked(
                         LogEntryV2(
                             id=entry.id,
                             label="Toolkit bug - missing registration",
                             severity=Severity.warning,
-                            message=f"Missing registration for {id}",
+                            message=f"Missing registration for {entry.id}",
                         )
                     )
 
-    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+    def _log_unlocked(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+        """Internal method to log entries without acquiring the lock."""
         entries = list(entry) if isinstance(entry, Sequence) else [entry]
-        self._update_aggregation(entries)
+        self._update_aggregation_unlocked(entries)
         self._batch.extend(entries)
         if len(self._batch) >= self.BATCH_SIZE:
-            self._write_to_file()
+            self._write_to_file_unlocked()
 
-    def _write_to_file(self) -> None:
+    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+        with self._lock:
+            self._log_unlocked(entry)
+
+    def _write_to_file_unlocked(self) -> None:
+        """Internal method to write to file without acquiring the lock."""
         if self._batch:
             self._writer.write_chunks([e.model_dump(by_alias=True) for e in self._batch])
             self._batch.clear()
 
+    def _write_to_file(self) -> None:
+        with self._lock:
+            self._write_to_file_unlocked()
+
     def finalize(self, is_dry_run: bool) -> list[ItemsResult]:
         """Finalize logging and return aggregated results.
-
-        Flushes any remaining entries to file and aggregates logged entries
-        by severity and label.
 
         Returns:
             List of ItemsResult grouped by status (derived from severity).
         """
-        result_by_status: dict[OperationStatus, ItemsResult] = {}
-        label_result_by_status_label: dict[OperationStatus, dict[str, LabelResult]] = {}
-        for aggregations in self.aggregations_by_ids.values():
-            max_severity = max((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
-            status = self._severity_to_status(max_severity, is_dry_run)
-            if status not in result_by_status:
-                result_by_status[status] = ItemsResult(status=status, count=0, severity=max_severity)
-            result_by_status[status].count += 1
-            if status not in label_result_by_status_label:
-                label_result_by_status_label[status] = {}
-            label_result_by_id = label_result_by_status_label[status]
+        with self._lock:
+            result_by_status: dict[OperationStatus, ItemsResult] = {}
+            label_result_by_status_label: dict[OperationStatus, dict[str, LabelResult]] = {}
+            for aggregations in self.aggregations_by_ids.values():
+                max_severity = max((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
+                status = self._severity_to_status(max_severity, is_dry_run)
+                if status not in result_by_status:
+                    result_by_status[status] = ItemsResult(status=status, count=0, severity=max_severity)
+                result_by_status[status].count += 1
+                if status not in label_result_by_status_label:
+                    label_result_by_status_label[status] = {}
+                label_result_by_id = label_result_by_status_label[status]
 
-            for aggregation in aggregations:
-                if aggregation.severity.value != max_severity:
-                    # We filter out all labels which are on a different severity level
-                    # such that we only display the most severe issues for each item.
-                    continue
-                if aggregation.label not in label_result_by_id:
-                    label_result_by_id[aggregation.label] = LabelResult(
-                        label=aggregation.label,
-                        count=0,
-                        attribute_name=aggregation.attribute_display_name,
-                    )
-                label_result_by_id[aggregation.label].count += 1
-                if aggregation.attributes:
-                    label_result_by_id[aggregation.label].attribute_counter.update(aggregation.attributes)
+                for aggregation in aggregations:
+                    if aggregation.severity.value != max_severity:
+                        # We filter out all labels which are on a different severity level
+                        # such that we only display the most severe issues for each item.
+                        continue
+                    if aggregation.label not in label_result_by_id:
+                        label_result_by_id[aggregation.label] = LabelResult(
+                            label=aggregation.label,
+                            count=0,
+                            attribute_name=aggregation.attribute_display_name,
+                        )
+                    label_result_by_id[aggregation.label].count += 1
+                    if aggregation.attributes:
+                        label_result_by_id[aggregation.label].attribute_counter.update(aggregation.attributes)
 
-        for result in result_by_status.values():
-            if result.status in label_result_by_status_label:
-                result.labels.extend(label_result_by_status_label[result.status].values())
+            for result in result_by_status.values():
+                if result.status in label_result_by_status_label:
+                    result.labels.extend(label_result_by_status_label[result.status].values())
 
-        return list(result_by_status.values())
+            return list(result_by_status.values())
 
     def _severity_to_status(self, max_severity: int, is_dry_run: bool) -> OperationStatus:
         if max_severity == Severity.failure.value:
