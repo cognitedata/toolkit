@@ -122,7 +122,14 @@ class TestMigrateAssetsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 2,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateEventsCommand:
@@ -146,7 +153,14 @@ class TestMigrateEventsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 1,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateTimeSeriesCommand:
@@ -170,7 +184,14 @@ class TestMigrateTimeSeriesCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 1,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateFileMetadataCommand:
@@ -194,7 +215,14 @@ class TestMigrateFileMetadataCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 1,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateAnnotations:
@@ -217,7 +245,14 @@ class TestMigrateAnnotations:
             verbose=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 2,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 @pytest.fixture()
@@ -284,9 +319,14 @@ class TestMigrateFiles:
         )
         actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
 
-        assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0, "skipped": 0}, (
-            "Expected failure as the file is already a CDM file."
-        )
+        assert actual_result == {
+            "failure": 1,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }, "Expected failure as the file is already a CDM file."
 
     def test_skip_linked_file(
         self, toolkit_client: ToolkitClient, selected_cdm_file: MigrationCSVFileSelector, tmp_path: Path
@@ -304,9 +344,14 @@ class TestMigrateFiles:
 
         actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
 
-        assert actual_result == {"failure": 0, "pending": 0, "success": 0, "unchanged": 0, "skipped": 1}, (
-            "File already exists."
-        )
+        assert actual_result == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 1,
+        }, "File already exists."
 
 
 class TestMigrateEventsToRecordsCommand:
@@ -342,4 +387,11 @@ class TestMigrateEventsToRecordsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        assert results == {
+            "failure": 0,
+            "pending": 1,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
