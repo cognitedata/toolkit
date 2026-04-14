@@ -27,7 +27,7 @@ class Severity(Enum):
 class LogAggregation(LogEntry):
     """Storing the aggregated log entries"""
 
-    heading: str
+    label: str
     severity: Severity
     attributes: set[str] | None = None
     attribute_display_name: str | None = None
@@ -209,8 +209,8 @@ class FileDataLogger(DataLogger):
 
 
 @dataclass
-class HeadingResult:
-    heading: str
+class LabelResult:
+    label: str
     count: int
     attribute_counter: Counter[str] = field(default_factory=Counter)
     attribute_name: str | None = None
@@ -220,14 +220,14 @@ class HeadingResult:
         if self.attribute_counter and self.attribute_name:
             most_common_attributes = [attr for attr, _ in self.attribute_counter.most_common(most_common)]
             suffix = f" Most common {self.attribute_name}: {humanize_collection(most_common_attributes, sort=False)}"
-        return f"{self.heading}: {self.count} items.{suffix}"
+        return f"{self.label}: {self.count} items.{suffix}"
 
 
 @dataclass
 class ItemsResult:
     status: OperationStatus
     count: int
-    headings: dict[str, HeadingResult] = field(default_factory=dict)
+    labels: dict[str, LabelResult] = field(default_factory=dict)
 
     def display_message(self) -> str:
         return f"{self.status}: {self.count} items."
@@ -277,7 +277,7 @@ class FileWithAggregationLogger(DataLogger):
         """Finalize logging and return aggregated results.
 
         Flushes any remaining entries to file and aggregates logged entries
-        by severity and heading.
+        by severity and label.
 
         Returns:
             List of ItemsResult grouped by status (derived from severity).
@@ -293,18 +293,18 @@ class FileWithAggregationLogger(DataLogger):
 
             for aggregation in aggregations:
                 if aggregation.severity.value != min_severity:
-                    # We filter out all headings which are on a different severity level
+                    # We filter out all labels which are on a different severity level
                     # such that we only display the most severe issues for each item.
                     continue
-                if aggregation.heading not in result.headings:
-                    result.headings[aggregation.heading] = HeadingResult(
-                        heading=aggregation.heading,
+                if aggregation.label not in result.labels:
+                    result.labels[aggregation.label] = LabelResult(
+                        label=aggregation.label,
                         count=0,
                         attribute_name=aggregation.attribute_display_name,
                     )
-                result.headings[aggregation.heading].count += 1
+                result.labels[aggregation.label].count += 1
                 if aggregation.attributes:
-                    result.headings[aggregation.heading].attribute_counter.update(aggregation.attributes)
+                    result.labels[aggregation.label].attribute_counter.update(aggregation.attributes)
 
         return list(result_by_status.values())
 
