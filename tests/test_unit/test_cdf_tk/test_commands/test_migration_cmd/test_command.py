@@ -360,7 +360,14 @@ class TestMigrationCommand:
         assert actual_instances == expected_instance
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": len(assets),
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
     @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_resume(
@@ -467,7 +474,14 @@ class TestMigrationCommand:
 
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 1,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
         progress = ProgressYAML.try_load(logs, filestem=str(selector))
         assert progress is not None
@@ -607,7 +621,14 @@ class TestMigrationCommand:
         )
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": len(annotations),
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
         # Check that the annotations were uploaded
         last_call = respx_mock.calls[-1]
@@ -801,7 +822,14 @@ class TestMigrationCommand:
         )
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": len(charts),
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
         calls = respx_mock.calls
         assert len(calls) == 5
@@ -1033,7 +1061,14 @@ class TestMigrationCommand:
 
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 1,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
         upsert_calls = [
             c
@@ -1283,4 +1318,11 @@ class TestMigrationCommand:
         assert len(upload_body["items"]) == len(events)
 
         actual_results = {status.status: status.count for status in results_by_selector[str(selector)]}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(events), "unchanged": 0, "skipped": 0}
+        assert actual_results == {
+            "failure": 0,
+            "pending": 0,
+            "success": len(events),
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
