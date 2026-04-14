@@ -548,8 +548,6 @@ class FakeCogniteResourceGenerator:
         return constraints
 
     def _random_constrained_string(self, constraints: dict[str, Any]) -> str:
-        import re
-
         min_len = constraints.get("min_length", 1)
         max_len = constraints.get("max_length", 10)
         length = min(max(min_len, 4), max_len)
