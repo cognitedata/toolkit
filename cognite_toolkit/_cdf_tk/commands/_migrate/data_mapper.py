@@ -19,11 +19,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartActivity,
-    ChartCoreTimeseries,
+    ChartCoreTimeseriesUIElement,
     ChartSource,
     ChartThreshold,
-    ChartTimeseries,
-    ChartWorkflow,
+    ChartTimeseriesUIElement,
+    ChartWorkflowUIElement,
     FlowElement,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
@@ -466,9 +466,12 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
-        self, time_series_collection: list[ChartTimeseries], issue: ChartMigrationIssue, uuid_generator: dict[str, str]
-    ) -> list[ChartCoreTimeseries]:
-        timeseries_core_collection: list[ChartCoreTimeseries] = []
+        self,
+        time_series_collection: list[ChartTimeseriesUIElement],
+        issue: ChartMigrationIssue,
+        uuid_generator: dict[str, str],
+    ) -> list[ChartCoreTimeseriesUIElement]:
+        timeseries_core_collection: list[ChartCoreTimeseriesUIElement] = []
         for ts_item in time_series_collection or []:
             node_id, consumer_view_id = self._get_node_id_consumer_view_id(ts_item)
 
@@ -489,18 +492,18 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return timeseries_core_collection
 
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
-    ) -> ChartCoreTimeseries:
+        self, ts_item: ChartTimeseriesUIElement, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
+    ) -> ChartCoreTimeseriesUIElement:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
         # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
-        core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
+        core_timeseries = ChartCoreTimeseriesUIElement.model_validate(dumped, extra="ignore")
         return core_timeseries
 
-    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
+    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseriesUIElement) -> tuple[NodeId | None, ViewId | None]:
         """Look up the node ID and consumer view ID for a given timeseries item.
 
         Prioritizes lookup by internal ID, then by external ID.
@@ -526,8 +529,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     def _update_source_collection(
         self,
         source_collection: list[ChartSource],
-        time_series_collection: list[ChartTimeseries],
-        timeseries_core_collection: list[ChartCoreTimeseries],
+        time_series_collection: list[ChartTimeseriesUIElement],
+        timeseries_core_collection: list[ChartCoreTimeseriesUIElement],
     ) -> list[ChartSource]:
         remove_ids = {ts_item.id for ts_item in time_series_collection if ts_item.id is not None}
         updated_source_collection = [ts_item for ts_item in source_collection if ts_item.id not in remove_ids]
@@ -557,9 +560,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return updated_collection
 
     def _update_workflow_collection(
-        self, collection: list[ChartWorkflow], uuid_generator: dict[str, str]
-    ) -> list[ChartWorkflow]:
-        updated_collection: list[ChartWorkflow] = []
+        self, collection: list[ChartWorkflowUIElement], uuid_generator: dict[str, str]
+    ) -> list[ChartWorkflowUIElement]:
+        updated_collection: list[ChartWorkflowUIElement] = []
         for workflow in collection:
             updated_elements: list[FlowElement] = []
             if workflow.flow is None:
