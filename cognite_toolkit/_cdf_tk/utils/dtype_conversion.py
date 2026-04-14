@@ -38,15 +38,34 @@ INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
 
 
-def asset_centric_convert_to_primary_property(
+def convert_to_primary_property_with_special_cases(
     value: str | int | float | bool | NodeId | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
     destination_container_property: tuple[data_modeling.ContainerId, str],
-    source_property: tuple[AssetCentricTypeExtended, str],
+    source_property: tuple[AssetCentricTypeExtended, str] | None = None,
     direct_relation_lookup: Mapping[str | int, NodeId] | None = None,
 ) -> PropertyValueWrite:
-    if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
+    """Converts the value to the appropriate type based on the provided property type while
+    also handling special cases for certain source and destination properties.
+
+    Args:
+        value: The value to convert, which can be a string, int, float, bool, NodeId, dict, list, or None.
+        type_: The type of the property to convert to.
+        nullable: Whether the property can be null.
+        destination_container_property: The destination container property to convert to, used to detect
+            special cases.
+        source_property: The source property to convert from, used to detect special cases.
+        direct_relation_lookup: Mapping from external IDs to NodeReference objects,
+            required for converting NodeReferences in special cases.
+
+    Returns:
+        The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
+    """
+    if (
+        source_property is not None
+        and (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION
+    ):
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
         if issubclass(converter_cls, _SourceConverter):
             if direct_relation_lookup is None:

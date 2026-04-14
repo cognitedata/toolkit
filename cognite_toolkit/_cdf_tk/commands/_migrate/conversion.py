@@ -49,8 +49,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
-    asset_centric_convert_to_primary_property,
     convert_to_primary_property,
+    convert_to_primary_property_with_special_cases,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
@@ -438,7 +438,7 @@ def create_properties(
         data_type = prop_def.type
         nullable = prop_def.nullable or False
         try:
-            value = asset_centric_convert_to_primary_property(
+            value = convert_to_primary_property_with_special_cases(
                 flatten_dump[prop_json_path],
                 data_type,
                 nullable,
