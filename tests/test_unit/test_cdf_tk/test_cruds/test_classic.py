@@ -2,7 +2,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import SequenceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import SequenceIO
 
 
 class TestSequenceLoader:
@@ -19,7 +19,7 @@ class TestSequenceLoader:
             client.lookup.data_sets.id.side_effect = mock_id_lookup
             client.lookup.assets.id.side_effect = mock_id_lookup
             client.lookup.security_categories.id.side_effect = mock_id_lookup
-            loader = SequenceCRUD.create_loader(client)
+            loader = SequenceIO.create_loader(client)
 
         resource = {
             "externalId": "mySequence",

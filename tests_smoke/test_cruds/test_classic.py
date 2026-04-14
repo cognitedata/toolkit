@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import (
     SequenceRow,
     SequenceRowsRequest,
 )
-from cognite_toolkit._cdf_tk.cruds import SequenceRowCRUD
+from cognite_toolkit._cdf_tk.resource_ios import SequenceRowIO
 
 SEQUENCE_EXTERNAL_ID = "toolkit_smoke_test_large_sequence"
 
@@ -35,7 +35,7 @@ class TestSequenceRowCRUD:
             columns=[large_sequence.columns[0].external_id],
             rows=[SequenceRow(row_number=no, values=[1000.0 + no]) for no in range(count)],
         )
-        io = SequenceRowCRUD(toolkit_client, None, None)
+        io = SequenceRowIO(toolkit_client, None, None)
 
         try:
             io.create([many_rows])

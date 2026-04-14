@@ -3,28 +3,28 @@ import asyncio
 import httpx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     CRUD_LIST,
-    DataProductCRUD,
-    DataProductVersionCRUD,
+    DataProductIO,
+    DataProductVersionIO,
     Loader,
-    RobotCapabilityCRUD,
-    RoboticFrameCRUD,
-    RoboticLocationCRUD,
-    RoboticMapCRUD,
-    RoboticsDataPostProcessingCRUD,
+    RobotCapabilityIO,
+    RoboticFrameIO,
+    RoboticLocationIO,
+    RoboticMapIO,
+    RoboticsDataPostProcessingIO,
 )
 
 # These are unofficial APIs that do not have public documentation,
 # only accessible for Cognite employees. We exclude them from the doc_url test.
 INTERNAL_DOCS = {
-    RoboticMapCRUD,
-    RoboticFrameCRUD,
-    RoboticLocationCRUD,
-    RobotCapabilityCRUD,
-    RoboticsDataPostProcessingCRUD,
-    DataProductCRUD,
-    DataProductVersionCRUD,
+    RoboticMapIO,
+    RoboticFrameIO,
+    RoboticLocationIO,
+    RobotCapabilityIO,
+    RoboticsDataPostProcessingIO,
+    DataProductIO,
+    DataProductVersionIO,
 }
 
 

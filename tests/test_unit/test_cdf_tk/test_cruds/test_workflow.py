@@ -17,8 +17,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.resource_ios import WorkflowTriggerIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
 
@@ -44,7 +44,7 @@ workflowVersion: v1
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = WorkflowTriggerCRUD.create_loader(client)
+            loader = WorkflowTriggerIO.create_loader(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource_file(trigger_file, {})
@@ -75,13 +75,13 @@ authentication:
             last_updated_time=0,
             is_paused=False,
             metadata={
-                WorkflowTriggerCRUD._MetadataKey.secret_hash: calculate_secure_hash(
+                WorkflowTriggerIO._MetadataKey.secret_hash: calculate_secure_hash(
                     {"clientId": "my-client-id", "clientSecret": "my-client-secret"}, shorten=True
                 )
             },
         )
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowTriggerCRUD(client, None, None)
+            loader = WorkflowTriggerIO(client, None, None)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -126,7 +126,7 @@ class TestWorkflowVersionLoader:
         ]
 
         with pytest.raises(ToolkitCycleError) as exc:
-            WorkflowVersionCRUD.topological_sort(workflows)
+            WorkflowVersionIO.topological_sort(workflows)
 
         error = exc.value
         assert isinstance(error, ToolkitCycleError)

@@ -10,13 +10,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     UnknownSubscriptionFilter,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.hosted_extractors import (
-    HostedExtractorDestinationCRUD,
-    HostedExtractorSourceCRUD,
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.hosted_extractors import (
+    HostedExtractorDestinationIO,
+    HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_subscription import SignalSubscriptionCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.signal_subscription import SignalSubscriptionIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import SignalSubscriptionYAML
@@ -181,25 +181,25 @@ class TestSignalSubscriptionResourceClasses:
 
 class TestSignalSubscriptionCRUDGetId:
     def test_get_id_from_dict(self) -> None:
-        id_ = SignalSubscriptionCRUD.get_id({"externalId": "sub-1"})
+        id_ = SignalSubscriptionIO.get_id({"externalId": "sub-1"})
         assert id_ == ExternalId(external_id="sub-1")
 
     def test_get_id_from_request(self) -> None:
         request = SignalSubscriptionRequest.model_validate(_INTEGRATIONS_SUB)
-        id_ = SignalSubscriptionCRUD.get_id(request)
+        id_ = SignalSubscriptionIO.get_id(request)
         assert id_ == ExternalId(external_id="sub-int")
 
 
 class TestSignalSubscriptionCRUDGetDependencies:
     def test_email_sink_with_integration_resource(self) -> None:
         resource = SignalSubscriptionYAML.model_validate(_INTEGRATIONS_SUB)
-        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
-        assert deps == [(SignalSinkCRUD, SignalSinkId(type="email", external_id="sink-1"))]
+        deps = list(SignalSubscriptionIO.get_dependencies(resource))
+        assert deps == [(SignalSinkIO, SignalSinkId(type="email", external_id="sink-1"))]
 
     def test_user_sink_no_filter_resource(self) -> None:
         resource = SignalSubscriptionYAML.model_validate(_WORKFLOWS_SUB)
-        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
-        assert deps == [(SignalSinkCRUD, SignalSinkId(type="user", external_id="sink-2"))]
+        deps = list(SignalSubscriptionIO.get_dependencies(resource))
+        assert deps == [(SignalSinkIO, SignalSinkId(type="user", external_id="sink-2"))]
 
     def test_workflow_filter_resource(self) -> None:
         raw = {
@@ -208,9 +208,9 @@ class TestSignalSubscriptionCRUDGetDependencies:
             "filter": {"topic": "cognite_workflows", "resource": "my-workflow"},
         }
         resource = SignalSubscriptionYAML.model_validate(raw)
-        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
-        assert (SignalSinkCRUD, SignalSinkId(type="user", external_id="sink-2")) in deps
-        assert (WorkflowCRUD, ExternalId(external_id="my-workflow")) in deps
+        deps = list(SignalSubscriptionIO.get_dependencies(resource))
+        assert (SignalSinkIO, SignalSinkId(type="user", external_id="sink-2")) in deps
+        assert (WorkflowIO, ExternalId(external_id="my-workflow")) in deps
         assert len(deps) == 2
 
     def test_current_user_sink_no_dependency(self) -> None:
@@ -220,11 +220,11 @@ class TestSignalSubscriptionCRUDGetDependencies:
             "filter": {"topic": "cognite_workflows"},
         }
         resource = SignalSubscriptionYAML.model_validate(raw)
-        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
+        deps = list(SignalSubscriptionIO.get_dependencies(resource))
         assert deps == []
 
     def test_hosted_extractor_filter_dependencies(self) -> None:
         resource = SignalSubscriptionYAML.model_validate(_HOSTED_EXTRACTORS_SUB)
-        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
-        assert (HostedExtractorSourceCRUD, ExternalId(external_id="my-source")) in deps
-        assert (HostedExtractorDestinationCRUD, ExternalId(external_id="my-dest")) in deps
+        deps = list(SignalSubscriptionIO.get_dependencies(resource))
+        assert (HostedExtractorSourceIO, ExternalId(external_id="my-source")) in deps
+        assert (HostedExtractorDestinationIO, ExternalId(external_id="my-dest")) in deps

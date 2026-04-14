@@ -28,32 +28,32 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
-from cognite_toolkit._cdf_tk.cruds import (
-    AssetCRUD,
-    ContainerCRUD,
-    DataModelCRUD,
-    EdgeCRUD,
-    EventCRUD,
-    ExtractionPipelineCRUD,
-    FileMetadataCRUD,
-    LabelCRUD,
-    NodeCRUD,
-    RelationshipCRUD,
-    ResourceCRUD,
-    SequenceCRUD,
-    SpaceCRUD,
-    ThreeDModelCRUD,
-    TimeSeriesCRUD,
-    TransformationCRUD,
-    ViewCRUD,
-    WorkflowCRUD,
-)
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.resource_ios import (
+    AssetIO,
+    ContainerCRUD,
+    DataModelIO,
+    EdgeCRUD,
+    EventIO,
+    ExtractionPipelineIO,
+    FileMetadataCRUD,
+    LabelIO,
+    NodeCRUD,
+    RelationshipIO,
+    ResourceIO,
+    SequenceIO,
+    SpaceCRUD,
+    ThreeDModelCRUD,
+    TimeSeriesCRUD,
+    TransformationIO,
+    ViewIO,
+    WorkflowIO,
+)
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -96,7 +96,7 @@ class DeleteItem(RequestItem):
 
 @dataclass
 class ToDelete(ABC):
-    crud: ResourceCRUD
+    crud: ResourceIO
     total: int
     delete_url: str
 
@@ -273,12 +273,12 @@ class PurgeCommand(ToolkitCommand):
                 delete_file_content=delete_file_content,
             ),
             DataModelingToDelete(
-                DataModelCRUD.create_loader(client),
+                DataModelIO.create_loader(client),
                 stats.data_models,
                 config.create_api_url("/models/datamodels/delete"),
             ),
             DataModelingToDelete(
-                ViewCRUD.create_loader(client), stats.views, config.create_api_url("/models/views/delete")
+                ViewIO.create_loader(client), stats.views, config.create_api_url("/models/views/delete")
             ),
             DataModelingToDelete(
                 ContainerCRUD.create_loader(client),
@@ -342,7 +342,7 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _iterate_batch(
-        crud: ResourceCRUD, selected_space: str | None, data_set_external_id: str | None, batch_size: int
+        crud: ResourceIO, selected_space: str | None, data_set_external_id: str | None, batch_size: int
     ) -> Iterable[list[ResourceResponseProtocol]]:
         batch: list[ResourceResponseProtocol] = []
         for resource in crud.iterate(space=selected_space, data_set_external_id=data_set_external_id):
@@ -480,12 +480,12 @@ class PurgeCommand(ToolkitCommand):
             to_delete.extend(
                 [
                     ExternalIdToDelete(
-                        RelationshipCRUD.create_loader(client),
+                        RelationshipIO.create_loader(client),
                         RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/relationships/delete"),
                     ),
                     IdResourceToDelete(
-                        EventCRUD.create_loader(client),
+                        EventIO.create_loader(client),
                         EventAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/events/delete"),
                     ),
@@ -500,7 +500,7 @@ class PurgeCommand(ToolkitCommand):
                         config.create_api_url("/timeseries/delete"),
                     ),
                     IdResourceToDelete(
-                        SequenceCRUD.create_loader(client),
+                        SequenceIO.create_loader(client),
                         SequenceAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/sequences/delete"),
                     ),
@@ -510,22 +510,22 @@ class PurgeCommand(ToolkitCommand):
                         config.create_api_url("/3d/models/delete"),
                     ),
                     AssetToDelete(
-                        AssetCRUD.create_loader(client),
+                        AssetIO.create_loader(client),
                         AssetAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/assets/delete"),
                         recursive=asset_recursive,
                     ),
                     ExternalIdToDelete(
-                        LabelCRUD.create_loader(client),
+                        LabelIO.create_loader(client),
                         LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/labels/delete"),
                     ),
                 ]
             )
         if include_configurations:
-            transformation_crud = TransformationCRUD.create_loader(client)
-            workflow_crud = WorkflowCRUD.create_loader(client)
-            extraction_pipeline_crud = ExtractionPipelineCRUD.create_loader(client)
+            transformation_crud = TransformationIO.create_loader(client)
+            workflow_crud = WorkflowIO.create_loader(client)
+            extraction_pipeline_crud = ExtractionPipelineIO.create_loader(client)
 
             to_delete.extend(
                 [

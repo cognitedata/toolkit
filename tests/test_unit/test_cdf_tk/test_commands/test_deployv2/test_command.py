@@ -21,15 +21,6 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     ResourceDirectory,
     Skipped,
 )
-from cognite_toolkit._cdf_tk.cruds import (
-    CogniteFileCRUD,
-    ContainerCRUD,
-    DataSetsCRUD,
-    FunctionScheduleCRUD,
-    LabelCRUD,
-    ResourceCRUD,
-    SpaceCRUD,
-)
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitNotADirectoryError,
@@ -37,16 +28,25 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import (
+    CogniteFileCRUD,
+    ContainerCRUD,
+    DataSetsIO,
+    FunctionScheduleIO,
+    LabelIO,
+    ResourceIO,
+    SpaceCRUD,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
 
 class TestReadBuildDirectory:
     DATA_SET_PATH = "build/data_sets/my.DataSet.yaml"
     DATA_SET_DIR = ResourceDirectory(
-        directory=Path("build/data_sets"), files_by_crud={DataSetsCRUD: [Path(DATA_SET_PATH)]}
+        directory=Path("build/data_sets"), files_by_crud={DataSetsIO: [Path(DATA_SET_PATH)]}
     )
     LABEL_PATH = "build/classic/my.Label.yaml"
-    LABEL_DIR = ResourceDirectory(directory=Path("build/classic"), files_by_crud={LabelCRUD: [Path(LABEL_PATH)]})
+    LABEL_DIR = ResourceDirectory(directory=Path("build/classic"), files_by_crud={LabelIO: [Path(LABEL_PATH)]})
 
     @pytest.mark.parametrize(
         "build_files_and_dir, include, expected",
@@ -102,7 +102,7 @@ class TestReadBuildDirectory:
                     resource_directories=[
                         ResourceDirectory(
                             directory=Path("build/data_sets"),
-                            files_by_crud={DataSetsCRUD: [Path(DATA_SET_PATH)]},
+                            files_by_crud={DataSetsIO: [Path(DATA_SET_PATH)]},
                             invalid_files=[Path("build/data_sets/unrelated.yaml")],
                         )
                     ],
@@ -226,7 +226,7 @@ class TestCreateDeploymentPlan:
 @dataclass
 class ApplyPlanTestCase:
     yaml_files: dict[str, str]
-    crud_cls: type[ResourceCRUD]
+    crud_cls: type[ResourceIO]
     cdf_resources: list
     acls_missing: bool
     options: DeployOptions
@@ -322,7 +322,7 @@ class TestApplyPlan:
                     yaml_files={
                         "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\nauthentication:\n  clientId: test_id\n  clientSecret: test_secret\n"
                     },
-                    crud_cls=FunctionScheduleCRUD,
+                    crud_cls=FunctionScheduleIO,
                     cdf_resources=[
                         FunctionScheduleResponse(
                             id=1,
@@ -465,7 +465,7 @@ class TestApplyPlan:
 
         if issubclass(case.crud_cls, SpaceCRUD):
             client.tool.spaces.retrieve.return_value = case.cdf_resources
-        elif issubclass(case.crud_cls, FunctionScheduleCRUD):
+        elif issubclass(case.crud_cls, FunctionScheduleIO):
             client.functions.status.return_value.status = "activated"
             function_responses = []
             for resource in case.cdf_resources:

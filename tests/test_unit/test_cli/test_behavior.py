@@ -52,9 +52,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, LocationFilterCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -818,12 +818,12 @@ instanceSpaces:
 dataModelingType: DATA_MODELING_ONLY
 """
     org = build_tmp_path.parent / "org"
-    resource_folder_child = org / MODULES / "my_first" / LocationFilterCRUD.folder_name
-    resource_folder_parent = org / MODULES / "my_second" / LocationFilterCRUD.folder_name
+    resource_folder_child = org / MODULES / "my_first" / LocationFilterIO.folder_name
+    resource_folder_parent = org / MODULES / "my_second" / LocationFilterIO.folder_name
     # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
     # that Toolkit does a topological sort of the location filter before deploying them.
-    child_file = resource_folder_child / f"1.child.{LocationFilterCRUD.kind}.yaml"
-    parent_file = resource_folder_parent / f"2.parent.{LocationFilterCRUD.kind}.yaml"
+    child_file = resource_folder_child / f"1.child.{LocationFilterIO.kind}.yaml"
+    parent_file = resource_folder_parent / f"2.parent.{LocationFilterIO.kind}.yaml"
     child_file.parent.mkdir(parents=True, exist_ok=True)
     child_file.write_text(child, encoding="utf-8")
     parent_file.parent.mkdir(parents=True, exist_ok=True)
@@ -927,11 +927,11 @@ def test_workflow_deployment_order(
         ),
     )
     org = build_tmp_path.parent / "org"
-    resource_folder = org / MODULES / "my_workflow_module" / WorkflowVersionCRUD.folder_name
+    resource_folder = org / MODULES / "my_workflow_module" / WorkflowVersionIO.folder_name
     # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
     # that Toolkit does a topological sort of the workflows before deploying them.
-    main_workflow_file = resource_folder / f"1.{main_workflow.workflow_external_id}.{WorkflowVersionCRUD.kind}.yaml"
-    subworkflow_file = resource_folder / f"2.{subworkflow.workflow_external_id}.{WorkflowVersionCRUD.kind}.yaml"
+    main_workflow_file = resource_folder / f"1.{main_workflow.workflow_external_id}.{WorkflowVersionIO.kind}.yaml"
+    subworkflow_file = resource_folder / f"2.{subworkflow.workflow_external_id}.{WorkflowVersionIO.kind}.yaml"
     main_workflow_file.parent.mkdir(parents=True, exist_ok=True)
     main_workflow_file.write_text(yaml_safe_dump(main_workflow.dump()), encoding="utf-8")
     subworkflow_file.write_text(yaml_safe_dump(subworkflow.dump()), encoding="utf-8")

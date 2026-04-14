@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
 )
-from cognite_toolkit._cdf_tk.cruds import ViewCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
@@ -185,7 +185,7 @@ def infield_legacy(
         source = instance.sources[0]
         if isinstance(source.source, ViewId):
             to_create_by_view_id[source.source].append(instance)
-    sorted_views, _ = ViewCRUD(toolkit_client, None, None).topological_sort_container_constraints(
+    sorted_views, _ = ViewIO(toolkit_client, None, None).topological_sort_container_constraints(
         list(to_create_by_view_id.keys())
     )
 
@@ -403,14 +403,12 @@ def load_infield_source_data(
                 timeseries_external_ids.add(timeseries_values)
             elif isinstance(timeseries_values, list):
                 timeseries_external_ids.update(timeseries_values)  # type: ignore[arg-type]
-    checklist_item = instances["checklistItem"]
+
     file_external_ids: set[str] = set()
-    if (
-        checklist_item.sources
-        and checklist_item.sources[0].properties
-        and "files" in checklist_item.sources[0].properties
-    ):
-        file_external_ids.update(checklist_item.sources[0].properties["files"])  # type: ignore[arg-type]
+    for key in ["checklistItem", "observation"]:
+        reading = instances[key]
+        if reading.sources and reading.sources[0].properties and "files" in reading.sources[0].properties:
+            file_external_ids.update(reading.sources[0].properties["files"])  # type: ignore[arg-type]
 
     asset_instance = instances["asset"]
     asset_request = AssetRequest(

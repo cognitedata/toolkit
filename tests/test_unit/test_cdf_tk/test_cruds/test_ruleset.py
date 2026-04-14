@@ -8,8 +8,8 @@ import yaml
 
 from cognite_toolkit._cdf_tk.client.identifiers import RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetVersionIO
 from cognite_toolkit._cdf_tk.yaml_classes.ruleset_version import RuleSetVersionYAML
 
 _TURTLE_CONTENT = """@prefix ex: <http://example.org/industrial/> .
@@ -34,7 +34,7 @@ ex:Oslo_Facility
 class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_inline_rules(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -56,7 +56,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_rules_from_ttl_by_convention(self) -> None:
         """When rules is missing, look for .ttl by convention ({stem}.ttl or {rule_set_external_id}.ttl)."""
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -79,7 +79,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_ttl_by_stem_convention(self) -> None:
         """Prefer {stem}.ttl when both conventions match."""
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -93,7 +93,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
 
     def test_load_no_rules_no_ttl_raises(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -113,7 +113,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
 class TestRuleSetVersionCRUDSplitResource:
     def test_split_writes_ttl_when_not_exists(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp) / "my_rules.RuleSetVersion"
@@ -132,7 +132,7 @@ class TestRuleSetVersionCRUDSplitResource:
 
     def test_split_keeps_inline_when_ttl_exists(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
+        crud = RuleSetVersionIO(client, None)
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp) / "my_rules.RuleSetVersion"
@@ -150,11 +150,11 @@ class TestRuleSetVersionCRUDSplitResource:
 
 class TestRuleSetVersionCRUDGetId:
     def test_get_id_from_dict_camel(self) -> None:
-        id_ = RuleSetVersionCRUD.get_id({"ruleSetExternalId": "my_rules", "version": "1.0.0"})
+        id_ = RuleSetVersionIO.get_id({"ruleSetExternalId": "my_rules", "version": "1.0.0"})
         assert id_ == RuleSetVersionId(rule_set_external_id="my_rules", version="1.0.0")
 
     def test_get_id_from_dict_snake(self) -> None:
-        id_ = RuleSetVersionCRUD.get_id({"rule_set_external_id": "my_rules", "version": "1.0.0"})
+        id_ = RuleSetVersionIO.get_id({"rule_set_external_id": "my_rules", "version": "1.0.0"})
         assert id_ == RuleSetVersionId(rule_set_external_id="my_rules", version="1.0.0")
 
 

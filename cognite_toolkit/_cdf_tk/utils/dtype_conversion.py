@@ -38,15 +38,38 @@ INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
 
 
-def asset_centric_convert_to_primary_property(
+def convert_to_primary_property_with_special_cases(
     value: str | int | float | bool | NodeId | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
     destination_container_property: tuple[data_modeling.ContainerId, str],
-    source_property: tuple[AssetCentricTypeExtended, str],
+    source_property: tuple[AssetCentricTypeExtended, str] | None = None,
     direct_relation_lookup: Mapping[str | int, NodeId] | None = None,
 ) -> PropertyValueWrite:
-    if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
+    """Converts the value to the appropriate type based on the provided property type while
+    also handling special cases for certain source and destination properties.
+
+    Args:
+        value: The value to convert, which can be a string, int, float, bool, NodeId, dict, list, or None.
+        type_: The type of the property to convert to.
+        nullable: Whether the property can be null.
+        destination_container_property: The destination container property to convert to, used to detect
+            special cases.
+        source_property: The source property to convert from, used to detect special cases.
+        direct_relation_lookup: Mapping from external IDs to NodeReference objects,
+            required for converting NodeReferences in special cases.
+
+    Returns:
+        The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
+    """
+    if value is None:
+        if not nullable:
+            raise ValueError("Cannot convert None to a non-nullable property.")
+        return None
+    if (
+        source_property is not None
+        and (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION
+    ):
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
         if issubclass(converter_cls, _SourceConverter):
             if direct_relation_lookup is None:
@@ -54,6 +77,9 @@ def asset_centric_convert_to_primary_property(
             return converter_cls(direct_relation_lookup=direct_relation_lookup).convert(value)
         else:
             return converter_cls().convert(value)
+    if destination_container_property in SPECIAL_CONVERTER_BY_DESTINATION:
+        special_cls = SPECIAL_CONVERTER_BY_DESTINATION[destination_container_property]
+        return special_cls().convert(value)
     else:
         # Fallback to the standard conversion
         return convert_to_primary_property(value, type_, nullable, direct_relation_lookup=direct_relation_lookup)
@@ -254,6 +280,10 @@ class _ValueConverter(_Converter, ABC):
         raise NotImplementedError("This method should be implemented by subclasses.")
 
 
+class _SpecialCaseDestinationConverter(_Converter, ABC):
+    destination_container_property: ClassVar[tuple[ContainerId, str]]
+
+
 class _SpecialCaseConverter(_Converter, ABC):
     """Abstract base class for converters handling special cases."""
 
@@ -341,6 +371,31 @@ class _FileSourceConverter(_SourceConverter):
 
 class _EventSourceConverter(_SourceConverter):
     source_property = ("event", "source")
+
+
+class _InFieldObservationPriorityConverter(_SpecialCaseDestinationConverter):
+    destination_container_property = (ContainerId(space="cdf_infield", external_id="FieldObservation"), "priority")
+
+    MAPPING_TABLE: ClassVar[Mapping[str, str]] = {
+        "1": "immediate",
+        "2": "within_2_weeks",
+        "3": "within_2_to_4_weeks",
+        "4": "within_4_to_8_weeks",
+        "5": "greater_than_8_weeks",
+        "6": "ta_sd_ppm_high",
+        "7": "ta_sd_ppm_medium",
+        "8": "ta_sd_ppm_low",
+    }
+
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> PropertyValueWrite:
+        value_str = str(value)
+        if value_str in self.MAPPING_TABLE:
+            return self.MAPPING_TABLE[value_str]
+        elif value_str.casefold() in self.MAPPING_TABLE.values():
+            return value_str.casefold()
+        raise ValueError(
+            f"Cannot convert {value!r} to FieldObservation priority. Expected one of: {humanize_collection(self.MAPPING_TABLE.keys())}."
+        )
 
 
 class _TextConverter(_ValueConverter):
@@ -578,6 +633,10 @@ SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass
     for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
+}
+SPECIAL_CONVERTER_BY_DESTINATION: Mapping[tuple[ContainerId, str], type[_SpecialCaseDestinationConverter]] = {
+    subclass.destination_container_property: subclass
+    for subclass in get_concrete_subclasses(_SpecialCaseDestinationConverter)  # type: ignore[type-abstract]
 }
 DATATYPE_CONVERTER_BY_DATA_TYPE: Mapping[DataType, type[_ValueConverter]] = {
     cls_.schema_type: cls_
