@@ -365,6 +365,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
                 self.logger.tracker.add_issue(identifier, "Monitoring job owned by different user.")
                 self.logger.tracker.finalize_item(identifier, "failure")
+                output.append(None)
                 continue
 
             mapped_item, issue = self._map_single_item(
