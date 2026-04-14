@@ -147,10 +147,11 @@ class Task(BaseModelObject):
     @field_validator("parameters", mode="before")
     @classmethod
     def move_type_to_field(cls, value: Any, info: ValidationInfo) -> Any:
-        if not isinstance(value, dict) or "type" not in info.data:
+        data = info.data
+        if not isinstance(value, dict) or not isinstance(data, dict) or "type" not in data:
             return value
         value = dict(value)
-        value["type"] = info.data["type"]
+        value["type"] = data["type"]
         return value
 
     @field_serializer("type", mode="plain")

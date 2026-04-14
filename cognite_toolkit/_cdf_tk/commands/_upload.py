@@ -62,7 +62,7 @@ class UploadCommand(ToolkitCommand):
         deploy_resources: bool,
         dry_run: bool,
         verbose: bool,
-        skip_trict_mode: bool = False,
+        skip_strict_mode: bool = False,
         kind: str | None = None,
     ) -> None:
         """Uploads data from files in the specified input directory to CDF.
@@ -75,8 +75,8 @@ class UploadCommand(ToolkitCommand):
             dry_run: If True, performs a dry run without actually uploading the data
                 (or deploying resources).
             verbose: If True, prints detailed information about the upload process.
-            skip_trict_mode: If True, skips strict mode when uploading Charts with monitoring jobs and/or
-                scheduled calcululations.
+            skip_strict_mode: If True, skips strict mode when uploading Charts with monitoring jobs and/or
+                scheduled calculations.
             kind: Optional; if provided, only data files of this kind will be processed.
 
         The expected structure of the input directory is as follows:
@@ -104,7 +104,7 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
-        self.upload_data(data_files_by_selector, client, dry_run, console, verbose, skip_trict_mode)
+        self.upload_data(data_files_by_selector, client, dry_run, console, verbose, skip_strict_mode)
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -218,13 +218,13 @@ class UploadCommand(ToolkitCommand):
         dry_run: bool,
         console: Console,
         verbose: bool,
-        skip_strict_model: bool = False,
+        skip_strict_mode: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
-                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_model)
+                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
                 if io is None:
                     continue
                 schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
