@@ -36,8 +36,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
     ChartSource,
     ChartThreshold,
-    ChartTimeseries,
-    ChartWorkflow,
+    ChartTimeseriesUIElement,
+    ChartWorkflowUIElement,
     Flow,
     FlowData,
     FlowElement,
@@ -703,10 +703,10 @@ class TestMigrationCommand:
                     date_from="2025-01-01T00:00:00.000Z",
                     date_to="2025-12-31T23:59:59.999Z",
                     time_series_collection=[
-                        ChartTimeseries(
+                        ChartTimeseriesUIElement(
                             ts_external_id="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
                         ),
-                        ChartTimeseries(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                        ChartTimeseriesUIElement(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
                     source_collection=[
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
@@ -721,7 +721,7 @@ class TestMigrationCommand:
                         ),
                     ],
                     workflow_collection=[
-                        ChartWorkflow(
+                        ChartWorkflowUIElement(
                             name="Rolling average",
                             flow=Flow(
                                 elements=[

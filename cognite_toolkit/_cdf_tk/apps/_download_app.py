@@ -1125,6 +1125,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the charts.",
             ),
         ] = ChartFormats.ndjson,
+        skip_backend_services: Annotated[
+            bool,
+            typer.Option(
+                "--skip-backend-services",
+                help="Skip downloading backend-services for charts, i.e., monitoring jobs and scheduled calculations.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = not Flags.EXTEND_DOWNLOAD.is_enabled(),
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1172,7 +1180,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=ChartIO(client),
+                io=ChartIO(client, skip_backend_services=skip_backend_services),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import StrictStr, StringConstraints
+from pydantic import Field, StrictStr, StringConstraints
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 
 
 class ChartMonitoringJobModel(BaseModelObject, extra="allow"):
@@ -50,6 +51,9 @@ class ChartMonitoringJob(BaseModelObject, extra="allow"):
 
 
 class ChartMonitoringJobRequest(ChartMonitoringJob, UpdatableRequestResource, extra="allow"):
+    # This is the server generated identifier. It is not part of the request object,
+    # but it is what the Chart.data object uses to reference the monitoring job, so we need to keep track of it in the request object.
+    id: int | None = Field(None, exclude=True)
     interval: int | None = None
     overlap: int | None = None
     nonce: str
@@ -75,5 +79,6 @@ class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonit
 
     def as_request_resource(self) -> ChartMonitoringJobRequest:
         dump = self.dump()
-        dump["nonce"] = "<missing>"
+        dump["nonce"] = MISSING_NONCE
+        dump["id"] = self.id
         return ChartMonitoringJobRequest.model_validate(dump, extra="allow")
