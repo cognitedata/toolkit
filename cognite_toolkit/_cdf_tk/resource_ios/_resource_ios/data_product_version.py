@@ -59,8 +59,9 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
             yield DataProductIO, ExternalId(external_id=item["dataProductExternalId"])
         for rule in (item.get("quality") or {}).get("rules", []):
             if "ruleSetExternalId" in rule and "version" in rule:
-                yield RuleSetVersionIO, RuleSetVersionId(
-                    rule_set_external_id=rule["ruleSetExternalId"], version=rule["version"]
+                yield (
+                    RuleSetVersionIO,
+                    RuleSetVersionId(rule_set_external_id=rule["ruleSetExternalId"], version=rule["version"]),
                 )
 
     @classmethod
