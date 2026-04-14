@@ -1,20 +1,30 @@
 ---
 name: start-it
-description: Fetch Jira ticket details via Atlassian MCP, create a working branch, plan implementation, and begin coding. Use when the user says "start it".
+description: >-
+  Fetch Jira via Atlassian MCP (server user-atlassian), branch, plan, code.
+  Use when the user says "start it" or "start" with a Jira URL.
 ---
 
 # Start It
 
-When the user says **"start it"**:
+When the user says **"start it"** (or **"start"** with a Jira URL):
 
 ## 1. Get the Jira ticket
 
-- Ask the user for the **Jira ticket ID** (e.g. `CDF-1234`).
+- Accept either a **Jira ticket ID** (e.g. `CDF-1234`) or a **browse URL**
+  (e.g. `https://cognitedata.atlassian.net/browse/CDF-1234`).
+- From a URL, use the issue key after `/browse/`.
 
 ## 2. Fetch task details
 
-- Use the **Atlassian MCP tool** to retrieve the ticket details (summary, description, acceptance criteria, subtasks, etc.).
-- Present a brief summary of the task to the user so they can confirm it's the right ticket.
+- Use the **Atlassian MCP** server. In Cursor the server id is typically **`user-atlassian`**
+  (not `atlassian`). Read the MCP tool schema if invocation fails.
+- **Flow:**
+  1. Call **`getAccessibleAtlassianResources`** on `user-atlassian` and pick the site’s **`id`**
+     as `cloudId` (e.g. Cognite: `cognitedata.atlassian.net`).
+  2. Call **`getJiraIssue`** with `cloudId` and `issueIdOrKey` set to the ticket key (e.g. `CDF-1234`).
+- Use the response for summary, description, status, parent epic, components, subtasks, and comments.
+- Present a brief summary so the user can confirm it is the right ticket.
 
 ## 3. Create a working branch
 
