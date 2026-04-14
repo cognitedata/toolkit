@@ -3,7 +3,7 @@ chart:
     coreTimeseriesCollection:
     - color: '#1F91FF'
       enabled: true
-      id: UUID_0
+      id: aaaaaaaa-1111-2222-3333-444444444444
       lineStyle: solid
       lineWeight: 1.0
       name: Smoke Test Timeseries
@@ -15,12 +15,216 @@ chart:
         externalId: CogniteTimeSeries
         space: cdf_cdm
         version: v1
-    dateFrom: '2025-01-01T00:00:00.000Z'
-    dateTo: '2025-12-31T23:59:59.999Z'
+    dateFrom: '2024-07-28T11:59:38.098Z'
+    dateTo: '2027-01-12T07:07:01.808Z'
+    liveMode: false
+    monitoringJobs:
+    - sourceId: SmokeCalculationOutput_1776064037261
+      sourceType: scheduledCalculation
     name: Smoke Test Chart
+    scheduledCalculationCollection:
+    - color: '#1192e8'
+      createdAt: 1776064038175
+      enabled: true
+      flow:
+        elements:
+        - id: 1674b895-90ed-433c-aae2-43ae0c9360bc
+          position:
+            x: 710.0
+            y: 55.0
+          type: CalculationOutput
+        - data:
+            selectedSourceId: aaaaaaaa-1111-2222-3333-444444444444
+            type: coreTimeseries
+          id: 0538eedf-1133-4294-ad69-f3ee64eebb3e
+          position:
+            x: -146.47064509465406
+            y: 4.503728159467585
+          type: CalculationInput
+        - data: {}
+          id: 7cd4a80a-6616-4d2d-a8f4-f8f9ee1f6ffc
+          position:
+            x: -114.77957188488949
+            y: 205.63880305013967
+          type: Constant
+        - data: {}
+          id: 7bca4e4a-ec98-4e65-be23-0c2238e21c5a
+          position:
+            x: 280.04359588236747
+            y: 53.54033186571263
+          type: ToolboxFunction
+        - id: reactflow__edge-f9d0a2be-5bec-4273-9c92-de25ac7aacc7result-651f77ba-d081-4e9d-bab6-6efcad4244f0a
+          source: 0538eedf-1133-4294-ad69-f3ee64eebb3e
+          sourceHandle: result
+          target: 7bca4e4a-ec98-4e65-be23-0c2238e21c5a
+          targetHandle: a
+        - id: reactflow__edge-5dd3c26b-2798-4498-854e-0203eb8879cenull-651f77ba-d081-4e9d-bab6-6efcad4244f0b
+          source: 7cd4a80a-6616-4d2d-a8f4-f8f9ee1f6ffc
+          sourceHandle: null
+          target: 7bca4e4a-ec98-4e65-be23-0c2238e21c5a
+          targetHandle: b
+        - id: reactflow__edge-651f77ba-d081-4e9d-bab6-6efcad4244f0out-result-0-2a89c552-d139-4a86-9eba-445c7e3080a0datapoints
+          source: 7bca4e4a-ec98-4e65-be23-0c2238e21c5a
+          sourceHandle: out-result-0
+          target: 1674b895-90ed-433c-aae2-43ae0c9360bc
+          targetHandle: datapoints
+        position:
+        - 359.7910338113121
+        - 38.17355908043433
+        zoom: 0.5743491774985175
+      id: smoke_test_scheduled_calculation
+      interpolation: linear
+      lineStyle: solid
+      lineWeight: 1.0
+      name: SmokeCalculationOutput
+      preferredUnit: ''
+      range:
+      - null
+      - null
+      settings:
+        autoAlign: true
+      type: scheduledCalculation
+      unit: ''
+      version: v2
+    settings:
+      mergeUnits: true
+      showGridlines: true
+      showMinMax: true
+      showYAxis: true
     sourceCollection:
-    - id: UUID_0
+    - id: 07d27ccc-17c3-4127-a888-4ab513267227
+      type: workflow
+    - id: SmokeCalculationOutput_1776064037261
+      type: scheduledCalculation
+    - id: aaaaaaaa-1111-2222-3333-444444444444
       type: coreTimeseries
+    thresholdCollection: []
+    userInfo:
+      displayName: Cognite Smoke Test User
+      email: support@cognitedata.com
     version: 1
+    workflowCollection:
+    - calls: []
+      color: '#6929c4'
+      createdAt: 1776063940531
+      enabled: true
+      flow:
+        elements:
+        - id: 2a89c552-d139-4a86-9eba-445c7e3080a0
+          position:
+            x: 710.0
+            y: 55.0
+          type: CalculationOutput
+        - data:
+            selectedSourceId: aaaaaaaa-1111-2222-3333-444444444444
+            type: coreTimeseries
+          id: f9d0a2be-5bec-4273-9c92-de25ac7aacc7
+          position:
+            x: -146.47064509465406
+            y: 4.503728159467585
+          type: CalculationInput
+        - data: {}
+          id: 5dd3c26b-2798-4498-854e-0203eb8879ce
+          position:
+            x: -194.7795718848895
+            y: 205.63880305013967
+          type: Constant
+        - data: {}
+          id: 651f77ba-d081-4e9d-bab6-6efcad4244f0
+          position:
+            x: 280.04359588236747
+            y: 53.54033186571263
+          type: ToolboxFunction
+        - id: reactflow__edge-f9d0a2be-5bec-4273-9c92-de25ac7aacc7result-651f77ba-d081-4e9d-bab6-6efcad4244f0a
+          source: f9d0a2be-5bec-4273-9c92-de25ac7aacc7
+          sourceHandle: result
+          target: 651f77ba-d081-4e9d-bab6-6efcad4244f0
+          targetHandle: a
+        - id: reactflow__edge-5dd3c26b-2798-4498-854e-0203eb8879cenull-651f77ba-d081-4e9d-bab6-6efcad4244f0b
+          source: 5dd3c26b-2798-4498-854e-0203eb8879ce
+          sourceHandle: null
+          target: 651f77ba-d081-4e9d-bab6-6efcad4244f0
+          targetHandle: b
+        - id: reactflow__edge-651f77ba-d081-4e9d-bab6-6efcad4244f0out-result-0-2a89c552-d139-4a86-9eba-445c7e3080a0datapoints
+          source: 651f77ba-d081-4e9d-bab6-6efcad4244f0
+          sourceHandle: out-result-0
+          target: 2a89c552-d139-4a86-9eba-445c7e3080a0
+          targetHandle: datapoints
+        position:
+        - 359.7910338113121
+        - 38.17355908043433
+        zoom: 0.5743491774985175
+      id: 07d27ccc-17c3-4127-a888-4ab513267227
+      interpolation: linear
+      lineStyle: solid
+      lineWeight: 1.0
+      name: SmokeWith37
+      preferredUnit: ''
+      range:
+      - null
+      - null
+      settings:
+        autoAlign: true
+      type: workflow
+      unit: ''
+      version: v2
   externalId: smoke_test_chart_migration
+  monitoringJobs:
+  - alertContext: null
+    externalId: smoke_test_chart_migrration_monitoring_job
+    interval: 300000
+    metadata: null
+    model:
+      externalId: double_threshold
+      granularity: 1m
+      lowerThreshold: null
+      timeseriesExternalId: null
+      timeseriesId: 1356054795741013
+      timeseriesInstanceId: null
+      upperThreshold: 42.0
+    name: Check_the_output_of_smoke_test_chart_migration
+    nonce: <missingNonce>
+    overlap: 300000
+    source: CHARTS
+    sourceId: 454972f8-d2e9-4944-a697-7d5c73aabd18
+    status: null
+  scheduledCalculations:
+  - description: null
+    externalId: smoke_test_scheduled_calculation
+    graph:
+      granularity: 30d
+      steps:
+      - inputs:
+        - param: a
+          type: ts
+          value:
+            externalId: smoke_test_chart_ts_1
+            space: toolkit_smoke_test_space
+        - param: b
+          type: const
+          value: 37
+        op: add
+        params:
+          align_timesteps: true
+        raw: true
+        step: 0
+        version: 1.0
+      - inputs:
+        - param: series
+          type: result
+          value: 0
+        op: PASSTHROUGH
+        params: {}
+        raw: true
+        step: 1
+        version: 1.0
+    name: SmokeCalculationOutput
+    nonce: <missingNonce>
+    offset: 0
+    period: 2592000000
+    targetTimeseriesExternalId: null
+    targetTimeseriesInstanceId:
+      externalId: SmokeCalculationOutput_1776064037261_TS
+      space: toolkit_smoke_test_space
+    windowSize: null
   visibility: PUBLIC

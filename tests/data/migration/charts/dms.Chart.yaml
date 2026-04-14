@@ -1,282 +1,317 @@
-externalId: d8008471-1c85-4ac1-96b5-984aa0531ad8
-visibility: PRIVATE
-ownerId: 9RGmRdXVoUuZuvDBhm5WNA
 data:
-  version: 1
-  name: Friction factor Copy
-  dateFrom: '2023-05-13T11:00:20.398Z'
-  dateTo: '2030-09-12T09:25:33.042Z'
-  userInfo:
-    id: 9RGmRdXVoUuZuvDBhm5WNA
-    email: cogniter@cognitedata.com
-    displayName: Cognite Cogniter
-  liveMode: false
-  coreTimeseriesCollection:
-  - type: coreTimeseries
-    id: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-    nodeReference:
-      space: energy_time_series
-      externalId: pi:160030
-    viewReference:
-      space: cdf_cdm
-      externalId: CogniteTimeSeries
-      version: v1
-    name: "Stor\xF8yodden - Sea water speed"
-    color: '#6929c4'
-    lineWeight: 1.0
-    lineStyle: solid
-    interpolation: linear
-    displayMode: lines
-    enabled: true
-    preferredUnit: ''
-    range:
-    - -0.008
-    - 0.247
-    createdAt: 1688642098750
-  - type: coreTimeseries
-    id: 867d1c8e-9b0c-4a5e-9c3f-7b2a1c8e5f3b
-    nodeReference:
-      space: energy_time_series
-      externalId: pi:160037
-    viewReference:
-      space: cdf_cdm
-      externalId: CogniteTimeSeries
-      version: v1
-    name: "Stor\xF8yodden - Sea water temperature"
-    color: '#009d9a'
-    lineWeight: 3
-    lineStyle: solid
-    interpolation: linear
-    displayMode: lines
-    enabled: true
-    preferredUnit: C
-    range:
-    - -0.5530371237350451
-    - 27.33133474719185
-    createdAt: 1688642418968
-  workflowCollection:
-  - version: v2
-    type: workflow
-    id: 049e6081-863b-470a-b9c5-8479bd8acd52
-    name: Calc - Add 10
-    color: '#1192e8'
-    enabled: true
-    settings:
-      autoAlign: true
-    lineWeight: 1
-    lineStyle: solid
-    interpolation: linear
-    unit: ''
-    preferredUnit: ''
-    range:
-    - null
-    - null
-    createdAt: 1773832633205
-    flow:
-      zoom: 1.0392520935895522
-      elements:
-      - id: c99bb13f-44dc-4cef-942b-b5a946f4ad71
-        type: CalculationOutput
-        position:
-          x: 745
-          y: 183
-      - id: c01bf65b-4334-46bb-bc57-89cea382b83f
-        data:
-          name: Constant
-          value: 10
-        type: Constant
-        position:
-          x: 110.5
-          y: 213.640625
-      - id: a8e7ba7c-224f-4404-832a-1c80fbf79860
-        data:
-          parameterValues: {}
-          selectedOperation:
-            op: add
-            version: '1.0'
-        type: ToolboxFunction
-        position:
-          x: 464.5
-          y: 170.640625
-      - id: 16b50fba-a849-4be6-b584-0e837cb15dfa
-        data:
-          type: coreTimeseries
-          selectedSourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-        type: CalculationInput
-        position:
-          x: 108.5
-          y: 99.640625
-      - id: reactflow__edge-16b50fba-a849-4be6-b584-0e837cb15dfaresult-a8e7ba7c-224f-4404-832a-1c80fbf79860a
-        source: 16b50fba-a849-4be6-b584-0e837cb15dfa
-        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
-        sourceHandle: result
-        targetHandle: a
-      - id: reactflow__edge-c01bf65b-4334-46bb-bc57-89cea382b83fnull-a8e7ba7c-224f-4404-832a-1c80fbf79860b
-        source: c01bf65b-4334-46bb-bc57-89cea382b83f
-        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
-        sourceHandle: null
-        targetHandle: b
-      - id: reactflow__edge-a8e7ba7c-224f-4404-832a-1c80fbf79860out-result-0-c99bb13f-44dc-4cef-942b-b5a946f4ad71datapoints
-        source: a8e7ba7c-224f-4404-832a-1c80fbf79860
-        target: c99bb13f-44dc-4cef-942b-b5a946f4ad71
-        sourceHandle: out-result-0
-        targetHandle: datapoints
-      position:
-      - -37.95666472706603
-      - -0.8881571869956701
-    calls: []
-  sourceCollection:
-  - type: scheduledCalculation
-    id: Add_10_1773833602688
-  - type: workflow
-    id: 049e6081-863b-470a-b9c5-8479bd8acd52
-  - type: coreTimeseries
-    id: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-  - type: coreTimeseries
-    id: 867d1c8e-9b0c-4a5e-9c3f-7b2a1c8e5f3b
-  thresholdCollection:
-  - id: ce5f4e0e-bcf4-49fb-95fa-041295d62390
-    name: Over10
-    visible: true
-    sourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-    lowerLimit: 10
-    type: over
-    filter:
-      minUnit: seconds
-      maxUnit: hours
-    calls: []
-  scheduledCalculationCollection:
-  - version: v2
-    type: scheduledCalculation
-    id: Add1_1773824941523
-    name: Add1
-    color: '#9f1853'
-    enabled: true
-    settings:
-      autoAlign: true
-    description: Test
-    lineWeight: 1.0
-    lineStyle: solid
-    interpolation: linear
-    range:
-    - null
-    - null
-    createdAt: 1773824943371
-    flow:
-      zoom: 1
-      elements:
-      - id: fd6553ee-bbc6-4dc5-a792-056875e911e6
-        type: CalculationOutput
-        position:
-          x: 666
-          y: 168
-      - id: 64af133c-d1f8-401e-8bce-7165760b76be
-        data:
-          type: coreTimeseries
-          selectedSourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-        type: CalculationInput
-        position:
-          x: 30.5
-          y: 67.91796875
-      - id: be236af0-53a3-4ee0-a730-40fb34c2b5b4
-        data:
-          parameterValues: {}
-          selectedOperation:
-            op: add
-            version: '1.0'
-        type: ToolboxFunction
-        position:
-          x: 383.5
-          y: 109.91796875
-      - id: reactflow__edge-66155acc-ed97-4ece-8dcb-a75a62ea8b0aresult-13111598-fee8-4075-b589-3b5dfc92909fa
-        source: 64af133c-d1f8-401e-8bce-7165760b76be
-        target: be236af0-53a3-4ee0-a730-40fb34c2b5b4
-        sourceHandle: result
-        targetHandle: a
-      - id: reactflow__edge-13111598-fee8-4075-b589-3b5dfc92909fout-result-0-75693a31-7aea-428d-a310-5003ec70e327datapoints
-        source: be236af0-53a3-4ee0-a730-40fb34c2b5b4
-        target: fd6553ee-bbc6-4dc5-a792-056875e911e6
-        sourceHandle: out-result-0
-        targetHandle: datapoints
-      - id: cbb3e01a-7092-4c47-9811-0c01ea30fe73
-        data:
-          name: Constant
-          value: 1
-        type: Constant
-        position:
-          x: 27.5
-          y: 163.91796875
-      - id: reactflow__edge-8e3b5def-aeed-4a5e-bdcd-ce06a4c7733dnull-13111598-fee8-4075-b589-3b5dfc92909fb
-        source: cbb3e01a-7092-4c47-9811-0c01ea30fe73
-        target: be236af0-53a3-4ee0-a730-40fb34c2b5b4
-        sourceHandle: null
-        targetHandle: b
-      position:
-      - 0
-      - 0
-  settings:
-    showYAxis: true
-    showMinMax: true
-    showGridlines: true
-    mergeUnits: false
-  monitoringJobs:
-  - id: 8227317078194390
-    sourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-    sourceType: coreTimeseries
   activitiesCollection:
   - isHighlighted: false
     isPinned: false
     nodeReference:
-      space: rmdm
-      externalId: WO-37a690c5-6ff6-48f2-9b8f-20e735bd8934
+      externalId: event_0
+      space: my_target_space
     viewReference:
-      space: cdf_cdm
       externalId: CogniteActivity
+      space: cdf_cdm
       version: v1
   - isHighlighted: false
     isPinned: false
     nodeReference:
-      space: rmdm
-      externalId: WO-2dd0a518-a349-411d-ae56-149ca91dca67
+      externalId: event_1
+      space: my_target_space
     viewReference:
-      space: cdf_cdm
       externalId: CogniteActivity
+      space: cdf_cdm
       version: v1
   - isHighlighted: false
     isPinned: false
     nodeReference:
-      space: rmdm
-      externalId: Test-WO-30f65dfb-afaf-47fa-939a-cdffaa03c4ce
+      externalId: event_2
+      space: my_target_space
     viewReference:
-      space: cdf_cdm
       externalId: CogniteActivity
+      space: cdf_cdm
       version: v1
   - isHighlighted: false
     isPinned: false
     nodeReference:
-      space: energy_instances
-      externalId: MO-2025-097
+      externalId: event_3
+      space: my_target_space
     viewReference:
-      space: cdf_cdm
       externalId: CogniteActivity
+      space: cdf_cdm
       version: v1
-  - isHighlighted: false
-    isPinned: false
+  coreTimeseriesCollection:
+  - color: '#6929c4'
+    createdAt: 1688642098750
+    displayMode: lines
+    enabled: true
+    id: 050ac967-54a1-45f7-8ab8-d010010057de
+    interpolation: linear
+    lineStyle: solid
+    lineWeight: 1.0
+    name: Storøyodden - Sea water speed
     nodeReference:
-      space: energy_instances
-      externalId: OP-2025-14101
+      externalId: EVE-SI-STORØYODDEN-01-2
+      space: my_target_space
+    preferredUnit: ''
+    range:
+    - -0.008
+    - 0.247
+    type: coreTimeseries
     viewReference:
+      externalId: CogniteTimeSeries
       space: cdf_cdm
-      externalId: CogniteActivity
       version: v1
-  - isHighlighted: false
-    isPinned: false
+  - color: '#009d9a'
+    createdAt: 1688642418968
+    displayMode: lines
+    enabled: true
+    id: b30c0898-929d-4cc4-bd4a-fa3ad0cb339d
+    interpolation: linear
+    lineStyle: solid
+    lineWeight: 3.0
+    name: Storøyodden - Sea water temperature
     nodeReference:
-      space: energy_instances
-      externalId: OP-2025-10103
+      externalId: EVE-TI-STORØYODDEN-01-2
+      space: my_target_space
+    preferredUnit: C
+    range:
+    - -0.5530371237350451
+    - 27.33133474719185
+    type: coreTimeseries
     viewReference:
+      externalId: CogniteTimeSeries
       space: cdf_cdm
-      externalId: CogniteActivity
       version: v1
-createdTime: 1737468743415
-lastUpdatedTime: 1773837880397
+  dateFrom: '2023-05-13T11:00:20.398Z'
+  dateTo: '2030-09-12T09:25:33.042Z'
+  eventFilters: null
+  liveMode: false
+  monitoringJobs:
+  - id: 8744623873811832
+    sourceId: b30c0898-929d-4cc4-bd4a-fa3ad0cb339d
+    sourceType: coreTimeseries
+  name: Friction factor Copy
+  scheduledCalculationCollection:
+  - color: '#9f1853'
+    createdAt: 1773833603796
+    description: Test
+    enabled: true
+    flow:
+      elements:
+      - id: d1af752a-4974-4622-bcbf-840241921818
+        position:
+          x: 745.0
+          y: 183.0
+        type: CalculationOutput
+      - data:
+          name: Constant
+          value: 10
+        id: 670ec5c1-9f0a-4bfc-869b-df1fb1ab9294
+        position:
+          x: 110.5
+          y: 213.640625
+        type: Constant
+      - data:
+          parameterValues: {}
+          selectedOperation:
+            op: add
+            version: '1.0'
+        id: 188acc82-4480-4ed2-ade0-07004be772e1
+        position:
+          x: 464.5
+          y: 170.640625
+        type: ToolboxFunction
+      - data:
+          selectedSourceId: 050ac967-54a1-45f7-8ab8-d010010057de
+          type: coreTimeseries
+        id: bef8bd10-eb95-4a6a-8a0f-14ac61ced5dc
+        position:
+          x: 108.5
+          y: 99.640625
+        type: CalculationInput
+      - id: reactflow__edge-16b50fba-a849-4be6-b584-0e837cb15dfaresult-a8e7ba7c-224f-4404-832a-1c80fbf79860a
+        source: bef8bd10-eb95-4a6a-8a0f-14ac61ced5dc
+        sourceHandle: result
+        target: 188acc82-4480-4ed2-ade0-07004be772e1
+        targetHandle: a
+      - id: reactflow__edge-c01bf65b-4334-46bb-bc57-89cea382b83fnull-a8e7ba7c-224f-4404-832a-1c80fbf79860b
+        source: 670ec5c1-9f0a-4bfc-869b-df1fb1ab9294
+        sourceHandle: null
+        target: 188acc82-4480-4ed2-ade0-07004be772e1
+        targetHandle: b
+      - id: reactflow__edge-a8e7ba7c-224f-4404-832a-1c80fbf79860out-result-0-c99bb13f-44dc-4cef-942b-b5a946f4ad71datapoints
+        source: 188acc82-4480-4ed2-ade0-07004be772e1
+        sourceHandle: out-result-0
+        target: d1af752a-4974-4622-bcbf-840241921818
+        targetHandle: datapoints
+      position:
+      - -37.95666472706603
+      - -0.8881571869956701
+      zoom: 1.0392520935895522
+    id: Add_10_1773833602688
+    interpolation: linear
+    lineStyle: solid
+    lineWeight: 1.0
+    name: Add 10
+    preferredUnit: m3s
+    range:
+    - null
+    - null
+    settings:
+      autoAlign: true
+    type: scheduledCalculation
+    unit: m3s
+    version: v2
+  settings:
+    mergeUnits: false
+    showGridlines: true
+    showMinMax: true
+    showYAxis: true
+  sourceCollection:
+  - id: Add_10_1773833602688
+    type: scheduledCalculation
+  - id: 049e6081-863b-470a-b9c5-8479bd8acd52
+    type: workflow
+  - id: 050ac967-54a1-45f7-8ab8-d010010057de
+    type: coreTimeseries
+  - id: b30c0898-929d-4cc4-bd4a-fa3ad0cb339d
+    type: coreTimeseries
+  thresholdCollection:
+  - calls: []
+    filter:
+      maxUnit: hours
+      minUnit: seconds
+    id: ce5f4e0e-bcf4-49fb-95fa-041295d62390
+    lowerLimit: 10.0
+    name: Over10
+    sourceId: 050ac967-54a1-45f7-8ab8-d010010057de
+    type: over
+    visible: true
+  timeSeriesCollection: null
+  userInfo:
+    displayName: Cognite Cogniter
+    email: cogniter@cognitedata.com
+    id: 9RGmRdXVoUuZuvDBhm5WNA
+  version: 1
+  workflowCollection:
+  - calls: []
+    color: '#1192e8'
+    createdAt: 1773832633205
+    enabled: true
+    flow:
+      elements:
+      - id: c99bb13f-44dc-4cef-942b-b5a946f4ad71
+        position:
+          x: 745.0
+          y: 183.0
+        type: CalculationOutput
+      - data:
+          name: Constant
+          value: 10
+        id: c01bf65b-4334-46bb-bc57-89cea382b83f
+        position:
+          x: 110.5
+          y: 213.640625
+        type: Constant
+      - data:
+          parameterValues: {}
+          selectedOperation:
+            op: add
+            version: '1.0'
+        id: a8e7ba7c-224f-4404-832a-1c80fbf79860
+        position:
+          x: 464.5
+          y: 170.640625
+        type: ToolboxFunction
+      - data:
+          selectedSourceId: 050ac967-54a1-45f7-8ab8-d010010057de
+          type: coreTimeseries
+        id: 16b50fba-a849-4be6-b584-0e837cb15dfa
+        position:
+          x: 108.5
+          y: 99.640625
+        type: CalculationInput
+      - id: reactflow__edge-16b50fba-a849-4be6-b584-0e837cb15dfaresult-a8e7ba7c-224f-4404-832a-1c80fbf79860a
+        source: 16b50fba-a849-4be6-b584-0e837cb15dfa
+        sourceHandle: result
+        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
+        targetHandle: a
+      - id: reactflow__edge-c01bf65b-4334-46bb-bc57-89cea382b83fnull-a8e7ba7c-224f-4404-832a-1c80fbf79860b
+        source: c01bf65b-4334-46bb-bc57-89cea382b83f
+        sourceHandle: null
+        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
+        targetHandle: b
+      - id: reactflow__edge-a8e7ba7c-224f-4404-832a-1c80fbf79860out-result-0-c99bb13f-44dc-4cef-942b-b5a946f4ad71datapoints
+        source: a8e7ba7c-224f-4404-832a-1c80fbf79860
+        sourceHandle: out-result-0
+        target: c99bb13f-44dc-4cef-942b-b5a946f4ad71
+        targetHandle: datapoints
+      position:
+      - -37.95666472706603
+      - -0.8881571869956701
+      zoom: 1.0392520935895522
+    id: 049e6081-863b-470a-b9c5-8479bd8acd52
+    interpolation: linear
+    lineStyle: solid
+    lineWeight: 1.0
+    name: Calc - Add 10
+    preferredUnit: ''
+    range:
+    - null
+    - null
+    settings:
+      autoAlign: true
+    type: workflow
+    unit: ''
+    version: v2
+externalId: d8008471-1c85-4ac1-96b5-984aa0531ad8
+monitoringJobs:
+- channelId: 1819715845899748
+  externalId: monitoringJob-8744623873811832
+  interval: 300000
+  model:
+    externalId: double_threshold
+    granularity: 5m
+    lowerThreshold: 0.5
+    timeseriesExternalId: null
+    timeseriesId: null
+    timeseriesInstanceId:
+      externalId: EVE-TI-STORØYODDEN-01-2
+      space: my_target_space
+    upperThreshold: null
+  name: Monitoring job for Storøyodden - Sea water temperature
+  nonce: <missingNonce>
+  overlap: 0
+  source: CHARTS
+  sourceId: d8008471-1c85-4ac1-96b5-984aa0531ad8
+scheduledCalculations:
+- externalId: Add_10_1773833602688
+  graph:
+    granularity: 5m
+    steps:
+    - inputs:
+      - param: a
+        type: ts
+        value:
+          externalId: EVE-SI-STORØYODDEN-01-2
+          space: my_target_space
+      - param: b
+        type: constant
+        value: 10
+      op: add
+      raw: true
+      step: 0
+      version: 1.0
+    - inputs:
+      - param: series
+        type: result
+        value: 5
+      op: PASSTHROUGH
+      raw: true
+      step: 1
+      version: 1.0
+  nonce: <missingNonce>
+  offset: 0
+  period: 3600000
+  targetTimeseriesExternalId: null
+  targetTimeseriesInstanceId:
+    externalId: EVE-SI-STORØYODDEN-01-2-add-10
+    space: my_target_space
+visibility: PRIVATE

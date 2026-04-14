@@ -101,6 +101,7 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI as LegacyTokenAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
@@ -229,6 +230,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         # This is a helper API, not a real API.
         self.token = LegacyTokenAPI(self)
+        self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 
