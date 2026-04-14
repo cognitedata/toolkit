@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductIO

@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ResourceContainerIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.collection import chunker

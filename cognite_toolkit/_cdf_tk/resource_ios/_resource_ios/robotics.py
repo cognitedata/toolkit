@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapRequest,
     RobotMapResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (

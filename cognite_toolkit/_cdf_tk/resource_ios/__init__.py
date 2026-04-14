@@ -123,10 +123,10 @@ for _loader in itertools.chain(
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
 
     if _loader not in _EXCLUDED_CRUDS:
-        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)
+        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
 del _loader  # cleanup module namespace
 
 

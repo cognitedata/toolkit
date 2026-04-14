@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,

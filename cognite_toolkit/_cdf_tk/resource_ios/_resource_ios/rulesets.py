@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,

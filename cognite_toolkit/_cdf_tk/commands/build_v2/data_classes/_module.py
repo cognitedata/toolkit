@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._insights import ModelSyntaxWarning

@@ -94,7 +94,7 @@ from cognite_toolkit._cdf_tk.constants import (
     VIEW_UPSERT_BATCH_LIMIT,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_ios._base_cruds import (
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
     ResourceContainerIO,
