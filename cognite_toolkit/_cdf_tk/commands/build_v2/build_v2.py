@@ -47,16 +47,16 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    ResourceCRUD,
-)
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    ResourceIO,
+)
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
@@ -485,7 +485,7 @@ class BuildV2Command(ToolkitCommand):
     def _read_resource_file(
         self,
         resource_file: AbsoluteFilePath,
-        crud_class: type[ResourceCRUD],
+        crud_class: type[ResourceIO],
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
         try:

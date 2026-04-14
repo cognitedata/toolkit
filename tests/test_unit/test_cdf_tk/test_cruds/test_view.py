@@ -18,12 +18,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
-    ResourceCRUD,
+    ResourceIO,
     ResourceWorker,
     SpaceCRUD,
-    ViewCRUD,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
@@ -87,7 +87,7 @@ def _create_test_view(external_id: str, container: ContainerResponse) -> ViewRes
 
 class TestViewLoader:
     def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
@@ -163,15 +163,15 @@ class TestViewLoader:
                 },
                 [
                     (SpaceCRUD, SpaceId(space="sp_my_space")),
-                    (ViewCRUD, ViewId(space="my_view_space", external_id="my_view", version="1")),
-                    (ViewCRUD, ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                    (ViewIO, ViewId(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewIO, ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
                 ],
                 id="View with one container property",
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
-        actual = ViewCRUD.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        actual = ViewIO.get_dependent_items(item)
 
         assert list(actual) == expected
 
@@ -257,7 +257,7 @@ class TestViewLoader:
         test_description: str,
     ) -> None:
         """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
@@ -283,7 +283,7 @@ class TestViewLoader:
     ) -> None:
         """Test that views with cyclical dependencies are returned separately from the sorted views."""
 
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
 
         # Create three containers that form a cycle: A -> B -> C -> A
         container_a = _create_test_container(
@@ -360,7 +360,7 @@ class TestViewLoader:
         expected_readonly_props: set[str],
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
 
         readonly_props = loader.get_readonly_properties(view_id)
@@ -445,7 +445,7 @@ class TestViewCRUDGetDependencies:
             }
         )
 
-        deps = list(ViewCRUD.get_dependencies(view))
+        deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 1
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
 
@@ -465,7 +465,7 @@ class TestViewCRUDGetDependencies:
             }
         )
 
-        deps = list(ViewCRUD.get_dependencies(view))
+        deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (ContainerCRUD, ContainerId(space="container_space", external_id="my_container")) in deps
@@ -481,10 +481,10 @@ class TestViewCRUDGetDependencies:
             }
         )
 
-        deps = list(ViewCRUD.get_dependencies(view))
+        deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="my_space", external_id="base_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="my_space", external_id="base_view", version="1")) in deps
 
     def test_view_with_edge_connection(self) -> None:
         """Test View with EdgeConnectionDefinition dependency."""
@@ -509,10 +509,10 @@ class TestViewCRUDGetDependencies:
             }
         )
 
-        deps = list(ViewCRUD.get_dependencies(view))
+        deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
 
     def test_view_with_reverse_direct_relation_view_through(self) -> None:
         """Test View with ReverseDirectRelationConnectionDefinition with View through reference."""
@@ -544,8 +544,8 @@ class TestViewCRUDGetDependencies:
             }
         )
 
-        deps = list(ViewCRUD.get_dependencies(view))
+        deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 3
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
-        assert (ViewCRUD, ViewId(space="through_space", external_id="through_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps

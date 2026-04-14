@@ -60,25 +60,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import (
-    AssetCRUD,
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resource_ios import (
+    AssetIO,
     CogniteFileCRUD,
-    DataModelCRUD,
-    DatapointSubscriptionCRUD,
-    ExtractionPipelineCRUD,
-    FunctionCRUD,
-    FunctionScheduleCRUD,
-    GroupCRUD,
-    LabelCRUD,
+    DataModelIO,
+    DatapointSubscriptionIO,
+    ExtractionPipelineIO,
+    FunctionIO,
+    FunctionScheduleIO,
+    GroupIO,
+    LabelIO,
     NodeCRUD,
     ResourceWorker,
-    RobotCapabilityCRUD,
-    RoboticsDataPostProcessingCRUD,
-    TransformationCRUD,
-    ViewCRUD,
-    WorkflowVersionCRUD,
+    RobotCapabilityIO,
+    RoboticsDataPostProcessingIO,
+    TransformationIO,
+    ViewIO,
+    WorkflowVersionIO,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -95,7 +95,7 @@ class TestFunctionScheduleLoader:
         dummy_function: Function,
         dummy_schedule: FunctionSchedule,
     ) -> None:
-        loader = FunctionScheduleCRUD(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client, None, None)
         function_schedule = dummy_schedule.as_write()
 
         function_schedule.description = (
@@ -132,7 +132,7 @@ class TestFunctionScheduleLoader:
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleCRUD(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client, None, None)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
         loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
             toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
@@ -158,7 +158,7 @@ class TestFunctionScheduleLoader:
         existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
         if not existing:
             _ = client.functions.schedules.create(schedule)
-        crud = FunctionScheduleCRUD(client, None, None)
+        crud = FunctionScheduleIO(client, None, None)
 
         schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
@@ -184,7 +184,7 @@ authentication:
   clientId: {cred.client_id}
   clientSecret: {cred.client_secret}
 """
-        loader = FunctionScheduleCRUD(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client, None, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = schedule_yaml
 
@@ -282,7 +282,7 @@ def three_hundred_and_three_cognite_timeseries(
 
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = DatapointSubscriptionCRUD(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client, None)
         _ = loader.delete([ExternalId(external_id="non_existing")])
 
     def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
@@ -309,7 +309,7 @@ class TestDatapointSubscriptionLoader:
             },
         )
 
-        loader = DatapointSubscriptionCRUD(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client, None)
 
         try:
             created = loader.create([sub])
@@ -352,7 +352,7 @@ name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
 """
-        loader = DatapointSubscriptionCRUD(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
             created = loader.create([sub])
@@ -387,7 +387,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionCRUD.create_loader(toolkit_client)
+        loader = DatapointSubscriptionIO.create_loader(toolkit_client)
 
         filepath = self._create_mock_file(definition_yaml)
         resource = self._load_subscription_from_yaml(filepath, loader)
@@ -412,7 +412,7 @@ timeSeriesIds:
         return mock_file
 
     @staticmethod
-    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionCRUD) -> DatapointSubscriptionRequest:
+    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionIO) -> DatapointSubscriptionRequest:
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         return loader.load_resource(resource_dict[0])
@@ -420,13 +420,13 @@ timeSeriesIds:
 
 class TestLabelLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = LabelCRUD(toolkit_client, None)
+        loader = LabelIO(toolkit_client, None)
         delete_count = loader.delete([ExternalId(external_id="non_existing")])
         assert delete_count == 0
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
         label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
-        loader = LabelCRUD(toolkit_client, None)
+        loader = LabelIO(toolkit_client, None)
 
         try:
             created = loader.create([label])
@@ -443,7 +443,7 @@ class TestAssetLoader:
             description="My description",
         )
 
-        loader = AssetCRUD(toolkit_client, None)
+        loader = AssetIO(toolkit_client, None)
 
         try:
             created = loader.create([asset])
@@ -477,7 +477,7 @@ class TestRobotCapability:
     def test_retrieve_existing_and_not_existing(
         self, toolkit_client: ToolkitClient, existing_robot_capability: RobotCapabilityRequest
     ) -> None:
-        loader = RobotCapabilityCRUD(toolkit_client, None)
+        loader = RobotCapabilityIO(toolkit_client, None)
 
         capabilities = loader.retrieve(
             [existing_robot_capability.as_id(), ExternalId(external_id="non_existing_robot")]
@@ -486,7 +486,7 @@ class TestRobotCapability:
         assert len(capabilities) == 1
 
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = RobotCapabilityCRUD(toolkit_client, None)
+        loader = RobotCapabilityIO(toolkit_client, None)
 
         original = RobotCapabilityRequest._load(
             read_yaml_content("""name: Read dial gauge
@@ -536,7 +536,7 @@ dataHandlingSchema:
 
 class TestRobotDataPostProcessing:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = RoboticsDataPostProcessingCRUD(toolkit_client, None)
+        loader = RoboticsDataPostProcessingIO(toolkit_client, None)
 
         original = RobotDataPostProcessingRequest._load(
             read_yaml_content("""name: Read dial gauge
@@ -677,7 +677,7 @@ class TestDataModelLoader:
     def test_create_update_delete(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views: dm.ViewList
     ) -> None:
-        loader = DataModelCRUD(toolkit_client, None)
+        loader = DataModelIO(toolkit_client, None)
         view_list = two_views.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = DataModelRequest(
@@ -810,7 +810,7 @@ class TestGroupLoader:
             group_id = created_group.as_request_resource().as_id()
             toolkit_client.tool.timeseries.delete([to_delete.as_id()])
 
-            loader = GroupCRUD.create_loader(toolkit_client)
+            loader = GroupIO.create_loader(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -849,7 +849,7 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionCRUD(client, None, None)
+            loader = WorkflowVersionIO(client, None, None)
 
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
@@ -880,7 +880,7 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionCRUD.create_loader(toolkit_client)
+        loader = WorkflowVersionIO.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
@@ -918,7 +918,7 @@ authentication:
   clientId: ${IDP_CLIENT_ID}
   clientSecret: ${IDP_CLIENT_SECRET}
 """
-        loader = TransformationCRUD.create_loader(toolkit_client)
+        loader = TransformationIO.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -950,7 +950,7 @@ authentication:
     clientId: ${IDP_CLIENT_ID}
     clientSecret: ${IDP_CLIENT_SECRET}
         """
-        loader = TransformationCRUD.create_loader(toolkit_client)
+        loader = TransformationIO.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -1001,7 +1001,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationCRUD.create_loader(toolkit_client)
+        loader = TransformationIO.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -1037,7 +1037,7 @@ ignoreNullFields: true
     def test_unchanged_transformation_not_redeployed(
         self, toolkit_client: ToolkitClient, transformation_yaml: str
     ) -> None:
-        crud = TransformationCRUD.create_loader(toolkit_client)
+        crud = TransformationIO.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_yaml
@@ -1129,7 +1129,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewCRUD.create_loader(toolkit_client)
+        loader = ViewIO.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
@@ -1179,14 +1179,14 @@ dataSetExternalId: {toolkit_dataset.external_id}
 description: ""
         """
         build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionCRUD.folder_name / external_id / "handler.py"
+        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
-        loader = FunctionCRUD(toolkit_client, build_dir, None, use_fileio=False)
+        loader = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionCRUD.folder_name
+        filepath.parent.name = FunctionIO.folder_name
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(resource_dict[0])
@@ -1214,15 +1214,15 @@ space: {toolkit_space.space}
 description: ""
         """
         build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionCRUD.folder_name / external_id / "handler.py"
+        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
-        crud = FunctionCRUD(toolkit_client, build_dir, None, use_fileio=False)
+        crud = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionCRUD.folder_name
+        filepath.parent.name = FunctionIO.folder_name
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
 
@@ -1264,7 +1264,7 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        loader = ExtractionPipelineCRUD.create_loader(toolkit_client)
+        loader = ExtractionPipelineIO.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml

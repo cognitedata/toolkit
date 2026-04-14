@@ -4,11 +4,11 @@ from ._annotations import AnnotationIO
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import (
     AssetCentricIO,
-    AssetIO,
-    EventIO,
-    FileMetadataIO,
+    AssetDataIO,
+    EventDataIO,
+    FileMetadataDataIO,
     HierarchyIO,
-    TimeSeriesIO,
+    TimeSeriesDataIO,
 )
 from ._base import (
     Bookmark,
@@ -47,16 +47,16 @@ def get_upload_io(selector: DataSelector) -> type[UploadableStorageIO]:
 __all__ = [
     "AnnotationIO",
     "AssetCentricIO",
-    "AssetIO",
+    "AssetDataIO",
     "Bookmark",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
     "DataItem",
     "DatapointsIO",
-    "EventIO",
+    "EventDataIO",
     "FileContentIO",
-    "FileMetadataIO",
+    "FileMetadataDataIO",
     "HierarchyIO",
     "InstanceIO",
     "InstanceIdCSVList",
@@ -71,7 +71,7 @@ __all__ = [
     "T_DataResponse",
     "T_Selector",
     "TableStorageIO",
-    "TimeSeriesIO",
+    "TimeSeriesDataIO",
     "UploadableStorageIO",
     "get_upload_io",
 ]

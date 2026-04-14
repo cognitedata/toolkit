@@ -1,0 +1,398 @@
+# Copyright 2023 Cognite AS
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
+from typing import Any, Literal, final
+
+import yaml
+
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    ExtractionPipelineConfigId,
+    InternalOrExternalId,
+    RawDatabaseId,
+    RawTableId,
+)
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
+    ExtractionPipelineRequest,
+    ExtractionPipelineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
+    ExtractionPipelineConfigRequest,
+    ExtractionPipelineConfigResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
+    AllScope,
+    DataSetScope,
+    ExtractionConfigsAcl,
+    ExtractionPipelinesAcl,
+    ScopeDefinition,
+)
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitRequiredValueError,
+)
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
+)
+from cognite_toolkit._cdf_tk.utils import (
+    load_yaml_inject_variables,
+    read_yaml_content,
+    safe_read,
+    sanitize_filename,
+    stringify_value_by_key_in_yaml,
+)
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
+
+from .auth import GroupAllScopedCRUD
+from .data_organization import DataSetsIO
+from .raw import RawDatabaseCRUD, RawTableCRUD
+
+
+@final
+class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
+    folder_name = "extraction_pipelines"
+    resource_cls = ExtractionPipelineResponse
+    resource_write_cls = ExtractionPipelineRequest
+    kind = "ExtractionPipeline"
+    dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
+    yaml_cls = ExtractionPipelineYAML
+    _doc_url = "Extraction-Pipelines/operation/createExtPipes"
+
+    @property
+    def display_name(self) -> str:
+        return "extraction pipelines"
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
+        return DataSetScope(ids=list({item.data_set_id for item in items}))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise ToolkitRequiredValueError("ExtractionPipeline must have external_id set.")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def get_internal_id(cls, item: ExtractionPipelineResponse | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if item.id is None:
+            raise ToolkitRequiredValueError("ExtractionPipeline must have id set.")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        seen_databases: set[str] = set()
+        if "dataSetExternalId" in item:
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
+        if "rawTables" in item:
+            for entry in item["rawTables"]:
+                if db := entry.get("dbName"):
+                    if db not in seen_databases:
+                        seen_databases.add(db)
+                        yield RawDatabaseCRUD, RawDatabaseId(name=db)
+                    if "tableName" in entry:
+                        yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
+
+    @classmethod
+    def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        seen_databases: set[str] = set()
+        for entry in resource.raw_tables or []:
+            if entry.db_name and entry.db_name not in seen_databases:
+                seen_databases.add(entry.db_name)
+                yield RawDatabaseCRUD, RawDatabaseId(name=entry.db_name)
+            if entry.db_name and entry.table_name:
+                yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if "createdBy" not in resource:
+            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+            resource["createdBy"] = "unknown"
+        return ExtractionPipelineRequest.model_validate(resource)
+
+    def dump_resource(
+        self, resource: ExtractionPipelineResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        local = local or {}
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
+            dumped.pop("createdBy", None)
+        elif dumped.get("createdBy") == "unknown" and "createdBy" in local and local["createdBy"] is None:
+            dumped["createdBy"] = None
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("rawTables",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: (x["dbName"], x["tableName"]))
+        return super().diff_list(local, cdf, json_path)
+
+    def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
+        return self.client.tool.extraction_pipelines.create(list(items))
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineResponse]:
+        return self.client.tool.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
+        return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
+
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.extraction_pipelines.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[ExtractionPipelineResponse]:
+        filter: ClassicFilter | None = None
+        if data_set_external_id is not None:
+            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+        for pipelines in self.client.tool.extraction_pipelines.iterate(filter=filter, limit=None):
+            yield from pipelines
+
+
+@final
+class ExtractionPipelineConfigIO(
+    ResourceIO[
+        ExternalId,
+        ExtractionPipelineConfigRequest,
+        ExtractionPipelineConfigResponse,
+    ]
+):
+    folder_name = "extraction_pipelines"
+    resource_cls = ExtractionPipelineConfigResponse
+    resource_write_cls = ExtractionPipelineConfigRequest
+    kind = "Config"
+    dependencies = frozenset({ExtractionPipelineIO})
+    _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
+    parent_resource = frozenset({ExtractionPipelineIO})
+    yaml_cls = ExtractionPipelineConfigYAML
+
+    support_update = False
+
+    @property
+    def display_name(self) -> str:
+        return "extraction pipeline configs"
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineConfigRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope):
+            yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
+
+    @classmethod
+    def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if "externalId" in item:
+            yield ExtractionPipelineIO, ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: ExtractionPipelineConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield ExtractionPipelineIO, ExternalId(external_id=resource.external_id)
+
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
+        # The config is expected to be a string that is parsed as a YAML on the server side.
+        # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
+        return stringify_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="config")
+
+    def load_resource_file(
+        # special case where the environment variable keys in the 'config' value
+        # should not be replaced but preserved as is
+        self,
+        filepath: Path,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        raw_str = self.safe_read(filepath)
+
+        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
+
+        if isinstance(original, dict) and isinstance(replaced, dict):
+            if "config" in original:
+                replaced["config"] = original.get("config")
+                return [replaced]
+
+        for orig_item, repl_item in zip(original, replaced):
+            if "config" in orig_item:
+                repl_item["config"] = orig_item.get("config")  # type: ignore
+        return replaced if isinstance(replaced, list) else [replaced]
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigRequest:
+        config_raw = resource.get("config")
+        if isinstance(config_raw, str):
+            self._validate_config(config_raw, resource)
+        return ExtractionPipelineConfigRequest.model_validate(resource)
+
+    def _validate_config(self, config_raw: str, resource: dict[str, Any]) -> dict[str, Any]:
+        """The extraction pipeline API specifies config to be a string. However, it should be a valid YAML mapping,
+        so we validate that here and warn if it is not."""
+        try:
+            result = read_yaml_content(config_raw)
+        except yaml.YAMLError as e:
+            id_ = self._get_id(resource, default="missing")
+            HighSeverityWarning(
+                f"Configuration for {id_!r} could not be parsed "
+                f"as valid YAML, which is the recommended format. Error: {e}"
+            ).print_warning(console=self.console)
+        else:
+            if isinstance(result, dict):
+                return result
+            id_ = self._get_id(resource, default="missing")
+            HighSeverityWarning(
+                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
+            ).print_warning(console=self.console)
+        return {}
+
+    def _get_id(self, resource: dict[str, Any], default: str) -> str:
+        try:
+            return str(self.get_id(resource))
+        except (ToolkitRequiredValueError, KeyError):
+            return default
+
+    def dump_resource(
+        self, resource: ExtractionPipelineConfigResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        local = local or {}
+        if (
+            "config" in dumped
+            and isinstance(dumped["config"], str)
+            and ("config" not in local or isinstance(local["config"], dict))
+        ):
+            # When we dump a config from CDF, i.e., running `cdf dump extraction-pipeline`, we want to parse the config
+            # as YAML to make it easier to read and edit.
+            if dumped["config"].strip() == "":
+                dumped["config"] = {}
+            else:
+                dumped["config"] = self._validate_config(dumped["config"], dumped)
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "config":
+            # Assume all arrays in the config are hashable
+            return diff_list_force_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
+    def _upsert(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
+        return self.client.tool.extraction_pipelines.configs.create(list(items))
+
+    def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
+        return self._upsert(items)
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
+        return self.client.tool.extraction_pipelines.configs.retrieve(
+            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids],
+            ignore_unknown_ids=True,
+        )
+
+    def delete(self, ids: Sequence[ExternalId]) -> int:
+        """Delete is not supported for extraction pipeline configs.
+
+        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
+        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
+        of configs that exist for the given ids and return that number as these will be deleted.
+        """
+        # Todo; Change to raise ToolkitNotSupportedError in v0.8
+        count = 0
+        for id_ in ids:
+            try:
+                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
+            except ToolkitAPIError as e:
+                if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
+                    continue
+                raise
+            else:
+                count += len(result)
+        return count
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[ExtractionPipelineConfigResponse]:
+        if parent_ids is None:
+            parent_external_ids: Iterable[ExternalId] = (
+                pipeline.as_id() for pipeline in self.client.tool.extraction_pipelines.list(limit=None)
+            )
+        else:
+            parent_external_ids = [pid for pid in parent_ids if isinstance(pid, ExternalId)]
+        for parent_id in parent_external_ids:
+            try:
+                for configs in self.client.tool.extraction_pipelines.configs.iterate(
+                    external_id=parent_id.external_id, limit=None
+                ):
+                    yield from configs
+            except ToolkitAPIError as e:
+                if e.code == 404 and "There is no config stored" in e.message:
+                    continue
+                raise
