@@ -37,17 +37,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.cruds import (
-    InFieldCDMLocationConfigCRUD,
-    LocationFilterCRUD,
-    NodeCRUD,
-    ResourceCRUD,
-    SpaceCRUD,
-)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
+)
+from cognite_toolkit._cdf_tk.resource_ios import (
+    InFieldCDMLocationConfigIO,
+    LocationFilterIO,
+    NodeCRUD,
+    ResourceIO,
+    SpaceCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -66,7 +66,7 @@ class CreatedResource(Generic[T_RequestResource]):
 @dataclass
 class ToCreateResources(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     resources: Sequence[CreatedResource[T_RequestResource]]
-    crud_cls: type[ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource]]
+    crud_cls: type[ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource]]
     display_name: str
     store_linage: Callable[[], int] | None = None
 
@@ -326,12 +326,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=all_location_filters,
-            crud_cls=LocationFilterCRUD,
+            crud_cls=LocationFilterIO,
             display_name="Location Filters",
         )
         yield ToCreateResources(
             resources=all_location_configs,
-            crud_cls=InFieldCDMLocationConfigCRUD,
+            crud_cls=InFieldCDMLocationConfigIO,
             display_name="InField CDM Location Configs",
         )
 

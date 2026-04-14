@@ -19,15 +19,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import (
-    DataModelCRUD,
-    DataSetsCRUD,
+from cognite_toolkit._cdf_tk.resource_ios import (
+    DataModelIO,
+    DataSetsIO,
     RawDatabaseCRUD,
     RawTableCRUD,
-    ResourceCRUD,
+    ResourceIO,
     SpaceCRUD,
-    TransformationCRUD,
-    ViewCRUD,
+    TransformationIO,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -58,7 +58,7 @@ conflictMode: upsert
         toolkit_client_approval: ApprovalToolkitClient,
         env_vars_with_client: EnvironmentVariables,
     ) -> None:
-        loader = TransformationCRUD(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
@@ -73,7 +73,7 @@ conflictMode: upsert
         env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationCRUD(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client, None)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
         resource["authentication"] = {
             "clientId": "my-client-id",
@@ -126,7 +126,7 @@ authentication:
             id=1,
             name="my-transformation",
             external_id="my_transformation",
-            query=f"{TransformationCRUD._hash_key}: {auth_hash}\nSELECT * FROM my_table",
+            query=f"{TransformationIO._hash_key}: {auth_hash}\nSELECT * FROM my_table",
             ignore_null_fields=True,
             created_time=1,
             last_updated_time=1,
@@ -139,7 +139,7 @@ authentication:
             has_destination_oidc_credentials=False,
         )
         with monkeypatch_toolkit_client() as client:
-            loader = TransformationCRUD(client, None, None)
+            loader = TransformationIO(client, None, None)
 
         filepath = self._create_mock_file(local_content)
         local_dumped = loader.load_resource_file(filepath, {})[0]
@@ -157,7 +157,7 @@ authentication:
         env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationCRUD(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client, None)
 
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
@@ -184,9 +184,9 @@ authentication:
                     },
                 },
                 [
-                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
+                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
                     (SpaceCRUD, SpaceId(space="sp_data_space")),
-                    (DataModelCRUD, DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
+                    (DataModelIO, DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
                 ],
                 id="Transformation to data model",
             ),
@@ -200,7 +200,7 @@ authentication:
                 },
                 [
                     (SpaceCRUD, SpaceId(space="sp_data_space")),
-                    (ViewCRUD, ViewId(space="sp_space", external_id="my_view", version="v1")),
+                    (ViewIO, ViewId(space="sp_space", external_id="my_view", version="v1")),
                 ],
                 id="Transformation to nodes ",
             ),
@@ -214,8 +214,8 @@ authentication:
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
-        actual = TransformationCRUD.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        actual = TransformationIO.get_dependent_items(item)
 
         assert list(actual) == expected
 
@@ -260,7 +260,7 @@ authentication:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.transformations.create.side_effect = create_transformations
-            crud = TransformationCRUD(client, None, None)
+            crud = TransformationIO(client, None, None)
             created = crud.create(transformations)
 
             assert [t.external_id for t in created] == [t.external_id for t in transformations]

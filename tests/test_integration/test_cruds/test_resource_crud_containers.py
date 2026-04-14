@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, RawTableCRUD, TimeSeriesCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, RawTableCRUD, TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.three_d_model import ThreeDModelCRUD
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 

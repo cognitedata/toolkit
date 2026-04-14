@@ -9,13 +9,13 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
-from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuildVariables,
     BuiltFullResourceList,
     BuiltResourceFull,
 )
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -462,7 +462,7 @@ description: New description
 """
 
     yield pytest.param(
-        source, to_write, resources, expected, DataSetsCRUD, Path("my.DataSet.yaml"), id="One resource changed"
+        source, to_write, resources, expected, DataSetsIO, Path("my.DataSet.yaml"), id="One resource changed"
     )
 
     source = """name: Ingestion
@@ -482,7 +482,7 @@ description: New description
         to_write,
         resources,
         expected,
-        DataSetsCRUD,
+        DataSetsIO,
         Path("my.DataSet.yaml"),
         id="One resource changed with comments",
     )
@@ -523,7 +523,7 @@ description: New description
         to_write_multi,
         resources,
         expected,
-        DataSetsCRUD,
+        DataSetsIO,
         Path("my.DataSet.yaml"),
         id="Multiple resources changed",
     )
@@ -592,7 +592,7 @@ filter:
         to_write_view,
         resources_view,
         expected_view,
-        ViewCRUD,
+        ViewIO,
         Path("my.View.yaml"),
         id="View with filter and no differences",
     )

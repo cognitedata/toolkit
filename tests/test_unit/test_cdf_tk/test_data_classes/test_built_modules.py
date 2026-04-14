@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.cruds import ResourceTypes
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
     BuiltModule,
@@ -13,6 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceList,
     SourceLocationEager,
 )
+from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 
 
 @dataclass

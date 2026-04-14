@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from cognite_toolkit._cdf_tk.cruds import (
-    ResourceCRUD,
+from cognite_toolkit._cdf_tk.resource_ios import (
+    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
@@ -27,7 +27,7 @@ class BuildSourceFile:
 class BuildDestinationFile:
     path: Path
     loaded: list[dict[str, Any]] | dict[str, Any]
-    loader: type[ResourceCRUD]
+    loader: type[ResourceIO]
     source: SourceLocation
     extra_sources: list[SourceLocation] | None
     warnings: WarningList[FileReadWarning] = field(default_factory=WarningList[FileReadWarning])

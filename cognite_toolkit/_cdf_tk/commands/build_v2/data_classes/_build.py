@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
@@ -66,8 +66,8 @@ class BuiltResource(BaseModel):
     type: ResourceType
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
-    crud_cls: builtins.type[ResourceCRUD]
-    dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+    crud_cls: builtins.type[ResourceIO]
+    dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
 
 
 class BuiltModule(BaseModel):

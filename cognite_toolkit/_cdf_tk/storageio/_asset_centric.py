@@ -12,16 +12,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
-from cognite_toolkit._cdf_tk.cruds import (
-    AssetCRUD,
-    DataSetsCRUD,
-    EventCRUD,
-    FileMetadataCRUD,
-    LabelCRUD,
-    TimeSeriesCRUD,
-)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.resource_ios import (
+    AssetIO,
+    DataSetsIO,
+    EventIO,
+    FileMetadataCRUD,
+    LabelIO,
+    TimeSeriesCRUD,
+)
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -89,11 +89,11 @@ class AssetCentricIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsCRUD.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
 
         yield from self._configurations(
             [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
-            LabelCRUD.create_loader(self.client),
+            LabelIO.create_loader(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -129,7 +129,7 @@ class AssetCentricIO(
     def _configurations(
         cls,
         ids: Sequence[Hashable],
-        loader: DataSetsCRUD | LabelCRUD,
+        loader: DataSetsIO | LabelIO,
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
@@ -254,7 +254,7 @@ class UploadableAssetCentricIO(
         )
 
 
-class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
+class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -264,7 +264,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._crud = AssetCRUD.create_loader(self.client)
+        self._crud = AssetIO.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -402,7 +402,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
             current_depth += 1
 
 
-class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
+class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
     KIND = "FileMetadata"
     RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -508,7 +508,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         return data_chunk.create_from(result)
 
 
-class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
+class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
     KIND = "TimeSeries"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -624,7 +624,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         return ts_schema + metadata_schema
 
 
-class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
+class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     KIND = "Events"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -634,7 +634,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._crud = EventCRUD.create_loader(self.client)
+        self._crud = EventIO.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
@@ -745,10 +745,10 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._asset_io = AssetIO(client)
-        self._file_io = FileMetadataIO(client)
-        self._timeseries_io = TimeSeriesIO(client)
-        self._event_io = EventIO(client)
+        self._asset_io = AssetDataIO(client)
+        self._file_io = FileMetadataDataIO(client)
+        self._timeseries_io = TimeSeriesDataIO(client)
+        self._event_io = EventDataIO(client)
         self._io_by_kind: dict[str, AssetCentricIO] = {
             self._asset_io.KIND: self._asset_io,
             self._file_io.KIND: self._file_io,

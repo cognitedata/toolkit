@@ -13,20 +13,20 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import (
-    AssetIO,
+    AssetDataIO,
     CanvasIO,
     ChartIO,
     DatapointsIO,
     DataSelector,
-    EventIO,
+    EventDataIO,
     FileContentIO,
-    FileMetadataIO,
+    FileMetadataDataIO,
     HierarchyIO,
     InstanceIO,
     RawIO,
     RecordIO,
     StorageIO,
-    TimeSeriesIO,
+    TimeSeriesDataIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetSubtreeSelector,
@@ -319,7 +319,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=AssetIO(client),
+                io=AssetDataIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -442,7 +442,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=TimeSeriesIO(client),
+                io=TimeSeriesDataIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -525,7 +525,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=EventIO(client),
+                io=EventDataIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -652,7 +652,7 @@ class DownloadApp(typer.Typer):
                 )
                 for data_set in data_sets
             ]
-            io = FileMetadataIO(client)
+            io = FileMetadataDataIO(client)
 
         cmd = DownloadCommand(client=client)
         cmd.run(
