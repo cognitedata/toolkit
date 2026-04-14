@@ -259,12 +259,31 @@ class FileWithAggregationLogger(DataLogger):
         for id in ids:
             if id not in self.aggregations_by_ids:
                 self.aggregations_by_ids[id] = []
+            else:
+                self.log(
+                    LogEntryV2(
+                        id=id,
+                        label="Toolkit bug - multiple registrations",
+                        severity=Severity.warning,
+                        message=f"Multiple registrations for {id}",
+                    )
+                )
 
     def _update_aggregation(self, entries: list[LogEntry]) -> None:
         for entry in entries:
             if isinstance(entry, LogEntryV2):
                 if entry.id in self.aggregations_by_ids:
                     self.aggregations_by_ids[entry.id].append(entry)
+                else:
+                    self.aggregations_by_ids[entry.id] = [entry]
+                    self.log(
+                        LogEntryV2(
+                            id=entry.id,
+                            label="Toolkit bug - missing registration",
+                            severity=Severity.warning,
+                            message=f"Missing registration for {id}",
+                        )
+                    )
 
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         entries = list(entry) if isinstance(entry, Sequence) else [entry]
