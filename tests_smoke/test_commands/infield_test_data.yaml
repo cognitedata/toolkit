@@ -314,3 +314,24 @@ condition:
       conditionalAction:
         space: {{source_space}}
         externalId: 1DC026YVbKG3QYAOMzJoXw
+# Observation
+observation:
+  externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
+  instanceType: node
+  space: {{source_space}}
+  sources:
+    - properties:
+        description: 'Observing read red '
+        files:
+          - 074941a4-b40d-46ce-b409-5616b8c19bd8
+        priority: '1'
+        solutionTags: [ ]
+        sourceCreatedTime: '2026-01-29T10:43:45.819+00:00'
+        status: Completed
+        troubleshooting: I clicked buttons
+        type: M1
+      source:
+        externalId: Observation
+        space: cdf_apm
+        type: view
+        version: v5
