@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from threading import Lock
 from typing import Literal, TypeAlias
@@ -22,7 +22,6 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
 class Severity(Enum):
     failure = 1
     warning = 2
-    info = 3
 
 
 class LogAggregation(LogEntry):
@@ -226,10 +225,18 @@ class HeadingResult:
 
 
 @dataclass
+class _HeadingTmp:
+    heading: str
+    count: int
+    counter: Counter[str] = field(default_factory=Counter)
+    attribute_name: str | None = None
+
+
+@dataclass
 class ItemsResult:
     status: OperationStatus
     count: int
-    headings: list[HeadingResult]
+    headings: list[HeadingResult] = field(default_factory=list)
 
     def display_message(self) -> str:
         return f"{self.status}: {self.count} items."
@@ -237,6 +244,7 @@ class ItemsResult:
 
 class FileWithAggregationLogger(DataLogger):
     BATCH_SIZE = 1000
+    NO_WARNINGS = 999
 
     def __init__(self, writer: NDJsonWriter) -> None:
         self.tracker = NoOpTracker()
@@ -274,7 +282,7 @@ class FileWithAggregationLogger(DataLogger):
             self._writer.write_chunks([e.model_dump(by_alias=True) for e in self._batch])
             self._batch.clear()
 
-    def finalize(self) -> list[ItemsResult]:
+    def finalize(self, is_dry_run: bool) -> list[ItemsResult]:
         """Finalize logging and return aggregated results.
 
         Flushes any remaining entries to file and aggregates logged entries
@@ -283,5 +291,52 @@ class FileWithAggregationLogger(DataLogger):
         Returns:
             List of ItemsResult grouped by status (derived from severity).
         """
-        self._write_to_file()
-        raise NotImplementedError()
+        result_by_status: dict[OperationStatus, ItemsResult] = {}
+        headings_by_status: dict[OperationStatus, dict[str, _HeadingTmp]] = {}
+        for aggregations in self.aggregations_by_ids.values():
+            min_severity = min((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
+            status = self._severity_to_status(min_severity, is_dry_run)
+            if status not in result_by_status:
+                result_by_status[status] = ItemsResult(status=status, count=1)
+            result_by_status[status].count += 1
+
+            if status not in headings_by_status:
+                headings_by_status[status] = {}
+            for aggregation in aggregations:
+                if aggregation.severity.value != min_severity:
+                    # We filter out all headings which are on a different severity level
+                    # such that we only display the most severe issues for each item.
+                    continue
+                if aggregation.heading not in headings_by_status[status]:
+                    headings_by_status[status][aggregation.heading] = _HeadingTmp(
+                        heading=aggregation.heading,
+                        count=0,
+                        attribute_name=aggregation.attribute_display_name,
+                    )
+                headings_by_status[status][aggregation.heading].count += 1
+                if aggregation.attributes:
+                    headings_by_status[status][aggregation.heading].counter.update(aggregation.attributes)
+
+        results: list[ItemsResult] = []
+        for status, result in result_by_status.items():
+            heading_results: list[HeadingResult] = []
+            for tmp in headings_by_status[status].values():
+                most_common_attributes = [attr for attr, _ in tmp.counter.most_common(5)]
+                heading_results.append(
+                    HeadingResult(
+                        heading=tmp.heading,
+                        count=tmp.count,
+                        most_common_attributes=most_common_attributes if most_common_attributes else None,
+                        attribute_name=tmp.attribute_name,
+                    )
+                )
+            result.headings.extend(heading_results)
+        return results
+
+    def _severity_to_status(self, min_severity: int, is_dry_run: bool) -> OperationStatus:
+        if min_severity == Severity.failure.value:
+            return "failure"
+        elif min_severity == Severity.warning.value:
+            return "pending-with-warning" if is_dry_run else "success-with-warning"
+        else:
+            return "pending" if is_dry_run else "success"
