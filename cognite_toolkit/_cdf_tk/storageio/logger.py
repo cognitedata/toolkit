@@ -212,31 +212,22 @@ class FileDataLogger(DataLogger):
 class HeadingResult:
     heading: str
     count: int
-    most_common_attributes: list[str] | None = None
+    attribute_counter: Counter[str] = field(default_factory=Counter)
     attribute_name: str | None = None
 
-    def display_message(self) -> str:
+    def display_message(self, most_common: int = 5) -> str:
         suffix = ""
-        if self.most_common_attributes and self.attribute_name:
-            suffix = (
-                f" Most common {self.attribute_name}: {humanize_collection(self.most_common_attributes, sort=False)}"
-            )
+        if self.attribute_counter and self.attribute_name:
+            most_common_attributes = [attr for attr, _ in self.attribute_counter.most_common(most_common)]
+            suffix = f" Most common {self.attribute_name}: {humanize_collection(most_common_attributes, sort=False)}"
         return f"{self.heading}: {self.count} items.{suffix}"
-
-
-@dataclass
-class _HeadingTmp:
-    heading: str
-    count: int
-    counter: Counter[str] = field(default_factory=Counter)
-    attribute_name: str | None = None
 
 
 @dataclass
 class ItemsResult:
     status: OperationStatus
     count: int
-    headings: list[HeadingResult] = field(default_factory=list)
+    headings: dict[str, HeadingResult] = field(default_factory=dict)
 
     def display_message(self) -> str:
         return f"{self.status}: {self.count} items."
@@ -292,46 +283,30 @@ class FileWithAggregationLogger(DataLogger):
             List of ItemsResult grouped by status (derived from severity).
         """
         result_by_status: dict[OperationStatus, ItemsResult] = {}
-        headings_by_status: dict[OperationStatus, dict[str, _HeadingTmp]] = {}
         for aggregations in self.aggregations_by_ids.values():
             min_severity = min((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
             status = self._severity_to_status(min_severity, is_dry_run)
             if status not in result_by_status:
                 result_by_status[status] = ItemsResult(status=status, count=1)
-            result_by_status[status].count += 1
+            result = result_by_status[status]
+            result.count += 1
 
-            if status not in headings_by_status:
-                headings_by_status[status] = {}
             for aggregation in aggregations:
                 if aggregation.severity.value != min_severity:
                     # We filter out all headings which are on a different severity level
                     # such that we only display the most severe issues for each item.
                     continue
-                if aggregation.heading not in headings_by_status[status]:
-                    headings_by_status[status][aggregation.heading] = _HeadingTmp(
+                if aggregation.heading not in result.headings:
+                    result.headings[aggregation.heading] = HeadingResult(
                         heading=aggregation.heading,
                         count=0,
                         attribute_name=aggregation.attribute_display_name,
                     )
-                headings_by_status[status][aggregation.heading].count += 1
+                result.headings[aggregation.heading].count += 1
                 if aggregation.attributes:
-                    headings_by_status[status][aggregation.heading].counter.update(aggregation.attributes)
+                    result.headings[aggregation.heading].attribute_counter.update(aggregation.attributes)
 
-        results: list[ItemsResult] = []
-        for status, result in result_by_status.items():
-            heading_results: list[HeadingResult] = []
-            for tmp in headings_by_status[status].values():
-                most_common_attributes = [attr for attr, _ in tmp.counter.most_common(5)]
-                heading_results.append(
-                    HeadingResult(
-                        heading=tmp.heading,
-                        count=tmp.count,
-                        most_common_attributes=most_common_attributes if most_common_attributes else None,
-                        attribute_name=tmp.attribute_name,
-                    )
-                )
-            result.headings.extend(heading_results)
-        return results
+        return list(result_by_status.values())
 
     def _severity_to_status(self, min_severity: int, is_dry_run: bool) -> OperationStatus:
         if min_severity == Severity.failure.value:
