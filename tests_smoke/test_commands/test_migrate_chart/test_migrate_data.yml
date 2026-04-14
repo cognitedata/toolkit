@@ -171,7 +171,6 @@ chart:
   externalId: smoke_test_chart_migration
   monitoringJobs:
   - alertContext: null
-    channelId: 156269214542588
     externalId: smoke_test_chart_migrration_monitoring_job
     interval: 300000
     metadata: null

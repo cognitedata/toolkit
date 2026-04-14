@@ -166,7 +166,7 @@ class TestMigrateChart:
         # Changes depending on test run and service principal used.
         del dumped["data"]["userInfo"]["id"]
         del dumped["data"]["monitoringJobs"][0]["id"]
-        del dumped["data"]["monitoringJobs"][0]["channelId"]
+        del dumped["monitoringJobs"][0]["channelId"]
 
         data_regression.check({"chart": dumped})
 
