@@ -8,6 +8,8 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
+from rich import print
+from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
@@ -221,7 +223,7 @@ class LabelResult:
         suffix = ""
         if self.attribute_counter and self.attribute_name:
             most_common_attributes = [attr for attr, _ in self.attribute_counter.most_common(most_common)]
-            suffix = f" Most common {self.attribute_name}: {humanize_collection(most_common_attributes, sort=False)}"
+            suffix = f" Most common {self.attribute_name}: {humanize_collection(most_common_attributes, sort=False)}."
         return f"{self.label}: {self.count} items.{suffix}"
 
 
@@ -229,6 +231,7 @@ class LabelResult:
 class ItemsResult:
     status: OperationStatus
     count: int
+    severity: int
     labels: list[LabelResult] = field(default_factory=list)
 
     def display_message(self) -> str:
@@ -290,7 +293,7 @@ class FileWithAggregationLogger(DataLogger):
             min_severity = min((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
             status = self._severity_to_status(min_severity, is_dry_run)
             if status not in result_by_status:
-                result_by_status[status] = ItemsResult(status=status, count=0)
+                result_by_status[status] = ItemsResult(status=status, count=0, severity=min_severity)
             result_by_status[status].count += 1
             if status not in label_result_by_status_label:
                 label_result_by_status_label[status] = {}
@@ -324,3 +327,30 @@ class FileWithAggregationLogger(DataLogger):
             return "pending-with-warning" if is_dry_run else "success-with-warning"
         else:
             return "pending" if is_dry_run else "success"
+
+
+def display_item_results(items: list[ItemsResult]) -> None:
+    """Display item results using rich formatting.
+
+    Shows a tree view of items grouped by status, with their labels and counts.
+    """
+    if not items:
+        return
+
+    status_styles: dict[OperationStatus, tuple[str, str]] = {
+        "success": ("green", "✓"),
+        "failure": ("red", "✗"),
+        "pending": ("cyan", "○"),
+        "skipped": ("dim", "⊘"),
+        "success-with-warning": ("yellow", "⚠"),
+        "pending-with-warning": ("yellow", "○"),
+    }
+
+    for item in sorted(items, key=lambda item: item.severity):
+        style, icon = status_styles.get(item.status, ("white", "•"))
+        tree = Tree(f"[{style}]{icon} {item.status}[/{style}]: {item.count} items")
+
+        for label_result in item.labels:
+            tree.add(f"[dim]{label_result.display_message()}[/dim]")
+
+        print(tree)

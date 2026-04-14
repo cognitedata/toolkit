@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.storageio.logger import (
     NoOpLogger,
     NoOpTracker,
     Severity,
+    display_item_results,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
@@ -103,11 +104,12 @@ class TestFileWithAggregationLogger:
             results = logger.finalize(is_dry_run=False)
 
         assert results == [
-            ItemsResult(status="success", count=1),
-            ItemsResult(status="failure", count=1, labels=[LabelResult("Could not write", count=1)]),
+            ItemsResult(status="success", count=1, severity=999),
+            ItemsResult(status="failure", count=1, labels=[LabelResult("Could not write", count=1)], severity=1),
             ItemsResult(
                 status="success-with-warning",
                 count=2,
+                severity=2,
                 labels=[
                     LabelResult(
                         "ignored values",
@@ -118,6 +120,9 @@ class TestFileWithAggregationLogger:
                 ],
             ),
         ]
+
+        # Just to ensure that no exception is raised.
+        display_item_results(results)
 
     def _simulate_log_entries(self, logger: FileWithAggregationLogger) -> None:
         logger.register(["item_success", "item_failure", "item_warning1", "item_warning2"])
