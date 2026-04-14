@@ -45,7 +45,9 @@ class LogIssue(LogEntry):
     message: str
 
 
-OperationStatus: TypeAlias = Literal["success", "failure", "pending", "skipped"]
+OperationStatus: TypeAlias = Literal[
+    "success", "failure", "pending", "skipped", "success-with-warning", "pending-with-warning"
+]
 
 
 class ItemTracker:
