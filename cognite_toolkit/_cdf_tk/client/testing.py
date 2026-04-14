@@ -33,10 +33,13 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
+from .api.charts_monitoring_job import ChartMonitoringJobsAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
+from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -73,6 +76,7 @@ from .api.migration import (
     ResourceViewMappingsAPI,
 )
 from .api.project import ProjectAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.ruleset_versions import RuleSetVersionsAPI
 from .api.rulesets import RuleSetsAPI
@@ -122,7 +126,9 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
         self.canvas = MagicMock(spec_set=IndustrialCanvasAPI)
-        self.charts = MagicMock(spec_set=ChartsAPI)
+        self.charts = MagicMock(spec=ChartsAPI)
+        self.charts.monitoring_jobs = MagicMock(spec_set=ChartMonitoringJobsAPI)
+        self.charts.scheduled_calculations = MagicMock(spec_set=ChartScheduledCalculationsAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
@@ -182,6 +188,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
         self.tool.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
         self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
+        self.tool.documents = MagicMock(spec_set=DocumentsAPI)
         self.tool.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
         self.tool.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
         self.tool.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
@@ -217,6 +224,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
         self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
+        self.records = MagicMock(spec=RecordsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.

@@ -75,6 +75,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
+    extra_kinds = frozenset({FileMetadataCRUD.kind, CogniteFileCRUD.kind})
 
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"
@@ -337,6 +338,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         if "fileId" not in resource or not isinstance(resource.get("fileId"), int):
             resource["fileId"] = -1  # Placeholder, will be set in create()
         return FunctionRequest.model_validate(resource)
+
+    def sensitive_strings(self, item: FunctionRequest) -> Iterable[str]:
+        if item.secrets:
+            yield from item.secrets.values()
 
     def dump_resource(self, resource: FunctionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         if resource.status == "Failed":
@@ -761,6 +766,9 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 if schedule.function_id == func.id:
                     schedule.function_external_id = func_external_id
                     if schedule.name in names_by_function[func_external_id]:
+                        # Schedule data is not returned in the list call. Instead, we have to use a
+                        # separate request to get the data.
+                        schedule.data = self.client.tool.functions.schedules.input_data(schedule.id).data
                         schedules.append(schedule)
         return schedules
 

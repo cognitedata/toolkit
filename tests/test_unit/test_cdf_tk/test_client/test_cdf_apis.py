@@ -1,14 +1,22 @@
+import gzip
+import json
 from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import respx
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
+from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
+from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
+from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
+from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
@@ -16,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
@@ -27,9 +36,24 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
+    ChartFolderRequest,
+    ChartFolderResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobRequest,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationListResponse,
+    ChartScheduledCalculationRequest,
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -45,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     UserPrincipal,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -56,7 +81,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -307,6 +332,85 @@ class TestCDFResourceAPI:
         assert len(iterated) >= 1
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == resource
+
+    def test_documents_api_list_search_aggregate(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        doc_json = {"id": 2089, "createdTime": 1622547800000, "sourceFile": {"name": "example.pdf"}}
+        instance = DocumentResponse.model_validate(doc_json)
+        config = toolkit_config
+        api = DocumentsAPI(HTTPClient(config))
+        endpoints = api._method_endpoint_map
+        list_url = config.create_api_url(endpoints["list"].path)
+        search_url = config.create_api_url(endpoints["search"].path)
+        aggregate_url = config.create_api_url(endpoints["aggregate"].path)
+
+        respx_mock.post(list_url).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [doc_json], "nextCursor": None})
+        )
+        respx_mock.post(search_url).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [{"item": doc_json, "highlight": None}], "nextCursor": None},
+            )
+        )
+
+        def aggregate_response(request: httpx.Request) -> httpx.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            payload = json.loads(raw)
+            agg = payload["aggregate"]
+            if agg in ("count", "cardinalityValues", "cardinalityProperties"):
+                return httpx.Response(status_code=200, json={"items": [{"count": 11}]})
+            if agg in ("uniqueValues", "uniqueProperties"):
+                return httpx.Response(status_code=200, json={"items": [{"count": 2, "values": ["a"]}]})
+            raise AssertionError(f"unexpected aggregate {agg!r}")
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_response)
+
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == instance.dump()
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == instance.dump()
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert items[0].dump() == instance.dump()
+
+        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["title"], "value": "x"}})
+        assert len(search_page.items) == 1
+        assert search_page.items[0].item.dump() == instance.dump()
+
+        assert api.count() == 11
+        assert api.cardinality(("title",)) == 11
+        assert api.cardinality(("sourceFile", "metadata")) == 11
+
+        unique_title = api.unique(("title",), limit=50)
+        assert len(unique_title) == 1
+        assert unique_title[0].count == 2
+        assert unique_title[0].values == ["a"]
+
+        unique_meta = api.unique(("sourceFile", "metadata"), limit=50)
+        assert len(unique_meta) == 1
+        assert unique_meta[0].values == ["a"]
+
+    def test_documents_api_search_and_unique_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = DocumentsAPI(HTTPClient(toolkit_config))
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=1001)
+        with pytest.raises(ValueError, match="limit must be at most 20"):
+            api.search(limit=21, highlight=True)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
+            api.unique(("title",), limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
+            api.unique(("title",), limit=10001)
 
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
@@ -942,3 +1046,190 @@ class TestCDFResourceAPI:
         assert len(iterated) == 1
         assert len(iterated[0]) == 1
         assert iterated[0][0].dump() == example
+
+    def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = RecordsAPI(HTTPClient(config))
+        record = {"space": "my_space", "externalId": "rec_1"}
+        filter_body: dict[str, JsonValue] = {
+            "hasData": [{"type": "container", "space": "my_space", "externalId": "my_container"}]
+        }
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/streams/my_stream/records/filter")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [record]})
+        )
+        retrieved = api.retrieve("my_stream", [RecordId(space="my_space", external_id="rec_1")])
+        assert len(retrieved) == 1
+        assert isinstance(retrieved[0], RecordResponse)
+
+        # Test sync
+        respx_mock.post(config.create_api_url("/streams/my_stream/records/sync")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [record], "nextCursor": "abc", "hasNext": True})
+        )
+        sources = [
+            {"source": {"type": "container", "space": "my_space", "externalId": "my_container"}, "properties": ["*"]}
+        ]
+        synced = api.sync("my_stream", sources=sources, filter=filter_body, limit=100, initialize_cursor="365d-ago")
+        assert isinstance(synced, RecordSyncResponse)
+        assert len(synced.items) == 1
+        assert synced.has_next is True
+
+    def test_chart_monitoring_jobs_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartMonitoringJobResponse)
+        instance = ChartMonitoringJobResponse.model_validate(resource)
+        config = toolkit_config
+        api = ChartMonitoringJobsAPI(HTTPClient(config))
+        request_item = ChartMonitoringJobRequest.model_validate({**resource, "nonce": "test-nonce"}, extra="ignore")
+
+        # Test create
+        respx_mock.post(config.create_api_url("/monitoringtasks")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/monitoringtasks/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/monitoringtasks/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test upsert
+        respx_mock.post(config.create_api_url("/monitoringtasks/upsert")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        upserted = api.upsert([request_item])
+        assert len(upserted) == 1
+        assert upserted[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/monitoringtasks/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list
+        respx_mock.post(config.create_api_url("/monitoringtasks/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+    def test_chart_scheduled_calculations_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+        instance = ChartScheduledCalculationResponse.model_validate(resource)
+        config = toolkit_config
+        api = ChartScheduledCalculationsAPI(HTTPClient(config))
+        request_item = ChartScheduledCalculationRequest.model_validate(
+            {**resource, "nonce": "test-nonce"}, extra="ignore"
+        )
+
+        list_item = {k: v for k, v in resource.items() if k != "graph"}
+        list_expected = ChartScheduledCalculationListResponse.model_validate(list_item).dump()
+
+        # Test create
+        respx_mock.post(config.create_api_url("/calculations/schedules")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/calculations/schedules/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/calculations/schedules/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/calculations/schedules/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list
+        respx_mock.get(config.create_api_url("/calculations/schedules")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [list_item]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == list_expected
+
+    def test_chart_folders_api_create_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(ChartFolderResponse)
+        config = toolkit_config
+        api = ChartFoldersAPI(HTTPClient(config))
+        request_item = ChartFolderRequest(
+            folder_external_id="my_folder",
+            folder_name="My Chart Folder",
+        )
+
+        # Test create
+        respx_mock.post(config.create_app_url("/charts/monitoring/folders")).mock(
+            return_value=httpx.Response(status_code=200, json=[resource])
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test list
+        respx_mock.get(config.create_app_url("/charts/monitoring/folders")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+    def test_alert_channels_api_list_method(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(AlertChannelResponse)
+        config = toolkit_config
+        api = AlertChannelsAPI(HTTPClient(config))
+
+        # Test list
+        respx_mock.post(config.create_api_url("/alerts/channels/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+
+def test_task_move_type_to_field_handles_none_validation_data() -> None:
+    """Pydantic may supply ValidationInfo.data as None; avoid 'in' on None (deploy dry-run)."""
+    info = MagicMock()
+    info.data = None
+    params = {"function": {"externalId": "f"}}
+    assert Task.move_type_to_field(params, info) is params

@@ -7,7 +7,8 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, ValidationError, model_serializer, model_validator
+from pydantic_core import ErrorDetails
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .scopes import (
+    AgentExternalIdScope,
     AllScope,
     AppConfigScope,
     AssetRootIDScope,
@@ -79,7 +81,7 @@ class AgentsAcl(Acl):
 
     acl_name: Literal["agentsAcl"] = Field("agentsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScope | AgentExternalIdScope
 
 
 class AnalyticsAcl(Acl):
@@ -603,10 +605,24 @@ def _handle_unknown_acl(value: Any) -> Any:
     if isinstance(value, Acl | UnknownAcl):
         return value
     if isinstance(value, dict) and isinstance(acl_name := value.get(ACL_NAME), str):
-        acl_class = _KNOWN_ACLS.get(acl_name)
-        if acl_class:
-            return TypeAdapter(acl_class).validate_python(value)
+        if acl_cls := _KNOWN_ACLS.get(acl_name):
+            try:
+                return acl_cls.model_validate(value)
+            except ValidationError as err:
+                if all(not _is_unknown_scope_or_action(error) for error in err.errors()):
+                    raise err
+                # If the ACL contains an unknown scope or action, we treat it as an
+                # unknown acl.
     return UnknownAcl.model_validate(value)
+
+
+def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
+    loc = error["loc"]
+    if not loc:
+        return False
+    is_unknown_action = loc[0] == "action" and isinstance(loc[-1], int)
+    is_unknown_scope = loc[0] == "scope" and loc[-1] == "scope_name"
+    return error["type"] == "literal_error" and (is_unknown_action or is_unknown_scope)
 
 
 AclType: TypeAlias = Annotated[

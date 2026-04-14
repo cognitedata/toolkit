@@ -60,7 +60,7 @@ Location Filters:
 - dataModelingType: DATA_MODELING_ONLY
   dataModels:
   - externalId: InFieldOnCDM
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: cdf_infield
     version: v1
   description: InField location, migrated from old location configuration
   externalId: location_filter_WMT:VAL

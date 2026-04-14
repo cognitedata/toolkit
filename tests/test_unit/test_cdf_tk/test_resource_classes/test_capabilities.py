@@ -11,6 +11,12 @@ from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 def all_acls() -> Iterable:
     acl_list = [
         {"agentsAcl": {"actions": ["READ", "WRITE", "RUN"], "scope": {"all": {}}}},
+        {
+            "agentsAcl": {
+                "actions": ["READ", "WRITE", "RUN"],
+                "scope": {"agentExternalIdScope": {"externalIds": ["69de3ab6-a4be-4006-a80c-59438c75ea66"]}},
+            }
+        },
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
@@ -210,7 +216,7 @@ class TestCapabilities:
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
-                    "In field scope invalid scope name 'idScope'. Expected all",
+                    "In field scope invalid scope name 'idScope'. Expected agentExternalIdScope or all",
                     "In actions[2] input should be 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",

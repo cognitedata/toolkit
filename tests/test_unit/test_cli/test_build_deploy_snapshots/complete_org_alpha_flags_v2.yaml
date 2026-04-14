@@ -40,6 +40,7 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: anotherfile.txt
+      sourceContext: 'cognite-toolkit-hash: c7fbc0e8'
       sourceCreatedTime: '2023-01-01T00:00:00Z'
       sourceCreatedUser: I
       sourceUpdatedTime: '2024-01-01T00:00:00Z'
@@ -93,6 +94,7 @@ FileMetadataResponse:
   directory: /files
   externalId: my_simulator_model_revision_file
   metadata:
+    cognite-toolkit-hash: edf1f778
     origin: cognite-toolkit
   mimeType: application/plain
   name: simulator_model_revision.txt
@@ -101,6 +103,7 @@ FileMetadataResponse:
   directory: /files
   externalId: shopConfigFile
   metadata:
+    cognite-toolkit-hash: b1f3b6ef
     origin: cognite-toolkit
   mimeType: application/yaml
   name: config_shop.yaml
@@ -228,7 +231,7 @@ InFieldCDMLocationConfigResponse:
           version: v1
     source:
       externalId: InFieldCDMLocationConfig
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       type: view
       version: v1
   space: sp_instance

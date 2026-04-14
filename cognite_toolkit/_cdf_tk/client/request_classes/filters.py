@@ -198,3 +198,15 @@ class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
     model_external_ids: list[str] | None = None
     simulator_integration_external_ids: list[str] | None = None
     created_time: EpochTimestampRange | None = None
+
+
+class ChartMonitorModelFilter(Filter):
+    timeseries_id: list[int] | None = None
+
+
+class ChartMonitorJobFilter(Filter):
+    external_ids: list[str] | None = None
+    ids: list[int] | None = None
+    channel_ids: list[int] | None = None
+    source: str | None = None
+    model: ChartMonitorModelFilter | None = None

@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
+from .api.alerts import AlertsAPI
 from .api.annotations import AnnotationsAPI
 from .api.assets import AssetsAPI
 from .api.canvas import IndustrialCanvasAPI
@@ -17,6 +18,7 @@ from .api.data_models import DataModelsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
+from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
@@ -32,6 +34,7 @@ from .api.migration import MigrationAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.rulesets import RuleSetsAPI
@@ -65,6 +68,7 @@ class ToolAPI:
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
+        self.documents = DocumentsAPI(http_client)
         self.datapoint_subscriptions = DatapointSubscriptionsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
@@ -121,7 +125,9 @@ class ToolkitClient(CogniteClient):
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
+        self.records = RecordsAPI(http_client)
         self.streams = StreamsAPI(http_client)
+        self.alerts = AlertsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

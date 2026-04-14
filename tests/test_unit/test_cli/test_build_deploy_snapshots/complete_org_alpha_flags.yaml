@@ -241,7 +241,7 @@ InFieldCDMLocationConfigResponse:
           version: v1
     source:
       externalId: InFieldCDMLocationConfig
-      space: infield_cdm_source_desc_sche_asset_file_ts
+      space: cdf_infield
       type: view
       version: v1
   space: sp_instance

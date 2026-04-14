@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
+    FunctionCRUD,
     FunctionScheduleCRUD,
     GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
@@ -313,6 +314,17 @@ authentication:
         id="FunctionScheduleLoader",
     )
     yield pytest.param(
+        FunctionCRUD,
+        """externalId: my_function
+name: My Function
+secrets:
+  FIRST: first_secret_value
+  SECOND: second_secret_value
+""",
+        {"first_secret_value", "second_secret_value"},
+        id="FunctionLoader with secrets",
+    )
+    yield pytest.param(
         TransformationCRUD,
         """externalId: my_transformation
 name: My Transformation
@@ -439,14 +451,17 @@ class TestResourceCRUDs:
 
     @pytest.mark.parametrize("loader_cls, local_file, expected_strings", list(sensitive_strings_test_cases()))
     def test_sensitive_strings(
-        self, loader_cls: type[ResourceCRUD], local_file: str, expected_strings: set[str]
+        self, loader_cls: type[ResourceCRUD], local_file: str, expected_strings: set[str], tmp_path: Path
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = loader_cls.create_loader(client)
+            loader = loader_cls.create_loader(client, build_dir=tmp_path)
 
         file = MagicMock(spec=Path)
         file.read_text.return_value = local_file
+        parent = MagicMock(spec=Path)
+        parent.name = loader_cls.folder_name
+        file.parent = parent
         loaded_dict = loader.load_resource_file(file)[0]
         loaded = loader.load_resource(loaded_dict)
 

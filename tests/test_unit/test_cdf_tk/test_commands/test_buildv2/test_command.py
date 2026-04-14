@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import SearchConfigCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD, SearchConfigCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
@@ -126,8 +126,14 @@ properties:
     containerPropertyIdentifier: name
 """
 
+FILEMETADATA_YAML = """externalId: my_file
+name: the_filename
+$FILEPATH: text_file.txt
+mimeType: text/plain
+"""
 
-def create_resource_file(organization_dir: Path, crud: type[ResourceContainerCRUD], resource_yaml: str) -> Path:
+
+def create_resource_file(organization_dir: Path, crud: type[ResourceCRUD], resource_yaml: str) -> Path:
     resource_file = organization_dir / MODULES / "my_module" / crud.folder_name / f"my_space.{crud.kind}.yaml"
     resource_file.parent.mkdir(parents=True, exist_ok=True)
     resource_file.write_text(resource_yaml)
@@ -196,6 +202,26 @@ name: My Space
             "syntax_warnings": 1,
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
+
+    def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
+        cmd = BuildV2Command()
+
+        # Set up a simple organization with modules folder.
+        org = tmp_path / "org"
+
+        file_metadata = create_resource_file(org, FileMetadataCRUD, FILEMETADATA_YAML)
+        source_txt = file_metadata.parent / "text_file.txt"
+        expected_content = "this is a text file"
+        source_txt.write_text(expected_content)
+        build_dir = tmp_path / "build"
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        _ = cmd.build(parameters, client=None)
+
+        files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
+        assert len(files) == 2
+        file_by_suffix = dict((file.suffix, file) for file in files)
+        assert set(file_by_suffix.keys()) == {".txt", ".yaml"}
+        assert file_by_suffix[".txt"].read_text() == expected_content
 
 
 class TestDependencyValidationSearchConfig:

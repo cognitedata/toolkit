@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
@@ -44,6 +45,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -62,6 +65,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
 )
@@ -153,6 +157,8 @@ class AssetCentricMapper(
 
             if conversion_issue.missing_instance_space:
                 self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.no_mappable_properties:
+                self.logger.tracker.add_issue(identifier, "No properties could be mapped to target")
             if conversion_issue.failed_conversions:
                 self.logger.tracker.add_issue(identifier, "Failed conversions")
             if conversion_issue.invalid_instance_property_types:
@@ -239,6 +245,80 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
         return instance, conversion_issue
+
+
+class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtended, RecordRequest]):
+    def __init__(
+        self,
+        client: ToolkitClient,
+        mappings_by_external_id: dict[str, RecordPropertyMapping],
+        default_mapping: str | None = None,
+    ) -> None:
+        super().__init__(client)
+        self._mappings_by_external_id = mappings_by_external_id
+        self._default_mapping = default_mapping
+        self._container_properties_by_mapping_external_id: dict[str, dict[str, ContainerPropertyDefinition]] = {}
+
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        unique_container_ids = {m.container_id for m in self._mappings_by_external_id.values()}
+        containers = self.client.tool.containers.retrieve(list(unique_container_ids))
+        container_properties_by_id = {container.as_id(): container.properties for container in containers}
+        missing_container_ids = unique_container_ids - set(container_properties_by_id.keys())
+        if missing_container_ids:
+            raise ToolkitValueError(
+                f"The following containers were not found in Data Modeling: {humanize_collection(missing_container_ids)}"
+            )
+        non_record_containers = [c for c in containers if c.used_for != "record"]
+        if non_record_containers:
+            raise ToolkitValueError(
+                f"The following containers are not compatiable with records (requires usedFor='record'): "
+                f"{humanize_collection([c.as_id() for c in non_record_containers])}"
+            )
+        self._container_properties_by_mapping_external_id = {
+            external_id: container_properties_by_id[record_mapping.container_id]
+            for external_id, record_mapping in self._mappings_by_external_id.items()
+        }
+
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
+    ) -> tuple[RecordRequest | None, ConversionIssue]:
+        mapping = item.mapping
+        if mapping.resource_type != "event":
+            raise ToolkitValueError("Records migration currently only supports Event mapping rows.")
+        mapping_key = mapping.ingestion_mapping or self._default_mapping
+        if mapping_key is None:
+            raise ToolkitValueError(
+                "No mapping key: set ingestionMapping on the CSV row or defaultMapping in the config file."
+            )
+        try:
+            record_mapping = self._mappings_by_external_id[mapping_key]
+        except KeyError as e:
+            raise ToolkitValueError(
+                f"No record property mapping for key {mapping_key!r}. "
+                "Set ingestionMapping on the CSV row or defaultMapping in the config to match a key in the record property mappings."
+            ) from e
+        try:
+            container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
+        except KeyError as e:
+            raise RuntimeError(
+                f"Container properties for mapping {record_mapping.external_id!r} were not loaded before attempting to map. "
+                "Did you forget to call .prepare()?"
+            ) from e
+        record, conversion_issue = asset_centric_to_record(
+            item.resource,
+            instance_id=RecordId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._direct_relation_cache,
+        )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+        if record is None and not conversion_issue.has_issues:
+            self.logger.tracker.add_issue(
+                str(item.mapping.as_asset_centric_id()),
+                "No properties could be mapped to the target container, at least one property is required to create a record",
+            )
+        return record, conversion_issue
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
@@ -466,7 +546,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 updated_collection.append(
                     threshold.model_copy(
                         update={
-                            "sourceId": uuid_generator[threshold.source_id],
+                            "source_id": uuid_generator[threshold.source_id],
                             # We clear out the calls to avoid referencing past timeseries.
                             "calls": [],
                         }
@@ -490,7 +570,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 if element.data and element.data.selected_source_id in uuid_generator:
                     new_data = element.data.model_copy(
                         update={
-                            "selectedSourceId": uuid_generator[element.data.selected_source_id],
+                            "selected_source_id": uuid_generator[element.data.selected_source_id],
                             "type": "coreTimeseries",
                         }
                     )

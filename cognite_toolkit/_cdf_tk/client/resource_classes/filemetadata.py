@@ -7,6 +7,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Respo
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
 
+FILEPATH = "$FILEPATH"
+
 
 class FileMetadata(BaseModelObject):
     external_id: str | None = None
@@ -23,7 +25,7 @@ class FileMetadata(BaseModelObject):
     source_modified_time: int | None = None
     security_categories: list[int] | None = None
     # This is not part of the API, but it is very useful when creating a file with content.
-    filepath: Path | None = Field(default=None, exclude=True, alias="$FILEPATH")
+    filepath: Path | None = Field(default=None, exclude=True, alias=FILEPATH)
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:

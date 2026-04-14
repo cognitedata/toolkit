@@ -44,6 +44,11 @@ class Scope(BaseModelResource):
         return {self._scope_name: serialized_data}
 
 
+class AgentExternalIdScope(Scope):
+    _scope_name = "agentExternalIdScope"
+    external_ids: list[str]
+
+
 class AllScope(Scope):
     _scope_name = "all"
 
@@ -171,7 +176,7 @@ class Capability(BaseModelResource):
 class AgentsAcl(Capability):
     _capability_name = "agentsAcl"
     actions: list[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScope | AgentExternalIdScope
 
 
 class AnalyticsAcl(Capability):

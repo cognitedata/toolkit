@@ -71,3 +71,8 @@ class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionSchedu
     @classmethod
     def request_cls(cls) -> type[FunctionScheduleRequest]:
         return FunctionScheduleRequest
+
+
+class FunctionScheduleData(BaseModelObject):
+    id: int
+    data: dict[str, JsonValue] | None = None

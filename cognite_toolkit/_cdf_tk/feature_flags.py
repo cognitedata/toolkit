@@ -50,13 +50,9 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
-    INFIELD_MIGRATE = FlagMetadata(
+    RECORDS_MIGRATE = FlagMetadata(
         visible=False,
-        description="Enables the infield-migrate command for migrating Infield configs to regular Toolkit configs",
-    )
-    INFIELD_DEV = FlagMetadata(
-        visible=False,
-        description="For InField developers: sets the schema space for the InFieldOnCDM data model to test migration before it becomes a system model.",
+        description="Enables the 'events-to-records' migration command",
     )
     STREAMS = FlagMetadata(
         visible=True,

@@ -43,9 +43,19 @@ from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAP
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
+    ChartFolderResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
@@ -759,6 +769,55 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "id": "session-001",
             "createdTime": 1622547800000,
             "status": "ACTIVE",
+        },
+        ChartMonitoringJobResponse: {
+            "id": 401,
+            "externalId": "chart_monitoring_job_001",
+            "name": "Example Chart Monitoring Job",
+            "channelId": 123,
+            "model": {
+                "externalId": "double_threshold",
+                "timeseriesExternalId": "ts_001",
+                "lowerThreshold": 1.0,
+            },
+            "sourceId": "chart_001",
+            "interval": 3600,
+            "overlap": 0,
+        },
+        ChartScheduledCalculationResponse: {
+            "externalId": "scheduled_calc_001",
+            "name": "Example Scheduled Calculation",
+            "period": 300000,
+            "windowSize": 300000,
+            "targetTimeseriesExternalId": "ts_out_001",
+            "graph": {
+                "granularity": "5m",
+                "steps": [
+                    {
+                        "op": "PASSTHROUGH",
+                        "version": 1.0,
+                        "inputs": [{"type": "ts", "value": "ts_001"}],
+                        "raw": False,
+                        "step": 0,
+                    }
+                ],
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        ChartFolderResponse: {
+            "id": 501,
+            "parentId": 1,
+            "externalId": "charts-folder-my_folder",
+            "parentExternalId": "charts-folder-root",
+            "name": "My Chart Folder",
+        },
+        AlertChannelResponse: {
+            "id": 601,
+            "parentId": 1,
+            "externalId": "alert_channel_001",
+            "parentExternalId": "root",
+            "description": "Example Alert Channel",
         },
     }
     try:

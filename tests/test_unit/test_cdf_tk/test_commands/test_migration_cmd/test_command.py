@@ -20,6 +20,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
@@ -30,18 +31,43 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartCall,
+    ChartData,
+    ChartSource,
+    ChartThreshold,
+    ChartTimeseries,
+    ChartWorkflow,
+    Flow,
+    FlowData,
+    FlowElement,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeRequest,
     SpaceResponse,
+    TextProperty,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    LifecycleObject,
+    LimitsObject,
+    ResourceUsage,
+    StreamResponse,
+    StreamSettings,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
 )
@@ -58,7 +84,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_ANNOTATIONS_ID,
     create_default_mappings,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+    RecordsMigrationIO,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
@@ -176,6 +206,28 @@ def mock_statistics(
         status=200,
     )
     yield rsps
+
+
+def _make_stream_response(
+    provisioned_records: int,
+    consumed_records: int,
+    provisioned_gb: float = 100.0,
+    consumed_gb: float = 0.0,
+    external_id: str = "my_stream",
+) -> StreamResponse:
+    return StreamResponse(
+        external_id=external_id,
+        created_time=0,
+        created_from_template="t",
+        type="Mutable",
+        settings=StreamSettings(
+            lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
+            limits=LimitsObject(
+                max_records_total=ResourceUsage(provisioned=provisioned_records, consumed=consumed_records),
+                max_giga_bytes_total=ResourceUsage(provisioned=provisioned_gb, consumed=consumed_gb),
+            ),
+        ),
+    )
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -639,6 +691,30 @@ class TestMigrationCommand:
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
                         ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
+                    threshold_collection=[
+                        ChartThreshold(
+                            name="High limit",
+                            source_id="87654321-4321-8765-4321-876543218765",
+                            upper_limit=100.0,
+                            calls=[ChartCall(call_id="c1", hash=1)],
+                        ),
+                    ],
+                    workflow_collection=[
+                        ChartWorkflow(
+                            name="Rolling average",
+                            flow=Flow(
+                                elements=[
+                                    FlowElement(
+                                        data=FlowData(
+                                            type="timeseries",
+                                            selected_source_id="12345678-1234-5678-1234-567812345678",
+                                        ),
+                                    ),
+                                ],
+                            ),
+                            calls=[ChartCall(call_id="c2", hash=2)],
+                        ),
+                    ],
                 ),
                 owner_id="1234",
             )
@@ -771,6 +847,30 @@ class TestMigrationCommand:
                     {
                         "type": "coreTimeseries",
                         "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                    },
+                ],
+                "thresholdCollection": [
+                    {
+                        "name": "High limit",
+                        "sourceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "upperLimit": 100.0,
+                        "calls": [],
+                    },
+                ],
+                "workflowCollection": [
+                    {
+                        "name": "Rolling average",
+                        "flow": {
+                            "elements": [
+                                {
+                                    "data": {
+                                        "type": "coreTimeseries",
+                                        "selectedSourceId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                    },
+                                },
+                            ],
+                        },
+                        "calls": [],
                     },
                 ],
                 "timeSeriesCollection": None,
@@ -1072,3 +1172,120 @@ class TestMigrationCommand:
         actual = MigrationCommand._create_logfile_stem(tmp_path, stem, "not_important")
 
         assert actual == expected
+
+    def test_validate_stream_capacity_stream_missing(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = []
+            with pytest.raises(ToolkitMigrationError, match="does not exist"):
+                MigrationCommand(silent=True).validate_stream_capacity(client, "missing_stream", 1)
+
+    def test_validate_stream_capacity_insufficient_records(self) -> None:
+        stream = _make_stream_response(provisioned_records=1_000, consumed_records=900)
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [stream]
+            with pytest.raises(ToolkitValueError, match="enough record capacity"):
+                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 200)
+
+    def test_validate_stream_capacity_insufficient_storage(self) -> None:
+        stream = _make_stream_response(
+            provisioned_records=1_000_000, consumed_records=0, provisioned_gb=10.0, consumed_gb=10.0
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [stream]
+            with pytest.raises(ToolkitValueError, match="enough storage capacity"):
+                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 1)
+
+    @pytest.mark.usefixtures("cognite_migration_model")
+    def test_migrate_events_to_records(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        tmp_path: Path,
+    ) -> None:
+        config = toolkit_config
+        space = "my_space"
+        stream_external_id = "test_stream"
+        container_id = ContainerId(space=space, external_id="EventContainer")
+        events = [
+            EventResponse(
+                id=i,
+                external_id=f"event_{i}",
+                description=f"Event {i}",
+                created_time=0,
+                last_updated_time=1,
+            )
+            for i in range(2)
+        ]
+
+        # Space validation
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
+                },
+            )
+        )
+        # Stream retrieve for validate_stream_exists + validate_stream_capacity
+        stream = _make_stream_response(provisioned_records=1_000_000, consumed_records=0)
+        respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=stream.dump())
+        )
+        # Event retrieve
+        respx_mock.post(config.create_api_url("/events/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [e.dump() for e in events]})
+        )
+        # Container retrieve for mapper.prepare()
+        container = ContainerResponse(
+            space=container_id.space,
+            external_id=container_id.external_id,
+            used_for="record",
+            properties={
+                "description": ContainerPropertyDefinition(
+                    type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+                )
+            },
+            created_time=0,
+            last_updated_time=1,
+            is_global=False,
+        )
+        respx_mock.post(config.create_api_url("/models/containers/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [container.dump()]})
+        )
+        # Records upload — capture the request
+        ingest_records = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
+            return_value=httpx.Response(status_code=200, json={})
+        )
+
+        csv_file = tmp_path / "events.csv"
+        csv_file.write_text(
+            "id,space,externalId\n" + "\n".join(f"{100 + i},{space},event_{i}" for i in range(len(events)))
+        )
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Events")
+
+        record_mapping = RecordPropertyMapping(
+            external_id="my_mapping",
+            container_id=container_id,
+            property_mapping={"description": "description"},
+        )
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+        results_by_selector = command.migrate(
+            selectors=[selector],
+            data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+            mapper=AssetCentricToRecordMapper(
+                client,
+                mappings_by_external_id={"my_mapping": record_mapping},
+                default_mapping="my_mapping",
+            ),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=False,
+        )
+
+        assert ingest_records.called
+        upload_body = json.loads(ingest_records.calls[0].request.content)
+        assert len(upload_body["items"]) == len(events)
+
+        actual_results = {status.status: status.count for status in results_by_selector[str(selector)]}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(events), "unchanged": 0, "skipped": 0}
