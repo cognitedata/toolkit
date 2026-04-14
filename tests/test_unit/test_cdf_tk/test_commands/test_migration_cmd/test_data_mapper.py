@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
@@ -427,6 +428,12 @@ class TestChartMapper:
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
             client.migration.lookup.time_series = time_series_lookup
+            assert source.monitoring_jobs
+            user_identifier = source.monitoring_jobs[0].user_identifier
+            assert user_identifier is not None
+            client.user_profiles.me.return_value = UserProfile(
+                user_identifier=user_identifier, identity_type="USER", last_updated_time=1
+            )
 
             event_node_ids = [NodeId(space=target_space, external_id=f"event_{i}") for i in range(event_count)]
             client.tool.events.list.return_value = [

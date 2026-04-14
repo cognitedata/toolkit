@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
+from cognite.client._api.user_profiles import UserProfilesAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
@@ -229,6 +230,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         # This is a helper API, not a real API.
         self.token = LegacyTokenAPI(self)
+        self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 
