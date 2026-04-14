@@ -19,14 +19,10 @@ class ViewInstanceSpaces(BaseModelObject):
 
 
 class DataProductVersionView(BaseModelObject):
-    external_id: str
-    instance_spaces: ViewInstanceSpaces = Field(default_factory=ViewInstanceSpaces)
-
-
-class DataProductVersionDataModel(BaseModelObject):
+    space: SpaceId
     external_id: str
     version: str
-    views: list[DataProductVersionView] = Field(default_factory=list)
+    instance_spaces: ViewInstanceSpaces = Field(default_factory=ViewInstanceSpaces)
 
 
 class DataProductVersionTerms(BaseModelObject):
@@ -37,7 +33,7 @@ class DataProductVersionTerms(BaseModelObject):
 class DataProductVersion(BaseModelObject):
     data_product_external_id: str = Field(exclude=True)
     version: SemanticVersion
-    data_model: DataProductVersionDataModel
+    views: list[DataProductVersionView] = Field(default_factory=list)
     status: Literal["draft", "published", "deprecated"] = "draft"
     description: str | None = None
     terms: DataProductVersionTerms | None = None
@@ -53,7 +49,7 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset()
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        # The versions update API uses nested {set}/{setNull}/{modify} operators
+        # The versions update API uses nested {set}/{setNull}/{modify}/{add} operators
         # instead of a flat body, so we must build the payload manually.
         update_item: dict[str, Any] = {"version": self.version}
         update: dict[str, Any] = {}
@@ -77,10 +73,8 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             if terms_modify:
                 update["terms"] = {"modify": terms_modify}
 
-        if "dataModel" in dumped and dumped["dataModel"] is not None:
-            views = dumped["dataModel"].get("views")
-            if views is not None:
-                update["dataModel"] = {"modify": {"views": {"set": views}}}
+        if dumped.get("views"):
+            update["views"] = {"add": dumped["views"]}
 
         update_item["update"] = update
         return update_item

@@ -20,19 +20,11 @@ class ViewInstanceSpaces(BaseModelResource):
 
 
 class DataProductVersionView(BaseModelResource):
-    external_id: str = Field(description="External ID of the view in the data model.")
+    space: SpaceId = Field(description="The space where the view is located.")
+    external_id: str = Field(description="External ID of the view.")
+    version: str = Field(description="Version of the view.")
     instance_spaces: ViewInstanceSpaces = Field(
         default_factory=ViewInstanceSpaces, description="Instance spaces for this view."
-    )
-
-
-class DataProductVersionDataModel(BaseModelResource):
-    external_id: str = Field(description="External ID of the referenced data model.")
-    version: str = Field(description="Version of the referenced data model.")
-    views: list[DataProductVersionView] = Field(
-        default_factory=list,
-        description="List of views with their instance spaces.",
-        max_length=100,
     )
 
 
@@ -55,8 +47,10 @@ class DataProductVersionYAML(ToolkitResource):
     version: SemanticVersion = Field(
         description="Semantic version of this data product version (major.minor.patch).",
     )
-    data_model: DataProductVersionDataModel = Field(
-        description="Immutable reference to the data model version associated with this data product version.",
+    views: list[DataProductVersionView] = Field(
+        default_factory=list,
+        description="Collection of view references (space, externalId, version, instanceSpaces) associated with this version.",
+        max_length=100,
     )
     status: Literal["draft", "published", "deprecated"] = Field(
         default="draft",

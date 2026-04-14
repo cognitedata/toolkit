@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductIO
-from .datamodel import DataModelIO
 
 
 @final
@@ -22,7 +21,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO, DataModelIO})
+    dependencies = frozenset({DataProductIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
@@ -72,7 +71,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
         for key, value in dumped.items():
             if value == {}:
                 dumped[key] = None
-        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None}
+        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None, "views": []}
         for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key)
