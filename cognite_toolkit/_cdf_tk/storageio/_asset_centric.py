@@ -254,7 +254,7 @@ class UploadableAssetCentricIO(
         )
 
 
-class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
+class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -402,7 +402,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
             current_depth += 1
 
 
-class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
+class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
     KIND = "FileMetadata"
     RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -508,7 +508,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         return data_chunk.create_from(result)
 
 
-class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
+class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
     KIND = "TimeSeries"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -624,7 +624,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         return ts_schema + metadata_schema
 
 
-class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
+class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     KIND = "Events"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -745,10 +745,10 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._asset_io = AssetIO(client)
-        self._file_io = FileMetadataIO(client)
-        self._timeseries_io = TimeSeriesIO(client)
-        self._event_io = EventIO(client)
+        self._asset_io = AssetDataIO(client)
+        self._file_io = FileMetadataDataIO(client)
+        self._timeseries_io = TimeSeriesDataIO(client)
+        self._event_io = EventDataIO(client)
         self._io_by_kind: dict[str, AssetCentricIO] = {
             self._asset_io.KIND: self._asset_io,
             self._file_io.KIND: self._file_io,

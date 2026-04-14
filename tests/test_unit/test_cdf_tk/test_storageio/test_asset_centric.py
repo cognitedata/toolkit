@@ -23,10 +23,10 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import (
     AssetCentricIO,
-    AssetIO,
-    EventIO,
-    FileMetadataIO,
-    TimeSeriesIO,
+    AssetDataIO,
+    EventDataIO,
+    FileMetadataDataIO,
+    TimeSeriesDataIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -209,22 +209,22 @@ class TestAssetCentricIO:
         "io_class,selector,create_endpoint",
         [
             pytest.param(
-                AssetIO, AssetSubtreeSelector(hierarchy=ASSET_EXTERNAL_ID, kind="Assets"), "/assets", id="AssetIO"
+                AssetDataIO, AssetSubtreeSelector(hierarchy=ASSET_EXTERNAL_ID, kind="Assets"), "/assets", id="AssetIO"
             ),
             pytest.param(
-                FileMetadataIO,
+                FileMetadataDataIO,
                 DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="FileMetadata"),
                 None,
                 id="FileMetadataIO",
             ),
             pytest.param(
-                TimeSeriesIO,
+                TimeSeriesDataIO,
                 DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="TimeSeries"),
                 "/timeseries",
                 id="TimeSeriesIO",
             ),
             pytest.param(
-                EventIO,
+                EventDataIO,
                 DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="Events"),
                 "/events",
                 id="EventIO",
@@ -267,10 +267,10 @@ class TestAssetCentricIO:
         assert isinstance(io, TableUploadableStorageIO)
         config = toolkit_config
         resources = {
-            AssetIO: some_asset_data,
-            FileMetadataIO: some_filemetadata_data,
-            TimeSeriesIO: some_timeseries_data,
-            EventIO: some_event_data,
+            AssetDataIO: some_asset_data,
+            FileMetadataDataIO: some_filemetadata_data,
+            TimeSeriesDataIO: some_timeseries_data,
+            EventDataIO: some_event_data,
         }[io_class]
 
         resource_by_external_id = {
@@ -334,7 +334,7 @@ class TestAssetIO:
 
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets", download_dir_name="assets")
 
-        io = AssetIO(asset_centric_client)
+        io = AssetDataIO(asset_centric_client)
 
         download_command = DownloadCommand(silent=True, skip_tracking=True)
         upload_command = UploadCommand(silent=True, skip_tracking=True)
@@ -376,7 +376,7 @@ class TestAssetIO:
         other_reader.read_chunks_with_line_numbers.return_value = assets_with_line_numbers
         other_reader.input_file = Path("mocked_file.csv")
         output = list(
-            AssetIO.read_chunks(other_reader, AssetSubtreeSelector(hierarchy="does not matter", kind="Assets"))
+            AssetDataIO.read_chunks(other_reader, AssetSubtreeSelector(hierarchy="does not matter", kind="Assets"))
         )
 
         result = [[(di.tracking_id, di.item) for di in page.items] for page in output]

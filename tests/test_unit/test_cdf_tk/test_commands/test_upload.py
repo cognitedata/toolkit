@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
+from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.storageio._base import DataItem, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
@@ -232,7 +232,7 @@ class TestUploadCommand:
                 UploadCommand._upload_items(
                     data_chunk=Page(worker_id="main", items=items),
                     upload_client=http_client,
-                    io=AssetIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
+                    io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
                     dry_run=False,
                     tracker=MagicMock(),

@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetIO
+from cognite_toolkit._cdf_tk.storageio import AssetDataIO
 from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
@@ -39,7 +39,7 @@ class TestDownloadCommand:
 
             cmd.download(
                 selectors=[DataSetSelector(kind="Assets", data_set_external_id=dataset, download_dir_name="assets")],
-                io=AssetIO(client=client),
+                io=AssetDataIO(client=client),
                 output_dir=tmp_path,
                 verbose=True,
                 file_format=".csv",
