@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
-from cognite.client._api.user_profiles import UserProfilesAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
@@ -102,6 +101,7 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI as LegacyTokenAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
