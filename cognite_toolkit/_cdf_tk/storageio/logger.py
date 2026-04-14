@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import Enum
 from threading import Lock
 from typing import Literal, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
@@ -14,6 +17,28 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
     """Represents a log entry for tracking storage I/O operations."""
 
     id: str
+
+
+class Severity(Enum):
+    failure = 1
+    warning = 2
+    info = 3
+
+
+class LogAggregation(LogEntry):
+    """Storing the aggregated log entries"""
+
+    heading: str
+    severity: Severity
+    attributes: set[str] | None = None
+    attribute_display_name: str | None = None
+
+
+class LogEntryV2(LogAggregation):
+    message: str = Field(description="The details of the log entry.")
+
+    def as_aggregation(self) -> LogAggregation:
+        return LogAggregation.model_validate(self.model_dump(), extra="ignore")
 
 
 class LogIssue(LogEntry):
@@ -180,3 +205,81 @@ class FileDataLogger(DataLogger):
         """Log a detailed entry to the file."""
         entries = entry if isinstance(entry, Sequence) else [entry]
         self._writer.write_chunks([e.model_dump(by_alias=True) for e in entries])
+
+
+@dataclass
+class HeadingResult:
+    heading: str
+    count: int
+    most_common_attributes: list[str] | None = None
+    attribute_name: str | None = None
+
+    def display_message(self) -> str:
+        suffix = ""
+        if self.most_common_attributes and self.attribute_name:
+            suffix = (
+                f" Most common {self.attribute_name}: {humanize_collection(self.most_common_attributes, sort=False)}"
+            )
+        return f"{self.heading}: {self.count} items.{suffix}"
+
+
+@dataclass
+class ItemsResult:
+    status: OperationStatus
+    count: int
+    headings: list[HeadingResult]
+
+    def display_message(self) -> str:
+        return f"{self.status}: {self.count} items."
+
+
+class FileWithAggregationLogger(DataLogger):
+    BATCH_SIZE = 1000
+
+    def __init__(self, writer: NDJsonWriter) -> None:
+        self.tracker = NoOpTracker()
+        self._writer = writer
+        self._batch: list[LogEntry] = []
+        self.aggregations_by_ids: dict[str, list[LogAggregation]] = {}
+
+    def __enter__(self) -> "FileWithAggregationLogger":
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object) -> None:
+        self._write_to_file()
+        return None
+
+    def register(self, ids: list[str]) -> None:
+        for id in ids:
+            if id not in self.aggregations_by_ids:
+                self.aggregations_by_ids[id] = []
+
+    def _update_aggregation(self, entries: list[LogEntry]) -> None:
+        for entry in entries:
+            if isinstance(entry, LogEntryV2):
+                if entry.id in self.aggregations_by_ids:
+                    self.aggregations_by_ids[entry.id].append(entry)
+
+    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+        entries = list(entry) if isinstance(entry, Sequence) else [entry]
+        self._update_aggregation(entries)
+        self._batch.extend(entries)
+        if len(self._batch) >= self.BATCH_SIZE:
+            self._write_to_file()
+
+    def _write_to_file(self) -> None:
+        if self._batch:
+            self._writer.write_chunks([e.model_dump(by_alias=True) for e in self._batch])
+            self._batch.clear()
+
+    def finalize(self) -> list[ItemsResult]:
+        """Finalize logging and return aggregated results.
+
+        Flushes any remaining entries to file and aggregates logged entries
+        by severity and heading.
+
+        Returns:
+            List of ItemsResult grouped by status (derived from severity).
+        """
+        self._write_to_file()
+        raise NotImplementedError()
