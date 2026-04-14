@@ -183,6 +183,8 @@ class DataLogger(ABC):
         """Log a detailed entry."""
         raise NotImplementedError()
 
+    def register(self, ids: list[str]) -> None: ...
+
 
 class NoOpLogger(DataLogger):
     """A no-op logger that discards all log entries and does no tracking."""
@@ -227,7 +229,7 @@ class LabelResult:
 class ItemsResult:
     status: OperationStatus
     count: int
-    labels: dict[str, LabelResult] = field(default_factory=dict)
+    labels: list[LabelResult] = field(default_factory=list)
 
     def display_message(self) -> str:
         return f"{self.status}: {self.count} items."
@@ -283,28 +285,35 @@ class FileWithAggregationLogger(DataLogger):
             List of ItemsResult grouped by status (derived from severity).
         """
         result_by_status: dict[OperationStatus, ItemsResult] = {}
+        label_result_by_status_label: dict[OperationStatus, dict[str, LabelResult]] = {}
         for aggregations in self.aggregations_by_ids.values():
             min_severity = min((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
             status = self._severity_to_status(min_severity, is_dry_run)
             if status not in result_by_status:
-                result_by_status[status] = ItemsResult(status=status, count=1)
-            result = result_by_status[status]
-            result.count += 1
+                result_by_status[status] = ItemsResult(status=status, count=0)
+            result_by_status[status].count += 1
+            if status not in label_result_by_status_label:
+                label_result_by_status_label[status] = {}
+            label_result_by_id = label_result_by_status_label[status]
 
             for aggregation in aggregations:
                 if aggregation.severity.value != min_severity:
                     # We filter out all labels which are on a different severity level
                     # such that we only display the most severe issues for each item.
                     continue
-                if aggregation.label not in result.labels:
-                    result.labels[aggregation.label] = LabelResult(
+                if aggregation.label not in label_result_by_id:
+                    label_result_by_id[aggregation.label] = LabelResult(
                         label=aggregation.label,
                         count=0,
                         attribute_name=aggregation.attribute_display_name,
                     )
-                result.labels[aggregation.label].count += 1
+                label_result_by_id[aggregation.label].count += 1
                 if aggregation.attributes:
-                    result.labels[aggregation.label].attribute_counter.update(aggregation.attributes)
+                    label_result_by_id[aggregation.label].attribute_counter.update(aggregation.attributes)
+
+        for result in result_by_status.values():
+            if result.status in label_result_by_status_label:
+                result.labels.extend(label_result_by_status_label[result.status].values())
 
         return list(result_by_status.values())
 
