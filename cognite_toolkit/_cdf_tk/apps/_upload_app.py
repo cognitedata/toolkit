@@ -126,6 +126,6 @@ class UploadApp(typer.Typer):
                 verbose=verbose,
                 deploy_resources=deploy_resources,
                 client=client,
-                skip_trict_mode=skip_strict_mode,
+                skip_strict_mode=skip_strict_mode,
             )
         )
