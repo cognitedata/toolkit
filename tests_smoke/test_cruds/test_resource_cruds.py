@@ -6,7 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.resources_ios import RESOURCE_CRUD_LIST, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 

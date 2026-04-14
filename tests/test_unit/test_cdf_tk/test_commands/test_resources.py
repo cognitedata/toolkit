@@ -10,7 +10,7 @@ from pydantic import Field
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resources_ios import SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import SpaceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 from tests.test_unit.utils import MockQuestionary
 

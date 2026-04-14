@@ -61,7 +61,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileCRUD,
     DataModelIO,

@@ -32,7 +32,7 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
 def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     # local import to avoid circular import
     from cognite_toolkit._cdf_tk.constants import EXCL_FILES
-    from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 
     if not root_dir.exists():
         return
@@ -60,7 +60,7 @@ def module_from_path(path: Path, return_resource_folder: Literal[False] = False)
 def module_from_path(path: Path, return_resource_folder: bool = False) -> str | tuple[str, str]:
     """Get the module name from a path"""
     # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 
     if len(path.parts) == 1:
         raise ValueError("Path is not a module")
@@ -77,7 +77,7 @@ def module_from_path(path: Path, return_resource_folder: bool = False) -> str | 
 def module_directory_from_path(path: Path) -> Path:
     """Get the module directory from a path"""
     # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 
     if len(path.parts) == 1:
         raise ValueError("Path is not a module")
@@ -92,7 +92,7 @@ def module_directory_from_path(path: Path) -> Path:
 def resource_folder_from_path(path: Path) -> str:
     """Get the resource_folder from a path"""
     # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 
     for part in path.parts:
         if part in CRUDS_BY_FOLDER_NAME:
@@ -103,7 +103,7 @@ def resource_folder_from_path(path: Path) -> str:
 def is_module_path(path: Path) -> bool:
     """Check if a path is a module path"""
     # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 
     if not path.is_dir():
         return False

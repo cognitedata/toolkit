@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.resources_ios import FunctionIO, ResourceWorker, WorkflowTriggerIO
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceWorker, WorkflowTriggerIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -54,7 +54,7 @@ authentication:
         # This test verifies that the ResourceWorker uses function-specific capabilities
         # for FunctionLoader rather than generic capabilities
         with patch(
-            "cognite_toolkit._cdf_tk.resources_ios._resource_ios.function.FunctionCRUD.load_resource_file"
+            "cognite_toolkit._cdf_tk.resource_ios._resource_ios.function.FunctionCRUD.load_resource_file"
         ) as mock_load_resource_file:
             mock_authorization = toolkit_client_approval.mock_client.tool.token.verify_acls
             mock_authorization.return_value = []

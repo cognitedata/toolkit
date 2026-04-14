@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.commands import CleanCommand
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     ExtractionPipelineConfigIO,
     ExtractionPipelineIO,

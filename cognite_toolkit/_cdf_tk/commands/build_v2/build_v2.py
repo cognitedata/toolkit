@@ -52,11 +52,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write

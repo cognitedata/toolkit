@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     CogniteFileCRUD,
     DataCRUD,
     FileMetadataCRUD,
@@ -47,8 +47,8 @@ from cognite_toolkit._cdf_tk.resources_ios import (
     ResourceWorker,
     StreamlitIO,
 )
-from cognite_toolkit._cdf_tk.resources_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
-from cognite_toolkit._cdf_tk.resources_ios._worker import CategorizedResources
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
+from cognite_toolkit._cdf_tk.resource_ios._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (

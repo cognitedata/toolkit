@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     StreamlitFinder,
     TransformationFinder,
 )
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     DataSetsIO,
     ExtractionPipelineIO,

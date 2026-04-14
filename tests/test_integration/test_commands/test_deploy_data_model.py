@@ -2,7 +2,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerRequest, SpaceRequest, ViewRequest
-from cognite_toolkit._cdf_tk.resources_ios import ContainerCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
 from tests.data import STRONGLY_COUPLED_MODEL
 
 

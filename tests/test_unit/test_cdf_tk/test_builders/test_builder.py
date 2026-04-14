@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.builders import get_resource_crud
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_LIST,
     GroupAllScopedCRUD,
     GroupIO,

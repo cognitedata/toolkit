@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataMo
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resources_ios import ContainerCRUD, DataModelIO, GraphQLCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, GraphQLCRUD, SpaceCRUD, ViewIO
 from tests.data import NAUGHTY_PROJECT
 
 

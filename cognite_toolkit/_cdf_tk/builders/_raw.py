@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocation,
     SourceLocationEager,
 )
-from cognite_toolkit._cdf_tk.resources_ios import RawDatabaseCRUD, RawTableCRUD, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD, ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump

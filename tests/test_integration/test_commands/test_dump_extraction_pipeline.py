@@ -14,7 +14,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import ExtractionPipelineFinder
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
     ExtractionPipelineIO,
 )

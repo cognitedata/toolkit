@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
-from cognite_toolkit._cdf_tk.resources_ios import RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.storageio._base import DataItem, Page

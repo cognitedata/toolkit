@@ -60,7 +60,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     ContainerCRUD,
     DataModelIO,

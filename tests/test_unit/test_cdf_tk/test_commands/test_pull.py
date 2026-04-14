@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltFullResourceList,
     BuiltResourceFull,
 )
-from cognite_toolkit._cdf_tk.resources_ios import DataSetsIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 

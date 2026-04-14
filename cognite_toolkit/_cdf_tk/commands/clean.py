@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     CRUDS_BY_FOLDER_NAME,
     DataCRUD,
     DataSetsIO,
@@ -40,8 +40,8 @@ from cognite_toolkit._cdf_tk.resources_ios import (
     ResourceIO,
     ResourceWorker,
 )
-from cognite_toolkit._cdf_tk.resources_ios._base_cruds import Loader
-from cognite_toolkit._cdf_tk.resources_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import Loader
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,

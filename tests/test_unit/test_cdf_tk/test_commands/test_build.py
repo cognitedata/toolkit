@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.resources_ios import RawDatabaseCRUD, TransformationIO
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, TransformationIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data

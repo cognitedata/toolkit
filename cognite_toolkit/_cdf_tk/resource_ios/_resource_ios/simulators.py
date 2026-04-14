@@ -1,0 +1,521 @@
+from collections.abc import Hashable, Iterable, Sequence, Sized
+from pathlib import Path
+from typing import Any, Literal, final
+
+from rich.console import Console
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    SimulatorModelRevisionFilter,
+    SimulatorModelRoutineFilter,
+    SimulatorModelRoutineRevisionFilter,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    SimulatorsAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
+    SimulatorModelRequest,
+    SimulatorModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import (
+    SimulatorModelRevisionRequest,
+    SimulatorModelRevisionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
+    SimulatorRoutineRequest,
+    SimulatorRoutineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
+    SimulatorRoutineRevisionRequest,
+    SimulatorRoutineRevisionResponse,
+)
+from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitNotSupported
+from cognite_toolkit._cdf_tk.resource_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
+    SimulatorRoutineRevisionYAML,
+)
+
+from .data_organization import DataSetsIO
+from .file import FileMetadataCRUD
+from .function import CDF_TOML
+from .timeseries import TimeSeriesCRUD
+
+
+@final
+class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorModelResponse]):
+    folder_name = "simulators"
+    resource_cls = SimulatorModelResponse
+    resource_write_cls = SimulatorModelRequest
+    yaml_cls = SimulatorModelYAML
+    kind = "SimulatorModel"
+    dependencies = frozenset({DataSetsIO})
+    _doc_url = "Simulator-Models/operation/create_simulator_model_simulators_models_post"
+
+    @property
+    def display_name(self) -> str:
+        return "simulator models"
+
+    @classmethod
+    def get_id(cls, item: SimulatorModelRequest | SimulatorModelResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise KeyError("SimulatorModel must have external_id")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def get_internal_id(cls, item: SimulatorModelResponse | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("SimulatorModel must have id")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
+        return DataSetScope(ids=list({item.data_set_id for item in items}))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope | DataSetScope):
+            acl_actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]] = []
+            if "READ" in actions:
+                acl_actions.append("READ")
+            if "WRITE" in actions:
+                acl_actions.extend(["WRITE", "DELETE", "MANAGE"])
+            yield SimulatorsAcl(actions=acl_actions, scope=scope)
+
+    def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
+        return self.client.tool.simulators.models.create(items)
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelResponse]:
+        return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
+        return self.client.tool.simulators.models.update(items, mode="replace")
+
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.simulators.models.delete(list(ids))
+        return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[SimulatorModelResponse]:
+        # Note: The SimulatorModelsAPI doesn't support data_set_external_id filtering directly,
+        # so we iterate and filter in memory if needed.
+        cursor: str | None = None
+        data_set_id: int | None = None
+        if data_set_external_id:
+            data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
+        while True:
+            page = self.client.tool.simulators.models.paginate(
+                limit=1000,
+                cursor=cursor,
+            )
+            if data_set_id:
+                # Filter by data_set_external_id in memory
+                for item in page.items:
+                    if item.data_set_id == data_set_id:
+                        yield item
+            else:
+                yield from page.items
+            if not page.next_cursor or not page.items:
+                break
+            cursor = page.next_cursor
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a SimulatorModel requires a DataSet, so this method would return the
+        DataSetsCRUD and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRequest:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return SimulatorModelRequest.model_validate(resource)
+
+    def dump_resource(self, resource: SimulatorModelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
+
+
+@final
+class SimulatorModelRevisionIO(ResourceIO[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]):
+    folder_name = "simulators"
+    resource_cls = SimulatorModelRevisionResponse
+    resource_write_cls = SimulatorModelRevisionRequest
+    yaml_cls = SimulatorModelRevisionYAML
+    kind = "SimulatorModelRevision"
+    dependencies = frozenset({SimulatorModelIO, FileMetadataCRUD})
+    parent_resource = frozenset({SimulatorModelIO})
+    _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_path: Path | None,
+        console: Console | None,
+        file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+    ):
+        super().__init__(client, build_path, console)
+        self._file_upload_timeout_seconds = file_upload_timeout_seconds
+
+    @property
+    def display_name(self) -> str:
+        return "simulator model revisions"
+
+    @classmethod
+    def get_id(cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise KeyError("SimulatorModelRevision must have external_id")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def get_internal_id(cls, item: SimulatorModelRevisionResponse | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("SimulatorModelRevision must have id")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorModelRevisionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        yield from ()
+
+    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+        file_ids = {InternalId(id=item.file_id): item for item in items}
+        failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+            list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
+        )
+        if failed_upload:
+            failed_revisions = [file_ids[file].external_id for file in failed_upload]
+            raise ResourceCreationError(
+                f"Failed to create simulator revisions {humanize_collection(failed_revisions)}. CDF API timed "
+                f"out after {elapsed_time:.0f} seconds while waiting for the revision file to be uploaded. "
+                f"Wait and try again.\nIf the problem persists, please contact Cognite support.\n"
+                "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
+                f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
+            )
+
+        return self.client.tool.simulators.model_revisions.create(items)
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
+        return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> Sized:
+        # Simulator model revisions API does not support update
+        raise ToolkitNotSupported(
+            "You cannot update simulator model revisions. They are immutable."
+            "You can change the external ID and create a new revision."
+        )
+
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+        # Simulator model revisions API does not support delete
+        raise ToolkitNotSupported(
+            "You cannot delete simulator model revisions. They are immutable."
+            "You can delete the model - this will delete all revisions."
+        )
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[SimulatorModelRevisionResponse]:
+        model_external_ids: list[str] | None = None
+        if parent_ids:
+            model_external_ids = [str(pid) for pid in parent_ids]
+        for items in self.client.tool.simulators.model_revisions.iterate(
+            filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids), limit=None
+        ):
+            yield from items
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if "modelExternalId" in item:
+            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
+        if "fileExternalId" in item:
+            yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
+        if resource.file_external_id:
+            yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
+        if file_external_id := resource.pop("fileExternalId", None):
+            resource["fileId"] = self.client.lookup.files.id(file_external_id, is_dry_run)
+        return SimulatorModelRevisionRequest.model_validate(resource)
+
+    def dump_resource(
+        self, resource: SimulatorModelRevisionResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        if file_id := dumped.pop("fileId", None):
+            dumped["fileExternalId"] = self.client.lookup.files.external_id(file_id)
+        return dumped
+
+
+@final
+class SimulatorRoutineIO(ResourceIO[ExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
+    folder_name = "simulators"
+    resource_cls = SimulatorRoutineResponse
+    resource_write_cls = SimulatorRoutineRequest
+    yaml_cls = SimulatorRoutineYAML
+    kind = "SimulatorRoutine"
+    dependencies = frozenset({SimulatorModelIO})
+    _doc_url = "Simulator-Routines/operation/create_simulator_routine_simulators_routines_post"
+
+    support_update = False
+
+    @property
+    def display_name(self) -> str:
+        return "simulator routines"
+
+    @classmethod
+    def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise KeyError("SimulatorRoutine must have external_id")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def get_internal_id(cls, item: SimulatorRoutineResponse | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("SimulatorRoutine must have id")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        yield from ()
+
+    def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
+        return self.client.tool.simulators.routines.create(items)
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineResponse]:
+        # Simulator routines do not have a retrieve endpoint, we need to list and filter
+        all_items: list[SimulatorRoutineResponse] = []
+        id_set = {id_.external_id for id_ in ids}
+        for batch in self.client.tool.simulators.routines.iterate(limit=None):
+            for item in batch:
+                if item.external_id in id_set:
+                    all_items.append(item)
+        return all_items
+
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.simulators.routines.delete(list(ids))
+        return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[SimulatorRoutineResponse]:
+        model_external_ids: list[str] | None = None
+        if parent_ids:
+            model_external_ids = [str(pid) for pid in parent_ids]
+        for items in self.client.tool.simulators.routines.iterate(
+            filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids), limit=None
+        ):
+            yield from items
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if "modelExternalId" in item:
+            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
+        return SimulatorRoutineRequest.model_validate(resource)
+
+    def dump_resource(self, resource: SimulatorRoutineResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return resource.as_request_resource().dump()
+
+
+@final
+class SimulatorRoutineRevisionIO(
+    ResourceIO[ExternalId, SimulatorRoutineRevisionRequest, SimulatorRoutineRevisionResponse]
+):
+    folder_name = "simulators"
+    resource_cls = SimulatorRoutineRevisionResponse
+    resource_write_cls = SimulatorRoutineRevisionRequest
+    yaml_cls = SimulatorRoutineRevisionYAML
+    kind = "SimulatorRoutineRevision"
+    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesCRUD})
+    parent_resource = frozenset({SimulatorRoutineIO})
+    _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
+
+    @property
+    def display_name(self) -> str:
+        return "simulator routine revisions"
+
+    @classmethod
+    def get_id(cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
+            raise KeyError("SimulatorRoutineRevision must have external_id")
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def get_internal_id(cls, item: SimulatorRoutineRevisionResponse | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("SimulatorRoutineRevision must have id")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRevisionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        yield from ()
+
+    def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
+        return self.client.tool.simulators.routine_revisions.create(items)
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
+        return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> Sized:
+        # Simulator routine revisions API does not support update
+        raise ToolkitNotSupported(
+            "You cannot update simulator routine revisions. They are immutable."
+            "You can change the external ID and create a new revision."
+        )
+
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+        # Simulator routine revisions API does not support delete
+        raise ToolkitNotSupported(
+            "You cannot delete simulator routine revisions. They are immutable."
+            "You can delete the routine - this will delete all revisions."
+        )
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[SimulatorRoutineRevisionResponse]:
+        routine_external_ids: list[str] | None = None
+        if parent_ids:
+            routine_external_ids = [str(pid) for pid in parent_ids]
+        for items in self.client.tool.simulators.routine_revisions.iterate(
+            filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids), limit=None
+        ):
+            yield from items
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if "routineExternalId" in item:
+            yield SimulatorRoutineIO, ExternalId(external_id=item["routineExternalId"])
+        config = item.get("configuration", {})
+        if not isinstance(config, dict):
+            return
+        for key in ["logicalCheck", "steadyStateDetection"]:
+            if isinstance(values := config.get(key), list):
+                for value in values:
+                    if isinstance(value, dict) and isinstance(external_id := value.get("timeseriesExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+        for key in ["inputs", "outputs"]:
+            if isinstance(io_list := config.get(key), list):
+                for io_item in io_list:
+                    if not isinstance(io_item, dict):
+                        continue
+                    if isinstance(external_id := io_item.get("saveTimeseriesExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+                    if isinstance(external_id := io_item.get("sourceExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorRoutineRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorRoutineIO, ExternalId(external_id=resource.routine_external_id)
+        if not resource.configuration:
+            return
+        config = resource.configuration
+        for check in config.logical_check or []:
+            if check.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=check.timeseries_external_id)
+        for detection in config.steady_state_detection or []:
+            if detection.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
+        for intput_ in config.inputs or []:
+            if intput_.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=intput_.save_timeseries_external_id)
+        for output in config.outputs or []:
+            if output.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=output.save_timeseries_external_id)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "configuration":
+            return diff_list_force_hashable(local, cdf)
+        elif json_path[0] == "script":
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: x["order"])
+        return super().diff_list(local, cdf, json_path)

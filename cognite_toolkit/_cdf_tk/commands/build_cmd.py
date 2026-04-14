@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import Hint, ModuleDefinition, verify_module_directory
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     DataCRUD,
     DataModelIO,

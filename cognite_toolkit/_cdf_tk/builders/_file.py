@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.resources_ios import CogniteFileCRUD, FileCRUD, FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios import CogniteFileCRUD, FileCRUD, FileMetadataCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
 

@@ -11,7 +11,7 @@ from typing import Any, Literal, SupportsIndex, overload
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resources_ios._resource_ios.transformation import TransformationIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.transformation import TransformationIO
 
 if sys.version_info >= (3, 11):
     from typing import Self

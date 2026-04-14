@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
-from .resources_ios import CRUDS_BY_FOLDER_NAME
+from .resource_ios import CRUDS_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
 from .utils import find_directory_with_subdirectories
 

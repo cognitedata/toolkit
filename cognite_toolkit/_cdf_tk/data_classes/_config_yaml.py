@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME, RawDatabaseCRUD
+from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, RawDatabaseCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     MediumSeverityWarning,

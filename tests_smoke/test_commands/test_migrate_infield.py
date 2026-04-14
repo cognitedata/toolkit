@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
 )
-from cognite_toolkit._cdf_tk.resources_ios import ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 

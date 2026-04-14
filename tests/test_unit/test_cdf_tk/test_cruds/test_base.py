@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,

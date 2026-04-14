@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resources_ios import DatapointSubscriptionIO
+from cognite_toolkit._cdf_tk.resource_ios import DatapointSubscriptionIO
 
 
 class TestDatapointSubscriptionLoader:

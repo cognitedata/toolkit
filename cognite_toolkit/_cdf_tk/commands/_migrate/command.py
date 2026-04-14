@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resources_ios import ResourceWorker
+from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.storageio import (
     ChartIO,
     DataItem,

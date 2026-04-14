@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
-from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
+from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
 class ModuleParser:

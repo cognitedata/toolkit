@@ -165,7 +165,7 @@ def get_scaffolds() -> dict[str, list[ScaffoldDef]]:
     """Return scaffold variants keyed by CRUD kind (casefold).
 
     Called at import time by ``resources.py``.  This is safe because
-    ``commands/`` never imports from ``resources_ios/`` at module level here;
+    ``commands/`` never imports from ``resource_ios/`` at module level here;
     only the scaffold *runners* reference CRUD classes, and those run
     later at call time.
     """

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupResponse,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     ExtractionPipelineIO,
     GroupAllScopedCRUD,

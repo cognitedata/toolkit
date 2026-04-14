@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceList,
     SourceLocationEager,
 )
-from cognite_toolkit._cdf_tk.resources_ios import ResourceTypes
+from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 
 
 @dataclass

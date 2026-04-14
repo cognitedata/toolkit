@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
     FunctionIO,
     GraphQLCRUD,

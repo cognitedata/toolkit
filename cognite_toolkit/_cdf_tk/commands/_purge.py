@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.resources_ios import (
+from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     ContainerCRUD,
     DataModelIO,

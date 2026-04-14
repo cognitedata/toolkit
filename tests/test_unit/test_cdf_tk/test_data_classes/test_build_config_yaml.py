@@ -3,7 +3,7 @@ from __future__ import annotations
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
-from cognite_toolkit._cdf_tk.resources_ios import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 from tests.data import PROJECT_FOR_TEST
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR
