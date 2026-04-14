@@ -620,12 +620,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     def _get_node_id_consumer_view_id(
         self, ids: Sequence[InternalId | ExternalId]
     ) -> tuple[NodeId | None, ViewId | None]:
-        """Look up the node ID and consumer view ID for a given timeseries item.
-
-        Prioritizes lookup by internal ID, then by external ID.
+        """Look up the node ID and consumer view ID for a given timeseries.
 
         Args:
-            ts_item: The ChartTimeseries item to look up.
+            ids: The timeseries item IDs to look up
 
         Returns:
             A tuple containing the consumer view ID and node ID, or None if not found.
