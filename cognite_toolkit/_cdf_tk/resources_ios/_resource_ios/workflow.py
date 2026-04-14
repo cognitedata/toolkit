@@ -45,12 +45,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,

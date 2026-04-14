@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import (
     SequenceRow,
     SequenceRowsRequest,
 )
-from cognite_toolkit._cdf_tk.cruds import SequenceRowIO
+from cognite_toolkit._cdf_tk.resources_ios import SequenceRowIO
 
 SEQUENCE_EXTERNAL_ID = "toolkit_smoke_test_large_sequence"
 

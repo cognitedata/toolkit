@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
     ResourceViewMappingResponse,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML

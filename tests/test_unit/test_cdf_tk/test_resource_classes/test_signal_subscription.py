@@ -10,13 +10,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     UnknownSubscriptionFilter,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._resource_ios.hosted_extractors import (
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_ios.signal_sink import SignalSinkIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.signal_subscription import SignalSubscriptionIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.workflow import WorkflowIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.signal_subscription import SignalSubscriptionIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import SignalSubscriptionYAML

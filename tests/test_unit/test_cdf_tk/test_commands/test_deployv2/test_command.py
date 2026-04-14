@@ -21,7 +21,14 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     ResourceDirectory,
     Skipped,
 )
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitValueError,
+    ToolkitYAMLFormatError,
+)
+from cognite_toolkit._cdf_tk.resources_ios import (
     CogniteFileCRUD,
     ContainerCRUD,
     DataSetsIO,
@@ -29,13 +36,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     LabelIO,
     ResourceIO,
     SpaceCRUD,
-)
-from cognite_toolkit._cdf_tk.exceptions import (
-    AuthorizationError,
-    ToolkitNotADirectoryError,
-    ToolkitValidationError,
-    ToolkitValueError,
-    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 

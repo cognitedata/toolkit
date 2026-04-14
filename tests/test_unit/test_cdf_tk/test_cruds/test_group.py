@@ -14,7 +14,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
 )
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.resources_ios import (
     DataSetsIO,
     ExtractionPipelineIO,
     GroupAllScopedCRUD,
@@ -26,7 +27,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient

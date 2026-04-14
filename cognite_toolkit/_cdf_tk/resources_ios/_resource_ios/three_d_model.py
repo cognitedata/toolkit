@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerIO, ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceContainerIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML

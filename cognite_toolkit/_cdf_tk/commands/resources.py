@@ -12,8 +12,8 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
+from cognite_toolkit._cdf_tk.resources_ios import RESOURCE_CRUD_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
 

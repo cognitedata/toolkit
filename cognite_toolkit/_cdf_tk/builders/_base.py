@@ -5,11 +5,6 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    GroupIO,
-    ResourceIO,
-)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -18,6 +13,11 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
+)
+from cognite_toolkit._cdf_tk.resources_ios import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    GroupIO,
+    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,

@@ -14,13 +14,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.hosted_extractors import (
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_ios.signal_sink import SignalSinkIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.workflow import WorkflowIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSubscriptionYAML
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
     HostedExtractorsFilterYAML,

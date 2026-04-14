@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     TextProperty,
 )
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.resources_ios import ContainerCRUD, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 

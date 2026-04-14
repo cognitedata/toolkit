@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     SubscribeSignalsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSinkYAML
 
 

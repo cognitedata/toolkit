@@ -14,7 +14,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resources_ios import (
     AssetIO,
     DataSetsIO,
     GroupResourceScopedCRUD,
@@ -22,7 +23,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     InfieldV1IO,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 class TestInfieldV1Loader:

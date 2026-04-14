@@ -83,7 +83,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -92,6 +91,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,

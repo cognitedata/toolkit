@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
     RAWTableResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerIO, ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceContainerIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 

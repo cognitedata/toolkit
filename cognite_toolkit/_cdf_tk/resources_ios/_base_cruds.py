@@ -161,8 +161,8 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
         yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
-        dependencies: A set of other resource cruds that must be loaded before this crud.
-        parent_resource: A set of other resource cruds that are parent resources to this resource. This is used
+        dependencies: A set of other resource resources_ios that must be loaded before this crud.
+        parent_resource: A set of other resource resources_ios that are parent resources to this resource. This is used
             to determine if the iterate method should return any resources when filtering by parent ids.
     """
 

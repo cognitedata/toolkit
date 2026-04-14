@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.resources_ios import (
     ContainerCRUD,
     ResourceIO,
     ResourceWorker,

@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
-from cognite_toolkit._cdf_tk.cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios import ResourceIO
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 

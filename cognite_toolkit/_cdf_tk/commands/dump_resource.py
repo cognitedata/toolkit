@@ -53,7 +53,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.exceptions import (
+    ResourceRetrievalError,
+    ToolkitMissingResourceError,
+    ToolkitResourceMissingError,
+    ToolkitValueError,
+)
+from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.resources_ios import (
     AgentIO,
     ContainerCRUD,
     DataModelIO,
@@ -78,13 +85,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowTriggerIO,
     WorkflowVersionIO,
 )
-from cognite_toolkit._cdf_tk.exceptions import (
-    ResourceRetrievalError,
-    ToolkitMissingResourceError,
-    ToolkitResourceMissingError,
-    ToolkitValueError,
-)
-from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump

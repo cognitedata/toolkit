@@ -3,7 +3,7 @@ import asyncio
 import httpx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.resources_ios import (
     CRUD_LIST,
     DataProductIO,
     DataProductVersionIO,

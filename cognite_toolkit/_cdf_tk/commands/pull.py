@@ -21,17 +21,6 @@ from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
-from cognite_toolkit._cdf_tk.cruds import (
-    ExtractionPipelineConfigIO,
-    FunctionIO,
-    GraphQLCRUD,
-    GroupAllScopedCRUD,
-    HostedExtractorDestinationIO,
-    HostedExtractorSourceIO,
-    ResourceIO,
-    StreamlitIO,
-    ViewIO,
-)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -45,6 +34,17 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resources_ios import (
+    ExtractionPipelineConfigIO,
+    FunctionIO,
+    GraphQLCRUD,
+    GroupAllScopedCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorSourceIO,
+    ResourceIO,
+    StreamlitIO,
+    ViewIO,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,

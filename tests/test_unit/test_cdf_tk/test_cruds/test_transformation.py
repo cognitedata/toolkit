@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.resources_ios import (
     DataModelIO,
     DataSetsIO,
     RawDatabaseCRUD,

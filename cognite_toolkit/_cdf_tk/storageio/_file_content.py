@@ -26,9 +26,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FileMetadataRequest,
     FileMetadataResponse,
 )
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.resources_ios import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader

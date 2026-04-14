@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType

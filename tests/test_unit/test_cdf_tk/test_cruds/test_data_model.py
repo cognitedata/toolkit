@@ -21,9 +21,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
-from cognite_toolkit._cdf_tk.cruds import DataModelIO, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_ios import GraphQLCRUD, ViewIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
+from cognite_toolkit._cdf_tk.resources_ios import DataModelIO, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios import GraphQLCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

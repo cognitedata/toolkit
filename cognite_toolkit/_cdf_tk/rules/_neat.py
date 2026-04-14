@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxWarning,
     Recommendation,
 )
-from cognite_toolkit._cdf_tk.cruds import DataModelIO
+from cognite_toolkit._cdf_tk.resources_ios import DataModelIO
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 

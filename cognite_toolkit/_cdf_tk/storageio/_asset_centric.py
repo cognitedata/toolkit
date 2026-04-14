@@ -12,7 +12,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.resources_ios import (
     AssetIO,
     DataSetsIO,
     EventIO,
@@ -20,8 +22,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     LabelIO,
     TimeSeriesCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,

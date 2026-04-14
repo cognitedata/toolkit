@@ -18,20 +18,6 @@ from cognite_toolkit._cdf_tk.constants import (
     DATA_UPLOAD_URL,
     HINT_LEAD_TEXT,
 )
-from cognite_toolkit._cdf_tk.cruds import (
-    CogniteFileCRUD,
-    DataCRUD,
-    FileMetadataCRUD,
-    FunctionIO,
-    Loader,
-    RawDatabaseCRUD,
-    ResourceContainerIO,
-    ResourceIO,
-    ResourceWorker,
-    StreamlitIO,
-)
-from cognite_toolkit._cdf_tk.cruds._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
-from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DatapointDeployResult,
@@ -49,6 +35,20 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
+from cognite_toolkit._cdf_tk.resources_ios import (
+    CogniteFileCRUD,
+    DataCRUD,
+    FileMetadataCRUD,
+    FunctionIO,
+    Loader,
+    RawDatabaseCRUD,
+    ResourceContainerIO,
+    ResourceIO,
+    ResourceWorker,
+    StreamlitIO,
+)
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
+from cognite_toolkit._cdf_tk.resources_ios._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (

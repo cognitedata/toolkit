@@ -13,7 +13,8 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
+from cognite_toolkit._cdf_tk.resources_ios import (
     CRUDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
     CogniteFileCRUD,
@@ -30,11 +31,10 @@ from cognite_toolkit._cdf_tk.cruds import (
     TransformationIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_ios.data_product import DataProductIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.data_product_version import DataProductVersionIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.location import LocationFilterIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.rulesets import RuleSetIO, RuleSetVersionIO
-from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.data_product import DataProductIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.location import LocationFilterIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.rulesets import RuleSetIO, RuleSetVersionIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
@@ -113,7 +113,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
         ),
         patch.dict(
-            "cognite_toolkit._cdf_tk.cruds.CRUDS_BY_FOLDER_NAME",
+            "cognite_toolkit._cdf_tk.resources_ios.CRUDS_BY_FOLDER_NAME",
             {f: [c for c in cs if c not in _skip_cruds] for f, cs in CRUDS_BY_FOLDER_NAME.items()},
             clear=True,
         ),

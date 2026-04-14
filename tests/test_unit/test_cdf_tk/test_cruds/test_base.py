@@ -29,7 +29,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Trans
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
+)
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.resources_ios import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
@@ -48,10 +52,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowTriggerIO,
     get_crud,
 )
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildConfigYAML,
-)
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT

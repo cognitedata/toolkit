@@ -37,17 +37,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.cruds import (
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+)
+from cognite_toolkit._cdf_tk.resources_ios import (
     InFieldCDMLocationConfigIO,
     LocationFilterIO,
     NodeCRUD,
     ResourceIO,
     SpaceCRUD,
-)
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMigrationError,
-    ToolkitMissingResourceError,
-    ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection

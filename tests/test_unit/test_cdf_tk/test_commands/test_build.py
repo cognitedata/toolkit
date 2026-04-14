@@ -12,7 +12,6 @@ from cognite.client import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationIO
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -20,6 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.resources_ios import RawDatabaseCRUD, TransformationIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data

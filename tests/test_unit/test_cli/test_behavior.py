@@ -52,9 +52,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
+from cognite_toolkit._cdf_tk.resources_ios import RESOURCE_CRUD_LIST, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump

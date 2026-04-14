@@ -44,17 +44,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SpaceIDScope,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import (
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitRequiredValueError,
+)
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import (
     FailedReadExtra,
     ReadExtra,
     ResourceContainerIO,
     ResourceIO,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitRequiredValueError,
-)
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     in_dict,

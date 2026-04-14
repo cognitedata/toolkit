@@ -31,7 +31,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from cognite_toolkit._cdf_tk import cruds
+from cognite_toolkit._cdf_tk import resources_ios
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
@@ -53,7 +53,6 @@ from cognite_toolkit._cdf_tk.constants import (
     TOOLKIT_DEMO_GROUP_NAME,
     TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
 )
-from cognite_toolkit._cdf_tk.cruds import AssetIO, RelationshipIO
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -61,6 +60,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ToolkitMissingValueError,
 )
+from cognite_toolkit._cdf_tk.resources_ios import AssetIO, RelationshipIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -424,7 +424,7 @@ class AuthCommand(ToolkitCommand):
     ) -> tuple[list[AclType], dict[type[AclType], list[str]]]:
         required_acls: list[AclType] = []
         io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
-        for crud_cls in cruds.RESOURCE_CRUD_LIST:
+        for crud_cls in resources_ios.RESOURCE_CRUD_LIST:
             if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetIO | RelationshipIO):
                 # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
                 continue

@@ -76,7 +76,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
-from cognite_toolkit._cdf_tk.cruds import FileCRUD
+from cognite_toolkit._cdf_tk.resources_ios import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 from tests.constants import CDF_PROJECT

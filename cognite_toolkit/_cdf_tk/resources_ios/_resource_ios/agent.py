@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
-from cognite_toolkit._cdf_tk.cruds._resource_ios.function import FunctionIO
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios.function import FunctionIO
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML

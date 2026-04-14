@@ -3,13 +3,13 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.cruds import CogniteFileCRUD, FileCRUD, FileMetadataCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.resources_ios import CogniteFileCRUD, FileCRUD, FileMetadataCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
 

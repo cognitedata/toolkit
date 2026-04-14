@@ -22,12 +22,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import RecordsMigrationIO
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
-from cognite_toolkit._cdf_tk.cruds import ResourceWorker
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.resources_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.storageio import (
     ChartIO,
     DataItem,

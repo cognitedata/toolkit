@@ -16,18 +16,6 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     HINT_LEAD_TEXT_LEN,
 )
-from cognite_toolkit._cdf_tk.cruds import (
-    CRUDS_BY_FOLDER_NAME,
-    DataCRUD,
-    DataSetsIO,
-    FileCRUD,
-    RawDatabaseCRUD,
-    ResourceContainerIO,
-    ResourceIO,
-    ResourceWorker,
-)
-from cognite_toolkit._cdf_tk.cruds._base_cruds import Loader
-from cognite_toolkit._cdf_tk.cruds._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DeployResults,
@@ -42,6 +30,18 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.resources_ios import (
+    CRUDS_BY_FOLDER_NAME,
+    DataCRUD,
+    DataSetsIO,
+    FileCRUD,
+    RawDatabaseCRUD,
+    ResourceContainerIO,
+    ResourceIO,
+    ResourceWorker,
+)
+from cognite_toolkit._cdf_tk.resources_ios._base_cruds import Loader
+from cognite_toolkit._cdf_tk.resources_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,

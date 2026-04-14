@@ -4,7 +4,6 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD, ResourceIO
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -12,6 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocation,
     SourceLocationEager,
 )
+from cognite_toolkit._cdf_tk.resources_ios import RawDatabaseCRUD, RawTableCRUD, ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
