@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, SemanticVersion
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, RuleSetVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
@@ -37,6 +37,22 @@ class DataProductVersionTerms(BaseModelResource):
     )
 
 
+class DataProductVersionQualityRule(BaseModelResource):
+    rule_set_external_id: str = Field(description="External ID of the referenced rule set.")
+    version: SemanticVersion = Field(description="Version of the referenced rule set.")
+
+    def as_id(self) -> RuleSetVersionId:
+        return RuleSetVersionId(rule_set_external_id=self.rule_set_external_id, version=self.version)
+
+
+class DataProductVersionQuality(BaseModelResource):
+    rules: list[DataProductVersionQualityRule] = Field(
+        default_factory=list,
+        description="List of rule set version references applied to this data product version.",
+        max_length=50,
+    )
+
+
 class DataProductVersionYAML(ToolkitResource):
     data_product_external_id: str = Field(
         description="External ID of the parent data product.",
@@ -64,6 +80,10 @@ class DataProductVersionYAML(ToolkitResource):
     terms: DataProductVersionTerms | None = Field(
         default=None,
         description="Terms and conditions for using this data product version.",
+    )
+    quality: DataProductVersionQuality | None = Field(
+        default=None,
+        description="Data quality rules applied to this version.",
     )
 
     def as_id(self) -> DataProductVersionId:

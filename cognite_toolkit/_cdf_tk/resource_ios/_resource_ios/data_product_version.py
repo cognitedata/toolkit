@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId, RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductIO
+from .rulesets import RuleSetVersionIO
 
 
 @final
@@ -21,7 +22,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO})
+    dependencies = frozenset({DataProductIO, RuleSetVersionIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
@@ -56,10 +57,18 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataProductExternalId" in item:
             yield DataProductIO, ExternalId(external_id=item["dataProductExternalId"])
+        for rule in (item.get("quality") or {}).get("rules", []):
+            if "ruleSetExternalId" in rule and "version" in rule:
+                yield RuleSetVersionIO, RuleSetVersionId(
+                    rule_set_external_id=rule["ruleSetExternalId"], version=rule["version"]
+                )
 
     @classmethod
     def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield DataProductIO, ExternalId(external_id=resource.data_product_external_id)
+        if resource.quality:
+            for rule in resource.quality.rules:
+                yield RuleSetVersionIO, rule.as_id()
 
     def dump_resource(
         self, resource: DataProductVersionResponse, local: dict[str, Any] | None = None
@@ -71,7 +80,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
         for key, value in dumped.items():
             if value == {}:
                 dumped[key] = None
-        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None, "views": []}
+        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None, "views": [], "quality": None}
         for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key)
