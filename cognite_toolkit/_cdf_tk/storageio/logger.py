@@ -256,6 +256,11 @@ class FileWithAggregationLogger(DataLogger):
         self._write_to_file()
         return None
 
+    def reset(self) -> None:
+        """Reset all tracking data."""
+        with self._lock:
+            self.aggregations_by_ids.clear()
+
     def register(self, ids: list[str]) -> None:
         with self._lock:
             for id in ids:
