@@ -209,3 +209,19 @@ instances:
         sourceView: cdf_infield/ChecklistItem/v1
         value: Not applicable
   space: smoke_infield_migration_target_space
+- createdTime: 1776149020700
+  externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
+  instanceType: node
+  properties:
+    cdf_infield:
+      FieldObservation/v1:
+        assets: []
+        description: 'Observing read red '
+        files:
+        - externalId: infield_data_smoke_test_file3
+          space: smoke_infield_migration_target_space
+        priority: immediate
+        status: completed
+        troubleshooting: I clicked buttons
+        type: m1
+  space: smoke_infield_migration_target_space
