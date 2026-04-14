@@ -23,7 +23,8 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
 
 class Severity(Enum):
     warning = 1
-    failure = 2
+    skipped = 2
+    failure = 3
 
 
 class LogAggregation(LogEntry):
@@ -209,7 +210,7 @@ class FileDataLogger(DataLogger):
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         """Log a detailed entry to the file."""
         entries = entry if isinstance(entry, Sequence) else [entry]
-        self._writer.write_chunks([e.model_dump(by_alias=True) for e in entries])
+        self._writer.write_chunks([e.model_dump(by_alias=True, mode="json") for e in entries])
 
 
 @dataclass
@@ -308,7 +309,7 @@ class FileWithAggregationLogger(DataLogger):
     def _write_to_file_unlocked(self) -> None:
         """Internal method to write to file without acquiring the lock."""
         if self._batch:
-            self._writer.write_chunks([e.model_dump(by_alias=True) for e in self._batch])
+            self._writer.write_chunks([e.model_dump(by_alias=True, mode="json") for e in self._batch])
             self._batch.clear()
 
     def _write_to_file(self) -> None:
@@ -358,10 +359,11 @@ class FileWithAggregationLogger(DataLogger):
     def _severity_to_status(self, max_severity: int, is_dry_run: bool) -> OperationStatus:
         if max_severity == Severity.failure.value:
             return "failure"
-        elif max_severity == Severity.warning.value:
+        if max_severity == Severity.skipped.value:
+            return "skipped"
+        if max_severity == Severity.warning.value:
             return "pending-with-warning" if is_dry_run else "success-with-warning"
-        else:
-            return "pending" if is_dry_run else "success"
+        return "pending" if is_dry_run else "success"
 
 
 def display_item_results(items: list[ItemsResult], console: Console) -> None:

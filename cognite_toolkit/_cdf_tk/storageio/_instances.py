@@ -179,7 +179,7 @@ class InstanceIO(
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
                     for item in self.client.tool.instances.retrieve(chunk)
                 ]
-                yield Page(worker_id="main", items=items, bookmark=NoBookmark())
+                yield self.emit_registered_page(Page(worker_id="main", items=items, bookmark=NoBookmark()))
         elif isinstance(selector, InstanceQuerySelector):
             yield from self._instance_by_query(selector.create_query(), limit, init_cursor)
         else:
@@ -251,12 +251,14 @@ class InstanceIO(
                 for item in items
             ]
             next_cursor = batch.root_cursor
-            yield Page(
-                worker_id="main",
-                items=wrapped_items,
-                bookmark=CursorBookmark(cursor=next_cursor, source="sync" if endpoint == "sync" else "regular")
-                if next_cursor
-                else NoBookmark(),
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=wrapped_items,
+                    bookmark=CursorBookmark(cursor=next_cursor, source="sync" if endpoint == "sync" else "regular")
+                    if next_cursor
+                    else NoBookmark(),
+                )
             )
 
     def _instances_with_container_properties(
@@ -278,14 +280,16 @@ class InstanceIO(
                 wrapped_items = [
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in page.items
                 ]
-                yield Page(
-                    worker_id="main",
-                    items=wrapped_items,
-                    bookmark=CursorBookmark(
-                        cursor=page.next_cursor, source="sync" if selector.endpoint == "sync" else "regular"
+                yield self.emit_registered_page(
+                    Page(
+                        worker_id="main",
+                        items=wrapped_items,
+                        bookmark=CursorBookmark(
+                            cursor=page.next_cursor, source="sync" if selector.endpoint == "sync" else "regular"
+                        )
+                        if page.next_cursor
+                        else NoBookmark(),
                     )
-                    if page.next_cursor
-                    else NoBookmark(),
                 )
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break

@@ -2,7 +2,7 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, get_args
+from typing import Generic
 
 from rich import print
 from rich.console import Console
@@ -37,7 +37,11 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
+from cognite_toolkit._cdf_tk.storageio.logger import (
+    FileWithAggregationLogger,
+    ItemsResult,
+    display_item_results,
+)
 from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -45,20 +49,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
-from .issues import WriteIssue
-
-
-@dataclass
-class OperationIssue:
-    message: str
-    count: int
-
-
-@dataclass
-class MigrationStatusResult:
-    status: OperationStatus
-    issues: list[OperationIssue]
-    count: int
+from .issues import WriteIssue, write_issue_as_migration_entry
 
 
 @dataclass
@@ -81,7 +72,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
         user_log_filestem: str | None = None,
-    ) -> dict[str, list[MigrationStatusResult]]:
+    ) -> dict[str, list[ItemsResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
         log_filestem = self._create_logfile_stem(log_dir, user_log_filestem, data.KIND)
@@ -101,60 +92,86 @@ class MigrationCommand(ToolkitCommand):
                 self.validate_stream_capacity(data.client, data.stream_external_id, needed_capacity)
             else:
                 self.validate_available_capacity(data.client, needed_capacity)
-        results_by_selector: dict[str, list[MigrationStatusResult]] = {}
+        results_by_selector: dict[str, list[ItemsResult]] = {}
         with (
             NDJsonWriter(
                 log_dir, kind="MigrationIssues", default_filestem=log_filestem, compression=Uncompressed
             ) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
-            logger = FileDataLogger(log_file)
-            data.logger = logger
-            mapper.logger = logger
-            for step in plan:
-                if step.message:
-                    console.print(step.message)
-                if step.is_completed:
-                    continue
-
-                selected = step.selector
-                logger.tracker.reset()
-                mapper.prepare(selected)
-
-                executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
-                    download_iterable=data.stream_data(selected, bookmark=step.bookmark),
-                    process=self._convert(mapper),
-                    write=self._upload(
-                        selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
-                    ),
-                    total_item_count=step.total_count,
-                    max_queue_size=10,
-                    download_description=f"Downloading {selected.display_name}",
-                    process_description="Converting",
-                    write_description="Uploading",
-                    console=console,
+            with FileWithAggregationLogger(log_file) as logger:
+                self._run_migration_steps(
+                    plan=plan,
+                    data=data,
+                    mapper=mapper,
+                    logger=logger,
+                    write_client=write_client,
+                    log_dir=log_dir,
+                    dry_run=dry_run,
                     verbose=verbose,
+                    console=console,
+                    results_by_selector=results_by_selector,
                 )
 
-                executor.run(start_item=step.completed_count)
-                total = executor.downloaded_items
-
-                results = self._create_status_summary(logger)
-                results_by_selector[str(selected)] = results
-
-                self._print_rich_tables(results, console)
-                self._print_txt(results, log_dir, f"{selected!s}Items", console)
-                progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
-                if progress is not None:
-                    progress.status = executor.result
-                    progress.dump_to_file(log_dir, filestem=str(selected))
-                executor.raise_on_error()
-
-                action = "Would migrate" if dry_run else "Migrating"
-                target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
-                console.print(f"{action} {total:,} {selected.display_name} to {target}.")
-
         return results_by_selector
+
+    def _run_migration_steps(
+        self,
+        plan: Sequence[MigrationStep],
+        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
+        logger: FileWithAggregationLogger,
+        write_client: HTTPClient,
+        log_dir: Path,
+        dry_run: bool,
+        verbose: bool,
+        console: Console,
+        results_by_selector: dict[str, list[ItemsResult]],
+    ) -> None:
+        data.logger = logger
+        mapper.logger = logger
+        for step in plan:
+            if step.message:
+                console.print(step.message)
+            if step.is_completed:
+                continue
+
+            selected = step.selector
+            logger.reset()
+            mapper.prepare(selected)
+
+            executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
+                download_iterable=data.stream_data(selected, bookmark=step.bookmark),
+                process=self._convert(mapper),
+                write=self._upload(
+                    selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
+                ),
+                total_item_count=step.total_count,
+                max_queue_size=10,
+                download_description=f"Downloading {selected.display_name}",
+                process_description="Converting",
+                write_description="Uploading",
+                console=console,
+                verbose=verbose,
+            )
+
+            executor.run(start_item=step.completed_count)
+            total = executor.downloaded_items
+
+            items_results = logger.finalize(dry_run)
+            results_by_selector[str(selected)] = items_results
+
+            display_item_results(items_results, console)
+            self._print_txt(items_results, log_dir, f"{selected!s}Items", console)
+            progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
+            if progress is not None:
+                progress.status = executor.result
+                progress.dump_to_file(log_dir, filestem=str(selected))
+            executor.raise_on_error()
+
+            action = "Would migrate" if dry_run else "Migrating"
+            target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
+            console.print(f"{action} {total:,} {selected.display_name} to {target}.")
 
     def _create_plan(
         self,
@@ -247,33 +264,7 @@ class MigrationCommand(ToolkitCommand):
 
         return f"{base_logstem}run{next_run}-"
 
-    # Todo: Move to the logger module
-    @classmethod
-    def _create_status_summary(cls, logger: FileDataLogger) -> list[MigrationStatusResult]:
-        results: list[MigrationStatusResult] = []
-        status_counts = logger.tracker.get_status_counts()
-        for status in get_args(OperationStatus):
-            issue_counts = logger.tracker.get_issue_counts(status)
-            issues = [OperationIssue(message=issue, count=count) for issue, count in issue_counts.items()]
-            result = MigrationStatusResult(
-                status=status,
-                issues=issues,
-                count=status_counts.get(status, 0),
-            )
-            results.append(result)
-        return results
-
-    def _print_rich_tables(self, results: list[MigrationStatusResult], console: Console) -> None:
-        table = Table(title="Migration Summary", show_lines=True)
-        table.add_column("Status", style="bold")
-        table.add_column("Count", justify="right", style="bold")
-        table.add_column("Issues", style="bold")
-        for result in results:
-            issues_str = "\n".join(f"{issue.message}: {issue.count}" for issue in result.issues) or ""
-            table.add_row(result.status, str(result.count), issues_str)
-        console.print(table)
-
-    def _print_txt(self, results: list[MigrationStatusResult], log_dir: Path, filestem: str, console: Console) -> None:
+    def _print_txt(self, results: list[ItemsResult], log_dir: Path, filestem: str, console: Console) -> None:
         summary_file = log_dir / f"{filestem}_migration_summary.txt"
         with summary_file.open("w", encoding="utf-8") as f:
             f.write("Migration Summary\n")
@@ -281,10 +272,10 @@ class MigrationCommand(ToolkitCommand):
             for result in results:
                 f.write(f"Status: {result.status}\n")
                 f.write(f"Count: {result.count}\n")
-                f.write("Issues:\n")
-                if result.issues:
-                    for issue in result.issues:
-                        f.write(f"  - {issue.message}: {issue.count}\n")
+                f.write("Labels:\n")
+                if result.labels:
+                    for label in result.labels:
+                        f.write(f"  - {label.display_message()}\n")
                 else:
                     f.write("  None\n")
                 f.write("\n")
@@ -326,16 +317,13 @@ class MigrationCommand(ToolkitCommand):
             if not page:
                 return None
             if dry_run:
-                target.logger.tracker.finalize_item([item.tracking_id for item in page.items], "pending")
                 return None
 
             responses = target.upload_items(data_chunk=page, http_client=write_client, selector=selected)
 
-            # Todo: Move logging into the UploadableStorageIO class
             issues: list[WriteIssue] = []
             for item in responses:
                 if isinstance(item, ItemsSuccessResponse):
-                    target.logger.tracker.finalize_item(item.ids, "success")
                     continue
                 if isinstance(item, ItemsFailedResponse):
                     error = item.error
@@ -347,10 +335,12 @@ class MigrationCommand(ToolkitCommand):
                         issue = WriteIssue(id=str(id_), status_code=0, message=item.error_message)
                         issues.append(issue)
 
-                if isinstance(item, ItemsFailedResponse | ItemsFailedRequest):
-                    target.logger.tracker.finalize_item(item.ids, "failure")
             if issues:
-                target.logger.log(issues)
+                destination = target.KIND
+                source = str(selected)
+                target.logger.log(
+                    [write_issue_as_migration_entry(issue, source=source, destination=destination) for issue in issues]
+                )
 
             migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(

@@ -6,7 +6,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
-from cognite_toolkit._cdf_tk.storageio.logger import LogEntry, LogEntryV2
+from cognite_toolkit._cdf_tk.storageio.logger import LogEntry, LogEntryV2, Severity
 
 
 class MigrationIssue(LogEntry):
@@ -28,6 +28,29 @@ class MigrationEntryV2(LogEntryV2):
     source: str = Field(description="The source for the item. For example, assets.")
     destination: str = Field(
         description="The destination for the item. Typically a given View. For example, cdf_cdm:CogniteAsset(version=v1)."
+    )
+
+
+def migration_log_entry(
+    item_id: str,
+    *,
+    label: str,
+    message: str,
+    severity: Severity,
+    source: str,
+    destination: str,
+    attributes: set[str] | None = None,
+    attribute_display_name: str | None = None,
+) -> MigrationEntryV2:
+    return MigrationEntryV2(
+        id=item_id,
+        label=label,
+        severity=severity,
+        message=message,
+        source=source,
+        destination=destination,
+        attributes=attributes,
+        attribute_display_name=attribute_display_name,
     )
 
 
@@ -210,6 +233,17 @@ class WriteIssue(MigrationIssue):
     message: str | None = None
 
 
+def write_issue_as_migration_entry(issue: WriteIssue, *, source: str, destination: str) -> MigrationEntryV2:
+    return migration_log_entry(
+        issue.id,
+        label="Write failed",
+        message=f"HTTP {issue.status_code}: {issue.message or ''}",
+        severity=Severity.failure,
+        source=source,
+        destination=destination,
+    )
+
+
 class InstanceConversionIssue(MigrationIssue):
     """Represents an instance conversion issue encountered during migration."""
 
@@ -220,3 +254,16 @@ class InstanceConversionIssue(MigrationIssue):
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this InstanceConversionIssue."""
         return bool(self.errors)
+
+
+def instance_conversion_issue_as_migration_entry(
+    issue: InstanceConversionIssue, *, source: str, destination: str
+) -> MigrationEntryV2:
+    return migration_log_entry(
+        issue.id,
+        label="Instance conversion",
+        message="; ".join(issue.errors) if issue.errors else "Conversion issue",
+        severity=Severity.failure,
+        source=source,
+        destination=destination,
+    )

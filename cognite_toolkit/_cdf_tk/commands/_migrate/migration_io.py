@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Bookmark, DataItem, Page
+from cognite_toolkit._cdf_tk.storageio.logger import Severity
 from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
@@ -60,7 +61,7 @@ from .data_classes import (
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
-from .issues import WriteIssue
+from .issues import MigrationEntryV2, migration_log_entry
 from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
@@ -114,13 +115,12 @@ class AssetCentricMigrationIO(
                 f"The following instance spaces do not exist in CDF: {humanize_collection(missing)}. Please create these spaces before running the migration."
             )
 
-        yield from (
-            Page(
+        for items in iterator:
+            page = Page(
                 worker_id="main",
                 items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
-            for items in iterator
-        )
+            yield self.emit_registered_page(page)
 
     def _stream_from_csv(
         self,
@@ -232,11 +232,23 @@ class AssetCentricMigrationIO(
         data_by_instance_id = {item.item.as_id(): item for item in data_chunk.items}
         existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
         to_create: list[DataItem[InstanceRequest]] = []
+        skipped_entries: list[MigrationEntryV2] = []
         for instance_id, data in data_by_instance_id.items():
             if instance_id in existing_ids:
-                self.logger.tracker.finalize_item(data.tracking_id, "skipped")
+                skipped_entries.append(
+                    migration_log_entry(
+                        data.tracking_id,
+                        label="Skipped",
+                        message="Instance already exists in CDF.",
+                        severity=Severity.skipped,
+                        source=self.KIND,
+                        destination="instances",
+                    )
+                )
             else:
                 to_create.append(data)
+        if skipped_entries:
+            self.logger.log(skipped_entries)
 
         return data_chunk.create_from(to_create)
 
@@ -249,7 +261,7 @@ class AssetCentricMigrationIO(
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
-        failure_issues: list[WriteIssue] = []
+        failure_entries: list[MigrationEntryV2] = []
         for batch in chunker_sequence(data_chunk.items, self.CHUNK_SIZE):
             batch_results = http_client.request_items_retries(
                 message=ItemsRequest(
@@ -266,19 +278,22 @@ class AssetCentricMigrationIO(
                 if isinstance(res, ItemsSuccessResponse):
                     successful_linked.update(res.ids)
                     continue
-                for id in res.ids:
-                    self.logger.tracker.finalize_item(id, "failure")
-                    failure_issues.append(
-                        WriteIssue(
-                            id=id,
-                            status_code=res.status_code if isinstance(res, ItemsFailedResponse) else -1,
-                            message=res.error_message
-                            if isinstance(res, ItemsFailedResponse | ItemsFailedRequest)
-                            else "<unknown>",
+                for id_ in res.ids:
+                    msg = (
+                        res.error_message if isinstance(res, ItemsFailedResponse | ItemsFailedRequest) else "<unknown>"
+                    )
+                    failure_entries.append(
+                        migration_log_entry(
+                            id_,
+                            label="Pending instance ID link failed",
+                            message=msg,
+                            severity=Severity.failure,
+                            source="AssetCentric linking",
+                            destination=self.KIND,
                         )
                     )
-        if failure_issues:
-            self.logger.log(failure_issues)
+        if failure_entries:
+            self.logger.log(failure_entries)
         to_upload = [item for item in data_chunk.items if item.tracking_id in successful_linked]
         return data_chunk.create_from(to_upload)
 
@@ -319,7 +334,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
     def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:  # type: ignore[override]
         """Return a page with items whose (space, externalId) are not already in the stream.
 
-        Marks skipped items on the logger tracker.
+        Logs skipped items on the migration logger.
         """
         if not data_chunk.items:
             return data_chunk
@@ -340,12 +355,25 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
                 existing_pairs.add((record.space, record.external_id))
 
         to_upload: list[DataItem[RecordRequest]] = []
+        skipped_records: list[MigrationEntryV2] = []
         for upload_item in data_chunk.items:
             pair = (upload_item.item.space, upload_item.item.external_id)
             if pair in existing_pairs:
-                self.logger.tracker.finalize_item(upload_item.tracking_id, "skipped")
+                skipped_records.append(
+                    migration_log_entry(
+                        upload_item.tracking_id,
+                        label="Skipped",
+                        message="Record already exists in the stream.",
+                        severity=Severity.skipped,
+                        source=self.KIND,
+                        destination="records",
+                    )
+                )
             else:
                 to_upload.append(upload_item)
+
+        if skipped_records:
+            self.logger.log(skipped_records)
 
         return data_chunk.create_from(to_upload)
 
@@ -425,13 +453,12 @@ class AnnotationMigrationIO(
             iterator = self._stream_from_csv(selector, limit, file_location)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (
-            Page(
+        for items in iterator:
+            page = Page(
                 worker_id="main",
-                items=[DataItem(tracking_id=f"Annotation_{item.mapping.id}", item=item) for item in items],
+                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
-            for items in iterator
-        )
+            yield self.emit_registered_page(page)
 
     def _stream_from_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
@@ -577,10 +604,12 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             total += len(items)
             if items:
                 bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
-                yield Page(
-                    worker_id="main",
-                    items=[DataItem(tracking_id=item.name, item=item) for item in items],
-                    bookmark=bm,
+                yield self.emit_registered_page(
+                    Page(
+                        worker_id="main",
+                        items=[DataItem(tracking_id=item.name, item=item) for item in items],
+                        bookmark=bm,
+                    )
                 )
             if response.next_cursor is None:
                 break
@@ -686,16 +715,18 @@ class ThreeDAssetMappingMigrationIO(
                         bm: Bookmark = (
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
-                        yield Page(
-                            worker_id="main",
-                            items=[
-                                DataItem(
-                                    tracking_id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}",
-                                    item=item,
-                                )
-                                for item in items
-                            ],
-                            bookmark=bm,
+                        yield self.emit_registered_page(
+                            Page(
+                                worker_id="main",
+                                items=[
+                                    DataItem(
+                                        tracking_id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}",
+                                        item=item,
+                                    )
+                                    for item in items
+                                ],
+                                bookmark=bm,
+                            )
                         )
                     if response.next_cursor is None:
                         break
