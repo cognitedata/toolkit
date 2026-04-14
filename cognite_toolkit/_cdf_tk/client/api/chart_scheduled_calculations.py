@@ -4,7 +4,7 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
     ChartScheduledCalculationListResponse,
     ChartScheduledCalculationRequest,
@@ -40,17 +40,23 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId | ExternalId]) -> list[ChartScheduledCalculationResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> list[ChartScheduledCalculationResponse]:
         """Retrieve chart scheduled calculations by internal or external ID.
 
         Args:
             items: Identifiers to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown internal or external IDs.
         Returns:
             Retrieved scheduled calculation response objects.
         """
-        return self._request_item_response(items, "retrieve")
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(items, "retrieve")
+        else:
+            return self._request_item_response(items, "retrieve")
 
-    def delete(self, items: Sequence[InternalId | ExternalId]) -> None:
+    def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete chart scheduled calculations by internal or external ID.
 
         Args:
