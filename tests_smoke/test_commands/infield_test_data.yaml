@@ -323,7 +323,7 @@ observation:
     - properties:
         description: 'Observing read red '
         files:
-          - 074941a4-b40d-46ce-b409-5616b8c19bd8
+          - infield_data_smoke_test_file3
         priority: '1'
         solutionTags: [ ]
         sourceCreatedTime: '2026-01-29T10:43:45.819+00:00'
