@@ -3,7 +3,7 @@ from graphlib import CycleError, TopologicalSorter
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders._base import Builder
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.location import LocationFilterIO
 from cognite_toolkit._cdf_tk.data_classes._build_files import BuildDestinationFile, BuildSourceFile
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError

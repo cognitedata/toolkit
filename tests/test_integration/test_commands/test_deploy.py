@@ -30,10 +30,10 @@ from cognite_toolkit._cdf_tk.cruds import (
     TransformationIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductIO
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionIO
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterIO
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetIO, RuleSetVersionIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.data_product import DataProductIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.location import LocationFilterIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.rulesets import RuleSetIO, RuleSetVersionIO
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline

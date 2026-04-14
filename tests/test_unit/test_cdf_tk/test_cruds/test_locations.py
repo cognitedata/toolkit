@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
     LocationFilterScene,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.location import LocationFilterIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA

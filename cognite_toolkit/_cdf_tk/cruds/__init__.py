@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._base_cruds import DataCRUD, Loader, ResourceContainerIO, ResourceIO
 from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
-from ._resource_cruds import (
+from ._resource_ios import (
     AgentIO,
     AssetIO,
     CogniteFileCRUD,

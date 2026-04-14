@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
     StreamlitIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,

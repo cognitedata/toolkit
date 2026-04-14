@@ -54,7 +54,7 @@ authentication:
         # This test verifies that the ResourceWorker uses function-specific capabilities
         # for FunctionLoader rather than generic capabilities
         with patch(
-            "cognite_toolkit._cdf_tk.cruds._resource_cruds.function.FunctionCRUD.load_resource_file"
+            "cognite_toolkit._cdf_tk.cruds._resource_ios.function.FunctionCRUD.load_resource_file"
         ) as mock_load_resource_file:
             mock_authorization = toolkit_client_approval.mock_client.tool.token.verify_acls
             mock_authorization.return_value = []

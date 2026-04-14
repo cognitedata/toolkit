@@ -8,8 +8,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataPro
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_ios.auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_ios.datamodel import SpaceCRUD
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 

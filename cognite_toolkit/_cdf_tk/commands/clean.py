@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import Loader
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DeployResults,

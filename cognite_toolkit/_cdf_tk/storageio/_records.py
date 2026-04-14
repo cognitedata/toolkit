@@ -8,8 +8,8 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessag
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.datamodel import ContainerCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms

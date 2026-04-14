@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from ._base_cruds import DataCRUD, ResourceIO
-from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
+from ._resource_ios import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment

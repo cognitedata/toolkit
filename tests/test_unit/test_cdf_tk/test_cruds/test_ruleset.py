@@ -8,7 +8,7 @@ import yaml
 
 from cognite_toolkit._cdf_tk.client.identifiers import RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetVersionIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.rulesets import RuleSetVersionIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.yaml_classes.ruleset_version import RuleSetVersionYAML
 

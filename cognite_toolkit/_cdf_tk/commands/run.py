@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.cruds import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowTriggerIO
+from cognite_toolkit._cdf_tk.cruds._resource_ios.workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
