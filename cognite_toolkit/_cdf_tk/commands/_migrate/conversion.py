@@ -49,8 +49,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
-    asset_centric_convert_to_primary_property,
     convert_to_primary_property,
+    convert_to_primary_property_with_special_cases,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
@@ -438,7 +438,7 @@ def create_properties(
         data_type = prop_def.type
         nullable = prop_def.nullable or False
         try:
-            value = asset_centric_convert_to_primary_property(
+            value = convert_to_primary_property_with_special_cases(
                 flatten_dump[prop_json_path],
                 data_type,
                 nullable,
@@ -1055,10 +1055,11 @@ def convert_container_properties(
             created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
-                created_value = convert_to_primary_property(
+                created_value = convert_to_primary_property_with_special_cases(
                     value,
                     dm_prop.type,
                     dm_prop.nullable if dm_prop.nullable is not None else True,
+                    destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 )
                 created_properties[dest_prop_id] = serialize_dms(created_value)
             except (ValueError, TypeError, NotImplementedError) as e:

@@ -403,14 +403,12 @@ def load_infield_source_data(
                 timeseries_external_ids.add(timeseries_values)
             elif isinstance(timeseries_values, list):
                 timeseries_external_ids.update(timeseries_values)  # type: ignore[arg-type]
-    checklist_item = instances["checklistItem"]
+
     file_external_ids: set[str] = set()
-    if (
-        checklist_item.sources
-        and checklist_item.sources[0].properties
-        and "files" in checklist_item.sources[0].properties
-    ):
-        file_external_ids.update(checklist_item.sources[0].properties["files"])  # type: ignore[arg-type]
+    for key in ["checklistItem", "observation"]:
+        reading = instances[key]
+        if reading.sources and reading.sources[0].properties and "files" in reading.sources[0].properties:
+            file_external_ids.update(reading.sources[0].properties["files"])  # type: ignore[arg-type]
 
     asset_instance = instances["asset"]
     asset_request = AssetRequest(

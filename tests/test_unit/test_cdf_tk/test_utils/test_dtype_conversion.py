@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     CONVERTER_BY_DTYPE,
     DATATYPE_CONVERTER_BY_DATA_TYPE,
     PropertyValueWrite,
-    asset_centric_convert_to_primary_property,
     convert_str_to_data_type,
     convert_to_primary_property,
+    convert_to_primary_property_with_special_cases,
     infer_data_type_from_value,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentricType, DataType
@@ -490,7 +490,7 @@ class TestConvertToContainerProperty:
             "source2": NodeId(space="spaceB", external_id="source2"),
         }
 
-        actual = asset_centric_convert_to_primary_property(
+        actual = convert_to_primary_property_with_special_cases(
             value, type_, True, destination_container_property, source_property, direct_relation_lookup=cache
         )
 
@@ -542,7 +542,7 @@ class TestConvertToContainerProperty:
         error_message: str,
     ):
         with pytest.raises(ValueError) as exc_info:
-            asset_centric_convert_to_primary_property(
+            convert_to_primary_property_with_special_cases(
                 value, type_, True, destination_container_property, source_property, direct_relation_lookup={}
             )
 
