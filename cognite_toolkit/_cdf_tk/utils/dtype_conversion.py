@@ -62,6 +62,10 @@ def convert_to_primary_property_with_special_cases(
     Returns:
         The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
     """
+    if value is None:
+        if not nullable:
+            raise ValueError("Cannot convert None to a non-nullable property.")
+        return None
     if (
         source_property is not None
         and (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION
