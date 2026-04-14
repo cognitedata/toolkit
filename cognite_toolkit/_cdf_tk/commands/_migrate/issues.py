@@ -6,7 +6,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
-from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
+from cognite_toolkit._cdf_tk.storageio.logger import LogEntry, LogEntryV2
 
 
 class MigrationIssue(LogEntry):
@@ -22,6 +22,13 @@ class MigrationIssue(LogEntry):
     def dump(self) -> dict[str, Any]:
         """Serialize the MigrationIssue to a dictionary."""
         return self.model_dump(by_alias=True)
+
+
+class MigrationEntryV2(LogEntryV2):
+    source: str = Field(description="The source for the item. For example, assets.")
+    destination: str = Field(
+        description="The destination for the item. Typically a given View. For example, cdf_cdm:CogniteAsset(version=v1)."
+    )
 
 
 class ThreeDModelMigrationIssue(MigrationIssue):
