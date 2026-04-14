@@ -16,7 +16,7 @@ data:
   - id: 6432535944228887
     sourceId: SmokeCalculationOutput_1776064037261
     sourceType: scheduledCalculation
-  name: Smoke Test Chart Copy
+  name: Smoke Test Chart
   scheduledCalculationCollection:
   - color: '#1192e8'
     createdAt: 1776064038175
