@@ -73,6 +73,9 @@ def convert_to_primary_property_with_special_cases(
             return converter_cls(direct_relation_lookup=direct_relation_lookup).convert(value)
         else:
             return converter_cls().convert(value)
+    if destination_container_property in SPECIAL_CONVERTER_BY_DESTINATION:
+        special_cls = SPECIAL_CONVERTER_BY_DESTINATION[destination_container_property]
+        return special_cls().convert(value)
     else:
         # Fallback to the standard conversion
         return convert_to_primary_property(value, type_, nullable, direct_relation_lookup=direct_relation_lookup)
@@ -271,6 +274,10 @@ class _ValueConverter(_Converter, ABC):
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         """Convert the value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
+
+
+class _SpecialCaseDestinationConverter(_Converter, ABC):
+    destination_container_property: ClassVar[tuple[ContainerId, str]]
 
 
 class _SpecialCaseConverter(_Converter, ABC):
@@ -597,6 +604,10 @@ SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass
     for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
+}
+SPECIAL_CONVERTER_BY_DESTINATION: Mapping[tuple[ContainerId, str], type[_SpecialCaseDestinationConverter]] = {
+    subclass.destination_container_property: subclass
+    for subclass in get_concrete_subclasses(_SpecialCaseDestinationConverter)  # type: ignore[type-abstract]
 }
 DATATYPE_CONVERTER_BY_DATA_TYPE: Mapping[DataType, type[_ValueConverter]] = {
     cls_.schema_type: cls_
