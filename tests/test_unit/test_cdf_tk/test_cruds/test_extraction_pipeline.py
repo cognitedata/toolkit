@@ -15,12 +15,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 )
 from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.cruds import (
-    DataSetsCRUD,
-    ExtractionPipelineConfigCRUD,
-    ExtractionPipelineCRUD,
+    DataSetsIO,
+    ExtractionPipelineConfigIO,
+    ExtractionPipelineIO,
     RawDatabaseCRUD,
     RawTableCRUD,
-    ResourceCRUD,
+    ResourceIO,
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -56,7 +56,7 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        loader = ExtractionPipelineConfigCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = ExtractionPipelineConfigIO.create_loader(toolkit_client_approval.mock_client)
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([local_file])
         assert {
@@ -88,8 +88,8 @@ class TestExtractionPipelineDependencies:
         local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigCRUD.create_loader(env_vars_with_client.get_client())
-        with patch.object(ExtractionPipelineConfigCRUD, "find_files", return_value=[local_file]):
+        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client.get_client())
+        with patch.object(ExtractionPipelineConfigIO, "find_files", return_value=[local_file]):
             res = cmd.clean_resources(loader, env_vars_with_client, [], dry_run=True, drop=True)
             assert res is not None
             assert res.deleted == 1
@@ -108,7 +108,7 @@ class TestExtractionPipelineLoader:
                     ],
                 },
                 [
-                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
+                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
                     (RawDatabaseCRUD, RawDatabaseId(name="my_db")),
                     (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
                     (RawTableCRUD, RawTableId(db_name="my_db", name="my_table2")),
@@ -117,8 +117,8 @@ class TestExtractionPipelineLoader:
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
-        actual = ExtractionPipelineCRUD.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        actual = ExtractionPipelineIO.get_dependent_items(item)
 
         assert list(actual) == expected
 
@@ -144,7 +144,7 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigCRUD.create_loader(env_vars_with_client.get_client())
+        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client.get_client())
         res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
@@ -170,7 +170,7 @@ databases:
         console = MagicMock(spec=Console)
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
 
         loaded = crud.load_resource(resource)
 
@@ -186,7 +186,7 @@ databases:
         console = MagicMock(spec=Console)
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)
@@ -203,7 +203,7 @@ databases:
         console = MagicMock(spec=Console)
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)

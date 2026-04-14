@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsReques
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
@@ -42,7 +42,7 @@ class RecordIO(
         sync_filter = self._build_sync_filter(selector)
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
-        stream_crud = StreamCRUD.create_loader(self.client)
+        stream_crud = StreamIO.create_loader(self.client)
         aggregate_url = self.client.http_client.config.create_api_url(
             self._AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         )
@@ -86,11 +86,11 @@ class RecordIO(
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )
 
-        stream_crud = StreamCRUD.create_loader(self.client)
+        stream_crud = StreamIO.create_loader(self.client)
         for stream in stream_crud.retrieve([ExternalId(external_id=selector.stream.external_id)]):
             yield StorageIOConfig(
-                kind=StreamCRUD.kind,
-                folder_name=StreamCRUD.folder_name,
+                kind=StreamIO.kind,
+                folder_name=StreamIO.folder_name,
                 value=stream_crud.dump_resource(stream),
                 filename=sanitize_filename(selector.stream.external_id),
             )

@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
@@ -39,19 +39,19 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 
-from .data_organization import DataSetsCRUD, LabelCRUD
+from .data_organization import DataSetsIO, LabelIO
 
 _DEPRECATION_WARNING_ISSUED = False
 
 
 @final
-class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
+class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
     folder_name = "classic"
     resource_cls = AssetResponse
     resource_write_cls = AssetRequest
     yaml_cls = AssetYAML
     kind = "Asset"
-    dependencies = frozenset({DataSetsCRUD, LabelCRUD})
+    dependencies = frozenset({DataSetsIO, LabelIO})
     _doc_url = "Assets/operation/createAssets"
 
     @classmethod
@@ -133,31 +133,31 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
             yield from assets
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+                yield LabelIO, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, ExternalId(external_id=label)
+                yield LabelIO, ExternalId(external_id=label)
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
     @classmethod
-    def get_dependencies(cls, resource: AssetYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: AssetYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for label in resource.labels or []:
             if isinstance(label, dict):
-                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+                yield LabelIO, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, ExternalId(external_id=label)
+                yield LabelIO, ExternalId(external_id=label)
         if resource.parent_external_id:
             yield cls, ExternalId(external_id=resource.parent_external_id)
 
@@ -233,12 +233,12 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
 
 
 @final
-class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
+class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse]):
     folder_name = "classic"
     resource_cls = SequenceResponse
     resource_write_cls = SequenceRequest
     kind = "Sequence"
-    dependencies = frozenset({DataSetsCRUD, AssetCRUD})
+    dependencies = frozenset({DataSetsIO, AssetIO})
     yaml_cls = SequenceYAML
     _doc_url = "Sequences/operation/createSequence"
 
@@ -336,28 +336,28 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
             yield from sequences
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         if "assetExternalId" in item:
-            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
+            yield AssetIO, ExternalId(external_id=item["assetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: SequenceYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: SequenceYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         if resource.asset_external_id:
-            yield AssetCRUD, ExternalId(external_id=resource.asset_external_id)
+            yield AssetIO, ExternalId(external_id=resource.asset_external_id)
 
 
 @final
-class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRowsResponse]):
+class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResponse]):
     folder_name = "classic"
     resource_cls = SequenceRowsResponse
     resource_write_cls = SequenceRowsRequest
     kind = "SequenceRow"
-    dependencies = frozenset({SequenceCRUD})
-    parent_resource = frozenset({SequenceCRUD})
+    dependencies = frozenset({SequenceIO})
+    parent_resource = frozenset({SequenceIO})
     _doc_url = "Sequences/operation/postSequenceData"
     yaml_cls = SequenceRowYAML
     support_update = False
@@ -448,17 +448,17 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
             yield from responses
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
-        yield SequenceCRUD, ExternalId(external_id=item["externalId"])
+        yield SequenceIO, ExternalId(external_id=item["externalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: SequenceRowYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield SequenceCRUD, ExternalId(external_id=resource.external_id)
+    def get_dependencies(cls, resource: SequenceRowYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SequenceIO, ExternalId(external_id=resource.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRowsRequest:
         return SequenceRowsRequest.model_validate(resource)
@@ -492,13 +492,13 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
 
 
 @final
-class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
+class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse]):
     folder_name = "classic"
     resource_cls = EventResponse
     resource_write_cls = EventRequest
     yaml_cls = EventYAML
     kind = "Event"
-    dependencies = frozenset({DataSetsCRUD, AssetCRUD})
+    dependencies = frozenset({DataSetsIO, AssetIO})
     _doc_url = "Events/operation/createEvents"
 
     @property
@@ -560,24 +560,24 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
             yield from events
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
-                yield AssetCRUD, ExternalId(external_id=asset_id)
+                yield AssetIO, ExternalId(external_id=asset_id)
 
     @classmethod
-    def get_dependencies(cls, resource: EventYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: EventYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for asset_id in resource.asset_external_ids or []:
-            yield AssetCRUD, ExternalId(external_id=asset_id)
+            yield AssetIO, ExternalId(external_id=asset_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

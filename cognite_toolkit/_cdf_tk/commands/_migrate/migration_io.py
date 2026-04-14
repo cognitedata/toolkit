@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
     AnnotationIO,
@@ -325,7 +325,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             return data_chunk
 
         if self._last_updated_time_windows is None:
-            stream_crud = StreamCRUD.create_loader(self.client)
+            stream_crud = StreamIO.create_loader(self.client)
             self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
         last_updated_time_windows = self._last_updated_time_windows
 

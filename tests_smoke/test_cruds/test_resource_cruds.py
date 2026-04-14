@@ -6,7 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceIO
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -21,7 +21,7 @@ def _rulesets_or_dataproducts_api_disabled(exc: ToolkitAPIError) -> bool:
 class TestResourceCRUD:
     @pytest.mark.parametrize("resource_io_cls", RESOURCE_CRUD_LIST)
     def test_retrieve_non_existing_works(
-        self, toolkit_client: ToolkitClient, resource_io_cls: type[ResourceCRUD]
+        self, toolkit_client: ToolkitClient, resource_io_cls: type[ResourceIO]
     ) -> None:
         """Test that retrieving a non-existing resource does not raise an error."""
         # Get the identifier class from the generic parameters of the resource_io class

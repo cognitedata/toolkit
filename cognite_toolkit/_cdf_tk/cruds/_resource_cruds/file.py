@@ -47,8 +47,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     FailedReadExtra,
     ReadExtra,
-    ResourceContainerCRUD,
-    ResourceCRUD,
+    ResourceContainerIO,
+    ResourceIO,
     SuccessExtra,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -69,21 +69,21 @@ from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
-from .classic import AssetCRUD
-from .data_organization import DataSetsCRUD, LabelCRUD
-from .datamodel import NodeCRUD, SpaceCRUD, ViewCRUD
+from .auth import GroupAllScopedCRUD, SecurityCategoryIO
+from .classic import AssetIO
+from .data_organization import DataSetsIO, LabelIO
+from .datamodel import NodeCRUD, SpaceCRUD, ViewIO
 
 
 @final
-class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, FileMetadataResponse]):
+class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMetadataResponse]):
     item_name = "file contents"
     folder_name = "files"
     resource_cls = FileMetadataResponse
     resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, LabelIO, AssetIO})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -133,32 +133,32 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryCRUD, NameId(name=security_category)
+                yield SecurityCategoryIO, NameId(name=security_category)
         if "labels" in item:
             for label in item["labels"]:
                 if isinstance(label, dict):
-                    yield LabelCRUD, ExternalId(external_id=label["externalId"])
+                    yield LabelIO, ExternalId(external_id=label["externalId"])
                 elif isinstance(label, str):
-                    yield LabelCRUD, ExternalId(external_id=label)
+                    yield LabelIO, ExternalId(external_id=label)
         for asset_external_id in item.get("assetExternalIds", []):
-            yield AssetCRUD, ExternalId(external_id=asset_external_id)
+            yield AssetIO, ExternalId(external_id=asset_external_id)
 
     @classmethod
-    def get_dependencies(cls, resource: FileMetadataYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: FileMetadataYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for security_category in resource.security_categories or []:
-            yield SecurityCategoryCRUD, NameId(name=security_category)
+            yield SecurityCategoryIO, NameId(name=security_category)
         for label in resource.labels or []:
             if isinstance(label, dict):
-                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+                yield LabelIO, ExternalId(external_id=label["externalId"])
         for asset_external_id in resource.asset_external_ids or []:
-            yield AssetCRUD, ExternalId(external_id=asset_external_id)
+            yield AssetIO, ExternalId(external_id=asset_external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -357,7 +357,7 @@ def _iter_file_content_read_extras(
 
 
 @final
-class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteFileResponse]):
+class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
@@ -365,7 +365,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
+    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewIO})
 
     _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
@@ -535,7 +535,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return len(self.create([file.as_request_resource() for file in retrieved]))
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -552,7 +552,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
                     yield NodeCRUD, NodeId(space=asset["space"], external_id=asset["externalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SpaceCRUD, SpaceId(space=resource.space)
         for ref in [resource.source, resource.category, resource.type]:
             if ref:

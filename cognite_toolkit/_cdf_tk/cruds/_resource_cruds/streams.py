@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
@@ -26,7 +26,7 @@ _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
 
 @final
-class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
+class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
     folder_name = "streams"
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest

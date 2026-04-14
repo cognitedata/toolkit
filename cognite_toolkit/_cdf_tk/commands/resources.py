@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
@@ -67,18 +67,18 @@ class ResourcesCommand(ToolkitCommand):
         return cast(Path, selected)
 
     @staticmethod
-    def _qualified_name(crud: type[ResourceCRUD]) -> str:
+    def _qualified_name(crud: type[ResourceIO]) -> str:
         return f"{crud.folder_name}.{crud.kind}"
 
     @classmethod
-    def _unique_cruds(cls) -> list[type[ResourceCRUD]]:
+    def _unique_cruds(cls) -> list[type[ResourceIO]]:
         """Deduplicate and sort RESOURCE_CRUD_LIST by folder_name.kind."""
         return sorted(
             {(c.folder_name, c.kind): c for c in RESOURCE_CRUD_LIST}.values(),
             key=cls._qualified_name,
         )
 
-    def _resolve_kinds(self, kinds: list[str] | None) -> list[type[ResourceCRUD]]:
+    def _resolve_kinds(self, kinds: list[str] | None) -> list[type[ResourceIO]]:
         """
         Resolve kinds from list of strings or do an interactive selection.
         Accepts both plain kind names (e.g. 'Space') and qualified names (e.g. 'data_modeling.Space').
@@ -95,7 +95,7 @@ class ResourcesCommand(ToolkitCommand):
             return [selected]
 
         by_qualified = {self._qualified_name(crud).casefold(): crud for crud in unique_cruds}
-        by_kind: dict[str, list[type[ResourceCRUD]]] = {}
+        by_kind: dict[str, list[type[ResourceIO]]] = {}
         for crud in unique_cruds:
             by_kind.setdefault(crud.kind.casefold(), []).append(crud)
 
@@ -137,7 +137,7 @@ class ResourcesCommand(ToolkitCommand):
 
     def _get_resource_yaml_content(
         self,
-        resource_crud: type[ResourceCRUD],
+        resource_crud: type[ResourceIO],
         overrides: dict[str, Any] | None = None,
     ) -> str:
         """
@@ -196,7 +196,7 @@ class ResourcesCommand(ToolkitCommand):
 
     def _create_resource_yaml_file(
         self,
-        resource_crud: type[ResourceCRUD],
+        resource_crud: type[ResourceIO],
         module_path: Path,
         prefix: str | None = None,
         verbose: bool = False,

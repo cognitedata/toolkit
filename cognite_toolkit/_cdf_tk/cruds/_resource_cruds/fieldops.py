@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
@@ -38,20 +38,20 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 )
 
 from .auth import GroupAllScopedCRUD
-from .classic import AssetCRUD
-from .data_organization import DataSetsCRUD
-from .datamodel import SpaceCRUD, ViewCRUD
+from .classic import AssetIO
+from .data_organization import DataSetsIO
+from .datamodel import SpaceCRUD, ViewIO
 from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse]):
+class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse]):
     folder_name = "cdf_applications"
     resource_cls = APMConfigResponse
     resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
-    dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({DataSetsIO, AssetIO, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -113,16 +113,16 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
             yield SpaceCRUD, SpaceId(space=app_data_space_id)
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
             yield SpaceCRUD, SpaceId(space=customer_data_space_id)
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
-                yield AssetCRUD, ExternalId(external_id=asset_external_id)
+                yield AssetIO, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
-                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                yield DataSetsIO, ExternalId(external_id=data_set_external_id)
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
                 yield SpaceCRUD, SpaceId(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
@@ -140,16 +140,16 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                     continue
                 for data_set_external_id in filter_.get("dataSetExternalIds", []):
                     if isinstance(data_set_external_id, str):
-                        yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                        yield DataSetsIO, ExternalId(external_id=data_set_external_id)
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
-                        yield AssetCRUD, ExternalId(external_id=asset_external_id)
+                        yield AssetIO, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
                         yield SpaceCRUD, SpaceId(space=app_data_instance_space)
 
     @classmethod
-    def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.app_data_space_id:
             yield SpaceCRUD, SpaceId(space=resource.app_data_space_id)
         if resource.customer_data_space_id:
@@ -158,9 +158,9 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
             return
         for config in resource.feature_configuration.root_location_configurations or []:
             if config.asset_external_id:
-                yield AssetCRUD, ExternalId(external_id=config.asset_external_id)
+                yield AssetIO, ExternalId(external_id=config.asset_external_id)
             if config.data_set_external_id:
-                yield DataSetsCRUD, ExternalId(external_id=config.data_set_external_id)
+                yield DataSetsIO, ExternalId(external_id=config.data_set_external_id)
             if config.app_data_instance_space:
                 yield SpaceCRUD, SpaceId(space=config.app_data_instance_space)
             if config.source_data_instance_space:
@@ -180,9 +180,9 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                 if filter_ is None:
                     continue
                 for data_set_external_id in filter_.data_set_external_ids or []:
-                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                    yield DataSetsIO, ExternalId(external_id=data_set_external_id)
                 for asset_external_id in filter_.asset_subtree_external_ids or []:
-                    yield AssetCRUD, ExternalId(external_id=asset_external_id)
+                    yield AssetIO, ExternalId(external_id=asset_external_id)
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
@@ -270,7 +270,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
 
 
 @final
-class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
+class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
     folder_name = "cdf_applications"
     resource_cls = InFieldLocationConfigResponse
     resource_write_cls = InFieldLocationConfigRequest
@@ -358,15 +358,13 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigReques
 
 
 @final
-class InFieldCDMLocationConfigCRUD(
-    ResourceCRUD[NodeId, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
-):
+class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]):
     folder_name = "cdf_applications"
     resource_cls = InFieldCDMLocationConfigResponse
     resource_write_cls = InFieldCDMLocationConfigRequest
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
-    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD, ViewCRUD})
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property

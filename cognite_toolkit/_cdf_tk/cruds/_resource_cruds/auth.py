@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -73,7 +73,7 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
+class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
     folder_name = "auth"
     kind = "Group"
     resource_cls = GroupResponse
@@ -139,12 +139,12 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         return sanitize_filename(id.name)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
-        from .classic import AssetCRUD
-        from .data_organization import DataSetsCRUD
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        from .classic import AssetIO
+        from .data_organization import DataSetsIO
         from .datamodel import SpaceCRUD
-        from .extraction_pipeline import ExtractionPipelineCRUD
-        from .location import LocationFilterCRUD
+        from .extraction_pipeline import ExtractionPipelineIO
+        from .location import LocationFilterIO
         from .raw import RawDatabaseCRUD, RawTableCRUD
         from .timeseries import TimeSeriesCRUD
 
@@ -158,7 +158,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
-                                yield DataSetsCRUD, ExternalId(external_id=data_set_id)
+                                yield DataSetsIO, ExternalId(external_id=data_set_id)
                     if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
@@ -170,41 +170,41 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
-                                yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
+                                yield ExtractionPipelineIO, ExternalId(external_id=extraction_pipeline_id)
                     if asset_root_ids := scope.get(cap.AssetRootIDScope._scope_name, []):
                         if isinstance(asset_root_ids, dict) and "rootIds" in asset_root_ids:
                             for asset_root_id in asset_root_ids["rootIds"]:
-                                yield AssetCRUD, asset_root_id
+                                yield AssetIO, asset_root_id
                     if (ids := scope.get(cap.IDScope._scope_name, [])) or (
                         ids := scope.get(cap.IDScopeLowerCase._scope_name, [])
                     ):
-                        loader: type[ResourceCRUD] | None = None
+                        loader: type[ResourceIO] | None = None
                         if acl == cap.DataSetsAcl._capability_name:
-                            loader = DataSetsCRUD
+                            loader = DataSetsIO
                         elif acl == cap.ExtractionPipelinesAcl._capability_name:
-                            loader = ExtractionPipelineCRUD
+                            loader = ExtractionPipelineIO
                         elif acl == cap.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesCRUD
                         elif acl == cap.SecurityCategoriesAcl._capability_name:
-                            loader = SecurityCategoryCRUD
+                            loader = SecurityCategoryIO
                         elif acl == cap.LocationFiltersAcl._capability_name:
-                            loader = LocationFilterCRUD
+                            loader = LocationFilterIO
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
-                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
+                                if loader in {TimeSeriesCRUD, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
                                     yield loader, ExternalId(external_id=id_)
-                                elif loader is SecurityCategoryCRUD:
+                                elif loader is SecurityCategoryIO:
                                     yield loader, NameId(name=id_)
                                 else:
                                     yield loader, id_
 
     @classmethod
-    def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        from .classic import AssetCRUD
-        from .data_organization import DataSetsCRUD
+    def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        from .classic import AssetIO
+        from .data_organization import DataSetsIO
         from .datamodel import SpaceCRUD
-        from .extraction_pipeline import ExtractionPipelineCRUD
-        from .location import LocationFilterCRUD
+        from .extraction_pipeline import ExtractionPipelineIO
+        from .location import LocationFilterIO
         from .raw import RawDatabaseCRUD, RawTableCRUD
         from .timeseries import TimeSeriesCRUD
 
@@ -215,7 +215,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     yield SpaceCRUD, SpaceId(space=space_id)
             elif isinstance(scope, yaml_cap.DataSetScope):
                 for data_set_id in scope.ids:
-                    yield DataSetsCRUD, ExternalId(external_id=data_set_id)
+                    yield DataSetsIO, ExternalId(external_id=data_set_id)
             elif isinstance(scope, yaml_cap.TableScope):
                 for db_name, tables in scope.dbs_to_tables.items():
                     yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
@@ -223,27 +223,27 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                         yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
             elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
                 for extraction_pipeline_id in scope.ids:
-                    yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
+                    yield ExtractionPipelineIO, ExternalId(external_id=extraction_pipeline_id)
             elif isinstance(scope, yaml_cap.AssetRootIDScope):
                 for asset_root_id in scope.root_ids:
-                    yield AssetCRUD, ExternalId(external_id=asset_root_id)
+                    yield AssetIO, ExternalId(external_id=asset_root_id)
             elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
-                loader: type[ResourceCRUD] | None = None
+                loader: type[ResourceIO] | None = None
                 if isinstance(capability, yaml_cap.DataSetsAcl):
-                    loader = DataSetsCRUD
+                    loader = DataSetsIO
                 elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
-                    loader = ExtractionPipelineCRUD
+                    loader = ExtractionPipelineIO
                 elif isinstance(capability, yaml_cap.TimeSeriesAcl):
                     loader = TimeSeriesCRUD
                 elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
-                    loader = SecurityCategoryCRUD
+                    loader = SecurityCategoryIO
                 elif isinstance(capability, yaml_cap.LocationFiltersAcl):
-                    loader = LocationFilterCRUD
+                    loader = LocationFilterIO
                 if loader is not None:
                     for id_ in scope.ids:
-                        if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
+                        if loader in {TimeSeriesCRUD, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
                             yield loader, ExternalId(external_id=id_)
-                        elif loader is SecurityCategoryCRUD:
+                        elif loader is SecurityCategoryIO:
                             yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
@@ -504,7 +504,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
 
 
 @final
-class GroupAllScopedCRUD(GroupCRUD):
+class GroupAllScopedCRUD(GroupIO):
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
         super().__init__(client, build_dir, console, "all_scoped_only")
 
@@ -514,7 +514,7 @@ class GroupAllScopedCRUD(GroupCRUD):
 
 
 @final
-class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, SecurityCategoryResponse]):
+class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCategoryResponse]):
     resource_cls = SecurityCategoryResponse
     resource_write_cls = SecurityCategoryRequest
     kind = "SecurityCategory"

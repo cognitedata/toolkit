@@ -8,22 +8,22 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
-from .data_product import DataProductCRUD
-from .datamodel import DataModelCRUD
+from .data_product import DataProductIO
+from .datamodel import DataModelIO
 
 
 @final
-class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersionRequest, DataProductVersionResponse]):
+class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRequest, DataProductVersionResponse]):
     folder_name = "data_products"
     resource_cls = DataProductVersionResponse
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductCRUD, DataModelCRUD})
-    parent_resource = frozenset({DataProductCRUD})
+    dependencies = frozenset({DataProductIO, DataModelIO})
+    parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
     _doc_url = "Data-Products/operation/createDataProductVersions"
@@ -54,13 +54,13 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         yield from ()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataProductExternalId" in item:
-            yield DataProductCRUD, ExternalId(external_id=item["dataProductExternalId"])
+            yield DataProductIO, ExternalId(external_id=item["dataProductExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield DataProductCRUD, ExternalId(external_id=resource.data_product_external_id)
+    def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield DataProductIO, ExternalId(external_id=resource.data_product_external_id)
 
     def dump_resource(
         self, resource: DataProductVersionResponse, local: dict[str, Any] | None = None

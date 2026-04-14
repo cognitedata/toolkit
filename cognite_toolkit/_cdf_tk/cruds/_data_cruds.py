@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_cruds import DataCRUD, ResourceCRUD
+from ._base_cruds import DataCRUD, ResourceIO
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
@@ -133,7 +133,7 @@ class FileCRUD(DataCRUD):
     @staticmethod
     def _read_metadata(
         destination: Path,
-        loader: type[ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource]],
+        loader: type[ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource]],
         identifier: T_Identifier,
     ) -> T_RequestResource:
         built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))

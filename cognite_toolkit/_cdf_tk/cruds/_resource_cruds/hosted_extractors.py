@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     RESTSourceRequest,
     ScramShaAuthenticationRequest,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -49,12 +49,12 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorSourceYAML,
 )
 
-from .data_organization import DataSetsCRUD
+from .data_organization import DataSetsIO
 
 
 @final
-class HostedExtractorSourceCRUD(
-    ResourceCRUD[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
+class HostedExtractorSourceIO(
+    ResourceIO[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorSourceResponseUnion  # type: ignore[assignment]
@@ -159,13 +159,13 @@ class HostedExtractorSourceCRUD(
 
 
 @final
-class HostedExtractorDestinationCRUD(
-    ResourceCRUD[ExternalId, HostedExtractorDestinationRequest, HostedExtractorDestinationResponse]
+class HostedExtractorDestinationIO(
+    ResourceIO[ExternalId, HostedExtractorDestinationRequest, HostedExtractorDestinationResponse]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorDestinationResponse
     resource_write_cls = HostedExtractorDestinationRequest
-    dependencies = frozenset({DataSetsCRUD})
+    dependencies = frozenset({DataSetsIO})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
@@ -246,14 +246,14 @@ class HostedExtractorDestinationCRUD(
     @classmethod
     def get_dependencies(
         cls, resource: HostedExtractorDestinationYAML
-    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    ) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.target_data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.target_data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.target_data_set_external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "targetDataSetId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["targetDataSetId"])
+            yield DataSetsIO, ExternalId(external_id=item["targetDataSetId"])
 
     def sensitive_strings(self, item: HostedExtractorDestinationRequest) -> Iterable[str]:
         if item.credentials:
@@ -264,11 +264,11 @@ class HostedExtractorDestinationCRUD(
 
 
 @final
-class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
+class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorJobResponse
     resource_write_cls = HostedExtractorJobRequest
-    dependencies = frozenset({HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD})
+    dependencies = frozenset({HostedExtractorSourceIO, HostedExtractorDestinationIO})
     kind = "Job"
     yaml_cls = HostedExtractorJobYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -331,29 +331,27 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
             yield from jobs
 
     @classmethod
-    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.source_id:
-            yield HostedExtractorSourceCRUD, ExternalId(external_id=resource.source_id)
+            yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
         if resource.destination_id:
-            yield HostedExtractorDestinationCRUD, ExternalId(external_id=resource.destination_id)
+            yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "sourceId" in item:
-            yield HostedExtractorSourceCRUD, ExternalId(external_id=item["sourceId"])
+            yield HostedExtractorSourceIO, ExternalId(external_id=item["sourceId"])
         if "destinationId" in item:
-            yield HostedExtractorDestinationCRUD, ExternalId(external_id=item["destinationId"])
+            yield HostedExtractorDestinationIO, ExternalId(external_id=item["destinationId"])
 
 
 @final
-class HostedExtractorMappingCRUD(
-    ResourceCRUD[ExternalId, HostedExtractorMappingRequest, HostedExtractorMappingResponse]
-):
+class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequest, HostedExtractorMappingResponse]):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorMappingResponse
     resource_write_cls = HostedExtractorMappingRequest
     # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
-    dependencies = frozenset({HostedExtractorSourceCRUD})
+    dependencies = frozenset({HostedExtractorSourceIO})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Mappings/operation/create_mappings"

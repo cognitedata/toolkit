@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import Absolu
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    ResourceCRUD,
+    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -485,7 +485,7 @@ class BuildV2Command(ToolkitCommand):
     def _read_resource_file(
         self,
         resource_file: AbsoluteFilePath,
-        crud_class: type[ResourceCRUD],
+        crud_class: type[ResourceIO],
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
         try:

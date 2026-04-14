@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionIO
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
@@ -19,13 +19,13 @@ from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction
 
 
 @final
-class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
+class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     folder_name = "agents"
     resource_cls = AgentResponse
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    dependencies = frozenset({FunctionCRUD})
+    dependencies = frozenset({FunctionIO})
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
@@ -44,17 +44,17 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         return sanitize_filename(id.external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         for tool in item.get("tools", []):
             if tool.get("type") == "callFunction":
                 if ext_id := tool.get("configuration", {}).get("externalId"):
-                    yield FunctionCRUD, ExternalId(external_id=ext_id)
+                    yield FunctionIO, ExternalId(external_id=ext_id)
 
     @classmethod
-    def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for tool in resource.tools or []:
             if isinstance(tool, CallFunction):
-                yield FunctionCRUD, ExternalId(external_id=tool.configuration.external_id)
+                yield FunctionIO, ExternalId(external_id=tool.configuration.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:

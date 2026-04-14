@@ -53,7 +53,7 @@ from cognite_toolkit._cdf_tk.constants import (
     TOOLKIT_DEMO_GROUP_NAME,
     TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
 )
-from cognite_toolkit._cdf_tk.cruds import AssetCRUD, RelationshipCRUD
+from cognite_toolkit._cdf_tk.cruds import AssetIO, RelationshipIO
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -425,7 +425,7 @@ class AuthCommand(ToolkitCommand):
         required_acls: list[AclType] = []
         io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
-            if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetCRUD | RelationshipCRUD):
+            if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetIO | RelationshipIO):
                 # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
                 continue
 

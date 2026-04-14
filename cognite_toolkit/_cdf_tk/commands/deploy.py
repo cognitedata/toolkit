@@ -22,15 +22,15 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     DataCRUD,
     FileMetadataCRUD,
-    FunctionCRUD,
+    FunctionIO,
     Loader,
     RawDatabaseCRUD,
-    ResourceContainerCRUD,
-    ResourceCRUD,
+    ResourceContainerIO,
+    ResourceIO,
     ResourceWorker,
-    StreamlitCRUD,
+    StreamlitIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionCRUD, SimulatorRoutineRevisionCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -206,10 +206,10 @@ class DeployCommand(ToolkitCommand):
             return None
 
         for loader_cls in reversed(ordered_loaders):
-            if not issubclass(loader_cls, ResourceCRUD):
+            if not issubclass(loader_cls, ResourceIO):
                 continue
-            loader: ResourceCRUD = loader_cls.create_loader(client, build_dir)
-            if isinstance(loader, SimulatorRoutineRevisionCRUD | SimulatorModelRevisionCRUD):
+            loader: ResourceIO = loader_cls.create_loader(client, build_dir)
+            if isinstance(loader, SimulatorRoutineRevisionIO | SimulatorModelRevisionIO):
                 # There are deleted when the routine/model is deleted, so skip here.
                 continue
             result = self._clean_command.clean_resources(
@@ -310,7 +310,7 @@ class DeployCommand(ToolkitCommand):
                         "the upload command."
                     )
                 )
-            if issubclass(loader_cls, FunctionCRUD | StreamlitCRUD):
+            if issubclass(loader_cls, FunctionIO | StreamlitIO):
                 # In v0.8, we use filio CRUDs (FileMetadata/CogniteFile) to upload the function/streamlit code.
                 # This is the legacy deploy command, which has to do it the old way.
                 loader: Loader = loader_cls(client, build_dir, client.console, use_fileio=False)
@@ -321,7 +321,7 @@ class DeployCommand(ToolkitCommand):
                 loader = loader_cls.create_loader(client, build_dir)
 
             resource_result: DeployResult | None
-            if isinstance(loader, ResourceCRUD):
+            if isinstance(loader, ResourceIO):
                 resource_result = self.deploy_resource_type(
                     loader,
                     env_vars,
@@ -354,7 +354,7 @@ class DeployCommand(ToolkitCommand):
 
     def deploy_resource_type(
         self,
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule] | None = None,
         dry_run: bool = False,
@@ -407,7 +407,7 @@ class DeployCommand(ToolkitCommand):
         if verbose:
             self._verbose_print(resources, loader, dry_run)
 
-        if isinstance(loader, ResourceContainerCRUD):
+        if isinstance(loader, ResourceContainerIO):
             return ResourceContainerDeployResult.from_resource_deploy_result(
                 result,
                 item_name=loader.item_name,
@@ -417,7 +417,7 @@ class DeployCommand(ToolkitCommand):
     def actual_deploy(
         self,
         resources: CategorizedResources[T_Identifier, T_RequestResource],
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         env_var_warnings: WarningList | None = None,
     ) -> ResourceDeployResult:
         environment_variable_warning_by_id = {
@@ -449,15 +449,11 @@ class DeployCommand(ToolkitCommand):
     @staticmethod
     def dry_run_deploy(
         resources: CategorizedResources[T_Identifier, T_RequestResource],
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         has_done_drop: bool,
         has_dropped_data: bool,
     ) -> ResourceDeployResult:
-        if (
-            loader.support_drop
-            and has_done_drop
-            and (not isinstance(loader, ResourceContainerCRUD) or has_dropped_data)
-        ):
+        if loader.support_drop and has_done_drop and (not isinstance(loader, ResourceContainerIO) or has_dropped_data):
             # Means the resources will be deleted and not left unchanged or changed
             for item in resources.unchanged:
                 # We cannot use extents as LoadableNodes cannot be extended.
@@ -481,7 +477,7 @@ class DeployCommand(ToolkitCommand):
     @staticmethod
     def _verbose_print(
         resources: CategorizedResources[T_Identifier, T_RequestResource],
-        loader: ResourceCRUD,
+        loader: ResourceIO,
         dry_run: bool,
     ) -> None:
         print_outs = []
@@ -505,7 +501,7 @@ class DeployCommand(ToolkitCommand):
     def _create_resources(
         self,
         resources: Sequence[T_RequestResource],
-        loader: ResourceCRUD,
+        loader: ResourceIO,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
         try:
@@ -528,7 +524,7 @@ class DeployCommand(ToolkitCommand):
     def _update_resources(
         self,
         resources: Sequence[T_RequestResource],
-        loader: ResourceCRUD,
+        loader: ResourceIO,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
         try:

@@ -1,5 +1,5 @@
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds import DataSetsIO, ResourceWorker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -9,7 +9,7 @@ class TestDataSetsLoader:
     def test_upsert_data_set(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
-        loader = DataSetsCRUD.create_loader(env_vars_with_client.get_client())
+        loader = DataSetsIO.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "data_sets" / "1.my_datasets.yaml", env_vars_with_client.dump()
         )

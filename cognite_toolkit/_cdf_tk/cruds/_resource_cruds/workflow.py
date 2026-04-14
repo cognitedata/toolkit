@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitCycleError,
@@ -68,15 +68,15 @@ from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVe
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
 
 from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsCRUD
-from .function import FunctionCRUD
+from .data_organization import DataSetsIO
+from .function import FunctionIO
 from .group_scoped import GroupResourceScopedCRUD
-from .streams import StreamCRUD
-from .transformation import TransformationCRUD
+from .streams import StreamIO
+from .transformation import TransformationIO
 
 
 @final
-class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
+class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse]):
     folder_name = "workflows"
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
@@ -84,9 +84,9 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
     dependencies = frozenset(
         {
             GroupAllScopedCRUD,
-            TransformationCRUD,
-            FunctionCRUD,
-            DataSetsCRUD,
+            TransformationIO,
+            FunctionIO,
+            DataSetsIO,
         }
     )
     yaml_cls = WorkflowYAML
@@ -170,29 +170,29 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
                     yield workflow
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
 
 
 @final
-class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
+class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
     folder_name = "workflows"
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowCRUD})
-    parent_resource = frozenset({WorkflowCRUD})
+    dependencies = frozenset({WorkflowIO})
+    parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowVersionYAML
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
@@ -347,13 +347,13 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         return super().diff_list(local, cdf, json_path)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "workflowExternalId" in item:
-            yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
+            yield WorkflowIO, ExternalId(external_id=item["workflowExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
         for task in resource.workflow_definition.tasks:
             if isinstance(task, SubworkflowTask):
                 subworkflow = task.parameters.subworkflow
@@ -471,15 +471,13 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
 
 
 @final
-class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
+class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
     folder_name = "workflows"
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset(
-        {WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD, StreamCRUD}
-    )
-    parent_resource = frozenset({WorkflowCRUD})
+    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedCRUD, GroupAllScopedCRUD, StreamIO})
+    parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
@@ -573,26 +571,26 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
         return triggers
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires."""
         if "workflowExternalId" in item:
-            yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
+            yield WorkflowIO, ExternalId(external_id=item["workflowExternalId"])
 
             if "workflowVersion" in item:
                 yield (
-                    WorkflowVersionCRUD,
+                    WorkflowVersionIO,
                     WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["workflowVersion"]),
                 )
 
     @classmethod
-    def get_dependencies(cls, resource: WorkflowTriggerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+    def get_dependencies(cls, resource: WorkflowTriggerYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
         yield (
-            WorkflowVersionCRUD,
+            WorkflowVersionIO,
             WorkflowVersionId(workflow_external_id=resource.workflow_external_id, version=resource.workflow_version),
         )
         if isinstance(resource.trigger_rule, RecordStreamTriggerRule):
-            yield (StreamCRUD, ExternalId(external_id=resource.trigger_rule.stream_external_id))
+            yield (StreamIO, ExternalId(external_id=resource.trigger_rule.stream_external_id))
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

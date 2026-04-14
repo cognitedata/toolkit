@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
-from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import DataModelIO, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -64,7 +64,7 @@ class TestDataModelLoader:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_data_model
 
-        loader = DataModelCRUD.create_loader(
+        loader = DataModelIO.create_loader(
             env_vars_with_client.get_client(),
         )
         worker = ResourceWorker(loader, "deploy")
@@ -98,7 +98,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelCRUD.create_loader(env_vars_with_client.get_client())
+        loader = DataModelIO.create_loader(env_vars_with_client.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -257,7 +257,7 @@ class TestViewLoader:
             client.tool.views.retrieve.return_value = parent_grandparent_view
             parent = ViewId(space="space", external_id="Parent", version="v1")
             grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
-            loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
                 [
                     parent,
@@ -276,7 +276,7 @@ class TestViewLoader:
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
             loader.topological_sort_implements(
                 [
                     parent,
@@ -346,7 +346,7 @@ class TestViewDeployTopologicalSort:
         dependency_view = ViewRequest(space="sp_space", external_id="Dependency", version="v1")
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewCRUD(client, Path("build_dir"), None)
+            loader = ViewIO(client, Path("build_dir"), None)
             batches = loader._compute_deploy_batches([dependent_view, dependency_view])
 
         flat_ids = [view.external_id for batch in batches for view in batch]
@@ -375,7 +375,7 @@ class TestViewDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewCRUD(client, Path("build_dir"), None)
+            loader = ViewIO(client, Path("build_dir"), None)
             batches = loader._compute_deploy_batches(views)
 
         assert len(batches) == 1, "All views in one SCC should stay in a single batch"
@@ -396,7 +396,7 @@ class TestViewDeployTopologicalSort:
         )
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewCRUD(client, Path("build_dir"), None)
+            loader = ViewIO(client, Path("build_dir"), None)
             with pytest.raises(ToolkitCycleError):
                 loader._compute_deploy_batches([view_a, view_b])
 
@@ -417,7 +417,7 @@ class TestDataModelCRUDGetDependencies:
             }
         )
 
-        deps = list(DataModelCRUD.get_dependencies(data_model))
+        deps = list(DataModelIO.get_dependencies(data_model))
         assert len(deps) == 1
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
 
@@ -437,11 +437,11 @@ class TestDataModelCRUDGetDependencies:
             }
         )
 
-        deps = list(DataModelCRUD.get_dependencies(data_model))
+        deps = list(DataModelIO.get_dependencies(data_model))
         assert len(deps) == 3
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="my_space", external_id="view1", version="1")) in deps
-        assert (ViewCRUD, ViewId(space="other_space", external_id="view2", version="1")) in deps
+        assert (ViewIO, ViewId(space="my_space", external_id="view1", version="1")) in deps
+        assert (ViewIO, ViewId(space="other_space", external_id="view2", version="1")) in deps
 
 
 class TestNodeCRUDGetDependencies:
@@ -487,7 +487,7 @@ class TestNodeCRUDGetDependencies:
         deps = list(NodeCRUD.get_dependencies(node))
         assert len(deps) == 2
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
 
 
 class TestEdgeCRUDGetDependencies:
@@ -542,7 +542,7 @@ class TestEdgeCRUDGetDependencies:
         deps = list(EdgeCRUD.get_dependencies(edge))
         assert len(deps) == 5
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
         assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps

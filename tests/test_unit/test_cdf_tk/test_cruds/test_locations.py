@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
     LocationFilterScene,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -18,7 +18,7 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 @pytest.fixture
 def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterRequest:
-    loader = LocationFilterCRUD.create_loader(env_vars_with_client.get_client())
+    loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
     )
@@ -32,7 +32,7 @@ class TestLocationFilterLoader:
         env_vars_with_client: EnvironmentVariables,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = LocationFilterCRUD.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
         )
@@ -88,7 +88,7 @@ class TestLocationFilterLoader:
             ),
         ]
 
-        sorted_filters = LocationFilterCRUD.topological_sort(location_filters)
+        sorted_filters = LocationFilterIO.topological_sort(location_filters)
 
         # Should be sorted with grandparent first, then parent, then child
         assert len(sorted_filters) == 3
@@ -115,7 +115,7 @@ class TestLocationFilterLoader:
             location_filters.append(location_filter)
 
         with pytest.raises(ToolkitCycleError) as exc:
-            LocationFilterCRUD.topological_sort(location_filters)
+            LocationFilterIO.topological_sort(location_filters)
 
         error = exc.value
         assert isinstance(error, ToolkitCycleError)
@@ -126,7 +126,7 @@ class TestLocationFilterLoader:
         self,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        crud = LocationFilterCRUD.create_loader(toolkit_client_approval.mock_client)
+        crud = LocationFilterIO.create_loader(toolkit_client_approval.mock_client)
         location_filter = LocationFilterResponse(
             external_id="springfield",
             name="Springfield Location",

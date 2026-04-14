@@ -19,21 +19,21 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
     ResourceViewMappingResponse,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
-from .datamodel import SpaceCRUD, ViewCRUD
+from .datamodel import SpaceCRUD, ViewIO
 
 
 @final
-class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingRequest, ResourceViewMappingResponse]):
+class ResourceViewMappingIO(ResourceIO[ExternalId, ResourceViewMappingRequest, ResourceViewMappingResponse]):
     folder_name = "migration"
     resource_cls = ResourceViewMappingResponse
     resource_write_cls = ResourceViewMappingRequest
     kind = "ResourceViewMapping"
-    dependencies = frozenset({SpaceCRUD, ViewCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     yaml_cls = ResourceViewMappingYAML
 
@@ -100,11 +100,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
             return []
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
+    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":
         yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
         view_id = RESOURCE_MAPPING_VIEW_ID
         yield (
-            ViewCRUD,
+            ViewIO,
             ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
         )
 
@@ -112,7 +112,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
             view_id_dict = item["viewId"]
             if isinstance(view_id_dict, dict) and in_dict(("space", "externalId", "version"), view_id_dict):
                 yield (
-                    ViewCRUD,
+                    ViewIO,
                     ViewId(
                         space=view_id_dict["space"],
                         external_id=view_id_dict["externalId"],
@@ -121,11 +121,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
                 )
 
     @classmethod
-    def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
-        yield ViewCRUD, RESOURCE_MAPPING_VIEW_ID
+        yield ViewIO, RESOURCE_MAPPING_VIEW_ID
         if resource.view_id:
-            yield ViewCRUD, resource.view_id.as_id()
+            yield ViewIO, resource.view_id.as_id()
 
     def dump_resource(
         self, resource: ResourceViewMappingResponse, local: dict[str, Any] | None = None

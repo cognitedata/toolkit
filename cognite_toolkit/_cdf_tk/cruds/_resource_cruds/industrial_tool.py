@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
@@ -39,17 +39,17 @@ from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calc
 from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
 from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsCRUD
+from .data_organization import DataSetsIO
 from .file import FileMetadataCRUD
 
 
 @final
-class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse]):
+class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
     folder_name = "streamlit"
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
@@ -102,14 +102,14 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return id.external_id
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -239,7 +239,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     def _missing_recommended_requirements(requirements: list[str]) -> list[str]:
         missing = []
         user_requirements = {Requirement(req).name for req in requirements}
-        for recommended in StreamlitCRUD.recommended_packages():
+        for recommended in StreamlitIO.recommended_packages():
             if recommended.name not in user_requirements:
                 missing.append(recommended.name)
         return missing

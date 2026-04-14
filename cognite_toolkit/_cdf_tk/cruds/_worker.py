@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
-from ._base_cruds import ResourceCRUD
+from ._base_cruds import ResourceIO
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
@@ -34,7 +34,7 @@ class CategorizedResources(Generic[T_Identifier, T_RequestResource]):
 class ResourceWorker(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     def __init__(
         self,
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         action: str,
     ):
         self.loader = loader

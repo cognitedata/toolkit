@@ -96,8 +96,8 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     FailedReadExtra,
     ReadExtra,
-    ResourceContainerCRUD,
-    ResourceCRUD,
+    ResourceContainerIO,
+    ResourceIO,
     SuccessExtra,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
@@ -140,7 +140,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
+class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = SpaceResponse
@@ -270,7 +270,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
-class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, ContainerResponse]):
+class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, ContainerResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = ContainerResponse
@@ -318,7 +318,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         # Note that we are very careful in the code below to not raise an exception if the
@@ -337,7 +337,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
                         )
 
     @classmethod
-    def get_dependencies(cls, resource: ContainerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: ContainerYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         """Get all external dependencies for a Container resource.
 
         This includes:
@@ -573,7 +573,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
+class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
     folder_name = "data_modeling"
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
@@ -622,35 +622,35 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
         for implement in resource.implements or []:
-            yield ViewCRUD, implement.as_id()
+            yield ViewIO, implement.as_id()
 
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
                     yield ContainerCRUD, prop.container.as_id()
                     if prop.source:
-                        yield ViewCRUD, prop.source.as_id()
+                        yield ViewIO, prop.source.as_id()
 
                 elif isinstance(prop, EdgeConnectionDefinition):
-                    yield ViewCRUD, prop.source.as_id()
+                    yield ViewIO, prop.source.as_id()
                     if prop.edge_source:
-                        yield ViewCRUD, prop.edge_source.as_id()
+                        yield ViewIO, prop.edge_source.as_id()
 
                 elif isinstance(prop, ReverseDirectRelationConnectionDefinition):
-                    yield ViewCRUD, prop.source.as_id()
+                    yield ViewIO, prop.source.as_id()
                     if prop.through.source:
                         yield (
-                            (ViewCRUD if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
+                            (ViewIO if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
                             prop.through.source.as_id(),
                         )
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         if isinstance(implements := item.get("implements", []), list):
@@ -659,7 +659,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                     continue
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
                     yield (
-                        ViewCRUD,
+                        ViewIO,
                         ViewId(
                             space=parent["space"],
                             external_id=parent["externalId"],
@@ -677,7 +677,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
                         yield (
-                            ViewCRUD,
+                            ViewIO,
                             ViewId(
                                 space=source["space"],
                                 external_id=source["externalId"],
@@ -911,7 +911,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
 
         Raises ToolkitCycleError if there is a cycle in implements.
         """
-        parents_by_child = ViewCRUD._build_view_implements_dependencies(view_by_ids)
+        parents_by_child = ViewIO._build_view_implements_dependencies(view_by_ids)
         try:
             # static_order() returns a lazy generator in Python 3.11+; must be consumed to trigger CycleError
             return list(TopologicalSorter(parents_by_child).static_order())
@@ -988,12 +988,12 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
 
 
 @final
-class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelResponse]):
+class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
     folder_name = "data_modeling"
     resource_cls = DataModelResponse
     resource_write_cls = DataModelRequest
     kind = "DataModel"
-    dependencies = frozenset({SpaceCRUD, ViewCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewIO})
     yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
@@ -1024,7 +1024,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: DataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: DataModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         """Get all external dependencies for a DataModel resource.
 
         This includes:
@@ -1034,16 +1034,16 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         yield SpaceCRUD, SpaceId(space=resource.space)
 
         for view in resource.views or []:
-            yield ViewCRUD, view.as_id()
+            yield ViewIO, view.as_id()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
                 yield (
-                    ViewCRUD,
+                    ViewIO,
                     ViewId(
                         space=view["space"],
                         external_id=view["externalId"],
@@ -1136,14 +1136,14 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
+class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = NodeResponse
     resource_write_cls = NodeRequest
     kind = "Node"
     yaml_cls = NodeYAML
-    dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewIO, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     sub_folder_name = "nodes"
 
@@ -1185,7 +1185,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: NodeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: NodeYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         """Get all external dependencies for a Node resource.
 
         This includes:
@@ -1196,20 +1196,20 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
 
         for source in resource.sources or []:
             if source.source:
-                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
         if resource.type:
             yield NodeCRUD, resource.type.as_id()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
-                        ViewCRUD,
+                        ViewIO,
                         ViewId(
                             space=identifier["space"],
                             external_id=identifier["externalId"],
@@ -1309,7 +1309,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse]):
+class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse]):
     folder_name = "data_modeling"
     resource_cls = GraphQLDataModelResponse
     resource_write_cls = GraphQLDataModelRequest
@@ -1353,7 +1353,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         """Get all external dependencies for a GraphQL DataModel resource.
 
         This includes:
@@ -1362,7 +1362,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         yield SpaceCRUD, SpaceId(space=resource.space)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
 
@@ -1557,14 +1557,14 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
+class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = EdgeResponse
     resource_write_cls = EdgeRequest
     kind = "Edge"
     yaml_cls = EdgeYAML
-    dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewIO, ContainerCRUD, NodeCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -1598,7 +1598,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
-    def get_dependencies(cls, resource: EdgeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: EdgeYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         """Get all external dependencies for an Edge resource.
 
         This includes:
@@ -1610,21 +1610,21 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
 
         for source in resource.sources or []:
             if source.source:
-                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
         yield NodeCRUD, resource.start_node.as_id()
         yield NodeCRUD, resource.end_node.as_id()
         yield NodeCRUD, resource.type.as_id()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
-                        ViewCRUD,
+                        ViewIO,
                         ViewId(
                             space=identifier["space"],
                             external_id=identifier["externalId"],

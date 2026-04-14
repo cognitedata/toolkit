@@ -54,29 +54,29 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Trans
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.cruds import (
-    AgentCRUD,
+    AgentIO,
     ContainerCRUD,
-    DataModelCRUD,
-    DataSetsCRUD,
-    ExtractionPipelineConfigCRUD,
-    ExtractionPipelineCRUD,
-    FunctionCRUD,
-    FunctionScheduleCRUD,
-    GroupCRUD,
-    LocationFilterCRUD,
+    DataModelIO,
+    DataSetsIO,
+    ExtractionPipelineConfigIO,
+    ExtractionPipelineIO,
+    FunctionIO,
+    FunctionScheduleIO,
+    GroupIO,
+    LocationFilterIO,
     NodeCRUD,
-    ResourceCRUD,
-    ResourceViewMappingCRUD,
-    SearchConfigCRUD,
+    ResourceIO,
+    ResourceViewMappingIO,
+    SearchConfigIO,
     SpaceCRUD,
-    StreamlitCRUD,
-    TransformationCRUD,
-    TransformationNotificationCRUD,
-    TransformationScheduleCRUD,
-    ViewCRUD,
-    WorkflowCRUD,
-    WorkflowTriggerCRUD,
-    WorkflowVersionCRUD,
+    StreamlitIO,
+    TransformationIO,
+    TransformationNotificationIO,
+    TransformationScheduleIO,
+    ViewIO,
+    WorkflowIO,
+    WorkflowTriggerIO,
+    WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
@@ -107,7 +107,7 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     @abstractmethod
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -207,9 +207,9 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        model_loader = DataModelCRUD.create_loader(self.client)
+        model_loader = DataModelIO.create_loader(self.client)
         if self.data_model:
             is_global_model = self.data_model.is_global
             yield [], [self.data_model], model_loader, None
@@ -220,11 +220,11 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             is_global_model = model_list[0].is_global
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
-            yield list(self.view_ids), None, ViewCRUD.create_loader(self.client), "views"
+            yield list(self.view_ids), None, ViewIO.create_loader(self.client), "views"
             yield list(self.container_ids), None, ContainerCRUD.create_loader(self.client), "containers"
             yield list(self.space_ids), None, SpaceCRUD.create_loader(self.client), None
         else:
-            view_loader = ViewCRUD(self.client, None, None, topological_sort_implements=True)
+            view_loader = ViewIO(self.client, None, None, topological_sort_implements=True)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
             container_loader = ContainerCRUD.create_loader(self.client)
@@ -284,23 +284,23 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         workflow_id = ExternalId(external_id=self.identifier.workflow_external_id)
         if self._workflow:
-            yield [], [self._workflow], WorkflowCRUD.create_loader(self.client), None
+            yield [], [self._workflow], WorkflowIO.create_loader(self.client), None
         else:
-            yield [workflow_id], None, WorkflowCRUD.create_loader(self.client), None
+            yield [workflow_id], None, WorkflowIO.create_loader(self.client), None
         if self._workflow_version:
             yield (
                 [],
                 [self._workflow_version],
-                WorkflowVersionCRUD.create_loader(self.client),
+                WorkflowVersionIO.create_loader(self.client),
                 None,
             )
         else:
-            yield [self.identifier], None, WorkflowVersionCRUD.create_loader(self.client), None
-        trigger_loader = WorkflowTriggerCRUD.create_loader(self.client)
+            yield [self.identifier], None, WorkflowVersionIO.create_loader(self.client), None
+        trigger_loader = WorkflowTriggerIO.create_loader(self.client)
         trigger_list = list(trigger_loader.iterate(parent_ids=[workflow_id]))
         yield [], trigger_list, trigger_loader, None
 
@@ -337,23 +337,23 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         external_ids = [ExternalId(external_id=id_) for id_ in self.identifier]
         if self.transformations:
             yield (
                 [],
                 [t for t in self.transformations if t.external_id in self.identifier],
-                TransformationCRUD.create_loader(self.client),
+                TransformationIO.create_loader(self.client),
                 None,
             )
         else:
-            yield external_ids, None, TransformationCRUD.create_loader(self.client), None
+            yield external_ids, None, TransformationIO.create_loader(self.client), None
 
-        schedule_loader = TransformationScheduleCRUD.create_loader(self.client)
+        schedule_loader = TransformationScheduleIO.create_loader(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
-        notification_loader = TransformationNotificationCRUD.create_loader(self.client)
+        notification_loader = TransformationNotificationIO.create_loader(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
 
@@ -385,17 +385,17 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         if self.groups:
             yield (
                 [],
                 [group for group in self.groups if group.name in self.identifier],
-                GroupCRUD.create_loader(self.client),
+                GroupIO.create_loader(self.client),
                 None,
             )
         else:
-            yield [NameId(name=name) for name in self.identifier], None, GroupCRUD.create_loader(self.client), None
+            yield [NameId(name=name) for name in self.identifier], None, GroupIO.create_loader(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
@@ -427,9 +427,9 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = AgentCRUD.create_loader(self.client)
+        loader = AgentIO.create_loader(self.client)
         if self.agents:
             yield (
                 [],
@@ -468,7 +468,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         identifier = self._selected()
 
@@ -533,10 +533,10 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self.identifier or self._interactive_select()
         filters = self._get_filters(self.identifier)
-        yield [], filters, LocationFilterCRUD.create_loader(self.client), None
+        yield [], filters, LocationFilterIO.create_loader(self.client), None
 
 
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
@@ -563,16 +563,16 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
-        pipeline_loader = ExtractionPipelineCRUD.create_loader(self.client)
+        pipeline_loader = ExtractionPipelineIO.create_loader(self.client)
         if self.extraction_pipelines:
             selected_pipelines = [p for p in self.extraction_pipelines if p.external_id in self.identifier]
             yield [], selected_pipelines, pipeline_loader, None
         else:
             yield external_ids, None, pipeline_loader, None
-        config_loader = ExtractionPipelineConfigCRUD.create_loader(self.client)
+        config_loader = ExtractionPipelineConfigIO.create_loader(self.client)
         configs = list(config_loader.iterate(parent_ids=external_ids))
         yield [], configs, config_loader, None
 
@@ -604,9 +604,9 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = DataSetsCRUD.create_loader(self.client)
+        loader = DataSetsIO.create_loader(self.client)
         if self.datasets:
             yield (
                 [],
@@ -643,9 +643,9 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = FunctionCRUD.create_loader(self.client)
+        loader = FunctionIO.create_loader(self.client)
         if self.functions:
             selected_functions = [f for f in self.functions if f.external_id in self.identifier]
             yield [], selected_functions, loader, None
@@ -654,7 +654,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
             yield external_ids, None, loader, None
 
-        schedule_loader = FunctionScheduleCRUD.create_loader(self.client)
+        schedule_loader = FunctionScheduleIO.create_loader(self.client)
         # Pass ExternalId objects as parent_ids
         parent_external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
         schedules = schedule_loader.iterate(parent_ids=parent_external_ids)
@@ -721,9 +721,9 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         identifier = self.identifier or self._interactive_select()
-        loader = StreamlitCRUD.create_loader(self.client)
+        loader = StreamlitIO.create_loader(self.client)
         # If the user used interactive select, we have already downloaded the streamlit apps,
         # Thus, we do not need to download them again. If not pass the identifier and let the main logic
         # take care of the download.
@@ -815,7 +815,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
         yield [SpaceId(space=space) for space in self.identifier], None, loader, None
@@ -845,9 +845,9 @@ class SearchConfigFinder(ResourceFinder[tuple[ViewNoVersionId, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = SearchConfigCRUD.create_loader(self.client)
+        loader = SearchConfigIO.create_loader(self.client)
         if self.search_configs:
             yield [], [sc for sc in self.search_configs if sc.view in self.identifier], loader, None
         else:
@@ -882,9 +882,9 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = ResourceViewMappingCRUD.create_loader(self.client)
+        loader = ResourceViewMappingIO.create_loader(self.client)
         if self.resource_view_mappings:
             selected_mappings = [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             yield [], selected_mappings, loader, None

@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
 )
-from cognite_toolkit._cdf_tk.cruds import ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
@@ -185,7 +185,7 @@ def infield_legacy(
         source = instance.sources[0]
         if isinstance(source.source, ViewId):
             to_create_by_view_id[source.source].append(instance)
-    sorted_views, _ = ViewCRUD(toolkit_client, None, None).topological_sort_container_constraints(
+    sorted_views, _ = ViewIO(toolkit_client, None, None).topological_sort_container_constraints(
         list(to_create_by_view_id.keys())
     )
 

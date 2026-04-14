@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
-from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import ResourceIO
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
@@ -22,10 +22,10 @@ class DependencyRuleSet(ToolkitGlobalRulSet):
 
     def validate(self) -> Iterable[Insight | FailedValidation]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
-        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
+        built_resource_ids: set[tuple[type[ResourceIO], Identifier]] = {
             (resource.crud_cls, resource.identifier) for module in self.modules for resource in module.resources
         }
-        missing_locally_by_crud_cls: dict[type[ResourceCRUD], dict[Identifier, list[BuiltResource]]] = defaultdict(
+        missing_locally_by_crud_cls: dict[type[ResourceIO], dict[Identifier, list[BuiltResource]]] = defaultdict(
             lambda: defaultdict(list)
         )
         for module in self.modules:

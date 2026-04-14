@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -43,7 +43,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
+class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSetResponse
@@ -133,13 +133,13 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
 
 
 @final
-class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
+class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse]):
     folder_name = "classic"
     resource_cls = LabelResponse
     resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
@@ -202,19 +202,19 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

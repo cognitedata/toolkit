@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final
-class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductResponse]):
+class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductResponse]):
     folder_name = "data_products"
     resource_cls = DataProductResponse
     resource_write_cls = DataProductRequest
@@ -43,12 +43,12 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         return {"externalId": id.external_id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "schemaSpace" in item:
             yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
 
     @classmethod
-    def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
             yield SpaceCRUD, SpaceId(space=resource.schema_space)
 

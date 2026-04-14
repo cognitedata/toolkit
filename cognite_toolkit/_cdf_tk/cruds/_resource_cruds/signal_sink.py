@@ -10,12 +10,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     SubscribeSignalsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSinkYAML
 
 
 @final
-class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkResponse]):
+class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkResponse]):
     folder_name = "signals"
     resource_cls = SignalSinkResponse
     resource_write_cls = SignalSinkRequest

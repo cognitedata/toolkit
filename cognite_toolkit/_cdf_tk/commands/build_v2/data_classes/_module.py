@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._insights import ModelSyntaxWarning
@@ -169,7 +169,7 @@ class ResourceType(BaseModel):
     kind: str
 
     @property
-    def crud_cls(self) -> type[ResourceCRUD]:
+    def crud_cls(self) -> type[ResourceIO]:
         kind = self.kind
         folder_name = self.resource_folder
         return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]

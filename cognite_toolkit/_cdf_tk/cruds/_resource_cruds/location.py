@@ -21,34 +21,34 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
-from .classic import AssetCRUD, SequenceCRUD
-from .data_organization import DataSetsCRUD
-from .datamodel import DataModelCRUD, SpaceCRUD, ViewCRUD
+from .classic import AssetIO, SequenceIO
+from .data_organization import DataSetsIO
+from .datamodel import DataModelIO, SpaceCRUD, ViewIO
 from .file import FileMetadataCRUD
 from .timeseries import TimeSeriesCRUD
 
 
 @final
-class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, LocationFilterResponse]):
+class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFilterResponse]):
     folder_name = "locations"
     resource_cls = LocationFilterResponse
     resource_write_cls = LocationFilterRequest
     yaml_cls = LocationYAML
     dependencies = frozenset(
         {
-            AssetCRUD,
-            DataSetsCRUD,
-            DataModelCRUD,
+            AssetIO,
+            DataSetsIO,
+            DataModelIO,
             SpaceCRUD,
-            ViewCRUD,
-            SequenceCRUD,
+            ViewIO,
+            SequenceIO,
             FileMetadataCRUD,
             TimeSeriesCRUD,
         }
@@ -222,7 +222,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             yield from chunk
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -231,21 +231,21 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         if "assetCentric" in item:
             asset_centric = item["assetCentric"]
             for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
-                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                yield DataSetsIO, ExternalId(external_id=data_set_external_id)
             for asset in asset_centric.get("assetSubtreeIds", []):
                 if "externalId" in asset:
-                    yield AssetCRUD, ExternalId(external_id=asset["externalId"])
+                    yield AssetIO, ExternalId(external_id=asset["externalId"])
             for subfilter_name in cls.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 for data_set_external_id in subfilter.get("dataSetExternalIds", []):
-                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                    yield DataSetsIO, ExternalId(external_id=data_set_external_id)
                 for asset in subfilter.get("assetSubtreeIds", []):
                     if "externalId" in asset:
-                        yield AssetCRUD, ExternalId(external_id=asset["externalId"])
+                        yield AssetIO, ExternalId(external_id=asset["externalId"])
         for view in item.get("views", []):
             if in_dict(["space", "externalId", "version"], view):
                 yield (
-                    ViewCRUD,
+                    ViewIO,
                     ViewId(space=view["space"], external_id=view["externalId"], version=view["version"]),
                 )
         for space in item.get("instanceSpaces", []):
@@ -253,22 +253,22 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield (
-                    DataModelCRUD,
+                    DataModelIO,
                     DataModelId(
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )
 
     @classmethod
-    def _asset_centric_deps(cls, fields: AssetCentricFields) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def _asset_centric_deps(cls, fields: AssetCentricFields) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for data_set_external_id in fields.data_set_external_ids or []:
-            yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=data_set_external_id)
         for asset in fields.asset_subtree_external_ids or []:
             if ext_id := asset.get("externalId"):
-                yield AssetCRUD, ExternalId(external_id=ext_id)
+                yield AssetIO, ExternalId(external_id=ext_id)
 
     @classmethod
-    def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.asset_centric:
             yield from cls._asset_centric_deps(resource.asset_centric)
             for subfilter in [
@@ -281,11 +281,11 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
                 if subfilter is not None:
                     yield from cls._asset_centric_deps(subfilter)
         for view in resource.views or []:
-            yield ViewCRUD, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+            yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version)
         for space in resource.instance_spaces or []:
             yield SpaceCRUD, SpaceId(space=space)
         for data_model in resource.data_models or []:
             yield (
-                DataModelCRUD,
+                DataModelIO,
                 DataModelId(space=data_model.space, external_id=data_model.external_id, version=data_model.version),
             )

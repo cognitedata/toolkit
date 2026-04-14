@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxWarning,
     Recommendation,
 )
-from cognite_toolkit._cdf_tk.cruds import DataModelCRUD
+from cognite_toolkit._cdf_tk.cruds import DataModelIO
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
@@ -39,7 +39,7 @@ class NeatRuleSet(ToolkitGlobalRulSet):
         return RuleSetStatus(code="unavailable", message=message)
 
     def validate(self) -> Iterable[Insight | FailedValidation]:
-        data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
+        data_model_type = ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind)
         for module in self.modules:
             for resource in module.resources:
                 if resource.type == data_model_type:

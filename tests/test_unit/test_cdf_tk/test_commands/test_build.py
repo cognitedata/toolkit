@@ -12,7 +12,7 @@ from cognite.client import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationCRUD
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationIO
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -83,9 +83,7 @@ class TestBuildCommand:
         assert not cmd.warning_list, f"No warnings should be raised. Got warnings: {cmd.warning_list}"
         # There are two transformations in the project, expect two transformation files
         transformation_files = [
-            f
-            for f in (tmp_path / "transformations").iterdir()
-            if f.is_file() and TransformationCRUD.is_supported_file(f)
+            f for f in (tmp_path / "transformations").iterdir() if f.is_file() and TransformationIO.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
 
@@ -214,7 +212,7 @@ externalId: some_external_id
         source_filepath.read_bytes.return_value = raw_yaml.encode("utf-8")
 
         source_files = cmd._replace_variables(
-            [source_filepath], BuildVariables([]), TransformationCRUD.folder_name, Path("my_module"), verbose=False
+            [source_filepath], BuildVariables([]), TransformationIO.folder_name, Path("my_module"), verbose=False
         )
         assert len(source_files) == 1
         source_file = source_files[0]

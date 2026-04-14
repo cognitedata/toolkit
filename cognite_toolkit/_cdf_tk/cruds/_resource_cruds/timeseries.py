@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerIO, ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
@@ -42,21 +42,21 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
-from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
-from .classic import AssetCRUD
-from .data_organization import DataSetsCRUD
+from .auth import GroupAllScopedCRUD, SecurityCategoryIO
+from .classic import AssetIO
+from .data_organization import DataSetsIO
 from .datamodel import NodeCRUD
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSeriesResponse]):
+class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse]):
     item_name = "datapoints"
     folder_name = "timeseries"
     resource_cls = TimeSeriesResponse
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, AssetCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -91,23 +91,23 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryCRUD, NameId(name=security_category)
+                yield SecurityCategoryIO, NameId(name=security_category)
         if "assetExternalId" in item:
-            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
+            yield AssetIO, ExternalId(external_id=item["assetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for security_category in resource.security_categories or []:
-            yield SecurityCategoryCRUD, NameId(name=security_category)
+            yield SecurityCategoryIO, NameId(name=security_category)
         if resource.asset_external_id:
-            yield AssetCRUD, ExternalId(external_id=resource.asset_external_id)
+            yield AssetIO, ExternalId(external_id=resource.asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -186,8 +186,8 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
 
 
 @final
-class DatapointSubscriptionCRUD(
-    ResourceCRUD[
+class DatapointSubscriptionIO(
+    ResourceIO[
         ExternalId,
         DatapointSubscriptionRequest,
         DatapointSubscriptionResponse,
@@ -224,16 +224,16 @@ class DatapointSubscriptionCRUD(
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
 
     @classmethod
-    def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for timeseries_id in resource.time_series_ids or []:
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
         for instance_id in resource.instance_ids or []:

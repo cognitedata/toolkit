@@ -26,8 +26,8 @@ from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     RawTableCRUD,
-    ResourceContainerCRUD,
-    ResourceCRUD,
+    ResourceContainerIO,
+    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -75,7 +75,7 @@ class DeployOptions:
 @dataclass
 class ResourceDirectory:
     directory: Path
-    files_by_crud: dict[type[ResourceCRUD], list[Path]] = field(default_factory=lambda: defaultdict(list))
+    files_by_crud: dict[type[ResourceIO], list[Path]] = field(default_factory=lambda: defaultdict(list))
     invalid_files: list[Path] = field(default_factory=list)
     extra_files: list[Path] = field(default_factory=list)
 
@@ -98,11 +98,11 @@ class ReadBuildDirectory:
                     f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
                 )
 
-    def skipped_cruds(self) -> set[type[ResourceCRUD]]:
+    def skipped_cruds(self) -> set[type[ResourceIO]]:
         return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
 
-    def as_files_by_crud(self) -> dict[type[ResourceCRUD], list[Path]]:
-        files_by_crud: dict[type[ResourceCRUD], list[Path]] = {}
+    def as_files_by_crud(self) -> dict[type[ResourceIO], list[Path]]:
+        files_by_crud: dict[type[ResourceIO], list[Path]] = {}
         for dir in self.resource_directories:
             files_by_crud.update(dir.files_by_crud)
         return files_by_crud
@@ -128,9 +128,9 @@ class DeploymentStep:
 
     """
 
-    crud_cls: type[ResourceCRUD]
+    crud_cls: type[ResourceIO]
     files: list[Path]
-    skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
+    skipped_cruds: Set[type[ResourceIO]] = field(default_factory=set)
 
 
 @dataclass
@@ -152,7 +152,7 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 
     def get_ids(
         self,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         action: Literal["create", "delete", "update"],
     ) -> list[T_Identifier]:
         if action == "create":
@@ -430,8 +430,8 @@ class DeployV2Command(ToolkitCommand):
         """
         files_by_crud = read_dir.as_files_by_crud()
         skipped_cruds = read_dir.skipped_cruds()
-        dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
-        skipped_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
+        dependencies_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
+        skipped_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         for crud_cls in files_by_crud.keys():
             dependencies = crud_cls.dependencies
             if missing := (skipped_cruds.intersection(dependencies)):
@@ -520,7 +520,7 @@ class DeployV2Command(ToolkitCommand):
                     console,
                     options,
                     is_delete,
-                    is_data_resource=isinstance(crud, ResourceContainerCRUD),
+                    is_data_resource=isinstance(crud, ResourceContainerIO),
                 )
 
                 if options.dry_run:
@@ -540,7 +540,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _read_resource_files(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
         options: DeployOptions,
     ) -> dict[T_Identifier, ReadResource[T_RequestResource]]:
@@ -586,7 +586,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _validate_access(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: list[T_RequestResource],
         is_dry_run: bool,
     ) -> bool:
@@ -608,7 +608,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _categorize_resources(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console,
@@ -685,7 +685,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_dry_run(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         is_missing_write_acl: bool,
         options: DeployOptions,
@@ -695,7 +695,7 @@ class DeployV2Command(ToolkitCommand):
         deleted = len(resources.to_delete)
         unchanged = len(resources.unchanged)
 
-        is_container = isinstance(crud, ResourceContainerCRUD)
+        is_container = isinstance(crud, ResourceContainerIO)
         if options.drop and crud.support_drop and (not is_container or options.drop_data):
             # If drop/drop_data arguments are passed, then we will delete and recreate resources.
             created += unchanged + updated
@@ -717,9 +717,9 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_resources(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
-        skipped_cruds: Set[type[ResourceCRUD]],
+        skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
@@ -753,9 +753,9 @@ class DeployV2Command(ToolkitCommand):
         cls,
         error: ToolkitAPIError,
         action: Literal["create", "delete", "update"] | None,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
-        skipped_cruds: Set[type[ResourceCRUD]],
+        skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
     ) -> None:
         if action is None:
@@ -787,7 +787,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _missing_environment_variables(
-        cls, crud: ResourceCRUD, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
+        cls, crud: ResourceIO, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
     ) -> str | None:
         item_ids = resources.get_ids(crud, action)
         match = set(item_ids) & set(resources.missing_env_vars_by_id)

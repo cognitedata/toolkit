@@ -7,8 +7,8 @@ from typing import Any, ClassVar
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    GroupCRUD,
-    ResourceCRUD,
+    GroupIO,
+    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
@@ -99,13 +99,13 @@ class Builder(ABC):
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
 
-    def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
+    def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceIO], None]:
         return get_resource_crud(source_path, self.resource_folder)
 
 
 def get_resource_crud(
     source_path: Path, resource_folder: str
-) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
+) -> tuple[None, ToolkitWarning] | tuple[type[ResourceIO], None]:
     """Get the appropriate CRUD class for the given source file and resource folder."""
     folder_cruds = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder, [])
     if not folder_cruds:
@@ -133,9 +133,9 @@ def get_resource_crud(
                     f"the resource type. Supported types are: {humanize_collection(kinds)}."
                 )
         return None, UnknownResourceTypeWarning(source_path, suggestion)
-    elif len(crud_candidates) > 1 and all(issubclass(loader, GroupCRUD) for loader in crud_candidates):
+    elif len(crud_candidates) > 1 and all(issubclass(loader, GroupIO) for loader in crud_candidates):
         # There are two group cruds, one for resource scoped and one for all scoped.
-        return GroupCRUD, None
+        return GroupIO, None
     elif len(crud_candidates) == 1:
         return crud_candidates[0], None
 

@@ -15,22 +15,22 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
-from .datamodel import ViewCRUD
+from .datamodel import ViewIO
 
 
 @final
-class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, SearchConfigResponse]):
+class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConfigResponse]):
     support_drop = False
     folder_name = "cdf_applications"
     resource_cls = SearchConfigResponse
     resource_write_cls = SearchConfigRequest
     yaml_cls = SearchConfigYAML
-    dependencies = frozenset({ViewCRUD})
+    dependencies = frozenset({ViewIO})
     kind = "SearchConfig"
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"
@@ -68,8 +68,8 @@ class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, Search
         return sanitize_filename(f"{id.external_id}_{id.space}")
 
     @classmethod
-    def get_dependencies(cls, resource: SearchConfigYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield ViewCRUD, resource.as_id()
+    def get_dependencies(cls, resource: SearchConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield ViewIO, resource.as_id()
 
     def dump_resource(self, resource: SearchConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

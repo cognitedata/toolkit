@@ -13,11 +13,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.cruds import (
-    AssetCRUD,
-    DataSetsCRUD,
-    EventCRUD,
+    AssetIO,
+    DataSetsIO,
+    EventIO,
     FileMetadataCRUD,
-    LabelCRUD,
+    LabelIO,
     TimeSeriesCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
@@ -89,11 +89,11 @@ class AssetCentricIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsCRUD.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
 
         yield from self._configurations(
             [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
-            LabelCRUD.create_loader(self.client),
+            LabelIO.create_loader(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -129,7 +129,7 @@ class AssetCentricIO(
     def _configurations(
         cls,
         ids: Sequence[Hashable],
-        loader: DataSetsCRUD | LabelCRUD,
+        loader: DataSetsIO | LabelIO,
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
@@ -264,7 +264,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._crud = AssetCRUD.create_loader(self.client)
+        self._crud = AssetIO.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -634,7 +634,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._crud = EventCRUD.create_loader(self.client)
+        self._crud = EventIO.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)

@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapRequest,
     RobotMapResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 
 
 @final
-class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameResponse]):
+class RoboticFrameIO(ResourceIO[ExternalId, RobotFrameRequest, RobotFrameResponse]):
     folder_name = "robotics"
     resource_cls = RobotFrameResponse
     resource_write_cls = RobotFrameRequest
@@ -100,7 +100,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
 
 
 @final
-class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLocationResponse]):
+class RoboticLocationIO(ResourceIO[ExternalId, RobotLocationRequest, RobotLocationResponse]):
     folder_name = "robotics"
     resource_cls = RobotLocationResponse
     resource_write_cls = RobotLocationRequest
@@ -163,8 +163,8 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
 
 
 @final
-class RoboticsDataPostProcessingCRUD(
-    ResourceCRUD[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
+class RoboticsDataPostProcessingIO(
+    ResourceIO[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
 ):
     folder_name = "robotics"
     resource_cls = RobotDataPostProcessingResponse
@@ -241,7 +241,7 @@ class RoboticsDataPostProcessingCRUD(
 
 
 @final
-class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
+class RobotCapabilityIO(ResourceIO[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
     folder_name = "robotics"
     resource_cls = RobotCapabilityResponse
     resource_write_cls = RobotCapabilityRequest
@@ -320,12 +320,12 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
 
 
 @final
-class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]):
+class RoboticMapIO(ResourceIO[ExternalId, RobotMapRequest, RobotMapResponse]):
     folder_name = "robotics"
     resource_cls = RobotMapResponse
     resource_write_cls = RobotMapRequest
     kind = "Map"
-    dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
+    dependencies = frozenset({RoboticFrameIO, RoboticLocationIO})
     yaml_cls = RobotMapYAML
     _doc_url = "Maps/operation/createMaps"
 

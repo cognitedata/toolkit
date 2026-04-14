@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, ResourceWorker, WorkflowTriggerCRUD
+from cognite_toolkit._cdf_tk.cruds import FunctionIO, ResourceWorker, WorkflowTriggerIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -25,11 +25,11 @@ class TestResourceWorker:
                 last_updated_time=0,
                 is_paused=False,
                 metadata={
-                    WorkflowTriggerCRUD._MetadataKey.secret_hash: "outdated-hash",
+                    WorkflowTriggerIO._MetadataKey.secret_hash: "outdated-hash",
                 },
             ),
         )
-        loader = WorkflowTriggerCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerIO.create_loader(toolkit_client_approval.mock_client)
 
         worker = ResourceWorker(loader, "deploy")
         local_file = MagicMock(spec=Path)
@@ -66,10 +66,10 @@ authentication:
                     "dataSetExternalId": "my_dataset",
                 }
             ]
-            loader = FunctionCRUD.create_loader(toolkit_client_approval.mock_client, None)
+            loader = FunctionIO.create_loader(toolkit_client_approval.mock_client, None)
 
             local_file = MagicMock(spec=Path)
-            local_file.parent.name = FunctionCRUD.folder_name
+            local_file.parent.name = FunctionIO.folder_name
 
             worker = ResourceWorker(loader, "deploy")
             local_by_id = worker.load_resources([local_file], None, False)

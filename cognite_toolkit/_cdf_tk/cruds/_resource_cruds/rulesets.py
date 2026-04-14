@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils import (
@@ -30,7 +30,7 @@ _DOCS_ROOT = "https://api-docs.cognite.com/20230101/"
 
 
 @final
-class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
+class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
     folder_name = "rulesets"
     resource_cls = RuleSetResponse
     resource_write_cls = RuleSetRequest
@@ -98,14 +98,14 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
 
 
 @final
-class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse]):
+class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse]):
     folder_name = "rulesets"
     resource_cls = RuleSetVersionResponse
     resource_write_cls = RuleSetVersionRequest
     kind = "RuleSetVersion"
     yaml_cls = RuleSetVersionYAML
-    dependencies = frozenset({RuleSetCRUD})
-    parent_resource = frozenset({RuleSetCRUD})
+    dependencies = frozenset({RuleSetIO})
+    parent_resource = frozenset({RuleSetIO})
     support_drop = True
     support_update = False
 
@@ -155,13 +155,13 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
         yield from ()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "ruleSetExternalId" in item:
-            yield RuleSetCRUD, ExternalId(external_id=item["ruleSetExternalId"])
+            yield RuleSetIO, ExternalId(external_id=item["ruleSetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield RuleSetCRUD, ExternalId(external_id=resource.rule_set_external_id)
+    def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield RuleSetIO, ExternalId(external_id=resource.rule_set_external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: RuleSetVersionId, item: dict[str, Any]) -> Iterable[ReadExtra]:

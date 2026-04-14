@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
-from cognite_toolkit._cdf_tk.cruds import DatapointSubscriptionCRUD
+from cognite_toolkit._cdf_tk.cruds import DatapointSubscriptionIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
@@ -32,7 +32,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
         )
 
-        to_upsert, batches = DatapointSubscriptionCRUD.create_split_timeseries_ids(sub)
+        to_upsert, batches = DatapointSubscriptionIO.create_split_timeseries_ids(sub)
 
         assert len(to_upsert.time_series_ids or []) == expected_ts_count
         assert len(to_upsert.instance_ids or []) == expected_node_count
@@ -47,7 +47,7 @@ class TestDatapointSubscriptionLoader:
         )
 
         with pytest.raises(ToolkitValueError) as exc:
-            DatapointSubscriptionCRUD.create_split_timeseries_ids(sub)
+            DatapointSubscriptionIO.create_split_timeseries_ids(sub)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'
 
@@ -90,7 +90,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
         )
 
-        _, batches = DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
+        _, batches = DatapointSubscriptionIO.update_split_timeseries_ids(sub, current)
         assert len(batches) == expected_updates
 
     def test_update_split_timeseries_ids_raise(self) -> None:
@@ -103,6 +103,6 @@ class TestDatapointSubscriptionLoader:
         )
 
         with pytest.raises(ToolkitValueError) as exc:
-            DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
+            DatapointSubscriptionIO.update_split_timeseries_ids(sub, current)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'

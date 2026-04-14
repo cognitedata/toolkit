@@ -15,11 +15,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
-    AssetCRUD,
-    DataSetsCRUD,
+    AssetIO,
+    DataSetsIO,
     GroupResourceScopedCRUD,
-    InFieldCDMLocationConfigCRUD,
-    InfieldV1CRUD,
+    InFieldCDMLocationConfigIO,
+    InfieldV1IO,
     SpaceCRUD,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -55,20 +55,20 @@ class TestInfieldV1Loader:
         ] = ["my_other_dataset"]
 
         actual = {
-            (loader_cls.__name__, identifier) for loader_cls, identifier in InfieldV1CRUD.get_dependent_items(dumped)
+            (loader_cls.__name__, identifier) for loader_cls, identifier in InfieldV1IO.get_dependent_items(dumped)
         }
 
         assert actual == {
-            (AssetCRUD.__name__, ExternalId(external_id="my_root_asset")),
-            (DataSetsCRUD.__name__, ExternalId(external_id="my_dataset")),
+            (AssetIO.__name__, ExternalId(external_id="my_root_asset")),
+            (DataSetsIO.__name__, ExternalId(external_id="my_dataset")),
             (SpaceCRUD.__name__, SpaceId(space="my_app_data_space")),
             (SpaceCRUD.__name__, SpaceId(space="my_customer_data_space")),
             (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group1")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group2")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group3")),
-            (DataSetsCRUD.__name__, ExternalId(external_id="my_other_dataset")),
-            (AssetCRUD.__name__, ExternalId(external_id="my_asset_subtree")),
+            (DataSetsIO.__name__, ExternalId(external_id="my_other_dataset")),
+            (AssetIO.__name__, ExternalId(external_id="my_asset_subtree")),
             (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
         }
 
@@ -91,7 +91,7 @@ class TestInFieldCDMLocationConfigCRUD:
         with monkeypatch_toolkit_client() as client:
             my_console = MagicMock(spec=Console)
             client.infield.apm_config.list.return_value = [legacy]
-            io = InFieldCDMLocationConfigCRUD(client, None, my_console)
+            io = InFieldCDMLocationConfigIO(client, None, my_console)
 
             created = io.create([item])
 

@@ -17,109 +17,109 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
-from ._base_cruds import DataCRUD, Loader, ResourceContainerCRUD, ResourceCRUD
+from ._base_cruds import DataCRUD, Loader, ResourceContainerIO, ResourceIO
 from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_cruds import (
-    AgentCRUD,
-    AssetCRUD,
+    AgentIO,
+    AssetIO,
     CogniteFileCRUD,
     ContainerCRUD,
-    DataModelCRUD,
-    DatapointSubscriptionCRUD,
-    DataProductCRUD,
-    DataProductVersionCRUD,
-    DataSetsCRUD,
+    DataModelIO,
+    DatapointSubscriptionIO,
+    DataProductIO,
+    DataProductVersionIO,
+    DataSetsIO,
     EdgeCRUD,
-    EventCRUD,
-    ExtractionPipelineConfigCRUD,
-    ExtractionPipelineCRUD,
+    EventIO,
+    ExtractionPipelineConfigIO,
+    ExtractionPipelineIO,
     FileMetadataCRUD,
-    FunctionCRUD,
-    FunctionScheduleCRUD,
+    FunctionIO,
+    FunctionScheduleIO,
     GraphQLCRUD,
     GroupAllScopedCRUD,
-    GroupCRUD,
+    GroupIO,
     GroupResourceScopedCRUD,
-    HostedExtractorDestinationCRUD,
-    HostedExtractorJobCRUD,
-    HostedExtractorMappingCRUD,
-    HostedExtractorSourceCRUD,
-    InFieldCDMLocationConfigCRUD,
-    InFieldLocationConfigCRUD,
-    InfieldV1CRUD,
-    LabelCRUD,
-    LocationFilterCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
+    InFieldCDMLocationConfigIO,
+    InFieldLocationConfigIO,
+    InfieldV1IO,
+    LabelIO,
+    LocationFilterIO,
     NodeCRUD,
     RawDatabaseCRUD,
     RawTableCRUD,
-    RelationshipCRUD,
-    ResourceViewMappingCRUD,
-    RobotCapabilityCRUD,
-    RoboticFrameCRUD,
-    RoboticLocationCRUD,
-    RoboticMapCRUD,
-    RoboticsDataPostProcessingCRUD,
-    RuleSetCRUD,
-    RuleSetVersionCRUD,
-    SearchConfigCRUD,
-    SecurityCategoryCRUD,
-    SequenceCRUD,
-    SequenceRowCRUD,
-    SignalSinkCRUD,
-    SignalSubscriptionCRUD,
-    SimulatorModelCRUD,
-    SimulatorModelRevisionCRUD,
-    SimulatorRoutineCRUD,
-    SimulatorRoutineRevisionCRUD,
+    RelationshipIO,
+    ResourceViewMappingIO,
+    RobotCapabilityIO,
+    RoboticFrameIO,
+    RoboticLocationIO,
+    RoboticMapIO,
+    RoboticsDataPostProcessingIO,
+    RuleSetIO,
+    RuleSetVersionIO,
+    SearchConfigIO,
+    SecurityCategoryIO,
+    SequenceIO,
+    SequenceRowIO,
+    SignalSinkIO,
+    SignalSubscriptionIO,
+    SimulatorModelIO,
+    SimulatorModelRevisionIO,
+    SimulatorRoutineIO,
+    SimulatorRoutineRevisionIO,
     SpaceCRUD,
-    StreamCRUD,
-    StreamlitCRUD,
+    StreamIO,
+    StreamlitIO,
     ThreeDModelCRUD,
     TimeSeriesCRUD,
-    TransformationCRUD,
-    TransformationNotificationCRUD,
-    TransformationScheduleCRUD,
-    ViewCRUD,
-    WorkflowCRUD,
-    WorkflowTriggerCRUD,
-    WorkflowVersionCRUD,
+    TransformationIO,
+    TransformationNotificationIO,
+    TransformationScheduleIO,
+    ViewIO,
+    WorkflowIO,
+    WorkflowTriggerIO,
+    WorkflowVersionIO,
 )
 from ._worker import ResourceWorker
 
-_EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
+_EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_CRUDS.add(GraphQLCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
-    _EXCLUDED_CRUDS.add(InfieldV1CRUD)
-    _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
-    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
+    _EXCLUDED_CRUDS.add(InfieldV1IO)
+    _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
+    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
+    _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
-    _EXCLUDED_CRUDS.add(StreamCRUD)
+    _EXCLUDED_CRUDS.add(StreamIO)
 if not FeatureFlag.is_enabled(Flags.SIGNALS):
-    _EXCLUDED_CRUDS.add(SignalSinkCRUD)
-    _EXCLUDED_CRUDS.add(SignalSubscriptionCRUD)
+    _EXCLUDED_CRUDS.add(SignalSinkIO)
+    _EXCLUDED_CRUDS.add(SignalSubscriptionIO)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
-    _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
-    _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
-    _EXCLUDED_CRUDS.add(SimulatorRoutineCRUD)
-    _EXCLUDED_CRUDS.add(SimulatorModelRevisionCRUD)
+    _EXCLUDED_CRUDS.add(SimulatorModelIO)
+    _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionIO)
+    _EXCLUDED_CRUDS.add(SimulatorRoutineIO)
+    _EXCLUDED_CRUDS.add(SimulatorModelRevisionIO)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
-    _EXCLUDED_CRUDS.add(DataProductCRUD)
-    _EXCLUDED_CRUDS.add(DataProductVersionCRUD)
-    _EXCLUDED_CRUDS.add(RuleSetCRUD)
-    _EXCLUDED_CRUDS.add(RuleSetVersionCRUD)
+    _EXCLUDED_CRUDS.add(DataProductIO)
+    _EXCLUDED_CRUDS.add(DataProductVersionIO)
+    _EXCLUDED_CRUDS.add(RuleSetIO)
+    _EXCLUDED_CRUDS.add(RuleSetVersionIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 for _loader in itertools.chain(
-    ResourceCRUD.__subclasses__(),
-    ResourceContainerCRUD.__subclasses__(),
+    ResourceIO.__subclasses__(),
+    ResourceContainerIO.__subclasses__(),
     DataCRUD.__subclasses__(),
-    GroupCRUD.__subclasses__(),
+    GroupIO.__subclasses__(),
 ):
-    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD]:
+    if _loader in [ResourceIO, ResourceContainerIO, DataCRUD, GroupIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
@@ -136,17 +136,17 @@ CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE
 RESOURCE_CRUD_BY_FOLDER_NAME = {
     folder_name: cruds
     for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
-    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceCRUD)])
+    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceIO)])
 }
 
-RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceCRUD]]] = {
-    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceCRUD)}
+RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
+    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceIO)}
     for folder_name, cruds in RESOURCE_CRUD_BY_FOLDER_NAME.items()
 }
 
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
-RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
-RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerCRUD)]
+RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
+RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
 RESOURCE_DATA_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, DataCRUD)]
 KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
 for crud in CRUD_LIST:
@@ -205,69 +205,69 @@ __all__ = [
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
     "_EXCLUDED_CRUDS",
-    "AgentCRUD",
-    "AssetCRUD",
+    "AgentIO",
+    "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
     "DataCRUD",
-    "DataModelCRUD",
-    "DataProductCRUD",
-    "DataProductVersionCRUD",
-    "DataSetsCRUD",
-    "DatapointSubscriptionCRUD",
+    "DataModelIO",
+    "DataProductIO",
+    "DataProductVersionIO",
+    "DataSetsIO",
+    "DatapointSubscriptionIO",
     "DatapointsCRUD",
     "EdgeCRUD",
-    "EventCRUD",
-    "ExtractionPipelineCRUD",
-    "ExtractionPipelineConfigCRUD",
+    "EventIO",
+    "ExtractionPipelineConfigIO",
+    "ExtractionPipelineIO",
     "FileCRUD",
     "FileMetadataCRUD",
-    "FunctionCRUD",
-    "FunctionScheduleCRUD",
+    "FunctionIO",
+    "FunctionScheduleIO",
     "GroupAllScopedCRUD",
-    "GroupCRUD",
+    "GroupIO",
     "GroupResourceScopedCRUD",
-    "HostedExtractorDestinationCRUD",
-    "HostedExtractorJobCRUD",
-    "HostedExtractorMappingCRUD",
-    "HostedExtractorSourceCRUD",
-    "InFieldCDMLocationConfigCRUD",
-    "InFieldLocationConfigCRUD",
-    "LabelCRUD",
-    "LocationFilterCRUD",
+    "HostedExtractorDestinationIO",
+    "HostedExtractorJobIO",
+    "HostedExtractorMappingIO",
+    "HostedExtractorSourceIO",
+    "InFieldCDMLocationConfigIO",
+    "InFieldLocationConfigIO",
+    "LabelIO",
+    "LocationFilterIO",
     "NodeCRUD",
     "RawDatabaseCRUD",
     "RawFileCRUD",
     "RawTableCRUD",
-    "RelationshipCRUD",
-    "ResourceCRUD",
-    "ResourceContainerCRUD",
+    "RelationshipIO",
+    "ResourceContainerIO",
+    "ResourceIO",
     "ResourceTypes",
     "ResourceWorker",
-    "RobotCapabilityCRUD",
-    "RoboticFrameCRUD",
-    "RoboticLocationCRUD",
-    "RoboticMapCRUD",
-    "RoboticsDataPostProcessingCRUD",
-    "RuleSetCRUD",
-    "RuleSetVersionCRUD",
-    "SearchConfigCRUD",
-    "SecurityCategoryCRUD",
-    "SequenceCRUD",
-    "SequenceRowCRUD",
-    "SignalSinkCRUD",
-    "SignalSubscriptionCRUD",
-    "SimulatorModelCRUD",
+    "RobotCapabilityIO",
+    "RoboticFrameIO",
+    "RoboticLocationIO",
+    "RoboticMapIO",
+    "RoboticsDataPostProcessingIO",
+    "RuleSetIO",
+    "RuleSetVersionIO",
+    "SearchConfigIO",
+    "SecurityCategoryIO",
+    "SequenceIO",
+    "SequenceRowIO",
+    "SignalSinkIO",
+    "SignalSubscriptionIO",
+    "SimulatorModelIO",
     "SpaceCRUD",
-    "StreamlitCRUD",
+    "StreamlitIO",
     "ThreeDModelCRUD",
     "TimeSeriesCRUD",
-    "TransformationCRUD",
-    "TransformationNotificationCRUD",
-    "TransformationScheduleCRUD",
-    "ViewCRUD",
-    "WorkflowCRUD",
-    "WorkflowTriggerCRUD",
-    "WorkflowVersionCRUD",
+    "TransformationIO",
+    "TransformationNotificationIO",
+    "TransformationScheduleIO",
+    "ViewIO",
+    "WorkflowIO",
+    "WorkflowTriggerIO",
+    "WorkflowVersionIO",
     "get_crud",
 ]

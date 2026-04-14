@@ -14,13 +14,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.hosted_extractors import (
-    HostedExtractorDestinationCRUD,
-    HostedExtractorSourceCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSubscriptionYAML
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
     HostedExtractorsFilterYAML,
@@ -31,13 +31,13 @@ from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
 
 
 @final
-class SignalSubscriptionCRUD(ResourceCRUD[ExternalId, SignalSubscriptionRequest, SignalSubscriptionResponse]):
+class SignalSubscriptionIO(ResourceIO[ExternalId, SignalSubscriptionRequest, SignalSubscriptionResponse]):
     folder_name = "signals"
     resource_cls = SignalSubscriptionResponse
     resource_write_cls = SignalSubscriptionRequest
     kind = "Subscription"
     yaml_cls = SignalSubscriptionYAML
-    dependencies = frozenset({SignalSinkCRUD, WorkflowCRUD, HostedExtractorDestinationCRUD, HostedExtractorSourceCRUD})
+    dependencies = frozenset({SignalSinkIO, WorkflowIO, HostedExtractorDestinationIO, HostedExtractorSourceIO})
     support_update = True
     _doc_url = "Signals/operation/createSignalSubscriptions"
 
@@ -46,21 +46,21 @@ class SignalSubscriptionCRUD(ResourceCRUD[ExternalId, SignalSubscriptionRequest,
         return "signal subscriptions"
 
     @classmethod
-    def get_dependencies(cls, resource: SignalSubscriptionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: SignalSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         sink = resource.sink
         if isinstance(sink, SinkRefWithExternalIdYAML):
-            yield SignalSinkCRUD, SignalSinkId(type=sink.type, external_id=sink.external_id)
+            yield SignalSinkIO, SignalSinkId(type=sink.type, external_id=sink.external_id)
 
         if isinstance(resource.filter, IntegrationsFilterYAML) and resource.filter.resource:
             # TODO: integrations is not yet a supported resource type; add dependency once it is.
             pass
         elif isinstance(resource.filter, WorkflowsFilterYAML) and resource.filter.resource:
-            yield WorkflowCRUD, ExternalId(external_id=resource.filter.resource)
+            yield WorkflowIO, ExternalId(external_id=resource.filter.resource)
         elif isinstance(resource.filter, HostedExtractorsFilterYAML):
             if resource.filter.source_external_id:
-                yield HostedExtractorSourceCRUD, ExternalId(external_id=resource.filter.source_external_id)
+                yield HostedExtractorSourceIO, ExternalId(external_id=resource.filter.source_external_id)
             if resource.filter.destination_external_id:
-                yield HostedExtractorDestinationCRUD, ExternalId(external_id=resource.filter.destination_external_id)
+                yield HostedExtractorDestinationIO, ExternalId(external_id=resource.filter.destination_external_id)
 
     @classmethod
     def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> ExternalId:

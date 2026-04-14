@@ -20,27 +20,27 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
-from .auth import GroupCRUD, SecurityCategoryCRUD
-from .classic import AssetCRUD
-from .data_organization import DataSetsCRUD
+from .auth import GroupIO, SecurityCategoryIO
+from .classic import AssetIO
+from .data_organization import DataSetsIO
 from .datamodel import SpaceCRUD
-from .extraction_pipeline import ExtractionPipelineCRUD
-from .location import LocationFilterCRUD
+from .extraction_pipeline import ExtractionPipelineIO
+from .location import LocationFilterIO
 from .raw import RawDatabaseCRUD, RawTableCRUD
 from .timeseries import TimeSeriesCRUD
 
 
 @final
-class GroupResourceScopedCRUD(GroupCRUD):
+class GroupResourceScopedCRUD(GroupIO):
     dependencies = frozenset(
         {
             SpaceCRUD,
-            DataSetsCRUD,
-            ExtractionPipelineCRUD,
+            DataSetsIO,
+            ExtractionPipelineIO,
             TimeSeriesCRUD,
-            SecurityCategoryCRUD,
-            LocationFilterCRUD,
-            AssetCRUD,
+            SecurityCategoryIO,
+            LocationFilterIO,
+            AssetIO,
             RawDatabaseCRUD,
             RawTableCRUD,
         }

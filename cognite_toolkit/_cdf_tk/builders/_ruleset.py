@@ -4,7 +4,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds import RuleSetVersionCRUD
+from cognite_toolkit._cdf_tk.cruds import RuleSetVersionIO
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.utils import safe_write
 
 
 class RuleSetBuilder(Builder):
-    _resource_folder = RuleSetVersionCRUD.folder_name
+    _resource_folder = RuleSetVersionIO.folder_name
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -41,7 +41,7 @@ class RuleSetBuilder(Builder):
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             extra_sources: list[SourceLocation] | None = None
-            if loader is RuleSetVersionCRUD:
+            if loader is RuleSetVersionIO:
                 extra_sources = self._add_rules(loaded, source_file, ttl_files, destination_path)
 
             destination = BuildDestinationFile(
@@ -67,7 +67,7 @@ class RuleSetBuilder(Builder):
         extra_sources: list[SourceLocation] = []
         for entry in loaded_list:
             try:
-                id_ = RuleSetVersionCRUD.get_id(entry)
+                id_ = RuleSetVersionIO.get_id(entry)
             except KeyError:
                 continue
             filepath = source_file.source.path

@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
     RAWTableResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
@@ -48,7 +48,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RAWDatabaseResponse
@@ -148,7 +148,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
 
 
 @final
-class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableResponse]):
+class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse]):
     item_name = "raw rows"
     folder_name = "raw"
     resource_cls = RAWTableResponse
@@ -205,12 +205,12 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         return {"dbName": id.db_name, "tableName": id.name}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dbName" in item:
             yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
 
     @classmethod
-    def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield RawDatabaseCRUD, RawDatabaseId(name=resource.db_name)
 
     def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:

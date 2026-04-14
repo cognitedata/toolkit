@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -64,17 +64,17 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, di
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
 from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsCRUD
+from .data_organization import DataSetsIO
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
+class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsCRUD, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -116,10 +116,10 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
         return sanitize_filename(id.external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         if "rawTables" in item:
             for entry in item["rawTables"]:
                 if db := entry.get("dbName"):
@@ -130,9 +130,9 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
                         yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
 
     @classmethod
-    def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         seen_databases: set[str] = set()
         for entry in resource.raw_tables or []:
             if entry.db_name and entry.db_name not in seen_databases:
@@ -198,8 +198,8 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
 
 
 @final
-class ExtractionPipelineConfigCRUD(
-    ResourceCRUD[
+class ExtractionPipelineConfigIO(
+    ResourceIO[
         ExternalId,
         ExtractionPipelineConfigRequest,
         ExtractionPipelineConfigResponse,
@@ -209,9 +209,9 @@ class ExtractionPipelineConfigCRUD(
     resource_cls = ExtractionPipelineConfigResponse
     resource_write_cls = ExtractionPipelineConfigRequest
     kind = "Config"
-    dependencies = frozenset({ExtractionPipelineCRUD})
+    dependencies = frozenset({ExtractionPipelineIO})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
-    parent_resource = frozenset({ExtractionPipelineCRUD})
+    parent_resource = frozenset({ExtractionPipelineIO})
     yaml_cls = ExtractionPipelineConfigYAML
 
     support_update = False
@@ -246,15 +246,13 @@ class ExtractionPipelineConfigCRUD(
         return sanitize_filename(id.external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "externalId" in item:
-            yield ExtractionPipelineCRUD, ExternalId(external_id=item["externalId"])
+            yield ExtractionPipelineIO, ExternalId(external_id=item["externalId"])
 
     @classmethod
-    def get_dependencies(
-        cls, resource: ExtractionPipelineConfigYAML
-    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield ExtractionPipelineCRUD, ExternalId(external_id=resource.external_id)
+    def get_dependencies(cls, resource: ExtractionPipelineConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield ExtractionPipelineIO, ExternalId(external_id=resource.external_id)
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:

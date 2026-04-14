@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.cruds import FunctionCRUD
+from cognite_toolkit._cdf_tk.cruds import FunctionIO
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 
 
 class FunctionBuilder(Builder):
-    _resource_folder = FunctionCRUD.folder_name
+    _resource_folder = FunctionIO.folder_name
 
     def __init__(self, build_dir: Path, warn: Callable[[ToolkitWarning], None]) -> None:
         super().__init__(build_dir, warn=warn)
@@ -90,7 +90,7 @@ class FunctionBuilder(Builder):
                 continue
 
             warnings = WarningList[FileReadWarning]()
-            if loader is FunctionCRUD:
+            if loader is FunctionIO:
                 warnings = self.copy_function_directory_to_build(source_file)
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
@@ -110,17 +110,17 @@ class FunctionBuilder(Builder):
         module: ModuleLocation,
     ) -> WarningList[ToolkitWarning]:
         warnings = WarningList[ToolkitWarning]()
-        has_config_files = any(resource.kind == FunctionCRUD.kind for resource in built_resources)
+        has_config_files = any(resource.kind == FunctionIO.kind for resource in built_resources)
         if has_config_files:
             return warnings
         config_files_misplaced = [
             file
-            for file in module.source_paths_by_resource_folder[FunctionCRUD.folder_name]
-            if FunctionCRUD.is_supported_file(file)
+            for file in module.source_paths_by_resource_folder[FunctionIO.folder_name]
+            if FunctionIO.is_supported_file(file)
         ]
         if config_files_misplaced:  # and not has_config_files:
             for yaml_source_path in config_files_misplaced:
-                required_location = module.dir / FunctionCRUD.folder_name / yaml_source_path.name
+                required_location = module.dir / FunctionIO.folder_name / yaml_source_path.name
                 warning = LowSeverityWarning(
                     f"The required Function resource configuration file "
                     f"was not found in {required_location.as_posix()!r}. "

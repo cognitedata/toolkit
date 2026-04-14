@@ -2,14 +2,14 @@ import pytest
 from cognite.client import _version as CogniteSDKVersion
 from packaging.requirements import Requirement
 
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.industrial_tool import StreamlitCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.industrial_tool import StreamlitIO
 from cognite_toolkit._cdf_tk.tk_warnings import StreamlitRequirementsWarning
 
 
 class TestStreamlitLoader:
     @pytest.fixture
     def recommended_packages(self):
-        return StreamlitCRUD.recommended_packages()
+        return StreamlitIO.recommended_packages()
 
     def test_requirements(self, recommended_packages):
         assert Requirement("pyodide-http==0.2.1") in recommended_packages
@@ -35,5 +35,5 @@ class TestStreamlitLoader:
         user_requirements_txt(),
     )
     def test_requirements_file_missing_packages(self, mock_content, expected_result) -> None:
-        actual = StreamlitCRUD._missing_recommended_requirements(mock_content)
+        actual = StreamlitIO._missing_recommended_requirements(mock_content)
         assert set(actual) == set(expected_result)

@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataMo
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, DataModelCRUD, GraphQLCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, DataModelIO, GraphQLCRUD, SpaceCRUD, ViewIO
 from tests.data import NAUGHTY_PROJECT
 
 
@@ -38,9 +38,9 @@ class TestDumpResource:
             tmp_path,
         )
 
-        data_model_folder = tmp_path / DataModelCRUD.folder_name
+        data_model_folder = tmp_path / DataModelIO.folder_name
         assert data_model_folder.exists()
-        assert sum(1 for _ in data_model_folder.glob(f"*{DataModelCRUD.kind}.yaml")) == 1
+        assert sum(1 for _ in data_model_folder.glob(f"*{DataModelIO.kind}.yaml")) == 1
 
     def test_dump_global_model(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
@@ -52,10 +52,10 @@ class TestDumpResource:
             verbose=False,
         )
 
-        data_model_folder = output_dir / DataModelCRUD.folder_name
+        data_model_folder = output_dir / DataModelIO.folder_name
         assert data_model_folder.exists()
-        assert sum(1 for _ in data_model_folder.glob(f"*{DataModelCRUD.kind}.yaml")) == 1
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewCRUD.kind}.yaml")) == 33
+        assert sum(1 for _ in data_model_folder.glob(f"*{DataModelIO.kind}.yaml")) == 1
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewIO.kind}.yaml")) == 33
         assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 29
         assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceCRUD.kind}.yaml")) == 2
 
@@ -72,9 +72,9 @@ class TestDumpResource:
             verbose=False,
         )
 
-        data_model_folder = output_dir / DataModelCRUD.folder_name
+        data_model_folder = output_dir / DataModelIO.folder_name
         assert data_model_folder.exists()
-        view_loader = ViewCRUD.create_loader(toolkit_client)
+        view_loader = ViewIO.create_loader(toolkit_client)
         views_by_id = {
             view_loader.get_id(item).external_id: view_loader.load_resource(item)
             for filepath in view_loader.find_files(output_dir)

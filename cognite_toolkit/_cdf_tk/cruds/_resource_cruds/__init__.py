@@ -1,119 +1,119 @@
-from .agent import AgentCRUD
-from .auth import GroupAllScopedCRUD, GroupCRUD, SecurityCategoryCRUD
-from .classic import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
-from .configuration import SearchConfigCRUD
-from .data_organization import DataSetsCRUD, LabelCRUD
-from .data_product import DataProductCRUD
-from .data_product_version import DataProductVersionCRUD
+from .agent import AgentIO
+from .auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
+from .classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
+from .configuration import SearchConfigIO
+from .data_organization import DataSetsIO, LabelIO
+from .data_product import DataProductIO
+from .data_product_version import DataProductVersionIO
 from .datamodel import (
     ContainerCRUD,
-    DataModelCRUD,
+    DataModelIO,
     EdgeCRUD,
     GraphQLCRUD,
     NodeCRUD,
     SpaceCRUD,
-    ViewCRUD,
+    ViewIO,
 )
-from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
-from .fieldops import InFieldCDMLocationConfigCRUD, InFieldLocationConfigCRUD, InfieldV1CRUD
+from .extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
+from .fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
 from .file import CogniteFileCRUD, FileMetadataCRUD
-from .function import FunctionCRUD, FunctionScheduleCRUD
+from .function import FunctionIO, FunctionScheduleIO
 from .group_scoped import GroupResourceScopedCRUD
 from .hosted_extractors import (
-    HostedExtractorDestinationCRUD,
-    HostedExtractorJobCRUD,
-    HostedExtractorMappingCRUD,
-    HostedExtractorSourceCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
 )
-from .industrial_tool import StreamlitCRUD
-from .location import LocationFilterCRUD
-from .migration import ResourceViewMappingCRUD
+from .industrial_tool import StreamlitIO
+from .location import LocationFilterIO
+from .migration import ResourceViewMappingIO
 from .raw import RawDatabaseCRUD, RawTableCRUD
-from .relationship import RelationshipCRUD
+from .relationship import RelationshipIO
 from .robotics import (
-    RobotCapabilityCRUD,
-    RoboticFrameCRUD,
-    RoboticLocationCRUD,
-    RoboticMapCRUD,
-    RoboticsDataPostProcessingCRUD,
+    RobotCapabilityIO,
+    RoboticFrameIO,
+    RoboticLocationIO,
+    RoboticMapIO,
+    RoboticsDataPostProcessingIO,
 )
-from .rulesets import RuleSetCRUD, RuleSetVersionCRUD
-from .signal_sink import SignalSinkCRUD
-from .signal_subscription import SignalSubscriptionCRUD
+from .rulesets import RuleSetIO, RuleSetVersionIO
+from .signal_sink import SignalSinkIO
+from .signal_subscription import SignalSubscriptionIO
 from .simulators import (
-    SimulatorModelCRUD,
-    SimulatorModelRevisionCRUD,
-    SimulatorRoutineCRUD,
-    SimulatorRoutineRevisionCRUD,
+    SimulatorModelIO,
+    SimulatorModelRevisionIO,
+    SimulatorRoutineIO,
+    SimulatorRoutineRevisionIO,
 )
-from .streams import StreamCRUD
+from .streams import StreamIO
 from .three_d_model import ThreeDModelCRUD
-from .timeseries import DatapointSubscriptionCRUD, TimeSeriesCRUD
-from .transformation import TransformationCRUD, TransformationNotificationCRUD, TransformationScheduleCRUD
-from .workflow import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
+from .timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
+from .transformation import TransformationIO, TransformationNotificationIO, TransformationScheduleIO
+from .workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
 __all__ = [
-    "AgentCRUD",
-    "AssetCRUD",
+    "AgentIO",
+    "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
-    "DataModelCRUD",
-    "DataProductCRUD",
-    "DataProductVersionCRUD",
-    "DataSetsCRUD",
-    "DatapointSubscriptionCRUD",
+    "DataModelIO",
+    "DataProductIO",
+    "DataProductVersionIO",
+    "DataSetsIO",
+    "DatapointSubscriptionIO",
     "EdgeCRUD",
-    "EventCRUD",
-    "ExtractionPipelineCRUD",
-    "ExtractionPipelineConfigCRUD",
+    "EventIO",
+    "ExtractionPipelineConfigIO",
+    "ExtractionPipelineIO",
     "FileMetadataCRUD",
-    "FunctionCRUD",
-    "FunctionScheduleCRUD",
+    "FunctionIO",
+    "FunctionScheduleIO",
     "GraphQLCRUD",
     "GroupAllScopedCRUD",
-    "GroupCRUD",
+    "GroupIO",
     "GroupResourceScopedCRUD",
-    "HostedExtractorDestinationCRUD",
-    "HostedExtractorJobCRUD",
-    "HostedExtractorMappingCRUD",
-    "HostedExtractorSourceCRUD",
-    "InFieldCDMLocationConfigCRUD",
-    "InFieldLocationConfigCRUD",
-    "InfieldV1CRUD",
-    "LabelCRUD",
-    "LocationFilterCRUD",
+    "HostedExtractorDestinationIO",
+    "HostedExtractorJobIO",
+    "HostedExtractorMappingIO",
+    "HostedExtractorSourceIO",
+    "InFieldCDMLocationConfigIO",
+    "InFieldLocationConfigIO",
+    "InfieldV1IO",
+    "LabelIO",
+    "LocationFilterIO",
     "NodeCRUD",
     "RawDatabaseCRUD",
     "RawTableCRUD",
-    "RelationshipCRUD",
-    "ResourceViewMappingCRUD",
-    "RobotCapabilityCRUD",
-    "RoboticFrameCRUD",
-    "RoboticLocationCRUD",
-    "RoboticMapCRUD",
-    "RoboticsDataPostProcessingCRUD",
-    "RuleSetCRUD",
-    "RuleSetVersionCRUD",
-    "SearchConfigCRUD",
-    "SecurityCategoryCRUD",
-    "SequenceCRUD",
-    "SequenceRowCRUD",
-    "SignalSinkCRUD",
-    "SignalSubscriptionCRUD",
-    "SimulatorModelCRUD",
-    "SimulatorModelRevisionCRUD",
-    "SimulatorRoutineCRUD",
-    "SimulatorRoutineRevisionCRUD",
+    "RelationshipIO",
+    "ResourceViewMappingIO",
+    "RobotCapabilityIO",
+    "RoboticFrameIO",
+    "RoboticLocationIO",
+    "RoboticMapIO",
+    "RoboticsDataPostProcessingIO",
+    "RuleSetIO",
+    "RuleSetVersionIO",
+    "SearchConfigIO",
+    "SecurityCategoryIO",
+    "SequenceIO",
+    "SequenceRowIO",
+    "SignalSinkIO",
+    "SignalSubscriptionIO",
+    "SimulatorModelIO",
+    "SimulatorModelRevisionIO",
+    "SimulatorRoutineIO",
+    "SimulatorRoutineRevisionIO",
     "SpaceCRUD",
-    "StreamCRUD",
-    "StreamlitCRUD",
+    "StreamIO",
+    "StreamlitIO",
     "ThreeDModelCRUD",
     "TimeSeriesCRUD",
-    "TransformationCRUD",
-    "TransformationNotificationCRUD",
-    "TransformationScheduleCRUD",
-    "ViewCRUD",
-    "WorkflowCRUD",
-    "WorkflowTriggerCRUD",
-    "WorkflowVersionCRUD",
+    "TransformationIO",
+    "TransformationNotificationIO",
+    "TransformationScheduleIO",
+    "ViewIO",
+    "WorkflowIO",
+    "WorkflowTriggerIO",
+    "WorkflowVersionIO",
 ]

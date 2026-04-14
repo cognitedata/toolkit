@@ -13,26 +13,24 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
-from .classic import AssetCRUD, EventCRUD, SequenceCRUD
-from .data_organization import DataSetsCRUD, LabelCRUD
+from .classic import AssetIO, EventIO, SequenceIO
+from .data_organization import DataSetsIO, LabelIO
 from .file import FileMetadataCRUD
 from .timeseries import TimeSeriesCRUD
 
 
 @final
-class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, RelationshipResponse]):
+class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipResponse]):
     folder_name = "classic"
     resource_cls = RelationshipResponse
     resource_write_cls = RelationshipRequest
     kind = "Relationship"
     yaml_cls = RelationshipYAML
-    dependencies = frozenset(
-        {DataSetsCRUD, AssetCRUD, EventCRUD, SequenceCRUD, FileMetadataCRUD, TimeSeriesCRUD, LabelCRUD}
-    )
+    dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataCRUD, TimeSeriesCRUD, LabelIO})
     _doc_url = "Relationships/operation/createRelationships"
 
     @property
@@ -97,19 +95,19 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+                yield LabelIO, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, ExternalId(external_id=label)
+                yield LabelIO, ExternalId(external_id=label)
         for connection in ["source", "target"]:
             type_key = f"{connection}Type"
             id_key = f"{connection}ExternalId"
@@ -119,28 +117,28 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
                 if isinstance(id_value, str) and isinstance(type_value, str):
                     type_value = type_value.strip().casefold()
                     if type_value == "asset":
-                        yield AssetCRUD, ExternalId(external_id=id_value)
+                        yield AssetIO, ExternalId(external_id=id_value)
                     elif type_value == "sequence":
-                        yield SequenceCRUD, ExternalId(external_id=id_value)
+                        yield SequenceIO, ExternalId(external_id=id_value)
                     elif type_value == "timeseries":
                         yield TimeSeriesCRUD, ExternalId(external_id=id_value)
                     elif type_value == "file":
                         yield FileMetadataCRUD, ExternalId(external_id=id_value)
                     elif type_value == "event":
-                        yield EventCRUD, ExternalId(external_id=id_value)
+                        yield EventIO, ExternalId(external_id=id_value)
 
     @classmethod
-    def get_dependencies(cls, resource: RelationshipYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: RelationshipYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for label in resource.labels or []:
-            yield LabelCRUD, ExternalId(external_id=label.externalId)
-        type_to_crud: dict[str, type[ResourceCRUD]] = {
-            "asset": AssetCRUD,
-            "sequence": SequenceCRUD,
+            yield LabelIO, ExternalId(external_id=label.externalId)
+        type_to_crud: dict[str, type[ResourceIO]] = {
+            "asset": AssetIO,
+            "sequence": SequenceIO,
             "timeseries": TimeSeriesCRUD,
             "file": FileMetadataCRUD,
-            "event": EventCRUD,
+            "event": EventIO,
         }
         for type_value, id_value in [
             (resource.source_type, resource.source_external_id),

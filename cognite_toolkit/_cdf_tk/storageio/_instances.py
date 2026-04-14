@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -78,7 +78,7 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
-        self._view_crud = ViewCRUD.create_loader(self.client)
+        self._view_crud = ViewIO.create_loader(self.client)
 
     @staticmethod
     def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
@@ -369,7 +369,7 @@ class InstanceIO(
             )
         if not selector.view:
             return
-        view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
+        view_crud = ViewIO(self.client, None, None, topological_sort_implements=True)
         views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:
@@ -379,8 +379,8 @@ class InstanceIO(
             if view.version is not None:
                 filename += f"_{view.version}"
             yield StorageIOConfig(
-                kind=ViewCRUD.kind,
-                folder_name=ViewCRUD.folder_name,
+                kind=ViewIO.kind,
+                folder_name=ViewIO.folder_name,
                 value=view_crud.dump_resource(view),
                 filename=sanitize_filename(filename),
             )

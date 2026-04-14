@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.cruds import ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ViewIO
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
@@ -128,7 +128,7 @@ class UploadCommand(ToolkitCommand):
                     )
                 selector_by_view_id[view_ref] = selector
 
-        view_dependencies, cyclic_views = ViewCRUD.create_loader(client).topological_sort_container_constraints(
+        view_dependencies, cyclic_views = ViewIO.create_loader(client).topological_sort_container_constraints(
             list(selector_by_view_id.keys())
         )
         if cyclic_views:

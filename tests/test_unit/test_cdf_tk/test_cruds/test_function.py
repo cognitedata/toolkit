@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds import FunctionIO, FunctionScheduleIO, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
@@ -36,7 +36,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client.dump()
@@ -45,7 +45,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", env_vars_with_client.dump()
@@ -58,7 +58,7 @@ class TestFunctionLoader:
         """Avoid poisoning the shared lookup cache when dry-run and a DataSet is created in the same deploy."""
         client = MagicMock()
         client.lookup.data_sets.id.return_value = 42
-        loader = FunctionCRUD.create_loader(client, Path("/tmp"))
+        loader = FunctionIO.create_loader(client, Path("/tmp"))
         resource = {
             "externalId": "fn_test",
             "name": "test",
@@ -88,7 +88,7 @@ secrets:
             created_time=0,
             status="Ready",
             metadata={
-                FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
+                FunctionIO._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
                         "secret2": "value2",
@@ -105,9 +105,9 @@ secrets:
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
-        filepath.parent.name = FunctionCRUD.folder_name
+        filepath.parent.name = FunctionIO.folder_name
 
-        worker = ResourceWorker(FunctionCRUD.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
+        worker = ResourceWorker(FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -126,8 +126,8 @@ secrets:
             created_time=0,
             status="Ready",
             metadata={
-                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
-                FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
+                FunctionIO._MetadataKey.function_hash: FunctionIO._create_hash_values(tmp_path / "my_function"),
+                FunctionIO._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
                         "secret2": "updated_value2",
@@ -163,12 +163,12 @@ secrets:
             external_id="my_function",
             created_time=0,
             metadata={
-                FunctionCRUD._MetadataKey.function_hash: calculate_directory_hash(
+                FunctionIO._MetadataKey.function_hash: calculate_directory_hash(
                     tmp_path / "my_function", exclude_prefixes={".DS_Store"}
                 ),
             },
         )
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -176,7 +176,7 @@ secrets:
         assert dumped["indexUrl"] == "http://my-index-url"
 
     def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
 
         # Mock data
@@ -205,12 +205,12 @@ secrets:
         assert sorted(write_capabilities[1].scope.ids) == [123, 456]
 
     def test_get_function_required_capabilities_empty(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
         capabilities = loader.get_function_required_capabilities([], read_only=False)
         assert capabilities == []
 
     def test_get_function_required_capabilities_no_datasets(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
         items = [
             FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
             FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
@@ -221,9 +221,9 @@ secrets:
         assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
     @pytest.fixture()
-    def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionCRUD]:
+    def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionIO]:
         with monkeypatch_toolkit_client() as client:
-            loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
+            loader = FunctionIO(client, None, None, file_upload_timeout_seconds=30.0)
             function_id = "my_func"
             filestem = function_id
             filemetadata = tmp_path / f"{filestem}.FileMetadata.yaml"
@@ -238,7 +238,7 @@ secrets:
             yield loader
 
     @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
-    def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionCRUD) -> None:
+    def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
         client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
@@ -253,7 +253,7 @@ secrets:
         assert result == [created_response]
 
     @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
-    def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionCRUD) -> None:
+    def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
         client.tool.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
@@ -284,7 +284,7 @@ class TestFunctionScheduleLoader:
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = FunctionScheduleCRUD.create_loader(client)
+            loader = FunctionScheduleIO.create_loader(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml.dump(schedule)
@@ -315,13 +315,13 @@ authentication:
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
-                description=f"Run the function every day at 8am UTC {FunctionScheduleCRUD._hash_key}: {auth_hash}",
+                description=f"Run the function every day at 8am UTC {FunctionScheduleIO._hash_key}: {auth_hash}",
                 created_time=1,
                 when="2024-01-01T08:00:00Z",
             )
             # The as_write method looks up the input data.
             client.functions.schedules.get_input_data.return_value = None
-            loader = FunctionScheduleCRUD(client, None, None)
+            loader = FunctionScheduleIO(client, None, None)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -390,7 +390,7 @@ authentication:
                 json={"error": {"message": "Invalid client credentials"}},
             )
             client = ToolkitClient(toolkit_config)
-            loader = FunctionScheduleCRUD(client, None, None)
+            loader = FunctionScheduleIO(client, None, None)
             schedule = FunctionScheduleRequest(
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
@@ -416,7 +416,7 @@ authentication:
                 json={"items": []},
             )
             client = ToolkitClient(toolkit_config)
-            loader = FunctionScheduleCRUD(client, None, None)
+            loader = FunctionScheduleIO(client, None, None)
             schedule = FunctionScheduleWrite(
                 name="daily-8am-utc",
                 function_external_id="fn_non_existent_function",

@@ -18,22 +18,22 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_LIST,
     CogniteFileCRUD,
     FileMetadataCRUD,
-    FunctionCRUD,
-    FunctionScheduleCRUD,
+    FunctionIO,
+    FunctionScheduleIO,
     GraphQLCRUD,
-    HostedExtractorDestinationCRUD,
-    HostedExtractorSourceCRUD,
-    ResourceCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorSourceIO,
+    ResourceIO,
     ResourceWorker,
-    SearchConfigCRUD,
-    StreamlitCRUD,
-    TransformationCRUD,
-    WorkflowTriggerCRUD,
+    SearchConfigIO,
+    StreamlitIO,
+    TransformationIO,
+    WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetCRUD, RuleSetVersionCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductIO
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterIO
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetIO, RuleSetVersionIO
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
@@ -106,7 +106,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     # Data Products and Rule Sets APIs are not yet available on the test server.
     # The alpha flag is turned off in cdf.toml so these are not built,
     # but we still exclude the CRUDs to be safe.
-    _skip_cruds = {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}
+    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}
     with (
         patch.dict(
             os.environ,
@@ -137,8 +137,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
-def create_loader(loader_cls: type[ResourceCRUD], client: ToolkitClient, build_dir: Path) -> ResourceCRUD:
-    if issubclass(loader_cls, FunctionCRUD | StreamlitCRUD):
+def create_loader(loader_cls: type[ResourceIO], client: ToolkitClient, build_dir: Path) -> ResourceIO:
+    if issubclass(loader_cls, FunctionIO | StreamlitIO):
         # In v0.8, we use filio CRUDs (FileMetadata/CogniteFile) to upload the function/streamlit code.
         # This is the legacy deploy command, which has to do it the old way.
         return loader_cls(client, build_dir, client.console, use_fileio=False)
@@ -153,10 +153,10 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     client = env_vars.get_client()
     print("Looking for changed resources ...")
     for loader_cls in RESOURCE_CRUD_LIST:
-        if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
+        if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}:
+        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}:
             # Data Products and Rule Sets APIs are not yet available on the test server.
             continue
 
@@ -182,19 +182,19 @@ def get_changed_source_files(
     changed_source_files: dict[str, set[str]] = defaultdict(set)
     selected_loaders = cmd._clean_command.get_selected_loaders(build_dir, read_resource_folders=set(), include=None)
     for loader_cls in selected_loaders:
-        if (not issubclass(loader_cls, ResourceCRUD)) or (
+        if (not issubclass(loader_cls, ResourceIO)) or (
             # Authentication that causes the diff to fail
-            loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
+            loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
             # External files that cannot (or not yet supported) be pulled
-            or loader_cls in {GraphQLCRUD, FunctionCRUD, StreamlitCRUD}
+            or loader_cls in {GraphQLCRUD, FunctionIO, StreamlitIO}
             # Have authentication hashes that is different for each environment
-            or loader_cls in {TransformationCRUD, FunctionScheduleCRUD, WorkflowTriggerCRUD}
+            or loader_cls in {TransformationIO, FunctionScheduleIO, WorkflowTriggerIO}
             # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
-            or loader_cls is LocationFilterCRUD
+            or loader_cls is LocationFilterIO
             # SearchConfigLoader is not supported in pull and post that also will require special handling
-            or loader_cls is SearchConfigCRUD
+            or loader_cls is SearchConfigIO
             # Data Products and Rule Sets APIs are not yet available on the test server.
-            or loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}
+            or loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}
         ):
             continue
 

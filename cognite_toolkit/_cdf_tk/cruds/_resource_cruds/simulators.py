@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
     SimulatorRoutineRevisionResponse,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceIO
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
@@ -46,20 +46,20 @@ from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
     SimulatorRoutineRevisionYAML,
 )
 
-from .data_organization import DataSetsCRUD
+from .data_organization import DataSetsIO
 from .file import FileMetadataCRUD
 from .function import CDF_TOML
 from .timeseries import TimeSeriesCRUD
 
 
 @final
-class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, SimulatorModelResponse]):
+class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorModelResponse]):
     folder_name = "simulators"
     resource_cls = SimulatorModelResponse
     resource_write_cls = SimulatorModelRequest
     yaml_cls = SimulatorModelYAML
     kind = "SimulatorModel"
-    dependencies = frozenset({DataSetsCRUD})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Simulator-Models/operation/create_simulator_model_simulators_models_post"
 
     @property
@@ -144,19 +144,19 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
             cursor = page.next_cursor
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a SimulatorModel requires a DataSet, so this method would return the
         DataSetsCRUD and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+    def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
-            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+            yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -171,16 +171,14 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
 
 
 @final
-class SimulatorModelRevisionCRUD(
-    ResourceCRUD[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]
-):
+class SimulatorModelRevisionIO(ResourceIO[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]):
     folder_name = "simulators"
     resource_cls = SimulatorModelRevisionResponse
     resource_write_cls = SimulatorModelRevisionRequest
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
-    dependencies = frozenset({SimulatorModelCRUD, FileMetadataCRUD})
-    parent_resource = frozenset({SimulatorModelCRUD})
+    dependencies = frozenset({SimulatorModelIO, FileMetadataCRUD})
+    parent_resource = frozenset({SimulatorModelIO})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
     def __init__(
@@ -274,15 +272,15 @@ class SimulatorModelRevisionCRUD(
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "modelExternalId" in item:
-            yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
+            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
         if "fileExternalId" in item:
             yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
+    def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
         if resource.file_external_id:
             yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
 
@@ -301,13 +299,13 @@ class SimulatorModelRevisionCRUD(
 
 
 @final
-class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
+class SimulatorRoutineIO(ResourceIO[ExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
     folder_name = "simulators"
     resource_cls = SimulatorRoutineResponse
     resource_write_cls = SimulatorRoutineRequest
     yaml_cls = SimulatorRoutineYAML
     kind = "SimulatorRoutine"
-    dependencies = frozenset({SimulatorModelCRUD})
+    dependencies = frozenset({SimulatorModelIO})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_simulators_routines_post"
 
     support_update = False
@@ -378,13 +376,13 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "modelExternalId" in item:
-            yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
+            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
 
     @classmethod
-    def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
+    def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
         return SimulatorRoutineRequest.model_validate(resource)
@@ -394,16 +392,16 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
 
 
 @final
-class SimulatorRoutineRevisionCRUD(
-    ResourceCRUD[ExternalId, SimulatorRoutineRevisionRequest, SimulatorRoutineRevisionResponse]
+class SimulatorRoutineRevisionIO(
+    ResourceIO[ExternalId, SimulatorRoutineRevisionRequest, SimulatorRoutineRevisionResponse]
 ):
     folder_name = "simulators"
     resource_cls = SimulatorRoutineRevisionResponse
     resource_write_cls = SimulatorRoutineRevisionRequest
     yaml_cls = SimulatorRoutineRevisionYAML
     kind = "SimulatorRoutineRevision"
-    dependencies = frozenset({SimulatorRoutineCRUD, TimeSeriesCRUD})
-    parent_resource = frozenset({SimulatorRoutineCRUD})
+    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesCRUD})
+    parent_resource = frozenset({SimulatorRoutineIO})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
     @property
@@ -473,9 +471,9 @@ class SimulatorRoutineRevisionCRUD(
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "routineExternalId" in item:
-            yield SimulatorRoutineCRUD, ExternalId(external_id=item["routineExternalId"])
+            yield SimulatorRoutineIO, ExternalId(external_id=item["routineExternalId"])
         config = item.get("configuration", {})
         if not isinstance(config, dict):
             return
@@ -495,10 +493,8 @@ class SimulatorRoutineRevisionCRUD(
                         yield TimeSeriesCRUD, ExternalId(external_id=external_id)
 
     @classmethod
-    def get_dependencies(
-        cls, resource: SimulatorRoutineRevisionYAML
-    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield SimulatorRoutineCRUD, ExternalId(external_id=resource.routine_external_id)
+    def get_dependencies(cls, resource: SimulatorRoutineRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SimulatorRoutineIO, ExternalId(external_id=resource.routine_external_id)
         if not resource.configuration:
             return
         config = resource.configuration

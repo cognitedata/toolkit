@@ -5,12 +5,12 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.cruds import (
     ContainerCRUD,
-    DataModelCRUD,
-    ResourceCRUD,
-    ResourceViewMappingCRUD,
+    DataModelIO,
+    ResourceIO,
+    ResourceViewMappingIO,
     ResourceWorker,
     SpaceCRUD,
-    ViewCRUD,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -29,13 +29,13 @@ class MigrationPrepareCommand(ToolkitCommand):
         verb = "Would deploy" if dry_run else "Deploying"
         print(f"{verb} {MODEL_ID!r}")
         results = DeployResults([], "deploy", dry_run=dry_run)
-        crud_cls: type[ResourceCRUD]
+        crud_cls: type[ResourceIO]
         for crud_cls, resource_list in [  # type: ignore[assignment]
             (SpaceCRUD, [SPACE]),
             (ContainerCRUD, CONTAINERS),
-            (ViewCRUD, VIEWS),
-            (DataModelCRUD, [COGNITE_MIGRATION_MODEL]),
-            (ResourceViewMappingCRUD, create_default_mappings()),
+            (ViewIO, VIEWS),
+            (DataModelIO, [COGNITE_MIGRATION_MODEL]),
+            (ResourceViewMappingIO, create_default_mappings()),
         ]:
             crud = crud_cls.create_loader(client)
             if warning := crud.prerequisite_warning():
@@ -43,7 +43,7 @@ class MigrationPrepareCommand(ToolkitCommand):
                 continue
             worker = ResourceWorker(crud, "deploy")
             # MyPy does not understand that `loader` has a `get_id` method.
-            dump_arg = {"context": "toolkit"} if crud_cls is ResourceViewMappingCRUD else {}
+            dump_arg = {"context": "toolkit"} if crud_cls is ResourceViewMappingIO else {}
             local_by_id = {crud.get_id(item): (item.dump(**dump_arg), item) for item in resource_list}  # type: ignore[attr-defined]
             worker.validate_access(local_by_id, is_dry_run=dry_run)
             cdf_resources = crud.retrieve(list(local_by_id.keys()))

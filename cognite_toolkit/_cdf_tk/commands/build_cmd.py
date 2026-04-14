@@ -29,19 +29,19 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.cruds import (
     ContainerCRUD,
     DataCRUD,
-    DataModelCRUD,
-    DataSetsCRUD,
-    ExtractionPipelineConfigCRUD,
+    DataModelIO,
+    DataSetsIO,
+    ExtractionPipelineConfigIO,
     FileCRUD,
-    FunctionCRUD,
-    LocationFilterCRUD,
+    FunctionIO,
+    LocationFilterIO,
     NodeCRUD,
     RawDatabaseCRUD,
     RawTableCRUD,
-    ResourceCRUD,
+    ResourceIO,
     SpaceCRUD,
-    TransformationCRUD,
-    ViewCRUD,
+    TransformationIO,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -102,14 +102,14 @@ class BuildCommand(ToolkitCommand):
         client: ToolkitClient | None = None,
     ) -> None:
         super().__init__(print_warning, skip_tracking, silent, client)
-        self.existing_resources_by_loader: dict[type[ResourceCRUD], set[Hashable]] = defaultdict(set)
-        self.instantiated_loaders: dict[type[ResourceCRUD], ResourceCRUD] = {}
+        self.existing_resources_by_loader: dict[type[ResourceIO], set[Hashable]] = defaultdict(set)
+        self.instantiated_loaders: dict[type[ResourceIO], ResourceIO] = {}
 
         # Built State
         self._module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
         self._builder_by_resource_folder: dict[str, Builder] = {}
-        self._ids_by_resource_type: dict[type[ResourceCRUD], dict[Hashable, SourceLocation]] = defaultdict(dict)
-        self._dependencies_by_required: dict[tuple[type[ResourceCRUD], Hashable], list[tuple[Hashable, Path]]] = (
+        self._ids_by_resource_type: dict[type[ResourceIO], dict[Hashable, SourceLocation]] = defaultdict(dict)
+        self._dependencies_by_required: dict[tuple[type[ResourceIO], Hashable], list[tuple[Hashable, Path]]] = (
             defaultdict(list)
         )
         self._has_built = False
@@ -416,7 +416,7 @@ class BuildCommand(ToolkitCommand):
             build_resources_by_folder[resource_name].extend(built_resources)
 
             # Collect validation metrics from FunctionBuilder
-            if resource_name == FunctionCRUD.folder_name and isinstance(builder, FunctionBuilder):
+            if resource_name == FunctionIO.folder_name and isinstance(builder, FunctionBuilder):
                 self._additional_tracking_info.function_validation_count += builder.validation_count
                 self._additional_tracking_info.function_validation_failures += builder.validation_failures
                 self._additional_tracking_info.function_validation_credential_errors += (
@@ -464,15 +464,15 @@ class BuildCommand(ToolkitCommand):
                 continue
 
             if resource_name in {
-                TransformationCRUD.folder_name,
-                DataModelCRUD.folder_name,
-                LocationFilterCRUD.folder_name,
+                TransformationIO.folder_name,
+                DataModelIO.folder_name,
+                LocationFilterIO.folder_name,
             }:
                 # Ensure that all keys that are version gets read as strings.
                 # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
                 content = quote_int_value_by_key_in_yaml(content, key="version")
 
-            if resource_name in ExtractionPipelineConfigCRUD.folder_name:
+            if resource_name in ExtractionPipelineConfigIO.folder_name:
                 # Ensure that the config variables are stings.
                 # This is required by ExtractionPipelineConfig
                 content = stringify_value_by_key_in_yaml(content, key="config")
@@ -534,7 +534,7 @@ class BuildCommand(ToolkitCommand):
         for loader_cls, id_ in missing_dependencies:
             if self._is_system_resource(loader_cls, id_):
                 continue
-            elif loader_cls is DataSetsCRUD and id_ == "":
+            elif loader_cls is DataSetsIO and id_ == "":
                 # Special case used by the location filter to indicate filter out all classical resources.
                 continue
             elif client and self._check_resource_exists_in_cdf(client, loader_cls, id_):
@@ -550,9 +550,7 @@ class BuildCommand(ToolkitCommand):
             has_checked_cdf = client is not None
             self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by, has_checked_cdf))
 
-    def _check_resource_exists_in_cdf(
-        self, client: ToolkitClient, loader_cls: type[ResourceCRUD], id_: Hashable
-    ) -> bool:
+    def _check_resource_exists_in_cdf(self, client: ToolkitClient, loader_cls: type[ResourceIO], id_: Hashable) -> bool:
         """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
         if id_ in self.existing_resources_by_loader[loader_cls]:
             return True
@@ -570,7 +568,7 @@ class BuildCommand(ToolkitCommand):
     def check_built_resource(
         self,
         parsed: dict[str, Any] | list[dict[str, Any]],
-        loader: type[ResourceCRUD],
+        loader: type[ResourceIO],
         source: SourceLocation,
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
@@ -637,10 +635,10 @@ class BuildCommand(ToolkitCommand):
         return warning_list, identifier_kind_pairs
 
     @staticmethod
-    def _is_system_resource(resource_cls: type[ResourceCRUD], id_: Hashable) -> bool:
+    def _is_system_resource(resource_cls: type[ResourceIO], id_: Hashable) -> bool:
         """System resources are deployed to all CDF project and should not be checked for dependencies."""
         return (
-            resource_cls in {ContainerCRUD, ViewCRUD, DataModelCRUD, NodeCRUD, SpaceCRUD}
+            resource_cls in {ContainerCRUD, ViewIO, DataModelIO, NodeCRUD, SpaceCRUD}
             and hasattr(id_, "space")
             and id_.space.startswith("cdf_")
         )

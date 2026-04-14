@@ -51,7 +51,7 @@ class Loader(ABC):
 
     folder_name: str
     kind: str
-    dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
+    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
     sub_folder_name: str | None = None
@@ -145,7 +145,7 @@ class SuccessExtra(ReadExtra):
     description: str
 
 
-class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
+class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
@@ -173,11 +173,11 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     # Optional to set in the subclass
     support_drop = True
     support_update = True
-    dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
+    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
-    parent_resource: "frozenset[type[ResourceCRUD]]" = frozenset()
+    parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -238,9 +238,9 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
             if SpaceCRUD not in self.dependencies:
                 return []
         if data_set_external_id is not None:
-            from ._resource_cruds.data_organization import DataSetsCRUD
+            from ._resource_cruds.data_organization import DataSetsIO
 
-            if DataSetsCRUD not in self.dependencies:
+            if DataSetsIO not in self.dependencies:
                 return []
         return self._iterate(data_set_external_id, space, parent_ids)
 
@@ -263,7 +263,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         return None
 
     @classmethod
-    def get_dependencies(cls, resource: Any) -> "Iterable[tuple[type[ResourceCRUD], Identifier]]":
+    def get_dependencies(cls, resource: Any) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         """Returns dependencies for a given resource.
         This is used to determine the order of deployment and to check for missing dependencies.
 
@@ -277,7 +277,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         return {}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
+    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -465,7 +465,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         return request_items
 
 
-class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
+class ResourceContainerIO(ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """This is the base class for all resource CRUD' containers.
 
     A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another

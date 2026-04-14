@@ -2,7 +2,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerRequest, SpaceRequest, ViewRequest
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewIO
 from tests.data import STRONGLY_COUPLED_MODEL
 
 
@@ -29,7 +29,7 @@ def deployed_container_space_coupled_model(toolkit_client: ToolkitClient) -> Non
 
 @pytest.mark.usefixtures("deployed_container_space_coupled_model")
 def test_deploy_strongly_coupled_model(toolkit_client: ToolkitClient) -> None:
-    loader = ViewCRUD(toolkit_client, STRONGLY_COUPLED_MODEL, None)
+    loader = ViewIO(toolkit_client, STRONGLY_COUPLED_MODEL, None)
     views = [ViewRequest.load_yaml(file.read_text(encoding="utf-8")) for file in loader.find_files()]
 
     try:
