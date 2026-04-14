@@ -8,7 +8,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
-from rich import print
+from rich.console import Console
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -22,8 +22,8 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
 
 
 class Severity(Enum):
-    failure = 1
-    warning = 2
+    warning = 1
+    failure = 2
 
 
 class LogAggregation(LogEntry):
@@ -240,7 +240,7 @@ class ItemsResult:
 
 class FileWithAggregationLogger(DataLogger):
     BATCH_SIZE = 1000
-    NO_WARNINGS = 999
+    NO_WARNINGS = 0
 
     def __init__(self, writer: NDJsonWriter) -> None:
         self.tracker = NoOpTracker()
@@ -290,17 +290,17 @@ class FileWithAggregationLogger(DataLogger):
         result_by_status: dict[OperationStatus, ItemsResult] = {}
         label_result_by_status_label: dict[OperationStatus, dict[str, LabelResult]] = {}
         for aggregations in self.aggregations_by_ids.values():
-            min_severity = min((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
-            status = self._severity_to_status(min_severity, is_dry_run)
+            max_severity = max((agg.severity.value for agg in aggregations), default=self.NO_WARNINGS)
+            status = self._severity_to_status(max_severity, is_dry_run)
             if status not in result_by_status:
-                result_by_status[status] = ItemsResult(status=status, count=0, severity=min_severity)
+                result_by_status[status] = ItemsResult(status=status, count=0, severity=max_severity)
             result_by_status[status].count += 1
             if status not in label_result_by_status_label:
                 label_result_by_status_label[status] = {}
             label_result_by_id = label_result_by_status_label[status]
 
             for aggregation in aggregations:
-                if aggregation.severity.value != min_severity:
+                if aggregation.severity.value != max_severity:
                     # We filter out all labels which are on a different severity level
                     # such that we only display the most severe issues for each item.
                     continue
@@ -320,16 +320,16 @@ class FileWithAggregationLogger(DataLogger):
 
         return list(result_by_status.values())
 
-    def _severity_to_status(self, min_severity: int, is_dry_run: bool) -> OperationStatus:
-        if min_severity == Severity.failure.value:
+    def _severity_to_status(self, max_severity: int, is_dry_run: bool) -> OperationStatus:
+        if max_severity == Severity.failure.value:
             return "failure"
-        elif min_severity == Severity.warning.value:
+        elif max_severity == Severity.warning.value:
             return "pending-with-warning" if is_dry_run else "success-with-warning"
         else:
             return "pending" if is_dry_run else "success"
 
 
-def display_item_results(items: list[ItemsResult]) -> None:
+def display_item_results(items: list[ItemsResult], console: Console) -> None:
     """Display item results using rich formatting.
 
     Shows a tree view of items grouped by status, with their labels and counts.
@@ -346,11 +346,11 @@ def display_item_results(items: list[ItemsResult]) -> None:
         "pending-with-warning": ("yellow", "○"),
     }
 
-    for item in sorted(items, key=lambda item: item.severity):
+    for item in sorted(items, key=lambda item: item.severity, reverse=True):
         style, icon = status_styles.get(item.status, ("white", "•"))
         tree = Tree(f"[{style}]{icon} {item.status}[/{style}]: {item.count} items")
 
         for label_result in item.labels:
             tree.add(f"[dim]{label_result.display_message()}[/dim]")
 
-        print(tree)
+        console.print(tree)
