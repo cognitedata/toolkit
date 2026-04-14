@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     FilesAcl,
     FunctionsAcl,
     ScopeDefinition,
+    SessionsAcl,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -668,7 +669,8 @@ class FunctionScheduleIO(ResourceIO[FunctionScheduleId, FunctionScheduleRequest,
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        yield from ()
+        if "WRITE" in actions:
+            yield SessionsAcl(actions=["CREATE"], scope=AllScope())
 
     @classmethod
     def dump_id(cls, id: FunctionScheduleId) -> dict[str, Any]:
