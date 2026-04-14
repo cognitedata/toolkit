@@ -2,6 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from functools import cached_property
 from typing import Any, ClassVar, Generic, Literal, TypeVar
 from uuid import uuid4
 
@@ -346,13 +347,26 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         ):
             raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
 
+    @cached_property
+    def _me(self) -> str:
+        return self.client.user_profiles.me().user_identifier
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         event_ids_by_chart_external_id = self._populate_cache(source)
         output: list[ChartRequest | None] = []
         issues: list[ChartMigrationIssue] = []
         for item in source:
             identifier = item.external_id
-            # Todo: Check owner of MonitoringJobs (probably not for scheduled calculations)
+            if any(job.user_identifier != self._me for job in item.monitoring_jobs or []):
+                issues.append(
+                    ChartMigrationIssue(
+                        id=identifier, chart_external_id=identifier, errors=["Monitoring job owned by different user"]
+                    )
+                )
+                self.logger.tracker.add_issue(identifier, "Monitoring job owned by different user.")
+                self.logger.tracker.finalize_item(identifier, "failure")
+                continue
+
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )
