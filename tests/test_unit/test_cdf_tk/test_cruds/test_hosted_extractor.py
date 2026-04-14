@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.cruds import HostedExtractorSourceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import HostedExtractorSourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import MissingRequiredParameterWarning
 from tests.data import COMPLETE_ORG
 
@@ -22,7 +22,7 @@ class TestHostedExtractorDestinationLoader:
             w
             for w in cmd.warning_list
             if isinstance(w, MissingRequiredParameterWarning)
-            and HostedExtractorSourceCRUD.folder_name in w.filepath.parts
+            and HostedExtractorSourceIO.folder_name in w.filepath.parts
         ]
 
         assert len(warns) == 0, warns

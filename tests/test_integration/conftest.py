@@ -66,7 +66,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT

@@ -32,8 +32,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowTriggerCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -45,6 +43,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     def _get_function(external_id: str | None, resources: ModuleResources) -> BuiltResourceFull[ExternalId]:
         function_builds_by_identifier: dict[str, BuiltResourceFull[ExternalId]] = {
             build.identifier.external_id: build
-            for build in resources.list_resources(ExternalId, "functions", FunctionCRUD.kind)
+            for build in resources.list_resources(ExternalId, "functions", FunctionIO.kind)
         }
 
         if len(function_builds_by_identifier) == 0:
@@ -286,15 +286,15 @@ if __name__ == "__main__":
     def _get_call_args_interactive(
         function_external_id: str, resources: ModuleResources
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
-        schedules = resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleCRUD.kind)
+        schedules = resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleIO.kind)
         options: dict[str, Any] = {
             f"FunctionSchedule: {schedule.identifier.name}": schedule
             for schedule in schedules
             if schedule.identifier.function_external_id == function_external_id
         }
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionCRUD.kind)
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
         raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
-        for trigger in resources.list_resources(str, "workflows", WorkflowTriggerCRUD.kind):
+        for trigger in resources.list_resources(str, "workflows", WorkflowTriggerIO.kind):
             raw_trigger = trigger.load_resource_dict({}, validate=False)
             loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
             raw_trigger_by_workflow_id[
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionCRUD.kind)
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
         found = False
         for workflow in workflows:
             if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
@@ -361,7 +361,7 @@ if __name__ == "__main__":
                         data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
                         found = True
                         break
-            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerCRUD.kind):
+            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerIO.kind):
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
@@ -383,7 +383,7 @@ if __name__ == "__main__":
         if not isinstance(data_source, str):
             raise ToolkitValueError(f"Data source {data_source} is not a valid workflow external id.")
 
-        for schedule in resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleCRUD.kind):
+        for schedule in resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleIO.kind):
             if (
                 schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
@@ -687,7 +687,7 @@ class RunWorkflowCommand(ToolkitCommand):
         resources = ModuleResources(organization_dir, build_env_name)
         client = env_vars.get_client()
         is_interactive = external_id is None
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionCRUD.kind)
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
         if len(workflows) == 0:
             raise ToolkitMissingResourceError("No workflows found in modules.")
         if external_id is None:
@@ -708,7 +708,7 @@ class RunWorkflowCommand(ToolkitCommand):
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             selected = selected_
         id_ = selected.identifier
-        triggers = resources.list_resources(str, "workflows", WorkflowTriggerCRUD.kind)
+        triggers = resources.list_resources(str, "workflows", WorkflowTriggerIO.kind)
 
         credentials: ClientCredentials | None = None
         input_: dict | None = None

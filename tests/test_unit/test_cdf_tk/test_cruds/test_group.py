@@ -14,19 +14,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
 )
-from cognite_toolkit._cdf_tk.cruds import (
-    DataSetsCRUD,
-    ExtractionPipelineCRUD,
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.resource_ios import (
+    DataSetsIO,
+    ExtractionPipelineIO,
     GroupAllScopedCRUD,
-    GroupCRUD,
+    GroupIO,
     GroupResourceScopedCRUD,
     RawDatabaseCRUD,
     RawTableCRUD,
-    ResourceCRUD,
+    ResourceIO,
     ResourceWorker,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -170,7 +170,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
                 [
-                    (DataSetsCRUD, ExternalId(external_id="ds_dataset1")),
+                    (DataSetsIO, ExternalId(external_id="ds_dataset1")),
                 ],
                 id="Dataset scope",
             ),
@@ -181,7 +181,7 @@ class TestGroupLoader:
                     ]
                 },
                 [
-                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
+                    (ExtractionPipelineIO, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="Extraction pipeline scope",
             ),
@@ -196,21 +196,21 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
                 [
-                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
+                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
                 ],
                 id="ID scope dataset",
             ),
             pytest.param(
                 {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
                 [
-                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
+                    (ExtractionPipelineIO, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="ID scope extractionpipline ",
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
-        actual_dependent_items = GroupCRUD.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        actual_dependent_items = GroupIO.get_dependent_items(item)
 
         assert list(actual_dependent_items) == expected
 
