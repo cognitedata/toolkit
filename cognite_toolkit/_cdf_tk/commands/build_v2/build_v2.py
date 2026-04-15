@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import sys
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -655,6 +656,8 @@ class BuildV2Command(ToolkitCommand):
                         safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
                     elif extra_file.byte_content:
                         extra_path.write_bytes(extra_file.byte_content)
+                    else:
+                        shutil.copy2(extra_file.source_path, extra_path)
 
                 crud_cls = file.resource_type.crud_cls
                 if resource.validated:
