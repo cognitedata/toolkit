@@ -1,4 +1,6 @@
+import json
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias, get_args
@@ -27,7 +29,9 @@ class BuildVariable(BaseModel):
     def name(self) -> str:
         return self.id.name
 
-    def get_pattern_replace_pair(self, file_suffix: FileSuffix = ".yaml") -> tuple[str, str]:
+    def get_pattern_replace_pair(
+        self, file_suffix: FileSuffix = ".yaml"
+    ) -> tuple[str, str | Callable[[re.Match[str]], str]]:
         substitution = self.value
         pattern = rf"{{{{\s*{self.name}\s*}}}}"
         if file_suffix in (".yaml", ".yml", ".json"):
@@ -37,12 +41,34 @@ class BuildVariable(BaseModel):
                 pattern = rf"'{pattern}'|{pattern}|\"{pattern}\""
             elif substitution is None:
                 substitution = "null"
+            elif isinstance(substitution, list) and file_suffix == ".yaml":
+                variable_token = rf"{{{{\s*{re.escape(self.name)}\s*}}}}"
+                pattern = rf"(?m)^(?P<indent>[ \t]*){variable_token}\s*$"
+                values = substitution
+
+                def replace_yaml_block_sequence(match: re.Match[str]) -> str:
+                    indent = match.group("indent")
+                    return "\n".join(f"{indent}- {BuildVariable._yaml_block_sequence_scalar(item)}" for item in values)
+
+                return pattern, replace_yaml_block_sequence
         elif file_suffix == ".sql":
             if isinstance(substitution, list):
                 substitution = self._format_list_as_sql_tuple(substitution)
         else:
             raise NotImplementedError(f"{file_suffix!r} is not supported for variable replacement")
         return pattern, str(substitution)
+
+    @staticmethod
+    def _yaml_block_sequence_scalar(value: str | bool | int | float) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, int | float):
+            return str(value)
+        if value.isdigit() or value.endswith(":"):
+            return json.dumps(value)
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", value):
+            return value
+        return json.dumps(value)
 
     @staticmethod
     def _format_list_as_sql_tuple(replace: list[str | bool | int | float]) -> str:
