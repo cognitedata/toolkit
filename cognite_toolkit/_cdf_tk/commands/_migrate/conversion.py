@@ -941,6 +941,57 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldUserMapping(CustomContainerPropertiesMapping):
+    """Custom mapping for the user property in the InField data migration.
+
+    This is needed because the user properties 'createdBy' and 'updatedBy' are mapped to two
+    properties in each. For example, the 'createdBy' is mapped to 'createdBy', and
+    'createdBy.externalId' -> sourceCreatedUser.
+
+    The ViewToView mapping does not support
+        - Mapping one properties in the source view to two properties in the destination view.
+        - Mapping nested property in the source to the destination.
+
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset(
+        {
+            ViewId(space="cdf_apm", external_id="Action", version="v1"),
+            ViewId(space="cdf_apm", external_id="Checklist", version="v7"),
+            ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"),
+            ViewId(space="cdf_apm", external_id="Condition", version="v1"),
+            ViewId(space="cdf_apm", external_id="ConditionalAction", version="v1"),
+            ViewId(space="cdf_apm", external_id="MeasurementReading", version="v4"),
+            ViewId(space="cdf_apm", external_id="Observation", version="v5"),
+            ViewId(space="cdf_apm", external_id="Schedule", version="v4"),
+            ViewId(space="cdf_apm", external_id="Template", version="v9"),
+            ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"),
+        }
+    )
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
+        issues: list[str] = []
+
+        def _map_user(source_prop: str, target_prop: str) -> None:
+            if user := source_properties.get(source_prop):
+                if isinstance(user, dict) and "externalId" in user:
+                    created_properties[target_prop] = user["externalId"]
+                elif isinstance(user, NodeId):
+                    created_properties[target_prop] = user.external_id
+                else:
+                    issues.append(
+                        f"Invalid {source_prop} value {user!r} for view {context.source_view_id!s}: "
+                        "expected a dict with an externalId field or a NodeId."
+                    )
+
+        _map_user("createdBy", "sourceCreatedUser")
+        _map_user("updatedBy", "sourceUpdatedUser")
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 
