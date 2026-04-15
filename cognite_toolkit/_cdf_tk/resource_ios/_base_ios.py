@@ -439,7 +439,7 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
     def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
         """Variable substitution in the content of a file. This is used in the build command.
 
-        This is overwritten in the TransformationCRUD to handle substitution in the query field.
+        This is overwritten in the TransformationIO to handle substitution in the query field.
         """
         # To avoid circular import
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
