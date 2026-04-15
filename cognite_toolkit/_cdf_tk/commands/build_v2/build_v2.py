@@ -908,6 +908,41 @@ class BuildV2Command(ToolkitCommand):
                 table.add_row(failed_file.code, failed_file.error, display_path, fix)
             console.print(table)
 
+        # Display deployment recommendation based on build status
+        has_yaml_errors = failed_read_file_count > 0
+        has_model_syntax_errors = all_insights.has_model_syntax_errors if all_insights else False
+
+        if has_yaml_errors:
+            console.print(
+                Panel(
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are YAML parsing errors that must be fixed before deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="red",
+                    expand=False,
+                )
+            )
+        elif has_model_syntax_errors:
+            console.print(
+                Panel(
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    "[green]✓[/] [bold]Ready to deploy.[/bold]\n"
+                    "No critical errors found. You can proceed with deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="green",
+                    expand=False,
+                )
+            )
+
         return None
 
     def _write_results(self, build: BuildFolder, cdf_project: str | None = None) -> None:
