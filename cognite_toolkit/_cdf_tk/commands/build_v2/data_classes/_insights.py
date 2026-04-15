@@ -42,6 +42,11 @@ class Recommendation(InsightDefinition):
 Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation
 
 
+def _normalize_csv_cell(text: str) -> str:
+    """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 class InsightList(UserList[Insight]):
     """A list of insights that can be sorted by type and message."""
 
@@ -90,21 +95,25 @@ class InsightList(UserList[Insight]):
     def to_csv(self) -> str:
         """Returns a CSV formatted string representation of the insights.
 
+        Uses a Unix-style CSV dialect (LF-only record separators, all fields quoted) so
+        ``message`` and ``fix`` may contain newlines without corrupting row boundaries.
+        Carriage returns inside cells are normalized to LF newlines.
+
         Returns:
             CSV formatted string with columns: insight_type, code, message, fix
         """
         output = io.StringIO()
         fieldnames = ["insight_type", "code", "message", "fix"]
-        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer = csv.DictWriter(output, fieldnames=fieldnames, dialect=csv.unix_dialect)
         writer.writeheader()
 
         for insight in self.data:
             writer.writerow(
                 {
-                    "insight_type": insight.insight_type(),
-                    "code": insight.code or "",
-                    "message": insight.message,
-                    "fix": insight.fix or "",
+                    "insight_type": _normalize_csv_cell(insight.insight_type()),
+                    "code": _normalize_csv_cell(insight.code or ""),
+                    "message": _normalize_csv_cell(insight.message),
+                    "fix": _normalize_csv_cell(insight.fix or ""),
                 }
             )
 
