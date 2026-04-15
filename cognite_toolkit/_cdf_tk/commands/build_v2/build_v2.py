@@ -856,13 +856,31 @@ class BuildV2Command(ToolkitCommand):
 
         all_insights = build_folder.all_insights
         if all_insights:
+            # Prioritize one insight per code, then by severity
+            insights_by_code: dict[str, Insight] = {}
+            remaining_insights: list[Insight] = []
+
+            for insight in all_insights:
+                code = insight.code or "UNDEFINED"
+                if code not in insights_by_code:
+                    insights_by_code[code] = insight
+                else:
+                    remaining_insights.append(insight)
+
+            # Sort the unique codes by severity
+            sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
+            # Sort remaining by severity
+            sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
+            # Combine them
+            prioritized_insights = sorted_unique_insights + sorted_remaining
+
             table = Table(title="Insights", expand=False, show_edge=False)
             table.add_column("Type", style="dim")
             table.add_column("Code", style="dim")
             table.add_column("Description", style="dim")
             table.add_column("Fix", style="dim")
             max_reached = False
-            for no, issue in enumerate(all_insights):
+            for no, issue in enumerate(prioritized_insights):
                 table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
                 if no > 10:
                     max_reached = True
@@ -912,6 +930,41 @@ class BuildV2Command(ToolkitCommand):
 
                 table.add_row(failed_file.code, failed_file.error, display_path, fix)
             console.print(table)
+
+        # Display deployment recommendation based on build status
+        has_yaml_errors = failed_read_file_count > 0
+        has_model_syntax_errors = all_insights.has_model_syntax_errors if all_insights else False
+
+        if has_yaml_errors:
+            console.print(
+                Panel(
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are YAML parsing errors that must be fixed before deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="red",
+                    expand=False,
+                )
+            )
+        elif has_model_syntax_errors:
+            console.print(
+                Panel(
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    "[green]✓[/] [bold]Ready to deploy.[/bold]\n"
+                    "No critical errors found. You can proceed with deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="green",
+                    expand=False,
+                )
+            )
 
         return None
 
