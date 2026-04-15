@@ -132,7 +132,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 )
                 for item in downloaded_files
             ]
-            yield Page(items=items, worker_id="Main", bookmark=NoBookmark())
+            yield self.emit_registered_page(Page(items=items, worker_id="Main", bookmark=NoBookmark()))
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config

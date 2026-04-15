@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
@@ -37,8 +37,23 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.storageio.logger import ItemsResult
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
+
+
+def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
+    totals = {
+        "failure": 0,
+        "pending": 0,
+        "success": 0,
+        "pending-with-warning": 0,
+        "success-with-warning": 0,
+        "skipped": 0,
+    }
+    for item in results:
+        totals[item.status] += item.count
+    return totals
 
 
 @pytest.fixture()
@@ -121,12 +136,12 @@ class TestMigrateAssetsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 2,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 2,
             "success-with-warning": 0,
             "skipped": 0,
         }
@@ -152,12 +167,12 @@ class TestMigrateEventsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 1,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 1,
             "success-with-warning": 0,
             "skipped": 0,
         }
@@ -183,12 +198,12 @@ class TestMigrateTimeSeriesCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 1,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 1,
             "success-with-warning": 0,
             "skipped": 0,
         }
@@ -214,12 +229,12 @@ class TestMigrateFileMetadataCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 1,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 1,
             "success-with-warning": 0,
             "skipped": 0,
         }
@@ -244,12 +259,12 @@ class TestMigrateAnnotations:
             dry_run=True,
             verbose=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 2,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 2,
             "success-with-warning": 0,
             "skipped": 0,
         }
@@ -317,7 +332,7 @@ class TestMigrateFiles:
             log_dir=tmp_path,
             dry_run=False,
         )
-        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
+        actual_result = _migration_status_totals(result[str(selected_cdm_file)])
 
         assert actual_result == {
             "failure": 1,
@@ -342,7 +357,7 @@ class TestMigrateFiles:
             dry_run=False,
         )
 
-        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
+        actual_result = _migration_status_totals(result[str(selected_cdm_file)])
 
         assert actual_result == {
             "failure": 0,
@@ -386,12 +401,12 @@ class TestMigrateEventsToRecordsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
+        results = _migration_status_totals(result[str(selector)])
         assert results == {
             "failure": 0,
-            "pending": 1,
+            "pending": 0,
             "success": 0,
-            "pending-with-warning": 0,
+            "pending-with-warning": 1,
             "success-with-warning": 0,
             "skipped": 0,
         }

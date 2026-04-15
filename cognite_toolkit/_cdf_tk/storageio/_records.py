@@ -168,7 +168,7 @@ class RecordIO(
                     if sync_response.next_cursor is not None
                     else NoBookmark()
                 )
-                yield Page(worker_id="main", items=items, bookmark=page_bookmark)
+                yield self.emit_registered_page(Page(worker_id="main", items=items, bookmark=page_bookmark))
             if not sync_response.has_next or total >= effective_limit:
                 break
 
