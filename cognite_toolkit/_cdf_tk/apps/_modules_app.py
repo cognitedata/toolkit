@@ -197,7 +197,7 @@ class ModulesApp(typer.Typer):
                 "-e",
                 help="Build environment to use.",
             ),
-        ] = CDF_TOML.cdf.default_env,
+        ] = CDF_TOML.cdf.default_env or "dev",
         dry_run: Annotated[
             bool,
             typer.Option(
