@@ -974,24 +974,21 @@ class InFieldUserMapping(CustomContainerPropertiesMapping):
     ) -> ConversionResult:
         created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
         issues: list[str] = []
-        if created_user := source_properties.get("createdBy"):
-            if isinstance(created_user, dict) and "externalId" in created_user:
-                created_properties["sourceCreatedUser"] = created_user["externalId"]
-            elif isinstance(created_user, NodeId):
-                created_properties["sourceCreatedUser"] = created_user.external_id
-            else:
-                issues.append(
-                    f"Invalid createdBy value {created_user!r} for view {context.source_view_id!s}: expected a dict with an externalId field or a NodeId."
-                )
-        if updated_user := source_properties.get("updatedBy"):
-            if isinstance(updated_user, dict) and "externalId" in updated_user:
-                created_properties["sourceUpdatedUser"] = updated_user["externalId"]
-            elif isinstance(updated_user, NodeId):
-                created_properties["sourceUpdatedUser"] = updated_user.external_id
-            else:
-                issues.append(
-                    f"Invalid updatedBy value {updated_user!r} for view {context.source_view_id!s}: expected a dict with an externalId field or a NodeId."
-                )
+
+        def _map_user(source_prop: str, target_prop: str) -> None:
+            if user := source_properties.get(source_prop):
+                if isinstance(user, dict) and "externalId" in user:
+                    created_properties[target_prop] = user["externalId"]
+                elif isinstance(user, NodeId):
+                    created_properties[target_prop] = user.external_id
+                else:
+                    issues.append(
+                        f"Invalid {source_prop} value {user!r} for view {context.source_view_id!s}: "
+                        "expected a dict with an externalId field or a NodeId."
+                    )
+
+        _map_user("createdBy", "sourceCreatedUser")
+        _map_user("updatedBy", "sourceUpdatedUser")
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 

@@ -1592,6 +1592,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         )
         created_properties.update(template_and_template_item_properties)
         special_properties = InFieldUserMapping().convert(source_properties, context)
+        issue.errors.extend(special_properties.errors)
         created_properties.update(special_properties.container_properties)
 
         return NodeRequest(
