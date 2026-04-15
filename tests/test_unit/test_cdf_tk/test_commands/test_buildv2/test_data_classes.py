@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -150,6 +151,36 @@ query: >-
         loaded = yaml.safe_load(result)
 
         assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description'
+
+    @pytest.mark.parametrize(
+        "yaml_content, expected",
+        [
+            pytest.param(
+                """instanceSpaces:
+{{ list_one }}
+{{ list_two }}
+""",
+                {"instanceSpaces": ["a", "b", "c", "d", "e"]},
+                id="Outer list",
+            ),
+            pytest.param(
+                """rules:
+  instanceSpace:
+    {{ list_one }}
+    {{ list_two }}
+             """,
+                {"rules": {"instanceSpace": ["a", "b", "c", "d", "e"]}},
+                id="Nested list",
+            ),
+        ],
+    )
+    def test_substitute_concat_lists(self, yaml_content: str, expected: dict[str, Any]) -> None:
+        variables = _create_variables({"list_one": ["a", "b", "c"], "list_two": ["d", "e"]})
+
+        result = BuildVariable.substitute(yaml_content, variables, ".yaml")
+        loaded = yaml.safe_load(result)
+
+        assert loaded == expected
 
     def test_format_list_as_sql_tuple_empty(self) -> None:
         """Test that empty lists become empty SQL tuples."""
