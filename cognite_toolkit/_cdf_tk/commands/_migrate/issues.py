@@ -91,46 +91,6 @@ class CanvasMigrationIssue(MigrationIssue):
         return bool(self.missing_reference_ids or self.files_missing_content)
 
 
-class ReadIssue(MigrationIssue):
-    """Represents a read issue encountered during migration."""
-
-    ...
-
-
-class ReadFileIssue(ReadIssue):
-    """Represents a read issue encountered during migration of a file.
-
-    Attributes:
-        row_no (int): The row number in the CSV file where the issue occurred.
-        error (str | None): An optional error message providing additional details about the read issue.
-    """
-
-    type: Literal["fileRead"] = "fileRead"
-
-    row_no: int
-    error: str | None = None
-
-
-class ReadAPIIssue(ReadIssue):
-    """Represents a read issue encountered during migration from the API.
-
-    Attributes:
-        asset_centric_id (AssetCentricId): The identifier of the asset-centric resource that could not be read.
-        error (str | None): An optional error message providing additional details about the read issue.
-    """
-
-    type: Literal["apiRead"] = "apiRead"
-    asset_centric_id: AssetCentricId
-    error: str | None = None
-
-    @field_serializer("asset_centric_id")
-    def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
-        return {
-            "resourceType": asset_centric_id.resource_type,
-            "id": asset_centric_id.id_,
-        }
-
-
 class FailedConversion(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property that failed to convert during migration.
 
