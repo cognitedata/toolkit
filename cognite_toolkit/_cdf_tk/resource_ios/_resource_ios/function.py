@@ -16,6 +16,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -428,6 +429,31 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
             self.client.functions.activate()
         return False
 
+    @staticmethod
+    def _parse_validation_error(api_error: ToolkitAPIError, external_id: str) -> str:
+        """Parse CDF API validation error and provide user-friendly message.
+
+        Args:
+            api_error: The ToolkitAPIError from the CDF API.
+            external_id: The external ID of the function being created.
+
+        Returns:
+            A user-friendly error message with field name and valid range.
+        """
+        message = api_error.message
+        # The API error message follows the pattern: "field must lie in the range [x, y]"
+        # or other validation errors like "field must be a valid value"
+        if "must lie in the range" in message:
+            # Extract the field name and range from the error message
+            # Format: "memory must lie in the range [0.1, 1.5]"
+            return (
+                f"Failed to create function '{external_id}': {message}\n"
+                "Please check the function configuration in your YAML file and ensure all parameter values are within valid ranges."
+            )
+        else:
+            # Generic validation error from the API
+            return f"Failed to create function '{external_id}': {message}"
+
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         if not self._is_activated("create"):
             return []
@@ -457,7 +483,13 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
 
             # Create a copy with the file_id set
             item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id.id})
-            result = self.client.tool.functions.create([item_to_create])
+            try:
+                result = self.client.tool.functions.create([item_to_create])
+            except ToolkitAPIError as e:
+                if e.code == 400:
+                    # Handle validation errors with user-friendly message
+                    raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
+                raise
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)
@@ -490,7 +522,13 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
 
             # Create a copy with the file_id set
             item_to_create = item.model_copy(update={"fileId": file_id.id})
-            result = self.client.tool.functions.create([item_to_create])
+            try:
+                result = self.client.tool.functions.create([item_to_create])
+            except ToolkitAPIError as e:
+                if e.code == 400:
+                    # Handle validation errors with user-friendly message
+                    raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
+                raise
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)

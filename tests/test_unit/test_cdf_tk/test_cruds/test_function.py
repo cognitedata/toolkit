@@ -17,6 +17,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -265,6 +266,30 @@ secrets:
             pytest.raises(ResourceCreationError, match="timed out"),
         ):
             function_io.create([item])
+
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
+    def test_create_raises_user_friendly_error_on_validation_failure(self, function_io_with_file: FunctionIO) -> None:
+        """Test that ToolkitAPIError with 400 is converted to user-friendly ResourceCreationError."""
+        function_io = function_io_with_file
+        client = function_io.client
+        client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
+
+        # Mock the functions.create to raise a validation error (HTTP 400)
+        validation_error = ToolkitAPIError(code=400, message="memory must lie in the range [0.1, 1.5].")
+        client.tool.functions.create.side_effect = validation_error
+
+        item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+
+        with (
+            patch.object(function_io, "_is_activated", return_value=True),
+            pytest.raises(ResourceCreationError) as exc_info,
+        ):
+            function_io.create([item])
+
+        error_message = str(exc_info.value)
+        assert "Failed to create function 'my_func'" in error_message
+        assert "memory must lie in the range [0.1, 1.5]" in error_message
+        assert "Please check the function configuration" in error_message
 
 
 class TestFunctionScheduleLoader:
