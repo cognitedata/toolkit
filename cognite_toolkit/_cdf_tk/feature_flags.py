@@ -34,10 +34,6 @@ class Flags(Enum):
         visible=False,
         description="Enables the support for deploying data models as GraphQL schemas",
     )
-    MODULE_REPEAT = FlagMetadata(
-        visible=True,
-        description="Enables the support for repeating modules in the config file",
-    )
     PROFILE = FlagMetadata(
         visible=True,
         description="Enables support for the profile command",
