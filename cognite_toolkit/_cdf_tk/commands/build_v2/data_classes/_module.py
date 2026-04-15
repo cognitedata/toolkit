@@ -41,7 +41,7 @@ class BuildVariable(BaseModel):
                 pattern = rf"'{pattern}'|{pattern}|\"{pattern}\""
             elif substitution is None:
                 substitution = "null"
-            elif isinstance(substitution, list) and file_suffix == ".yaml":
+            elif isinstance(substitution, list) and (file_suffix == ".yaml" or file_suffix == ".yml"):
                 variable_token = rf"{{{{\s*{re.escape(self.name)}\s*}}}}"
                 pattern = rf"(?m)^(?P<indent>[ \t]*){variable_token}\s*$"
                 values = substitution
