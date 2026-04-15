@@ -180,7 +180,7 @@ def instance_conversion_issue_as_migration_entry(
         id=issue.id,
         label="Instance conversion",
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
-        severity=Severity.failure,
+        severity=Severity.warning,
         source=source,
         destination=destination,
     )
