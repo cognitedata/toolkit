@@ -63,9 +63,9 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
 class ResourceLimit(BaseModelObject):
     """Resource limit with min, max, and default values."""
 
-    min: int | float
-    max: int | float
-    default: int | float
+    min: float
+    max: float
+    default: float
 
 
 class FunctionLimits(BaseModelObject):
