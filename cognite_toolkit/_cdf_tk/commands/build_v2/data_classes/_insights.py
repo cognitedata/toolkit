@@ -1,13 +1,15 @@
 import csv
 import io
 from collections import UserList, defaultdict
-from typing import TypeAlias
+from typing import ClassVar, TypeAlias
 
 from pydantic import BaseModel
 
 
 class InsightDefinition(BaseModel):
     """Base class for all insights"""
+
+    severity: ClassVar[int] = 999
 
     message: str
     code: str | None = None
@@ -22,19 +24,19 @@ class ModelSyntaxWarning(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
-    ...
+    severity = 20
 
 
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    ...
+    severity = 40
 
 
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
-    ...
+    severity = 10
 
 
 Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation
