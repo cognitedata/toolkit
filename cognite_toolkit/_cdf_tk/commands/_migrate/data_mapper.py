@@ -1092,9 +1092,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
-            view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
-        }
+        self._custom_properties_mapping: dict[ViewId, list[CustomContainerPropertiesMapping]] = defaultdict(list)
+        for mapping in custom_properties_mappings or []:
+            for view_id in mapping.VIEW_IDS:
+                self._custom_properties_mapping[view_id].append(mapping)
         self._custom_instance_mappings = custom_instance_mappings
         # These data structures are used to validate required direct relations, i.e.,
         # direct relation properties that requires that the target has properties in a
@@ -1225,12 +1226,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             )
             special_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
             if context.mapping.source_view in self._custom_properties_mapping:
-                special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
-                    source_properties, context
-                )
-                issue.errors.extend(special_results.errors)
-                new_edges.extend(special_results.edges)
-                special_properties = special_results.container_properties
+                for custom_mapper in self._custom_properties_mapping[context.mapping.source_view]:
+                    special_results = custom_mapper.convert(source_properties, context)
+                    issue.errors.extend(special_results.errors)
+                    new_edges.extend(special_results.edges)
+                    special_properties.update(special_results.container_properties)
 
             container_results = convert_container_properties(source_properties, context)
             edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
