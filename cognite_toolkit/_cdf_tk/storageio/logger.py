@@ -8,7 +8,8 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
-from rich.console import Console
+from rich.console import Console, Group
+from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -366,7 +367,7 @@ class FileWithAggregationLogger(DataLogger):
         return "pending" if is_dry_run else "success"
 
 
-def display_item_results(items: list[ItemsResult], console: Console) -> None:
+def display_item_results(items: list[ItemsResult], title: str, console: Console) -> None:
     """Display item results using rich formatting.
 
     Shows a tree view of items grouped by status, with their labels and counts.
@@ -383,6 +384,7 @@ def display_item_results(items: list[ItemsResult], console: Console) -> None:
         "pending-with-warning": ("yellow", "○"),
     }
 
+    trees: list[Tree] = []
     for item in sorted(items, key=lambda item: item.severity, reverse=True):
         style, icon = status_styles.get(item.status, ("white", "•"))
         tree = Tree(f"[{style}]{icon} {item.status}[/{style}]: {item.count} items")
@@ -390,4 +392,7 @@ def display_item_results(items: list[ItemsResult], console: Console) -> None:
         for label_result in item.labels:
             tree.add(f"[dim]{label_result.display_message()}[/dim]")
 
-        console.print(tree)
+        trees.append(tree)
+
+    console.print()
+    console.print(Panel(Group(*trees), title=f"[bold]{title}[/bold]", expand=False))

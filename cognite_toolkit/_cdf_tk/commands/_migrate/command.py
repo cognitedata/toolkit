@@ -161,7 +161,7 @@ class MigrationCommand(ToolkitCommand):
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
 
-            display_item_results(items_results, console)
+            display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
             self._print_txt(items_results, log_dir, f"{selected!s}Items", console)
             progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
             if progress is not None:
