@@ -58,6 +58,8 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     @classmethod
     def request_cls(cls) -> type[FunctionRequest]:
         return FunctionRequest
+
+
 FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312"]
 
 
