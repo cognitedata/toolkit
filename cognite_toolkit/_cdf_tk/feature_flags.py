@@ -58,10 +58,6 @@ class Flags(Enum):
         visible=True,
         description="Enables support for the streams resources",
     )
-    v08 = FlagMetadata(
-        visible=False,
-        description="Enables features planned for Cognite Toolkit version 0.8.0",
-    )
     CREATE = FlagMetadata(
         visible=True,
         description="Enables support for the resources create command under dev plugin",

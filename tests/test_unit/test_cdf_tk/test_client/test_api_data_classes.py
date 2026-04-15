@@ -29,7 +29,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -68,9 +67,6 @@ class TestAPIDataClasses:
         assert isinstance(update_data, dict)
         assert "update" in update_data
 
-    @pytest.mark.skipif(
-        not Flags.v08.is_enabled(), reason="Extra fields are only supported when the v0.8 flag is enabled"
-    )
     def test_dump_exclude_extra(self) -> None:
         """Tests that extra fields can be excluded when dumping a data class.
         Using AssetRequest as an example.
