@@ -210,7 +210,7 @@ class BuildV2Command(ToolkitCommand):
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
     @classmethod
-    def _ask_user_to_select_modules(self, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
+    def _ask_user_to_select_modules(cls, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
         choices = [
             Choice(
                 title=f"{module.name} ({module.id.as_posix()})",
