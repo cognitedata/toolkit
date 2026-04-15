@@ -448,7 +448,8 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
             # Format: "memory must lie in the range [0.1, 1.5]"
             return (
                 f"Failed to create function '{external_id}': {message}\n"
-                "Please check the function configuration in your YAML file and ensure all parameter values are within valid ranges."
+                "Please check the function configuration in your YAML file and ensure "
+                "all parameter values are within valid ranges."
             )
         else:
             # Generic validation error from the API
