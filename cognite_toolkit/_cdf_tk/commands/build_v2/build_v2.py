@@ -10,8 +10,10 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Any, cast
 
+import questionary
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
+from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
@@ -198,7 +200,25 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
-        return ModuleParser.parse(build)
+        source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
+
+        if build.selected_modules is None:
+            user_selected_modules = self._ask_user_to_select_modules(list(source_by_module_id.values()))
+        else:
+            user_selected_modules = build.selected_modules
+
+        return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
+
+    @classmethod
+    def _ask_user_to_select_modules(self, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
+        choices = [
+            Choice(
+                title=f"{module.name} ({module.id.as_posix()})",
+                value=module.id,
+            )
+            for module in available_modules
+        ]
+        return set(questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask())
 
     def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
@@ -322,9 +342,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
-        selected: set[RelativeDirPath | str] = {
-            parameters.modules_directory.relative_to(parameters.organization_dir)
-        }  # Default to everything under modules.
+        selected: set[RelativeDirPath | str] | None = None
         variables: dict[str, JsonValue] = {}
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
