@@ -1,5 +1,3 @@
-from typing import Literal
-
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
     AssetCentricId,
@@ -8,45 +6,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
     InvalidPropertyDataType,
-    ReadAPIIssue,
-    ReadFileIssue,
-    ReadIssue,
-    WriteIssue,
 )
 
 
 class TestMigrationIssues:
-    def test_read_file_issue(self) -> None:
-        issue = ReadFileIssue(id="issue-1", row_no=10, error="Cannot read column 'id' value is not an integer")
-        assert issue.dump() == {
-            "id": "issue-1",
-            "type": "fileRead",
-            "rowNo": 10,
-            "error": "Cannot read column 'id' value is not an integer",
-        }
-
-    def test_read_api_issue(self) -> None:
-        asset_centric_id = AssetCentricId(resource_type="asset", id_=123)
-        issue = ReadAPIIssue(id="issue-2", asset_centric_id=asset_centric_id, error="API error")
-        assert issue.dump() == {
-            "id": "issue-2",
-            "type": "apiRead",
-            "assetCentricId": {"resourceType": "asset", "id": 123},
-            "error": "API error",
-        }
-
-    def test_read_issue_subclass(self) -> None:
-        class CustomReadIssue(ReadIssue):
-            type: Literal["customRead"] = "customRead"
-            custom_field: str
-
-        issue = CustomReadIssue(id="issue-3", custom_field="custom value")
-        assert issue.dump() == {
-            "id": "issue-3",
-            "type": "customRead",
-            "customField": "custom value",
-        }
-
     def test_conversion_issue_minimal(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="asset", id_=456)
         instance_id = NodeId(space="test_space", external_id="test_instance")
@@ -96,24 +59,4 @@ class TestMigrationIssues:
             "ignoredAssetCentricProperties": [],
             "missingInstanceSpace": None,
             "noMappableProperties": False,
-        }
-
-    def test_write_issue_minimal(self) -> None:
-        write_issue = WriteIssue(id="issue-6", status_code=400)
-
-        assert write_issue.dump() == {
-            "id": "issue-6",
-            "type": "write",
-            "statusCode": 400,
-            "message": None,
-        }
-
-    def test_write_issue_with_message(self) -> None:
-        write_issue = WriteIssue(id="issue-7", status_code=500, message="Internal server error occurred")
-
-        assert write_issue.dump() == {
-            "id": "issue-7",
-            "type": "write",
-            "statusCode": 500,
-            "message": "Internal server error occurred",
         }

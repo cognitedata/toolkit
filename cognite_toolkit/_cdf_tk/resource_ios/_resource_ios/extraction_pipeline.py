@@ -388,10 +388,9 @@ class ExtractionPipelineConfigIO(
             parent_external_ids = [pid for pid in parent_ids if isinstance(pid, ExternalId)]
         for parent_id in parent_external_ids:
             try:
-                for configs in self.client.tool.extraction_pipelines.configs.iterate(
-                    external_id=parent_id.external_id, limit=None
-                ):
-                    yield from configs
+                yield from self.client.tool.extraction_pipelines.configs.retrieve(
+                    [ExtractionPipelineConfigId(external_id=parent_id.external_id)]
+                )
             except ToolkitAPIError as e:
                 if e.code == 404 and "There is no config stored" in e.message:
                     continue

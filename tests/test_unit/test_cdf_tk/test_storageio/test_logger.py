@@ -127,7 +127,7 @@ class TestFileWithAggregationLogger:
         ]
 
         # Just to ensure that no exception is raised.
-        display_item_results(results, MagicMock())
+        display_item_results(results, "Title", MagicMock())
 
     def _simulate_log_entries(self, logger: FileWithAggregationLogger) -> None:
         logger.register(["item_success", "item_failure", "item_warning1", "item_warning2"])

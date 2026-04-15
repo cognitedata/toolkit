@@ -172,7 +172,7 @@ class DatapointsIO(
                 batch_count += ts_limit
                 if batch_count >= self.MAX_PER_REQUEST_DATAPOINTS:
                     if page := self._fetch_datapoints_batch(batch, config):
-                        yield page
+                        yield self.emit_registered_page(page)
                     batch = []
                     batch_count = 0
 
@@ -187,7 +187,7 @@ class DatapointsIO(
                     )
                     batch_count += left_over
             if batch and (page := self._fetch_datapoints_batch(batch, config)):
-                yield page
+                yield self.emit_registered_page(page)
 
     def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> Page[DataPointListResponse] | None:
         response = self.client.http_client.request_single_retries(

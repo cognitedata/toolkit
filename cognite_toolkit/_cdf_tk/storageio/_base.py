@@ -112,6 +112,12 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
         self.client = client
         self.logger: DataLogger = NoOpLogger()
 
+    def emit_registered_page(self, page: "Page[T_DataResponse]") -> "Page[T_DataResponse]":
+        """Register all item tracking IDs with the current logger, then return the page for yielding."""
+        if page.items:
+            self.logger.register([item.tracking_id for item in page.items])
+        return page
+
     @abstractmethod
     def stream_data(
         self,

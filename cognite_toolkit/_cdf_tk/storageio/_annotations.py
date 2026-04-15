@@ -51,7 +51,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
                             )
                             for item in chunk
                         ]
-                        yield Page(worker_id="main", items=items, bookmark=NoBookmark())
+                        yield self.emit_registered_page(Page(worker_id="main", items=items, bookmark=NoBookmark()))
                         total += len(chunk)
                         if limit is not None and total >= limit:
                             return
