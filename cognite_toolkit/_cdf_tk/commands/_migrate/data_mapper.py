@@ -78,6 +78,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
+    InFieldUserMapping,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -1590,6 +1591,8 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
             template_edges, template_item_edges, destination_view.properties, issue
         )
         created_properties.update(template_and_template_item_properties)
+        special_properties = InFieldUserMapping().convert(source_properties, context)
+        created_properties.update(special_properties.container_properties)
 
         return NodeRequest(
             space=new_id.space,
