@@ -487,10 +487,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
             try:
                 result = self.client.tool.functions.create([item_to_create])
             except ToolkitAPIError as e:
-                if e.code == 400:
-                    # Handle validation errors with user-friendly message
-                    raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
-                raise
+                # Handle any HTTP error with user-friendly message
+                raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
+            except Exception as e:
+                # Handle unexpected errors
+                raise ResourceCreationError(f"Failed to create function '{external_id}': {e!s}") from e
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)
@@ -526,10 +527,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
             try:
                 result = self.client.tool.functions.create([item_to_create])
             except ToolkitAPIError as e:
-                if e.code == 400:
-                    # Handle validation errors with user-friendly message
-                    raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
-                raise
+                # Handle any HTTP error with user-friendly message
+                raise ResourceCreationError(self._parse_validation_error(e, external_id)) from e
+            except Exception as e:
+                # Handle unexpected errors
+                raise ResourceCreationError(f"Failed to create function '{external_id}': {e!s}") from e
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)
