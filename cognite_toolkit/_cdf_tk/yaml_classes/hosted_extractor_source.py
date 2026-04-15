@@ -121,7 +121,7 @@ class ClientCredentials(Authentication):
     token_url: str = Field(
         description="URL to fetch authentication tokens from",
     )
-    scopes: str = Field(
+    scopes: str | list[str] = Field(
         description="A space separated list of scopes",
     )
     default_expires_in: str | None = Field(
