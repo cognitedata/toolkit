@@ -220,16 +220,10 @@ class BuildV2Command(ToolkitCommand):
         ]
         if not available_modules:
             raise ToolkitValueError("No modules found to build.")
-        result = questionary.checkbox("Which modules would you like to build?", choices=choices).ask()
+        result = questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask()
         if result is None:
             raise ToolkitValueError("Build cancelled by user.")
         return set(result)
-            questionary.checkbox(
-                "Which modules would you like to build?",
-                choices=choices,
-                validate=lambda choices: "You must select at least one." if not choices else True,
-            ).unsafe_ask()
-        )
 
     def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
