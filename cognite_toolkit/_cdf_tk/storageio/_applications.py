@@ -266,7 +266,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     [
                         LogEntryV2(
                             id=item.tracking_id,
-                            label="Skipped",
+                            label="Chart existing and skip-existing enabled",
                             message="Chart already exists and skip-existing is enabled.",
                             severity=Severity.skipped,
                         )
@@ -353,7 +353,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         LogEntryV2(
                             id=tracking_id,
-                            label=f"Update {resource_kind}",
+                            label=f"Failed update {resource_kind}. Code {e.code}",
                             message=f"Failed to update {resource_kind} {ext_id}: {e}",
                             severity=Severity.failure,
                         )
@@ -363,7 +363,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         LogEntryV2(
                             id=tracking_id,
-                            label=f"Update {resource_kind}",
+                            label=f"Failed update {resource_kind}. No response.",
                             message=f"Failed to update {resource_kind} {ext_id}. No response returned.",
                             severity=Severity.failure,
                         )
@@ -382,7 +382,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         log_entries.append(
                             LogEntryV2(
                                 id=tracking_id,
-                                label=f"Create {resource_kind}",
+                                label=f"Failed creating {resource_kind}",
                                 message=f"Failed to create {resource_kind} {ext_id}: missing nonce. "
                                 "Either run skip-strict-mode or use device code credentials.",
                                 severity=Severity.failure,
@@ -396,7 +396,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         LogEntryV2(
                             id=tracking_id,
-                            label=f"Create {resource_kind}",
+                            label=f"Failed creation {resource_kind}. Code {e.code}",
                             message=f"Failed to create {resource_kind} {ext_id}: {e}",
                             severity=Severity.failure,
                         )
@@ -406,7 +406,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         LogEntryV2(
                             id=tracking_id,
-                            label=f"Create {resource_kind}",
+                            label=f"Failed creation {resource_kind}",
                             message=f"Failed to create {resource_kind}. No response returned.",
                             severity=Severity.failure,
                         )
