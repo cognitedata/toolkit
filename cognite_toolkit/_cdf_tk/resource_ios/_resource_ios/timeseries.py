@@ -136,7 +136,7 @@ class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeri
                 ("metadata", {}),
             ]:
                 if dumped.get(key) == default and key not in local_dict:
-                    dumped.pop(key)
+                    dumped.pop(key, None)
         return dumped
 
     def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
