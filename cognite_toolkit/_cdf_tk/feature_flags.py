@@ -82,10 +82,6 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    DEPLOYMENT_PACK = FlagMetadata(
-        visible=True,
-        description="Enables support for the deployment pack in modules add command",
-    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
