@@ -218,7 +218,12 @@ class BuildV2Command(ToolkitCommand):
             )
             for module in available_modules
         ]
-        return set(
+        if not available_modules:
+            raise ToolkitValueError("No modules found to build.")
+        result = questionary.checkbox("Which modules would you like to build?", choices=choices).ask()
+        if result is None:
+            raise ToolkitValueError("Build cancelled by user.")
+        return set(result)
             questionary.checkbox(
                 "Which modules would you like to build?",
                 choices=choices,
