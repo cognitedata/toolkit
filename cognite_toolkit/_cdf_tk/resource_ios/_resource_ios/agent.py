@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -11,11 +11,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
-from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction
+from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction, QueryKnowledgeGraph
 
 
 @final
@@ -25,7 +26,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    dependencies = frozenset({FunctionIO})
+    dependencies = frozenset({FunctionIO, DataModelIO})
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
@@ -49,12 +50,29 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
             if tool.get("type") == "callFunction":
                 if ext_id := tool.get("configuration", {}).get("externalId"):
                     yield FunctionIO, ExternalId(external_id=ext_id)
+            elif tool.get("type") == "queryKnowledgeGraph":
+                for data_model in tool.get("configuration", {}).get("dataModels", []):
+                    space = data_model.get("space")
+                    external_id = data_model.get("externalId")
+                    version = data_model.get("version")
+                    if space and external_id and version:
+                        yield DataModelIO, DataModelId(space=space, external_id=external_id, version=str(version))
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for tool in resource.tools or []:
             if isinstance(tool, CallFunction):
                 yield FunctionIO, ExternalId(external_id=tool.configuration.external_id)
+            elif isinstance(tool, QueryKnowledgeGraph):
+                for data_model in tool.configuration.data_models:
+                    yield (
+                        DataModelIO,
+                        DataModelId(
+                            space=data_model.space,
+                            external_id=data_model.external_id,
+                            version=data_model.version,
+                        ),
+                    )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:
