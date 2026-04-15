@@ -57,7 +57,7 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
         raw_data = read_yaml_file(function_file, expected_output="dict")
 
         # Ensure we always work with a list of function definitions
-        function_defs = [raw_data] if isinstance(raw_data, dict) else raw_data
+        function_defs = [raw_data] if isinstance(raw_data, dict) else (raw_data or [])
 
         limits = self.limits
 
