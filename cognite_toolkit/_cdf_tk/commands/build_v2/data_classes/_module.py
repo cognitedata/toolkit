@@ -43,14 +43,15 @@ class BuildVariable(BaseModel):
                 substitution = "null"
             elif isinstance(substitution, list) and (file_suffix == ".yaml" or file_suffix == ".yml"):
                 variable_token = rf"{{{{\s*{re.escape(self.name)}\s*}}}}"
-                pattern = rf"(?m)^(?P<indent>[ \t]*){variable_token}\s*$"
+                pattern = rf"(?m)^(?P<indent>[ \t]*){variable_token}\s*$|{variable_token}"
                 values = substitution
 
-                def replace_yaml_block_sequence(match: re.Match[str]) -> str:
-                    indent = match.group("indent")
-                    return "\n".join(f"{indent}- {self._yaml_block_sequence_scalar(item)}" for item in values)
+                def replace_yaml_list(match: re.Match[str]) -> str:
+                    if (indent := match.group("indent")) is not None:
+                        return "\n".join(f"{indent}- {self._yaml_block_sequence_scalar(item)}" for item in values)
+                    return str(substitution)
 
-                return pattern, replace_yaml_block_sequence
+                return pattern, replace_yaml_list
         elif file_suffix == ".sql":
             if isinstance(substitution, list):
                 substitution = self._format_list_as_sql_tuple(substitution)
@@ -64,7 +65,11 @@ class BuildVariable(BaseModel):
             return "true" if value else "false"
         if isinstance(value, int | float):
             return str(value)
-        if value.isdigit() or value.endswith(":"):
+        if (
+            value.isdigit()
+            or value.endswith(":")
+            or value.lower() in ("true", "false", "null", "yes", "no", "on", "off")
+        ):
             return json.dumps(value)
         if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", value):
             return value
