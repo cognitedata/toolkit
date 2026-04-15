@@ -218,7 +218,13 @@ class BuildV2Command(ToolkitCommand):
             )
             for module in available_modules
         ]
-        return set(questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask())
+        return set(
+            questionary.checkbox(
+                "Which modules would you like to build?",
+                choices=choices,
+                validate=lambda choices: "You must select at least one." if not choices else True,
+            ).unsafe_ask()
+        )
 
     def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
