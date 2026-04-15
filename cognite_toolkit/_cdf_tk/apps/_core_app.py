@@ -58,14 +58,9 @@ class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
-        if Flags.v08.is_enabled():
-            self.command("build")(self.build_v2)
-            self.command("deploy")(self.deploy_v2)
-            self.command("clean")(self.clean_v2)
-        else:
-            self.command()(self.build)
-            self.command()(self.deploy)
-            self.command()(self.clean)
+        self.command("build")(self.build_v2)
+        self.command("deploy")(self.deploy_v2)
+        self.command("clean")(self.clean_v2)
 
     def common(
         self,
