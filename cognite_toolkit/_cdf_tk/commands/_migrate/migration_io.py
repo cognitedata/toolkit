@@ -61,7 +61,7 @@ from .data_classes import (
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
-from .issues import MigrationEntryV2, migration_log_entry
+from .issues import MigrationEntryV2
 from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
@@ -236,8 +236,8 @@ class AssetCentricMigrationIO(
         for instance_id, data in data_by_instance_id.items():
             if instance_id in existing_ids:
                 skipped_entries.append(
-                    migration_log_entry(
-                        data.tracking_id,
+                    MigrationEntryV2(
+                        id=data.tracking_id,
                         label="Skipped",
                         message="Instance already exists in CDF.",
                         severity=Severity.skipped,
@@ -283,8 +283,8 @@ class AssetCentricMigrationIO(
                         res.error_message if isinstance(res, ItemsFailedResponse | ItemsFailedRequest) else "<unknown>"
                     )
                     failure_entries.append(
-                        migration_log_entry(
-                            id_,
+                        MigrationEntryV2(
+                            id=id_,
                             label="Pending instance ID link failed",
                             message=msg,
                             severity=Severity.failure,
@@ -360,8 +360,8 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             pair = (upload_item.item.space, upload_item.item.external_id)
             if pair in existing_pairs:
                 skipped_records.append(
-                    migration_log_entry(
-                        upload_item.tracking_id,
+                    MigrationEntryV2(
+                        id=upload_item.tracking_id,
                         label="Skipped",
                         message="Record already exists in the stream.",
                         severity=Severity.skipped,

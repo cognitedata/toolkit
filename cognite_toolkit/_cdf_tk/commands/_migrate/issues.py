@@ -31,29 +31,6 @@ class MigrationEntryV2(LogEntryV2):
     )
 
 
-def migration_log_entry(
-    item_id: str,
-    *,
-    label: str,
-    message: str,
-    severity: Severity,
-    source: str,
-    destination: str,
-    attributes: set[str] | None = None,
-    attribute_display_name: str | None = None,
-) -> MigrationEntryV2:
-    return MigrationEntryV2(
-        id=item_id,
-        label=label,
-        severity=severity,
-        message=message,
-        source=source,
-        destination=destination,
-        attributes=attributes,
-        attribute_display_name=attribute_display_name,
-    )
-
-
 class ThreeDModelMigrationIssue(MigrationIssue):
     """Represents a 3D model migration issue encountered during migration.
 
@@ -238,8 +215,8 @@ class WriteIssue(MigrationIssue):
 
 
 def write_issue_as_migration_entry(issue: WriteIssue, *, source: str, destination: str) -> MigrationEntryV2:
-    return migration_log_entry(
-        issue.id,
+    return MigrationEntryV2(
+        id=issue.id,
         label="Write failed",
         message=f"HTTP {issue.status_code}: {issue.message or ''}",
         severity=Severity.failure,
@@ -263,8 +240,8 @@ class InstanceConversionIssue(MigrationIssue):
 def instance_conversion_issue_as_migration_entry(
     issue: InstanceConversionIssue, *, source: str, destination: str
 ) -> MigrationEntryV2:
-    return migration_log_entry(
-        issue.id,
+    return MigrationEntryV2(
+        id=issue.id,
         label="Instance conversion",
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
         severity=Severity.failure,

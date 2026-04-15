@@ -96,7 +96,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     MigrationEntryV2,
     ThreeDModelMigrationIssue,
     instance_conversion_issue_as_migration_entry,
-    migration_log_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
@@ -175,8 +174,8 @@ class AssetCentricMapper(
         entries: list[MigrationEntryV2] = []
         if conversion_issue.missing_instance_space:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Missing instance space",
                     message=str(conversion_issue.missing_instance_space),
                     severity=Severity.warning,
@@ -186,8 +185,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.no_mappable_properties:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="No mappable properties",
                     message="No properties could be mapped to target",
                     severity=Severity.warning,
@@ -197,8 +196,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.failed_conversions:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Failed conversions",
                     message=f"{len(conversion_issue.failed_conversions)} property conversion(s) failed",
                     severity=Severity.warning,
@@ -208,8 +207,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.invalid_instance_property_types:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Invalid instance property types",
                     message=f"{len(conversion_issue.invalid_instance_property_types)} invalid type(s)",
                     severity=Severity.warning,
@@ -219,8 +218,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.missing_asset_centric_properties:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Missing asset-centric properties",
                     message=f"Missing: {humanize_collection(conversion_issue.missing_asset_centric_properties)}",
                     severity=Severity.warning,
@@ -230,8 +229,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.missing_instance_properties:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Missing data modeling properties",
                     message=f"Missing: {humanize_collection(conversion_issue.missing_instance_properties)}",
                     severity=Severity.warning,
@@ -241,8 +240,8 @@ class AssetCentricMapper(
             )
         if conversion_issue.ignored_asset_centric_properties:
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Ignored asset-centric properties",
                     message="Some source properties were ignored",
                     severity=Severity.warning,
@@ -260,8 +259,8 @@ class AssetCentricMapper(
                     "to create a record"
                 )
             entries.append(
-                migration_log_entry(
-                    item_id,
+                MigrationEntryV2(
+                    id=item_id,
                     label="Conversion failed",
                     message=msg,
                     severity=Severity.failure,
@@ -450,8 +449,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             identifier = item.external_id
             if any(job.user_identifier != self._me for job in item.monitoring_jobs or []):
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Monitoring job owned by different user",
                         severity=Severity.failure,
                         source=chart_src,
@@ -468,8 +467,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
 
             if issue.missing_timeseries_ids:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Missing timeseries IDs",
                         message="One or more timeseries are missing internal IDs",
                         severity=Severity.warning,
@@ -479,8 +478,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
             if issue.missing_timeseries_external_ids:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Missing timeseries external IDs",
                         message="One or more timeseries are missing external IDs",
                         severity=Severity.warning,
@@ -490,8 +489,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
             if issue.missing_timeseries_identifier:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Missing timeseries identifier",
                         message="One or more timeseries elements lack identifiers",
                         severity=Severity.warning,
@@ -502,8 +501,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
 
             if issue.has_issues and mapped_item is None:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Chart migration failed",
                         message="; ".join(issue.errors) if issue.errors else "Chart could not be migrated",
                         severity=Severity.failure,
@@ -513,8 +512,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
             elif mapped_item is None:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Chart migration failed",
                         message="Chart could not be migrated",
                         severity=Severity.failure,
@@ -909,8 +908,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
 
             if issue.missing_reference_ids:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Missing reference IDs",
                         message=f"Missing {len(issue.missing_reference_ids)} reference(s)",
                         severity=Severity.warning,
@@ -920,8 +919,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
                 )
             if issue.files_missing_content:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="File missing content",
                         message=f"{len(issue.files_missing_content)} file(s) lack uploaded content",
                         severity=Severity.warning,
@@ -932,8 +931,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
 
             if mapped_item is None:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Canvas migration failed",
                         message="Canvas could not be migrated",
                         severity=Severity.failure,
@@ -1086,8 +1085,8 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
             identifier = item.name
             if mapped_item is None:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="3D model migration failed",
                         message="; ".join(issue.error_message)
                         if issue.error_message
@@ -1099,8 +1098,8 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 )
             elif issue.error_message:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="3D model migration issue",
                         message="; ".join(issue.error_message),
                         severity=Severity.warning,
@@ -1190,8 +1189,8 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
             identifier = f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
             if mapped_item is None:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Asset mapping migration failed",
                         message="; ".join(issue.error_message)
                         if issue.error_message
@@ -1203,8 +1202,8 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
                 )
             elif issue.error_message:
                 log_entries.append(
-                    migration_log_entry(
-                        identifier,
+                    MigrationEntryV2(
+                        id=identifier,
                         label="Asset mapping migration issue",
                         message="; ".join(issue.error_message),
                         severity=Severity.warning,
