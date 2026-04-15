@@ -6,7 +6,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
-from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
+from cognite_toolkit._cdf_tk.storageio.logger import LogEntry, LogEntryV2, Severity
 
 
 class MigrationIssue(LogEntry):
@@ -22,6 +22,13 @@ class MigrationIssue(LogEntry):
     def dump(self) -> dict[str, Any]:
         """Serialize the MigrationIssue to a dictionary."""
         return self.model_dump(by_alias=True)
+
+
+class MigrationEntryV2(LogEntryV2):
+    source: str = Field(description="The source for the item. For example, assets.")
+    destination: str = Field(
+        description="The destination for the item. Typically a given View. For example, cdf_cdm:CogniteAsset(version=v1)."
+    )
 
 
 class ThreeDModelMigrationIssue(MigrationIssue):
@@ -84,46 +91,6 @@ class CanvasMigrationIssue(MigrationIssue):
         return bool(self.missing_reference_ids or self.files_missing_content)
 
 
-class ReadIssue(MigrationIssue):
-    """Represents a read issue encountered during migration."""
-
-    ...
-
-
-class ReadFileIssue(ReadIssue):
-    """Represents a read issue encountered during migration of a file.
-
-    Attributes:
-        row_no (int): The row number in the CSV file where the issue occurred.
-        error (str | None): An optional error message providing additional details about the read issue.
-    """
-
-    type: Literal["fileRead"] = "fileRead"
-
-    row_no: int
-    error: str | None = None
-
-
-class ReadAPIIssue(ReadIssue):
-    """Represents a read issue encountered during migration from the API.
-
-    Attributes:
-        asset_centric_id (AssetCentricId): The identifier of the asset-centric resource that could not be read.
-        error (str | None): An optional error message providing additional details about the read issue.
-    """
-
-    type: Literal["apiRead"] = "apiRead"
-    asset_centric_id: AssetCentricId
-    error: str | None = None
-
-    @field_serializer("asset_centric_id")
-    def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
-        return {
-            "resourceType": asset_centric_id.resource_type,
-            "id": asset_centric_id.id_,
-        }
-
-
 class FailedConversion(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property that failed to convert during migration.
 
@@ -137,6 +104,10 @@ class FailedConversion(BaseModel, alias_generator=to_camel, extra="ignore", popu
     value: str | int | float | bool | None | list | dict
     error: str
 
+    @property
+    def display_name(self) -> str:
+        return f"Failed conversion for property '{self.property_id}' with value '{self.value}': {self.error}"
+
 
 class InvalidPropertyDataType(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property with an invalid type during migration.
@@ -149,6 +120,10 @@ class InvalidPropertyDataType(BaseModel, alias_generator=to_camel, extra="ignore
 
     property_id: str
     expected_type: str
+
+    @property
+    def display_name(self) -> str:
+        return f"Invalid property type for property '{self.property_id}'. Expected {self.expected_type}"
 
 
 class ConversionIssue(MigrationIssue):
@@ -194,19 +169,6 @@ class ConversionIssue(MigrationIssue):
         }
 
 
-class WriteIssue(MigrationIssue):
-    """Represents a write issue encountered during migration.
-
-    Attributes:
-        status_code (int): The HTTP status code returned during the write operation.
-        message (str | None): An optional message providing additional details about the write issue.
-    """
-
-    type: Literal["write"] = "write"
-    status_code: int
-    message: str | None = None
-
-
 class InstanceConversionIssue(MigrationIssue):
     """Represents an instance conversion issue encountered during migration."""
 
@@ -217,3 +179,16 @@ class InstanceConversionIssue(MigrationIssue):
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this InstanceConversionIssue."""
         return bool(self.errors)
+
+
+def instance_conversion_issue_as_migration_entry(
+    issue: InstanceConversionIssue, *, source: str, destination: str
+) -> MigrationEntryV2:
+    return MigrationEntryV2(
+        id=issue.id,
+        label="Instance conversion",
+        message="; ".join(issue.errors) if issue.errors else "Conversion issue",
+        severity=Severity.warning,
+        source=source,
+        destination=destination,
+    )
