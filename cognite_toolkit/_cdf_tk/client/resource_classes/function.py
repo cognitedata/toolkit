@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
+FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312"]
 
 
 class FunctionBase(BaseModelObject):
@@ -22,7 +23,7 @@ class FunctionBase(BaseModelObject):
     env_vars: dict[str, str] | None = None
     cpu: float | None = None
     memory: float | None = None
-    runtime: Literal["py38", "py39", "py310", "py311", "py312"] | None = None
+    runtime: FunctionRuntime | None = None
     metadata: Metadata | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
@@ -58,9 +59,6 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     @classmethod
     def request_cls(cls) -> type[FunctionRequest]:
         return FunctionRequest
-
-
-FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312"]
 
 
 class ResourceLimit(BaseModelObject):
