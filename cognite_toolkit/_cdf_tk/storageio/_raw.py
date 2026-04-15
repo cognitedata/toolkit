@@ -57,9 +57,11 @@ class RawIO(
             partitions=None,
             chunk_size=self.CHUNK_SIZE,
         ):
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=str(item.key), item=item) for item in chunk],
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=str(item.key), item=item) for item in chunk],
+                )
             )
 
     def upload_items(

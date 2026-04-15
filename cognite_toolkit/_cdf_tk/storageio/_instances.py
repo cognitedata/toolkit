@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
@@ -170,20 +171,34 @@ class InstanceIO(
     ) -> Iterable[Page]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
-            yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
+            pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
-            yield from self._instances_with_container_properties(selector, limit, init_cursor)
+            pages = self._instances_with_container_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
+                ids = [f"{item.space}:{item.external_id}" for item in chunk]
+                self.logger.register(ids)
                 items = [
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
                     for item in self.client.tool.instances.retrieve(chunk)
                 ]
+                if missing_ids := (set(ids) - {item.tracking_id for item in items}):
+                    for item_id in missing_ids:
+                        self.logger.log(
+                            LogEntryV2(
+                                id=item_id,
+                                label="Missing in CDF",
+                                severity=Severity.failure,
+                                message=f"The {item_id} was not found in CDF",
+                            )
+                        )
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
+            return
         elif isinstance(selector, InstanceQuerySelector):
-            yield from self._instance_by_query(selector.create_query(), limit, init_cursor)
+            pages = self._instance_by_query(selector.create_query(), limit, init_cursor)
         else:
             raise NotImplementedError()
+        yield from (self.emit_registered_page(page) for page in pages)
 
     def _instances_with_container_and_edge_properties(
         self, selector: InstanceViewSelector, limit: int | None, init_cursor: str | None = None
