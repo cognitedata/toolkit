@@ -164,3 +164,33 @@ class TestFunctionsAPI:
         assert console.print.call_args.args[1] == (
             "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 seconds."
         )
+
+    def test_get_function_limits(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config=config)
+        url = config.create_api_url("/functions/limits")
+
+        limits_response = {
+            "timeoutMinutes": 10,
+            "cpuCores": {"min": 0.1, "max": 2.0, "default": 0.5},
+            "memoryGb": {"min": 0.25, "max": 4.0, "default": 1.0},
+            "runtimes": ["py38", "py39", "py310", "py311", "py312"],
+            "responseSizeMb": 50,
+        }
+
+        respx_mock.get(url).mock(return_value=Response(status_code=200, json=limits_response))
+
+        limits = client.tool.functions.limits()
+
+        assert limits.timeout_minutes == 10
+        assert limits.cpu_cores.min == 0.1
+        assert limits.cpu_cores.max == 2.0
+        assert limits.cpu_cores.default == 0.5
+        assert limits.memory_gb.min == 0.25
+        assert limits.memory_gb.max == 4.0
+        assert limits.memory_gb.default == 1.0
+        assert limits.runtimes == ["py38", "py39", "py310", "py311", "py312"]
+        assert limits.response_size_mb == 50
+        assert len(respx_mock.calls) == 1
+        assert respx_mock.calls[0].request.url == url
+        assert respx_mock.calls[0].request.method == "GET"

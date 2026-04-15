@@ -8,9 +8,9 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, FunctionRequest, FunctionResponse
 
 
 class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
@@ -115,3 +115,16 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
             List of FunctionResponse objects.
         """
         return self._list(limit=limit)
+
+    def limits(self) -> FunctionLimits:
+        """Get function limits for the CDF project.
+
+        Returns:
+            FunctionLimits object containing the service limits.
+        """
+        request = RequestMessage(
+            endpoint_url=self._make_url("/functions/limits"),
+            method="GET",
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return FunctionLimits.model_validate_json(response.body)
