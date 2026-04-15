@@ -81,7 +81,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         ]
         for key, default in defaults:
             if dumped.get(key) == default and key not in local:
-                dumped.pop(key)
+                dumped.pop(key, None)
         return dumped
 
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
