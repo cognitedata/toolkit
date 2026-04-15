@@ -19,13 +19,7 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
     DISPLAY_NAME = "Function limits"
 
     def get_status(self) -> RuleSetStatus:
-        if self.client:
-            return RuleSetStatus(
-                code="ready",
-                message="Will validate function definitions against CDF Project limits.",
-            )
-
-        else:
+        if not self.client:
             return RuleSetStatus(
                 code="unavailable",
                 message=(
@@ -33,6 +27,11 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
                     "Provide client credentials to use Neat for validation."
                 ),
             )
+
+        return RuleSetStatus(
+            code="ready",
+            message="Will validate function definitions against CDF Project limits.",
+        )
 
     def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
