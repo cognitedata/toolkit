@@ -50,10 +50,6 @@ class Flags(Enum):
         visible=False,
         description="Enables the 'events-to-records' migration command",
     )
-    STREAMS = FlagMetadata(
-        visible=True,
-        description="Enables support for the streams resources",
-    )
     CREATE = FlagMetadata(
         visible=True,
         description="Enables support for the resources create command under dev plugin",
@@ -69,10 +65,6 @@ class Flags(Enum):
     SIGNALS = FlagMetadata(
         visible=True,
         description="Enables support for signal resources",
-    )
-    SIMULATORS = FlagMetadata(
-        visible=True,
-        description="Enables support for simulator model resources",
     )
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,

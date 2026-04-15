@@ -95,16 +95,9 @@ if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
-if not FeatureFlag.is_enabled(Flags.STREAMS):
-    _EXCLUDED_CRUDS.add(StreamIO)
 if not FeatureFlag.is_enabled(Flags.SIGNALS):
     _EXCLUDED_CRUDS.add(SignalSinkIO)
     _EXCLUDED_CRUDS.add(SignalSubscriptionIO)
-if not FeatureFlag.is_enabled(Flags.SIMULATORS):
-    _EXCLUDED_CRUDS.add(SimulatorModelIO)
-    _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionIO)
-    _EXCLUDED_CRUDS.add(SimulatorRoutineIO)
-    _EXCLUDED_CRUDS.add(SimulatorModelRevisionIO)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductIO)
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
@@ -258,7 +251,11 @@ __all__ = [
     "SignalSinkIO",
     "SignalSubscriptionIO",
     "SimulatorModelIO",
+    "SimulatorModelRevisionIO",
+    "SimulatorRoutineIO",
+    "SimulatorRoutineRevisionIO",
     "SpaceCRUD",
+    "StreamIO",
     "StreamlitIO",
     "ThreeDModelCRUD",
     "TimeSeriesCRUD",
