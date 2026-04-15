@@ -113,7 +113,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 "type": "clientCredentials",
                 "client_id": "id",
                 "token_url": "https://token.url",
-                "scope": "scope",
+                "scopes": "scope",
                 # missing client_secret
             },
         },
@@ -214,7 +214,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 "type": "clientCredentials",
                 "clientId": "id",
                 "tokenUrl": "https://token.url",
-                "scope": "scope",
+                "scopes": "scope",
                 # missing client_secret
             },
         },
