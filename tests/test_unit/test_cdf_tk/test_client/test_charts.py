@@ -7,7 +7,7 @@ import yaml
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseriesUIElement,
     ChartData,
@@ -309,13 +309,13 @@ class TestChartDTOs:
         assert dumped_items == chart_data_dict, f"Expected {chart_data_dict}, but got {dumped_items}"
 
     @pytest.mark.parametrize(
-        "filename",
+        "filename, chart_cls",
         [
-            pytest.param("dms.Chart.yaml", id="DMS Chart"),
-            pytest.param("classic.Chart.yaml", id="Classic Chart"),
+            pytest.param("dms.Chart.yaml", ChartRequest, id="DMS Chart"),
+            pytest.param("classic.Chart.yaml", ChartResponse, id="Classic Chart"),
         ],
     )
-    def test_load_dms_chart(self, filename: str) -> None:
+    def test_load_dms_chart(self, filename: str, chart_cls: type[BaseModelObject]) -> None:
         data = yaml.safe_load((MIGRATION_DIR / "charts" / filename).read_text(encoding="utf-8"))
-        chart = ChartResponse.model_validate(data)
-        assert isinstance(chart, ChartResponse)
+        chart = chart_cls.model_validate(data)
+        assert isinstance(chart, chart_cls)

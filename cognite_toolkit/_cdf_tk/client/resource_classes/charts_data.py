@@ -103,7 +103,7 @@ class ChartTimeseriesUIElement(ChartElement):
     description: str | None = None
 
 
-class ChartWorkflowUIElement(ChartElement):
+class ChartCalculation(ChartElement):
     version: str | None = None
     name: str | None = None
     color: str | None = None
@@ -117,6 +117,9 @@ class ChartWorkflowUIElement(ChartElement):
     created_at: int | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
+
+
+class ChartWorkflowUIElement(ChartCalculation):
     calls: list[ChartCall] | None = None
 
 
@@ -130,21 +133,8 @@ class ChartThreshold(ChartElement):
     calls: list[ChartCall] | None = None
 
 
-class ChartScheduledCalculationUIElement(ChartElement):
-    color: str | None = None
-    created_at: int | None = None
+class ChartScheduledCalculationUIElement(ChartCalculation):
     description: str | None = None
-    enabled: bool | None = None
-    interpolation: str | None = None
-    line_style: str | None = None
-    line_weight: float | None = None
-    name: str | None = None
-    preferred_unit: str | None = None
-    range: list[float | None] | None = None
-    unit: str | None = None
-    version: str | None = None
-    settings: SubSetting | None = None
-    flow: Flow | None = None
 
 
 class MonitoringJobReference(ChartObject):

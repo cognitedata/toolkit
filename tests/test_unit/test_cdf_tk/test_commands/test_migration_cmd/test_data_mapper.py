@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
@@ -404,38 +405,39 @@ class TestCanvasMapper:
 
 
 class TestChartMapper:
-    def test_map_chart_with_threshold_calculation_and_events_filter(self) -> None:
+    def test_map_chart(self, data_regression: DataRegressionFixture) -> None:
         input_chart_path = MIGRATION_DIR / "charts" / "classic.Chart.yaml"
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
-        output_chart = ChartResponse.model_validate(yaml.safe_load(output_chart_path.read_text(encoding="utf-8")))
-        source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
-        # These are not yet supported.
-        source.data.monitoring_jobs = None
-        source.data.scheduled_calculation_collection = None
-
-        assert len(output_chart.data.core_timeseries_collection or []) == len(source.data.time_series_collection or [])
-        core_timeseries = output_chart.data.core_timeseries_collection or []
+        target_space = "my_target_space"
+        event_count = 4
+        raw = yaml.safe_load(input_chart_path.read_text(encoding="utf-8"))
+        source = ChartResponse.model_validate(raw)
         with monkeypatch_toolkit_client() as client:
             time_series_lookup = MagicMock()
-            time_series_lookup.side_effect = [
-                # Two first calls to populate cache.
-                None,
-                None,
-                *[core_ts.node_reference for core_ts in core_timeseries],
-            ]
+
+            def _get_node_id(
+                id: int | Sequence[int] | None = None, external_id: str | Sequence[str] | None = None
+            ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
+                if isinstance(external_id, str):
+                    return NodeId(space=target_space, external_id=external_id)
+                return None
+
+            time_series_lookup.side_effect = _get_node_id
             # Assume all timeseries in the output chart are set to CogniteTimeSeries
             time_series_lookup.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
             client.migration.lookup.time_series = time_series_lookup
+            assert source.monitoring_jobs
+            user_identifier = source.monitoring_jobs[0].user_identifier
+            assert user_identifier is not None
+            client.user_profiles.me.return_value = UserProfile(
+                user_identifier=user_identifier, identity_type="USER", last_updated_time=1
+            )
 
-            event_node_ids = [
-                activity.node_reference
-                for activity in output_chart.data.activities_collection or []
-                if activity.node_reference is not None
-            ]
+            event_node_ids = [NodeId(space=target_space, external_id=f"event_{i}") for i in range(event_count)]
             client.tool.events.list.return_value = [
-                EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(len(event_node_ids))
+                EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(event_count)
             ]
             event_lookup = MagicMock()
             # Cache call + each event
@@ -446,31 +448,19 @@ class TestChartMapper:
             )
             client.migration.lookup.events = event_lookup
 
-            new_uuids = [core_ts.id for core_ts in core_timeseries]
-            with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-                mapper = ChartMapper(client)
-                mapped_list = mapper.map([source])
+            mapper = ChartMapper(client)
+            mapped_list = mapper.map([source])
             assert len(mapped_list) == 1
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
 
-        expected = ChartRequest.model_validate(output_chart.dump(), extra="allow", by_alias=True).model_dump(
-            mode="json",
-            by_alias=True,
-            exclude_unset=True,
-            exclude_none=True,
-            exclude={
-                "data": {
-                    # Not yet supported.
-                    "monitoring_jobs",
-                    "scheduled_calculation_collection",
-                },
-            },
-        )
-        # Manually remove the server side only properties
-        for key in ["lastUpdatedTime", "createdTime", "ownerId"]:
-            expected.pop(key, None)
-        assert mapped.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True) == expected
+        dumped = mapped.dump()
+        dumped["monitoringJobs"] = [job.dump() for job in mapped.monitoring_jobs or []] or None
+        dumped["scheduledCalculations"] = [
+            calculation.dump() for calculation in mapped.scheduled_calculations or []
+        ] or None
+
+        data_regression.check(dumped, fullpath=output_chart_path)
 
 
 class TestFDMtoCDMMapper:

@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -8,7 +9,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
@@ -19,6 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
@@ -34,23 +37,10 @@ def load_toolkit_client(toolkit_client: ToolkitClient) -> None:
         mock_env.create_from_environment.return_value.get_client.return_value = toolkit_client
 
 
-def _replace_uuids(obj: object, uuid_map: dict[str, str]) -> object:
-    """Recursively replace UUIDs in a nested dict/list with stable placeholders."""
-    if isinstance(obj, str) and UUID_PATTERN.fullmatch(obj):
-        if obj not in uuid_map:
-            uuid_map[obj] = f"UUID_{len(uuid_map)}"
-        return uuid_map[obj]
-    if isinstance(obj, dict):
-        return {k: _replace_uuids(v, uuid_map) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_replace_uuids(item, uuid_map) for item in obj]
-    return obj
-
-
 @pytest.fixture()
 def legacy_chart(
     toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_dataset: DataSetResponse
-) -> ChartResponse:
+) -> Iterable[ChartResponse]:
     """Create a legacy chart with a classic timeseries and the InstanceSource mapping node."""
     client = toolkit_client
 
@@ -65,12 +55,51 @@ def legacy_chart(
     ts = create_migrate_timeseries(client, ts_external_id, smoke_space.space, smoke_dataset.id)
 
     ts_collection[0].ts_id = ts.id
+    if chart.data.user_info:
+        chart.data.user_info.id = client.user_profiles.me().user_identifier
 
-    # The Chart Create endpoint is an upsert. So this will restore the chart
-    # for each run.
+    if not chart.scheduled_calculations:
+        raise AssertionError("Chart migration failed - no scheduled calculations.")
+
+    calculation = chart.scheduled_calculations[0]
+    if calculation.target_timeseries_external_id is None:
+        raise AssertionError(
+            "Chart migration failed - scheduled calculation does not have a target timeseries external ID."
+        )
+    _ = create_migrate_timeseries(
+        client, calculation.target_timeseries_external_id, smoke_space.space, smoke_dataset.id
+    )
+
+    if not chart.monitoring_jobs:
+        raise AssertionError("Chart migration failed - no monitoring jobs.")
+    monitoring_job = chart.monitoring_jobs[0]
+
+    calculation.nonce = client.iam.sessions.create().nonce
+    monitoring_job.nonce = client.iam.sessions.create().nonce
+    alert_cannels = client.alerts.channels.list()
+    if len(alert_cannels) == 0:
+        raise AssertionError("Chart migration failed - no alert cannels available.")
+    monitoring_job.channel_id = alert_cannels[0].id
+
+    if client.charts.scheduled_calculations.retrieve([calculation.as_id()], ignore_unknown_ids=True):
+        client.charts.scheduled_calculations.delete([calculation.as_id()])
+    _ = client.charts.scheduled_calculations.create([calculation])
+
+    if client.charts.monitoring_jobs.retrieve([monitoring_job.as_id()], ignore_unknown_ids=True):
+        client.charts.monitoring_jobs.delete([monitoring_job.as_id()])
+
+    created_job = client.charts.monitoring_jobs.create([monitoring_job])[0]
+    # Update internal ID used to link monitoring job with Chart UI element.
+    chart.monitoring_jobs[0].id = created_job.id
+    chart.data.monitoring_jobs[0].id = created_job.id  # type: ignore[index]
+
     created_charts = client.charts.create([chart])
 
-    return created_charts[0]
+    yield created_charts[0]
+
+    client.charts.scheduled_calculations.delete([calculation.as_id()])
+    client.charts.monitoring_jobs.delete([monitoring_job.as_id()])
+    client.charts.delete([chart.as_id()])
 
 
 class TestMigrateChart:
@@ -83,7 +112,7 @@ class TestMigrateChart:
         data_regression: DataRegressionFixture,
     ) -> None:
         if len(legacy_chart.data.time_series_collection or []) == 0:
-            raise AssertionError("Chart migration failed. Legacy chart does not have no time series.")
+            raise AssertionError("Chart migration failed. Legacy chart does not have any time series.")
         if len(legacy_chart.data.core_timeseries_collection or []) != 0:
             raise AssertionError(
                 "Chart migration failed. Legacy chart has core timeseries, expected only classic timeseries."
@@ -105,10 +134,17 @@ class TestMigrateChart:
         else:
             print("No migration log files found. This means there were no issues.")
 
-        migrated_charts = toolkit_client.charts.retrieve([ExternalId(external_id=legacy_chart.external_id)])
-        if len(migrated_charts) != 1:
+        # Use ChartsIO to include backend services.
+        page = next(
+            iter(
+                ChartIO(toolkit_client, skip_backend_services=False).stream_data(
+                    selector=ChartExternalIdSelector(external_ids=(legacy_chart.external_id,))
+                )
+            )
+        )
+        if len(page.items) != 1:
             raise AssertionError("Charts migration failed. Failed to retrieve migrated chart.")
-        migrated_chart = migrated_charts[0]
+        migrated_chart = page.items[0].item
         if migrated_chart.data.time_series_collection:
             classic_ts = [ts.ts_external_id for ts in migrated_chart.data.time_series_collection]
             raise AssertionError(
@@ -121,10 +157,18 @@ class TestMigrateChart:
                 f"Chart migration failed. Expected {classic_refs} migrated timeseries in migrated chart, found {migrated_refs}"
             )
 
-        dumped = migrated_chart.as_request_resource().dump()
-        uuid_map: dict[str, str] = {}
-        stabilised = _replace_uuids(dumped, uuid_map)
-        data_regression.check({"chart": stabilised})
+        request = migrated_chart.as_request_resource()
+        dumped = request.dump()
+        dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs or []] or None
+        dumped["scheduledCalculations"] = [
+            calculation.dump() for calculation in request.scheduled_calculations or []
+        ] or None
+        # Changes depending on test run and service principal used.
+        del dumped["data"]["userInfo"]["id"]
+        del dumped["data"]["monitoringJobs"][0]["id"]
+        del dumped["monitoringJobs"][0]["channelId"]
+
+        data_regression.check({"chart": dumped})
 
 
 def create_migrate_timeseries(

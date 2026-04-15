@@ -2,14 +2,15 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal, cast
+from functools import cached_property
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 from uuid import uuid4
 
 from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -17,14 +18,27 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobRequest,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationRequest,
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartActivity,
     ChartCoreTimeseriesUIElement,
+    ChartScheduledCalculationUIElement,
     ChartSource,
     ChartThreshold,
     ChartTimeseriesUIElement,
     ChartWorkflowUIElement,
     FlowElement,
+    MonitoringJobReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -410,6 +424,9 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         return record, conversion_issue
 
 
+_T_ChartCalculation = TypeVar("_T_ChartCalculation", ChartWorkflowUIElement, ChartScheduledCalculationUIElement)
+
+
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     DEFAULT_EVENT_VIEW = ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1")
 
@@ -419,6 +436,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         ):
             raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
 
+    @cached_property
+    def _me(self) -> str:
+        return self.client.user_profiles.me().user_identifier
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         event_ids_by_chart_external_id = self._populate_cache(source)
         output: list[ChartRequest | None] = []
@@ -427,19 +448,18 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         chart_dest = "Charts (data modeling)"
         for item in source:
             identifier = item.external_id
-            if item.data.scheduled_calculation_collection or item.data.monitoring_jobs:
-                output.append(None)
-                support_issue = self._create_missing_support_issue(item)
+            if any(job.user_identifier != self._me for job in item.monitoring_jobs or []):
                 log_entries.append(
                     migration_log_entry(
                         identifier,
-                        label="Unsupported chart features",
-                        message="; ".join(support_issue.errors),
+                        label="Monitoring job owned by different user",
                         severity=Severity.failure,
                         source=chart_src,
                         destination=chart_dest,
+                        message="Monitoring job(s) owned by different user",
                     )
                 )
+                output.append(None)
                 continue
 
             mapped_item, issue = self._map_single_item(
@@ -507,16 +527,12 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             self.logger.log(log_entries)
         return output
 
-    def _create_missing_support_issue(self, item: ChartResponse) -> ChartMigrationIssue:
-        errors: list[str] = []
-        if item.data.scheduled_calculation_collection:
-            errors.append("Scheduled calculations is not yet supported")
-        if item.data.monitoring_jobs:
-            errors.append("Monitoring jobs is not yet supported")
-        return ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id, errors=errors)
-
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
+
+        Collects classic identifiers from ``time_series_collection``, monitoring jobs,
+        scheduled calculation targets and graph inputs, so batch lookup can run before
+        per-chart mapping.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
         """
@@ -529,6 +545,19 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     timeseries_ids.add(item.ts_id)
                 if item.ts_external_id:
                     timeseries_external_ids.add(item.ts_external_id)
+            for job in chart.monitoring_jobs or []:
+                model = job.model
+                if model.timeseries_id is not None:
+                    timeseries_ids.add(model.timeseries_id)
+                if model.timeseries_external_id:
+                    timeseries_external_ids.add(model.timeseries_external_id)
+            for calculation in chart.scheduled_calculations or []:
+                if calculation.target_timeseries_external_id:
+                    timeseries_external_ids.add(calculation.target_timeseries_external_id)
+                for step in calculation.graph.steps:
+                    for inp in step.inputs:
+                        if inp.type == "ts" and isinstance(inp.value, str):
+                            timeseries_external_ids.add(inp.value)
             for event_filter in chart.data.event_filters or []:
                 if not event_filter.filters:
                     continue
@@ -562,23 +591,30 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     ) -> tuple[ChartRequest | None, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
 
-        uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         time_series_collection = item.data.time_series_collection or []
-        timeseries_core_collection = self._create_timeseries_core_collection(
-            time_series_collection, issue, uuid_generator
-        )
+        timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
+        mapped_monitoring_jobs = self._map_monitoring_jobs(item.monitoring_jobs or [], issue)
+        mapped_scheduled_calculations = self._map_scheduled_calculations(item.scheduled_calculations or [], issue)
         if issue.has_issues:
             return None, issue
 
+        migrated_ts_ui_ids = {core.id for core in timeseries_core_collection if core.id is not None}
+
         updated_source_collection = self._update_source_collection(
-            item.data.source_collection or [], time_series_collection, timeseries_core_collection
+            item.data.source_collection or [], migrated_ts_ui_ids
         )
         updated_threshold_collection = self._update_threshold_collection(
-            item.data.threshold_collection or [], uuid_generator
+            item.data.threshold_collection or [], migrated_ts_ui_ids
         )
         # WorkflowCollections = Calculations in the UI.
-        updated_workflow_collection = self._update_workflow_collection(
-            item.data.workflow_collection or [], uuid_generator
+        updated_workflow_collection = self._update_chart_calculation(
+            item.data.workflow_collection or [], migrated_ts_ui_ids
+        )
+        updated_scheduled_calculation_collection = self._update_chart_calculation(
+            item.data.scheduled_calculation_collection or [], migrated_ts_ui_ids
+        )
+        updated_monitoring_job_references = self._update_monitoring_job_references(
+            item.data.monitoring_jobs or [], migrated_ts_ui_ids
         )
         updated_activities_collection = self._create_activities_collection(event_ids, issue)
 
@@ -603,141 +639,228 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             mapped_chart.data.threshold_collection = updated_threshold_collection
         if updated_workflow_collection:
             mapped_chart.data.workflow_collection = updated_workflow_collection
+        if item.data.scheduled_calculation_collection is not None:
+            mapped_chart.data.scheduled_calculation_collection = updated_scheduled_calculation_collection
+        if item.data.monitoring_jobs is not None:
+            mapped_chart.data.monitoring_jobs = updated_monitoring_job_references
         if updated_activities_collection:
             mapped_chart.data.activities_collection = updated_activities_collection
             mapped_chart.data.event_filters = None
+        if mapped_monitoring_jobs:
+            mapped_chart.monitoring_jobs = mapped_monitoring_jobs
+        if mapped_scheduled_calculations:
+            mapped_chart.scheduled_calculations = mapped_scheduled_calculations
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
         self,
         time_series_collection: list[ChartTimeseriesUIElement],
         issue: ChartMigrationIssue,
-        uuid_generator: dict[str, str],
     ) -> list[ChartCoreTimeseriesUIElement]:
         timeseries_core_collection: list[ChartCoreTimeseriesUIElement] = []
         for ts_item in time_series_collection or []:
-            node_id, consumer_view_id = self._get_node_id_consumer_view_id(ts_item)
+            ids: list[InternalId | ExternalId] = []
+            if ts_item.ts_external_id:
+                ids.append(ExternalId(external_id=ts_item.ts_external_id))
+            if ts_item.ts_id:
+                ids.append(InternalId(id=ts_item.ts_id))
+            node_id, consumer_view_id = self._get_node_id_consumer_view_id(ids)
 
             if node_id is None:
                 if ts_item.ts_id is not None:
-                    issue.missing_timeseries_ids.append(ts_item.ts_id)
+                    issue.missing_timeseries_ids.add(ts_item.ts_id)
                 elif ts_item.ts_external_id is not None:
-                    issue.missing_timeseries_external_ids.append(ts_item.ts_external_id)
+                    issue.missing_timeseries_external_ids.add(ts_item.ts_external_id)
                 else:
-                    issue.missing_timeseries_identifier.append(ts_item.id or "unknown")
+                    issue.missing_timeseries_identifier.add(ts_item.id or "unknown")
                 continue
             if ts_item.id is None:
                 issue.errors.append(f"Missing timeseries id: {ts_item.ts_id!r}")
                 continue
-            new_uuid = uuid_generator[ts_item.id]
-            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, new_uuid)
+            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, ts_item.id)
             timeseries_core_collection.append(core_timeseries)
         return timeseries_core_collection
 
+    def _map_monitoring_jobs(
+        self, jobs: list[ChartMonitoringJobResponse], issue: ChartMigrationIssue
+    ) -> list[ChartMonitoringJobRequest]:
+        new_jobs: list[ChartMonitoringJobRequest] = []
+        for job in jobs:
+            new_job = job.as_request_resource()
+            ids: list[InternalId | ExternalId] = []
+            if new_job.model.timeseries_id:
+                ids.append(InternalId(id=new_job.model.timeseries_id))
+            if new_job.model.timeseries_external_id:
+                ids.append(ExternalId(external_id=new_job.model.timeseries_external_id))
+            node_id, _ = self._get_node_id_consumer_view_id(ids)
+            if node_id is None:
+                if new_job.model.timeseries_external_id is not None:
+                    issue.missing_timeseries_external_ids.add(new_job.model.timeseries_external_id)
+                if new_job.model.timeseries_id:
+                    issue.missing_timeseries_ids.add(new_job.model.timeseries_id)
+                continue
+            new_model = job.model.model_copy(
+                update={
+                    "timeseries_id": None,
+                    "timeseries_external_id": None,
+                    "timeseries_instance_id": node_id,
+                }
+            )
+            new_jobs.append(new_job.model_copy(update={"model": new_model}))
+        return new_jobs
+
+    def _map_scheduled_calculations(
+        self, calculations: list[ChartScheduledCalculationResponse], issue: ChartMigrationIssue
+    ) -> list[ChartScheduledCalculationRequest]:
+        new_calculations: list[ChartScheduledCalculationRequest] = []
+        for calculation in calculations:
+            new_calculation = calculation.as_request_resource()
+            if new_calculation.target_timeseries_external_id is not None:
+                node_id = self.client.migration.lookup.time_series(
+                    external_id=new_calculation.target_timeseries_external_id
+                )
+                if node_id is None:
+                    issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
+                    continue
+                new_calculation.target_timeseries_instance_id = node_id
+                new_calculation.target_timeseries_external_id = None
+            new_graph = self._map_calculation_graph(calculation.graph, issue)
+            if new_graph is not None:
+                new_calculation.graph = new_graph
+            new_calculations.append(new_calculation)
+        return new_calculations
+
+    def _map_calculation_graph(self, graph: CalculationGraph, issue: ChartMigrationIssue) -> CalculationGraph | None:
+        has_changed = False
+        new_steps: list[CalculationStep] = []
+        for step in graph.steps:
+            has_changed_step = False
+            new_inputs: list[CalculationInput] = []
+            for input_ in step.inputs:
+                if input_.type != "ts":
+                    new_inputs.append(input_)
+                    continue
+                if isinstance(input_.value, str):
+                    external_id = input_.value
+                    node_id = self.client.migration.lookup.time_series(external_id=external_id)
+                    if node_id is None:
+                        issue.missing_timeseries_external_ids.add(external_id)
+                        new_inputs.append(input_)
+                    else:
+                        new_inputs.append(input_.model_copy(update={"value": node_id}))
+                        has_changed_step = True
+                else:
+                    new_inputs.append(input_)
+            if has_changed_step:
+                new_steps.append(step.model_copy(update={"inputs": new_inputs}))
+                has_changed = True
+            else:
+                new_steps.append(step)
+        return graph.model_copy(update={"steps": new_steps}) if has_changed else None
+
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseriesUIElement, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
+        self, ts_item: ChartTimeseriesUIElement, node_id: NodeId, consumer_view_id: ViewId | None, element_id: str
     ) -> ChartCoreTimeseriesUIElement:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
-        dumped["id"] = new_uuid
+        dumped["id"] = element_id
         dumped["type"] = "coreTimeseries"
         # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
         core_timeseries = ChartCoreTimeseriesUIElement.model_validate(dumped, extra="ignore")
         return core_timeseries
 
-    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseriesUIElement) -> tuple[NodeId | None, ViewId | None]:
-        """Look up the node ID and consumer view ID for a given timeseries item.
-
-        Prioritizes lookup by internal ID, then by external ID.
+    def _get_node_id_consumer_view_id(
+        self, ids: Sequence[InternalId | ExternalId]
+    ) -> tuple[NodeId | None, ViewId | None]:
+        """Look up the node ID and consumer view ID for a given timeseries.
 
         Args:
-            ts_item: The ChartTimeseries item to look up.
+            ids: The timeseries item IDs to look up
 
         Returns:
             A tuple containing the consumer view ID and node ID, or None if not found.
         """
         node_id: NodeId | None = None
         consumer_view_id: ViewId | None = None
-        for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
-            if id_value is None:
-                continue
-            arg = {id_name: id_value}
-            node_id = self.client.migration.lookup.time_series(**arg)  # type: ignore[arg-type]
-            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)  # type: ignore[arg-type]
+        for identifier in ids:
+            arg = identifier.dump(camel_case=False)
+            node_id = self.client.migration.lookup.time_series(**arg)
+            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)
             if node_id is not None:
                 break
         return node_id, consumer_view_id
 
     def _update_source_collection(
-        self,
-        source_collection: list[ChartSource],
-        time_series_collection: list[ChartTimeseriesUIElement],
-        timeseries_core_collection: list[ChartCoreTimeseriesUIElement],
+        self, source_collection: list[ChartSource], migrated_ts_ui_ids: set[str]
     ) -> list[ChartSource]:
-        remove_ids = {ts_item.id for ts_item in time_series_collection if ts_item.id is not None}
-        updated_source_collection = [ts_item for ts_item in source_collection if ts_item.id not in remove_ids]
-        for core_ts_item in timeseries_core_collection:
-            # We cast there two as we set them in the _create_timeseries_core_collection method
-            new_source_item = ChartSource(id=cast(str, core_ts_item.id), type=cast(str, core_ts_item.type))
-            updated_source_collection.append(new_source_item)
-        return updated_source_collection
+        new_source_collection: list[ChartSource] = []
+        for item in source_collection:
+            if item.id in migrated_ts_ui_ids:
+                new_source_collection.append(item.model_copy(update={"type": "coreTimeseries"}))
+            else:
+                new_source_collection.append(item)
+        return new_source_collection
 
     def _update_threshold_collection(
-        self, collection: list[ChartThreshold], uuid_generator: dict[str, str]
+        self, collection: list[ChartThreshold], migrated_ts_ui_ids: set[str]
     ) -> list[ChartThreshold]:
         updated_collection = []
         for threshold in collection:
-            if threshold.source_id in uuid_generator:
-                updated_collection.append(
-                    threshold.model_copy(
-                        update={
-                            "source_id": uuid_generator[threshold.source_id],
-                            # We clear out the calls to avoid referencing past timeseries.
-                            "calls": [],
-                        }
-                    )
-                )
+            if threshold.source_id is not None and threshold.source_id in migrated_ts_ui_ids:
+                # We clear out the calls to avoid referencing past timeseries.
+                updated_collection.append(threshold.model_copy(update={"calls": []}))
             else:
                 updated_collection.append(threshold)
         return updated_collection
 
-    def _update_workflow_collection(
-        self, collection: list[ChartWorkflowUIElement], uuid_generator: dict[str, str]
-    ) -> list[ChartWorkflowUIElement]:
-        updated_collection: list[ChartWorkflowUIElement] = []
-        for workflow in collection:
-            updated_elements: list[FlowElement] = []
-            if workflow.flow is None:
-                updated_collection.append(workflow)
+    def _update_chart_calculation(
+        self, collection: list[_T_ChartCalculation], migrated_ts_ui_ids: set[str]
+    ) -> list[_T_ChartCalculation]:
+        updated_collection: list[_T_ChartCalculation] = []
+        for calculation in collection:
+            if calculation.flow is None or calculation.flow.elements is None:
+                updated_collection.append(calculation)
                 continue
-            has_changes = False
-            for element in workflow.flow.elements or []:
-                if element.data and element.data.selected_source_id in uuid_generator:
-                    new_data = element.data.model_copy(
-                        update={
-                            "selected_source_id": uuid_generator[element.data.selected_source_id],
-                            "type": "coreTimeseries",
-                        }
-                    )
-                    updated_elements.append(element.model_copy(update={"data": new_data}))
-                    has_changes = True
-                else:
-                    updated_elements.append(element)
-            if has_changes:
-                new_flow = workflow.flow.model_copy(update={"elements": updated_elements})
-                updated_collection.append(
-                    workflow.model_copy(
-                        update={
-                            "flow": new_flow,
-                            # We clear out the calls to avoid referencing past timeseries.
-                            "calls": [],
-                        }
-                    )
-                )
+            if new_elements := self._update_flow_elements(calculation.flow.elements, migrated_ts_ui_ids):
+                new_flow = calculation.flow.model_copy(update={"elements": new_elements})
+                update: dict[str, Any] = {"flow": new_flow}
+                if isinstance(calculation, ChartWorkflowUIElement):
+                    # We clear out the calls to avoid referencing past timeseries.
+                    update["calls"] = []
+                updated_collection.append(calculation.model_copy(update=update))
             else:
-                updated_collection.append(workflow)
+                updated_collection.append(calculation)
         return updated_collection
+
+    def _update_flow_elements(
+        self, elements: list[FlowElement], migrated_ts_ui_ids: set[str]
+    ) -> list[FlowElement] | None:
+        has_changes = False
+        updated_elements: list[FlowElement] = []
+        for element in elements:
+            if (
+                element.data
+                and element.data.selected_source_id is not None
+                and element.data.selected_source_id in migrated_ts_ui_ids
+            ):
+                new_data = element.data.model_copy(update={"type": "coreTimeseries"})
+                updated_elements.append(element.model_copy(update={"data": new_data}))
+                has_changes = True
+            else:
+                updated_elements.append(element)
+        return updated_elements if has_changes else None
+
+    def _update_monitoring_job_references(
+        self, references: list[MonitoringJobReference], migrated_ts_ui_ids: set[str]
+    ) -> list[MonitoringJobReference]:
+        updated: list[MonitoringJobReference] = []
+        for ref in references:
+            if ref.source_id and ref.source_id in migrated_ts_ui_ids and ref.source_type == "timeseries":
+                updated.append(ref.model_copy(update={"source_type": "coreTimeseries"}))
+            else:
+                updated.append(ref)
+        return updated
 
     def _create_activities_collection(self, event_ids: set[int], issue: ChartMigrationIssue) -> list[ChartActivity]:
         activities: list[ChartActivity] = []
