@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio.logger import (
     FileWithAggregationLogger,
     ItemsResult,
+    Severity,
     display_item_results,
 )
 from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
@@ -49,7 +50,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
-from .issues import WriteIssue, write_issue_as_migration_entry
+from .issues import MigrationEntryV2
 
 
 @dataclass
@@ -321,26 +322,34 @@ class MigrationCommand(ToolkitCommand):
 
             responses = target.upload_items(data_chunk=page, http_client=write_client, selector=selected)
 
-            issues: list[WriteIssue] = []
             for item in responses:
                 if isinstance(item, ItemsSuccessResponse):
                     continue
                 if isinstance(item, ItemsFailedResponse):
                     error = item.error
                     for id_ in item.ids:
-                        issue = WriteIssue(id=str(id_), status_code=error.code, message=error.message)
-                        issues.append(issue)
+                        target.logger.log(
+                            MigrationEntryV2(
+                                id=id_,
+                                severity=Severity.failure,
+                                label=f"Failed to write to CDF: {error.code}",
+                                message=error.message,
+                                source=str(selected),
+                                destination=target.KIND,
+                            )
+                        )
                 elif isinstance(item, ItemsFailedRequest):
                     for id_ in item.ids:
-                        issue = WriteIssue(id=str(id_), status_code=0, message=item.error_message)
-                        issues.append(issue)
-
-            if issues:
-                destination = target.KIND
-                source = str(selected)
-                target.logger.log(
-                    [write_issue_as_migration_entry(issue, source=source, destination=destination) for issue in issues]
-                )
+                        target.logger.log(
+                            MigrationEntryV2(
+                                id=id_,
+                                severity=Severity.failure,
+                                label="Failed to write to CDF: Request failed",
+                                message=item.error_message,
+                                source=str(selected),
+                                destination=target.KIND,
+                            )
+                        )
 
             migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(

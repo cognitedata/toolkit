@@ -214,17 +214,6 @@ class WriteIssue(MigrationIssue):
     message: str | None = None
 
 
-def write_issue_as_migration_entry(issue: WriteIssue, *, source: str, destination: str) -> MigrationEntryV2:
-    return MigrationEntryV2(
-        id=issue.id,
-        label="Write failed",
-        message=f"HTTP {issue.status_code}: {issue.message or ''}",
-        severity=Severity.failure,
-        source=source,
-        destination=destination,
-    )
-
-
 class InstanceConversionIssue(MigrationIssue):
     """Represents an instance conversion issue encountered during migration."""
 
