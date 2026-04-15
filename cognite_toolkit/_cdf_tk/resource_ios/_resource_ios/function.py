@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -88,7 +87,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
         build_path: Path | None,
         console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
-        use_fileio: bool = Flags.v08.is_enabled(),
+        use_fileio: bool = True,
     ):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}

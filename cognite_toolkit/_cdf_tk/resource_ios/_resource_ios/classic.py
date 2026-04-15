@@ -1,10 +1,8 @@
 import collections.abc
-import io
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-import pandas as pd
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -29,14 +27,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
-from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
-from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
-from cognite_toolkit._cdf_tk.utils.file import read_csv
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 
 from .data_organization import DataSetsIO, LabelIO
@@ -53,26 +47,6 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
     kind = "Asset"
     dependencies = frozenset({DataSetsIO, LabelIO})
     _doc_url = "Assets/operation/createAssets"
-
-    @classmethod
-    def is_supported_file(cls, file: Path) -> bool:
-        if Flags.v08.is_enabled():
-            return super().is_supported_file(file)
-        global _DEPRECATION_WARNING_ISSUED
-        if not file.stem.casefold().endswith(cls.kind.casefold()):
-            return False
-        if file.suffix in YAML_SUFFIX:
-            return True
-        if file.suffix in TABLE_FORMATS:
-            if not _DEPRECATION_WARNING_ISSUED:
-                ToolkitDeprecationWarning(
-                    feature="deployment of asset from CSV or Parquet files",
-                    alternative="data plugin and cdf data upload commands",
-                    removal_version="0.8",
-                ).print_warning()
-                _DEPRECATION_WARNING_ISSUED = True
-            return True
-        return False
 
     @property
     def display_name(self) -> str:
@@ -160,32 +134,6 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
                 yield LabelIO, ExternalId(external_id=label)
         if resource.parent_external_id:
             yield cls, ExternalId(external_id=resource.parent_external_id)
-
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        resources: list[dict[str, Any]]
-        if filepath.suffix in {".yaml", ".yml"}:
-            raw_yaml = load_yaml_inject_variables(
-                self.safe_read(filepath),
-                environment_variables or {},
-                original_filepath=filepath,
-            )
-            resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
-        elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
-            if filepath.suffix == ".csv":
-                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = read_csv(io.StringIO(file_content))
-            else:
-                data = pd.read_parquet(filepath)
-            data.replace(pd.NA, None, inplace=True)
-            data.replace("", None, inplace=True)
-            resources = data.to_dict(orient="records")
-        else:
-            raise ValueError(f"Unsupported file type: {filepath.suffix}")
-
-        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AssetRequest:
         # Unpack metadata keys from table formats (e.g. csv, parquet)
