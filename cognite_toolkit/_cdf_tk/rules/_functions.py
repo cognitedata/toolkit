@@ -15,8 +15,8 @@ from ._base import ToolkitGlobalRulSet
 
 
 class FunctionLimitsRule(ToolkitGlobalRulSet):
-    CODE_PREFIX = "FUNCTION"
-    DISPLAY_NAME = "Function limits"
+    CODE_PREFIX: str = "FUNCTION"
+    DISPLAY_NAME: str = "Function limits"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
