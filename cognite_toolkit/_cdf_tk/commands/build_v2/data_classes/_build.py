@@ -24,7 +24,8 @@ class BuildParameters(BaseModel):
     user_selected_modules: list[str] | None = Field(
         None,
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
-        "and the modules specified there. If no config YAML is found, Toolkit will build all modules in the organization directory.",
+        "and the modules specified there. If no config YAML is found, Toolkit will prompt the user to choose the modules"
+        "to build",
     )
     verbose: bool = False
 
@@ -44,8 +45,9 @@ class BuildSourceFiles(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
-    selected_modules: set[RelativeDirPath | str] = Field(
+    selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
+        "If None, no modules are selected."
     )
     variables: dict[str, JsonValue] = Field(
         default_factory=dict, description="Variables to be used during the build process."
