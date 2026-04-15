@@ -48,7 +48,7 @@ class BuildVariable(BaseModel):
 
                 def replace_yaml_block_sequence(match: re.Match[str]) -> str:
                     indent = match.group("indent")
-                    return "\n".join(f"{indent}- {BuildVariable._yaml_block_sequence_scalar(item)}" for item in values)
+                    return "\n".join(f"{indent}- {self._yaml_block_sequence_scalar(item)}" for item in values)
 
                 return pattern, replace_yaml_block_sequence
         elif file_suffix == ".sql":
