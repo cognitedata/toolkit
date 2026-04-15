@@ -93,26 +93,25 @@ class MigrationCommand(ToolkitCommand):
                 self.validate_stream_capacity(data.client, data.stream_external_id, needed_capacity)
             else:
                 self.validate_available_capacity(data.client, needed_capacity)
-        results_by_selector: dict[str, list[ItemsResult]] = {}
+
         with (
             NDJsonWriter(
                 log_dir, kind="MigrationIssues", default_filestem=log_filestem, compression=Uncompressed
             ) as log_file,
             HTTPClient(config=data.client.config) as write_client,
+            FileWithAggregationLogger(log_file) as logger,
         ):
-            with FileWithAggregationLogger(log_file) as logger:
-                self._run_migration_steps(
-                    plan=plan,
-                    data=data,
-                    mapper=mapper,
-                    logger=logger,
-                    write_client=write_client,
-                    log_dir=log_dir,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    console=console,
-                    results_by_selector=results_by_selector,
-                )
+            results_by_selector = self._run_migration_steps(
+                plan=plan,
+                data=data,
+                mapper=mapper,
+                logger=logger,
+                write_client=write_client,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                console=console,
+            )
 
         return results_by_selector
 
@@ -127,8 +126,8 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool,
         verbose: bool,
         console: Console,
-        results_by_selector: dict[str, list[ItemsResult]],
-    ) -> None:
+    ) -> dict[str, list[ItemsResult]]:
+        results_by_selector: dict[str, list[ItemsResult]] = {}
         data.logger = logger
         mapper.logger = logger
         for step in plan:
@@ -173,6 +172,7 @@ class MigrationCommand(ToolkitCommand):
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             console.print(f"{action} {total:,} {selected.display_name} to {target}.")
+        return results_by_selector
 
     def _create_plan(
         self,

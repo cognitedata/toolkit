@@ -104,6 +104,10 @@ class FailedConversion(BaseModel, alias_generator=to_camel, extra="ignore", popu
     value: str | int | float | bool | None | list | dict
     error: str
 
+    @property
+    def display_name(self) -> str:
+        return f"Failed conversion for property '{self.property_id}' with value '{self.value}': {self.error}"
+
 
 class InvalidPropertyDataType(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property with an invalid type during migration.
@@ -116,6 +120,10 @@ class InvalidPropertyDataType(BaseModel, alias_generator=to_camel, extra="ignore
 
     property_id: str
     expected_type: str
+
+    @property
+    def display_name(self) -> str:
+        return f"Invalid property type for property '{self.property_id}'. Expected {self.expected_type}"
 
 
 class ConversionIssue(MigrationIssue):
