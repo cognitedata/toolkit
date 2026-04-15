@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
 class FunctionLimitsRule(ToolkitGlobalRulSet):
-    CODE_PREFIX: str = "FUNCTION"
-    DISPLAY_NAME: str = "Function limits"
+    CODE_PREFIX = "FUNCTION"
+    DISPLAY_NAME = "Function limits"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
