@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ReadAPIIssue,
     ReadFileIssue,
     ReadIssue,
-    WriteIssue,
 )
 
 
@@ -96,24 +95,4 @@ class TestMigrationIssues:
             "ignoredAssetCentricProperties": [],
             "missingInstanceSpace": None,
             "noMappableProperties": False,
-        }
-
-    def test_write_issue_minimal(self) -> None:
-        write_issue = WriteIssue(id="issue-6", status_code=400)
-
-        assert write_issue.dump() == {
-            "id": "issue-6",
-            "type": "write",
-            "statusCode": 400,
-            "message": None,
-        }
-
-    def test_write_issue_with_message(self) -> None:
-        write_issue = WriteIssue(id="issue-7", status_code=500, message="Internal server error occurred")
-
-        assert write_issue.dump() == {
-            "id": "issue-7",
-            "type": "write",
-            "statusCode": 500,
-            "message": "Internal server error occurred",
         }

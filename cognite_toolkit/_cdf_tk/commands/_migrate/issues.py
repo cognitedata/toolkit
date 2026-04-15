@@ -201,19 +201,6 @@ class ConversionIssue(MigrationIssue):
         }
 
 
-class WriteIssue(MigrationIssue):
-    """Represents a write issue encountered during migration.
-
-    Attributes:
-        status_code (int): The HTTP status code returned during the write operation.
-        message (str | None): An optional message providing additional details about the write issue.
-    """
-
-    type: Literal["write"] = "write"
-    status_code: int
-    message: str | None = None
-
-
 class InstanceConversionIssue(MigrationIssue):
     """Represents an instance conversion issue encountered during migration."""
 
