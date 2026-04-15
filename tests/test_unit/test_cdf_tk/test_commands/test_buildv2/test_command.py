@@ -154,7 +154,7 @@ class TestBuildCommand:
         _ = create_resource_file(org, WorkflowIO, WORKFLOW_YAML)
 
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         _ = cmd.build(parameters, tlk_client)
 
@@ -188,7 +188,7 @@ name: My Space
 """
         resource_file.write_text(space_yaml)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         folder = cmd.build(parameters, tlk_client)
 
@@ -214,7 +214,7 @@ name: My Space
         expected_content = "this is a text file"
         source_txt.write_text(expected_content)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
         _ = cmd.build(parameters, client=None)
 
         files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
