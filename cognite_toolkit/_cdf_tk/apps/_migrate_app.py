@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     InFieldAssetMapping,
     InFieldConditionMapping,
+    InFieldUserMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -1245,7 +1246,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
-                data=ChartIO(client),
+                data=ChartIO(client, skip_backend_services=False),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -1624,7 +1625,7 @@ class MigrateApp(typer.Typer):
             client,
             infield_mappings,
             connection_creator=connection_creator,
-            custom_properties_mappings=[InFieldConditionMapping(infield_mappings)],
+            custom_properties_mappings=[InFieldConditionMapping(infield_mappings), InFieldUserMapping()],
             custom_instance_mappings={
                 InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
                     client, connection_creator, schedule_mapping

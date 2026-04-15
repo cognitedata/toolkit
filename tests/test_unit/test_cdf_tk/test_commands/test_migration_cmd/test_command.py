@@ -1,7 +1,7 @@
 import json
 import uuid
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -92,11 +92,26 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio.logger import ItemsResult
 from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
+
+
+def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
+    totals = {
+        "failure": 0,
+        "pending": 0,
+        "success": 0,
+        "pending-with-warning": 0,
+        "success-with-warning": 0,
+        "skipped": 0,
+    }
+    for item in results:
+        totals[item.status] += item.count
+    return totals
 
 
 @pytest.fixture
@@ -359,13 +374,13 @@ class TestMigrationCommand:
         ]
         assert actual_instances == expected_instance
         result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = _migration_status_totals(result)
         assert actual_results == {
             "failure": 0,
             "pending": 0,
-            "success": len(assets),
+            "success": 0,
             "pending-with-warning": 0,
-            "success-with-warning": 0,
+            "success-with-warning": len(assets),
             "skipped": 0,
         }
 
@@ -473,13 +488,13 @@ class TestMigrationCommand:
         assert bookmark.cursor == "resume-cursor-1"
 
         result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = _migration_status_totals(result)
         assert actual_results == {
             "failure": 0,
             "pending": 0,
-            "success": 1,
+            "success": 0,
             "pending-with-warning": 0,
-            "success-with-warning": 0,
+            "success-with-warning": 1,
             "skipped": 0,
         }
 
@@ -620,13 +635,13 @@ class TestMigrationCommand:
             verbose=True,
         )
         result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = _migration_status_totals(result)
         assert actual_results == {
             "failure": 0,
             "pending": 0,
-            "success": len(annotations),
+            "success": 0,
             "pending-with-warning": 0,
-            "success-with-warning": 0,
+            "success-with-warning": len(annotations),
             "skipped": 0,
         }
 
@@ -811,22 +826,17 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        new_uuids = [
-            uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-            uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-        ]
         selector = ChartExternalIdSelector(external_ids=("my_chart",))
-        with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-            results_by_selector = command.migrate(
-                selectors=[selector],
-                data=ChartIO(client),
-                mapper=ChartMapper(client),
-                log_dir=tmp_path / "logs",
-                dry_run=False,
-                verbose=True,
-            )
+        results_by_selector = command.migrate(
+            selectors=[selector],
+            data=ChartIO(client),
+            mapper=ChartMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=True,
+        )
         result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = _migration_status_totals(result)
         assert actual_results == {
             "failure": 0,
             "pending": 0,
@@ -852,7 +862,7 @@ class TestMigrationCommand:
                 "coreTimeseriesCollection": [
                     {
                         "type": "coreTimeseries",
-                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "id": "87654321-4321-8765-4321-876543218765",
                         "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
                         "viewReference": {
                             "space": "my_schema_space",
@@ -862,7 +872,7 @@ class TestMigrationCommand:
                     },
                     {
                         "type": "coreTimeseries",
-                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "id": "12345678-1234-5678-1234-567812345678",
                         "nodeReference": {"space": "my_space", "externalId": "node_123"},
                         "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
                     },
@@ -870,17 +880,17 @@ class TestMigrationCommand:
                 "sourceCollection": [
                     {
                         "type": "coreTimeseries",
-                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "id": "87654321-4321-8765-4321-876543218765",
                     },
                     {
                         "type": "coreTimeseries",
-                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "id": "12345678-1234-5678-1234-567812345678",
                     },
                 ],
                 "thresholdCollection": [
                     {
                         "name": "High limit",
-                        "sourceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "sourceId": "87654321-4321-8765-4321-876543218765",
                         "upperLimit": 100.0,
                         "calls": [],
                     },
@@ -893,7 +903,7 @@ class TestMigrationCommand:
                                 {
                                     "data": {
                                         "type": "coreTimeseries",
-                                        "selectedSourceId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                        "selectedSourceId": "12345678-1234-5678-1234-567812345678",
                                     },
                                 },
                             ],
@@ -1065,13 +1075,13 @@ class TestMigrationCommand:
         )
 
         result = results_by_selector[str(selector)]
-        actual_results = {status.status: status.count for status in result}
+        actual_results = _migration_status_totals(result)
         assert actual_results == {
             "failure": 0,
             "pending": 0,
-            "success": 1,
+            "success": 0,
             "pending-with-warning": 0,
-            "success-with-warning": 0,
+            "success-with-warning": 1,
             "skipped": 0,
         }
 
@@ -1322,12 +1332,12 @@ class TestMigrationCommand:
         upload_body = json.loads(ingest_records.calls[0].request.content)
         assert len(upload_body["items"]) == len(events)
 
-        actual_results = {status.status: status.count for status in results_by_selector[str(selector)]}
+        actual_results = _migration_status_totals(results_by_selector[str(selector)])
         assert actual_results == {
             "failure": 0,
             "pending": 0,
-            "success": len(events),
+            "success": 0,
             "pending-with-warning": 0,
-            "success-with-warning": 0,
+            "success-with-warning": len(events),
             "skipped": 0,
         }
