@@ -58,3 +58,21 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     @classmethod
     def request_cls(cls) -> type[FunctionRequest]:
         return FunctionRequest
+
+
+class ResourceLimit(BaseModelObject):
+    """Resource limit with min, max, and default values."""
+
+    min: int | float
+    max: int | float
+    default: int | float
+
+
+class FunctionLimits(BaseModelObject):
+    """Function limits for a CDF project."""
+
+    timeout_minutes: int
+    cpu_cores: ResourceLimit
+    memory_gb: ResourceLimit
+    runtimes: list[Literal["py38", "py39", "py310", "py311", "py312"]]
+    response_size_mb: int
