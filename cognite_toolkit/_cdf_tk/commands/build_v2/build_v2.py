@@ -10,8 +10,10 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Any, cast
 
+import questionary
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
+from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
@@ -198,7 +200,30 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
-        return ModuleParser.parse(build)
+        source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
+
+        if build.selected_modules is None:
+            user_selected_modules = self._ask_user_to_select_modules(list(source_by_module_id.values()))
+        else:
+            user_selected_modules = build.selected_modules
+
+        return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
+
+    @classmethod
+    def _ask_user_to_select_modules(cls, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
+        choices = [
+            Choice(
+                title=f"{module.name} ({module.id.as_posix()})",
+                value=module.id,
+            )
+            for module in available_modules
+        ]
+        if not available_modules:
+            raise ToolkitValueError("No modules found to build.")
+        result = questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask()
+        if result is None:
+            raise ToolkitValueError("Build cancelled by user.")
+        return set(result)
 
     def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
         module_count = len(build_source.modules)
@@ -322,9 +347,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
-        selected: set[RelativeDirPath | str] = {
-            parameters.modules_directory.relative_to(parameters.organization_dir)
-        }  # Default to everything under modules.
+        selected: set[RelativeDirPath | str] | None = None
         variables: dict[str, JsonValue] = {}
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
@@ -833,13 +856,31 @@ class BuildV2Command(ToolkitCommand):
 
         all_insights = build_folder.all_insights
         if all_insights:
+            # Prioritize one insight per code, then by severity
+            insights_by_code: dict[str, Insight] = {}
+            remaining_insights: list[Insight] = []
+
+            for insight in all_insights:
+                code = insight.code or "UNDEFINED"
+                if code not in insights_by_code:
+                    insights_by_code[code] = insight
+                else:
+                    remaining_insights.append(insight)
+
+            # Sort the unique codes by severity
+            sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
+            # Sort remaining by severity
+            sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
+            # Combine them
+            prioritized_insights = sorted_unique_insights + sorted_remaining
+
             table = Table(title="Insights", expand=False, show_edge=False)
             table.add_column("Type", style="dim")
             table.add_column("Code", style="dim")
             table.add_column("Description", style="dim")
             table.add_column("Fix", style="dim")
             max_reached = False
-            for no, issue in enumerate(all_insights):
+            for no, issue in enumerate(prioritized_insights):
                 table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
                 if no > 10:
                     max_reached = True
@@ -889,6 +930,41 @@ class BuildV2Command(ToolkitCommand):
 
                 table.add_row(failed_file.code, failed_file.error, display_path, fix)
             console.print(table)
+
+        # Display deployment recommendation based on build status
+        has_yaml_errors = failed_read_file_count > 0
+        has_model_syntax_errors = all_insights.has_model_syntax_errors if all_insights else False
+
+        if has_yaml_errors:
+            console.print(
+                Panel(
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are YAML parsing errors that must be fixed before deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="red",
+                    expand=False,
+                )
+            )
+        elif has_model_syntax_errors:
+            console.print(
+                Panel(
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    "[green]✓[/] [bold]Ready to deploy.[/bold]\n"
+                    "No critical errors found. You can proceed with deployment.",
+                    title="[bold]Deployment Recommendation[/bold]",
+                    border_style="green",
+                    expand=False,
+                )
+            )
 
         return None
 
