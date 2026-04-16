@@ -2,6 +2,7 @@ import itertools
 import json
 from collections.abc import Iterator
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -17,9 +18,10 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics, SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
@@ -32,6 +34,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.commands._purge import validate_soft_delete_purge_headroom
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -200,12 +204,11 @@ class TestPurgeInstances:
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
-        if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
-                json=project_statistics_response,
-            )
+        rsps.add(
+            responses.GET,
+            config.create_api_url("/models/statistics"),
+            json=project_statistics_response,
+        )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -306,12 +309,11 @@ class TestPurgeSpace:
                 ).dump()
             },
         )
-        if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
-                json=project_statistics_response,
-            )
+        rsps.add(
+            responses.GET,
+            config.create_api_url("/models/statistics"),
+            json=project_statistics_response,
+        )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)
@@ -407,3 +409,38 @@ class TestPurgeSpace:
             expected["spaces"] = 1
 
         assert {name: value.deleted for name, value in results.data.items()} == expected
+
+
+class TestSoftDeletePurgeHeadroom:
+    def test_validate_blocks_when_headroom_below_margin(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
+                nodes=1000,
+                edges=0,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+                instances_limit=10_000_000,
+                soft_deleted_instances_limit=10_000_000,
+                instances=1000,
+                soft_deleted_instances=9_200_000,
+            )
+            client.data_modeling.statistics.project.return_value = stats
+            with pytest.raises(ToolkitValueError, match="Cannot proceed"):
+                validate_soft_delete_purge_headroom(client, 900_000, action="test purge")
+
+    def test_validate_ok_when_headroom_sufficient(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
+                nodes=1000,
+                edges=0,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+                instances_limit=10_000_000,
+                soft_deleted_instances_limit=10_000_000,
+                instances=1000,
+                soft_deleted_instances=100,
+            )
+            client.data_modeling.statistics.project.return_value = stats
+            validate_soft_delete_purge_headroom(client, 2000, action="test purge")

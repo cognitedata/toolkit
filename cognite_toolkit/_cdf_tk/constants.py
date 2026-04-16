@@ -155,6 +155,10 @@ class URL:
 # CDF projects, such that admins can take action to increase or clean up the capacity before it is too late.
 DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
 
+# Minimum headroom (limit − projected soft-deleted after the purge) required below the soft-deleted instance limit.
+# Currently set to the same value as DMS_INSTANCE_LIMIT_MARGIN.
+DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN = 1_000_000
+
 # This is the maximum number of rows that can be iterated over in a single query
 # agreed upon with the transformations team.
 MAX_ROW_ITERATION_RUN_QUERY = 500_000
