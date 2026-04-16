@@ -34,7 +34,7 @@ jobs:
       - name: "Pre-processing for demo environment"
         run: uv run python ./demo/preproc.py
       - name: "Build the templates"
-        run: uv run cdf build --config-yaml demo -o ./demo_project
+        run: uv run cdf build --config-yaml demo_project/demo -o ./demo_project
       - name: "Verify and create access rights"
         run: uv run cdf auth verify --no-prompt
       - name: "Deploy the templates"
