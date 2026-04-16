@@ -22,10 +22,11 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment, humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -286,6 +287,14 @@ class CoreApp(typer.Typer):
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
             ),
         ] = None,
+        build_env_name: Annotated[
+            str | None,
+            typer.Option(
+                "--env",
+                "-e",
+                help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -304,6 +313,14 @@ class CoreApp(typer.Typer):
             client = EnvironmentVariables.create_from_environment().get_client(console=console)
 
         cmd = BuildV2Command(print_warning=True, client=client)
+
+        if build_env_name is not None:
+            ToolkitDeprecationWarning(
+                feature="the --env / -e option in cdf build",
+                alternative="--config-yaml / -c with the path to your config file (for example <organization-dir>/config.<env>.yaml)",
+            ).print_warning()
+            if config_yaml is None:
+                config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
         parameter = BuildParameters(
             organization_dir=organization_dir,
