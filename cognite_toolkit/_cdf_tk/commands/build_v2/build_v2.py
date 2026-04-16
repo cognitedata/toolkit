@@ -110,7 +110,12 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(build_folder, parameters.config_yaml_name or "", console, parameters.verbose)
+        self._display_build_folder(
+            build_folder,
+            parameters.config_yaml.name if parameters.config_yaml else "",
+            console,
+            parameters.verbose,
+        )
 
         self._write_results(build_folder, client.config.project if client else None)
 
@@ -123,9 +128,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
-        config_yaml_path: Path | None = None
-        if parameters.config_yaml_name:
-            config_yaml_path = organization_dir / ConfigYAML.get_filename(parameters.config_yaml_name)
+        config_yaml_path: Path | None = parameters.config_yaml.resolve() if parameters.config_yaml else None
         module_directory = parameters.modules_directory
 
         # Execute the checks.
@@ -356,15 +359,14 @@ class BuildV2Command(ToolkitCommand):
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
-        if parameters.config_yaml_name:
+        if parameters.config_yaml:
+            config_path = parameters.config_yaml.resolve()
             try:
-                config = ConfigYAML.from_yaml_file(
-                    ConfigYAML.get_filepath(parameters.organization_dir, parameters.config_yaml_name)
-                )
+                config = ConfigYAML.from_yaml_file(config_path)
             except ValidationError as e:
                 errors = humanize_validation_error(e)
                 raise ToolkitValueError(
-                    f"Config YAML file '{parameters.config_yaml_name}' is invalid:\n{'- '.join(errors)}"
+                    f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not parameters.user_selected_modules and config.environment.selected:
                 selected, errors = cls._parse_user_selection(config.environment.selected, parameters.organization_dir)
@@ -774,7 +776,7 @@ class BuildV2Command(ToolkitCommand):
         return validation_results
 
     def _display_build_folder(
-        self, build_folder: BuildFolder, config_yaml_name: str, console: Console, verbose: bool
+        self, build_folder: BuildFolder, config_yaml_filename: str, console: Console, verbose: bool
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
@@ -807,7 +809,7 @@ class BuildV2Command(ToolkitCommand):
         if unresolved_file_count:
             summary_lines.append(
                 f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
-                f"    Make sure to define the variables in the config.{config_yaml_name}.yaml file and that they are correctly placed in the variables section matching the file path."
+                f"    Make sure to define the variables in the {config_yaml_filename or 'config YAML'} file and that they are correctly placed in the variables section matching the file path."
             )
             border_color = max(border_color, 2)
 
@@ -924,7 +926,7 @@ class BuildV2Command(ToolkitCommand):
                 fix = ""
                 if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
                     fix = (
-                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the config.{config_yaml_name}.yaml.\n"
+                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the {config_yaml_filename or 'config YAML file'}.\n"
                         "Make sure they are placed correctly in the variables section matching the file path."
                     )
 

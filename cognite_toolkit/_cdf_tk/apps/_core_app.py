@@ -276,11 +276,14 @@ class CoreApp(typer.Typer):
             ),
         ] = None,
         config_yaml: Annotated[
-            str | None,
+            Path | None,
             typer.Option(
                 "--config-yaml",
                 "-c",
-                help="The name of the config YAML file to use. It expected to be named config.<name>.yaml and be located in the organization directory.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
             ),
         ] = None,
         verbose: Annotated[
@@ -305,7 +308,7 @@ class CoreApp(typer.Typer):
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yaml_name=config_yaml,
+            config_yaml=config_yaml,
             user_selected_modules=selected,
             verbose=verbose,
         )
