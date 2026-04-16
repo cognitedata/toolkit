@@ -125,7 +125,7 @@ class InsightList(UserList[Insight]):
 
         rows = [
             {
-                "insight_type": insight.insight_type(),
+                "insightType": insight.insight_type(),
                 "code": insight.code,
                 "message": insight.message,
                 "fix": insight.fix,

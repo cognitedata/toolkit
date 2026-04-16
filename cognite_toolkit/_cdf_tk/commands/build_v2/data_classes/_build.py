@@ -37,6 +37,10 @@ class BuildParameters(BaseModel):
     def modules_directory(self) -> Path:
         return self.organization_dir / MODULES
 
+    @property
+    def insight_path(self) -> Path:
+        return self.build_dir / f"insights.{self.insight_format}"
+
 
 class BuildSourceFiles(BaseModel):
     """The output of reading the source system.

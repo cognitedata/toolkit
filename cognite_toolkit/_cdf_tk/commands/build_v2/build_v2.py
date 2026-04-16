@@ -114,6 +114,7 @@ class BuildV2Command(ToolkitCommand):
             parameters.config_yaml.name if parameters.config_yaml else "",
             console,
             parameters.verbose,
+            parameters.insight_path,
         )
 
         self._write_results(build_folder, parameters, client.config.project if client else None)
@@ -775,7 +776,12 @@ class BuildV2Command(ToolkitCommand):
         return validation_results
 
     def _display_build_folder(
-        self, build_folder: BuildFolder, config_yaml_filename: str, console: Console, verbose: bool
+        self,
+        build_folder: BuildFolder,
+        config_yaml_filename: str,
+        console: Console,
+        verbose: bool,
+        insight_path: Path,
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
@@ -892,6 +898,11 @@ class BuildV2Command(ToolkitCommand):
                     f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
                     style="dim",
                 )
+            insight_destination = relative_to_if_possible(insight_path)
+            console.print(
+                f"[dim]All insights are written to {insight_destination.as_posix()}[/]",
+                style="dim",
+            )
         if verbose and unresolved_files:
             table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
             table.add_column("Path")
@@ -972,11 +983,10 @@ class BuildV2Command(ToolkitCommand):
     def _write_results(self, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
+        insight_file = parameters.insight_path
         if parameters.insight_format == "csv":
-            insight_file = build.build_dir / "insights.csv"
             insight_file_content = build.all_insights.to_csv()
         else:
-            insight_file = build.build_dir / "insights.json"
             insight_file_content = build.all_insights.to_json()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
