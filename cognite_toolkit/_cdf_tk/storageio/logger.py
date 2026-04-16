@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -65,122 +65,8 @@ class ItemTracker:
         self.issues.append(issue)
 
 
-class OperationTracker(ABC):
-    """Abstract base class for operation trackers."""
-
-    @abstractmethod
-    def add_issue(self, item_id: str, issue: str) -> None:
-        """Add an issue to an item."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
-        """Finalize an item with its final status."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_status_counts(self) -> dict[OperationStatus, int]:
-        """Get counts per final status."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
-        """Get issue counts, optionally filtered by status."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def reset(self) -> None:
-        """Reset all tracking data."""
-        raise NotImplementedError()
-
-
-class NoOpTracker(OperationTracker):
-    """A no-op tracker that does nothing."""
-
-    def add_issue(self, item_id: str, issue: str) -> None:
-        """No-op: Discard the issue."""
-        pass
-
-    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
-        """No-op: Do nothing."""
-        pass
-
-    def get_status_counts(self) -> dict[OperationStatus, int]:
-        """Return empty status counts."""
-        return {}
-
-    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
-        """Return empty issue counts."""
-        return {}
-
-    def reset(self) -> None:
-        """No-op: Do nothing."""
-        pass
-
-
-class MemoryOperationTracker(OperationTracker):
-    """Tracks the overall operation progress and issues across multiple items.
-
-    Tracks counts of final statuses and issues per status.
-    """
-
-    def __init__(self) -> None:
-        self._lock = Lock()
-        self._active_items: dict[str, ItemTracker] = {}
-        self._status_counts: dict[OperationStatus, int] = defaultdict(int)
-        self._issue_counts: dict[OperationStatus, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-
-    def add_issue(self, item_id: str, issue: str) -> None:
-        """Add an issue to an item, creating tracker if needed."""
-        with self._lock:
-            if item_id not in self._active_items:
-                self._active_items[item_id] = ItemTracker(item_id)
-            self._active_items[item_id].add_issue(issue)
-
-    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
-        """Finalize an item with its final status.
-
-        Args:
-            item_id: The item's identifier.
-            status: Final status (success, failure, unchanged).
-        """
-        with self._lock:
-            if isinstance(item_id, list):
-                for iid in item_id:
-                    self._finalize_item_unlocked(iid, status)
-            else:
-                self._finalize_item_unlocked(item_id, status)
-
-    def _finalize_item_unlocked(self, item_id: str, status: OperationStatus) -> None:
-        """Internal method to finalize an item without acquiring the lock."""
-        tracker = self._active_items.pop(item_id, None)
-        self._status_counts[status] += 1
-        if tracker is not None:
-            for issue in tracker.issues:
-                self._issue_counts[status][issue] += 1
-
-    def get_status_counts(self) -> dict[OperationStatus, int]:
-        """Get counts per final status."""
-        with self._lock:
-            return dict(self._status_counts)
-
-    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
-        """Get issue counts, optionally filtered by status."""
-        with self._lock:
-            return dict(self._issue_counts.get(status, {}))
-
-    def reset(self) -> None:
-        """Reset all tracking data."""
-        with self._lock:
-            self._active_items.clear()
-            self._status_counts.clear()
-            self._issue_counts.clear()
-
-
 class DataLogger(ABC):
     """Abstract base class for data loggers that track operations and log entries."""
-
-    tracker: OperationTracker
 
     @abstractmethod
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
@@ -193,9 +79,6 @@ class DataLogger(ABC):
 class NoOpLogger(DataLogger):
     """A no-op logger that discards all log entries and does no tracking."""
 
-    def __init__(self) -> None:
-        self.tracker = NoOpTracker()
-
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         """Discard the log entry (no-op)."""
         pass
@@ -205,7 +88,6 @@ class FileDataLogger(DataLogger):
     """Composes aggregation tracking with detailed file logging."""
 
     def __init__(self, writer: NDJsonWriter) -> None:
-        self.tracker = MemoryOperationTracker()
         self._writer = writer
 
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
@@ -245,7 +127,6 @@ class FileWithAggregationLogger(DataLogger):
     NO_WARNINGS: int = 0
 
     def __init__(self, writer: NDJsonWriter) -> None:
-        self.tracker = NoOpTracker()
         self._writer = writer
         self._lock = Lock()
         self._batch: list[LogEntry] = []
