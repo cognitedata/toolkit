@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ConsistencyError,
@@ -41,4 +42,18 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
             "message": 'text with "quotes" and, commas',
             "fix": "single",
         },
+    ]
+
+
+def test_insight_list_to_json_matches_structural_fields() -> None:
+    insights = InsightList(
+        [
+            ConsistencyError(message="a", code="C1", fix="f1"),
+            Recommendation(message="b", code=None, fix=None),
+        ]
+    )
+    parsed = json.loads(insights.to_json())
+    assert parsed == [
+        {"insightType": "ConsistencyError", "code": "C1", "message": "a", "fix": "f1"},
+        {"insightType": "Recommendation", "code": None, "message": "b", "fix": None},
     ]

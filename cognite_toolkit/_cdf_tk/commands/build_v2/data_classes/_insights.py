@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from collections import UserList, defaultdict
 from typing import ClassVar, TypeAlias
 
@@ -118,3 +119,17 @@ class InsightList(UserList[Insight]):
             )
 
         return output.getvalue()
+
+    def to_json(self) -> str:
+        """Returns a JSON array of insight objects with keys insight_type, code, message, fix."""
+
+        rows = [
+            {
+                "insightType": insight.insight_type(),
+                "code": insight.code,
+                "message": insight.message,
+                "fix": insight.fix,
+            }
+            for insight in self.data
+        ]
+        return json.dumps(rows, indent=2, ensure_ascii=False) + "\n"
