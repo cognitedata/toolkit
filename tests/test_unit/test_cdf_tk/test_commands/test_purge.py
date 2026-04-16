@@ -116,6 +116,31 @@ def files_by_node_id(
     return result
 
 
+@pytest.fixture
+def project_statistics_response() -> dict[str, Any]:
+    """Minimal valid DMS project statistics response (incl. soft-delete budget fields)."""
+    return {
+        "spaces": {"count": 5, "limit": 100},
+        "containers": {"count": 42, "limit": 1000},
+        "views": {"count": 123, "limit": 2000},
+        "dataModels": {"count": 8, "limit": 500},
+        "containerProperties": {"count": 1234, "limit": 100},
+        "instances": {
+            "edges": 5000,
+            "softDeletedEdges": 100,
+            "nodes": 10000,
+            "softDeletedNodes": 200,
+            "instances": 15000,
+            "instancesLimit": 5000000,
+            "softDeletedInstances": 300,
+            "softDeletedInstancesLimit": 10000000,
+        },
+        "concurrentReadLimit": 10,
+        "concurrentWriteLimit": 5,
+        "concurrentDeleteLimit": 3,
+    }
+
+
 @pytest.fixture()
 def purge_responses(
     rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig
@@ -188,6 +213,7 @@ class TestPurgeInstances:
         instance_type: str,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
+        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
         timeseries_by_node_id: dict[dm.NodeId, dict[str, Any]],
@@ -198,6 +224,12 @@ class TestPurgeInstances:
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -276,6 +308,7 @@ class TestPurgeSpace:
         delete_file_content: bool,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
+        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
     ) -> None:
         config = purge_client.config
@@ -297,6 +330,12 @@ class TestPurgeSpace:
                 ).dump()
             },
         )
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)
