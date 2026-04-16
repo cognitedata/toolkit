@@ -75,6 +75,8 @@ class DataLogger(ABC):
 
     def register(self, ids: list[str]) -> None: ...
 
+    def apply_to_all_unprocessed(self, label: str, severity: Severity) -> None: ...
+
 
 class NoOpLogger(DataLogger):
     """A no-op logger that discards all log entries and does no tracking."""
@@ -246,6 +248,13 @@ class FileWithAggregationLogger(DataLogger):
         if max_severity == Severity.warning.value:
             return "pending-with-warning" if is_dry_run else "success-with-warning"
         return "pending" if is_dry_run else "success"
+
+    def apply_to_all_unprocessed(self, label: str, severity: Severity) -> None:
+        """Apply the given aggregation entry to all registered IDs that have no aggregations yet."""
+        with self._lock:
+            for id_, aggregations in self.aggregations_by_ids.items():
+                if not aggregations:
+                    aggregations.append(LogAggregation(id=id_, label=label, severity=severity))
 
 
 def display_item_results(items: list[ItemsResult], title: str, console: Console) -> None:

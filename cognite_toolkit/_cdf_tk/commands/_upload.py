@@ -383,6 +383,11 @@ class UploadCommand(ToolkitCommand):
                     f"  Failed items: {ids_display}"
                 )
         if all_failed and results:
+            logger.apply_to_all_unprocessed(
+                label="Early termination of upload process",
+                severity=Severity.skipped,
+            )
+
             raise ToolkitRuntimeError(
                 "Upload process was stopped due to repeatedly failed uploads. Rerun with --verbose to see detailed failure information."
             )
