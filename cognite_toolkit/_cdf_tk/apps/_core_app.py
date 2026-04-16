@@ -3,6 +3,7 @@
 import contextlib
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Union
 
@@ -40,6 +41,11 @@ class Common:
 
 CDF_TOML = CDFToml.load(Path.cwd())
 TODAY = date.today()
+
+
+class InsightFormat(str, Enum):
+    csv = "csv"
+    json = "json"
 
 
 def _version_callback(value: bool) -> None:
@@ -295,6 +301,13 @@ class CoreApp(typer.Typer):
                 help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
             ),
         ] = None,
+        insight_format: Annotated[
+            InsightFormat,
+            typer.Option(
+                "--insight-format",
+                help="File format for the insights file written to the build directory.",
+            ),
+        ] = InsightFormat.csv,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -328,6 +341,7 @@ class CoreApp(typer.Typer):
             config_yaml=config_yaml,
             user_selected_modules=selected,
             verbose=verbose,
+            insight_format=insight_format.value,
         )
 
         cmd.run(

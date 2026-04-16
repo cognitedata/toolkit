@@ -1,6 +1,7 @@
 import builtins
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -27,6 +28,10 @@ class BuildParameters(BaseModel):
         "to build",
     )
     verbose: bool = False
+    insight_format: Literal["csv", "json"] = Field(
+        default="csv",
+        description="Format for the insights file written to the build directory.",
+    )
 
     @property
     def modules_directory(self) -> Path:

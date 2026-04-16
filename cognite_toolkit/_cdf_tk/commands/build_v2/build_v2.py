@@ -116,7 +116,7 @@ class BuildV2Command(ToolkitCommand):
             parameters.verbose,
         )
 
-        self._write_results(build_folder, client.config.project if client else None)
+        self._write_results(build_folder, parameters, client.config.project if client else None)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -969,12 +969,15 @@ class BuildV2Command(ToolkitCommand):
 
         return None
 
-    def _write_results(self, build: BuildFolder, cdf_project: str | None = None) -> None:
+    def _write_results(self, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = build.build_dir / "insights.csv"
-
-        insight_file_content = build.all_insights.to_csv()
+        if parameters.insight_format == "csv":
+            insight_file = build.build_dir / "insights.csv"
+            insight_file_content = build.all_insights.to_csv()
+        else:
+            insight_file = build.build_dir / "insights.json"
+            insight_file_content = build.all_insights.to_json()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
