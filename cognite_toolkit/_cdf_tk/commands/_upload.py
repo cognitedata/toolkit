@@ -1,5 +1,6 @@
+import re
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from functools import partial
 from pathlib import Path
 
@@ -27,11 +28,18 @@ from cognite_toolkit._cdf_tk.storageio import (
     get_upload_io,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, TableStorageIO, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio.logger import (
+    DataLogger,
+    FileWithAggregationLogger,
+    LogEntryV2,
+    Severity,
+    display_item_results,
+)
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -214,7 +222,7 @@ class UploadCommand(ToolkitCommand):
     def upload_data(
         cls,
         data_files_by_selector: Mapping[Selector, list[Path]],
-        input_dir: Path,
+        input_dir: Path | None,
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
@@ -223,12 +231,22 @@ class UploadCommand(ToolkitCommand):
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
 
-        with HTTPClient(config=client.config) as upload_client:
+        input_dir.mkdir(parents=True, exist_ok=True)
+        log_filestem = cls._create_upload_logfile_stem(input_dir)
+        with (
+            NDJsonWriter(
+                input_dir, kind="UploadIssues", default_filestem=log_filestem, compression=Uncompressed
+            ) as log_file,
+            FileWithAggregationLogger(log_file) as logger,
+            HTTPClient(config=client.config) as upload_client,
+        ):
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
                 io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
                 if io is None:
                     continue
+                io.logger = logger
+                logger.reset()
                 schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
                 reader = MultiFileReader(datafiles, schema=schema)
                 # FileContentIO supports uploading any file format.
@@ -240,8 +258,13 @@ class UploadCommand(ToolkitCommand):
                 item_count = io.count_items(reader, selector)
 
                 tracker = ProgressTracker[str]([cls._UPLOAD])
+
+                def read_chunks_with_registered_pages() -> Iterator[Page[dict[str, JsonVal]]]:
+                    for page in io.read_chunks(reader, selector):
+                        yield io.emit_registered_page(page)
+
                 executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
-                    download_iterable=io.read_chunks(reader, selector),
+                    download_iterable=read_chunks_with_registered_pages(),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
                     else io.json_chunk_to_data,
@@ -254,6 +277,7 @@ class UploadCommand(ToolkitCommand):
                         tracker=tracker,
                         console=console,
                         verbose=verbose,
+                        logger=logger,
                     ),
                     total_item_count=item_count,
                     max_queue_size=cls._MAX_QUEUE_SIZE,
@@ -264,6 +288,8 @@ class UploadCommand(ToolkitCommand):
                 )
                 executor.run()
                 file_count += len(datafiles)
+                items_results = logger.finalize(dry_run)
+                display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
                 executor.raise_on_error()
                 final_action = "Uploaded" if not dry_run else "Would upload"
                 suffix = " successfully" if not dry_run else ""
@@ -275,6 +301,24 @@ class UploadCommand(ToolkitCommand):
                 console.print(
                     f"{final_action} {success:,} {selector.display_name} from {len(datafiles)} files{suffix}."
                 )
+
+    @staticmethod
+    def _create_upload_logfile_stem(log_dir: Path) -> str:
+        """Create a filestem for the upload log file that does not conflict with existing files in the directory."""
+        base_logstem = "upload-"
+        existing_files = list(log_dir.glob(f"{base_logstem}*"))
+        if not existing_files:
+            return base_logstem
+
+        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+        max_run = 0
+        for f in existing_files:
+            match = run_pattern.match(f.name)
+            if match:
+                max_run = max(max_run, int(match.group(1)))
+
+        next_run = max(2, max_run + 1)
+        return f"{base_logstem}run{next_run}-"
 
     @staticmethod
     def _path_as_display_name(input_path: Path, cwd: Path = Path.cwd()) -> Path:
@@ -310,6 +354,7 @@ class UploadCommand(ToolkitCommand):
         tracker: ProgressTracker[str],
         console: Console,
         verbose: bool,
+        logger: DataLogger,
     ) -> None:
         if dry_run:
             for item in data_chunk.items:
@@ -325,12 +370,27 @@ class UploadCommand(ToolkitCommand):
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="success")
             elif isinstance(message, ItemsResultMessage):
+                if isinstance(message, ItemsFailedResponse):
+                    error_description = f"(HTTP {message.status_code}): {message.error.message}"
+                elif isinstance(message, ItemsFailedRequest):
+                    error_description = message.error_message
+                else:
+                    error_description = f"Upload failed: {message!r}"
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
+                    logger.log(
+                        LogEntryV2(
+                            id=id_,
+                            label="Upload failed",
+                            severity=Severity.failure,
+                            message=error_description,
+                        )
+                    )
                 if verbose:
                     if isinstance(message, ItemsFailedResponse):
-                        error_description = f"(HTTP {message.status_code}): {escape(message.error.message)}"
-                        failures_by_error.setdefault(error_description, []).extend(message.ids)
+                        failures_by_error.setdefault(
+                            f"(HTTP {message.status_code}): {escape(message.error.message)}", []
+                        ).extend(message.ids)
                     elif isinstance(message, ItemsFailedRequest):
                         failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
             else:

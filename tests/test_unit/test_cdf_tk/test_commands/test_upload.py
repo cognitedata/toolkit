@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.storageio._base import DataItem, Page
+from cognite_toolkit._cdf_tk.storageio.logger import NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
     InstanceQuerySelector,
@@ -238,4 +239,5 @@ class TestUploadCommand:
                     tracker=MagicMock(),
                     console=MagicMock(spec=Console),
                     verbose=False,
+                    logger=NoOpLogger(),
                 )
