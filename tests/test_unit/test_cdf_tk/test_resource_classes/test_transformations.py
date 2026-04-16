@@ -75,6 +75,33 @@ def transformation_destination_cases() -> Iterable:
     ]
     yield from (pytest.param(next(iter(des.values())), id=next(iter(des.keys()))) for des in transformation_destination)
 
+    yield pytest.param(
+        {
+            "externalId": "MyTransformation",
+            "name": "MyTransformation",
+            "ignoreNullFields": True,
+            "authentication": {
+                "read": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "scopes": "read:data",
+                    "audience": "https://api.cognitedata.com/",
+                },
+                "write": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "scopes": "write:data",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "audience": "https://api.cognitedata.com/",
+                },
+            },
+        },
+        id="Full authentication with read and write (based on real use case)",
+    )
+
 
 def invalid_transformation_test_cases() -> Iterable:
     yield pytest.param(
