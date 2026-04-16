@@ -104,7 +104,7 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
-        self.upload_data(data_files_by_selector, client, dry_run, console, verbose, skip_strict_mode)
+        self.upload_data(data_files_by_selector, input_dir, client, dry_run, console, verbose, skip_strict_mode)
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -214,6 +214,7 @@ class UploadCommand(ToolkitCommand):
     def upload_data(
         cls,
         data_files_by_selector: Mapping[Selector, list[Path]],
+        input_dir: Path,
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
@@ -221,6 +222,7 @@ class UploadCommand(ToolkitCommand):
         skip_strict_mode: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
+
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
