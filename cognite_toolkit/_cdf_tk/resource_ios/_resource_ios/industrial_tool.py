@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
@@ -61,7 +60,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        use_fileio: bool = Flags.v08.is_enabled(),
+        use_fileio: bool = True,
     ):
         super().__init__(client, build_dir, console)
         self._source_file_by_external_id: dict[str, Path] = {}

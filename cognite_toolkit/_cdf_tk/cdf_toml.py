@@ -31,8 +31,8 @@ else:
 @dataclass
 class CLIConfig:
     default_organization_dir: Path
-    default_env: str = "dev"
-    default_config_yaml = "dev"
+    default_env: str | None = None
+    default_config_yaml: str | None = None
     file_encoding: str | None = None
     file_upload_timeout_seconds: int = 120
     has_user_set_default_org: bool = False

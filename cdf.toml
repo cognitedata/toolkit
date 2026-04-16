@@ -7,18 +7,13 @@ file_upload_timeout_seconds = 90
 [alpha_flags]
 graphql = true
 import-cmd = true
-module-repeat = true
 profile = true
 infield = true
 migrate = true
-streams = true
 create = true
 extend-download = true
 extend-upload = true
-simulators = true
-v08 = true
 data-products = true
-deployment-pack = true
 
 [plugins]
 run = true

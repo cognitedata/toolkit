@@ -60,7 +60,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileCRUD,
@@ -1152,7 +1151,6 @@ properties:
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
-@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="Function behaves differently on v0.8")
 class TestFunctionLoader:
     FUNCTION_CODE = """from cognite.client import CogniteClient
 

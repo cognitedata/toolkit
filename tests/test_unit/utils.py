@@ -118,7 +118,6 @@ def mock_read_yaml_file(
         "cognite_toolkit._cdf_tk.resource_ios._base_ios.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     for module in [
-        "classic",
         "datamodel",
         "industrial_tool",
         "transformation",

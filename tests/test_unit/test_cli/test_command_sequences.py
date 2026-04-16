@@ -249,7 +249,6 @@ def test_build_deploy_complete_org(
         )
 
 
-@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="Requires v8.")
 @pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_v2_complete_orgs(
     organization_dir: Path,

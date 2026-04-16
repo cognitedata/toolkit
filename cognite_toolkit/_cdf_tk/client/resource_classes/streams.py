@@ -5,33 +5,26 @@ from pydantic import ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 class StreamsModelObject(BaseModelObject):
     model_config = ConfigDict(extra="allow")
 
 
-# The StreamsModelObject is temporary until v0.8 is released.
-# This flag is set here to remind us to remove the StreamsModelObject and use BaseModelObject
-# directly in the Stream and StreamTemplate classes.
-ModelObject: type = BaseModelObject if Flags.v08.is_enabled() else StreamsModelObject
-
-
-class Stream(ModelObject):
+class Stream(BaseModelObject):
     external_id: str
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class StreamTemplate(ModelObject):
+class StreamTemplate(BaseModelObject):
     # The literal contains the officially support templates, in addition, we
     # allow any string to support potential custom templates that may be used by some customers.
     name: Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"] | str
 
 
-class StreamRequestSettings(ModelObject):
+class StreamRequestSettings(BaseModelObject):
     template: StreamTemplate
 
 
@@ -41,21 +34,21 @@ class StreamRequest(Stream, RequestResource):
     settings: StreamRequestSettings
 
 
-class LifecycleObject(ModelObject):
+class LifecycleObject(BaseModelObject):
     """Lifecycle object."""
 
     data_deleted_after: str | None = None
     retained_after_soft_delete: str
 
 
-class ResourceUsage(ModelObject):
+class ResourceUsage(BaseModelObject):
     """Resource quota with provisioned and consumed values."""
 
     provisioned: int | float
     consumed: int | float | None = None
 
 
-class LimitsObject(ModelObject):
+class LimitsObject(BaseModelObject):
     """Limits object."""
 
     max_records_total: ResourceUsage
@@ -63,7 +56,7 @@ class LimitsObject(ModelObject):
     max_filtering_interval: str | None = None
 
 
-class StreamSettings(ModelObject):
+class StreamSettings(BaseModelObject):
     """Stream settings object."""
 
     lifecycle: LifecycleObject
