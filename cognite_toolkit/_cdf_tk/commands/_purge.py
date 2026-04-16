@@ -279,27 +279,24 @@ class PurgeCommand(ToolkitCommand):
 
         instance_count = stats.nodes + stats.edges
 
-        if not dry_run and instance_count > 0:
-            self._print_instance_purge_soft_delete_panel(client, instance_count)
-            if not auto_yes:
-                acknowledge_risks = questionary.confirm(
-                    "Step 1 of 2: Do you understand the soft-delete resource limit impact and wish to continue?",
-                    default=False,
-                ).ask()
-                if not acknowledge_risks:
-                    return DeployResults([], "purge", dry_run=dry_run)
-                self._print_panel("instances", selected_space, title="Purge instances — cannot be undone")
-                confirm_instances = questionary.confirm(
-                    f"Step 2 of 2: Are you sure you want to purge up to {instance_count:,} instances "
-                    f"in space {selected_space!r} (nodes and edges)?",
-                    default=False,
-                ).ask()
-                if not confirm_instances:
-                    return DeployResults([], "purge", dry_run=dry_run)
-            else:
-                self._print_panel("instances", selected_space, title="Purge instances — cannot be undone")
+        validator = ValidateAccess(client, "purge")
+        # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
+        # This block will be removed once the limits service is available.
+        if instance_count > 0 and validator.data_model(["read"]) is not None:
+            raise AuthorizationError(
+                "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
+            )
 
-        elif not dry_run:
+        if not dry_run:
+            if instance_count > 0:
+                self._print_instance_purge_soft_delete_panel(client, instance_count)
+                if not auto_yes:
+                    acknowledge_soft_delete = questionary.confirm(
+                        "Do you understand the soft-delete resource limit impact and wish to continue?",
+                        default=False,
+                    ).ask()
+                    if not acknowledge_soft_delete:
+                        return DeployResults([], "purge", dry_run=dry_run)
             self._print_panel("space", selected_space)
             if not auto_yes:
                 confirm = questionary.confirm(
@@ -309,7 +306,6 @@ class PurgeCommand(ToolkitCommand):
                     return DeployResults([], "purge", dry_run=dry_run)
 
         # ValidateAuth
-        validator = ValidateAccess(client, "purge")
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
             # We check for write even in dry-run mode. This is because dry-run is expected to fail
             # if the user cannot perform the purge.
@@ -710,6 +706,10 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             self.validate_timeseries_access(validator)
             self.validate_file_access(validator)
+        # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
+        # This block will be removed once the limits service is available.
+        if validator.data_model(["read"]) is not None:
+            raise AuthorizationError("Purging instances currently requires datamodelsAcl:read with All scope.")
 
         total = io.count(selector)
         if total is None or total == 0:
@@ -718,11 +718,11 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             self._print_instance_purge_soft_delete_panel(client, total)
             if not auto_yes:
-                acknowledge_risks = questionary.confirm(
+                acknowledge_soft_delete = questionary.confirm(
                     "Step 1 of 2: Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
-                if not acknowledge_risks:
+                if not acknowledge_soft_delete:
                     return DeleteResults()
                 self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
                 confirm_purge = questionary.confirm(
