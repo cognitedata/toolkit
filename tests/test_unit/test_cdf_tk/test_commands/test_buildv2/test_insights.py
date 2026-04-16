@@ -54,6 +54,6 @@ def test_insight_list_to_json_matches_structural_fields() -> None:
     )
     parsed = json.loads(insights.to_json())
     assert parsed == [
-        {"insight_type": "ConsistencyError", "code": "C1", "message": "a", "fix": "f1"},
-        {"insight_type": "Recommendation", "code": None, "message": "b", "fix": None},
+        {"insightType": "ConsistencyError", "code": "C1", "message": "a", "fix": "f1"},
+        {"insightType": "Recommendation", "code": None, "message": "b", "fix": None},
     ]
