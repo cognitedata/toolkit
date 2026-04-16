@@ -196,7 +196,18 @@ class TestTransformationYAML:
     def test_load_valid_transformation_destination_parameters(self, data: dict[str, object]) -> None:
         loaded = TransformationYAML.model_validate(data)
 
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        if "authentication" in dumped:
+            # Secret is not dumped as per design, so we add it back for comparison
+            auth = dumped["authentication"]
+            orig_auth = data["authentication"]
+            if "read" in auth or "write" in auth:
+                for key in ("read", "write"):
+                    if key in auth:
+                        auth[key]["clientSecret"] = orig_auth[key]["clientSecret"]
+            else:
+                auth["clientSecret"] = orig_auth["clientSecret"]
+        assert dumped == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_transformation_test_cases()))
     def test_invalid_transformation_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:

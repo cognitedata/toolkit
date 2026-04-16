@@ -65,10 +65,11 @@ class TransformationYAML(ToolkitResource):
         if not isinstance(value, dict):
             return value
         if "read" in value or "write" in value:
-            return {
-                k: AuthenticationClientIdSecret.model_validate(v) if isinstance(v, dict) else v
-                for k, v in value.items()
-            }
+            return {k: cls._validate_auth_value(v) if isinstance(v, dict) else v for k, v in value.items()}
+        return cls._validate_auth_value(value)
+
+    @classmethod
+    def _validate_auth_value(cls, value: dict[str, Any]) -> AuthenticationClientIdSecret | OIDCCredential:
         if "scopes" in value or "tokenUri" in value or "cdfProjectName" in value or "audience" in value:
             return OIDCCredential.model_validate(value)
         return AuthenticationClientIdSecret.model_validate(value)
