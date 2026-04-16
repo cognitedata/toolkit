@@ -719,14 +719,14 @@ class PurgeCommand(ToolkitCommand):
             self._print_instance_purge_soft_delete_panel(client, total)
             if not auto_yes:
                 acknowledge_soft_delete = questionary.confirm(
-                    "Step 1 of 2: Do you understand the soft-delete resource limit impact and wish to continue?",
+                    "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
                 if not acknowledge_soft_delete:
                     return DeleteResults()
                 self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
                 confirm_purge = questionary.confirm(
-                    f"Step 2 of 2: Are you sure you want to purge all {total:,} instances in {selector!s}?",
+                    f"Are you sure you want to purge all {total:,} instances in {selector!s}?",
                     default=False,
                 ).ask()
                 if not confirm_purge:
