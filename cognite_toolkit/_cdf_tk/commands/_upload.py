@@ -222,7 +222,7 @@ class UploadCommand(ToolkitCommand):
     def upload_data(
         cls,
         data_files_by_selector: Mapping[Selector, list[Path]],
-        input_dir: Path | None,
+        input_dir: Path,
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
