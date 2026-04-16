@@ -96,8 +96,7 @@ class BuildV2Command(ToolkitCommand):
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
         plan = self._create_validation_plan(built_modules, client)
-        if parameters.verbose:
-            self._display_validation_plan(plan, console)
+        self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
         build_folder = BuildFolder(
