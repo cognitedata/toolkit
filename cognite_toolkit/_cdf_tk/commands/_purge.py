@@ -724,7 +724,7 @@ class PurgeCommand(ToolkitCommand):
                 ).ask()
                 if not acknowledge_soft_delete:
                     return DeleteResults()
-                self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
+                self._print_panel("instances", str(selector))
                 confirm_purge = questionary.confirm(
                     f"Are you sure you want to purge all {total:,} instances in {selector!s}?",
                     default=False,
@@ -732,7 +732,7 @@ class PurgeCommand(ToolkitCommand):
                 if not confirm_purge:
                     return DeleteResults()
             else:
-                self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
+                self._print_panel("instances", str(selector))
 
         process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
