@@ -41,7 +41,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSever
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
@@ -61,7 +60,6 @@ class UploadCommand(ToolkitCommand):
 
     _MAX_QUEUE_SIZE = 80
     _MAX_VERBOSE_PRINTED_FAILED_IDS = 10
-    _UPLOAD = "upload"
 
     def upload(
         self,
@@ -240,7 +238,6 @@ class UploadCommand(ToolkitCommand):
             FileWithAggregationLogger(log_file) as logger,
             HTTPClient(config=client.config) as upload_client,
         ):
-            file_count = 1
             for selector, datafiles in data_files_by_selector.items():
                 io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
                 if io is None:
@@ -257,8 +254,6 @@ class UploadCommand(ToolkitCommand):
 
                 item_count = io.count_items(reader, selector)
 
-                tracker = ProgressTracker[str]([cls._UPLOAD])
-
                 def read_chunks_with_registered_pages() -> Iterator[Page[dict[str, JsonVal]]]:
                     for page in io.read_chunks(reader, selector):
                         yield io.emit_registered_page(page)
@@ -274,7 +269,6 @@ class UploadCommand(ToolkitCommand):
                         io=io,
                         dry_run=dry_run,
                         selector=selector,
-                        tracker=tracker,
                         console=console,
                         verbose=verbose,
                         logger=logger,
@@ -287,20 +281,9 @@ class UploadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run()
-                file_count += len(datafiles)
                 items_results = logger.finalize(dry_run)
                 display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
                 executor.raise_on_error()
-                final_action = "Uploaded" if not dry_run else "Would upload"
-                suffix = " successfully" if not dry_run else ""
-                results = tracker.aggregate()
-                success = results.get((cls._UPLOAD, "success"), 0)
-                failed = results.get((cls._UPLOAD, "failed"), 0)
-                if failed > 0:
-                    suffix += f", {failed:,} failed"
-                console.print(
-                    f"{final_action} {success:,} {selector.display_name} from {len(datafiles)} files{suffix}."
-                )
 
     @staticmethod
     def _create_upload_logfile_stem(log_dir: Path) -> str:
@@ -351,14 +334,11 @@ class UploadCommand(ToolkitCommand):
         io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
         dry_run: bool,
-        tracker: ProgressTracker[str],
         console: Console,
         verbose: bool,
         logger: DataLogger,
     ) -> None:
         if dry_run:
-            for item in data_chunk.items:
-                tracker.set_progress(item.tracking_id, cls._UPLOAD, "success")
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True
@@ -367,8 +347,6 @@ class UploadCommand(ToolkitCommand):
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
                 all_failed = False
-                for id_ in message.ids:
-                    tracker.set_progress(id_, step=cls._UPLOAD, status="success")
             elif isinstance(message, ItemsResultMessage):
                 if isinstance(message, ItemsFailedResponse):
                     error_description = f"(HTTP {message.status_code}): {message.error.message}"
@@ -377,7 +355,6 @@ class UploadCommand(ToolkitCommand):
                 else:
                     error_description = f"Upload failed: {message!r}"
                 for id_ in message.ids:
-                    tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
                     logger.log(
                         LogEntryV2(
                             id=id_,

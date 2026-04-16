@@ -236,7 +236,6 @@ class TestUploadCommand:
                     io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
                     dry_run=False,
-                    tracker=MagicMock(),
                     console=MagicMock(spec=Console),
                     verbose=False,
                     logger=NoOpLogger(),
