@@ -265,7 +265,7 @@ def test_build_deploy_v2_complete_orgs(
         parameters=BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_tmp_path,
-            config_yaml_name="dev",
+            config_yaml=organization_dir / "config.dev.yaml",
         ),
     )
     with patch.dict(

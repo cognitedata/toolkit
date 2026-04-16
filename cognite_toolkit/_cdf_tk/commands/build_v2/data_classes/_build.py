@@ -1,6 +1,7 @@
 import builtins
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -16,10 +17,9 @@ from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, Relative
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
-    config_yaml_name: str | None = Field(
+    config_yaml: Path | None = Field(
         None,
-        description="The name of the configuration YAML file to use. It expected to be"
-        "named config.[name].yaml and be located in the organization directory.",
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
     )
     user_selected_modules: list[str] | None = Field(
         None,
@@ -28,10 +28,18 @@ class BuildParameters(BaseModel):
         "to build",
     )
     verbose: bool = False
+    insight_format: Literal["csv", "json"] = Field(
+        default="csv",
+        description="Format for the insights file written to the build directory.",
+    )
 
     @property
     def modules_directory(self) -> Path:
         return self.organization_dir / MODULES
+
+    @property
+    def insight_path(self) -> Path:
+        return self.build_dir / f"insights.{self.insight_format}"
 
 
 class BuildSourceFiles(BaseModel):
