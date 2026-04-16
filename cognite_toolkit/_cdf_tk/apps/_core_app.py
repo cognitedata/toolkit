@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment, humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -287,7 +286,7 @@ class CoreApp(typer.Typer):
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
             ),
-        ] = None,
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         build_env_name: Annotated[
             str | None,
             typer.Option(
