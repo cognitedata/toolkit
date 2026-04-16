@@ -239,4 +239,5 @@ class TestUploadCommand:
                     console=MagicMock(spec=Console),
                     verbose=False,
                     logger=NoOpLogger(),
+                    get_log_file=MagicMock(),
                 )

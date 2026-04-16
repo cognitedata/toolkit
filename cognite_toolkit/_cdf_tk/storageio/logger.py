@@ -75,7 +75,13 @@ class DataLogger(ABC):
 
     def register(self, ids: list[str]) -> None: ...
 
-    def apply_to_all_unprocessed(self, label: str, severity: Severity) -> None: ...
+    def apply_to_all_unprocessed(self, label: str, severity: Severity) -> None:
+        """Sets the label and severity to all unprocessed items, i.e., all registered items without any log entry."""
+        ...
+
+    def force_write(self) -> None:
+        """For loggers that batch log entries, this forces write immediately"""
+        ...
 
 
 class NoOpLogger(DataLogger):
@@ -255,6 +261,9 @@ class FileWithAggregationLogger(DataLogger):
             for id_, aggregations in self.aggregations_by_ids.items():
                 if not aggregations:
                     aggregations.append(LogAggregation(id=id_, label=label, severity=severity))
+
+    def force_write(self) -> None:
+        self._write_to_file()
 
 
 def display_item_results(items: list[ItemsResult], title: str, console: Console) -> None:

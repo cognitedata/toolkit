@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from functools import partial
 from pathlib import Path
 
@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
     ItemsFailedResponse,
-    ItemsResultMessage,
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
@@ -272,6 +271,7 @@ class UploadCommand(ToolkitCommand):
                         console=console,
                         verbose=verbose,
                         logger=logger,
+                        get_log_file=lambda: log_file.latest_file,
                     ),
                     total_item_count=item_count,
                     max_queue_size=cls._MAX_QUEUE_SIZE,
@@ -337,6 +337,7 @@ class UploadCommand(ToolkitCommand):
         console: Console,
         verbose: bool,
         logger: DataLogger,
+        get_log_file: Callable[[], Path | None],
     ) -> None:
         if dry_run:
             return
@@ -347,27 +348,15 @@ class UploadCommand(ToolkitCommand):
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
                 all_failed = False
-            elif isinstance(message, ItemsResultMessage):
+            elif isinstance(message, ItemsFailedRequest | ItemsFailedResponse):
+                label = "Failed request"
+                error_description = message.error_message
                 if isinstance(message, ItemsFailedResponse):
                     label = f"HTTP {message.status_code} code"
-                    error_description = message.error_message
                 elif isinstance(message, ItemsFailedRequest):
                     label = "Failed request"
-                    error_description = message.error_message
-                else:
-                    label = "Failed request"
-                    error_description = str(message)
                 for id_ in message.ids:
                     logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
-                if verbose:
-                    if isinstance(message, ItemsFailedResponse):
-                        failures_by_error.setdefault(
-                            f"(HTTP {message.status_code}): {escape(message.error.message)}", []
-                        ).extend(message.ids)
-                    elif isinstance(message, ItemsFailedRequest):
-                        failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
-            else:
-                console.log(f"[red]Unexpected result from upload: {escape(str(message))}[/red]")
         if verbose:
             for error_description, failed_ids in failures_by_error.items():
                 ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
@@ -383,7 +372,9 @@ class UploadCommand(ToolkitCommand):
                 label="Early termination of upload process",
                 severity=Severity.skipped,
             )
-
-            raise ToolkitRuntimeError(
-                "Upload process was stopped due to repeatedly failed uploads. Rerun with --verbose to see detailed failure information."
-            )
+            logger.force_write()
+            log_file = get_log_file()
+            suffix = " Failed to get log file"
+            if log_file:
+                suffix = f" Check the log file {log_file.as_posix()}."
+            raise ToolkitRuntimeError(f"Upload process was stopped due to repeatedly failed uploads.{suffix}")
