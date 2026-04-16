@@ -78,7 +78,7 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 from ._base import ToolkitCommand
 
 
-def _soft_delete_budget_bar(used: int, limit: int, purge_add: int, bar_width: int = 44) -> Group:
+def _soft_delete_resource_limit_bar(used: int, limit: int, purge_add: int, bar_width: int = 44) -> Group:
     """One bar, same scale 0…limit: yellow = already soft-deleted, magenta = this purge, dim = headroom left."""
     if limit <= 0:
         return Group(Text("Soft-delete limit not available from statistics.", style="dim"))
@@ -283,7 +283,7 @@ class PurgeCommand(ToolkitCommand):
             self._print_instance_purge_soft_delete_panel(client, instance_count)
             if not auto_yes:
                 acknowledge_risks = questionary.confirm(
-                    "Do you understand the soft-delete budget impact and wish to continue?",
+                    "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
                 if not acknowledge_risks:
@@ -646,11 +646,11 @@ class PurgeCommand(ToolkitCommand):
         instances_to_delete: int,
         project_statistics: ProjectStatistics | None = None,
     ) -> None:
-        """Step 1 panel: soft-delete budget impact and related notices."""
+        """Step 1 panel: soft-delete resource limit impact and related notices."""
         intro = "\n".join(
             [
-                "[red]WARNING:[/red] By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete budget[/bold] for instances. "
-                "If that budget is exhausted, you will not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per the retention policy, which can take multiple days (see "
+                "[red]WARNING:[/red] By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete resource limit[/bold] for instances. "
+                "If that resource limit is exhausted, you will not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per the retention policy, which can take multiple days (see "
                 "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).",
                 "",
                 f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance counts toward "
@@ -674,7 +674,7 @@ class PurgeCommand(ToolkitCommand):
 
         if stats is not None:
             inst_stats = stats.instances
-            middle: Text | Group = _soft_delete_budget_bar(
+            middle: Text | Group = _soft_delete_resource_limit_bar(
                 inst_stats.soft_deleted_instances,
                 inst_stats.soft_deleted_instances_limit,
                 instances_to_delete,
@@ -683,7 +683,7 @@ class PurgeCommand(ToolkitCommand):
             middle = Text.from_markup(
                 f"[dim]Could not retrieve soft-delete usage from the project statistics API.[/dim]\n\n"
                 f"This purge still targets up to [bold]{instances_to_delete:,}[/bold] instance(s); each deletion counts "
-                "toward your soft-delete budget and moves you closer to the limit."
+                "toward your soft-delete resource limit and moves you closer to the limit."
             )
 
         print(
@@ -722,7 +722,7 @@ class PurgeCommand(ToolkitCommand):
             self._print_instance_purge_soft_delete_panel(client, total)
             if not auto_yes:
                 acknowledge_risks = questionary.confirm(
-                    "Do you understand the soft-delete budget impact and wish to continue?",
+                    "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
                 if not acknowledge_risks:
