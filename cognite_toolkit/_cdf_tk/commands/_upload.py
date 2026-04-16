@@ -349,20 +349,16 @@ class UploadCommand(ToolkitCommand):
                 all_failed = False
             elif isinstance(message, ItemsResultMessage):
                 if isinstance(message, ItemsFailedResponse):
-                    error_description = f"(HTTP {message.status_code}): {message.error.message}"
+                    label = f"HTTP {message.status_code} code"
+                    error_description = message.error_message
                 elif isinstance(message, ItemsFailedRequest):
+                    label = "Failed request"
                     error_description = message.error_message
                 else:
-                    error_description = f"Upload failed: {message!r}"
+                    label = "Failed request"
+                    error_description = str(message)
                 for id_ in message.ids:
-                    logger.log(
-                        LogEntryV2(
-                            id=id_,
-                            label="Upload failed",
-                            severity=Severity.failure,
-                            message=error_description,
-                        )
-                    )
+                    logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
                 if verbose:
                     if isinstance(message, ItemsFailedResponse):
                         failures_by_error.setdefault(
