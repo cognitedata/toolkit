@@ -1,8 +1,10 @@
 import contextlib
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 
 import pytest
 from cognite.client import data_modeling as dm
@@ -44,6 +46,71 @@ from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
+
+T = TypeVar("T")
+
+
+def wait_until_deleted(
+    retrieve_func: Callable[[], T | None],
+    timeout_seconds: float = 30.0,
+    poll_interval: float = 1.0,
+) -> T | None:
+    """Retry retrieve until it returns None (deleted) or timeout expires.
+
+    Returns the last retrieved value (should be None if deletion was successful).
+    """
+    start_time = time.monotonic()
+    result = retrieve_func()
+    while result is not None and (time.monotonic() - start_time) < timeout_seconds:
+        time.sleep(poll_interval)
+        result = retrieve_func()
+    return result
+
+
+def wait_until_exists(
+    retrieve_func: Callable[[], T | None],
+    timeout_seconds: float = 30.0,
+    poll_interval: float = 1.0,
+) -> T | None:
+    """Retry retrieve until it returns a value (exists) or timeout expires.
+
+    Returns the retrieved value (should be not None if exists).
+    """
+    start_time = time.monotonic()
+    result = retrieve_func()
+    while result is None and (time.monotonic() - start_time) < timeout_seconds:
+        time.sleep(poll_interval)
+        result = retrieve_func()
+    return result
+
+
+def wait_until_dm_nodes_deleted(
+    client: ToolkitClient,
+    node_ids: list[dm.NodeId],
+    timeout_seconds: float = 30.0,
+    poll_interval: float = 1.0,
+) -> dm.NodeList:
+    """Retry DM instances retrieve until it returns 0 nodes or timeout expires."""
+    start_time = time.monotonic()
+    result = client.data_modeling.instances.retrieve(node_ids)
+    while len(result.nodes) != 0 and (time.monotonic() - start_time) < timeout_seconds:
+        time.sleep(poll_interval)
+        result = client.data_modeling.instances.retrieve(node_ids)
+    return result.nodes
+
+
+def wait_until_list_empty(
+    list_func: Callable[[], list[T]],
+    timeout_seconds: float = 30.0,
+    poll_interval: float = 1.0,
+) -> list[T]:
+    """Retry list until it returns empty or timeout expires."""
+    start_time = time.monotonic()
+    result = list_func()
+    while len(result) != 0 and (time.monotonic() - start_time) < timeout_seconds:
+        time.sleep(poll_interval)
+        result = list_func()
+    return result
 
 
 @pytest.fixture()
@@ -320,17 +387,17 @@ class TestPurgeSmoke:
         if results.deleted != 2:
             raise AssertionError(f"Expected 2 deleted instances from purge, got {results.deleted!r}")
 
-        retrieve_results = client.data_modeling.instances.retrieve([file_node, ts_node])
-        if len(retrieve_results.nodes) != 0:
+        retrieve_results = wait_until_dm_nodes_deleted(client, [file_node, ts_node])
+        if len(retrieve_results) != 0:
             raise AssertionError(
-                f"Instances were not purged; expected 0 nodes, got {len(retrieve_results.nodes)}: {retrieve_results.nodes!r}"
+                f"Instances were not purged; expected 0 nodes, got {len(retrieve_results)}: {retrieve_results!r}"
             )
 
-        classic_file = client.files.retrieve(id=file_id)
+        classic_file = wait_until_exists(lambda: client.files.retrieve(id=file_id))
         if classic_file is None:
             raise AssertionError("Classic file was not found after purge; expected it to remain unlinked")
 
-        classic_ts = client.time_series.retrieve(id=ts_id)
+        classic_ts = wait_until_exists(lambda: client.time_series.retrieve(id=ts_id))
         if classic_ts is None:
             raise AssertionError("Classic time series was not found after purge; expected it to remain unlinked")
 
@@ -354,36 +421,56 @@ class TestPurgeSmoke:
             auto_yes=True,
             verbose=False,
         )
-        if client.assets.retrieve(external_id=populated.asset.external_id) is not None:
+        if wait_until_deleted(lambda: client.assets.retrieve(external_id=populated.asset.external_id)) is not None:
             raise AssertionError("Expected asset to be deleted when include_data=True")
-        if client.events.retrieve(external_id=populated.event.external_id) is not None:
+        if wait_until_deleted(lambda: client.events.retrieve(external_id=populated.event.external_id)) is not None:
             raise AssertionError("Expected event to be deleted when include_data=True")
-        if client.sequences.retrieve(external_id=populated.sequence.external_id) is not None:
+        if (
+            wait_until_deleted(lambda: client.sequences.retrieve(external_id=populated.sequence.external_id))
+            is not None
+        ):
             raise AssertionError("Expected sequence to be deleted when include_data=True")
-        if client.time_series.retrieve(external_id=populated.timeseries.external_id) is not None:
+        if (
+            wait_until_deleted(lambda: client.time_series.retrieve(external_id=populated.timeseries.external_id))
+            is not None
+        ):
             raise AssertionError("Expected time series to be deleted when include_data=True")
-        if client.files.retrieve(external_id=populated.file.external_id) is not None:
+        if wait_until_deleted(lambda: client.files.retrieve(external_id=populated.file.external_id)) is not None:
             raise AssertionError("Expected file to be deleted when include_data=True")
 
-        labels_for_dataset = client.labels.list(data_set_external_ids=dataset_external_id)
+        labels_for_dataset = wait_until_list_empty(
+            lambda: list(client.labels.list(data_set_external_ids=dataset_external_id))
+        )
         if len(labels_for_dataset) != 0:
             raise AssertionError(
                 f"Expected no labels listed under dataset after purge; got {len(labels_for_dataset)} labels"
             )
-        relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
+        relationships = wait_until_list_empty(
+            lambda: list(client.relationships.list(source_external_ids=[populated.asset.external_id]))
+        )
         if len(relationships) != 0:
             raise AssertionError(
                 f"Expected relationships involving purged asset to be gone; got {len(relationships)} relationships"
             )
-        if client.three_d.models.retrieve(id=populated.three_d.id) is not None:
+        if wait_until_deleted(lambda: client.three_d.models.retrieve(id=populated.three_d.id)) is not None:
             raise AssertionError("Expected 3D model to be deleted when include_data=True")
 
-        workflow = client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True)
+        workflow = wait_until_exists(
+            lambda: client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True)
+        )
         if workflow is None:
             raise AssertionError("Expected workflow to remain when include_configurations=False")
-        if client.transformations.retrieve(external_id=populated.transformation.external_id) is None:
+        if (
+            wait_until_exists(lambda: client.transformations.retrieve(external_id=populated.transformation.external_id))
+            is None
+        ):
             raise AssertionError("Expected transformation to remain when include_configurations=False")
-        if client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is None:
+        if (
+            wait_until_exists(
+                lambda: client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id)
+            )
+            is None
+        ):
             raise AssertionError("Expected extraction pipeline to remain when include_configurations=False")
 
     def test_purge_dataset_include_configurations(
@@ -406,15 +493,15 @@ class TestPurgeSmoke:
             auto_yes=True,
             verbose=False,
         )
-        if client.assets.retrieve(external_id=populated.asset.external_id) is None:
+        if wait_until_exists(lambda: client.assets.retrieve(external_id=populated.asset.external_id)) is None:
             raise AssertionError("Expected asset to remain when include_data=False")
-        if client.events.retrieve(external_id=populated.event.external_id) is None:
+        if wait_until_exists(lambda: client.events.retrieve(external_id=populated.event.external_id)) is None:
             raise AssertionError("Expected event to remain when include_data=False")
-        if client.sequences.retrieve(external_id=populated.sequence.external_id) is None:
+        if wait_until_exists(lambda: client.sequences.retrieve(external_id=populated.sequence.external_id)) is None:
             raise AssertionError("Expected sequence to remain when include_data=False")
-        if client.time_series.retrieve(external_id=populated.timeseries.external_id) is None:
+        if wait_until_exists(lambda: client.time_series.retrieve(external_id=populated.timeseries.external_id)) is None:
             raise AssertionError("Expected time series to remain when include_data=False")
-        if client.files.retrieve(external_id=populated.file.external_id) is None:
+        if wait_until_exists(lambda: client.files.retrieve(external_id=populated.file.external_id)) is None:
             raise AssertionError("Expected file to remain when include_data=False")
 
         labels_for_dataset = client.labels.list(data_set_external_ids=dataset_external_id)
@@ -427,12 +514,27 @@ class TestPurgeSmoke:
             raise AssertionError(
                 f"Expected one relationship when data retained; got {len(relationships)} relationships"
             )
-        if client.three_d.models.retrieve(id=populated.three_d.id) is None:
+        if wait_until_exists(lambda: client.three_d.models.retrieve(id=populated.three_d.id)) is None:
             raise AssertionError("Expected 3D model to remain when include_data=False")
 
-        if client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True) is not None:
+        if (
+            wait_until_deleted(
+                lambda: client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True)
+            )
+            is not None
+        ):
             raise AssertionError("Expected workflow to be deleted when include_configurations=True")
-        if client.transformations.retrieve(external_id=populated.transformation.external_id) is not None:
+        if (
+            wait_until_deleted(
+                lambda: client.transformations.retrieve(external_id=populated.transformation.external_id)
+            )
+            is not None
+        ):
             raise AssertionError("Expected transformation to be deleted when include_configurations=True")
-        if client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None:
+        if (
+            wait_until_deleted(
+                lambda: client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id)
+            )
+            is not None
+        ):
             raise AssertionError("Expected extraction pipeline to be deleted when include_configurations=True")
