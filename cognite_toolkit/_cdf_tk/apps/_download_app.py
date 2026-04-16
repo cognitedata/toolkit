@@ -728,7 +728,11 @@ class DownloadApp(typer.Typer):
 
         selectors = [
             # MyPy cannot see that resource_type is one of the allowed literals.
-            AssetSubtreeSelector(hierarchy=hierarchy, kind=resource_type, download_dir_name=f"hierarchy-{hierarchy}")  # type: ignore[arg-type]
+            AssetSubtreeSelector(
+                hierarchy=hierarchy,
+                kind=resource_type,  # type: ignore[arg-type]
+                download_dir_name=f"hierarchy-{sanitize_filename(hierarchy)}",
+            )
             for resource_type in ["Assets", "Events", "FileMetadata", "TimeSeries"]
         ]
         cmd.run(
