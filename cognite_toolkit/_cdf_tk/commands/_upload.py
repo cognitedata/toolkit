@@ -376,5 +376,5 @@ class UploadCommand(ToolkitCommand):
             log_file = get_log_file()
             suffix = " Failed to get log file"
             if log_file:
-                suffix = f" Check the log file {cls._path_as_display_name(log_file).as_posix()}."
+                suffix = f"\nCheck the log file {cls._path_as_display_name(log_file).as_posix()}."
             raise ToolkitRuntimeError(f"Upload process was stopped due to repeatedly failed uploads.{suffix}")
