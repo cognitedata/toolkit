@@ -2,32 +2,14 @@ from collections import Counter
 from unittest.mock import MagicMock
 
 from cognite_toolkit._cdf_tk.storageio.logger import (
-    FileDataLogger,
     FileWithAggregationLogger,
     ItemsResult,
     LabelResult,
-    LogEntry,
     LogEntryV2,
     Severity,
     display_item_results,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
-
-
-class TestFileDataLogger:
-    def test_log_writes_to_writer(self) -> None:
-        mock_write = MagicMock(spec=NDJsonWriter)
-        logger = FileDataLogger(mock_write)
-
-        logger.log(LogEntry(id="1"))
-        logger.log([LogEntry(id="2"), LogEntry(id="3")])
-
-        assert mock_write.write_chunks.call_count == 2
-        actual = [call.args[0] for call in mock_write.write_chunks.call_args_list]
-        assert actual == [
-            [{"id": "1"}],
-            [{"id": "2"}, {"id": "3"}],
-        ]
 
 
 class TestFileWithAggregationLogger:

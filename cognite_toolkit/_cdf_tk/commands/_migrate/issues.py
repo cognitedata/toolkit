@@ -6,12 +6,13 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
-from cognite_toolkit._cdf_tk.storageio.logger import LogEntry, LogEntryV2, Severity
+from cognite_toolkit._cdf_tk.storageio.logger import LogEntryV2, Severity
 
 
-class MigrationIssue(LogEntry):
+class MigrationIssue(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents an issue encountered during migration."""
 
+    id: str
     type: str
 
     @property
