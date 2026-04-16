@@ -143,9 +143,16 @@ def project_statistics_response() -> dict[str, Any]:
 
 @pytest.fixture()
 def purge_responses(
-    rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig
+    rsps: responses.RequestsMock,
+    toolkit_config: ToolkitClientConfig,
+    project_statistics_response: dict[str, Any],
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
+    rsps.add(
+        responses.GET,
+        config.create_api_url("/models/statistics"),
+        json=project_statistics_response,
+    )
     rsps.add(
         responses.GET,
         f"{config.base_url}/api/v1/token/inspect",
@@ -213,7 +220,6 @@ class TestPurgeInstances:
         instance_type: str,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
-        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
         timeseries_by_node_id: dict[dm.NodeId, dict[str, Any]],
@@ -224,12 +230,6 @@ class TestPurgeInstances:
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
-        if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
-                json=project_statistics_response,
-            )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -308,7 +308,6 @@ class TestPurgeSpace:
         delete_file_content: bool,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
-        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
     ) -> None:
         config = purge_client.config
@@ -330,12 +329,6 @@ class TestPurgeSpace:
                 ).dump()
             },
         )
-        if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
-                json=project_statistics_response,
-            )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)

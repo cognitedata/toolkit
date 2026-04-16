@@ -8,7 +8,7 @@ from typing import Any, Literal, cast
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import ProjectStatistics, SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
@@ -283,7 +283,7 @@ class PurgeCommand(ToolkitCommand):
             self._print_instance_purge_soft_delete_panel(client, instance_count)
             if not auto_yes:
                 acknowledge_risks = questionary.confirm(
-                    "Do you understand the soft-delete resource limit impact and wish to continue?",
+                    "Step 1 of 2: Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
                 if not acknowledge_risks:
@@ -644,12 +644,11 @@ class PurgeCommand(ToolkitCommand):
     def _print_instance_purge_soft_delete_panel(
         client: ToolkitClient,
         instances_to_delete: int,
-        project_statistics: ProjectStatistics | None = None,
     ) -> None:
         """Step 1 panel: soft-delete resource limit impact and related notices."""
         intro = "\n".join(
             [
-                "[red]WARNING:[/red] By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete resource limit[/bold] for instances. "
+                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete resource limit[/bold] for instances. "
                 "If that resource limit is exhausted, you will not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per the retention policy, which can take multiple days (see "
                 "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).",
                 "",
@@ -665,12 +664,10 @@ class PurgeCommand(ToolkitCommand):
             "is no longer needed or valid."
         )
 
-        stats = project_statistics
-        if stats is None:
-            try:
-                stats = client.data_modeling.statistics.project()
-            except Exception:
-                stats = None
+        try:
+            stats = client.data_modeling.statistics.project()
+        except Exception:
+            stats = None
 
         if stats is not None:
             inst_stats = stats.instances
@@ -689,9 +686,9 @@ class PurgeCommand(ToolkitCommand):
         print(
             Panel(
                 Group(Text.from_markup(intro), Text(""), middle, Text(""), Text.from_markup(note)),
-                title="Purging instances: Please acknowledge the potential risk involved",
+                title="Purging instances: Please acknowledge the following",
                 title_align="left",
-                border_style="red",
+                border_style="yellow",
                 expand=False,
             )
         )
@@ -722,7 +719,7 @@ class PurgeCommand(ToolkitCommand):
             self._print_instance_purge_soft_delete_panel(client, total)
             if not auto_yes:
                 acknowledge_risks = questionary.confirm(
-                    "Do you understand the soft-delete resource limit impact and wish to continue?",
+                    "Step 1 of 2: Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
                 ).ask()
                 if not acknowledge_risks:
