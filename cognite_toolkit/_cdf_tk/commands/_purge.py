@@ -8,12 +8,13 @@ from typing import Any, Literal, cast
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import ProjectStatistics, SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -75,6 +76,63 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
+
+
+def _soft_delete_budget_bar(used: int, limit: int, purge_add: int, bar_width: int = 44) -> Group:
+    """One bar, same scale 0…limit: yellow = already soft-deleted, magenta = this purge, dim = headroom left."""
+    if limit <= 0:
+        return Group(Text("Soft-delete limit not available from statistics.", style="dim"))
+
+    used = max(0, used)
+    purge_add = max(0, purge_add)
+    projected = used + purge_add
+    remaining_after = max(0, limit - projected)
+
+    key = Text()
+    key.append("█ ", style="yellow")
+    key.append("already soft-deleted   ", style="dim")
+    key.append("█ ", style="bright_magenta")
+    key.append("this purge   ", style="dim")
+    key.append("░", style="dim")
+    key.append(" remaining", style="dim")
+
+    bar_line = Text()
+    for i in range(bar_width):
+        pos = (i + 0.5) / bar_width * limit
+        if pos < used:
+            bar_line.append("█", style="yellow")
+        elif pos < min(projected, limit):
+            bar_line.append("█", style="bright_magenta")
+        else:
+            bar_line.append("░", style="dim")
+
+    summary = Text()
+    summary.append("Limit ", style="dim")
+    summary.append(f"{limit:,}", style="bold")
+    summary.append("  ·  ", style="dim")
+    summary.append(f"{used:,}", style="yellow")
+    summary.append(" + ", style="dim")
+    summary.append(f"{purge_add:,}", style="bright_magenta")
+    summary.append(" → ", style="dim")
+    summary.append(f"{projected:,}", style="bold")
+    summary.append(" total soft-deleted (est.)", style="dim")
+    summary.append("  ·  ", style="dim")
+    summary.append(f"{remaining_after:,}", style="green")
+    summary.append(" remaining", style="dim")
+
+    if projected > limit:
+        return Group(
+            key,
+            Text(""),
+            bar_line,
+            summary,
+            Text(""),
+            Text(
+                f"Estimated total {projected:,} soft-deleted is above the limit ({limit:,}).",
+                style="bold red",
+            ),
+        )
+    return Group(key, Text(""), bar_line, summary)
 
 
 @dataclass
@@ -215,20 +273,40 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        # Warning Messages
-        if not dry_run:
-            self._print_panel("space", selected_space)
-
-        if not dry_run and not auto_yes:
-            confirm = questionary.confirm(
-                f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-            ).ask()
-            if not confirm:
-                return DeployResults([], "purge", dry_run=dry_run)
-
         stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
         if stats is None:
             raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
+
+        instance_count = stats.nodes + stats.edges
+
+        if not dry_run and instance_count > 0:
+            self._print_instance_purge_soft_delete_panel(client, instance_count)
+            if not auto_yes:
+                acknowledge_risks = questionary.confirm(
+                    "Do you understand the soft-delete budget impact and wish to continue?",
+                    default=False,
+                ).ask()
+                if not acknowledge_risks:
+                    return DeployResults([], "purge", dry_run=dry_run)
+                self._print_panel("instances", selected_space, title="Purge instances — cannot be undone")
+                confirm_instances = questionary.confirm(
+                    f"Step 2 of 2: Are you sure you want to purge up to {instance_count:,} instances "
+                    f"in space {selected_space!r} (nodes and edges)?",
+                    default=False,
+                ).ask()
+                if not confirm_instances:
+                    return DeployResults([], "purge", dry_run=dry_run)
+            else:
+                self._print_panel("instances", selected_space, title="Purge instances — cannot be undone")
+
+        elif not dry_run:
+            self._print_panel("space", selected_space)
+            if not auto_yes:
+                confirm = questionary.confirm(
+                    f"Are you really sure you want to purge the {selected_space!r} space?", default=False
+                ).ask()
+                if not confirm:
+                    return DeployResults([], "purge", dry_run=dry_run)
 
         # ValidateAuth
         validator = ValidateAccess(client, "purge")
@@ -549,13 +627,69 @@ class PurgeCommand(ToolkitCommand):
         return to_delete
 
     @staticmethod
-    def _print_panel(resource_type: str, resource: str) -> None:
+    def _print_panel(resource_type: str, resource: str, *, title: str | None = None) -> None:
         print(
             Panel(
                 f"[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
                 f"Resources in {resource!r} are permanently deleted",
                 style="bold",
-                title=f"Purge {resource_type}",
+                title=title or f"Purge {resource_type}",
+                title_align="left",
+                border_style="red",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def _print_instance_purge_soft_delete_panel(
+        client: ToolkitClient,
+        instances_to_delete: int,
+        project_statistics: ProjectStatistics | None = None,
+    ) -> None:
+        """Step 1 panel: soft-delete budget impact and related notices."""
+        intro = "\n".join(
+            [
+                "[red]WARNING:[/red] By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete budget[/bold] for instances. "
+                "If that budget is exhausted, you will not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per the retention policy, which can take multiple days (see "
+                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).",
+                "",
+                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance counts toward "
+                "the total soft-delete limit below.",
+            ]
+        )
+
+        note = (
+            "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not require deleting instances. You can delete or "
+            "change schema resources (containers, views, data models) without purging the instance data first. Only run "
+            "an instance purge when you intend to remove specific data which was either ingested by error or "
+            "is no longer needed or valid."
+        )
+
+        stats = project_statistics
+        if stats is None:
+            try:
+                stats = client.data_modeling.statistics.project()
+            except Exception:
+                stats = None
+
+        if stats is not None:
+            inst_stats = stats.instances
+            middle: Text | Group = _soft_delete_budget_bar(
+                inst_stats.soft_deleted_instances,
+                inst_stats.soft_deleted_instances_limit,
+                instances_to_delete,
+            )
+        else:
+            middle = Text.from_markup(
+                f"[dim]Could not retrieve soft-delete usage from the project statistics API.[/dim]\n\n"
+                f"This purge still targets up to [bold]{instances_to_delete:,}[/bold] instance(s); each deletion counts "
+                "toward your soft-delete budget and moves you closer to the limit."
+            )
+
+        print(
+            Panel(
+                Group(Text.from_markup(intro), Text(""), middle, Text(""), Text.from_markup(note)),
+                title="Purging instances: Please acknowledge the potential risk involved",
                 title_align="left",
                 border_style="red",
                 expand=False,
@@ -585,14 +719,23 @@ class PurgeCommand(ToolkitCommand):
             print("No instances found.")
             return DeleteResults()
         if not dry_run:
-            self._print_panel("instances", str(selector))
+            self._print_instance_purge_soft_delete_panel(client, total)
             if not auto_yes:
-                confirm = questionary.confirm(
-                    f"Are you really sure you want to purge all {total:,} instances in {selector!s}?",
+                acknowledge_risks = questionary.confirm(
+                    "Do you understand the soft-delete budget impact and wish to continue?",
                     default=False,
                 ).ask()
-                if not confirm:
+                if not acknowledge_risks:
                     return DeleteResults()
+                self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
+                confirm_purge = questionary.confirm(
+                    f"Step 2 of 2: Are you sure you want to purge all {total:,} instances in {selector!s}?",
+                    default=False,
+                ).ask()
+                if not confirm_purge:
+                    return DeleteResults()
+            else:
+                self._print_panel("instances", str(selector), title="Purge instances — cannot be undone")
 
         process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
