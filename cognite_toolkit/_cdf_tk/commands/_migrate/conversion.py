@@ -49,8 +49,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
-    asset_centric_convert_to_primary_property,
     convert_to_primary_property,
+    convert_to_primary_property_with_special_cases,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
@@ -438,7 +438,7 @@ def create_properties(
         data_type = prop_def.type
         nullable = prop_def.nullable or False
         try:
-            value = asset_centric_convert_to_primary_property(
+            value = convert_to_primary_property_with_special_cases(
                 flatten_dump[prop_json_path],
                 data_type,
                 nullable,
@@ -941,6 +941,57 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldUserMapping(CustomContainerPropertiesMapping):
+    """Custom mapping for the user property in the InField data migration.
+
+    This is needed because the user properties 'createdBy' and 'updatedBy' are mapped to two
+    properties in each. For example, the 'createdBy' is mapped to 'createdBy', and
+    'createdBy.externalId' -> sourceCreatedUser.
+
+    The ViewToView mapping does not support
+        - Mapping one properties in the source view to two properties in the destination view.
+        - Mapping nested property in the source to the destination.
+
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset(
+        {
+            ViewId(space="cdf_apm", external_id="Action", version="v1"),
+            ViewId(space="cdf_apm", external_id="Checklist", version="v7"),
+            ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"),
+            ViewId(space="cdf_apm", external_id="Condition", version="v1"),
+            ViewId(space="cdf_apm", external_id="ConditionalAction", version="v1"),
+            ViewId(space="cdf_apm", external_id="MeasurementReading", version="v4"),
+            ViewId(space="cdf_apm", external_id="Observation", version="v5"),
+            ViewId(space="cdf_apm", external_id="Schedule", version="v4"),
+            ViewId(space="cdf_apm", external_id="Template", version="v9"),
+            ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"),
+        }
+    )
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
+        issues: list[str] = []
+
+        def _map_user(source_prop: str, target_prop: str) -> None:
+            if user := source_properties.get(source_prop):
+                if isinstance(user, dict) and "externalId" in user:
+                    created_properties[target_prop] = user["externalId"]
+                elif isinstance(user, NodeId):
+                    created_properties[target_prop] = user.external_id
+                else:
+                    issues.append(
+                        f"Invalid {source_prop} value {user!r} for view {context.source_view_id!s}: "
+                        "expected a dict with an externalId field or a NodeId."
+                    )
+
+        _map_user("createdBy", "sourceCreatedUser")
+        _map_user("updatedBy", "sourceUpdatedUser")
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 
@@ -1055,10 +1106,11 @@ def convert_container_properties(
             created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
-                created_value = convert_to_primary_property(
+                created_value = convert_to_primary_property_with_special_cases(
                     value,
                     dm_prop.type,
                     dm_prop.nullable if dm_prop.nullable is not None else True,
+                    destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 )
                 created_properties[dest_prop_id] = serialize_dms(created_value)
             except (ValueError, TypeError, NotImplementedError) as e:

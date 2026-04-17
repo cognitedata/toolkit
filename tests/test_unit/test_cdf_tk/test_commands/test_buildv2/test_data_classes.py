@@ -1,10 +1,13 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 from pydantic import TypeAdapter
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ResourceLineageItem
 
 
 @pytest.fixture(scope="session")
@@ -149,6 +152,36 @@ query: >-
 
         assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description'
 
+    @pytest.mark.parametrize(
+        "yaml_content, expected",
+        [
+            pytest.param(
+                """instanceSpaces:
+{{ list_one }}
+{{ list_two }}
+""",
+                {"instanceSpaces": ["a", "b", "c", "d", "e"]},
+                id="Outer list",
+            ),
+            pytest.param(
+                """rules:
+  instanceSpace:
+    {{ list_one }}
+    {{ list_two }}
+             """,
+                {"rules": {"instanceSpace": ["a", "b", "c", "d", "e"]}},
+                id="Nested list",
+            ),
+        ],
+    )
+    def test_substitute_concat_lists(self, yaml_content: str, expected: dict[str, Any]) -> None:
+        variables = _create_variables({"list_one": ["a", "b", "c"], "list_two": ["d", "e"]})
+
+        result = BuildVariable.substitute(yaml_content, variables, ".yaml")
+        loaded = yaml.safe_load(result)
+
+        assert loaded == expected
+
     def test_format_list_as_sql_tuple_empty(self) -> None:
         """Test that empty lists become empty SQL tuples."""
         result = BuildVariable._format_list_as_sql_tuple([])
@@ -197,3 +230,23 @@ query: >-
 
         with pytest.raises(NotImplementedError, match=r"'.txt' is not supported"):
             variable.get_pattern_replace_pair(".txt")  # type: ignore[arg-type]
+
+
+class TestBuildLinage:
+    def test_deserialize_resource_lineage(self, tmp_path: Path) -> None:
+        source_file = tmp_path / "file1.txt"
+        built_file = tmp_path / "file2.txt"
+        source_file.touch()
+        built_file.touch()
+        data = {
+            "sourceFile": source_file.as_posix(),
+            "sourceHash": "123",
+            "type": {
+                "resource_folder": "files",
+                "kind": "FileMetadata",
+            },
+            "builtFile": built_file.as_posix(),
+            "identifier": {"externalId": "some_id"},
+        }
+        linage = ResourceLineageItem.model_validate(data)
+        assert isinstance(linage.identifier, ExternalId)

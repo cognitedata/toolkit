@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, SemanticVersion
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, RuleSetVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
@@ -20,19 +20,11 @@ class ViewInstanceSpaces(BaseModelResource):
 
 
 class DataProductVersionView(BaseModelResource):
-    external_id: str = Field(description="External ID of the view in the data model.")
+    space: SpaceId = Field(description="The space where the view is located.")
+    external_id: str = Field(description="External ID of the view.")
+    version: str = Field(description="Version of the view.")
     instance_spaces: ViewInstanceSpaces = Field(
         default_factory=ViewInstanceSpaces, description="Instance spaces for this view."
-    )
-
-
-class DataProductVersionDataModel(BaseModelResource):
-    external_id: str = Field(description="External ID of the referenced data model.")
-    version: str = Field(description="Version of the referenced data model.")
-    views: list[DataProductVersionView] = Field(
-        default_factory=list,
-        description="List of views with their instance spaces.",
-        max_length=100,
     )
 
 
@@ -42,6 +34,22 @@ class DataProductVersionTerms(BaseModelResource):
     )
     limitations: str | None = Field(
         default=None, description="Usage limitations and restrictions (markdown).", max_length=500
+    )
+
+
+class DataProductVersionQualityRule(BaseModelResource):
+    rule_set_external_id: str = Field(description="External ID of the referenced rule set.")
+    version: SemanticVersion = Field(description="Version of the referenced rule set.")
+
+    def as_id(self) -> RuleSetVersionId:
+        return RuleSetVersionId(rule_set_external_id=self.rule_set_external_id, version=self.version)
+
+
+class DataProductVersionQuality(BaseModelResource):
+    rules: list[DataProductVersionQualityRule] = Field(
+        default_factory=list,
+        description="List of rule set version references applied to this data product version.",
+        max_length=50,
     )
 
 
@@ -55,8 +63,10 @@ class DataProductVersionYAML(ToolkitResource):
     version: SemanticVersion = Field(
         description="Semantic version of this data product version (major.minor.patch).",
     )
-    data_model: DataProductVersionDataModel = Field(
-        description="Immutable reference to the data model version associated with this data product version.",
+    views: list[DataProductVersionView] = Field(
+        default_factory=list,
+        description="Collection of view references (space, externalId, version, instanceSpaces) associated with this version.",
+        max_length=100,
     )
     status: Literal["draft", "published", "deprecated"] = Field(
         default="draft",
@@ -70,6 +80,10 @@ class DataProductVersionYAML(ToolkitResource):
     terms: DataProductVersionTerms | None = Field(
         default=None,
         description="Terms and conditions for using this data product version.",
+    )
+    quality: DataProductVersionQuality | None = Field(
+        default=None,
+        description="Data quality rules applied to this version.",
     )
 
     def as_id(self) -> DataProductVersionId:

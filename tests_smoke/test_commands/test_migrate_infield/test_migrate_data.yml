@@ -12,6 +12,7 @@ instances:
           externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
           space: smoke_infield_migration_target_space
         order: 2
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         title: any comments ?
         type: message
   space: smoke_infield_migration_target_space
@@ -30,6 +31,8 @@ instances:
         max: 90
         min: 10
         order: 0
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
+        sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
         timeseries:
           externalId: Measurements Readings - Suu
           space: smoke_infield_migration_target_space
@@ -50,6 +53,7 @@ instances:
         endTime: '2025-02-20T12:30:00+00:00'
         freq: DAILY
         interval: '1'
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         startTime: '2025-02-20T08:30:00+00:00'
         template:
           externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
@@ -99,6 +103,7 @@ instances:
         labels:
         - group:one Task group
         order: 141
+        sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
         template:
           externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
           space: smoke_infield_migration_target_space
@@ -122,7 +127,9 @@ instances:
           externalId: SmokeAsset
           space: smoke_infield_migration_target_space
         solutionTags: []
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
+        sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
         startTime: '2025-06-09T08:30:00+00:00'
         status: Ready
         title: ADSuu Template/Checklist
@@ -155,7 +162,9 @@ instances:
           space: smoke_infield_migration_target_space
         isArchived: false
         order: 6
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         sourceId: 202b7a05-1ba3-4058-9a16-3f9cc306067c
+        sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
         startTime: '2025-06-09T08:30:00+00:00'
         title: 'task '
         updatedBy:
@@ -177,6 +186,8 @@ instances:
           space: cognite_app_data
         parameters:
           message: 'item is not okay '
+        sourceCreatedUser: VJZrRM_kByZe-moErWilvg
+        sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
@@ -208,4 +219,20 @@ instances:
           space: smoke_infield_migration_target_space
         sourceView: cdf_infield/ChecklistItem/v1
         value: Not applicable
+  space: smoke_infield_migration_target_space
+- createdTime: 1776149020700
+  externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
+  instanceType: node
+  properties:
+    cdf_infield:
+      FieldObservation/v1:
+        assets: []
+        description: 'Observing read red '
+        files:
+        - externalId: infield_data_smoke_test_file3
+          space: smoke_infield_migration_target_space
+        priority: immediate
+        status: completed
+        troubleshooting: I clicked buttons
+        type: m1
   space: smoke_infield_migration_target_space

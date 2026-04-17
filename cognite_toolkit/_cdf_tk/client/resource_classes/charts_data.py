@@ -70,7 +70,7 @@ class Flow(ChartObject):
 class ChartSource(ChartElement): ...
 
 
-class ChartCoreTimeseries(ChartElement):
+class ChartCoreTimeseriesUIElement(ChartElement):
     node_reference: NodeUntypedId | None = None
     view_reference: ViewUntypedId | None = None
     display_mode: str | None = None
@@ -85,7 +85,7 @@ class ChartCoreTimeseries(ChartElement):
     range: list[float | None] | None = None
 
 
-class ChartTimeseries(ChartElement):
+class ChartTimeseriesUIElement(ChartElement):
     color: str | None = None
     created_at: int | None = None
     enabled: bool | None = None
@@ -103,7 +103,7 @@ class ChartTimeseries(ChartElement):
     description: str | None = None
 
 
-class ChartWorkflow(ChartElement):
+class ChartCalculation(ChartElement):
     version: str | None = None
     name: str | None = None
     color: str | None = None
@@ -117,6 +117,9 @@ class ChartWorkflow(ChartElement):
     created_at: int | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
+
+
+class ChartWorkflowUIElement(ChartCalculation):
     calls: list[ChartCall] | None = None
 
 
@@ -130,24 +133,11 @@ class ChartThreshold(ChartElement):
     calls: list[ChartCall] | None = None
 
 
-class ChartScheduledCalculation(ChartElement):
-    color: str | None = None
-    created_at: int | None = None
+class ChartScheduledCalculationUIElement(ChartCalculation):
     description: str | None = None
-    enabled: bool | None = None
-    interpolation: str | None = None
-    line_style: str | None = None
-    line_weight: float | None = None
-    name: str | None = None
-    preferred_unit: str | None = None
-    range: list[float | None] | None = None
-    unit: str | None = None
-    version: str | None = None
-    settings: SubSetting | None = None
-    flow: Flow | None = None
 
 
-class MonitoringJob(ChartObject):
+class MonitoringJobReference(ChartObject):
     id: int | None = None
     source_id: str | None = None
     source_type: str | None = None
@@ -175,13 +165,14 @@ class ChartData(ChartObject):
     date_to: str
     user_info: UserInfo | None = None
     live_mode: bool | None = None
-    time_series_collection: list[ChartTimeseries] | None = None
-    core_timeseries_collection: list[ChartCoreTimeseries] | None = None
-    workflow_collection: list[ChartWorkflow] | None = None
+    time_series_collection: list[ChartTimeseriesUIElement] | None = None
+    core_timeseries_collection: list[ChartCoreTimeseriesUIElement] | None = None
+    # Workflow collections = calculated collection (not scheduled)
+    workflow_collection: list[ChartWorkflowUIElement] | None = None
     source_collection: list[ChartSource] | None = None
     threshold_collection: list[ChartThreshold] | None = None
-    scheduled_calculation_collection: list[ChartScheduledCalculation] | None = None
+    scheduled_calculation_collection: list[ChartScheduledCalculationUIElement] | None = None
     settings: ChartSettings | None = None
-    monitoring_jobs: list[MonitoringJob] | None = None
+    monitoring_jobs: list[MonitoringJobReference] | None = None
     event_filters: list[EventFilter] | None = None
     activities_collection: list[ChartActivity] | None = None

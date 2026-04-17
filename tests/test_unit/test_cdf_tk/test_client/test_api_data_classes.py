@@ -29,7 +29,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -68,9 +67,6 @@ class TestAPIDataClasses:
         assert isinstance(update_data, dict)
         assert "update" in update_data
 
-    @pytest.mark.skipif(
-        not Flags.v08.is_enabled(), reason="Extra fields are only supported when the v0.8 flag is enabled"
-    )
     def test_dump_exclude_extra(self) -> None:
         """Tests that extra fields can be excluded when dumping a data class.
         Using AssetRequest as an example.
@@ -311,6 +307,19 @@ class TestGroupResponse:
         }
 
         GroupResponse.model_validate(data)
+
+    def test_load_known_acl_with_unknown_scope_and_action(self) -> None:
+        data = {
+            "name": "Group 1",
+            "id": 37,
+            "isDeleted": False,
+            "capabilities": [
+                {"agentsAcl": {"actions": ["READ", "UNKNOWN_ACTION"], "scope": {"anUnknownScope": {"ids": [1, 2, 3]}}}}
+            ],
+        }
+        group = GroupResponse.model_validate(data)
+
+        assert group.dump() == data
 
 
 class TestPrincipalSerialization:

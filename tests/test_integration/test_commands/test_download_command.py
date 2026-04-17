@@ -3,7 +3,7 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
-from cognite_toolkit._cdf_tk.storageio import AssetIO, RawIO
+from cognite_toolkit._cdf_tk.storageio import AssetDataIO, RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector, RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, NDJsonReader
@@ -55,7 +55,7 @@ class TestDownloadCommand:
         )
         cmd.download(
             [selected],
-            AssetIO(toolkit_client),
+            AssetDataIO(toolkit_client),
             output_dir=tmp_path,
             verbose=False,
             file_format=".csv",

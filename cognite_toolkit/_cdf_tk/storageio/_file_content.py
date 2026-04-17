@@ -21,10 +21,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse, ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -34,7 +38,6 @@ from ._base import Bookmark, DataItem, Page, UploadableStorageIO
 from .progress import NoBookmark
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
-    FILEPATH,
     FileDataModelingTemplateSelector,
     FileExternalID,
     FileIdentifier,
@@ -129,7 +132,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 )
                 for item in downloaded_files
             ]
-            yield Page(items=items, worker_id="Main", bookmark=NoBookmark())
+            yield self.emit_registered_page(Page(items=items, worker_id="Main", bookmark=NoBookmark()))
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config

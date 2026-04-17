@@ -33,6 +33,8 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
+from .api.charts_monitoring_job import ChartMonitoringJobsAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
@@ -74,6 +76,7 @@ from .api.migration import (
     ResourceViewMappingsAPI,
 )
 from .api.project import ProjectAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.ruleset_versions import RuleSetVersionsAPI
 from .api.rulesets import RuleSetsAPI
@@ -98,6 +101,7 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI as LegacyTokenAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
@@ -123,7 +127,9 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
         self.canvas = MagicMock(spec_set=IndustrialCanvasAPI)
-        self.charts = MagicMock(spec_set=ChartsAPI)
+        self.charts = MagicMock(spec=ChartsAPI)
+        self.charts.monitoring_jobs = MagicMock(spec_set=ChartMonitoringJobsAPI)
+        self.charts.scheduled_calculations = MagicMock(spec_set=ChartScheduledCalculationsAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
@@ -219,10 +225,12 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
         self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
+        self.records = MagicMock(spec=RecordsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.
         self.token = LegacyTokenAPI(self)
+        self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 

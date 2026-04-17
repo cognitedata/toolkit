@@ -34,10 +34,6 @@ class Flags(Enum):
         visible=False,
         description="Enables the support for deploying data models as GraphQL schemas",
     )
-    MODULE_REPEAT = FlagMetadata(
-        visible=True,
-        description="Enables the support for repeating modules in the config file",
-    )
     PROFILE = FlagMetadata(
         visible=True,
         description="Enables support for the profile command",
@@ -50,13 +46,9 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
-    STREAMS = FlagMetadata(
-        visible=True,
-        description="Enables support for the streams resources",
-    )
-    v08 = FlagMetadata(
+    RECORDS_MIGRATE = FlagMetadata(
         visible=False,
-        description="Enables features planned for Cognite Toolkit version 0.8.0",
+        description="Enables the 'events-to-records' migration command",
     )
     CREATE = FlagMetadata(
         visible=True,
@@ -74,10 +66,6 @@ class Flags(Enum):
         visible=True,
         description="Enables support for signal resources",
     )
-    SIMULATORS = FlagMetadata(
-        visible=True,
-        description="Enables support for simulator model resources",
-    )
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,
         description="Enables validation of function requirements.txt during build using pip dry-run",
@@ -93,10 +81,6 @@ class Flags(Enum):
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",
-    )
-    DEPLOYMENT_PACK = FlagMetadata(
-        visible=True,
-        description="Enables support for the deployment pack in modules add command",
     )
 
     def is_enabled(self) -> bool:

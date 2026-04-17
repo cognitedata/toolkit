@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._asset_centric import FileMetadataIO
+from ._asset_centric import FileMetadataDataIO
 from ._base import Bookmark, DataItem, Page, StorageIO
 from .progress import NoBookmark
 from .selectors import AssetCentricSelector
@@ -34,7 +34,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
     ) -> Iterable[Page[AnnotationResponse]]:
         total = 0
         annotation_types: list[AnnotationType] = ["diagrams.AssetLink", "diagrams.FileLink"]
-        for file_chunk in FileMetadataIO(self.client).stream_data(selector, None):
+        for file_chunk in FileMetadataDataIO(self.client).stream_data(selector, None):
             for annotation_type in annotation_types:
                 annotation_filter = AnnotationFilter(
                     annotated_resource_type="file",
@@ -51,7 +51,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
                             )
                             for item in chunk
                         ]
-                        yield Page(worker_id="main", items=items, bookmark=NoBookmark())
+                        yield self.emit_registered_page(Page(worker_id="main", items=items, bookmark=NoBookmark()))
                         total += len(chunk)
                         if limit is not None and total >= limit:
                             return

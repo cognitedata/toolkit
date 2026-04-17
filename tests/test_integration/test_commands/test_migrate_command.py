@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
@@ -16,10 +16,15 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.cdf_client import ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
@@ -29,10 +34,26 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.storageio.logger import ItemsResult
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
+
+
+def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
+    totals = {
+        "failure": 0,
+        "pending": 0,
+        "success": 0,
+        "pending-with-warning": 0,
+        "success-with-warning": 0,
+        "skipped": 0,
+    }
+    for item in results:
+        totals[item.status] += item.count
+    return totals
 
 
 @pytest.fixture()
@@ -115,8 +136,15 @@ class TestMigrateAssetsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 2,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateEventsCommand:
@@ -139,8 +167,15 @@ class TestMigrateEventsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 1,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateTimeSeriesCommand:
@@ -163,8 +198,15 @@ class TestMigrateTimeSeriesCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 1,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateFileMetadataCommand:
@@ -187,8 +229,15 @@ class TestMigrateFileMetadataCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 1,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 class TestMigrateAnnotations:
@@ -210,8 +259,15 @@ class TestMigrateAnnotations:
             dry_run=True,
             verbose=True,
         )
-        results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 2,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }
 
 
 @pytest.fixture()
@@ -276,11 +332,16 @@ class TestMigrateFiles:
             log_dir=tmp_path,
             dry_run=False,
         )
-        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
+        actual_result = _migration_status_totals(result[str(selected_cdm_file)])
 
-        assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0, "skipped": 0}, (
-            "Expected failure as the file is already a CDM file."
-        )
+        assert actual_result == {
+            "failure": 1,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }, "Expected failure as the file is already a CDM file."
 
     def test_skip_linked_file(
         self, toolkit_client: ToolkitClient, selected_cdm_file: MigrationCSVFileSelector, tmp_path: Path
@@ -296,8 +357,56 @@ class TestMigrateFiles:
             dry_run=False,
         )
 
-        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
+        actual_result = _migration_status_totals(result[str(selected_cdm_file)])
 
-        assert actual_result == {"failure": 0, "pending": 0, "success": 0, "unchanged": 0, "skipped": 1}, (
-            "File already exists."
+        assert actual_result == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 0,
+            "success-with-warning": 0,
+            "skipped": 1,
+        }, "File already exists."
+
+
+class TestMigrateEventsToRecordsCommand:
+    def test_migrate_events_to_records_by_dataset_dry_run(
+        self,
+        toolkit_client: ToolkitClient,
+        migration_hierarchy_minimal: HierarchyMinimal,
+        toolkit_stream: StreamResponse,
+        toolkit_record_container: ContainerResponse,
+        tmp_path: Path,
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        record_mapping = RecordPropertyMapping(
+            external_id="default",
+            container_id=toolkit_record_container.as_id(),
+            property_mapping={"type": "name"},
         )
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="Events",
+            data_set_external_id=hierarchy.dataset.external_id,
+        )
+        result = cmd.migrate(
+            selectors=[selector],
+            data=RecordsMigrationIO(client, stream_external_id=toolkit_stream.external_id),
+            mapper=AssetCentricToRecordMapper(
+                client,
+                mappings_by_external_id={"default": record_mapping},
+                default_mapping="default",
+            ),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = _migration_status_totals(result[str(selector)])
+        assert results == {
+            "failure": 0,
+            "pending": 0,
+            "success": 0,
+            "pending-with-warning": 1,
+            "success-with-warning": 0,
+            "skipped": 0,
+        }

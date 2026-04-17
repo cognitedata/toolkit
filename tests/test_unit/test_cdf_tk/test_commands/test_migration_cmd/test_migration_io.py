@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     ThreeDAssetMappingMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, Page
+from cognite_toolkit._cdf_tk.storageio import AssetDataIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 
 
@@ -56,8 +56,8 @@ class TestAssetCentricMigrationIOAdapter:
 
         respx_mock.post(config.create_api_url("/assets/byids")).mock(
             side_effect=[
-                Response(status_code=200, json={"items": items[: AssetIO.CHUNK_SIZE]}),
-                Response(status_code=200, json={"items": items[AssetIO.CHUNK_SIZE :]}),
+                Response(status_code=200, json={"items": items[: AssetDataIO.CHUNK_SIZE]}),
+                Response(status_code=200, json={"items": items[AssetDataIO.CHUNK_SIZE :]}),
             ]
         )
 

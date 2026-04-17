@@ -217,8 +217,8 @@ class TestRecordIO:
             return httpx.Response(status_code=200, json={"items": items})
 
         stream_url = config.create_api_url("/streams/my_stream")
-        aggregate_url = config.create_api_url(RecordIO.AGGREGATE_ENDPOINT.format(streamId="my_stream"))
-        sync_url = config.create_api_url(RecordIO.SYNC_ENDPOINT.format(streamId="my_stream"))
+        aggregate_url = config.create_api_url("/streams/my_stream/records/aggregate")
+        sync_url = config.create_api_url("/streams/my_stream/records/sync")
         upload_url = config.create_api_url(RecordIO.UPLOAD_ENDPOINT.format(streamId="my_stream"))
 
         respx_mock.get(stream_url).respond(

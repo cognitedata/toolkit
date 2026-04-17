@@ -1,6 +1,6 @@
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -18,14 +18,11 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
-from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
-    ResourceContainerCRUD,
-    ResourceCRUD,
-)
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
@@ -37,6 +34,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    RawTableCRUD,
+    ResourceContainerIO,
+    ResourceIO,
+)
+from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
@@ -71,8 +75,9 @@ class DeployOptions:
 @dataclass
 class ResourceDirectory:
     directory: Path
-    files_by_crud: dict[type[ResourceCRUD], list[Path]] = field(default_factory=lambda: defaultdict(list))
+    files_by_crud: dict[type[ResourceIO], list[Path]] = field(default_factory=lambda: defaultdict(list))
     invalid_files: list[Path] = field(default_factory=list)
+    extra_files: list[Path] = field(default_factory=list)
 
 
 @dataclass
@@ -93,11 +98,11 @@ class ReadBuildDirectory:
                     f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
                 )
 
-    def skipped_cruds(self) -> set[type[ResourceCRUD]]:
+    def skipped_cruds(self) -> set[type[ResourceIO]]:
         return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
 
-    def as_files_by_crud(self) -> dict[type[ResourceCRUD], list[Path]]:
-        files_by_crud: dict[type[ResourceCRUD], list[Path]] = {}
+    def as_files_by_crud(self) -> dict[type[ResourceIO], list[Path]]:
+        files_by_crud: dict[type[ResourceIO], list[Path]] = {}
         for dir in self.resource_directories:
             files_by_crud.update(dir.files_by_crud)
         return files_by_crud
@@ -123,9 +128,9 @@ class DeploymentStep:
 
     """
 
-    crud_cls: type[ResourceCRUD]
+    crud_cls: type[ResourceIO]
     files: list[Path]
-    skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
+    skipped_cruds: Set[type[ResourceIO]] = field(default_factory=set)
 
 
 @dataclass
@@ -147,7 +152,7 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 
     def get_ids(
         self,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         action: Literal["create", "delete", "update"],
     ) -> list[T_Identifier]:
         if action == "create":
@@ -197,13 +202,12 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        build_dir = self.read_build_directory(user_build_dir, options.include)
+        build_lineage = self.read_build_lineage(user_build_dir)
+        build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._validate_cdf_project(
-            build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT, client.console
-        )
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
         self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
         self._display_read_dir(build_dir, client.console, options.verbose)
 
@@ -227,10 +231,22 @@ class DeployV2Command(ToolkitCommand):
         # Todo: Some mixpanel tracking??
         self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
 
+        if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
+            self._display_deprecation_warning(raw_files, client.console)
+            UploadCommand.upload_data(raw_files, client, options.dry_run, client.console, options.verbose)  # type: ignore[arg-type]
+
         return results
 
     @classmethod
-    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+    def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
+        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
+            return BuildLineage.from_yaml_file(lineage_path)
+        return None
+
+    @classmethod
+    def read_build_directory(
+        cls, build_dir: Path, include: Sequence[str] | None = None, build_lineage: BuildLineage | None = None
+    ) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -243,7 +259,7 @@ class DeployV2Command(ToolkitCommand):
         """
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
-        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
+        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME.keys())
         if include and (invalid := set(include) - available_resource_types):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
@@ -251,10 +267,9 @@ class DeployV2Command(ToolkitCommand):
         # Note we support running without linage. This is for example used when deploying resources
         # with the upload command.from
         cdf_project: str | None = None
-        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
-            lineage = BuildLineage.from_yaml_file(lineage_path)
-            lineage.validate_source_files_unchanged()
-            cdf_project = lineage.cdf_project
+        if build_lineage:
+            build_lineage.validate_source_files_unchanged()
+            cdf_project = build_lineage.cdf_project
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
@@ -262,18 +277,24 @@ class DeployV2Command(ToolkitCommand):
         for resource_dir in build_dir.iterdir():
             if not resource_dir.is_dir():
                 continue
-            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND:
+            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME:
                 invalid_resource_dirs.append(resource_dir)
                 continue
             resources = ResourceDirectory(resource_dir)
-            crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
+            cruds = RESOURCE_CRUD_BY_FOLDER_NAME[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
-                for kind, crud in crud_by_kind.items():
-                    if yaml_file.stem.casefold().endswith(kind.casefold()):
+                matched = False
+                stem = yaml_file.stem.casefold()
+                for crud in cruds:
+                    if stem.endswith(crud.kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
-                        break
-                else:
+                        matched = True
+                    elif any(stem.endswith(extra_kind.casefold()) for extra_kind in crud.extra_kinds):
+                        resources.extra_files.append(yaml_file)
+                        matched = True
+                if not matched:
                     resources.invalid_files.append(yaml_file)
+
             if include_set is not None and resource_dir.name not in include_set:
                 skipped_resource_dirs.append(resources)
             else:
@@ -369,7 +390,6 @@ class DeployV2Command(ToolkitCommand):
         operation: str,
         cli_cdf_project: str | None,
         client_cdf_project: str,
-        console: Console,
     ) -> None:
         """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
@@ -410,8 +430,8 @@ class DeployV2Command(ToolkitCommand):
         """
         files_by_crud = read_dir.as_files_by_crud()
         skipped_cruds = read_dir.skipped_cruds()
-        dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
-        skipped_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
+        dependencies_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
+        skipped_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         for crud_cls in files_by_crud.keys():
             dependencies = crud_cls.dependencies
             if missing := (skipped_cruds.intersection(dependencies)):
@@ -480,6 +500,10 @@ class DeployV2Command(ToolkitCommand):
                 progress.update(task_id, description=f"Reading {resource_name}")
 
                 resource_by_id = cls._read_resource_files(crud, step.files, options)
+                if not resource_by_id:
+                    # If the CRUD is a GroupScoped and the resources are all scoped.
+                    progress.update(task_id, advance=len(step.files))
+                    continue
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
@@ -496,7 +520,7 @@ class DeployV2Command(ToolkitCommand):
                     console,
                     options,
                     is_delete,
-                    is_data_resource=isinstance(crud, ResourceContainerCRUD),
+                    is_data_resource=isinstance(crud, ResourceContainerIO),
                 )
 
                 if options.dry_run:
@@ -516,7 +540,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _read_resource_files(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
         options: DeployOptions,
     ) -> dict[T_Identifier, ReadResource[T_RequestResource]]:
@@ -562,7 +586,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _validate_access(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: list[T_RequestResource],
         is_dry_run: bool,
     ) -> bool:
@@ -584,7 +608,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _categorize_resources(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console,
@@ -661,7 +685,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_dry_run(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         is_missing_write_acl: bool,
         options: DeployOptions,
@@ -671,7 +695,7 @@ class DeployV2Command(ToolkitCommand):
         deleted = len(resources.to_delete)
         unchanged = len(resources.unchanged)
 
-        is_container = isinstance(crud, ResourceContainerCRUD)
+        is_container = isinstance(crud, ResourceContainerIO)
         if options.drop and crud.support_drop and (not is_container or options.drop_data):
             # If drop/drop_data arguments are passed, then we will delete and recreate resources.
             created += unchanged + updated
@@ -693,9 +717,9 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_resources(
         cls,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
-        skipped_cruds: Set[type[ResourceCRUD]],
+        skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
@@ -729,9 +753,9 @@ class DeployV2Command(ToolkitCommand):
         cls,
         error: ToolkitAPIError,
         action: Literal["create", "delete", "update"] | None,
-        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
-        skipped_cruds: Set[type[ResourceCRUD]],
+        skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
     ) -> None:
         if action is None:
@@ -763,7 +787,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _missing_environment_variables(
-        cls, crud: ResourceCRUD, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
+        cls, crud: ResourceIO, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
     ) -> str | None:
         item_ids = resources.get_ids(crud, action)
         match = set(item_ids) & set(resources.missing_env_vars_by_id)
@@ -883,3 +907,40 @@ class DeployV2Command(ToolkitCommand):
                 for skip in total.skipped
             ]
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+
+    @classmethod
+    def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
+        selections: dict[RawTableSelector, list[Path]] = defaultdict(list)
+        for module in build_lineage.module_lineage:
+            for resource in module.resource_lineage:
+                if (
+                    resource.type.resource_folder == RawTableCRUD.folder_name
+                    and resource.type.kind == RawTableCRUD.kind
+                    and isinstance(resource.identifier, RawTableId)
+                ):
+                    for file_type in ["csv", "parquet"]:
+                        if (data_file := resource.source_file.with_suffix(f".{file_type}")).is_file():
+                            selections[
+                                RawTableSelector(
+                                    table=SelectedTable(
+                                        db_name=resource.identifier.db_name, table_name=resource.identifier.name
+                                    )
+                                )
+                            ].append(data_file)
+        return selections
+
+    @classmethod
+    def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
+        raw_table_count = len(raw_files)
+        file_count = sum(len(files) for files in raw_files.values())
+        console.print(
+            Panel(
+                f"[yellow]Deprecation Warning[/]\n\n"
+                f"You are deploying {raw_table_count} raw table{'' if raw_table_count == 1 else 's'} based on {file_count} file{'' if file_count == 1 else 's'}.\n\n"
+                f"Support for deploying raw tables through the deploy command will be removed in a future release. "
+                f"Please migrate your raw tables to use the new data plugin. See the documentation for more details.",
+                title="Deprecation Warning",
+                border_style="yellow",
+                expand=False,
+            )
+        )

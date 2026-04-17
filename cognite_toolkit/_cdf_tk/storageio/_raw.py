@@ -6,8 +6,8 @@ from cognite.client.data_classes import Row, RowWrite
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -57,9 +57,11 @@ class RawIO(
             partitions=None,
             chunk_size=self.CHUNK_SIZE,
         ):
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=str(item.key), item=item) for item in chunk],
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=str(item.key), item=item) for item in chunk],
+                )
             )
 
     def upload_items(

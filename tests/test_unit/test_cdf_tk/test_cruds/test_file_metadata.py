@@ -6,8 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -65,7 +64,6 @@ $FILEPATH: some_file.txt
     )
 
 
-@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="FileMetadata behaves differently on v0.8")
 class TestLoadResources:
     @pytest.mark.parametrize("yaml_content, files, expected", list(file_metadata_config_cases()))
     def test_load_resources(

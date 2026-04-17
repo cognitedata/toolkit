@@ -129,7 +129,7 @@ jobs:
       - name: "Pre-processing for demo environment"
         run: uv run python ./demo/preproc.py --modules all
       - name: "Build the templates"
-        run: uv run cdf build --config-yaml demo -o demo_project
+        run: uv run cdf build --config-yaml demo_project/config.demo.yaml -o demo_project
       - name: "Verify and create access rights"
         run: uv run cdf auth verify --no-prompt
         # Temporarly suspending while investigating
@@ -187,7 +187,7 @@ jobs:
           pip install uv
           uv sync --all-extras
       - name: Dump description to file
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs');

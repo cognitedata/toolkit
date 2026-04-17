@@ -115,16 +115,15 @@ def mock_read_yaml_file(
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
     monkeypatch.setattr(
-        "cognite_toolkit._cdf_tk.cruds._base_cruds.load_yaml_inject_variables", fake_load_yaml_inject_variables
+        "cognite_toolkit._cdf_tk.resource_ios._base_ios.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     for module in [
-        "classic",
         "datamodel",
         "industrial_tool",
         "transformation",
     ]:
         monkeypatch.setattr(
-            f"cognite_toolkit._cdf_tk.cruds._resource_cruds.{module}.load_yaml_inject_variables",
+            f"cognite_toolkit._cdf_tk.resource_ios._resource_ios.{module}.load_yaml_inject_variables",
             fake_load_yaml_inject_variables,
         )
 
@@ -363,6 +362,14 @@ class FakeCogniteResourceGenerator:
             if name == "locations" and model_cls is LocationFilterResponse:
                 # Special case for LocationFilter to avoid recursion.
                 value = None
+            elif field.annotation is str and field.metadata:
+                # Pydantic v2 unwraps Annotated[str, Field(pattern=...)] so field.annotation becomes
+                # plain str while constraints end up in field.metadata. Check those before falling back.
+                constraints = self._extract_str_constraints(list(field.metadata))
+                if constraints.get("pattern"):
+                    value = self._random_constrained_string(constraints)
+                else:
+                    value = self.create_value(field.annotation, var_name=field_id)
             else:
                 value = self.create_value(field.annotation, var_name=field_id)
             keyword_arguments[name] = value
@@ -545,7 +552,16 @@ class FakeCogniteResourceGenerator:
         length = min(max(min_len, 4), max_len)
         first = self._random.choice(string.ascii_lowercase)
         rest = self._random_string(length - 1, sample_from=string.ascii_lowercase + string.digits)
-        return first + rest
+        generated = first + rest
+
+        pattern = constraints.get("pattern")
+        if pattern and not re.match(pattern, generated):
+            # The generated string doesn't satisfy the pattern (e.g. semantic version a.b.c).
+            # Try a small set of sensible fallbacks before giving up.
+            for fallback in ("1.0.0", "a1", "v1", "x"):
+                if re.match(pattern, fallback):
+                    return fallback
+        return generated
 
     @classmethod
     def _type_checking(cls) -> dict[str, Any]:

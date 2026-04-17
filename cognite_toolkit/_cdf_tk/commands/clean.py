@@ -16,18 +16,6 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     HINT_LEAD_TEXT_LEN,
 )
-from cognite_toolkit._cdf_tk.cruds import (
-    CRUDS_BY_FOLDER_NAME,
-    DataCRUD,
-    DataSetsCRUD,
-    FileCRUD,
-    RawDatabaseCRUD,
-    ResourceContainerCRUD,
-    ResourceCRUD,
-    ResourceWorker,
-)
-from cognite_toolkit._cdf_tk.cruds._base_cruds import Loader
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionCRUD, SimulatorRoutineRevisionCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DeployResults,
@@ -42,6 +30,18 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import (
+    CRUDS_BY_FOLDER_NAME,
+    DataCRUD,
+    DataSetsIO,
+    FileCRUD,
+    RawDatabaseCRUD,
+    ResourceContainerIO,
+    ResourceIO,
+    ResourceWorker,
+)
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import Loader
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -62,7 +62,7 @@ AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(CRUDS_BY_FOLDER_NAME)
 class CleanCommand(ToolkitCommand):
     def clean_resources(
         self,
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
@@ -70,13 +70,13 @@ class CleanCommand(ToolkitCommand):
         drop_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        if not isinstance(loader, ResourceContainerCRUD) and not drop:
+        if not isinstance(loader, ResourceContainerIO) and not drop:
             # Skipping silently as this, we will not drop data or delete this resource
             return ResourceDeployResult(name=loader.display_name)
         if not loader.support_drop:
             print(f"  [bold green]INFO:[/] {loader.display_name!r} cleaning is not supported, skipping...")
             return ResourceDeployResult(name=loader.display_name)
-        elif isinstance(loader, ResourceContainerCRUD) and not drop_data:
+        elif isinstance(loader, ResourceContainerIO) and not drop_data:
             print(
                 f"  [bold]INFO:[/] Skipping cleaning of {loader.display_name!r}. This is a data resource (it contains "
                 f"data and is not only configuration/metadata) and therefore "
@@ -99,7 +99,7 @@ class CleanCommand(ToolkitCommand):
 
         if drop:
             prefix = "Would clean" if dry_run else "Cleaning"
-            with_data = "with data " if isinstance(loader, ResourceContainerCRUD) else ""
+            with_data = "with data " if isinstance(loader, ResourceContainerIO) else ""
         else:
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
@@ -109,7 +109,7 @@ class CleanCommand(ToolkitCommand):
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
-        if isinstance(loader, ResourceContainerCRUD) and drop_data:
+        if isinstance(loader, ResourceContainerIO) and drop_data:
             nr_of_dropped_datapoints = self._drop_data(existing_resources, loader, dry_run, verbose)
             if drop:
                 nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
@@ -124,7 +124,7 @@ class CleanCommand(ToolkitCommand):
                 dropped_datapoints=nr_of_dropped_datapoints,
                 item_name=loader.item_name,
             )
-        elif not isinstance(self, ResourceContainerCRUD) and drop:
+        elif not isinstance(self, ResourceContainerIO) and drop:
             nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
             if verbose:
                 print("")
@@ -133,7 +133,7 @@ class CleanCommand(ToolkitCommand):
             return ResourceDeployResult(name=loader.display_name)
 
     def _delete_resources(
-        self, loaded_resources: Sequence[T_ResponseResource], loader: ResourceCRUD, dry_run: bool, verbose: bool
+        self, loaded_resources: Sequence[T_ResponseResource], loader: ResourceIO, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_deleted = 0
         resource_ids = loader.get_ids(loaded_resources)
@@ -160,7 +160,7 @@ class CleanCommand(ToolkitCommand):
     def _drop_data(
         self,
         loaded_resources: Sequence[T_ResponseResource],
-        loader: ResourceContainerCRUD,
+        loader: ResourceContainerIO,
         dry_run: bool,
         verbose: bool,
     ) -> int:
@@ -205,7 +205,7 @@ class CleanCommand(ToolkitCommand):
         return selected_modules
 
     def _verbose_print_drop(
-        self, drop_count: int, resource_ids: Sequence[T_Identifier], loader: ResourceContainerCRUD, dry_run: bool
+        self, drop_count: int, resource_ids: Sequence[T_Identifier], loader: ResourceContainerIO, dry_run: bool
     ) -> None:
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:
@@ -313,10 +313,10 @@ class CleanCommand(ToolkitCommand):
             self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
 
         for loader_cls in reversed(resolved_list):
-            if not issubclass(loader_cls, ResourceCRUD):
+            if not issubclass(loader_cls, ResourceIO):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
-            if isinstance(loader, DataSetsCRUD | SimulatorModelRevisionCRUD | SimulatorRoutineRevisionCRUD):
+            if isinstance(loader, DataSetsIO | SimulatorModelRevisionIO | SimulatorRoutineRevisionIO):
                 self.warn(ToolkitNotSupportedWarning(feature=f"{loader.display_name} clean."))
                 continue
             result = self.clean_resources(
@@ -346,7 +346,7 @@ class CleanCommand(ToolkitCommand):
                 selected_loaders.update(
                     {
                         loader_cls: (loader_cls.dependencies | {FileCRUD})
-                        if issubclass(loader_cls, SimulatorModelRevisionCRUD)
+                        if issubclass(loader_cls, SimulatorModelRevisionIO)
                         else loader_cls.dependencies
                         for loader_cls in loader_classes
                     }
@@ -358,7 +358,7 @@ class CleanCommand(ToolkitCommand):
             for loader_cls in loader_classes:
                 if loader_cls.any_supported_files(build_dir / folder_name):
                     folder_has_supported_files = True
-                    if issubclass(loader_cls, SimulatorModelRevisionCRUD):
+                    if issubclass(loader_cls, SimulatorModelRevisionIO):
                         # Special case, we need to ensure that the file is uploaded before we try to deploy.
                         selected_loaders[loader_cls] = loader_cls.dependencies | {FileCRUD}
                     else:

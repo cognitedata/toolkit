@@ -5,19 +5,20 @@ from typing import Any, get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.storageio import (
-    AssetIO,
+    AssetDataIO,
     CanvasIO,
     ChartIO,
     DatapointsIO,
-    EventIO,
+    EventDataIO,
     FileContentIO,
     InstanceIO,
     RawIO,
     RecordIO,
     StorageIO,
-    TimeSeriesIO,
+    TimeSeriesDataIO,
     get_upload_io,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -45,7 +46,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILEPATH
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -81,43 +81,43 @@ def example_selector_data() -> Iterable[tuple]:
     yield pytest.param(
         {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "Assets"},
         DataSetSelector,
-        AssetIO,
-        AssetIO.KIND,
+        AssetDataIO,
+        AssetDataIO.KIND,
         id="DataSetSelector Assets",
     )
     yield pytest.param(
         {"type": "assetSubtree", "hierarchy": "root/child", "kind": "Assets"},
         AssetSubtreeSelector,
-        AssetIO,
-        AssetIO.KIND,
+        AssetDataIO,
+        AssetDataIO.KIND,
         id="AssetSubtreeSelector Assets",
     )
     yield pytest.param(
         {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "TimeSeries"},
         DataSetSelector,
-        TimeSeriesIO,
-        TimeSeriesIO.KIND,
+        TimeSeriesDataIO,
+        TimeSeriesDataIO.KIND,
         id="DataSetSelector TimeSeries",
     )
     yield pytest.param(
         {"type": "assetSubtree", "hierarchy": "root/child", "kind": "TimeSeries"},
         AssetSubtreeSelector,
-        TimeSeriesIO,
-        TimeSeriesIO.KIND,
+        TimeSeriesDataIO,
+        TimeSeriesDataIO.KIND,
         id="AssetSubtreeSelector TimeSeries",
     )
     yield pytest.param(
         {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "Events"},
         DataSetSelector,
-        EventIO,
-        EventIO.KIND,
+        EventDataIO,
+        EventDataIO.KIND,
         id="DataSetSelector Events",
     )
     yield pytest.param(
         {"type": "assetSubtree", "hierarchy": "root/child", "kind": "Events"},
         AssetSubtreeSelector,
-        EventIO,
-        EventIO.KIND,
+        EventDataIO,
+        EventDataIO.KIND,
         id="AssetSubtreeSelector Events",
     )
     yield pytest.param(
@@ -137,8 +137,8 @@ def example_selector_data() -> Iterable[tuple]:
     yield pytest.param(
         {"type": "assetFile", "datafile": "path/to/file.csv", "kind": "Assets"},
         AssetCentricFileSelector,
-        AssetIO,
-        AssetIO.KIND,
+        AssetDataIO,
+        AssetDataIO.KIND,
         id="AssetCentricFileSelector",
     )
     yield pytest.param(

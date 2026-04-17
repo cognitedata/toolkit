@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
     ChartSource,
-    ChartTimeseries,
+    ChartTimeseriesUIElement,
     UserInfo,
 )
 
@@ -71,7 +71,7 @@ class TestChartsAPI:
                 user_info=UserInfo(id=me.user_identifier, email=me.email, display_name=me.display_name),
                 live_mode=False,
                 time_series_collection=[
-                    ChartTimeseries(
+                    ChartTimeseriesUIElement(
                         type="timeseries",
                         id=ts_chart_id,
                         name=ts.name,

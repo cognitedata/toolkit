@@ -2,7 +2,6 @@ import shutil
 from collections.abc import Callable, Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.cruds import StreamlitCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -10,6 +9,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resource_ios import StreamlitIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils.file import safe_read
 
 
 class StreamlitBuilder(Builder):
-    _resource_folder = StreamlitCRUD.folder_name
+    _resource_folder = StreamlitIO.folder_name
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -42,7 +42,7 @@ class StreamlitBuilder(Builder):
                 continue
 
             warnings = WarningList[FileReadWarning]()
-            if loader is StreamlitCRUD:
+            if loader is StreamlitIO:
                 warnings = self.copy_app_directory_to_build(source_file)
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
@@ -96,7 +96,7 @@ class StreamlitBuilder(Builder):
                     )
 
             requirements_file_content = safe_read(app_directory / "requirements.txt").splitlines()
-            missing_packages = StreamlitCRUD._missing_recommended_requirements(requirements_file_content)
+            missing_packages = StreamlitIO._missing_recommended_requirements(requirements_file_content)
             if len(missing_packages) > 0:
                 warnings.append(StreamlitRequirementsWarning(app_directory / "requirements.txt", missing_packages))
 

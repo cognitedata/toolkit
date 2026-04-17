@@ -2,14 +2,14 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 from uuid import uuid4
 
 from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -17,17 +17,31 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobRequest,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationRequest,
+    ChartScheduledCalculationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartActivity,
-    ChartCoreTimeseries,
+    ChartCoreTimeseriesUIElement,
+    ChartScheduledCalculationUIElement,
     ChartSource,
     ChartThreshold,
-    ChartTimeseries,
-    ChartWorkflow,
+    ChartTimeseriesUIElement,
+    ChartWorkflowUIElement,
     FlowElement,
+    MonitoringJobReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
@@ -44,6 +58,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -61,7 +77,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
+    InFieldUserMapping,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
 )
@@ -75,12 +93,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ChartMigrationIssue,
     ConversionIssue,
     InstanceConversionIssue,
+    MigrationEntryV2,
     ThreeDModelMigrationIssue,
+    instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import T_DataRequest, T_DataResponse, T_Selector
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger, Severity
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartSelector,
@@ -141,36 +161,141 @@ class AssetCentricMapper(
     ) -> tuple[T_DataRequest | None, ConversionIssue]:
         raise NotImplementedError
 
+    def _migration_entries_for_conversion(
+        self,
+        item: AssetCentricMapping[T_AssetCentricResourceExtended],
+        issue: ConversionIssue,
+        mapping_failed: bool,
+    ) -> list[MigrationEntryV2]:
+        mapping = item.mapping
+        item_id = str(mapping.as_asset_centric_id())
+        source = f"{mapping.resource_type}:{mapping.id}"
+        destination = str(mapping.instance_id)
+        entries: list[MigrationEntryV2] = []
+        if issue.missing_instance_space:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing instance space",
+                    message=str(issue.missing_instance_space),
+                    severity=Severity.failure,
+                    source=source,
+                    destination=destination,
+                    attributes={issue.missing_instance_space},
+                    attribute_display_name="space",
+                )
+            )
+        if issue.no_mappable_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="No mappable properties",
+                    message="No properties could be mapped to target",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                )
+            )
+        if issue.failed_conversions:
+            errors = "; ".join(conv.display_name for conv in issue.failed_conversions)
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Failed conversions",
+                    message=errors,
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes={conv.property_id for conv in issue.failed_conversions},
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.invalid_instance_property_types:
+            errors = "; ".join(prop.display_name for prop in issue.invalid_instance_property_types)
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Invalid instance property types",
+                    message=errors,
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes={prop.property_id for prop in issue.invalid_instance_property_types},
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.missing_asset_centric_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing asset-centric properties",
+                    message=f"Missing: {humanize_collection(issue.missing_asset_centric_properties)}",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.missing_asset_centric_properties),
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.missing_instance_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing data modeling properties",
+                    message=f"Missing: {humanize_collection(issue.missing_instance_properties)}",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.missing_instance_properties),
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.ignored_asset_centric_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Ignored asset-centric properties",
+                    message="Some source properties were ignored",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.ignored_asset_centric_properties),
+                    attribute_display_name="ignored properties",
+                )
+            )
+        if mapping_failed:
+            msg = "Could not build target resource."
+            if not entries and not issue.has_issues:
+                msg = (
+                    "No properties could be mapped to the target container, at least one property is required "
+                    "to create a record"
+                )
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Conversion failed",
+                    message=msg,
+                    severity=Severity.failure,
+                    source=source,
+                    destination=destination,
+                )
+            )
+        return entries
+
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
     ) -> Sequence[T_DataRequest | None]:
         self._direct_relation_cache.update(item.resource for item in source)
         output: list[T_DataRequest | None] = []
-        issues: list[ConversionIssue] = []
+        log_entries: list[MigrationEntryV2] = []
         for item in source:
             result, conversion_issue = self._map_single_item(item)
-            identifier = str(item.mapping.as_asset_centric_id())
-
-            if conversion_issue.missing_instance_space:
-                self.logger.tracker.add_issue(identifier, "Missing instance space")
-            if conversion_issue.failed_conversions:
-                self.logger.tracker.add_issue(identifier, "Failed conversions")
-            if conversion_issue.invalid_instance_property_types:
-                self.logger.tracker.add_issue(identifier, "Invalid instance property types")
-            if conversion_issue.missing_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
-            if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
-            if conversion_issue.ignored_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
-
-            if conversion_issue.has_issues:
-                issues.append(conversion_issue)
-            if result is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+            log_entries.extend(
+                self._migration_entries_for_conversion(item, conversion_issue, result is None),
+            )
             output.append(result)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
 
@@ -241,6 +366,78 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
         return instance, conversion_issue
 
 
+class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtended, RecordRequest]):
+    def __init__(
+        self,
+        client: ToolkitClient,
+        mappings_by_external_id: dict[str, RecordPropertyMapping],
+        default_mapping: str | None = None,
+    ) -> None:
+        super().__init__(client)
+        self._mappings_by_external_id = mappings_by_external_id
+        self._default_mapping = default_mapping
+        self._container_properties_by_mapping_external_id: dict[str, dict[str, ContainerPropertyDefinition]] = {}
+
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        unique_container_ids = {m.container_id for m in self._mappings_by_external_id.values()}
+        containers = self.client.tool.containers.retrieve(list(unique_container_ids))
+        container_properties_by_id = {container.as_id(): container.properties for container in containers}
+        missing_container_ids = unique_container_ids - set(container_properties_by_id.keys())
+        if missing_container_ids:
+            raise ToolkitValueError(
+                f"The following containers were not found in Data Modeling: {humanize_collection(missing_container_ids)}"
+            )
+        non_record_containers = [c for c in containers if c.used_for != "record"]
+        if non_record_containers:
+            raise ToolkitValueError(
+                f"The following containers are not compatiable with records (requires usedFor='record'): "
+                f"{humanize_collection([c.as_id() for c in non_record_containers])}"
+            )
+        self._container_properties_by_mapping_external_id = {
+            external_id: container_properties_by_id[record_mapping.container_id]
+            for external_id, record_mapping in self._mappings_by_external_id.items()
+        }
+
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
+    ) -> tuple[RecordRequest | None, ConversionIssue]:
+        mapping = item.mapping
+        if mapping.resource_type != "event":
+            raise ToolkitValueError("Records migration currently only supports Event mapping rows.")
+        mapping_key = mapping.ingestion_mapping or self._default_mapping
+        if mapping_key is None:
+            raise ToolkitValueError(
+                "No mapping key: set ingestionMapping on the CSV row or defaultMapping in the config file."
+            )
+        try:
+            record_mapping = self._mappings_by_external_id[mapping_key]
+        except KeyError as e:
+            raise ToolkitValueError(
+                f"No record property mapping for key {mapping_key!r}. "
+                "Set ingestionMapping on the CSV row or defaultMapping in the config to match a key in the record property mappings."
+            ) from e
+        try:
+            container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
+        except KeyError as e:
+            raise RuntimeError(
+                f"Container properties for mapping {record_mapping.external_id!r} were not loaded before attempting to map. "
+                "Did you forget to call .prepare()?"
+            ) from e
+        record, conversion_issue = asset_centric_to_record(
+            item.resource,
+            instance_id=RecordId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._direct_relation_cache,
+        )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+        return record, conversion_issue
+
+
+_T_ChartCalculation = TypeVar("_T_ChartCalculation", ChartWorkflowUIElement, ChartScheduledCalculationUIElement)
+
+
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     DEFAULT_EVENT_VIEW = ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1")
 
@@ -253,47 +450,88 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         event_ids_by_chart_external_id = self._populate_cache(source)
         output: list[ChartRequest | None] = []
-        issues: list[ChartMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        chart_src = "Charts"
+        chart_dest = "Charts (data modeling)"
         for item in source:
             identifier = item.external_id
-            if item.data.scheduled_calculation_collection or item.data.monitoring_jobs:
-                # These are not yet supported.
-                output.append(None)
-                issues.append(self._create_missing_support_issue(item))
-                self.logger.tracker.finalize_item(identifier, "failure")
-                continue
-
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )
 
             if issue.missing_timeseries_ids:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries IDs",
+                        message="One or more timeseries are missing internal IDs",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes={str(id_) for id_ in issue.missing_timeseries_ids},
+                        attribute_display_name="timeseries IDs",
+                    )
+                )
             if issue.missing_timeseries_external_ids:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries external IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries external IDs",
+                        message="One or more timeseries are missing external IDs",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes=set(issue.missing_timeseries_external_ids),
+                        attribute_display_name="timeseries external IDs",
+                    )
+                )
             if issue.missing_timeseries_identifier:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries identifier")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries identifier",
+                        message="One or more timeseries elements lack identifiers",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes=set(issue.missing_timeseries_identifier),
+                        attribute_display_name="timeseries identifiers",
+                    )
+                )
 
-            if issue.has_issues:
-                issues.append(issue)
-
-            if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+            if issue.has_issues and mapped_item is None:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Chart migration failed",
+                        message="; ".join(issue.errors) if issue.errors else "Chart could not be migrated",
+                        severity=Severity.failure,
+                        source=chart_src,
+                        destination=chart_dest,
+                    )
+                )
+            elif mapped_item is None:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Chart migration failed",
+                        message="Chart could not be migrated",
+                        severity=Severity.failure,
+                        source=chart_src,
+                        destination=chart_dest,
+                    )
+                )
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
-
-    def _create_missing_support_issue(self, item: ChartResponse) -> ChartMigrationIssue:
-        errors: list[str] = []
-        if item.data.scheduled_calculation_collection:
-            errors.append("Scheduled calculations is not yet supported")
-        if item.data.monitoring_jobs:
-            errors.append("Monitoring jobs is not yet supported")
-        return ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id, errors=errors)
 
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
+
+        Collects classic identifiers from ``time_series_collection``, monitoring jobs,
+        scheduled calculation targets and graph inputs, so batch lookup can run before
+        per-chart mapping.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
         """
@@ -306,6 +544,19 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     timeseries_ids.add(item.ts_id)
                 if item.ts_external_id:
                     timeseries_external_ids.add(item.ts_external_id)
+            for job in chart.monitoring_jobs or []:
+                model = job.model
+                if model.timeseries_id is not None:
+                    timeseries_ids.add(model.timeseries_id)
+                if model.timeseries_external_id:
+                    timeseries_external_ids.add(model.timeseries_external_id)
+            for calculation in chart.scheduled_calculations or []:
+                if calculation.target_timeseries_external_id:
+                    timeseries_external_ids.add(calculation.target_timeseries_external_id)
+                for step in calculation.graph.steps:
+                    for inp in step.inputs:
+                        if inp.type == "ts" and isinstance(inp.value, str):
+                            timeseries_external_ids.add(inp.value)
             for event_filter in chart.data.event_filters or []:
                 if not event_filter.filters:
                     continue
@@ -339,23 +590,30 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     ) -> tuple[ChartRequest | None, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
 
-        uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         time_series_collection = item.data.time_series_collection or []
-        timeseries_core_collection = self._create_timeseries_core_collection(
-            time_series_collection, issue, uuid_generator
-        )
+        timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
+        mapped_monitoring_jobs = self._map_monitoring_jobs(item.monitoring_jobs or [], issue)
+        mapped_scheduled_calculations = self._map_scheduled_calculations(item.scheduled_calculations or [], issue)
         if issue.has_issues:
             return None, issue
 
+        migrated_ts_ui_ids = {core.id for core in timeseries_core_collection if core.id is not None}
+
         updated_source_collection = self._update_source_collection(
-            item.data.source_collection or [], time_series_collection, timeseries_core_collection
+            item.data.source_collection or [], migrated_ts_ui_ids
         )
         updated_threshold_collection = self._update_threshold_collection(
-            item.data.threshold_collection or [], uuid_generator
+            item.data.threshold_collection or [], migrated_ts_ui_ids
         )
         # WorkflowCollections = Calculations in the UI.
-        updated_workflow_collection = self._update_workflow_collection(
-            item.data.workflow_collection or [], uuid_generator
+        updated_workflow_collection = self._update_chart_calculation(
+            item.data.workflow_collection or [], migrated_ts_ui_ids
+        )
+        updated_scheduled_calculation_collection = self._update_chart_calculation(
+            item.data.scheduled_calculation_collection or [], migrated_ts_ui_ids
+        )
+        updated_monitoring_job_references = self._update_monitoring_job_references(
+            item.data.monitoring_jobs or [], migrated_ts_ui_ids
         )
         updated_activities_collection = self._create_activities_collection(event_ids, issue)
 
@@ -380,138 +638,228 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             mapped_chart.data.threshold_collection = updated_threshold_collection
         if updated_workflow_collection:
             mapped_chart.data.workflow_collection = updated_workflow_collection
+        if item.data.scheduled_calculation_collection is not None:
+            mapped_chart.data.scheduled_calculation_collection = updated_scheduled_calculation_collection
+        if item.data.monitoring_jobs is not None:
+            mapped_chart.data.monitoring_jobs = updated_monitoring_job_references
         if updated_activities_collection:
             mapped_chart.data.activities_collection = updated_activities_collection
             mapped_chart.data.event_filters = None
+        if mapped_monitoring_jobs:
+            mapped_chart.monitoring_jobs = mapped_monitoring_jobs
+        if mapped_scheduled_calculations:
+            mapped_chart.scheduled_calculations = mapped_scheduled_calculations
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
-        self, time_series_collection: list[ChartTimeseries], issue: ChartMigrationIssue, uuid_generator: dict[str, str]
-    ) -> list[ChartCoreTimeseries]:
-        timeseries_core_collection: list[ChartCoreTimeseries] = []
+        self,
+        time_series_collection: list[ChartTimeseriesUIElement],
+        issue: ChartMigrationIssue,
+    ) -> list[ChartCoreTimeseriesUIElement]:
+        timeseries_core_collection: list[ChartCoreTimeseriesUIElement] = []
         for ts_item in time_series_collection or []:
-            node_id, consumer_view_id = self._get_node_id_consumer_view_id(ts_item)
+            ids: list[InternalId | ExternalId] = []
+            if ts_item.ts_external_id:
+                ids.append(ExternalId(external_id=ts_item.ts_external_id))
+            if ts_item.ts_id:
+                ids.append(InternalId(id=ts_item.ts_id))
+            node_id, consumer_view_id = self._get_node_id_consumer_view_id(ids)
 
             if node_id is None:
                 if ts_item.ts_id is not None:
-                    issue.missing_timeseries_ids.append(ts_item.ts_id)
+                    issue.missing_timeseries_ids.add(ts_item.ts_id)
                 elif ts_item.ts_external_id is not None:
-                    issue.missing_timeseries_external_ids.append(ts_item.ts_external_id)
+                    issue.missing_timeseries_external_ids.add(ts_item.ts_external_id)
                 else:
-                    issue.missing_timeseries_identifier.append(ts_item.id or "unknown")
+                    issue.missing_timeseries_identifier.add(ts_item.id or "unknown")
                 continue
             if ts_item.id is None:
                 issue.errors.append(f"Missing timeseries id: {ts_item.ts_id!r}")
                 continue
-            new_uuid = uuid_generator[ts_item.id]
-            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, new_uuid)
+            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, ts_item.id)
             timeseries_core_collection.append(core_timeseries)
         return timeseries_core_collection
 
+    def _map_monitoring_jobs(
+        self, jobs: list[ChartMonitoringJobResponse], issue: ChartMigrationIssue
+    ) -> list[ChartMonitoringJobRequest]:
+        new_jobs: list[ChartMonitoringJobRequest] = []
+        for job in jobs:
+            new_job = job.as_request_resource()
+            ids: list[InternalId | ExternalId] = []
+            if new_job.model.timeseries_id:
+                ids.append(InternalId(id=new_job.model.timeseries_id))
+            if new_job.model.timeseries_external_id:
+                ids.append(ExternalId(external_id=new_job.model.timeseries_external_id))
+            node_id, _ = self._get_node_id_consumer_view_id(ids)
+            if node_id is None:
+                if new_job.model.timeseries_external_id is not None:
+                    issue.missing_timeseries_external_ids.add(new_job.model.timeseries_external_id)
+                if new_job.model.timeseries_id:
+                    issue.missing_timeseries_ids.add(new_job.model.timeseries_id)
+                continue
+            new_model = job.model.model_copy(
+                update={
+                    "timeseries_id": None,
+                    "timeseries_external_id": None,
+                    "timeseries_instance_id": node_id,
+                }
+            )
+            new_jobs.append(new_job.model_copy(update={"model": new_model}))
+        return new_jobs
+
+    def _map_scheduled_calculations(
+        self, calculations: list[ChartScheduledCalculationResponse], issue: ChartMigrationIssue
+    ) -> list[ChartScheduledCalculationRequest]:
+        new_calculations: list[ChartScheduledCalculationRequest] = []
+        for calculation in calculations:
+            new_calculation = calculation.as_request_resource()
+            if new_calculation.target_timeseries_external_id is not None:
+                node_id = self.client.migration.lookup.time_series(
+                    external_id=new_calculation.target_timeseries_external_id
+                )
+                if node_id is None:
+                    issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
+                    continue
+                new_calculation.target_timeseries_instance_id = node_id
+                new_calculation.target_timeseries_external_id = None
+            new_graph = self._map_calculation_graph(calculation.graph, issue)
+            if new_graph is not None:
+                new_calculation.graph = new_graph
+            new_calculations.append(new_calculation)
+        return new_calculations
+
+    def _map_calculation_graph(self, graph: CalculationGraph, issue: ChartMigrationIssue) -> CalculationGraph | None:
+        has_changed = False
+        new_steps: list[CalculationStep] = []
+        for step in graph.steps:
+            has_changed_step = False
+            new_inputs: list[CalculationInput] = []
+            for input_ in step.inputs:
+                if input_.type != "ts":
+                    new_inputs.append(input_)
+                    continue
+                if isinstance(input_.value, str):
+                    external_id = input_.value
+                    node_id = self.client.migration.lookup.time_series(external_id=external_id)
+                    if node_id is None:
+                        issue.missing_timeseries_external_ids.add(external_id)
+                        new_inputs.append(input_)
+                    else:
+                        new_inputs.append(input_.model_copy(update={"value": node_id}))
+                        has_changed_step = True
+                else:
+                    new_inputs.append(input_)
+            if has_changed_step:
+                new_steps.append(step.model_copy(update={"inputs": new_inputs}))
+                has_changed = True
+            else:
+                new_steps.append(step)
+        return graph.model_copy(update={"steps": new_steps}) if has_changed else None
+
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
-    ) -> ChartCoreTimeseries:
+        self, ts_item: ChartTimeseriesUIElement, node_id: NodeId, consumer_view_id: ViewId | None, element_id: str
+    ) -> ChartCoreTimeseriesUIElement:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
-        dumped["id"] = new_uuid
+        dumped["id"] = element_id
         dumped["type"] = "coreTimeseries"
         # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
-        core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
+        core_timeseries = ChartCoreTimeseriesUIElement.model_validate(dumped, extra="ignore")
         return core_timeseries
 
-    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
-        """Look up the node ID and consumer view ID for a given timeseries item.
-
-        Prioritizes lookup by internal ID, then by external ID.
+    def _get_node_id_consumer_view_id(
+        self, ids: Sequence[InternalId | ExternalId]
+    ) -> tuple[NodeId | None, ViewId | None]:
+        """Look up the node ID and consumer view ID for a given timeseries.
 
         Args:
-            ts_item: The ChartTimeseries item to look up.
+            ids: The timeseries item IDs to look up
 
         Returns:
             A tuple containing the consumer view ID and node ID, or None if not found.
         """
         node_id: NodeId | None = None
         consumer_view_id: ViewId | None = None
-        for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
-            if id_value is None:
-                continue
-            arg = {id_name: id_value}
-            node_id = self.client.migration.lookup.time_series(**arg)  # type: ignore[arg-type]
-            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)  # type: ignore[arg-type]
+        for identifier in ids:
+            arg = identifier.dump(camel_case=False)
+            node_id = self.client.migration.lookup.time_series(**arg)
+            consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)
             if node_id is not None:
                 break
         return node_id, consumer_view_id
 
     def _update_source_collection(
-        self,
-        source_collection: list[ChartSource],
-        time_series_collection: list[ChartTimeseries],
-        timeseries_core_collection: list[ChartCoreTimeseries],
+        self, source_collection: list[ChartSource], migrated_ts_ui_ids: set[str]
     ) -> list[ChartSource]:
-        remove_ids = {ts_item.id for ts_item in time_series_collection if ts_item.id is not None}
-        updated_source_collection = [ts_item for ts_item in source_collection if ts_item.id not in remove_ids]
-        for core_ts_item in timeseries_core_collection:
-            # We cast there two as we set them in the _create_timeseries_core_collection method
-            new_source_item = ChartSource(id=cast(str, core_ts_item.id), type=cast(str, core_ts_item.type))
-            updated_source_collection.append(new_source_item)
-        return updated_source_collection
+        new_source_collection: list[ChartSource] = []
+        for item in source_collection:
+            if item.id in migrated_ts_ui_ids:
+                new_source_collection.append(item.model_copy(update={"type": "coreTimeseries"}))
+            else:
+                new_source_collection.append(item)
+        return new_source_collection
 
     def _update_threshold_collection(
-        self, collection: list[ChartThreshold], uuid_generator: dict[str, str]
+        self, collection: list[ChartThreshold], migrated_ts_ui_ids: set[str]
     ) -> list[ChartThreshold]:
         updated_collection = []
         for threshold in collection:
-            if threshold.source_id in uuid_generator:
-                updated_collection.append(
-                    threshold.model_copy(
-                        update={
-                            "source_id": uuid_generator[threshold.source_id],
-                            # We clear out the calls to avoid referencing past timeseries.
-                            "calls": [],
-                        }
-                    )
-                )
+            if threshold.source_id is not None and threshold.source_id in migrated_ts_ui_ids:
+                # We clear out the calls to avoid referencing past timeseries.
+                updated_collection.append(threshold.model_copy(update={"calls": []}))
             else:
                 updated_collection.append(threshold)
         return updated_collection
 
-    def _update_workflow_collection(
-        self, collection: list[ChartWorkflow], uuid_generator: dict[str, str]
-    ) -> list[ChartWorkflow]:
-        updated_collection: list[ChartWorkflow] = []
-        for workflow in collection:
-            updated_elements: list[FlowElement] = []
-            if workflow.flow is None:
-                updated_collection.append(workflow)
+    def _update_chart_calculation(
+        self, collection: list[_T_ChartCalculation], migrated_ts_ui_ids: set[str]
+    ) -> list[_T_ChartCalculation]:
+        updated_collection: list[_T_ChartCalculation] = []
+        for calculation in collection:
+            if calculation.flow is None or calculation.flow.elements is None:
+                updated_collection.append(calculation)
                 continue
-            has_changes = False
-            for element in workflow.flow.elements or []:
-                if element.data and element.data.selected_source_id in uuid_generator:
-                    new_data = element.data.model_copy(
-                        update={
-                            "selected_source_id": uuid_generator[element.data.selected_source_id],
-                            "type": "coreTimeseries",
-                        }
-                    )
-                    updated_elements.append(element.model_copy(update={"data": new_data}))
-                    has_changes = True
-                else:
-                    updated_elements.append(element)
-            if has_changes:
-                new_flow = workflow.flow.model_copy(update={"elements": updated_elements})
-                updated_collection.append(
-                    workflow.model_copy(
-                        update={
-                            "flow": new_flow,
-                            # We clear out the calls to avoid referencing past timeseries.
-                            "calls": [],
-                        }
-                    )
-                )
+            if new_elements := self._update_flow_elements(calculation.flow.elements, migrated_ts_ui_ids):
+                new_flow = calculation.flow.model_copy(update={"elements": new_elements})
+                update: dict[str, Any] = {"flow": new_flow}
+                if isinstance(calculation, ChartWorkflowUIElement):
+                    # We clear out the calls to avoid referencing past timeseries.
+                    update["calls"] = []
+                updated_collection.append(calculation.model_copy(update=update))
             else:
-                updated_collection.append(workflow)
+                updated_collection.append(calculation)
         return updated_collection
+
+    def _update_flow_elements(
+        self, elements: list[FlowElement], migrated_ts_ui_ids: set[str]
+    ) -> list[FlowElement] | None:
+        has_changes = False
+        updated_elements: list[FlowElement] = []
+        for element in elements:
+            if (
+                element.data
+                and element.data.selected_source_id is not None
+                and element.data.selected_source_id in migrated_ts_ui_ids
+            ):
+                new_data = element.data.model_copy(update={"type": "coreTimeseries"})
+                updated_elements.append(element.model_copy(update={"data": new_data}))
+                has_changes = True
+            else:
+                updated_elements.append(element)
+        return updated_elements if has_changes else None
+
+    def _update_monitoring_job_references(
+        self, references: list[MonitoringJobReference], migrated_ts_ui_ids: set[str]
+    ) -> list[MonitoringJobReference]:
+        updated: list[MonitoringJobReference] = []
+        for ref in references:
+            if ref.source_id and ref.source_id in migrated_ts_ui_ids and ref.source_type == "timeseries":
+                updated.append(ref.model_copy(update={"source_type": "coreTimeseries"}))
+            else:
+                updated.append(ref)
+        return updated
 
     def _create_activities_collection(self, event_ids: set[int], issue: ChartMigrationIssue) -> list[ChartActivity]:
         activities: list[ChartActivity] = []
@@ -551,25 +899,55 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         file_node_ids = self._populate_cache(source)
         cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
         output: list[IndustrialCanvasRequest | None] = []
-        issues: list[CanvasMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        canvas_src = "Industrial Canvas"
+        canvas_dest = "Industrial Canvas (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item, cognite_file_by_id)
-            identifier = item.name
+            identifier = item.external_id
 
             if issue.missing_reference_ids:
-                self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing reference IDs",
+                        message=f"Missing {len(issue.missing_reference_ids)} reference(s)",
+                        severity=Severity.warning,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                        attributes={str(ref) for ref in issue.missing_reference_ids},
+                        attribute_display_name="timeseries/file/event/asset references",
+                    )
+                )
             if issue.files_missing_content:
-                self.logger.tracker.add_issue(identifier, "File missing content")
-
-            if issue.has_issues:
-                issues.append(issue)
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="File missing content",
+                        message=f"{len(issue.files_missing_content)} file(s) lack uploaded content",
+                        severity=Severity.warning,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                        attributes={str(ref) for ref in issue.files_missing_content},
+                        attribute_display_name="file references with missing content",
+                    )
+                )
 
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Canvas migration failed",
+                        message="Canvas could not be migrated",
+                        severity=Severity.failure,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                    )
+                )
 
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     @property
@@ -703,23 +1081,39 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
     def map(self, source: Sequence[ThreeDModelClassicResponse]) -> Sequence[ThreeDMigrationRequest | None]:
         self._populate_cache(source)
         output: list[ThreeDMigrationRequest | None] = []
-        issues: list[ThreeDModelMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        src_3d = "3D models"
+        dest_3d = "3D models (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = item.name
-
-            if issue.error_message:
-                for error in issue.error_message:
-                    self.logger.tracker.add_issue(identifier, error)
-
-            if issue.has_issues:
-                issues.append(issue)
-
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="3D model migration failed",
+                        message="; ".join(issue.error_message)
+                        if issue.error_message
+                        else "Model could not be migrated",
+                        severity=Severity.failure,
+                        source=src_3d,
+                        destination=dest_3d,
+                    )
+                )
+            elif issue.error_message:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="3D model migration issue",
+                        message="; ".join(issue.error_message),
+                        severity=Severity.warning,
+                        source=src_3d,
+                        destination=dest_3d,
+                    )
+                )
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     def _populate_cache(self, source: Sequence[ThreeDModelClassicResponse]) -> None:
@@ -790,25 +1184,41 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
     def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequestId | None]:
         output: list[AssetMappingDMRequestId | None] = []
-        issues: list[ThreeDModelMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
         self._populate_cache(source)
+        src_map = "3D asset mappings"
+        dest_map = "3D asset mappings (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
-
-            if issue.error_message:
-                for error in issue.error_message:
-                    self.logger.tracker.add_issue(identifier, error)
-
-            if issue.has_issues:
-                issues.append(issue)
-
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Asset mapping migration failed",
+                        message="; ".join(issue.error_message)
+                        if issue.error_message
+                        else "Mapping could not be migrated",
+                        severity=Severity.failure,
+                        source=src_map,
+                        destination=dest_map,
+                    )
+                )
+            elif issue.error_message:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Asset mapping migration issue",
+                        message="; ".join(issue.error_message),
+                        severity=Severity.warning,
+                        source=src_map,
+                        destination=dest_map,
+                    )
+                )
 
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     def _populate_cache(self, source: Sequence[AssetMappingClassicResponse]) -> None:
@@ -880,9 +1290,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
-            view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
-        }
+        self._custom_properties_mapping: dict[ViewId, list[CustomContainerPropertiesMapping]] = defaultdict(list)
+        for mapping in custom_properties_mappings or []:
+            for view_id in mapping.VIEW_IDS:
+                self._custom_properties_mapping[view_id].append(mapping)
         self._custom_instance_mappings = custom_instance_mappings
         # These data structures are used to validate required direct relations, i.e.,
         # direct relation properties that requires that the target has properties in a
@@ -921,7 +1332,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 issue_by_node_id[node_id] = InstanceConversionIssue(
                     id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
                 )
-                self.logger.tracker.finalize_item(str(node.as_id()), "failure")
                 continue
             mapped_node, edges, issue = self._map_single_node(
                 node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
@@ -942,7 +1352,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._check_existence_of_required_targets(mapped_instances, issue_by_node_id)
 
         if issue_by_node_id:
-            self.logger.log(list(issue_by_node_id.values()))
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="FDM instances", destination="CDM instances"
+                    )
+                    for issue in issue_by_node_id.values()
+                ]
+            )
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
@@ -1013,12 +1430,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             )
             special_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
             if context.mapping.source_view in self._custom_properties_mapping:
-                special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
-                    source_properties, context
-                )
-                issue.errors.extend(special_results.errors)
-                new_edges.extend(special_results.edges)
-                special_properties = special_results.container_properties
+                for custom_mapper in self._custom_properties_mapping[context.mapping.source_view]:
+                    special_results = custom_mapper.convert(source_properties, context)
+                    issue.errors.extend(special_results.errors)
+                    new_edges.extend(special_results.edges)
+                    special_properties.update(special_results.container_properties)
 
             container_results = convert_container_properties(source_properties, context)
             edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
@@ -1268,11 +1684,18 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
             mapped_item, issue = self._create_single_schedule(duplicated_schedules, template_edges, template_id_edges)
             if issue.has_issues:
                 issues.append(issue)
-            if mapped_item is None:
-                self.logger.tracker.finalize_item(str(duplicated_schedules[0].as_id()), "failure")
+            elif mapped_item is None:
+                issues.append(issue)
             output.append(mapped_item)
         if issues:
-            self.logger.log(issues)
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="InField schedules (legacy)", destination="InField schedules (CDM)"
+                    )
+                    for issue in issues
+                ]
+            )
         return output
 
     def _as_schedules_and_edges(
@@ -1306,8 +1729,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                             ],
                         )
                     )
-
-                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
             elif isinstance(item, EdgeResponse):
                 if item.type == self.TEMPLATE_EDGE_TYPE:
                     template_edges_by_item_id[item.end_node].append(
@@ -1326,7 +1747,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                             ],
                         )
                     )
-                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:
@@ -1379,6 +1799,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
             template_edges, template_item_edges, destination_view.properties, issue
         )
         created_properties.update(template_and_template_item_properties)
+        special_properties = InFieldUserMapping().convert(source_properties, context)
+        issue.errors.extend(special_properties.errors)
+        created_properties.update(special_properties.container_properties)
 
         return NodeRequest(
             space=new_id.space,

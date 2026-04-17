@@ -21,17 +21,6 @@ from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
-from cognite_toolkit._cdf_tk.cruds import (
-    ExtractionPipelineConfigCRUD,
-    FunctionCRUD,
-    GraphQLCRUD,
-    GroupAllScopedCRUD,
-    HostedExtractorDestinationCRUD,
-    HostedExtractorSourceCRUD,
-    ResourceCRUD,
-    StreamlitCRUD,
-    ViewCRUD,
-)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -45,6 +34,17 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import (
+    ExtractionPipelineConfigIO,
+    FunctionIO,
+    GraphQLCRUD,
+    GroupAllScopedCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorSourceIO,
+    ResourceIO,
+    StreamlitIO,
+    ViewIO,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
@@ -512,7 +512,7 @@ class PullCommand(ToolkitCommand):
 
         results = DeployResults([], action="pull", dry_run=dry_run)
         for loader_cls in selected_loaders:
-            if not issubclass(loader_cls, ResourceCRUD):
+            if not issubclass(loader_cls, ResourceIO):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
             resources: BuiltFullResourceList[T_Identifier] = built_modules.get_resources(  # type: ignore[valid-type]
@@ -524,12 +524,12 @@ class PullCommand(ToolkitCommand):
             )
             if not resources:
                 continue
-            if isinstance(loader, HostedExtractorSourceCRUD | HostedExtractorDestinationCRUD):
+            if isinstance(loader, HostedExtractorSourceIO | HostedExtractorDestinationIO):
                 self.warn(
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if isinstance(loader, GraphQLCRUD | FunctionCRUD | StreamlitCRUD):
+            if isinstance(loader, GraphQLCRUD | FunctionIO | StreamlitIO):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
@@ -550,7 +550,7 @@ class PullCommand(ToolkitCommand):
 
     def _pull_resources(
         self,
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: BuiltFullResourceList[T_Identifier],
         dry_run: bool,
         environment_variables: dict[str, str | None],
@@ -582,7 +582,7 @@ class PullCommand(ToolkitCommand):
         local_resource_by_id: dict[T_ID, dict[str, Any]],
         cdf_resource_by_id: dict[T_ID, T_ResponseResource],
         file_results: ResourceDeployResult,
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
     ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
         to_write: dict[T_ID, dict[str, Any]] = {}
         has_changes = False
@@ -611,7 +611,7 @@ class PullCommand(ToolkitCommand):
     @staticmethod
     def _get_local_resource_dict_by_id(
         resources: BuiltFullResourceList[T_ID],
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         environment_variables: dict[str, str | None],
     ) -> dict[T_Identifier, dict[str, Any]]:
         unique_destinations = {r.destination for r in resources if r.destination}
@@ -627,7 +627,7 @@ class PullCommand(ToolkitCommand):
 
     @staticmethod
     def _select_resource_ids(
-        all_: bool, id_: T_ID, loader: ResourceCRUD, local_resources: BuiltFullResourceList, organization_dir: Path
+        all_: bool, id_: T_ID, loader: ResourceIO, local_resources: BuiltFullResourceList, organization_dir: Path
     ) -> BuiltFullResourceList[T_ID]:
         if all_:
             return local_resources
@@ -648,7 +648,7 @@ class PullCommand(ToolkitCommand):
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
         environment_variables: dict[str, str | None],
-        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
         """Convert resource data from CDF into YAML file content ready to be written to disk.
@@ -725,7 +725,7 @@ class PullCommand(ToolkitCommand):
         comments = YAMLComments.load(source)
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        if isinstance(loader, ExtractionPipelineConfigCRUD):
+        if isinstance(loader, ExtractionPipelineConfigIO):
             # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
             # but we need to load it as a dict so we can write it back to the file maintaining
             # the order or the keys.
@@ -830,7 +830,7 @@ class ResourceReplacer:
             and handle resource-specific logic.
     """
 
-    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceCRUD) -> None:
+    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceIO) -> None:
         self._value_by_placeholder = value_by_placeholder
         self._loader = loader
 
@@ -866,7 +866,7 @@ class ResourceReplacer:
                 or if there's a type mismatch between local and CDF values.
         """
         has_stringified_view_filter = False
-        if isinstance(self._loader, ViewCRUD):
+        if isinstance(self._loader, ViewIO):
             # view.filter are recursive nested dicts that are complex. To avoid issues with comparing
             # lists inside the filters, we stringify them before processing such that they are compared
             # as strings.

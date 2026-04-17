@@ -28,14 +28,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
@@ -78,7 +79,7 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
-        self._view_crud = ViewCRUD.create_loader(self.client)
+        self._view_crud = ViewIO.create_loader(self.client)
 
     @staticmethod
     def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
@@ -170,20 +171,34 @@ class InstanceIO(
     ) -> Iterable[Page]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
-            yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
+            pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
-            yield from self._instances_with_container_properties(selector, limit, init_cursor)
+            pages = self._instances_with_container_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
+                ids = [f"{item.space}:{item.external_id}" for item in chunk]
+                self.logger.register(ids)
                 items = [
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
                     for item in self.client.tool.instances.retrieve(chunk)
                 ]
+                if missing_ids := (set(ids) - {item.tracking_id for item in items}):
+                    for item_id in missing_ids:
+                        self.logger.log(
+                            LogEntryV2(
+                                id=item_id,
+                                label="Missing in CDF",
+                                severity=Severity.failure,
+                                message=f"The {item_id} was not found in CDF",
+                            )
+                        )
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
+            return
         elif isinstance(selector, InstanceQuerySelector):
-            yield from self._instance_by_query(selector.create_query(), limit, init_cursor)
+            pages = self._instance_by_query(selector.create_query(), limit, init_cursor)
         else:
             raise NotImplementedError()
+        yield from (self.emit_registered_page(page) for page in pages)
 
     def _instances_with_container_and_edge_properties(
         self, selector: InstanceViewSelector, limit: int | None, init_cursor: str | None = None
@@ -369,7 +384,7 @@ class InstanceIO(
             )
         if not selector.view:
             return
-        view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
+        view_crud = ViewIO(self.client, None, None, topological_sort_implements=True)
         views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:
@@ -379,8 +394,8 @@ class InstanceIO(
             if view.version is not None:
                 filename += f"_{view.version}"
             yield StorageIOConfig(
-                kind=ViewCRUD.kind,
-                folder_name=ViewCRUD.folder_name,
+                kind=ViewIO.kind,
+                folder_name=ViewIO.folder_name,
                 value=view_crud.dump_resource(view),
                 filename=sanitize_filename(filename),
             )

@@ -44,7 +44,15 @@ from rich import print
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerRequest,
+    ContainerResponse,
+    InstanceSource,
+    NodeRequest,
+    SpaceRequest,
+    TextProperty,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -58,7 +66,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
@@ -175,6 +183,26 @@ def toolkit_stream(toolkit_client: ToolkitClient) -> StreamResponse:
             )
         ]
     )
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def toolkit_record_container(toolkit_client: ToolkitClient, toolkit_space: Space) -> ContainerResponse:
+    """Record container for integration tests, created if it doesn't exist."""
+    container = ContainerRequest(
+        space=toolkit_space.space,
+        external_id="toolkit_test_record_container",
+        name="Toolkit Test Record Container",
+        used_for="record",
+        properties={
+            "name": ContainerPropertyDefinition(type=TextProperty()),
+        },
+    )
+    retrieved = toolkit_client.tool.containers.retrieve([container.as_id()])
+    if retrieved:
+        return retrieved[0]
+    created = toolkit_client.tool.containers.create([container])
+    assert created, "Failed to create record container"
     return created[0]
 
 

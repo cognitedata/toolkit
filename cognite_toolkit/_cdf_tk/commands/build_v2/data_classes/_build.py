@@ -1,12 +1,13 @@
 import builtins
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
@@ -16,21 +17,29 @@ from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, Relative
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
-    config_yaml_name: str | None = Field(
+    config_yaml: Path | None = Field(
         None,
-        description="The name of the configuration YAML file to use. It expected to be"
-        "named config.[name].yaml and be located in the organization directory.",
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
     )
     user_selected_modules: list[str] | None = Field(
         None,
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
-        "and the modules specified there. If no config YAML is found, Toolkit will build all modules in the organization directory.",
+        "and the modules specified there. If no config YAML is found, Toolkit will prompt the user to choose the modules"
+        "to build",
     )
     verbose: bool = False
+    insight_format: Literal["csv", "json"] = Field(
+        default="csv",
+        description="Format for the insights file written to the build directory.",
+    )
 
     @property
     def modules_directory(self) -> Path:
         return self.organization_dir / MODULES
+
+    @property
+    def insight_path(self) -> Path:
+        return self.build_dir / f"insights.{self.insight_format}"
 
 
 class BuildSourceFiles(BaseModel):
@@ -44,8 +53,9 @@ class BuildSourceFiles(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
-    selected_modules: set[RelativeDirPath | str] = Field(
+    selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
+        "If None, no modules are selected."
     )
     variables: dict[str, JsonValue] = Field(
         default_factory=dict, description="Variables to be used during the build process."
@@ -66,8 +76,8 @@ class BuiltResource(BaseModel):
     type: ResourceType
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
-    crud_cls: builtins.type[ResourceCRUD]
-    dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+    crud_cls: builtins.type[ResourceIO]
+    dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
 
 
 class BuiltModule(BaseModel):

@@ -20,11 +20,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import SearchConfigCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD, SearchConfigIO, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -126,8 +126,14 @@ properties:
     containerPropertyIdentifier: name
 """
 
+FILEMETADATA_YAML = """externalId: my_file
+name: the_filename
+$FILEPATH: text_file.txt
+mimeType: text/plain
+"""
 
-def create_resource_file(organization_dir: Path, crud: type[ResourceContainerCRUD], resource_yaml: str) -> Path:
+
+def create_resource_file(organization_dir: Path, crud: type[ResourceIO], resource_yaml: str) -> Path:
     resource_file = organization_dir / MODULES / "my_module" / crud.folder_name / f"my_space.{crud.kind}.yaml"
     resource_file.parent.mkdir(parents=True, exist_ok=True)
     resource_file.write_text(resource_yaml)
@@ -143,12 +149,12 @@ class TestBuildCommand:
         org = tmp_path / "org"
 
         space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
-        dm_file = create_resource_file(org, DataModelCRUD, DM_YAML)
-        view_file = create_resource_file(org, ViewCRUD, VIEW_YAML)
-        _ = create_resource_file(org, WorkflowCRUD, WORKFLOW_YAML)
+        dm_file = create_resource_file(org, DataModelIO, DM_YAML)
+        view_file = create_resource_file(org, ViewIO, VIEW_YAML)
+        _ = create_resource_file(org, WorkflowIO, WORKFLOW_YAML)
 
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         _ = cmd.build(parameters, tlk_client)
 
@@ -156,11 +162,11 @@ class TestBuildCommand:
         assert len(built_space) == 1
         assert built_space[0].read_text() == space_file.read_text()
 
-        built_dm = list(build_dir.rglob(f"*.{DataModelCRUD.kind}.yaml"))
+        built_dm = list(build_dir.rglob(f"*.{DataModelIO.kind}.yaml"))
         assert len(built_dm) == 1
         assert built_dm[0].read_text() == dm_file.read_text()
 
-        built_view = list(build_dir.rglob(f"*.{ViewCRUD.kind}.yaml"))
+        built_view = list(build_dir.rglob(f"*.{ViewIO.kind}.yaml"))
         assert len(built_view) == 1
         assert built_view[0].read_text() == view_file.read_text()
 
@@ -182,7 +188,7 @@ name: My Space
 """
         resource_file.write_text(space_yaml)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         folder = cmd.build(parameters, tlk_client)
 
@@ -196,6 +202,26 @@ name: My Space
             "syntax_warnings": 1,
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
+
+    def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
+        cmd = BuildV2Command()
+
+        # Set up a simple organization with modules folder.
+        org = tmp_path / "org"
+
+        file_metadata = create_resource_file(org, FileMetadataCRUD, FILEMETADATA_YAML)
+        source_txt = file_metadata.parent / "text_file.txt"
+        expected_content = "this is a text file"
+        source_txt.write_text(expected_content)
+        build_dir = tmp_path / "build"
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
+        _ = cmd.build(parameters, client=None)
+
+        files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
+        assert len(files) == 2
+        file_by_suffix = dict((file.suffix, file) for file in files)
+        assert set(file_by_suffix.keys()) == {".txt", ".yaml"}
+        assert file_by_suffix[".txt"].read_text() == expected_content
 
 
 class TestDependencyValidationSearchConfig:
@@ -220,10 +246,10 @@ class TestDependencyValidationSearchConfig:
             BuiltResource(
                 identifier=ViewId(space="my_space", external_id="View1", version="v1"),
                 source_hash="h-view",
-                type=ResourceType(resource_folder=ViewCRUD.folder_name, kind=ViewCRUD.kind),
+                type=ResourceType(resource_folder=ViewIO.folder_name, kind=ViewIO.kind),
                 source_path=AbsoluteFilePath(source_file.resolve()),
                 build_path=AbsoluteFilePath(build_file.resolve()),
-                crud_cls=ViewCRUD,
+                crud_cls=ViewIO,
                 dependencies=set(),
             )
         )
@@ -232,13 +258,13 @@ class TestDependencyValidationSearchConfig:
                 identifier=view_ref,
                 source_hash="h",
                 type=ResourceType(
-                    resource_folder=SearchConfigCRUD.folder_name,
-                    kind=SearchConfigCRUD.kind,
+                    resource_folder=SearchConfigIO.folder_name,
+                    kind=SearchConfigIO.kind,
                 ),
                 source_path=AbsoluteFilePath(source_file.resolve()),
                 build_path=AbsoluteFilePath(build_file.resolve()),
-                crud_cls=SearchConfigCRUD,
-                dependencies={(ViewCRUD, view_ref)},
+                crud_cls=SearchConfigIO,
+                dependencies={(ViewIO, view_ref)},
             )
         )
         result = list(DependencyRuleSet([module]).validate())
@@ -262,9 +288,9 @@ class TestValidateBuildParameters:
                 # Actually Config file is at org/config.name.yaml.
                 # I should just specify list of paths to create.
                 # If I put "org/modules/" it has no suffix so created as dir.
-                BuildParameters(organization_dir=Path("org"), config_yaml_name="dev"),
+                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
                 ["cdf", "build", "-o", "org"],
-                "Config YAML file 'org/config.dev.yaml' not found",
+                "org/config.dev.yaml' not found",
                 id="Config YAML file not found",
             ),
             pytest.param(
@@ -291,7 +317,7 @@ class TestValidateBuildParameters:
             ),
             pytest.param(
                 [f"org/{MODULES}/", "org/config.dev.yaml"],
-                BuildParameters(organization_dir=Path("org"), config_yaml_name="dev"),
+                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
                 ["cdf", "build", "-o", "org"],
                 None,
                 id="Success with config",
@@ -342,7 +368,7 @@ class TestReadFileSystem:
         parameters = BuildParameters(
             organization_dir=tmp_path,
             build_dir=Path("build"),
-            config_yaml_name="dev",
+            config_yaml=config_yaml,
             user_selected_modules=["module1", "module2"],
         )
         build_files = BuildV2Command._read_file_system(parameters)
@@ -366,7 +392,7 @@ class TestReadFileSystem:
     - modules/
 """)
         _ = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
-        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
+        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)
 
@@ -483,7 +509,7 @@ class TestReadResourceFile:
         self,
         filename: str,
         content: str | None,
-        crud_class: type[ResourceCRUD],
+        crud_class: type[ResourceIO],
         expected_code: str,
         tmp_path: Path,
     ) -> None:
@@ -537,7 +563,7 @@ class TestReadResourceFile:
         self,
         filename: str,
         content: str | None,
-        crud_class: type[ResourceCRUD],
+        crud_class: type[ResourceIO],
         expected_resource_count: int,
         has_syntax_warning: bool,
         tmp_path: Path,

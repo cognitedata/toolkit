@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -37,9 +37,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyResponse,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -51,20 +56,23 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
+    AssetMapping,
+    EventMapping,
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.issues import CanvasMigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger
 from tests.data import MIGRATION_DIR
 
 
@@ -311,7 +319,6 @@ class TestThreeDAssetMapper:
 
             mapper = ThreeDAssetMapper(client)
             logger = MagicMock(spec=DataLogger)
-            logger.tracker = MagicMock(spec_set=OperationTracker)
             mapper.logger = logger
             mapped = mapper.map([response])[0]
 
@@ -323,13 +330,17 @@ class TestThreeDAssetMapper:
 
             if isinstance(expected, AssetMappingDMRequestId):
                 logger.log.assert_not_called()
-                logger.tracker.add_issue.assert_not_called()
                 assert mapped is not None
                 assert mapped.model_dump() == expected.model_dump()
             else:
-                _, message = logger.tracker.add_issue.call_args.args
+                logger.log.assert_called_once()
+                log_entries = logger.log.call_args[0][0]
+                assert isinstance(log_entries, list)
+                assert len(log_entries) == 1
+                entry = log_entries[0]
+                assert isinstance(entry, MigrationEntryV2)
                 assert mapped is None, "Expected no mapped result"
-                assert message == expected
+                assert expected in entry.message
 
 
 class TestCanvasMapper:
@@ -369,7 +380,6 @@ class TestCanvasMapper:
 
             mapper = CanvasMapper(client, dry_run=False, skip_on_missing_ref=False)
             logger = MagicMock(spec=DataLogger)
-            logger.tracker = MagicMock(spec_set=OperationTracker)
             mapper.logger = logger
 
             actual = mapper.map([input_canvas])[0]
@@ -391,43 +401,40 @@ class TestCanvasMapper:
         entry = logger.log.call_args[0][0]
         assert isinstance(entry, list)
         first = entry[0]
-        assert isinstance(first, CanvasMigrationIssue)
-        assert first.files_missing_content == [NodeId(space="my_space", external_id="file_1")]
+        assert isinstance(first, MigrationEntryV2)
+        assert first.label == "File missing content"
+        assert "my_space:file_1" in first.attributes
 
 
 class TestChartMapper:
-    def test_map_chart_with_threshold_calculation_and_events_filter(self) -> None:
+    def test_map_chart(self, data_regression: DataRegressionFixture) -> None:
         input_chart_path = MIGRATION_DIR / "charts" / "classic.Chart.yaml"
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
-        output_chart = ChartResponse.model_validate(yaml.safe_load(output_chart_path.read_text(encoding="utf-8")))
-        source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
-        # These are not yet supported.
-        source.data.monitoring_jobs = None
-        source.data.scheduled_calculation_collection = None
-
-        assert len(output_chart.data.core_timeseries_collection or []) == len(source.data.time_series_collection or [])
-        core_timeseries = output_chart.data.core_timeseries_collection or []
+        target_space = "my_target_space"
+        event_count = 4
+        raw = yaml.safe_load(input_chart_path.read_text(encoding="utf-8"))
+        source = ChartResponse.model_validate(raw)
         with monkeypatch_toolkit_client() as client:
             time_series_lookup = MagicMock()
-            time_series_lookup.side_effect = [
-                # Two first calls to populate cache.
-                None,
-                None,
-                *[core_ts.node_reference for core_ts in core_timeseries],
-            ]
+
+            def _get_node_id(
+                id: int | Sequence[int] | None = None, external_id: str | Sequence[str] | None = None
+            ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
+                if isinstance(external_id, str):
+                    return NodeId(space=target_space, external_id=external_id)
+                return None
+
+            time_series_lookup.side_effect = _get_node_id
             # Assume all timeseries in the output chart are set to CogniteTimeSeries
             time_series_lookup.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
             client.migration.lookup.time_series = time_series_lookup
+            assert source.monitoring_jobs
 
-            event_node_ids = [
-                activity.node_reference
-                for activity in output_chart.data.activities_collection or []
-                if activity.node_reference is not None
-            ]
+            event_node_ids = [NodeId(space=target_space, external_id=f"event_{i}") for i in range(event_count)]
             client.tool.events.list.return_value = [
-                EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(len(event_node_ids))
+                EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(event_count)
             ]
             event_lookup = MagicMock()
             # Cache call + each event
@@ -438,31 +445,19 @@ class TestChartMapper:
             )
             client.migration.lookup.events = event_lookup
 
-            new_uuids = [core_ts.id for core_ts in core_timeseries]
-            with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-                mapper = ChartMapper(client)
-                mapped_list = mapper.map([source])
+            mapper = ChartMapper(client)
+            mapped_list = mapper.map([source])
             assert len(mapped_list) == 1
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
 
-        expected = ChartRequest.model_validate(output_chart.dump(), extra="allow", by_alias=True).model_dump(
-            mode="json",
-            by_alias=True,
-            exclude_unset=True,
-            exclude_none=True,
-            exclude={
-                "data": {
-                    # Not yet supported.
-                    "monitoring_jobs",
-                    "scheduled_calculation_collection",
-                },
-            },
-        )
-        # Manually remove the server side only properties
-        for key in ["lastUpdatedTime", "createdTime", "ownerId"]:
-            expected.pop(key, None)
-        assert mapped.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True) == expected
+        dumped = mapped.dump()
+        dumped["monitoringJobs"] = [job.dump() for job in mapped.monitoring_jobs or []] or None
+        dumped["scheduledCalculations"] = [
+            calculation.dump() for calculation in mapped.scheduled_calculations or []
+        ] or None
+
+        data_regression.check(dumped, fullpath=output_chart_path)
 
 
 class TestFDMtoCDMMapper:
@@ -933,3 +928,96 @@ class TestInFieldLegacyToCDMScheduleMapper:
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
+
+
+def _make_record_property_mapping(external_id: str, container_id: ContainerId) -> RecordPropertyMapping:
+    return RecordPropertyMapping(
+        external_id=external_id,
+        container_id=container_id,
+        property_mapping={"description": "description"},
+    )
+
+
+def _make_record_container_response(container_id: ContainerId) -> ContainerResponse:
+    return ContainerResponse(
+        space=container_id.space,
+        external_id=container_id.external_id,
+        used_for="record",
+        properties={
+            "description": ContainerPropertyDefinition(
+                type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+            )
+        },
+        created_time=0,
+        last_updated_time=1,
+        is_global=False,
+    )
+
+
+class TestAssetCentricToRecordMapper:
+    def test_prepare_raises_on_missing_container(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="MissingContainer")
+        mapping = _make_record_property_mapping("mapping_x", container_id)
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = []
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
+            with pytest.raises(ToolkitValueError, match="not found in Data Modeling"):
+                mapper.prepare(MagicMock())
+
+    def test_prepare_raises_on_non_record_container(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="NodeContainer")
+        mapping = _make_record_property_mapping("mapping_x", container_id)
+        node_container = _make_record_container_response(container_id)
+        node_container.used_for = "node"
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [node_container]
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
+            with pytest.raises(ToolkitValueError, match="usedFor='record'"):
+                mapper.prepare(MagicMock())
+
+    def test_map_rejects_non_event_row(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="EventContainer")
+        mapping = _make_record_property_mapping("mapping_a", container_id)
+        source = AssetCentricMapping(
+            mapping=AssetMapping(
+                resource_type="asset",
+                instance_id=NodeId(space="my_space", external_id="asset_1"),
+                id=1,
+                ingestion_mapping="mapping_a",
+            ),
+            resource=AssetResponse(id=1, name="asset_1", created_time=0, last_updated_time=1, root_id=0),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
+            mapper.prepare(MagicMock())
+            with pytest.raises(ToolkitValueError, match="only supports Event"):
+                mapper.map([source])
+
+    def test_map_produces_record_request(self) -> None:
+        container_id = ContainerId(space="my_space", external_id="EventContainer")
+        mapping = _make_record_property_mapping("mapping_a", container_id)
+        source = AssetCentricMapping(
+            mapping=EventMapping(
+                resource_type="event",
+                instance_id=NodeId(space="my_space", external_id="event_1"),
+                id=42,
+                ingestion_mapping="mapping_a",
+            ),
+            resource=EventResponse(
+                id=42, external_id="event_1", description="An event", created_time=0, last_updated_time=1
+            ),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
+            mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
+            mapper.prepare(MagicMock())
+            results = mapper.map([source])
+        assert len(results) == 1
+        record = results[0]
+        assert record is not None
+        assert record.space == "my_space"
+        assert record.external_id == "event_1"
+        assert len(record.sources) == 1
+        assert record.sources[0].source == container_id
+        assert record.sources[0].properties["description"] == "An event"

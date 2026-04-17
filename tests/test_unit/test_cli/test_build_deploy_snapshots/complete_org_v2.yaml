@@ -47,6 +47,7 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: filecontent.txt
+      sourceContext: 'cognite-toolkit-hash: 0f18a9c5'
       sourceCreatedTime: '2020-01-01T00:00:00Z'
       sourceCreatedUser: MySelf
       sourceUpdatedTime: '2021-01-01T00:00:00Z'
@@ -295,6 +296,7 @@ FileMetadataResponse:
   directory: /files
   externalId: classicFileMetadata
   metadata:
+    cognite-toolkit-hash: de91f3a0
     origin: cognite-toolkit
   mimeType: text/plain
   name: classicfile.txt
@@ -359,6 +361,17 @@ FunctionScheduleResponse:
   name: daily-8am-utc
   nonce: dummy-nonce
 GroupResponse:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        all: {}
+  metadata:
+    origin: cognite-toolkit
+  name: gp_all_scoped_complete_org
+  sourceId: '1234567890123456'
 - capabilities:
   - timeSeriesAcl:
       actions:

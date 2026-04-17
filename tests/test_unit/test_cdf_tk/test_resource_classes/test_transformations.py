@@ -75,6 +75,33 @@ def transformation_destination_cases() -> Iterable:
     ]
     yield from (pytest.param(next(iter(des.values())), id=next(iter(des.keys()))) for des in transformation_destination)
 
+    yield pytest.param(
+        {
+            "externalId": "MyTransformation",
+            "name": "MyTransformation",
+            "ignoreNullFields": True,
+            "authentication": {
+                "read": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "scopes": "read:data",
+                    "audience": "https://api.cognitedata.com/",
+                },
+                "write": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "scopes": "write:data",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "audience": "https://api.cognitedata.com/",
+                },
+            },
+        },
+        id="Full authentication with read and write (based on real use case)",
+    )
+
 
 def invalid_transformation_test_cases() -> Iterable:
     yield pytest.param(
@@ -169,7 +196,18 @@ class TestTransformationYAML:
     def test_load_valid_transformation_destination_parameters(self, data: dict[str, object]) -> None:
         loaded = TransformationYAML.model_validate(data)
 
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        if "authentication" in dumped:
+            # Secret is not dumped as per design, so we add it back for comparison
+            auth = dumped["authentication"]
+            orig_auth = data["authentication"]
+            if "read" in auth or "write" in auth:
+                for key in ("read", "write"):
+                    if key in auth:
+                        auth[key]["clientSecret"] = orig_auth[key]["clientSecret"]
+            else:
+                auth["clientSecret"] = orig_auth["clientSecret"]
+        assert dumped == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_transformation_test_cases()))
     def test_invalid_transformation_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:

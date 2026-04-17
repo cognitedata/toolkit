@@ -7,16 +7,16 @@ import yaml
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
-    ChartCoreTimeseries,
+    ChartCoreTimeseriesUIElement,
     ChartData,
-    ChartScheduledCalculation,
+    ChartScheduledCalculationUIElement,
     ChartSettings,
     ChartSource,
     ChartThreshold,
-    ChartTimeseries,
-    ChartWorkflow,
+    ChartTimeseriesUIElement,
+    ChartWorkflowUIElement,
     UserInfo,
 )
 from tests.data import MIGRATION_DIR
@@ -109,8 +109,8 @@ def chart_data_generator() -> Iterator[tuple]:
                 "unit": "Nm3/m",
             },
         ],
-        ChartTimeseries,
-        id=ChartTimeseries.__name__,
+        ChartTimeseriesUIElement,
+        id=ChartTimeseriesUIElement.__name__,
     )
     yield pytest.param(
         [{"type": "timeseries", "id": "test-ts-id"}],
@@ -205,8 +205,8 @@ def chart_data_generator() -> Iterator[tuple]:
                 ],
             }
         ],
-        ChartWorkflow,
-        id=ChartWorkflow.__name__,
+        ChartWorkflowUIElement,
+        id=ChartWorkflowUIElement.__name__,
     )
     yield pytest.param(
         [
@@ -244,8 +244,8 @@ def chart_data_generator() -> Iterator[tuple]:
                 },
             }
         ],
-        ChartScheduledCalculation,
-        id=ChartScheduledCalculation.__name__,
+        ChartScheduledCalculationUIElement,
+        id=ChartScheduledCalculationUIElement.__name__,
     )
     yield pytest.param(
         [
@@ -269,8 +269,8 @@ def chart_data_generator() -> Iterator[tuple]:
                 "createdAt": 1743764782866,
             }
         ],
-        ChartCoreTimeseries,
-        id=ChartCoreTimeseries.__name__,
+        ChartCoreTimeseriesUIElement,
+        id=ChartCoreTimeseriesUIElement.__name__,
     )
 
 
@@ -309,13 +309,13 @@ class TestChartDTOs:
         assert dumped_items == chart_data_dict, f"Expected {chart_data_dict}, but got {dumped_items}"
 
     @pytest.mark.parametrize(
-        "filename",
+        "filename, chart_cls",
         [
-            pytest.param("dms.Chart.yaml", id="DMS Chart"),
-            pytest.param("classic.Chart.yaml", id="Classic Chart"),
+            pytest.param("dms.Chart.yaml", ChartRequest, id="DMS Chart"),
+            pytest.param("classic.Chart.yaml", ChartResponse, id="Classic Chart"),
         ],
     )
-    def test_load_dms_chart(self, filename: str) -> None:
+    def test_load_dms_chart(self, filename: str, chart_cls: type[BaseModelObject]) -> None:
         data = yaml.safe_load((MIGRATION_DIR / "charts" / filename).read_text(encoding="utf-8"))
-        chart = ChartResponse.model_validate(data)
-        assert isinstance(chart, ChartResponse)
+        chart = chart_cls.model_validate(data)
+        assert isinstance(chart, chart_cls)
