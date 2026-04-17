@@ -251,10 +251,6 @@ class PurgeCommand(ToolkitCommand):
             raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
 
         instance_count = stats.nodes + stats.edges
-        if instance_count > 0:
-            validate_soft_delete_purge_headroom(
-                client, instance_count, action="purging this space (including its instances)"
-            )
 
         validator = ValidateAccess(client, "purge")
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
@@ -262,6 +258,11 @@ class PurgeCommand(ToolkitCommand):
         if instance_count > 0 and validator.data_model(["read"]) is not None:
             raise AuthorizationError(
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
+            )
+
+        if instance_count > 0:
+            validate_soft_delete_purge_headroom(
+                client, instance_count, action="purging this space (including its instances)"
             )
 
         if not dry_run:
