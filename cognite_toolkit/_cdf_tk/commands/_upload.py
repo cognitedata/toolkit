@@ -1,17 +1,16 @@
+import re
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
 from functools import partial
 from pathlib import Path
 
 from rich.console import Console
-from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
     ItemsFailedResponse,
-    ItemsResultMessage,
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
@@ -20,11 +19,20 @@ from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     FileContentIO,
     FileMetadataContentIO,
+    Page,
     T_Selector,
+    TableDataIO,
     UploadableDataIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.dataio._base import Page, TableDataIO, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio._base import TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio.logger import (
+    DataLogger,
+    FileWithAggregationLogger,
+    LogEntryV2,
+    Severity,
+    display_item_results,
+)
 from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
@@ -32,9 +40,8 @@ from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceRespo
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
@@ -54,7 +61,6 @@ class UploadCommand(ToolkitCommand):
 
     _MAX_QUEUE_SIZE = 80
     _MAX_VERBOSE_PRINTED_FAILED_IDS = 10
-    _UPLOAD = "upload"
 
     def upload(
         self,
@@ -105,7 +111,7 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
-        self.upload_data(data_files_by_selector, client, dry_run, console, verbose, skip_strict_mode)
+        self.upload_data(data_files_by_selector, input_dir, client, dry_run, console, verbose, skip_strict_mode)
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -215,6 +221,7 @@ class UploadCommand(ToolkitCommand):
     def upload_data(
         cls,
         data_files_by_selector: Mapping[Selector, list[Path]],
+        input_dir: Path,
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
@@ -222,12 +229,22 @@ class UploadCommand(ToolkitCommand):
         skip_strict_mode: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
-        with HTTPClient(config=client.config) as upload_client:
-            file_count = 1
+
+        input_dir.mkdir(parents=True, exist_ok=True)
+        log_filestem = cls._create_upload_logfile_stem(input_dir)
+        with (
+            NDJsonWriter(
+                input_dir, kind="UploadIssues", default_filestem=log_filestem, compression=Uncompressed
+            ) as log_file,
+            FileWithAggregationLogger(log_file) as logger,
+            HTTPClient(config=client.config) as upload_client,
+        ):
             for selector, datafiles in data_files_by_selector.items():
                 io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
                 if io is None:
                     continue
+                io.logger = logger
+                logger.reset()
                 schema = io.get_schema(selector) if isinstance(io, TableDataIO) else None
                 reader = MultiFileReader(datafiles, schema=schema)
                 # FileContentIO supports uploading any file format.
@@ -238,9 +255,12 @@ class UploadCommand(ToolkitCommand):
 
                 item_count = io.count_items(reader, selector)
 
-                tracker = ProgressTracker[str]([cls._UPLOAD])
+                def read_chunks_with_registered_pages() -> Iterator[Page[dict[str, JsonVal]]]:
+                    for page in io.read_chunks(reader, selector):
+                        yield io.emit_registered_page(page)
+
                 executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
-                    download_iterable=io.read_chunks(reader, selector),
+                    download_iterable=read_chunks_with_registered_pages(),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
                     else io.json_chunk_to_data,
@@ -250,9 +270,10 @@ class UploadCommand(ToolkitCommand):
                         io=io,
                         dry_run=dry_run,
                         selector=selector,
-                        tracker=tracker,
                         console=console,
                         verbose=verbose,
+                        logger=logger,
+                        get_log_file=lambda: log_file.latest_file,
                     ),
                     total_item_count=item_count,
                     max_queue_size=cls._MAX_QUEUE_SIZE,
@@ -262,18 +283,27 @@ class UploadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run()
-                file_count += len(datafiles)
+                items_results = logger.finalize(dry_run)
+                display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
                 executor.raise_on_error()
-                final_action = "Uploaded" if not dry_run else "Would upload"
-                suffix = " successfully" if not dry_run else ""
-                results = tracker.aggregate()
-                success = results.get((cls._UPLOAD, "success"), 0)
-                failed = results.get((cls._UPLOAD, "failed"), 0)
-                if failed > 0:
-                    suffix += f", {failed:,} failed"
-                console.print(
-                    f"{final_action} {success:,} {selector.display_name} from {len(datafiles)} files{suffix}."
-                )
+
+    @staticmethod
+    def _create_upload_logfile_stem(log_dir: Path) -> str:
+        """Create a filestem for the upload log file that does not conflict with existing files in the directory."""
+        base_logstem = "upload-"
+        existing_files = list(log_dir.glob(f"{base_logstem}*"))
+        if not existing_files:
+            return base_logstem
+
+        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+        max_run = 0
+        for f in existing_files:
+            match = run_pattern.match(f.name)
+            if match:
+                max_run = max(max_run, int(match.group(1)))
+
+        next_run = max(2, max_run + 1)
+        return f"{base_logstem}run{next_run}-"
 
     @staticmethod
     def _path_as_display_name(input_path: Path, cwd: Path = Path.cwd()) -> Path:
@@ -308,45 +338,36 @@ class UploadCommand(ToolkitCommand):
         io: UploadableDataIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
         dry_run: bool,
-        tracker: ProgressTracker[str],
         console: Console,
         verbose: bool,
+        logger: DataLogger,
+        get_log_file: Callable[[], Path | None],
     ) -> None:
         if dry_run:
-            for item in data_chunk.items:
-                tracker.set_progress(item.tracking_id, cls._UPLOAD, "success")
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True
-        # Group failed ids by error description for cleaner output
-        failures_by_error: dict[str, list[str]] = {}
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
                 all_failed = False
+            elif isinstance(message, ItemsFailedRequest | ItemsFailedResponse):
+                label = "Failed request"
+                error_description = message.error_message
+                if isinstance(message, ItemsFailedResponse):
+                    label = f"HTTP {message.status_code} code"
+                elif isinstance(message, ItemsFailedRequest):
+                    label = "Failed request"
                 for id_ in message.ids:
-                    tracker.set_progress(id_, step=cls._UPLOAD, status="success")
-            elif isinstance(message, ItemsResultMessage):
-                for id_ in message.ids:
-                    tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
-                if verbose:
-                    if isinstance(message, ItemsFailedResponse):
-                        error_description = f"(HTTP {message.status_code}): {escape(message.error.message)}"
-                        failures_by_error.setdefault(error_description, []).extend(message.ids)
-                    elif isinstance(message, ItemsFailedRequest):
-                        failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
-            else:
-                console.log(f"[red]Unexpected result from upload: {escape(str(message))}[/red]")
-        if verbose:
-            for error_description, failed_ids in failures_by_error.items():
-                ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
-                if len(failed_ids) > cls._MAX_VERBOSE_PRINTED_FAILED_IDS:
-                    ids_display += f" ... and {len(failed_ids) - cls._MAX_VERBOSE_PRINTED_FAILED_IDS} more"
-                console.print(
-                    f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold] "
-                    f"{error_description}\n"
-                    f"  Failed items: {ids_display}"
-                )
+                    logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
+
         if all_failed and results:
-            raise ToolkitRuntimeError(
-                "Upload process was stopped due to repeatedly failed uploads. Rerun with --verbose to see detailed failure information."
+            logger.apply_to_all_unprocessed(
+                label="Early termination of upload process",
+                severity=Severity.skipped,
             )
+            logger.force_write()
+            log_file = get_log_file()
+            suffix = " Failed to get log file"
+            if log_file:
+                suffix = f"\nCheck the log file {cls._path_as_display_name(log_file).as_posix()}."
+            raise ToolkitRuntimeError(f"Upload process was stopped due to repeatedly failed uploads.{suffix}")

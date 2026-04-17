@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
 from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import NoOpLogger
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceFileSelector,
     InstanceQuerySelector,
@@ -235,7 +236,8 @@ class TestUploadCommand:
                     io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
                     dry_run=False,
-                    tracker=MagicMock(),
                     console=MagicMock(spec=Console),
                     verbose=False,
+                    logger=NoOpLogger(),
+                    get_log_file=MagicMock(),
                 )

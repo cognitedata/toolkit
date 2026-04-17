@@ -233,7 +233,14 @@ class DeployV2Command(ToolkitCommand):
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             self._display_deprecation_warning(raw_files, client.console)
-            UploadCommand.upload_data(raw_files, client, options.dry_run, client.console, options.verbose)  # type: ignore[arg-type]
+            UploadCommand.upload_data(
+                raw_files,  # type: ignore[arg-type]
+                user_build_dir,
+                client,
+                options.dry_run,
+                client.console,
+                options.verbose,
+            )
 
         return results
 
