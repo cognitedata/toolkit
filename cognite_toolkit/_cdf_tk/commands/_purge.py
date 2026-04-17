@@ -8,7 +8,7 @@ from typing import Any, Literal, cast
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
@@ -28,12 +28,14 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
+from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio import InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -75,6 +77,35 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
+
+
+def validate_soft_delete_purge_headroom(
+    instance_statistics: InstanceStatistics,
+    instances_to_soft_delete: int,
+    *,
+    action: str,
+) -> None:
+    """Abort if the purge would exhaust the soft-delete resource limit."""
+    if instances_to_soft_delete <= 0:
+        return
+    used = instance_statistics.soft_deleted_instances
+    limit = instance_statistics.soft_deleted_instances_limit
+    margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
+    projected = used + instances_to_soft_delete
+    headroom_after = limit - projected
+    if headroom_after < margin:
+        headroom_clause = (
+            f"leaving only {headroom_after:,} instances of headroom, which is less than the required margin of {margin:,}."
+            if headroom_after >= 0
+            else f"exceeding the limit by {-headroom_after:,} instances."
+        )
+        raise ToolkitValueError(
+            f"Cannot proceed with {action}, not enough soft-deleted instance capacity available. "
+            f"Currently {used:,} of {limit:,} instances are soft-deleted. Performing this operation would add up to "
+            f"{instances_to_soft_delete:,} more (projected total: {projected:,}), {headroom_clause} "
+            f"Reduce what you purge, or wait for soft-deleted data to expire before retrying "
+            f"(see: https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details)."
+        )
 
 
 @dataclass
@@ -230,7 +261,11 @@ class PurgeCommand(ToolkitCommand):
 
         if not dry_run:
             if instance_count > 0:
-                self._print_instance_purge_soft_delete_panel(client, instance_count)
+                project_instance_statistics = client.data_modeling.statistics.project().instances
+                validate_soft_delete_purge_headroom(
+                    project_instance_statistics, instance_count, action="purging this space (including its instances)"
+                )
+                self._print_instance_purge_soft_delete_panel(project_instance_statistics, instance_count)
                 acknowledge_soft_delete = questionary.confirm(
                     "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
@@ -576,13 +611,12 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _print_instance_purge_soft_delete_panel(
-        client: ToolkitClient,
+        instance_statistics: InstanceStatistics,
         instances_to_delete: int,
     ) -> None:
         """Step 1 panel: soft-delete resource limit impact and related notices."""
-        inst_stats = client.data_modeling.statistics.project().instances
-        used = max(0, inst_stats.soft_deleted_instances)
-        limit = inst_stats.soft_deleted_instances_limit
+        used = max(0, instance_statistics.soft_deleted_instances)
+        limit = instance_statistics.soft_deleted_instances_limit
         projected = used + instances_to_delete
         remaining_after = max(0, limit - projected)
         bar_width = 44
@@ -648,7 +682,11 @@ class PurgeCommand(ToolkitCommand):
             print("No instances found.")
             return DeleteResults()
         if not dry_run:
-            self._print_instance_purge_soft_delete_panel(client, total)
+            project_instance_statistics = client.data_modeling.statistics.project().instances
+            validate_soft_delete_purge_headroom(
+                project_instance_statistics, total, action="purging the selected instances"
+            )
+            self._print_instance_purge_soft_delete_panel(project_instance_statistics, total)
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
                 default=False,
