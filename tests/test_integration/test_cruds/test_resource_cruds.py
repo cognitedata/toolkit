@@ -1117,7 +1117,7 @@ class TestViewLoader:
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
     ) -> None:
         definition_yaml = f"""space: {toolkit_space.space}
-externalId: ToolkitTestNoImplementsNotRedeployed{RUN_UNIQUE_ID}
+externalId: ToolkitTestNoImplementsNotRedeployed
 version: v1
 implements: []
 properties:
