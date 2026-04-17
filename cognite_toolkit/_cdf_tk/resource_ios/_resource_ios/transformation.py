@@ -293,10 +293,12 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         sql_candidates = []
         if filestem:
             sql_candidates.append(filepath.parent / f"{filestem}.sql")
-        sql_candidates.extend([
-            filepath.parent / f"{filepath.stem}.sql",
-            filepath.parent / f"{identifier.external_id}.sql",
-        ])
+        sql_candidates.extend(
+            [
+                filepath.parent / f"{filepath.stem}.sql",
+                filepath.parent / f"{identifier.external_id}.sql",
+            ]
+        )
         return next((p for p in sql_candidates if p.exists()), None)
 
     @classmethod
