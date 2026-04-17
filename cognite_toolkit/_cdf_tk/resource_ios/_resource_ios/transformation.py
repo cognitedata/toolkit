@@ -285,16 +285,18 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
 
     @classmethod
     def _try_get_adjacent_sql_file_implicitly(cls, filepath: Path, identifier: ExternalId) -> Path | None:
-        """You can either define .sql file explicity with the 'queryFile' argument, or this
+        """You can either define .sql file explicitly with the 'queryFile' argument, or this
         implicit method will be used."""
         filestem = filepath.stem[: -len(cls.kind)].removesuffix(".")
 
         # Check for conventional file names: {stem}.sql or {external_id}.sql
-        sql_candidates = [
-            filepath.parent / f"{filestem}.sql",
+        sql_candidates = []
+        if filestem:
+            sql_candidates.append(filepath.parent / f"{filestem}.sql")
+        sql_candidates.extend([
             filepath.parent / f"{filepath.stem}.sql",
             filepath.parent / f"{identifier.external_id}.sql",
-        ]
+        ])
         return next((p for p in sql_candidates if p.exists()), None)
 
     @classmethod
