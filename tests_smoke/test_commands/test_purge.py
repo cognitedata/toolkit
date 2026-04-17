@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client import data_modeling as dm
@@ -361,6 +362,7 @@ class TestPurgeSmoke:
         file_ts_nodes: tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]],
         toolkit_client: ToolkitClient,
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = toolkit_client
         (file_node, file_id), (ts_node, ts_id) = file_ts_nodes
@@ -374,6 +376,8 @@ class TestPurgeSmoke:
             encoding="utf-8",
         )
 
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
+
         purge = PurgeCommand(silent=True)
 
         results = purge.instances(
@@ -382,7 +386,6 @@ class TestPurgeSmoke:
             dry_run=False,
             unlink=True,
             verbose=False,
-            auto_yes=True,
         )
         if results.deleted != 2:
             raise AssertionError(f"Expected 2 deleted instances from purge, got {results.deleted!r}")
