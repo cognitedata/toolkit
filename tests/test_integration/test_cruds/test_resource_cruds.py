@@ -33,9 +33,13 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerRequest,
+    ContainerResponse,
     DataModelRequest,
     InstanceSource,
     NodeRequest,
+    TextProperty,
     ViewId,
     ViewRequest,
 )
@@ -629,7 +633,7 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
     a_container = toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
@@ -643,8 +647,21 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Itera
 
 
 @pytest.fixture(scope="module")
-def two_views(
-    toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
+    return toolkit_client.tool.containers.create(
+        [
+            ContainerRequest(
+                space=toolkit_space.space,
+                external_id="persistent_container_toolkit_integration_tests",
+                properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+            )
+        ]
+    )[0]
+
+
+@pytest.fixture(scope="module")
+def two_views_ephemeral(
+    toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
 ) -> Iterable[dm.ViewList]:
     created_views = toolkit_client.data_modeling.views.apply(
         [
@@ -653,7 +670,9 @@ def two_views(
                 external_id=f"first_view{RUN_UNIQUE_ID}",
                 version="1",
                 properties={
-                    "name": dm.MappedPropertyApply(container=a_container.as_id(), container_property_identifier="name")
+                    "name": dm.MappedPropertyApply(
+                        container=container_ephemeral.as_id(), container_property_identifier="name"
+                    )
                 },
             ),
             dm.ViewApply(
@@ -662,7 +681,7 @@ def two_views(
                 version="1",
                 properties={
                     "alsoName": dm.MappedPropertyApply(
-                        container=a_container.as_id(), container_property_identifier="name", name="name2"
+                        container=container_ephemeral.as_id(), container_property_identifier="name", name="name2"
                     )
                 },
             ),
@@ -674,15 +693,18 @@ def two_views(
 
 class TestDataModelLoader:
     def test_create_update_delete(
-        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views: dm.ViewList
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views_ephemeral: dm.ViewList
     ) -> None:
         loader = DataModelIO(toolkit_client, None)
-        view_list = two_views.as_ids()
+        view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=[ViewId(space=view.space, external_id=view.external_id, version=view.version) for view in two_views],
+            views=[
+                ViewId(space=view.space, external_id=view.external_id, version=view.version)
+                for view in two_views_ephemeral
+            ],
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
@@ -1114,17 +1136,17 @@ class TestNodeLoader:
 
 class TestViewLoader:
     def test_no_implement_not_redeployed(
-        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_persistent: ContainerResponse
     ) -> None:
         definition_yaml = f"""space: {toolkit_space.space}
-externalId: ToolkitTestNoImplementsNotRedeployed{RUN_UNIQUE_ID}
+externalId: ToolkitTestNoImplementsNotRedeployed
 version: v1
 implements: []
 properties:
   name:
     container:
-      space: {a_container.space}
-      externalId: {a_container.external_id}
+      space: {container_persistent.space}
+      externalId: {container_persistent.external_id}
       type: container
     containerPropertyIdentifier: name
         """
