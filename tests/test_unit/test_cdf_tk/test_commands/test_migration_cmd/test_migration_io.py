@@ -183,7 +183,13 @@ class TestThreeDAssetMappingMigrationIO:
         )
 
         model_endpoint = f"/3d/models/{model_id}/revisions/{revision_id}/mappings"
-        items = [{"nodeId": i, "assetId": i} for i in range(N)]
+        # Create items with some duplicates: asset_id 0-49 appear twice (once in each batch)
+        duplicate_count = 50
+        first_batch_items = [{"nodeId": i, "assetId": i} for i in range(ThreeDAssetMappingMigrationIO.CHUNK_SIZE)]
+        # Second batch has duplicates (asset_id 0-49) plus new ones (asset_id 100-149)
+        second_batch_items = [{"nodeId": i + 1000, "assetId": i} for i in range(duplicate_count)] + [
+            {"nodeId": i, "assetId": i} for i in range(ThreeDAssetMappingMigrationIO.CHUNK_SIZE, N)
+        ]
         respx_mock.post(
             config.create_api_url(f"{model_endpoint}/list"),
         ).mock(
@@ -191,14 +197,14 @@ class TestThreeDAssetMappingMigrationIO:
                 Response(
                     status_code=200,
                     json={
-                        "items": items[: ThreeDAssetMappingMigrationIO.CHUNK_SIZE],
+                        "items": first_batch_items,
                         "nextCursor": "cursor_1",
                     },
                 ),
                 Response(
                     status_code=200,
                     json={
-                        "items": items[ThreeDAssetMappingMigrationIO.CHUNK_SIZE :],
+                        "items": second_batch_items,
                         "nextCursor": None,
                     },
                 ),
@@ -215,10 +221,24 @@ class TestThreeDAssetMappingMigrationIO:
 
         selector = ThreeDModelIdSelector(ids=(37,))
         io = ThreeDAssetMappingMigrationIO(client, object_3D_space="mySpace", cad_node_space="mySpace")
+
+        # Set up a mock logger to capture logged entries
+        mock_logger = MagicMock()
+        io.logger = mock_logger
+
         pages = list(io.stream_data(selector))
         assert len(pages) == 2
         data_items = [di for chunk in pages for di in chunk.items]
+        # We should get N unique items (duplicates are skipped)
         assert len(data_items) == N
+
+        # Verify that duplicates were logged as skipped
+        mock_logger.log.assert_called_once()
+        logged_entries = mock_logger.log.call_args[0][0]
+        assert len(logged_entries) == duplicate_count
+        for entry in logged_entries:
+            assert entry.label == "Skipped"
+            assert entry.message == "Duplicate asset mapping found."
 
         assert io.count(selector) is None, "3D Asset mapping count should be None"
 
