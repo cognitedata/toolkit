@@ -660,7 +660,7 @@ def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space)
 
 
 @pytest.fixture(scope="module")
-def two_views(
+def two_views_ephemeral(
     toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
 ) -> Iterable[dm.ViewList]:
     created_views = toolkit_client.data_modeling.views.apply(
@@ -693,15 +693,18 @@ def two_views(
 
 class TestDataModelLoader:
     def test_create_update_delete(
-        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views: dm.ViewList
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views_ephemeral: dm.ViewList
     ) -> None:
         loader = DataModelIO(toolkit_client, None)
-        view_list = two_views.as_ids()
+        view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=[ViewId(space=view.space, external_id=view.external_id, version=view.version) for view in two_views],
+            views=[
+                ViewId(space=view.space, external_id=view.external_id, version=view.version)
+                for view in two_views_ephemeral
+            ],
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
