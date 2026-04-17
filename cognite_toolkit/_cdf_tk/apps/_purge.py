@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceViewSelector,
     SelectedView,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -195,7 +196,7 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--yes",
                 "-y",
-                help="Automatically confirm that you are sure you want to purge the space.",
+                help="Deprecated. Purge operations now always require manual confirmation.",
             ),
         ] = False,
         verbose: Annotated[
@@ -212,12 +213,10 @@ class PurgeApp(typer.Typer):
         cmd = PurgeCommand(client=client)
 
         if auto_yes:
-            print(
-                "[yellow]DEPRECATED:[/yellow] The [bold]--yes[/bold] / [bold]-y[/bold] flag is deprecated for "
-                "[bold]cdf data purge space[/bold] and this flag will be removed in a future release. "
-                "Purging data is an operation that should always be performed manually — "
-                "confirmation prompts are now always required."
-            )
+            ToolkitDeprecationWarning(
+                feature="--yes / -y flag in cdf data purge space",
+                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+            ).print_warning()
             auto_yes = False
 
         if space is None:
@@ -318,7 +317,7 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--yes",
                 "-y",
-                help="Automatically confirm that you are sure you want to purge the instances.",
+                help="Deprecated. Purge operations now always require manual confirmation.",
             ),
         ] = False,
         verbose: Annotated[
@@ -335,12 +334,10 @@ class PurgeApp(typer.Typer):
         cmd = PurgeCommand(client=client)
 
         if auto_yes:
-            print(
-                "[yellow]DEPRECATED:[/yellow] The [bold]--yes[/bold] / [bold]-y[/bold] flag is deprecated for "
-                "[bold]cdf data purge instances[/bold] and this flag will be removed in a future release. "
-                "Purging data is an operation that must always be performed manually — "
-                "confirmation prompts are now always required."
-            )
+            ToolkitDeprecationWarning(
+                feature="--yes / -y flag in cdf data purge instances",
+                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+            ).print_warning()
             auto_yes = False
 
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
