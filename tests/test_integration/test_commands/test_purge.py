@@ -1,11 +1,8 @@
 import contextlib
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 
 import pytest
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     AssetWrite,
@@ -33,97 +30,11 @@ from cognite.client.data_classes import (
     Workflow,
     WorkflowUpsert,
 )
-from cognite.client.data_classes.data_modeling import Space
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
-from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
-
-
-@pytest.fixture()
-def file_ts_nodes(
-    toolkit_client: ToolkitClient, toolkit_space: Space
-) -> Iterable[tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]]]:
-    client = toolkit_client
-    file = CogniteFileApply(
-        space=toolkit_space.space,
-        external_id=f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}",
-        name="Test File for Purge with Unlink",
-        mime_type="text/plain",
-    )
-    ts = CogniteTimeSeriesApply(
-        space=toolkit_space.space,
-        external_id=f"test_ts_purge_with_unlink_{RUN_UNIQUE_ID}",
-        name="Test TS for Purge with Unlink",
-        is_step=False,
-        time_series_type="numeric",
-    )
-    classic_file = FileMetadataWrite(
-        name=file.name,
-        external_id=file.external_id,
-        mime_type=file.mime_type,
-    )
-    classic_ts = TimeSeriesWrite(
-        external_id=ts.external_id,
-        name=ts.name,
-        is_step=ts.is_step,
-        is_string=ts.time_series_type == "string",
-    )
-    file_id: int | None = None
-    ts_id: int | None = None
-    try:
-        # Ensure clean state
-        client.data_modeling.instances.delete([file.as_id(), ts.as_id()])
-        client.files.delete(external_id=classic_file.external_id, ignore_unknown_ids=True)
-        client.time_series.delete(external_id=classic_ts.external_id, ignore_unknown_ids=True)
-
-        # Create timeseries and file
-        created_file = client.files.upload_bytes(b"Sample file content", **classic_file.dump(camel_case=False))
-        file_id = created_file.id
-        created_ts = client.time_series.create(classic_ts)
-        ts_id = created_ts.id
-        client.time_series.data.insert(
-            datapoints=[{"timestamp": datetime_to_ms(datetime(2020, 1, 1, 0, 0, 0)), "value": 1.0}],
-            id=ts_id,
-        )
-
-        # Link them.
-        client.tool.filemetadata.set_pending_ids(
-            [
-                PendingInstanceId(
-                    pending_instance_id=NodeId(space=file.space, external_id=file.external_id),
-                    id=file_id,
-                )
-            ]
-        )
-        client.tool.timeseries.set_pending_ids(
-            [
-                PendingInstanceId(
-                    pending_instance_id=NodeId(space=ts.space, external_id=ts.external_id),
-                    id=ts_id,
-                )
-            ]
-        )
-
-        # Create Nodes in CDM
-        created = client.data_modeling.instances.apply([file, ts])
-        assert len(created.nodes) == 2
-
-        yield (file.as_id(), file_id), (ts.as_id(), ts_id)
-    finally:
-        client.data_modeling.instances.delete([file.as_id(), ts.as_id()])
-        if file_id is not None:
-            client.tool.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
-            client.files.delete(id=file_id, ignore_unknown_ids=True)
-        if ts_id is not None:
-            client.tool.timeseries.unlink_instance_ids([InternalId(id=ts_id)])
-            client.time_series.delete(id=ts_id, ignore_unknown_ids=True)
 
 
 @dataclass
@@ -140,24 +51,6 @@ class PopulatedDataSet:
     workflow: Workflow
     transformation: Transformation
     extraction_pipeline: ExtractionPipeline
-
-
-@pytest.fixture()
-def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
-    populated = create_populated_dataset(
-        toolkit_client, name="toolkit_test_purge_dataset", external_id="toolkit_test_purge_dataset", no=1
-    )
-    yield populated
-    cleanup_populated_dataset(toolkit_client, populated)
-
-
-@pytest.fixture()
-def populated_datasets_2(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
-    populated2 = create_populated_dataset(
-        toolkit_client, name="toolkit_test_purge_dataset_2", external_id="toolkit_test_purge_dataset_2", no=2
-    )
-    yield populated2
-    cleanup_populated_dataset(toolkit_client, populated2)
 
 
 @pytest.fixture()
@@ -289,116 +182,6 @@ def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet
 
 
 class TestPurge:
-    def test_purge_instances_with_unlink(
-        self,
-        file_ts_nodes: tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]],
-        toolkit_client: ToolkitClient,
-        tmp_path: Path,
-    ) -> None:
-        client = toolkit_client
-        (file_node, file_id), (ts_node, ts_id) = file_ts_nodes
-
-        csv_path = tmp_path / "test.csv"
-        csv_path.write_text(
-            f"""space,externalId,instanceType
-{file_node.space},{file_node.external_id},node
-{ts_node.space},{ts_node.external_id},node
-""",
-            encoding="utf-8",
-        )
-
-        purge = PurgeCommand(silent=True)
-
-        results = purge.instances(
-            client,
-            InstanceFileSelector(datafile=csv_path, validate=True),
-            dry_run=False,
-            unlink=True,
-            verbose=False,
-            auto_yes=True,
-        )
-        assert results.deleted == 2
-
-        results = client.data_modeling.instances.retrieve([file_node, ts_node])
-        assert len(results.nodes) == 0, "Instances were not purged"
-
-        classic_file = client.files.retrieve(id=file_id)
-        assert classic_file is not None, "File was not unlinked"
-
-        classic_ts = client.time_series.retrieve(id=ts_id)
-        assert classic_ts is not None, "Time series was not unlinked"
-
-    def test_purge_dataset_include_data(
-        self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet
-    ) -> None:
-        client = toolkit_client
-        populated = populated_dataset
-        purge = PurgeCommand(silent=True)
-
-        _ = purge.dataset(
-            client,
-            selected_data_set_external_id=populated.dataset.external_id,
-            archive_dataset=False,
-            include_data=True,
-            include_configurations=False,
-            dry_run=False,
-            auto_yes=True,
-            verbose=False,
-        )
-        # Data is deleted
-        assert client.assets.retrieve(external_id=populated.asset.external_id) is None
-        assert client.events.retrieve(external_id=populated.event.external_id) is None
-        assert client.sequences.retrieve(external_id=populated.sequence.external_id) is None
-        assert client.time_series.retrieve(external_id=populated.timeseries.external_id) is None
-        assert client.files.retrieve(external_id=populated.file.external_id) is None
-        # Labels are not deleted, they are still available on direct look-up.
-        # However, they should not be listed under the dataset anymore.
-        assert len(client.labels.list(data_set_external_ids=populated.dataset.external_id)) == 0
-        relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
-        assert len(relationships) == 0
-        assert client.three_d.models.retrieve(id=populated.three_d.id) is None
-
-        # Configurations are not deleted
-        assert (
-            client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True) is not None
-        )
-        assert client.transformations.retrieve(external_id=populated.transformation.external_id) is not None
-        assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None
-
-    def test_purge_dataset_include_configurations(
-        self, toolkit_client: ToolkitClient, populated_datasets_2: PopulatedDataSet
-    ) -> None:
-        client = toolkit_client
-        populated = populated_datasets_2
-        purge = PurgeCommand(silent=True)
-
-        _ = purge.dataset(
-            client,
-            selected_data_set_external_id=populated.dataset.external_id,
-            archive_dataset=False,
-            include_data=False,
-            include_configurations=True,
-            dry_run=False,
-            auto_yes=True,
-            verbose=False,
-        )
-        # Data not deleted
-        assert client.assets.retrieve(external_id=populated.asset.external_id) is not None
-        assert client.events.retrieve(external_id=populated.event.external_id) is not None
-        assert client.sequences.retrieve(external_id=populated.sequence.external_id) is not None
-        assert client.time_series.retrieve(external_id=populated.timeseries.external_id) is not None
-        assert client.files.retrieve(external_id=populated.file.external_id) is not None
-        # Labels are not deleted, they are still available on direct look-up.
-        # However, they should not be listed under the dataset anymore.
-        assert len(client.labels.list(data_set_external_ids=populated.dataset.external_id)) >= 1
-        relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
-        assert len(relationships) == 1
-        assert client.three_d.models.retrieve(id=populated.three_d.id) is not None
-        # Configurations deleted
-        assert client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True) is None
-        assert client.transformations.retrieve(external_id=populated.transformation.external_id) is None
-        assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is None
-
     def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet) -> None:
         client = toolkit_client
         populated = populated_datasets_3

@@ -249,7 +249,6 @@ def test_build_deploy_complete_org(
         )
 
 
-@pytest.mark.skipif(not Flags.v08.is_enabled(), reason="Requires v8.")
 @pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_v2_complete_orgs(
     organization_dir: Path,
@@ -265,7 +264,7 @@ def test_build_deploy_v2_complete_orgs(
         parameters=BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_tmp_path,
-            config_yaml_name="dev",
+            config_yaml=organization_dir / "config.dev.yaml",
         ),
     )
     with patch.dict(

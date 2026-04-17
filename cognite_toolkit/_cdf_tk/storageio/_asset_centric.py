@@ -47,6 +47,7 @@ from ._base import (
     TableStorageIO,
     TableUploadableStorageIO,
 )
+from .logger import DataLogger
 from .progress import CursorBookmark, NoBookmark
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
@@ -329,18 +330,20 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
             )
             self._collect_dependencies(page.items, selector)
             bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            yield Page(
-                worker_id="main",
-                items=[
-                    DataItem(
-                        tracking_id=item.external_id
-                        if item.external_id is not None
-                        else self._create_identifier(item.id),
-                        item=item,
-                    )
-                    for item in page.items
-                ],
-                bookmark=bm,
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[
+                        DataItem(
+                            tracking_id=item.external_id
+                            if item.external_id is not None
+                            else self._create_identifier(item.id),
+                            item=item,
+                        )
+                        for item in page.items
+                    ],
+                    bookmark=bm,
+                )
             )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
@@ -471,18 +474,20 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
             )
             self._collect_dependencies(page.items, selector)
             bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            yield Page(
-                worker_id="main",
-                items=[
-                    DataItem(
-                        tracking_id=item.external_id
-                        if item.external_id is not None
-                        else self._create_identifier(item.id),
-                        item=item,
-                    )
-                    for item in page.items
-                ],
-                bookmark=bm,
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[
+                        DataItem(
+                            tracking_id=item.external_id
+                            if item.external_id is not None
+                            else self._create_identifier(item.id),
+                            item=item,
+                        )
+                        for item in page.items
+                    ],
+                    bookmark=bm,
+                )
             )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
@@ -543,18 +548,20 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
             )
             self._collect_dependencies(page.items, selector)
             bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            yield Page(
-                worker_id="main",
-                items=[
-                    DataItem(
-                        tracking_id=item.external_id
-                        if item.external_id is not None
-                        else self._create_identifier(item.id),
-                        item=item,
-                    )
-                    for item in page.items
-                ],
-                bookmark=bm,
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[
+                        DataItem(
+                            tracking_id=item.external_id
+                            if item.external_id is not None
+                            else self._create_identifier(item.id),
+                            item=item,
+                        )
+                        for item in page.items
+                    ],
+                    bookmark=bm,
+                )
             )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
@@ -693,18 +700,20 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
             )
             self._collect_dependencies(page.items, selector)
             bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            yield Page(
-                worker_id="main",
-                items=[
-                    DataItem(
-                        tracking_id=item.external_id
-                        if item.external_id is not None
-                        else self._create_identifier(item.id),
-                        item=item,
-                    )
-                    for item in page.items
-                ],
-                bookmark=bm,
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[
+                        DataItem(
+                            tracking_id=item.external_id
+                            if item.external_id is not None
+                            else self._create_identifier(item.id),
+                            item=item,
+                        )
+                        for item in page.items
+                    ],
+                    bookmark=bm,
+                )
             )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
@@ -763,6 +772,16 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AssetCentricResource]]:
         yield from self.get_resource_io(selector.kind).stream_data(selector, limit, bookmark=bookmark)
+
+    @property
+    def logger(self) -> DataLogger:
+        return self.logger
+
+    @logger.setter
+    def logger(self, new_logger: DataLogger) -> None:
+        self._logger = new_logger
+        for subio in self._io_by_kind.values():
+            subio.logger = new_logger
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)

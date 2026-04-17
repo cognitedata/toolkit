@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
@@ -70,10 +69,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.issues import CanvasMigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger
 from tests.data import MIGRATION_DIR
 
 
@@ -320,7 +319,6 @@ class TestThreeDAssetMapper:
 
             mapper = ThreeDAssetMapper(client)
             logger = MagicMock(spec=DataLogger)
-            logger.tracker = MagicMock(spec_set=OperationTracker)
             mapper.logger = logger
             mapped = mapper.map([response])[0]
 
@@ -332,13 +330,17 @@ class TestThreeDAssetMapper:
 
             if isinstance(expected, AssetMappingDMRequestId):
                 logger.log.assert_not_called()
-                logger.tracker.add_issue.assert_not_called()
                 assert mapped is not None
                 assert mapped.model_dump() == expected.model_dump()
             else:
-                _, message = logger.tracker.add_issue.call_args.args
+                logger.log.assert_called_once()
+                log_entries = logger.log.call_args[0][0]
+                assert isinstance(log_entries, list)
+                assert len(log_entries) == 1
+                entry = log_entries[0]
+                assert isinstance(entry, MigrationEntryV2)
                 assert mapped is None, "Expected no mapped result"
-                assert message == expected
+                assert expected in entry.message
 
 
 class TestCanvasMapper:
@@ -378,7 +380,6 @@ class TestCanvasMapper:
 
             mapper = CanvasMapper(client, dry_run=False, skip_on_missing_ref=False)
             logger = MagicMock(spec=DataLogger)
-            logger.tracker = MagicMock(spec_set=OperationTracker)
             mapper.logger = logger
 
             actual = mapper.map([input_canvas])[0]
@@ -400,8 +401,9 @@ class TestCanvasMapper:
         entry = logger.log.call_args[0][0]
         assert isinstance(entry, list)
         first = entry[0]
-        assert isinstance(first, CanvasMigrationIssue)
-        assert first.files_missing_content == [NodeId(space="my_space", external_id="file_1")]
+        assert isinstance(first, MigrationEntryV2)
+        assert first.label == "File missing content"
+        assert "my_space:file_1" in first.attributes
 
 
 class TestChartMapper:
@@ -429,11 +431,6 @@ class TestChartMapper:
             )
             client.migration.lookup.time_series = time_series_lookup
             assert source.monitoring_jobs
-            user_identifier = source.monitoring_jobs[0].user_identifier
-            assert user_identifier is not None
-            client.user_profiles.me.return_value = UserProfile(
-                user_identifier=user_identifier, identity_type="USER", last_updated_time=1
-            )
 
             event_node_ids = [NodeId(space=target_space, external_id=f"event_{i}") for i in range(event_count)]
             client.tool.events.list.return_value = [

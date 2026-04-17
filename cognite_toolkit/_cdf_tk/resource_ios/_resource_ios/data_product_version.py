@@ -90,7 +90,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
         }
         for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
-                dumped.pop(key)
+                dumped.pop(key, None)
         return dumped
 
     def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:

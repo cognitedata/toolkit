@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -70,7 +69,6 @@ class TestFunctionLoader:
         loader.load_resource(dict(resource), is_dry_run=False)
         client.lookup.data_sets.id.assert_called_with("ds_new", False)
 
-    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
@@ -237,7 +235,6 @@ secrets:
             ]
             yield loader
 
-    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
@@ -252,7 +249,6 @@ secrets:
 
         assert result == [created_response]
 
-    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client

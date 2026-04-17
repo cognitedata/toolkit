@@ -47,7 +47,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -95,7 +94,7 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        support_upload: bool = Flags.v08.is_enabled(),
+        support_upload: bool = True,
     ) -> None:
         super().__init__(client, build_dir, console)
         self._filepath_by_external_id: dict[str, Path] = {}
@@ -378,7 +377,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        support_upload: bool = Flags.v08.is_enabled(),
+        support_upload: bool = True,
     ) -> None:
         super().__init__(client, build_dir, console)
         self._filepath_by_node_id: dict[NodeId, Path] = {}

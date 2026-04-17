@@ -2,7 +2,6 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from functools import cached_property
 from typing import Any, ClassVar, Generic, Literal, TypeVar
 from uuid import uuid4
 
@@ -94,12 +93,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ChartMigrationIssue,
     ConversionIssue,
     InstanceConversionIssue,
+    MigrationEntryV2,
     ThreeDModelMigrationIssue,
+    instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import T_DataRequest, T_DataResponse, T_Selector
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger, Severity
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartSelector,
@@ -160,38 +161,141 @@ class AssetCentricMapper(
     ) -> tuple[T_DataRequest | None, ConversionIssue]:
         raise NotImplementedError
 
+    def _migration_entries_for_conversion(
+        self,
+        item: AssetCentricMapping[T_AssetCentricResourceExtended],
+        issue: ConversionIssue,
+        mapping_failed: bool,
+    ) -> list[MigrationEntryV2]:
+        mapping = item.mapping
+        item_id = str(mapping.as_asset_centric_id())
+        source = f"{mapping.resource_type}:{mapping.id}"
+        destination = str(mapping.instance_id)
+        entries: list[MigrationEntryV2] = []
+        if issue.missing_instance_space:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing instance space",
+                    message=str(issue.missing_instance_space),
+                    severity=Severity.failure,
+                    source=source,
+                    destination=destination,
+                    attributes={issue.missing_instance_space},
+                    attribute_display_name="space",
+                )
+            )
+        if issue.no_mappable_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="No mappable properties",
+                    message="No properties could be mapped to target",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                )
+            )
+        if issue.failed_conversions:
+            errors = "; ".join(conv.display_name for conv in issue.failed_conversions)
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Failed conversions",
+                    message=errors,
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes={conv.property_id for conv in issue.failed_conversions},
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.invalid_instance_property_types:
+            errors = "; ".join(prop.display_name for prop in issue.invalid_instance_property_types)
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Invalid instance property types",
+                    message=errors,
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes={prop.property_id for prop in issue.invalid_instance_property_types},
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.missing_asset_centric_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing asset-centric properties",
+                    message=f"Missing: {humanize_collection(issue.missing_asset_centric_properties)}",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.missing_asset_centric_properties),
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.missing_instance_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Missing data modeling properties",
+                    message=f"Missing: {humanize_collection(issue.missing_instance_properties)}",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.missing_instance_properties),
+                    attribute_display_name="properties",
+                )
+            )
+        if issue.ignored_asset_centric_properties:
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Ignored asset-centric properties",
+                    message="Some source properties were ignored",
+                    severity=Severity.warning,
+                    source=source,
+                    destination=destination,
+                    attributes=set(issue.ignored_asset_centric_properties),
+                    attribute_display_name="ignored properties",
+                )
+            )
+        if mapping_failed:
+            msg = "Could not build target resource."
+            if not entries and not issue.has_issues:
+                msg = (
+                    "No properties could be mapped to the target container, at least one property is required "
+                    "to create a record"
+                )
+            entries.append(
+                MigrationEntryV2(
+                    id=item_id,
+                    label="Conversion failed",
+                    message=msg,
+                    severity=Severity.failure,
+                    source=source,
+                    destination=destination,
+                )
+            )
+        return entries
+
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
     ) -> Sequence[T_DataRequest | None]:
         self._direct_relation_cache.update(item.resource for item in source)
         output: list[T_DataRequest | None] = []
-        issues: list[ConversionIssue] = []
+        log_entries: list[MigrationEntryV2] = []
         for item in source:
             result, conversion_issue = self._map_single_item(item)
-            identifier = str(item.mapping.as_asset_centric_id())
-
-            if conversion_issue.missing_instance_space:
-                self.logger.tracker.add_issue(identifier, "Missing instance space")
-            if conversion_issue.no_mappable_properties:
-                self.logger.tracker.add_issue(identifier, "No properties could be mapped to target")
-            if conversion_issue.failed_conversions:
-                self.logger.tracker.add_issue(identifier, "Failed conversions")
-            if conversion_issue.invalid_instance_property_types:
-                self.logger.tracker.add_issue(identifier, "Invalid instance property types")
-            if conversion_issue.missing_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
-            if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
-            if conversion_issue.ignored_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
-
-            if conversion_issue.has_issues:
-                issues.append(conversion_issue)
-            if result is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+            log_entries.extend(
+                self._migration_entries_for_conversion(item, conversion_issue, result is None),
+            )
             output.append(result)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
 
@@ -328,11 +432,6 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
-        if record is None and not conversion_issue.has_issues:
-            self.logger.tracker.add_issue(
-                str(item.mapping.as_asset_centric_id()),
-                "No properties could be mapped to the target container, at least one property is required to create a record",
-            )
         return record, conversion_issue
 
 
@@ -348,46 +447,83 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         ):
             raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
 
-    @cached_property
-    def _me(self) -> str:
-        return self.client.user_profiles.me().user_identifier
-
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         event_ids_by_chart_external_id = self._populate_cache(source)
         output: list[ChartRequest | None] = []
-        issues: list[ChartMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        chart_src = "Charts"
+        chart_dest = "Charts (data modeling)"
         for item in source:
             identifier = item.external_id
-            if any(job.user_identifier != self._me for job in item.monitoring_jobs or []):
-                issues.append(
-                    ChartMigrationIssue(
-                        id=identifier, chart_external_id=identifier, errors=["Monitoring job owned by different user"]
-                    )
-                )
-                self.logger.tracker.add_issue(identifier, "Monitoring job owned by different user.")
-                self.logger.tracker.finalize_item(identifier, "failure")
-                output.append(None)
-                continue
-
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )
 
             if issue.missing_timeseries_ids:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries IDs",
+                        message="One or more timeseries are missing internal IDs",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes={str(id_) for id_ in issue.missing_timeseries_ids},
+                        attribute_display_name="timeseries IDs",
+                    )
+                )
             if issue.missing_timeseries_external_ids:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries external IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries external IDs",
+                        message="One or more timeseries are missing external IDs",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes=set(issue.missing_timeseries_external_ids),
+                        attribute_display_name="timeseries external IDs",
+                    )
+                )
             if issue.missing_timeseries_identifier:
-                self.logger.tracker.add_issue(identifier, "Missing timeseries identifier")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing timeseries identifier",
+                        message="One or more timeseries elements lack identifiers",
+                        severity=Severity.warning,
+                        source=chart_src,
+                        destination=chart_dest,
+                        attributes=set(issue.missing_timeseries_identifier),
+                        attribute_display_name="timeseries identifiers",
+                    )
+                )
 
-            if issue.has_issues:
-                issues.append(issue)
-
-            if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+            if issue.has_issues and mapped_item is None:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Chart migration failed",
+                        message="; ".join(issue.errors) if issue.errors else "Chart could not be migrated",
+                        severity=Severity.failure,
+                        source=chart_src,
+                        destination=chart_dest,
+                    )
+                )
+            elif mapped_item is None:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Chart migration failed",
+                        message="Chart could not be migrated",
+                        severity=Severity.failure,
+                        source=chart_src,
+                        destination=chart_dest,
+                    )
+                )
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
@@ -763,25 +899,55 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         file_node_ids = self._populate_cache(source)
         cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
         output: list[IndustrialCanvasRequest | None] = []
-        issues: list[CanvasMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        canvas_src = "Industrial Canvas"
+        canvas_dest = "Industrial Canvas (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item, cognite_file_by_id)
-            identifier = item.name
+            identifier = item.external_id
 
             if issue.missing_reference_ids:
-                self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Missing reference IDs",
+                        message=f"Missing {len(issue.missing_reference_ids)} reference(s)",
+                        severity=Severity.warning,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                        attributes={str(ref) for ref in issue.missing_reference_ids},
+                        attribute_display_name="timeseries/file/event/asset references",
+                    )
+                )
             if issue.files_missing_content:
-                self.logger.tracker.add_issue(identifier, "File missing content")
-
-            if issue.has_issues:
-                issues.append(issue)
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="File missing content",
+                        message=f"{len(issue.files_missing_content)} file(s) lack uploaded content",
+                        severity=Severity.warning,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                        attributes={str(ref) for ref in issue.files_missing_content},
+                        attribute_display_name="file references with missing content",
+                    )
+                )
 
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Canvas migration failed",
+                        message="Canvas could not be migrated",
+                        severity=Severity.failure,
+                        source=canvas_src,
+                        destination=canvas_dest,
+                    )
+                )
 
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     @property
@@ -915,23 +1081,39 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
     def map(self, source: Sequence[ThreeDModelClassicResponse]) -> Sequence[ThreeDMigrationRequest | None]:
         self._populate_cache(source)
         output: list[ThreeDMigrationRequest | None] = []
-        issues: list[ThreeDModelMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
+        src_3d = "3D models"
+        dest_3d = "3D models (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = item.name
-
-            if issue.error_message:
-                for error in issue.error_message:
-                    self.logger.tracker.add_issue(identifier, error)
-
-            if issue.has_issues:
-                issues.append(issue)
-
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="3D model migration failed",
+                        message="; ".join(issue.error_message)
+                        if issue.error_message
+                        else "Model could not be migrated",
+                        severity=Severity.failure,
+                        source=src_3d,
+                        destination=dest_3d,
+                    )
+                )
+            elif issue.error_message:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="3D model migration issue",
+                        message="; ".join(issue.error_message),
+                        severity=Severity.warning,
+                        source=src_3d,
+                        destination=dest_3d,
+                    )
+                )
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     def _populate_cache(self, source: Sequence[ThreeDModelClassicResponse]) -> None:
@@ -1002,25 +1184,41 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
     def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequestId | None]:
         output: list[AssetMappingDMRequestId | None] = []
-        issues: list[ThreeDModelMigrationIssue] = []
+        log_entries: list[MigrationEntryV2] = []
         self._populate_cache(source)
+        src_map = "3D asset mappings"
+        dest_map = "3D asset mappings (data modeling)"
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
-
-            if issue.error_message:
-                for error in issue.error_message:
-                    self.logger.tracker.add_issue(identifier, error)
-
-            if issue.has_issues:
-                issues.append(issue)
-
             if mapped_item is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Asset mapping migration failed",
+                        message="; ".join(issue.error_message)
+                        if issue.error_message
+                        else "Mapping could not be migrated",
+                        severity=Severity.failure,
+                        source=src_map,
+                        destination=dest_map,
+                    )
+                )
+            elif issue.error_message:
+                log_entries.append(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="Asset mapping migration issue",
+                        message="; ".join(issue.error_message),
+                        severity=Severity.warning,
+                        source=src_map,
+                        destination=dest_map,
+                    )
+                )
 
             output.append(mapped_item)
-        if issues:
-            self.logger.log(issues)
+        if log_entries:
+            self.logger.log(log_entries)
         return output
 
     def _populate_cache(self, source: Sequence[AssetMappingClassicResponse]) -> None:
@@ -1134,7 +1332,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 issue_by_node_id[node_id] = InstanceConversionIssue(
                     id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
                 )
-                self.logger.tracker.finalize_item(str(node.as_id()), "failure")
                 continue
             mapped_node, edges, issue = self._map_single_node(
                 node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
@@ -1155,7 +1352,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._check_existence_of_required_targets(mapped_instances, issue_by_node_id)
 
         if issue_by_node_id:
-            self.logger.log(list(issue_by_node_id.values()))
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="FDM instances", destination="CDM instances"
+                    )
+                    for issue in issue_by_node_id.values()
+                ]
+            )
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
@@ -1480,11 +1684,18 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
             mapped_item, issue = self._create_single_schedule(duplicated_schedules, template_edges, template_id_edges)
             if issue.has_issues:
                 issues.append(issue)
-            if mapped_item is None:
-                self.logger.tracker.finalize_item(str(duplicated_schedules[0].as_id()), "failure")
+            elif mapped_item is None:
+                issues.append(issue)
             output.append(mapped_item)
         if issues:
-            self.logger.log(issues)
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="InField schedules (legacy)", destination="InField schedules (CDM)"
+                    )
+                    for issue in issues
+                ]
+            )
         return output
 
     def _as_schedules_and_edges(
@@ -1518,8 +1729,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                             ],
                         )
                     )
-
-                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
             elif isinstance(item, EdgeResponse):
                 if item.type == self.TEMPLATE_EDGE_TYPE:
                     template_edges_by_item_id[item.end_node].append(
@@ -1538,7 +1747,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                             ],
                         )
                     )
-                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:

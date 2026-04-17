@@ -3,6 +3,7 @@
 import contextlib
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Union
 
@@ -22,10 +23,10 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment, humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -41,6 +42,11 @@ CDF_TOML = CDFToml.load(Path.cwd())
 TODAY = date.today()
 
 
+class InsightFormat(str, Enum):
+    csv = "csv"
+    json = "json"
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"CDF-Toolkit version: {current_version}.")
@@ -51,14 +57,9 @@ class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
-        if Flags.v08.is_enabled():
-            self.command("build")(self.build_v2)
-            self.command("deploy")(self.deploy_v2)
-            self.command("clean")(self.clean_v2)
-        else:
-            self.command()(self.build)
-            self.command()(self.deploy)
-            self.command()(self.clean)
+        self.command("build")(self.build_v2)
+        self.command("deploy")(self.deploy_v2)
+        self.command("clean")(self.clean_v2)
 
     def common(
         self,
@@ -276,13 +277,31 @@ class CoreApp(typer.Typer):
             ),
         ] = None,
         config_yaml: Annotated[
-            str | None,
+            Path | None,
             typer.Option(
                 "--config-yaml",
                 "-c",
-                help="The name of the config YAML file to use. It expected to be named config.<name>.yaml and be located in the organization directory.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
+        build_env_name: Annotated[
+            str | None,
+            typer.Option(
+                "--env",
+                "-e",
+                help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
             ),
         ] = None,
+        insight_format: Annotated[
+            InsightFormat,
+            typer.Option(
+                "--insight-format",
+                help="File format for the insights file written to the build directory.",
+            ),
+        ] = InsightFormat.csv,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -302,12 +321,21 @@ class CoreApp(typer.Typer):
 
         cmd = BuildV2Command(print_warning=True, client=client)
 
+        if build_env_name is not None:
+            ToolkitDeprecationWarning(
+                feature="the --env / -e option in cdf build",
+                alternative="--config-yaml / -c with the path to your config file (for example <organization-dir>/config.<env>.yaml)",
+            ).print_warning()
+            if config_yaml is None:
+                config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
+
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yaml_name=config_yaml,
+            config_yaml=config_yaml,
             user_selected_modules=selected,
             verbose=verbose,
+            insight_format=insight_format.value,
         )
 
         cmd.run(

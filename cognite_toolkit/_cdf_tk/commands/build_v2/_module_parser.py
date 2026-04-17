@@ -27,12 +27,16 @@ class ModuleParser:
     VARIABLE_ERROR_CODE = "CONFIG_VARIABLE_001"
 
     @classmethod
-    def parse(cls, build: BuildSourceFiles) -> BuildSource:
-        source_by_module_id, orphan_yaml_files = cls._find_modules(build.yaml_files, build.organization_dir)
-
+    def parse(
+        cls,
+        build: BuildSourceFiles,
+        user_selected_modules: set[RelativeDirPath | str],
+        source_by_module_id: dict[RelativeDirPath, ModuleSource],
+        orphan_yaml_files: list[RelativeFilePath],
+    ) -> BuildSource:
         module_ids = list(source_by_module_id.keys())
         available_paths = cls._expand_parents(module_ids)
-        selected_modules = cls._select_modules(module_ids, build.selected_modules)
+        selected_modules = cls._select_modules(module_ids, user_selected_modules)
         selected_paths = cls._expand_parents(selected_modules)
 
         module_paths_by_name: dict[str, list[RelativeDirPath]] = defaultdict(list)
@@ -59,10 +63,10 @@ class ModuleParser:
             modules=module_sources,
             invalid_variables=invalid_variables,
             non_existing_module_names=cls._get_non_existing_module_names(
-                {name for name in build.selected_modules if isinstance(name, str)}, set(module_paths_by_name.keys())
+                {name for name in user_selected_modules if isinstance(name, str)}, set(module_paths_by_name.keys())
             ),
             misplaced_modules=cls._get_misplaced_modules(set(module_ids)),
-            ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, build.selected_modules),
+            ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, user_selected_modules),
             orphan_yaml_files=orphan_yaml_files,
         )
 
@@ -89,7 +93,7 @@ class ModuleParser:
         return variables_by_iteration
 
     @classmethod
-    def _find_modules(
+    def find_modules(
         cls, yaml_files: list[RelativeFilePath], organization_dir: Path
     ) -> tuple[dict[RelativeDirPath, ModuleSource], list[RelativeDirPath]]:
         """Organizes YAML files by their module (top-level folder in the modules directory)."""

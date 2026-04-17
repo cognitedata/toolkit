@@ -223,10 +223,6 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
-    if not FeatureFlag.is_enabled(Flags.STREAMS):
-        extra.discard("streams")
-    if not FeatureFlag.is_enabled(Flags.SIMULATORS):
-        extra.discard("simulators")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):
         extra.discard("signals")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):

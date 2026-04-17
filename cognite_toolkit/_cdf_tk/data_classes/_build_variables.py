@@ -10,7 +10,6 @@ from typing import Any, Literal, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.transformation import TransformationIO
 
 if sys.version_info >= (3, 11):
@@ -103,15 +102,10 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 if subpath in available_modules and isinstance(value, dict):
                     to_check.append((subpath, None, value))
                 elif subpath in available_modules and isinstance(value, list):
-                    if Flags.MODULE_REPEAT.is_enabled():
-                        for no, module_variables in enumerate(value, 1):
-                            if not isinstance(module_variables, dict):
-                                raise ToolkitValueError(f"Variables under a module must be a dictionary: {subpath}.")
-                            to_check.append((subpath, no, module_variables))
-                    else:
-                        raise ToolkitValueError(
-                            f"Variables under a module cannot be a list: {subpath}. Please use a dictionary/mapping."
-                        )
+                    for no, module_variables in enumerate(value, 1):
+                        if not isinstance(module_variables, dict):
+                            raise ToolkitValueError(f"Variables under a module must be a dictionary: {subpath}.")
+                        to_check.append((subpath, no, module_variables))
                 elif isinstance(value, dict):
                     # Remove this check to support variables with dictionary values.
                     continue

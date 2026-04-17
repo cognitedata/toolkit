@@ -154,7 +154,7 @@ class TestBuildCommand:
         _ = create_resource_file(org, WorkflowIO, WORKFLOW_YAML)
 
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         _ = cmd.build(parameters, tlk_client)
 
@@ -188,7 +188,7 @@ name: My Space
 """
         resource_file.write_text(space_yaml)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
         folder = cmd.build(parameters, tlk_client)
 
@@ -214,7 +214,7 @@ name: My Space
         expected_content = "this is a text file"
         source_txt.write_text(expected_content)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
         _ = cmd.build(parameters, client=None)
 
         files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
@@ -288,9 +288,9 @@ class TestValidateBuildParameters:
                 # Actually Config file is at org/config.name.yaml.
                 # I should just specify list of paths to create.
                 # If I put "org/modules/" it has no suffix so created as dir.
-                BuildParameters(organization_dir=Path("org"), config_yaml_name="dev"),
+                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
                 ["cdf", "build", "-o", "org"],
-                "Config YAML file 'org/config.dev.yaml' not found",
+                "org/config.dev.yaml' not found",
                 id="Config YAML file not found",
             ),
             pytest.param(
@@ -317,7 +317,7 @@ class TestValidateBuildParameters:
             ),
             pytest.param(
                 [f"org/{MODULES}/", "org/config.dev.yaml"],
-                BuildParameters(organization_dir=Path("org"), config_yaml_name="dev"),
+                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
                 ["cdf", "build", "-o", "org"],
                 None,
                 id="Success with config",
@@ -368,7 +368,7 @@ class TestReadFileSystem:
         parameters = BuildParameters(
             organization_dir=tmp_path,
             build_dir=Path("build"),
-            config_yaml_name="dev",
+            config_yaml=config_yaml,
             user_selected_modules=["module1", "module2"],
         )
         build_files = BuildV2Command._read_file_system(parameters)
@@ -392,7 +392,7 @@ class TestReadFileSystem:
     - modules/
 """)
         _ = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
-        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
+        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)
 

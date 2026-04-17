@@ -1,4 +1,5 @@
 from collections.abc import Callable, Sequence
+from datetime import date
 from functools import partial
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     TableStorageIO,
 )
+from cognite_toolkit._cdf_tk.storageio.logger import FileWithAggregationLogger, display_item_results
 from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
@@ -22,7 +24,9 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
     Compression,
     FileWriter,
+    NDJsonWriter,
     SchemaColumn,
+    Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -122,9 +126,18 @@ class DownloadCommand(ToolkitCommand):
                     f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
                 )
 
-            with FileWriter.create_from_format(
-                file_format, target_dir, selector.kind, compression_cls, columns=columns
-            ) as writer:
+            log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
+            with (
+                FileWriter.create_from_format(
+                    file_format, target_dir, selector.kind, compression_cls, columns=columns
+                ) as writer,
+                NDJsonWriter(
+                    target_dir, kind="DownloadLogs", default_filestem=log_filestem, compression=Uncompressed
+                ) as log_file,
+                FileWithAggregationLogger(log_file) as logger,
+            ):
+                io.logger = logger
+
                 executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit, bookmark=init_bookmark),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
@@ -143,6 +156,8 @@ class DownloadCommand(ToolkitCommand):
                     progress.status = executor.result
                     progress.dump_to_file(target_dir, filestem=self._download_filestem(filestem))
 
+                items_results = logger.finalize(is_dry_run=False)
+                display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
                 executor.raise_on_error()
                 file_count = writer.file_count
 

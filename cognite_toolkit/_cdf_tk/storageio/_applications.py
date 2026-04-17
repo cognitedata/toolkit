@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Bookmark, DataItem, Page, UploadableStorageIO
-from .logger import LogIssue
+from .logger import LogEntryV2, Severity
 from .progress import NoBookmark
 from .selectors import (
     AllChartsSelector,
@@ -120,10 +120,12 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
             if not self._skip_backend_services:
                 self._download_backend_services(chunk)
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=item.external_id, item=item) for item in chunk],
-                bookmark=NoBookmark(),
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=item.external_id, item=item) for item in chunk],
+                    bookmark=NoBookmark(),
+                )
             )
 
     def _download_backend_services(self, chunk: list[ChartResponse]) -> None:
@@ -260,7 +262,16 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             elif item.item.external_id not in self.existing_charts:
                 to_create.append(item)
             else:
-                self.logger.tracker.finalize_item(item.tracking_id, "skipped")
+                self.logger.log(
+                    [
+                        LogEntryV2(
+                            id=item.tracking_id,
+                            label="Chart existing and skip-existing enabled",
+                            message="Chart already exists and skip-existing is enabled.",
+                            severity=Severity.skipped,
+                        )
+                    ]
+                )
 
         if not self._skip_backend_services:
             failed_charts = self._upload_backend_services(to_create + to_update)
@@ -304,17 +315,19 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         items: list[DataItem[ChartRequest]],
         get_requests: Callable[[ChartRequest], Sequence[TChartBackendRequest] | None],
         duplicate_label: str,
-    ) -> tuple[dict[ExternalId, tuple[TChartBackendRequest, str]], list[LogIssue]]:
+    ) -> tuple[dict[ExternalId, tuple[TChartBackendRequest, str]], list[LogEntryV2]]:
         by_external_id: dict[ExternalId, tuple[TChartBackendRequest, str]] = {}
-        log_entries: list[LogIssue] = []
+        log_entries: list[LogEntryV2] = []
         for item in items:
             for request in get_requests(item.item) or []:
                 ext_id = request.as_id()
                 if ext_id in by_external_id:
                     log_entries.append(
-                        LogIssue(
+                        LogEntryV2(
                             id=item.tracking_id,
+                            label=f"Duplicated {duplicate_label}",
                             message=f"Duplicated {duplicate_label} ID {ext_id} in chart {item.item.external_id}",
+                            severity=Severity.warning,
                         )
                     )
                 else:
@@ -328,8 +341,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         update: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
         create: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
         resource_kind: str,
-    ) -> tuple[list[LogIssue], set[ExternalId], dict[ExternalId, TChartBackendResponse]]:
-        log_entries: list[LogIssue] = []
+    ) -> tuple[list[LogEntryV2], set[ExternalId], dict[ExternalId, TChartBackendResponse]]:
+        log_entries: list[LogEntryV2] = []
         failed: set[ExternalId] = set()
         succeeded: dict[ExternalId, TChartBackendResponse] = {}
         for ext_id, (request, tracking_id) in unique_by_id.items():
@@ -338,14 +351,21 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     updated = update([request])[0]
                 except ToolkitAPIError as e:
                     log_entries.append(
-                        LogIssue(id=tracking_id, message=f"Failed to update {resource_kind} {ext_id}: {e}")
+                        LogEntryV2(
+                            id=tracking_id,
+                            label=f"Failed update {resource_kind}. Code {e.code}",
+                            message=f"Failed to update {resource_kind} {ext_id}: {e}",
+                            severity=Severity.failure,
+                        )
                     )
                     failed.add(ext_id)
                 except IndexError:
                     log_entries.append(
-                        LogIssue(
+                        LogEntryV2(
                             id=tracking_id,
+                            label=f"Failed update {resource_kind}. No response.",
                             message=f"Failed to update {resource_kind} {ext_id}. No response returned.",
+                            severity=Severity.failure,
                         )
                     )
                     failed.add(ext_id)
@@ -360,10 +380,12 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
                     else:
                         log_entries.append(
-                            LogIssue(
+                            LogEntryV2(
                                 id=tracking_id,
+                                label=f"Failed creating {resource_kind}",
                                 message=f"Failed to create {resource_kind} {ext_id}: missing nonce. "
                                 "Either run skip-strict-mode or use device code credentials.",
+                                severity=Severity.failure,
                             )
                         )
                         failed.add(ext_id)
@@ -372,14 +394,21 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     created = create([request])[0]
                 except ToolkitAPIError as e:
                     log_entries.append(
-                        LogIssue(id=tracking_id, message=f"Failed to create {resource_kind} {ext_id}: {e}")
+                        LogEntryV2(
+                            id=tracking_id,
+                            label=f"Failed creation {resource_kind}. Code {e.code}",
+                            message=f"Failed to create {resource_kind} {ext_id}: {e}",
+                            severity=Severity.failure,
+                        )
                     )
                     failed.add(ext_id)
                 except IndexError:
                     log_entries.append(
-                        LogIssue(
+                        LogEntryV2(
                             id=tracking_id,
+                            label=f"Failed creation {resource_kind}",
                             message=f"Failed to create {resource_kind}. No response returned.",
+                            severity=Severity.failure,
                         )
                     )
                     failed.add(ext_id)
@@ -389,7 +418,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
 
     def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
-        log_entries: list[LogIssue] = []
+        log_entries: list[LogEntryV2] = []
 
         monitoring_job_by_id, monitoring_dup_logs = self._collect_unique_backend_requests(
             items, lambda chart: chart.monitoring_jobs, "monitoring job"
@@ -445,11 +474,21 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             )
             if job_failed or calculation_failed:
                 failed_charts.add(chart.external_id)
+                parts: list[str] = []
                 if job_failed:
-                    self.logger.tracker.add_issue(item.tracking_id, "Failed upserting monitoring jobs")
+                    parts.append("Failed upserting monitoring jobs")
                 if calculation_failed:
-                    self.logger.tracker.add_issue(item.tracking_id, "Failed upserting scheduled calculations")
-                self.logger.tracker.finalize_item(item.tracking_id, "failure")
+                    parts.append("Failed upserting scheduled calculations")
+                self.logger.log(
+                    [
+                        LogEntryV2(
+                            id=item.tracking_id,
+                            label="Chart backend upload failed",
+                            message="; ".join(parts),
+                            severity=Severity.failure,
+                        )
+                    ]
+                )
                 continue
 
             if chart.data.monitoring_jobs:
@@ -513,24 +552,30 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
             items = self.client.canvas.retrieve(NodeId.from_str_ids(chunk, space=CANVAS_INSTANCE_SPACE))
             self._log_retrieve_issues(chunk, items)
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=item.external_id, item=item) for item in items],
-                bookmark=NoBookmark(),
+            yield self.emit_registered_page(
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=item.external_id, item=item) for item in items],
+                    bookmark=NoBookmark(),
+                )
             )
 
     def _log_retrieve_issues(self, chunk: tuple[str, ...], items: list[IndustrialCanvasResponse]) -> None:
         found = {item.external_id for item in items}
         not_found = sorted(set(chunk) - found)
         if not_found:
+            self.logger.register(not_found)
             self.logger.log(
                 [
-                    LogIssue(id=not_found_item, message=f"Did not find {not_found_item} in CDF")
+                    LogEntryV2(
+                        id=not_found_item,
+                        label="Canvas not found",
+                        message=f"Did not find {not_found_item} in CDF",
+                        severity=Severity.failure,
+                    )
                     for not_found_item in not_found
                 ]
             )
-            for not_found_item in not_found:
-                self.logger.tracker.finalize_item(str(not_found_item), "failure")
 
     def count(self, selector: CanvasSelector) -> int | None:
         if not isinstance(selector, CanvasExternalIdSelector):
