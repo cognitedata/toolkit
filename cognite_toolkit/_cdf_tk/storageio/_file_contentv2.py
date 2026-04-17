@@ -33,7 +33,7 @@ from .selectors import (
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
-    InternalIdWithName,
+    InternalWithNameId,
 )
 
 
@@ -55,7 +55,7 @@ class FileMetadataContentIO(
             set
         )
 
-    def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalIdWithName, ...]:
+    def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalWithNameId, ...]:
         if isinstance(selector, FileMetadataFilesSelectorV2) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")

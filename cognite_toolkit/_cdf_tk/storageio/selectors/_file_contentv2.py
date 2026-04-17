@@ -14,7 +14,7 @@ from ._base import DataSelector, SelectorObject
 FILENAME_VARIABLE = "$FILENAME"
 
 
-class InternalIdWithName(InternalId):
+class InternalWithNameId(InternalId):
     name: str = Field(exclude=True, description="The name of the item.")
 
     @property
@@ -73,7 +73,7 @@ class FileMetadataFilesSelectorV2(FileMetadataContentSelectorV2):
     """
 
     type: Literal["FileMetadataFiles"] = "FileMetadataFiles"
-    ids: tuple[InternalIdWithName, ...] | None = Field(None, exclude=True, description="Only used for download")
+    ids: tuple[InternalWithNameId, ...] | None = Field(None, exclude=True, description="Only used for download")
 
     def __str__(self) -> str:
         return self.type
