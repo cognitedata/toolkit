@@ -281,7 +281,7 @@ class PurgeCommand(ToolkitCommand):
 
         validator = ValidateAccess(client, "purge")
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
-        # This block will be removed once the limits service is available.
+        # This check will be removed once DMS limits are available through the limits service.
         if instance_count > 0 and validator.data_model(["read"]) is not None:
             raise AuthorizationError(
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
@@ -695,10 +695,6 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             self.validate_timeseries_access(validator)
             self.validate_file_access(validator)
-        # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
-        # This block will be removed once the limits service is available.
-        if validator.data_model(["read"]) is not None:
-            raise AuthorizationError("Purging instances currently requires datamodelsAcl:read with All scope.")
 
         total = io.count(selector)
         if total is None or total == 0:

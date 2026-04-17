@@ -7,7 +7,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
     InstanceSelector,
@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     ViewSelectFilter,
 )
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 
 class InstanceTypeEnum(str, Enum):
@@ -324,6 +325,12 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified instances."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
+
+        # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
+        # This check will be removed once DMS limits are available through the limits service.
+        validator = ValidateAccess(client, default_operation="purge")
+        if validator.data_model(["read"]) is not None:
+            raise AuthorizationError("Purging instances currently requires datamodelsAcl:read with All scope.")
 
         is_interactive = view is None and instance_list is None
         selector: InstanceSelector
