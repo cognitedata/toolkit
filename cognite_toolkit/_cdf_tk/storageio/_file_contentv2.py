@@ -133,7 +133,7 @@ class FileMetadataContentIO(
         try:
             result = self.client.tool.filemetadata.get_download_url([file_metadata.as_internal_id()])[0]
             if result.download_url:
-                self.client.tool.filemetadata.dowonload_file(download_url=result.download_url, destination=destination)
+                self.client.tool.filemetadata.download_file(download_url=result.download_url, destination=destination)
                 return True
             message = f"File content download URL not found for {tracking_id}."
         except ToolkitAPIError as err:

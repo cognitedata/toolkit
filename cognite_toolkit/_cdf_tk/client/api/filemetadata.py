@@ -334,7 +334,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             results.extend(ResponseItems[DownloadResponse].model_validate_json(success.body).items)
         return results
 
-    def dowonload_file(self, download_url: str, destination: Path) -> None:
+    def download_file(self, download_url: str, destination: Path) -> None:
         """Download a file from CDF using a download URL.
 
         Args:
