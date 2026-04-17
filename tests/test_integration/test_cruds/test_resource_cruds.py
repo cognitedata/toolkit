@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
@@ -925,7 +926,9 @@ workflowDefinition:
 
 
 class TestTransformationCRUD:
-    def test_create_transformation_auth_without_scope(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_transformation_auth_without_scope(
+        self, toolkit_client: ToolkitClient, monkeypatch: MonkeyPatch
+    ) -> None:
         transformation_text = """externalId: transformation_without_scope
 name: This is a test transformation
 destination:
@@ -939,6 +942,7 @@ authentication:
   clientId: ${IDP_CLIENT_ID}
   clientSecret: ${IDP_CLIENT_SECRET}
 """
+        monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         loader = TransformationIO.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
@@ -953,7 +957,9 @@ authentication:
         finally:
             toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
 
-    def test_create_transformation_reusing_source_destination_auth(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_transformation_reusing_source_destination_auth(
+        self, toolkit_client: ToolkitClient, monkeypatch
+    ) -> None:
         transformation_text = """externalId: transformation_reusing_source_destination_auth
 name: This is a test transformation from the Toolkit
 destination:
@@ -971,6 +977,7 @@ authentication:
     clientId: ${IDP_CLIENT_ID}
     clientSecret: ${IDP_CLIENT_SECRET}
         """
+        monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         loader = TransformationIO.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
@@ -1056,8 +1063,9 @@ ignoreNullFields: true
         ],
     )
     def test_unchanged_transformation_not_redeployed(
-        self, toolkit_client: ToolkitClient, transformation_yaml: str
+        self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
     ) -> None:
+        monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         crud = TransformationIO.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
