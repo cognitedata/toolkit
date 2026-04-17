@@ -68,6 +68,8 @@ Selector = Annotated[
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
     | FileDataModelingTemplateSelector
+    | FileMetadataTemplateSelectorV2
+    | FileMetadataFilesSelectorV2
     | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,

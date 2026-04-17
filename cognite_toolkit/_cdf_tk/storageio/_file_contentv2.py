@@ -42,6 +42,8 @@ class FileMetadataContentIO(
     ConfigurableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse],
 ):
     CHUNK_SIZE = 10
+    KIND = "FileMetadataContent"
+    BASE_SELECTOR = FileMetadataContentSelectorV2
 
     def __init__(self, client: ToolkitClient, overwrite: bool = False, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)

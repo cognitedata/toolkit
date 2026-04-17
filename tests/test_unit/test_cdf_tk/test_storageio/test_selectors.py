@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, get_args
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
@@ -14,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     DatapointsIO,
     EventDataIO,
     FileContentIO,
+    FileMetadataContentIO,
     InstanceIO,
     RawIO,
     RecordIO,
@@ -34,7 +36,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSetSelector,
     FileDataModelingTemplateSelector,
     FileIdentifierSelector,
+    FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelector,
+    FileMetadataTemplateSelectorV2,
     InstanceFileSelector,
     InstanceQuerySelector,
     InstanceSpaceSelector,
@@ -328,6 +332,33 @@ def example_selector_data() -> Iterable[tuple]:
         InstanceIO.KIND,
         id="InstanceQuerySelector",
     )
+    yield pytest.param(
+        {
+            "type": "FileMetadataTemplate",
+            "kind": "FileMetadataContent",
+            "fileDirectory": "path/to/files",
+            "guessMimeType": True,
+            "template": {
+                "name": "$FILENAME",
+                "externalId": "my$FILENAME",
+            },
+        },
+        FileMetadataTemplateSelectorV2,
+        FileMetadataContentIO,
+        FileMetadataContentIO.KIND,
+        id="FileMetadataTemplateSelectorV2",
+    )
+    yield pytest.param(
+        {
+            "kind": "FileMetadataContent",
+            "type": "FileMetadataFiles",
+            "ids": [{"id": 123, "name": "file1"}, {"id": 456, "name": "file2"}],
+        },
+        FileMetadataFilesSelectorV2,
+        FileMetadataContentIO,
+        FileMetadataContentIO.KIND,
+        id="FileMetadataFilesSelectorV2",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -372,7 +403,12 @@ class TestDataSelectors:
         expected_io: type[StorageIO] | None,
         kind: str,
         tmp_path: Path,
+        monkeypatch: MonkeyPatch,
     ) -> None:
+        monkeypatch.chdir(tmp_path)
+        if expected_selector is FileMetadataTemplateSelectorV2:
+            (tmp_path / data["fileDirectory"]).mkdir(parents=True, exist_ok=True)
+
         instance = SelectorAdapter.validate_python(data)
 
         # Assert correct type

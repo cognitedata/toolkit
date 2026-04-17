@@ -64,7 +64,7 @@ class FileMetadataTemplateSelectorV2(FileMetadataContentSelectorV2):
         return [file for file in self.file_directory.iterdir() if file.is_file()]
 
 
-class FileMetadataFilesSelectorV2(FileMetadataContentSelectorV2, ABC):
+class FileMetadataFilesSelectorV2(FileMetadataContentSelectorV2):
     """Download/upload individual files.
 
     For download, the ids field must be set.
