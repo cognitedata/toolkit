@@ -697,8 +697,8 @@ class PurgeCommand(ToolkitCommand):
 
     def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
         client_project = client.config.project
-        client.console.print(f"{message} the CDF project [bold]{client_project}[/bold]")
-        typed_project = questionary.text("To confirm, please type the name of the project: ").unsafe_ask()
+        client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
+        typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
         if typed_project != client_project:
             client.console.print(
                 f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
