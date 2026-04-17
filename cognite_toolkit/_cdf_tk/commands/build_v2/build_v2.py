@@ -262,7 +262,7 @@ class BuildV2Command(ToolkitCommand):
             errors.append("ambiguous selected")
         if misplaced_modules_count:
             summary_lines.append(
-                f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
+                f"[yellow]![/] {misplaced_modules_count}[/] modules are located directly under the another module."
             )
             border_color = max(border_color, 1)
         if non_existing_module_count:
@@ -273,7 +273,7 @@ class BuildV2Command(ToolkitCommand):
             errors.append("non existing modules")
         if invalid_variable_count:
             summary_lines.append(
-                f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
+                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
             )
             border_color = max(border_color, 1)
         if orphan_yaml_count:
