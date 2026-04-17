@@ -259,14 +259,12 @@ class PurgeCommand(ToolkitCommand):
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
             )
 
-        if instance_count > 0:
-            project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_purge_headroom(
-                project_instance_statistics, instance_count, action="purging this space (including its instances)"
-            )
-
         if not dry_run:
             if instance_count > 0:
+                project_instance_statistics = client.data_modeling.statistics.project().instances
+                validate_soft_delete_purge_headroom(
+                    project_instance_statistics, instance_count, action="purging this space (including its instances)"
+                )
                 self._print_instance_purge_soft_delete_panel(project_instance_statistics, instance_count)
                 acknowledge_soft_delete = questionary.confirm(
                     "Do you understand the soft-delete resource limit impact and wish to continue?",
@@ -683,9 +681,9 @@ class PurgeCommand(ToolkitCommand):
         if total is None or total == 0:
             print("No instances found.")
             return DeleteResults()
-        project_instance_statistics = client.data_modeling.statistics.project().instances
-        validate_soft_delete_purge_headroom(project_instance_statistics, total, action="purging the selected instances")
         if not dry_run:
+            project_instance_statistics = client.data_modeling.statistics.project().instances
+            validate_soft_delete_purge_headroom(project_instance_statistics, total, action="purging the selected instances")
             self._print_instance_purge_soft_delete_panel(project_instance_statistics, total)
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",

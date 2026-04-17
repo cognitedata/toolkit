@@ -206,11 +206,12 @@ class TestPurgeInstances:
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
-        rsps.add(
-            responses.GET,
-            config.create_api_url("/models/statistics"),
-            json=project_statistics_response,
-        )
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -313,11 +314,12 @@ class TestPurgeSpace:
                 ).dump()
             },
         )
-        rsps.add(
-            responses.GET,
-            config.create_api_url("/models/statistics"),
-            json=project_statistics_response,
-        )
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)
