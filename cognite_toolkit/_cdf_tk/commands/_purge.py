@@ -212,7 +212,6 @@ class PurgeCommand(ToolkitCommand):
         delete_datapoints: bool = False,
         delete_file_content: bool = False,
         dry_run: bool = False,
-        auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
         stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
@@ -232,20 +231,18 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             if instance_count > 0:
                 self._print_instance_purge_soft_delete_panel(client, instance_count)
-                if not auto_yes:
-                    acknowledge_soft_delete = questionary.confirm(
-                        "Do you understand the soft-delete resource limit impact and wish to continue?",
-                        default=False,
-                    ).ask()
-                    if not acknowledge_soft_delete:
-                        return DeployResults([], "purge", dry_run=dry_run)
-            self._print_panel("space", selected_space)
-            if not auto_yes:
-                confirm = questionary.confirm(
-                    f"Are you really sure you want to purge the {selected_space!r} space?", default=False
+                acknowledge_soft_delete = questionary.confirm(
+                    "Do you understand the soft-delete resource limit impact and wish to continue?",
+                    default=False,
                 ).ask()
-                if not confirm:
+                if not acknowledge_soft_delete:
                     return DeployResults([], "purge", dry_run=dry_run)
+            self._print_panel("space", selected_space)
+            confirm = questionary.confirm(
+                f"Are you really sure you want to purge the {selected_space!r} space?", default=False
+            ).ask()
+            if not confirm:
+                return DeployResults([], "purge", dry_run=dry_run)
 
         # ValidateAuth
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
@@ -635,7 +632,6 @@ class PurgeCommand(ToolkitCommand):
         client: ToolkitClient,
         selector: InstanceSelector,
         dry_run: bool = False,
-        auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
     ) -> DeleteResults:
@@ -654,22 +650,19 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             self._print_instance_purge_soft_delete_panel(client, total)
-            if not auto_yes:
-                acknowledge_soft_delete = questionary.confirm(
-                    "Do you understand the soft-delete resource limit impact and wish to continue?",
-                    default=False,
-                ).ask()
-                if not acknowledge_soft_delete:
-                    return DeleteResults()
-                self._print_panel("instances", str(selector))
-                confirm_purge = questionary.confirm(
-                    f"Are you sure you want to purge all {total:,} instances in {selector!s}?",
-                    default=False,
-                ).ask()
-                if not confirm_purge:
-                    return DeleteResults()
-            else:
-                self._print_panel("instances", str(selector))
+            acknowledge_soft_delete = questionary.confirm(
+                "Do you understand the soft-delete resource limit impact and wish to continue?",
+                default=False,
+            ).ask()
+            if not acknowledge_soft_delete:
+                return DeleteResults()
+            self._print_panel("instances", str(selector))
+            confirm_purge = questionary.confirm(
+                f"Are you sure you want to purge all {total:,} instances in {selector!s}?",
+                default=False,
+            ).ask()
+            if not confirm_purge:
+                return DeleteResults()
 
         process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:

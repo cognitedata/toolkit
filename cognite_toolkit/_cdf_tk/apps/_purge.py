@@ -211,6 +211,15 @@ class PurgeApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
 
+        if auto_yes:
+            print(
+                "[yellow]DEPRECATED:[/yellow] The [bold]--yes[/bold] / [bold]-y[/bold] flag is deprecated for "
+                "[bold]cdf data purge space[/bold] and this flag will be removed in a future release. "
+                "Purging data is an operation that should always be performed manually — "
+                "confirmation prompts are now always required."
+            )
+            auto_yes = False
+
         if space is None:
             # Is Interactive
             interactive = DataModelingSelect(client, operation="purge")
@@ -237,7 +246,6 @@ class PurgeApp(typer.Typer):
                 delete_datapoints=delete_datapoints,
                 delete_file_content=delete_file_content,
                 dry_run=dry_run,
-                auto_yes=auto_yes,
                 verbose=verbose,
             )
         )
@@ -326,6 +334,15 @@ class PurgeApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
 
+        if auto_yes:
+            print(
+                "[yellow]DEPRECATED:[/yellow] The [bold]--yes[/bold] / [bold]-y[/bold] flag is deprecated for "
+                "[bold]cdf data purge instances[/bold] and this flag will be removed in a future release. "
+                "Purging data is an operation that must always be performed manually — "
+                "confirmation prompts are now always required."
+            )
+            auto_yes = False
+
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
         validator = ValidateAccess(client, default_operation="purge")
@@ -367,7 +384,6 @@ class PurgeApp(typer.Typer):
                 selector=selector,
                 unlink=unlink,
                 dry_run=dry_run,
-                auto_yes=auto_yes,
                 verbose=verbose,
             )
         )

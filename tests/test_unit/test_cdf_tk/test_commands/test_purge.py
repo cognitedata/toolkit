@@ -2,6 +2,7 @@ import itertools
 import json
 from collections.abc import Iterator
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -195,11 +196,14 @@ class TestPurgeInstances:
         timeseries_by_node_id: dict[dm.NodeId, dict[str, Any]],
         cognite_files_2000_list: NodeList[CogniteFile],
         files_by_node_id: dict[dm.NodeId, dict[str, Any]],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = purge_client.config
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
+        questionary_mock = MagicMock()
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -263,7 +267,6 @@ class TestPurgeInstances:
             client,
             InstanceViewSelector(view=SelectedView(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=dry_run,
-            auto_yes=True,
             unlink=unlink,
             verbose=False,
         )
@@ -286,10 +289,13 @@ class TestPurgeSpace:
         purge_responses: responses.RequestsMock,
         project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = purge_client.config
         space = "test_space"
         rsps = purge_responses
+        questionary_mock = MagicMock()
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
         container_count = 10
         view_count = 15
         data_model_count = 3
@@ -388,7 +394,6 @@ class TestPurgeSpace:
             delete_datapoints=delete_datapoints,
             delete_file_content=delete_file_content,
             dry_run=dry_run,
-            auto_yes=True,
             verbose=False,
         )
         expected_node_count = (
