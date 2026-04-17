@@ -32,8 +32,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
     ChartOwnerSelector,

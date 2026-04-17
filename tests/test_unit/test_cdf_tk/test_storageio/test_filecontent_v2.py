@@ -9,10 +9,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio._file_contentv2 import (
+from cognite_toolkit._cdf_tk.dataio._file_contentv2 import (
     FileMetadataContentIO,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     FILENAME_VARIABLE,
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,

@@ -6,9 +6,9 @@ from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import DatapointsIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsDataSetSelector, DataPointsFileSelector
-from cognite_toolkit._cdf_tk.storageio.selectors._datapoints import ExternalIdColumn, InternalIdColumn
+from cognite_toolkit._cdf_tk.dataio import DatapointsIO
+from cognite_toolkit._cdf_tk.dataio.selectors import DataPointsDataSetSelector, DataPointsFileSelector
+from cognite_toolkit._cdf_tk.dataio.selectors._datapoints import ExternalIdColumn, InternalIdColumn
 
 
 @pytest.fixture(scope="session")

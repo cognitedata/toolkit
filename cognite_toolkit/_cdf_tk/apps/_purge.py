@@ -7,13 +7,13 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceFileSelector,
     InstanceSelector,
     InstanceViewSelector,
     SelectedView,
 )
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str

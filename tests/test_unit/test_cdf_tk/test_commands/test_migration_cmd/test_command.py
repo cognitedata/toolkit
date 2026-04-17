@@ -90,14 +90,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
-from cognite_toolkit._cdf_tk.storageio.logger import ItemsResult
-from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, ProgressYAML
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 
 
 def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:

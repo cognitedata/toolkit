@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field, field_validator
 
+from cognite_toolkit._cdf_tk.dataio import InstanceIdCSVList, InstanceIdRow, ModelList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import InstanceIdCSVList, InstanceIdRow, ModelList
 
 
 class MyRow(BaseModel):

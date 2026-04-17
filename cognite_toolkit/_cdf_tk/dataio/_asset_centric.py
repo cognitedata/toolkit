@@ -40,11 +40,11 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
 from ._base import (
     Bookmark,
-    ConfigurableStorageIO,
+    ConfigurableDataIO,
     DataItem,
     Page,
     StorageIOConfig,
-    TableStorageIO,
+    TableDataIO,
     TableUploadableStorageIO,
 )
 from .logger import DataLogger
@@ -54,8 +54,8 @@ from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelect
 
 class AssetCentricIO(
     Generic[T_ResourceResponse],
-    TableStorageIO[AssetCentricSelector, T_ResourceResponse],
-    ConfigurableStorageIO[AssetCentricSelector, T_ResourceResponse],
+    TableDataIO[AssetCentricSelector, T_ResourceResponse],
+    ConfigurableDataIO[AssetCentricSelector, T_ResourceResponse],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentricType]
@@ -746,7 +746,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         return self.client.tool.events.retrieve(InternalId.from_ids(ids))
 
 
-class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResource]):
+class HierarchyIO(ConfigurableDataIO[AssetCentricSelector, AssetCentricResource]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})

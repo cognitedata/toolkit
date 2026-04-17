@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
-from cognite_toolkit._cdf_tk.storageio import ChartIO
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
+from cognite_toolkit._cdf_tk.dataio import ChartIO
+from cognite_toolkit._cdf_tk.dataio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 

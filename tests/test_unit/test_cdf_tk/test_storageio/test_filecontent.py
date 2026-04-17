@@ -7,14 +7,14 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE, TemplateNodeId
-from cognite_toolkit._cdf_tk.storageio.selectors._instances import SelectedView
+from cognite_toolkit._cdf_tk.dataio.selectors._file_content import FILENAME_VARIABLE, TemplateNodeId
+from cognite_toolkit._cdf_tk.dataio.selectors._instances import SelectedView
 
 
 @pytest.fixture

@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
@@ -40,7 +41,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceContainerIO,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,

@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio.logger import ItemsResult
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
