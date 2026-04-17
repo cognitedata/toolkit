@@ -102,6 +102,12 @@ class DocumentUniqueBucket(BaseModelObject):
     count: int
     values: list[str] | list[float] | list[ExternalId]
 
+    @property
+    def value(self) -> str | float | ExternalId:
+        if not self.values:
+            raise ValueError("No values in this bucket")
+        return self.values[0]
+
     @model_validator(mode="before")
     @classmethod
     def _normalize_values(cls, data: Any) -> Any:

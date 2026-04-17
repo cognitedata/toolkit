@@ -14,6 +14,7 @@ from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
@@ -30,6 +31,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
+    DocumentResponse,
+    DocumentSearchHit,
+    DocumentSourceFile,
+    DocumentUniqueBucket,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
@@ -41,6 +48,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricDestinationSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    DocumentsInteractiveSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
@@ -1241,3 +1249,131 @@ class TestAPMConfigInteractiveSelect:
             result = selector.select_apm_configs()
         assert len(result) == 1
         assert result[0].external_id == "config_0"
+
+
+class TestDocumentsInteractiveSelect:
+    @staticmethod
+    def _sample_documents() -> list[DocumentResponse]:
+        return [
+            DocumentResponse(
+                id=1,
+                created_time=0,
+                mime_type="application/pdf",
+                source_file=DocumentSourceFile(name="one.pdf"),
+            ),
+            DocumentResponse(
+                id=2,
+                created_time=0,
+                mime_type="text/plain",
+                source_file=DocumentSourceFile(name="two.txt"),
+            ),
+        ]
+
+    def test_select_documents_finished(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+        answers = ["finished"]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 3
+            client.tool.documents.list.return_value = docs
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
+        assert result == docs
+
+    def test_select_documents_abort(self, monkeypatch) -> None:
+        answers = ["abort"]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 1
+            selector = DocumentsInteractiveSelect(client)
+
+            with pytest.raises(ToolkitValueError, match=r"Aborted document selection."):
+                _ = selector.select_documents()
+
+    def test_select_documents_by_name(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+
+        def pick_documents(choices: list[Choice]) -> list[DocumentResponse]:
+            assert len(choices) == 2
+            return [choices[0].value]
+
+        answers = ["name", pick_documents]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 2
+            client.tool.documents.list.return_value = docs
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
+        assert result == [docs[0]]
+
+    def test_select_documents_filter_single_bucket_then_finished(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+
+        def pick_mime_type(choices: list[Choice]) -> tuple[str, ...]:
+            mime_choice = next(c for c in choices if c.value == ("mimeType",))
+            return mime_choice.value
+
+        answers = ["filter", pick_mime_type, "finished"]
+
+        def unique_side_effect(
+            property: tuple[str, ...] | tuple[str, str] | tuple[str, str, str],
+            **_: Any,
+        ) -> list[DocumentUniqueBucket]:
+            if property == ("sourceFile", "metadata"):
+                return []
+            if property == ("mimeType",):
+                return [DocumentUniqueBucket(count=4, values=["application/pdf"])]
+            raise AssertionError(f"unexpected unique property: {property!r}")
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.side_effect = unique_side_effect
+            client.tool.documents.count.return_value = 10
+            client.tool.documents.list.return_value = docs
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        expected_filter = {
+            "and": [{"in": {"property": ["mimeType"], "values": ["application/pdf"]}}],
+        }
+        client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
+        assert result == docs
+
+    def test_select_documents_search_then_finished(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+        answers = ["search", "turbine", "finished"]
+        search_page = PagedResponse[DocumentSearchHit](
+            items=[DocumentSearchHit(item=d) for d in docs],
+        )
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 2
+            client.tool.documents.search.return_value = search_page
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        client.tool.documents.search.assert_called_once_with(query="turbine", filter=None, limit=100)
+        client.tool.documents.list.assert_not_called()
+        assert result == docs
