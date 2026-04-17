@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property, lru_cache, partial
-from typing import ClassVar, Literal, TypeVar, get_args, overload
+from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
 from cognite.client import data_modeling as dm
@@ -35,6 +35,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
+    DOCUMENT_PROPERTY_OPTIONS,
+    DocumentPropertyPath,
+    DocumentResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -1097,3 +1102,138 @@ class RecordInteractiveSelect:
             validate=lambda choices: True if choices else "You must select at least one space.",
         ).unsafe_ask()
         return selected_spaces
+
+
+class DocumentsInteractiveSelect:
+    MAX_TERMINAL_CHOICES = 100
+    # This can be increased by implementing pagination for the /documents/search endpoint
+    MAX_SEARCH_RESULTS = 1_000
+
+    def __init__(self, client: ToolkitClient, max_selected: int = 100) -> None:
+        self.client = client
+        self.max_selected = max_selected
+        self._filter: dict[DocumentPropertyPath, Any] = {}
+        self._search_query: str | None = None
+        self._attempted_options: set[DocumentPropertyPath] = set()
+
+    @cached_property
+    def _all_filter_options(self) -> set[DocumentPropertyPath]:
+        metadata_keys = self.client.tool.documents.unique(("sourceFile", "metadata"))
+        return set(DOCUMENT_PROPERTY_OPTIONS) | {("sourceFile", "metadata", str(key.value)) for key in metadata_keys}
+
+    @property
+    def _current_filter(self) -> dict[str, Any] | None:
+        if not self._filter:
+            return None
+        return {"and": list(self._filter.values())}
+
+    def select_documents(self) -> list[DocumentResponse]:
+        while True:
+            count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
+            action = self._action(count)
+            if action == "abort":
+                raise ToolkitValueError("Aborted document selection.")
+            elif action == "finished":
+                break
+            elif action == "filter":
+                self._update_filter()
+                continue
+            elif action == "search":
+                self._prompt_search_query()
+                continue
+            elif action == "name":
+                return self._select_by_name()
+            else:
+                raise NotImplementedError(f"Unknown action: {action!r}")
+
+        return self._documents_list_or_search(limit=self.max_selected)
+
+    def _action(self, count: int) -> str:
+        choices = [
+            Choice(title="Filter documents", value="filter"),
+        ]
+        if self.max_selected <= self.MAX_SEARCH_RESULTS:
+            choices.append(
+                Choice(title="Search documents (full-text query)", value="search"),
+            )
+        if count <= self.MAX_TERMINAL_CHOICES:
+            choices.append(Choice(title="Select individual documents by name", value="name"))
+        choices.append(Choice(title="Abort", value="abort"))
+        suffix = ""
+        if count <= self.max_selected:
+            choices.append(Choice(title="Finished", value="finished"))
+        else:
+            suffix = f" You have to filter down to below {self.max_selected} documents to continue."
+        query_note = ""
+        if self._search_query is not None:
+            query_note = f' Active full-text query: "{self._search_query}".'
+
+        return questionary.select(
+            f"{count} documents found. What do you want to do?{query_note}{suffix}",
+            choices=choices,
+        ).unsafe_ask()
+
+    def _update_filter(self) -> None:
+        available_options = self._all_filter_options - self._attempted_options
+        if len(available_options) == 0:
+            self.client.console.print("No more filtering options available.", style="bold red")
+            return
+        filter_type = questionary.select(
+            "Which property do you want to filter by?",
+            choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
+        ).unsafe_ask()
+
+        buckets = self.client.tool.documents.unique(
+            property=filter_type, filter=self._current_filter, query=self._search_query
+        )
+        self._attempted_options.add(filter_type)
+        if len(buckets) == 0:
+            self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
+            return
+        elif len(buckets) == 1:
+            self.client.console.print(
+                f"Only one value found for {filter_type!r}: {buckets[0].value!r}. Automatically applying this filter."
+            )
+            selected_values = [buckets[0].value]
+        else:
+            selected_values = questionary.checkbox(
+                f"Select values for {filter_type!r}:",
+                choices=[
+                    Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
+                ],
+                validator=lambda choices: True if choices else "You must select at least one value.",
+            ).unsafe_ask()
+        self._filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+
+    def _prompt_search_query(self) -> None:
+        answer = questionary.text(
+            "Full-text search query (empty clears search and uses list/filter only):",
+            default=self._search_query or "",
+        ).unsafe_ask()
+        stripped = (answer or "").strip()
+        self._search_query = stripped or None
+        count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
+        if count == 0:
+            self.client.console.print("No documents found. Clearing search query.", style="bold red")
+            self._search_query = None
+
+    def _documents_list_or_search(self, *, limit: int) -> list[DocumentResponse]:
+        if self._search_query is None:
+            return self.client.tool.documents.list(filter=self._current_filter, limit=limit)
+        page = self.client.tool.documents.search(
+            query=self._search_query,
+            filter=self._current_filter,
+            limit=limit,
+        )
+        return [hit.item for hit in page.items]
+
+    def _select_by_name(self) -> list[DocumentResponse]:
+        documents = self._documents_list_or_search(limit=self.max_selected)
+        choices = [
+            Choice(title=f"{doc.source_file.name} ({doc.mime_type}, {doc.id!r})", value=doc) for doc in documents
+        ]
+        return questionary.checkbox(
+            "Select documents:",
+            choices=choices,
+            validator=lambda choices: True if choices else "You must select at least one document.",
+        ).unsafe_ask()
