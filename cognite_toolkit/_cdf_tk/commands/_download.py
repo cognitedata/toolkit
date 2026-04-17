@@ -3,6 +3,7 @@ from datetime import date
 from functools import partial
 from pathlib import Path
 
+from rich import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
@@ -58,16 +59,7 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
         console = io.client.console
 
-        counts_by_selector: dict[T_Selector, int | None] = {}
-        table = Table(title="Planned Downloads")
-        table.add_column("Data Type", style="cyan")
-        table.add_column("Item Count", justify="right", style="green")
-        for selector in selectors:
-            total = io.count(selector)
-            counts_by_selector[selector] = total
-            item_count = str(total) if total is not None else "Unknown"
-            table.add_row(str(selector), item_count)
-        console.print(table)
+        counts_by_selector = self._create_and_print_plan(io, selectors, console)
 
         for selector in selectors:
             if selector.download_dir_name is None:
@@ -141,6 +133,22 @@ class DownloadCommand(ToolkitCommand):
                     safe_write(config_file, yaml_safe_dump(config.value))
 
             console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
+
+    @classmethod
+    def _create_and_print_plan(
+        cls, io: DataIO[T_Selector, T_ResourceResponse], selectors: Sequence[T_Selector], console: Console
+    ) -> dict[T_Selector, int | None]:
+        counts_by_selector: dict[T_Selector, int | None] = {}
+        table = Table(title="Planned Downloads")
+        table.add_column("Data Type", style="cyan")
+        table.add_column("Item Count", justify="right", style="green")
+        for selector in selectors:
+            total = io.count(selector)
+            counts_by_selector[selector] = total
+            item_count = str(total) if total is not None else "Unknown"
+            table.add_row(str(selector), item_count)
+        console.print(table)
+        return counts_by_selector
 
     @staticmethod
     def _already_downloaded(output_dir: Path, filestem: str) -> bool:
