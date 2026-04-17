@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     DatapointsIO,
     DataSelector,
     EventDataIO,
+    FileMetadataContentIO,
     FileMetadataDataIO,
     HierarchyIO,
     InstanceIO,
@@ -35,9 +36,11 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ChartSelector,
     DataPointsDataSetSelector,
     DataSetSelector,
+    FileMetadataFilesSelectorV2,
     InstanceSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
+    InternalWithNameId,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -53,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    DocumentsInteractiveSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
@@ -622,7 +626,16 @@ class DownloadApp(typer.Typer):
         io: StorageIO
         selectors: list[DataSelector]
         if include_file_contents:
-            raise NotImplementedError()
+            selector = DocumentsInteractiveSelect(client, max_selected=100)
+            documents = selector.select_documents()
+            io = FileMetadataContentIO(client)
+            selectors = [
+                FileMetadataFilesSelectorV2(
+                    ids=tuple(
+                        InternalWithNameId(id=document.id, name=document.source_file.name) for document in documents
+                    )
+                )
+            ]
         elif data_sets is not None:
             selectors = [
                 DataSetSelector(
