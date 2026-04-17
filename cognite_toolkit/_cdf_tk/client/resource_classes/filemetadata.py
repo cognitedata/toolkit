@@ -65,3 +65,8 @@ class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):
 
     def as_internal_id(self) -> InternalId:
         return InternalId(id=self.id)
+
+
+class DownloadResponse(BaseModelObject):
+    id: int
+    download_url: str | None = None

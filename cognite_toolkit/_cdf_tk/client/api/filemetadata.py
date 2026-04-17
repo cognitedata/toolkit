@@ -4,6 +4,8 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -12,11 +14,17 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    DownloadResponse,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
 class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
@@ -32,6 +40,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             },
             api_version="alpha",
         )
+        self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -299,3 +308,45 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             responses_with_url = ResponseItems[FileMetadataResponse].model_validate_json(url_response.body).items
             results.extend(responses_with_url)
         return results
+
+    def get_download_url(
+        self, items: Sequence[InternalId], extended_expiration: bool = False
+    ) -> builtins.list[DownloadResponse]:
+        """Get a URL to download a file to CDF for one or more file metadata entries.
+
+        Args:
+            items: Sequence of InternalId identifying the files to download.
+            extended_expiration: If True, the expiration will be 1 hour instead of 30 seconds for the
+                the download URL.
+
+        Returns:
+                List of DownloadResponse objects containing the download URLs.
+        """
+        results: list[DownloadResponse] = []
+        for chunk in chunker_sequence(items, self._download_link.item_limit):
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(self._download_link.path),
+                method=self._download_link.method,
+                body_content={"items": [item.dump() for item in chunk]},
+                parameters={"extendedExpiration": extended_expiration},
+            )
+            success = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            results.extend(ResponseItems[DownloadResponse].model_validate_json(success.body).items)
+        return results
+
+    def dowonload_file(self, download_url: str, destination: Path) -> None:
+        """Download a file from CDF using a download URL.
+
+        Args:
+            download_url: The URL to download the file from.
+            destination: The local path to save the downloaded file to.
+        """
+        with httpx.stream("GET", download_url) as response:
+            if response.status_code != 200:
+                raise ToolkitAPIError(
+                    message=f"Download failed with status code {response.status_code}: {response.text}",
+                    code=response.status_code,
+                )
+            with destination.open(mode="wb") as file_stream:
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    file_stream.write(chunk)

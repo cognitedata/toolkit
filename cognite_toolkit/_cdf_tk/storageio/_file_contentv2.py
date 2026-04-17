@@ -13,24 +13,27 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsResultMessage,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FILEPATH,
     FileMetadataRequest,
     FileMetadataResponse,
 )
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, TableUploadableStorageIO
+from .logger import LogEntryV2, Severity
 from .selectors import (
     FILENAME_VARIABLE,
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
+    InternalIdWithName,
 )
 
 
@@ -40,16 +43,17 @@ class FileMetadataContentIO(
 ):
     CHUNK_SIZE = 10
 
-    def __init__(self, client: ToolkitClient, overwrite: bool = False) -> None:
+    def __init__(self, client: ToolkitClient, overwrite: bool = False, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
         self.overwrite = overwrite
+        self._target_dir = target_dir
         self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
         self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
             set
         )
 
-    def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalId, ...]:
+    def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalIdWithName, ...]:
         if isinstance(selector, FileMetadataFilesSelectorV2) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")
@@ -58,29 +62,61 @@ class FileMetadataContentIO(
         self, selector: FileMetadataContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         file_ids = self._verify_download_selector(selector)
+        self._target_dir.mkdir(exist_ok=True, parents=True)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
+            self.logger.register([item.display_name for item in chunk])
             file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
-            if len(file_metadata) != len(chunk) and (
-                missing_file_ids := ({file.as_internal_id() for file in file_metadata} - set(chunk))
-            ):
-                raise NotImplementedError(
-                    f"The following file ids were not found and cannot be downloaded: {', '.join(str(id) for id in missing_file_ids)}"
-                )
+            retrieved_by_id = {file.id: file for file in file_metadata}
+            data_items: list[DataItem[FileMetadataResponse]] = []
+            for item in chunk:
+                if item.id not in retrieved_by_id:
+                    self.logger.log(
+                        LogEntryV2(
+                            id=item.display_name,
+                            severity=Severity.skipped,
+                            label="Missing in CDF",
+                            message=f"File {item.display_name} not found in CDF, skipping.",
+                        )
+                    )
+                    continue
+                file = retrieved_by_id[item.id]
+                if not file.uploaded:
+                    self.logger.log(
+                        LogEntryV2(
+                            id=item.display_name,
+                            severity=Severity.warning,
+                            label="Missing file content",
+                            message=f"File {item.display_name} metadata found in CDF, but file content is not uploaded.",
+                        )
+                    )
+                else:
+                    filepath = self._target_dir / sanitize_filename(file.name)
+                    has_downloaded = self._try_download_content(file, filepath, item.display_name)
+                    if has_downloaded:
+                        file.filepath = filepath
+                data_items.append(DataItem(tracking_id=item.display_name, item=file))
 
-            for file in file_metadata:
-                filepath = self._download_content(file)
-                file.filepath = filepath
-
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=str(file.id), item=file) for file in file_metadata],
-            )
+            yield Page(worker_id="main", items=data_items)
 
     def count(self, selector: FileMetadataContentSelectorV2) -> int | None:
         return len(self._verify_download_selector(selector))
 
-    def _download_content(self, file_metadata: FileMetadataResponse) -> Path:
-        raise NotImplementedError()
+    def _try_download_content(self, file_metadata: FileMetadataResponse, destination: Path, tracking_id: str) -> bool:
+        """Tries to download the file content to the destination returns whether it was successful."""
+        try:
+            result = self.client.tool.filemetadata.get_download_url([file_metadata.as_internal_id()])[0]
+            if result.download_url:
+                self.client.tool.filemetadata.dowonload_file(download_url=result.download_url, destination=destination)
+                return True
+            message = f"File content download URL not found for {tracking_id}."
+        except ToolkitAPIError as err:
+            message = f"File content not download for {tracking_id} failed with error: {err.message}."
+        except IndexError:
+            message = f"File content not downloaded for {tracking_id}. CDF did not return a download URL."
+        self.logger.log(
+            LogEntryV2(id=tracking_id, label="File content download failed", severity=Severity.warning, message=message)
+        )
+        return False
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
