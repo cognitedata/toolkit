@@ -15,7 +15,6 @@ from rich import print
 from rich.console import Console
 from rich.panel import Panel
 
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -76,7 +75,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
-
 
 
 @dataclass
@@ -594,8 +592,10 @@ class PurgeCommand(ToolkitCommand):
         bar_width = 44
 
         bar = "".join(
-            "[yellow]█[/yellow]" if (i + 0.5) / bar_width * limit < used
-            else "[bright_magenta]█[/bright_magenta]" if (i + 0.5) / bar_width * limit < min(projected, limit)
+            "[yellow]█[/yellow]"
+            if (i + 0.5) / bar_width * limit < used
+            else "[bright_magenta]█[/bright_magenta]"
+            if (i + 0.5) / bar_width * limit < min(projected, limit)
             else "[dim]░[/dim]"
             for i in range(bar_width)
         )

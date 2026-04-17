@@ -116,7 +116,6 @@ def files_by_node_id(
     return result
 
 
-
 @pytest.fixture()
 def purge_responses(
     rsps: responses.RequestsMock,
