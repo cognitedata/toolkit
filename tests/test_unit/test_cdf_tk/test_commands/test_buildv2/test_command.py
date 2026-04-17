@@ -30,30 +30,6 @@ from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 BASE_URL = "http://neat.cognitedata.com"
 
 
-@pytest.fixture
-def example_statistics_response() -> dict:
-    """Example DMS statistics API response."""
-    return {
-        "spaces": {"count": 5, "limit": 100},
-        "containers": {"count": 42, "limit": 1000},
-        "views": {"count": 123, "limit": 2000},
-        "dataModels": {"count": 8, "limit": 500},
-        "containerProperties": {"count": 1234, "limit": 100},
-        "instances": {
-            "edges": 5000,
-            "softDeletedEdges": 100,
-            "nodes": 10000,
-            "softDeletedNodes": 200,
-            "instances": 15000,
-            "instancesLimit": 5000000,
-            "softDeletedInstances": 300,
-            "softDeletedInstancesLimit": 10000000,
-        },
-        "concurrentReadLimit": 10,
-        "concurrentWriteLimit": 5,
-        "concurrentDeleteLimit": 3,
-    }
-
 
 @pytest.fixture()
 def tlk_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
@@ -62,7 +38,7 @@ def tlk_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
 
 @pytest.fixture()
 def empty_cdf(
-    toolkit_config: ToolkitClientConfig, example_statistics_response: dict, respx_mock: respx.MockRouter
+    toolkit_config: ToolkitClientConfig, project_statistics_response: dict, respx_mock: respx.MockRouter
 ) -> respx.MockRouter:
     config = toolkit_config
     empty_response: dict[str, Any] = {
@@ -87,7 +63,7 @@ def empty_cdf(
         ("/models/views", empty_response),
         ("/models/datamodels", empty_response),
         ("/models/spaces", empty_response),
-        ("/models/statistics", example_statistics_response),
+        ("/models/statistics", project_statistics_response),
     ]:
         respx_mock.get(
             config.create_api_url(endpoint),
