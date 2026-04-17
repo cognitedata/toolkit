@@ -1,3 +1,4 @@
+import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
@@ -93,6 +94,13 @@ class FileMetadataContentIO(
                     )
                 else:
                     filepath = self._target_dir / sanitize_filename(file.name)
+                    if (
+                        filepath.suffix == ""
+                        and file.mime_type
+                        and (guessed_extension := mimetypes.guess_extension(file.mime_type))
+                    ):
+                        # Recover file extension if missing.
+                        filepath = filepath.with_suffix(guessed_extension)
                     has_downloaded = self._try_download_content(file, filepath, item.display_name)
                     if has_downloaded:
                         file.filepath = filepath
@@ -167,7 +175,11 @@ class FileMetadataContentIO(
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
             # Preserve filepath
-            dumped_item[FILEPATH] = item.item.filepath
+            if item.item.filepath:
+                dumped_filepath = item.item.filepath
+                if dumped_filepath.is_relative_to(self._target_dir):
+                    dumped_filepath = dumped_filepath.relative_to(self._target_dir)
+                dumped_item[FILEPATH] = dumped_filepath.as_posix()
             dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
         return data_chunk.create_from(dumped)
 
