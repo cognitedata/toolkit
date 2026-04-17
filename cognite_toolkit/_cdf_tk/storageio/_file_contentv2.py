@@ -1,12 +1,7 @@
-import json
-import mimetypes
-from abc import ABC
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal
-
-from pydantic import ConfigDict, DirectoryPath, Field, field_validator
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -19,85 +14,29 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultMessage,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    FileMetadataRequest,
+    FileMetadataResponse,
+)
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from . import DataSelector, StorageIOConfig
+from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, TableUploadableStorageIO
-from .selectors._base import SelectorObject
-
-FILENAME_VARIABLE = "$FILENAME"
-FILEPATH = "$FILEPATH"
-
-
-class FileMetadataTemplate(SelectorObject):
-    model_config = ConfigDict(extra="allow")
-    name: str
-    external_id: str
-
-    def create_instance(self, filepath: Path, guess_mime_type: bool) -> dict[str, Any]:
-        json_str = self.model_dump_json(by_alias=True)
-        output = json.loads(json_str.replace(FILENAME_VARIABLE, filepath.name))
-        output[FILEPATH] = filepath
-        if "mimeType" not in output and guess_mime_type:
-            me_type, _ = mimetypes.guess_type(filepath)
-            output["mimeType"] = me_type
-        return output
-
-    @field_validator("name", "external_id")
-    @classmethod
-    def _validate_filename_in_fields(cls, v: str) -> str:
-        if FILENAME_VARIABLE not in v:
-            raise ValueError(
-                f"{FILENAME_VARIABLE!s} must be present in 'name' and 'external_id' fields. "
-                f"This allows for dynamic substitution based on the file name."
-            )
-        return v
-
-
-class FileMetadataContentSelector(DataSelector, ABC):
-    kind: Literal["FileMetadataContent"] = "FileMetadataContent"
-
-
-class FileMetadataTemplateSelector(FileMetadataContentSelector):
-    type: Literal["FileMetadataTemplate"] = "FileMetadataTemplate"
-    template: FileMetadataTemplate
-    file_directory: DirectoryPath
-    guess_mime_type: bool
-
-    def __str__(self) -> str:
-        return self.type
-
-    def find_data_files(self, input_dir: Path, manifest_file: Path) -> list[Path]:
-        return [file for file in self.file_directory.iterdir() if file.is_file()]
-
-
-class FileMetadataFilesSelector(FileMetadataContentSelector, ABC):
-    """Download/upload individual files.
-
-    For download, the ids field must be set.
-    For upload, all files in a csv/parquest file are uploaded.
-
-    """
-
-    type: Literal["FileMetadataFiles"] = "FileMetadataFiles"
-    ids: tuple[InternalId, ...] | None = Field(None, exclude=True, description="(Only used for download)")
-
-    def __str__(self) -> str:
-        return self.type
-
-
-class CogniteFileContentSelector(DataSelector, ABC):
-    kind: Literal["CogniteFileContent"] = "CogniteFileContent"
+from .selectors import (
+    FILENAME_VARIABLE,
+    FileMetadataContentSelectorV2,
+    FileMetadataFilesSelectorV2,
+    FileMetadataTemplateSelectorV2,
+)
 
 
 class FileMetadataContentIO(
-    TableUploadableStorageIO[FileMetadataContentSelector, FileMetadataResponse, FileMetadataRequest],
-    ConfigurableStorageIO[FileMetadataContentSelector, FileMetadataResponse],
+    TableUploadableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
+    ConfigurableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse],
 ):
     CHUNK_SIZE = 10
 
@@ -105,29 +44,28 @@ class FileMetadataContentIO(
         super().__init__(client)
         self.overwrite = overwrite
         self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
-        self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelector | None, set[int]] = defaultdict(set)
-        self._downloaded_labels_by_selector: dict[FileMetadataContentSelector | None, set[ExternalId]] = defaultdict(
+        self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
+        self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
             set
         )
 
-    def _verify_download_selector(self, selector: FileMetadataContentSelector) -> tuple[InternalId, ...]:
-        if isinstance(selector, FileMetadataFilesSelector) and selector.ids:
+    def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalId, ...]:
+        if isinstance(selector, FileMetadataFilesSelectorV2) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")
 
     def stream_data(
-        self, selector: FileMetadataContentSelector, limit: int | None = None, bookmark: Bookmark | None = None
+        self, selector: FileMetadataContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         file_ids = self._verify_download_selector(selector)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
-
             if len(file_metadata) != len(chunk) and (
                 missing_file_ids := ({file.as_internal_id() for file in file_metadata} - set(chunk))
             ):
-                for file_id in missing_file_ids:
-                    self.logger.tracker.add_issue(str(file_id.id), "Missing in CDF")
-                    self.logger.tracker.finalize_item(str(file_id.id), "failure")
+                raise NotImplementedError(
+                    f"The following file ids were not found and cannot be downloaded: {', '.join(str(id) for id in missing_file_ids)}"
+                )
 
             for file in file_metadata:
                 filepath = self._download_content(file)
@@ -138,14 +76,14 @@ class FileMetadataContentIO(
                 items=[DataItem(tracking_id=str(file.id), item=file) for file in file_metadata],
             )
 
-    def count(self, selector: FileMetadataContentSelector) -> int | None:
+    def count(self, selector: FileMetadataContentSelectorV2) -> int | None:
         return len(self._verify_download_selector(selector))
 
     def _download_content(self, file_metadata: FileMetadataResponse) -> Path:
         raise NotImplementedError()
 
     def row_to_resource(
-        self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelector | None = None
+        self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
     ) -> FileMetadataRequest:
         metadata: dict[str, JsonVal] = {}
         cleaned_row: dict[str, JsonVal] = {}
@@ -163,7 +101,7 @@ class FileMetadataContentIO(
         return self._crud.load_resource(item_json)
 
     def _populate_id_cache(
-        self, items: Iterable[FileMetadataResponse], selector: FileMetadataContentSelector | None = None
+        self, items: Iterable[FileMetadataResponse], selector: FileMetadataContentSelectorV2 | None = None
     ) -> None:
         data_set_ids: set[int] = set()
         asset_ids: set[int] = set()
@@ -182,7 +120,7 @@ class FileMetadataContentIO(
         self._downloaded_labels_by_selector[selector].update(label_ids)
 
     def data_to_json_chunk(
-        self, data_chunk: Page[FileMetadataResponse], selector: FileMetadataContentSelector | None = None
+        self, data_chunk: Page[FileMetadataResponse], selector: FileMetadataContentSelectorV2 | None = None
     ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets/security-categories are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call
@@ -195,14 +133,14 @@ class FileMetadataContentIO(
             dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
         return data_chunk.create_from(dumped)
 
-    def configurations(self, selector: FileMetadataContentSelector) -> Iterable[StorageIOConfig]:
+    def configurations(self, selector: FileMetadataContentSelectorV2) -> Iterable[StorageIOConfig]:
         raise NotImplementedError()
 
     def upload_items(
         self,
         data_chunk: Page[FileMetadataRequest],
         http_client: HTTPClient,
-        selector: FileMetadataContentSelector | None = None,
+        selector: FileMetadataContentSelectorV2 | None = None,
     ) -> ItemsResultList:
         return ItemsResultList([self._upload_single_item(item) for item in data_chunk])
 
@@ -252,9 +190,9 @@ class FileMetadataContentIO(
 
     @classmethod
     def read_chunks(
-        cls, reader: MultiFileReader, selector: FileMetadataContentSelector
+        cls, reader: MultiFileReader, selector: FileMetadataContentSelectorV2
     ) -> Iterable[Page[dict[str, JsonVal]]]:
-        if not isinstance(selector, FileMetadataTemplateSelector):
+        if not isinstance(selector, FileMetadataTemplateSelectorV2):
             yield from super().read_chunks(reader, selector)
             return
         template = selector.template
@@ -268,48 +206,7 @@ class FileMetadataContentIO(
             )
 
     @classmethod
-    def count_items(cls, reader: MultiFileReader, selector: FileMetadataContentSelector | None = None) -> int:
-        if not isinstance(selector, FileMetadataTemplateSelector):
+    def count_items(cls, reader: MultiFileReader, selector: FileMetadataContentSelectorV2 | None = None) -> int:
+        if not isinstance(selector, FileMetadataTemplateSelectorV2):
             return super().count_items(reader, selector)
         return len(reader.input_files)
-
-
-class CogniteFileContentIO(
-    TableUploadableStorageIO[CogniteFileContentSelector, CogniteFileResponse, CogniteFileRequest],
-    ConfigurableStorageIO[CogniteFileContentSelector, CogniteFileResponse],
-):
-    def __init__(self, client: ToolkitClient, overwrite: bool = False) -> None:
-        super().__init__(client)
-        self.overwrite = overwrite
-
-    def stream_data(
-        self, selector: CogniteFileContentSelector, limit: int | None = None, bookmark: Bookmark | None = None
-    ) -> Iterable[Page[CogniteFileResponse]]:
-        raise NotImplementedError()
-
-    def count(self, selector: CogniteFileContentSelector) -> int | None:
-        raise NotImplementedError()
-
-    def row_to_resource(
-        self, source_id: str, row: dict[str, JsonVal], selector: CogniteFileContentSelector | None = None
-    ) -> CogniteFileRequest:
-        raise NotImplementedError()
-
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
-        raise NotImplementedError()
-
-    def data_to_json_chunk(
-        self, data_chunk: Page[CogniteFileResponse], selector: CogniteFileContentSelector | None = None
-    ) -> Page[dict[str, JsonVal]]:
-        raise NotImplementedError()
-
-    def configurations(self, selector: CogniteFileContentSelector) -> Iterable[StorageIOConfig]:
-        raise NotImplementedError()
-
-    def upload_items(
-        self,
-        data_chunk: Page[CogniteFileRequest],
-        http_client: HTTPClient,
-        selector: CogniteFileContentSelector | None = None,
-    ) -> ItemsResultList:
-        raise NotImplementedError()
