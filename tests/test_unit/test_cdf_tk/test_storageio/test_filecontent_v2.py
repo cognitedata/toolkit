@@ -88,7 +88,7 @@ my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
             ]
             client.tool.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
 
-            io = FileMetadataContentIO(client, overwrite=True)
+            io = FileMetadataContentIO(client, overwrite=True, config_directory=tmp_path)
             files = selector.find_data_files(tmp_path, tmp_path / selector.as_filename())
 
             chunks = io.read_chunks(MultiFileReader(files), selector)
