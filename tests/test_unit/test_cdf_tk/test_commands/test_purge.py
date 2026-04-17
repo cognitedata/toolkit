@@ -2,6 +2,7 @@ import itertools
 import json
 from collections.abc import Iterator
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -118,7 +119,8 @@ def files_by_node_id(
 
 @pytest.fixture()
 def purge_responses(
-    rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig
+    rsps: responses.RequestsMock,
+    toolkit_config: ToolkitClientConfig,
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     rsps.add(
@@ -188,16 +190,26 @@ class TestPurgeInstances:
         instance_type: str,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
+        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
         timeseries_by_node_id: dict[dm.NodeId, dict[str, Any]],
         cognite_files_2000_list: NodeList[CogniteFile],
         files_by_node_id: dict[dm.NodeId, dict[str, Any]],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = purge_client.config
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
+        questionary_mock = MagicMock()
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -255,7 +267,6 @@ class TestPurgeInstances:
             client,
             InstanceViewSelector(view=SelectedView(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=dry_run,
-            auto_yes=True,
             unlink=unlink,
             verbose=False,
         )
@@ -276,11 +287,15 @@ class TestPurgeSpace:
         delete_file_content: bool,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
+        project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = purge_client.config
         space = "test_space"
         rsps = purge_responses
+        questionary_mock = MagicMock()
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
         container_count = 10
         view_count = 15
         data_model_count = 3
@@ -297,6 +312,12 @@ class TestPurgeSpace:
                 ).dump()
             },
         )
+        if not dry_run:
+            rsps.add(
+                responses.GET,
+                config.create_api_url("/models/statistics"),
+                json=project_statistics_response,
+            )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)
@@ -373,7 +394,6 @@ class TestPurgeSpace:
             delete_datapoints=delete_datapoints,
             delete_file_content=delete_file_content,
             dry_run=dry_run,
-            auto_yes=True,
             verbose=False,
         )
         expected_node_count = (
