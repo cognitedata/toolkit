@@ -623,13 +623,13 @@ class PurgeCommand(ToolkitCommand):
         return to_delete
 
     @staticmethod
-    def _print_panel(resource_type: str, resource: str, *, title: str | None = None) -> None:
+    def _print_panel(resource_type: str, resource: str) -> None:
         print(
             Panel(
                 f"[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
                 f"Resources in {resource!r} are permanently deleted",
                 style="bold",
-                title=title or f"Purge {resource_type}",
+                title=f"Purge {resource_type}",
                 title_align="left",
                 border_style="red",
                 expand=False,
@@ -660,24 +660,13 @@ class PurgeCommand(ToolkitCommand):
             "is no longer needed or valid."
         )
 
-        try:
-            stats = client.data_modeling.statistics.project()
-        except Exception:
-            stats = None
-
-        if stats is not None:
-            inst_stats = stats.instances
-            middle: Text | Group = _soft_delete_resource_limit_bar(
-                inst_stats.soft_deleted_instances,
-                inst_stats.soft_deleted_instances_limit,
-                instances_to_delete,
-            )
-        else:
-            middle = Text.from_markup(
-                f"[dim]Could not retrieve soft-delete usage from the project statistics API.[/dim]\n\n"
-                f"This purge still targets up to [bold]{instances_to_delete:,}[/bold] instance(s); each deletion counts "
-                "toward your soft-delete resource limit and moves you closer to the limit."
-            )
+        stats = client.data_modeling.statistics.project()
+        inst_stats = stats.instances
+        middle = _soft_delete_resource_limit_bar(
+            inst_stats.soft_deleted_instances,
+            inst_stats.soft_deleted_instances_limit,
+            instances_to_delete,
+        )
 
         print(
             Panel(
