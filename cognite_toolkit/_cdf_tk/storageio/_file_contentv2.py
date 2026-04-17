@@ -2,7 +2,6 @@ import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -221,7 +220,7 @@ class FileMetadataContentIO(
     ) -> ItemsResultList:
         return ItemsResultList([self._upload_single_item(item) for item in data_chunk])
 
-    def _upload_single_item(self, item: DataItem[FileMetadataRequest]) -> ItemsFailedRequest | Any:
+    def _upload_single_item(self, item: DataItem[FileMetadataRequest]) -> ItemsResultMessage:
         request = item.item
         if request.filepath is None:
             return ItemsFailedRequest(
@@ -256,7 +255,9 @@ class FileMetadataContentIO(
                 error_message=f"No response returned from CDF for item {item.tracking_id}.",
             )
 
-    def _upload_file_content(self, filepath: Path, upload_url: str, mime_type: str | None, tracking_id: str) -> Any:
+    def _upload_file_content(
+        self, filepath: Path, upload_url: str, mime_type: str | None, tracking_id: str
+    ) -> ItemsResultMessage:
         try:
             response = self.client.tool.filemetadata.upload_file(filepath, upload_url, mime_type)
         except ToolkitAPIError as error:
