@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.dataio import (
     TableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
-from cognite_toolkit._cdf_tk.dataio.progress import Bookmark
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -58,26 +57,17 @@ class DownloadCommand(ToolkitCommand):
         """
         compression_cls = Compression.from_name(compression)
         console = io.client.console
-
         counts_by_selector = self._create_and_print_plan(io, selectors, console)
 
         for selector in selectors:
-            if selector.download_dir_name is None:
-                raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
-            target_dir = output_dir / sanitize_filename(selector.download_dir_name)
-            if verbose:
-                console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
+            target_dir = self._get_target_dir(selector, output_dir, console, verbose)
 
+            filestem = sanitize_filename(str(selector))
             total = counts_by_selector[selector]
             if total == 0:
                 console.print(f"No items to download for {selector!s}. Skipping.")
                 continue
-            total_item_count = total if (limit is None or total is None) else min(limit, total)
-
-            filestem = sanitize_filename(str(selector))
-            start_item = 0
-            init_bookmark: Bookmark | None = None
-            if self._already_downloaded(target_dir, filestem):
+            elif self._already_downloaded(target_dir, filestem):
                 warning = LowSeverityWarning(
                     f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
                 )
@@ -85,14 +75,8 @@ class DownloadCommand(ToolkitCommand):
                 continue
 
             selector.dump_to_file(target_dir)
-            columns: list[SchemaColumn] | None = None
-            is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
-            if is_table and isinstance(io, TableDataIO):
-                columns = io.get_schema(selector)
-            elif is_table:
-                raise ToolkitValueError(
-                    f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
-                )
+
+            columns = self._get_columns(selector, file_format, io)
 
             log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
             with (
@@ -104,35 +88,44 @@ class DownloadCommand(ToolkitCommand):
                 ) as log_file,
                 FileWithAggregationLogger(log_file) as logger,
             ):
-                io.logger = logger
-
-                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
-                    download_iterable=io.stream_data(selector, limit, bookmark=init_bookmark),
-                    process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=self.create_writer(writer, filestem),
-                    total_item_count=total_item_count,
-                    # Limit queue size to avoid filling up memory before the workers can write to disk.
-                    max_queue_size=8 * 10,  # 8 workers, 10 items per worker
-                    download_description=f"Downloading {selector!s}",
-                    process_description="Processing",
-                    write_description=f"Writing to {target_dir.as_posix()!r} in files with stem {filestem!r}",
+                file_count = self._download_data(
+                    io,
+                    logger,
+                    selector,
+                    writer,
+                    filestem,
+                    target_dir,
+                    limit=limit,
+                    is_table=file_format in TABLE_WRITE_CLS_BY_FORMAT,
+                    total_item_count=total,
                     console=console,
                 )
-                executor.run(start_item=start_item)
-
-                items_results = logger.finalize(is_dry_run=False)
-                display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
-                executor.raise_on_error()
-                file_count = writer.file_count
-
-            if isinstance(io, ConfigurableDataIO):
-                for config in io.configurations(selector):
-                    filename = config.filename or filestem
-                    config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
-                    config_file.parent.mkdir(parents=True, exist_ok=True)
-                    safe_write(config_file, yaml_safe_dump(config.value))
+                if isinstance(io, ConfigurableDataIO):
+                    self._dump_configuration(io, selector, filestem, target_dir)
 
             console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
+
+    def _get_target_dir(self, selector: T_Selector, output_dir: Path, console: Console, verbose: bool) -> Path:
+        if selector.download_dir_name is None:
+            raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
+        target_dir = output_dir / sanitize_filename(selector.download_dir_name)
+
+        if verbose:
+            console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
+        return target_dir
+
+    def _get_columns(
+        self, selector: T_Selector, file_format: str, io: DataIO[T_Selector, T_ResourceResponse]
+    ) -> list[SchemaColumn] | None:
+        columns: list[SchemaColumn] | None = None
+        is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
+        if is_table and isinstance(io, TableDataIO):
+            columns = io.get_schema(selector)
+        elif is_table:
+            raise ToolkitValueError(
+                f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
+            )
+        return columns
 
     @classmethod
     def _create_and_print_plan(
@@ -149,6 +142,40 @@ class DownloadCommand(ToolkitCommand):
             table.add_row(str(selector), item_count)
         console.print(table)
         return counts_by_selector
+
+    @classmethod
+    def _download_data(
+        cls,
+        io: DataIO[T_Selector, T_ResourceResponse],
+        logger: FileWithAggregationLogger,
+        selector: T_Selector,
+        writer: FileWriter,
+        filestem: str,
+        target_dir: Path,
+        limit: int | None,
+        is_table: bool,
+        total_item_count: int | None,
+        console: Console,
+    ) -> int:
+        io.logger = logger
+        executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
+            download_iterable=io.stream_data(selector, limit),
+            process=cls.create_data_process(io=io, selector=selector, is_table=is_table),
+            write=cls.create_writer(writer, filestem),
+            total_item_count=total_item_count,
+            # Limit queue size to avoid filling up memory before the workers can write to disk.
+            max_queue_size=8 * 10,  # 8 workers, 10 items per worker
+            download_description=f"Downloading {selector!s}",
+            process_description="Processing",
+            write_description=f"Writing to {target_dir.as_posix()!r} in files with stem {filestem!r}",
+            console=console,
+        )
+        executor.run()
+
+        items_results = logger.finalize(is_dry_run=False)
+        display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
+        executor.raise_on_error()
+        return writer.file_count
 
     @staticmethod
     def _already_downloaded(output_dir: Path, filestem: str) -> bool:
@@ -190,3 +217,13 @@ class DownloadCommand(ToolkitCommand):
             writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
 
         return write
+
+    @staticmethod
+    def _dump_configuration(
+        io: ConfigurableDataIO[T_Selector, T_ResourceResponse], selector: T_Selector, filestem: str, target_dir: Path
+    ) -> None:
+        for config in io.configurations(selector):
+            filename = config.filename or filestem
+            config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(config_file, yaml_safe_dump(config.value))
