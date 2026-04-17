@@ -41,14 +41,30 @@ class FileMetadataContentIO(
     TableUploadableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
     ConfigurableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse],
 ):
+    """FileMetadataContentIO
+
+    Args:
+        client: ToolkitClient
+        config_directory: The directory were the filemetadata and manifest files are stored.
+        file_directory: On download, location to store file content.
+        overwrite: On upload, whether to overwrite existing files.
+    """
+
     CHUNK_SIZE = 10
     KIND = "FileMetadataContent"
     BASE_SELECTOR = FileMetadataContentSelectorV2
 
-    def __init__(self, client: ToolkitClient, overwrite: bool = False, target_dir: Path = Path.cwd()) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        config_directory: Path,
+        file_directory: Path,
+        overwrite: bool = False,
+    ) -> None:
         super().__init__(client)
         self.overwrite = overwrite
-        self._target_dir = target_dir
+        self._config_directory = config_directory
+        self._file_directory = file_directory
         self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
         self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
@@ -64,7 +80,7 @@ class FileMetadataContentIO(
         self, selector: FileMetadataContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         file_ids = self._verify_download_selector(selector)
-        self._target_dir.mkdir(exist_ok=True, parents=True)
+        self._file_directory.mkdir(exist_ok=True, parents=True)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             self.logger.register([item.display_name for item in chunk])
             file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
@@ -92,7 +108,7 @@ class FileMetadataContentIO(
                         )
                     )
                 else:
-                    filepath = self._target_dir / sanitize_filename(file.name)
+                    filepath = self._file_directory / sanitize_filename(file.name)
                     if (
                         filepath.suffix == ""
                         and file.mime_type
@@ -176,8 +192,8 @@ class FileMetadataContentIO(
             # Preserve filepath
             if item.item.filepath:
                 dumped_filepath = item.item.filepath
-                if dumped_filepath.is_relative_to(self._target_dir):
-                    dumped_filepath = dumped_filepath.relative_to(self._target_dir)
+                if dumped_filepath.is_relative_to(self._config_directory):
+                    dumped_filepath = dumped_filepath.relative_to(self._config_directory)
                 dumped_item[FILEPATH] = dumped_filepath.as_posix()
             dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
         return data_chunk.create_from(dumped)

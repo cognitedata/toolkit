@@ -635,7 +635,11 @@ class DownloadApp(typer.Typer):
                 ).unsafe_ask()
             )
             documents = selector.select_documents()
-            io = FileMetadataContentIO(client, target_dir=output_dir / download_dir_name / "files")
+            io = FileMetadataContentIO(
+                client,
+                config_directory=output_dir / download_dir_name,
+                file_directory=output_dir / download_dir_name / "files",
+            )
             selectors = [
                 FileMetadataFilesSelectorV2(
                     ids=tuple(
