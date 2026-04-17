@@ -68,7 +68,7 @@ class FileMetadataFilesSelectorV2(FileMetadataContentSelectorV2):
     """Download/upload individual files.
 
     For download, the ids field must be set.
-    For upload, all files in a csv/parquest file are uploaded.
+    For upload, all files in a csv/parquet file are uploaded.
 
     """
 

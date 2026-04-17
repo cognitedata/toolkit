@@ -13,13 +13,13 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsResultMessage,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FILEPATH,
     FileMetadataRequest,
     FileMetadataResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, FileMetadataCRUD, LabelIO
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, FileMetadataCRUD, LabelIO, SecurityCategoryIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -29,7 +29,6 @@ from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, TableUploadableStorageIO
 from .logger import LogEntryV2, Severity
 from .selectors import (
-    FILENAME_VARIABLE,
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
@@ -69,6 +68,9 @@ class FileMetadataContentIO(
         self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
             set
+        )
+        self._downloaded_security_categories_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = (
+            defaultdict(set)
         )
 
     def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalWithNameId, ...]:
@@ -137,7 +139,7 @@ class FileMetadataContentIO(
                 return True
             message = f"File content download URL not found for {tracking_id}."
         except ToolkitAPIError as err:
-            message = f"File content not download for {tracking_id} failed with error: {err.message}."
+            message = f"File content download failed for {tracking_id} with error: {err.message}."
         except IndexError:
             message = f"File content not downloaded for {tracking_id}. CDF did not return a download URL."
         self.logger.log(
@@ -181,6 +183,7 @@ class FileMetadataContentIO(
                 label_ids.update(item.labels)
         self._downloaded_data_sets_by_selector[selector].update(data_set_ids)
         self._downloaded_labels_by_selector[selector].update(label_ids)
+        self._downloaded_security_categories_by_selector[selector].update(security_ids)
 
     def data_to_json_chunk(
         self, data_chunk: Page[FileMetadataResponse], selector: FileMetadataContentSelectorV2 | None = None
@@ -212,12 +215,18 @@ class FileMetadataContentIO(
         labels = self._downloaded_labels_by_selector[selector]
         if labels:
             yield from self._configurations(list(labels), LabelIO.create_loader(self.client))
+        if security_categories := self._downloaded_security_categories_by_selector[selector]:
+            category_ids: list[NameId] = [
+                NameId(name=name)
+                for name in self.client.lookup.security_categories.external_id(list(security_categories))
+            ]
+            yield from self._configurations(category_ids, SecurityCategoryIO.create_loader(self.client))
 
     @classmethod
     def _configurations(
         cls,
         ids: Sequence[Hashable],
-        loader: DataSetsIO | LabelIO,
+        loader: DataSetsIO | LabelIO | SecurityCategoryIO,
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
@@ -244,7 +253,7 @@ class FileMetadataContentIO(
         if filepath is None:
             return ItemsFailedRequest(
                 ids=[item.tracking_id],
-                error_message=f"Failed to create {item.tracking_id}. Not file path provided ({FILENAME_VARIABLE} is missing).",
+                error_message=f"Failed to create {item.tracking_id}. The {FILEPATH} has not been set.",
             )
         if not filepath.is_file():
             candidate = self._config_directory / filepath
