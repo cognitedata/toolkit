@@ -12,9 +12,9 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
-from rich.console import Console, Group
+from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
+
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -77,62 +77,6 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
 
-
-def _soft_delete_resource_limit_bar(used: int, limit: int, purge_add: int, bar_width: int = 44) -> Group:
-    """One bar, same scale 0…limit: yellow = already soft-deleted, magenta = this purge, dim = headroom left."""
-    if limit <= 0:
-        return Group(Text("Soft-delete limit not available from statistics.", style="dim"))
-
-    used = max(0, used)
-    purge_add = max(0, purge_add)
-    projected = used + purge_add
-    remaining_after = max(0, limit - projected)
-
-    key = Text()
-    key.append("█ ", style="yellow")
-    key.append("already soft-deleted   ", style="dim")
-    key.append("█ ", style="bright_magenta")
-    key.append("this purge   ", style="dim")
-    key.append("░", style="dim")
-    key.append(" remaining", style="dim")
-
-    bar_line = Text()
-    for i in range(bar_width):
-        pos = (i + 0.5) / bar_width * limit
-        if pos < used:
-            bar_line.append("█", style="yellow")
-        elif pos < min(projected, limit):
-            bar_line.append("█", style="bright_magenta")
-        else:
-            bar_line.append("░", style="dim")
-
-    summary = Text()
-    summary.append("Limit ", style="dim")
-    summary.append(f"{limit:,}", style="bold")
-    summary.append("  ·  ", style="dim")
-    summary.append(f"{used:,}", style="yellow")
-    summary.append(" + ", style="dim")
-    summary.append(f"{purge_add:,}", style="bright_magenta")
-    summary.append(" → ", style="dim")
-    summary.append(f"{projected:,}", style="bold")
-    summary.append(" total soft-deleted (est.)", style="dim")
-    summary.append("  ·  ", style="dim")
-    summary.append(f"{remaining_after:,}", style="green")
-    summary.append(" remaining", style="dim")
-
-    if projected > limit:
-        return Group(
-            key,
-            Text(""),
-            bar_line,
-            summary,
-            Text(""),
-            Text(
-                f"Estimated total {projected:,} soft-deleted is above the limit ({limit:,}).",
-                style="bold red",
-            ),
-        )
-    return Group(key, Text(""), bar_line, summary)
 
 
 @dataclass
@@ -642,35 +586,43 @@ class PurgeCommand(ToolkitCommand):
         instances_to_delete: int,
     ) -> None:
         """Step 1 panel: soft-delete resource limit impact and related notices."""
-        stats = client.data_modeling.statistics.project()
-        resource_usage_bar = _soft_delete_resource_limit_bar(
-            stats.instances.soft_deleted_instances,
-            stats.instances.soft_deleted_instances_limit,
-            instances_to_delete,
+        inst_stats = client.data_modeling.statistics.project().instances
+        used = max(0, inst_stats.soft_deleted_instances)
+        limit = inst_stats.soft_deleted_instances_limit
+        projected = used + instances_to_delete
+        remaining_after = max(0, limit - projected)
+        bar_width = 44
+
+        bar = "".join(
+            "[yellow]█[/yellow]" if (i + 0.5) / bar_width * limit < used
+            else "[bright_magenta]█[/bright_magenta]" if (i + 0.5) / bar_width * limit < min(projected, limit)
+            else "[dim]░[/dim]"
+            for i in range(bar_width)
+        )
+        resource_usage_bar = (
+            "[yellow]█[/yellow] [dim]already soft-deleted   [/dim]"
+            "[bright_magenta]█[/bright_magenta] [dim]this purge   [/dim]"
+            "[dim]░ remaining[/dim]\n\n"
+            f"{bar}\n"
+            f"[dim]Limit [/dim][bold]{limit:,}[/bold][dim]  ·  [/dim]"
+            f"[yellow]{used:,}[/yellow][dim] + [/dim][bright_magenta]{instances_to_delete:,}[/bright_magenta]"
+            f"[dim] → [/dim][bold]{projected:,}[/bold][dim] total soft-deleted (est.)  ·  [/dim]"
+            f"[green]{remaining_after:,}[/green][dim] remaining[/dim]"
         )
 
-        dialog_text = (
-            Text.from_markup(
+        print(
+            Panel(
                 "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
                 "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
                 "not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per "
                 "the retention policy, which can take multiple days (see "
                 "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).\n\n"
                 f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance "
-                "counts toward the total soft-delete limit below.\n"
-            ),
-            resource_usage_bar,
-            Text.from_markup(
-                "\n[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
+                f"counts toward the total soft-delete limit below.\n\n{resource_usage_bar}\n\n"
+                "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
                 "require deleting instances. You can delete or change schema resources (containers, views, data models) "
                 "without purging the instance data first. Only run an instance purge when you intend to remove specific "
-                "data which was either ingested by error or is no longer needed or valid."
-            ),
-        )
-
-        print(
-            Panel(
-                Group(*dialog_text),
+                "data which was either ingested by error or is no longer needed or valid.",
                 title="Purging instances: Please acknowledge the following",
                 title_align="left",
                 border_style="yellow",
