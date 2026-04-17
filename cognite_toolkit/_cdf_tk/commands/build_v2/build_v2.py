@@ -264,8 +264,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(
                 f"[red]✗[/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
             )
-            border_color = 2
-            errors.append("misplaced modules")
+            border_color = max(border_color, 1)
         if non_existing_module_count:
             summary_lines.append(
                 f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
@@ -276,8 +275,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(
                 f"[red]✗[/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
             )
-            border_color = 2
-            errors.append("invalid variables")
+            border_color = max(border_color, 1)
         if orphan_yaml_count:
             summary_lines.append(
                 f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
