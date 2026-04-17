@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.client.api.instances import QueryEndpoint
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, EdgeTypeId, InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryRequest, ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
-from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
-from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
+from cognite_toolkit._cdf_tk.dataio._data_classes import InstanceIdCSVList
+from cognite_toolkit._cdf_tk.dataio.selectors._base import DataSelector, SelectorObject
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 

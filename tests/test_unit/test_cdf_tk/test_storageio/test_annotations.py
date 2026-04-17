@@ -4,8 +4,8 @@ import responses
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.storageio import AnnotationIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
+from cognite_toolkit._cdf_tk.dataio import AnnotationIO
+from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector
 
 
 class TestAnnotationIO:

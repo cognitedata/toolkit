@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, DataItem, Page, TableStorageIO, TableUploadableStorageIO
+from ._base import Bookmark, DataItem, Page, TableDataIO, TableUploadableStorageIO
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
@@ -54,7 +54,7 @@ class DatapointsRequestAdapter(RequestResource):
 
 
 class DatapointsIO(
-    TableStorageIO[DataPointsSelector, DataPointListResponse],
+    TableDataIO[DataPointsSelector, DataPointListResponse],
     TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DatapointsRequestAdapter],
 ):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})

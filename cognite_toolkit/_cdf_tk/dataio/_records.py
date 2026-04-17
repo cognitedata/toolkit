@@ -16,14 +16,14 @@ from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, UploadableDataIO
 from .progress import CursorBookmark, NoBookmark
 from .selectors import RecordContainerSelector
 
 
 class RecordIO(
-    ConfigurableStorageIO[RecordContainerSelector, RecordResponse],
-    UploadableStorageIO[RecordContainerSelector, RecordResponse, RecordRequest],
+    ConfigurableDataIO[RecordContainerSelector, RecordResponse],
+    UploadableDataIO[RecordContainerSelector, RecordResponse, RecordRequest],
 ):  # pyright: ignore[reportInvalidTypeArguments]
     KIND = "Records"
     SUPPORTED_DOWNLOAD_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})

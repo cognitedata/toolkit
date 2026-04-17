@@ -13,12 +13,12 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataDataIO
-from ._base import Bookmark, DataItem, Page, StorageIO
+from ._base import Bookmark, DataIO, DataItem, Page
 from .progress import NoBookmark
 from .selectors import AssetCentricSelector
 
 
-class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
+class AnnotationIO(DataIO[AssetCentricSelector, AnnotationResponse]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 1000

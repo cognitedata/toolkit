@@ -9,10 +9,10 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.dataio import DataItem, Page, RecordIO
+from cognite_toolkit._cdf_tk.dataio.selectors import RecordContainerSelector
+from cognite_toolkit._cdf_tk.dataio.selectors._records import SelectedContainer, SelectedStream
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import DataItem, Page, RecordIO
-from cognite_toolkit._cdf_tk.storageio.selectors import RecordContainerSelector
-from cognite_toolkit._cdf_tk.storageio.selectors._records import SelectedContainer, SelectedStream
 
 
 def _make_selector(initialize_cursor: str = "365d-ago") -> RecordContainerSelector:

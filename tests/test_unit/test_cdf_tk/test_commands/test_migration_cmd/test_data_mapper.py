@@ -71,8 +71,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.dataio.logger import DataLogger
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger
 from tests.data import MIGRATION_DIR
 
 

@@ -5,7 +5,7 @@ from pydantic.alias_generators import to_camel
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
+from cognite_toolkit._cdf_tk.dataio._data_classes import ModelList
 
 from ._base import ToolkitCommand
 
