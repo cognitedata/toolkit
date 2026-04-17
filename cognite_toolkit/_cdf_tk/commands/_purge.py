@@ -683,7 +683,9 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_purge_headroom(project_instance_statistics, total, action="purging the selected instances")
+            validate_soft_delete_purge_headroom(
+                project_instance_statistics, total, action="purging the selected instances"
+            )
             self._print_instance_purge_soft_delete_panel(project_instance_statistics, total)
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
