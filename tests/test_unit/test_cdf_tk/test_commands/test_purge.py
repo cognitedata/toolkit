@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 

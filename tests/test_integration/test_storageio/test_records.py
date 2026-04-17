@@ -4,8 +4,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
-from cognite_toolkit._cdf_tk.storageio import RecordIO
-from cognite_toolkit._cdf_tk.storageio.selectors._records import (
+from cognite_toolkit._cdf_tk.dataio import RecordIO
+from cognite_toolkit._cdf_tk.dataio.selectors._records import (
     RecordContainerSelector,
     SelectedContainer,
     SelectedStream,

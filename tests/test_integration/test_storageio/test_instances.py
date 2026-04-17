@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_schedule_selector
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.dataio import InstanceIO
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 
 
 @pytest.fixture(scope="module")

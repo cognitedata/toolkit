@@ -5,8 +5,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetDataIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
+from cognite_toolkit._cdf_tk.dataio import AssetDataIO
+from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 

@@ -15,27 +15,29 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
-from cognite_toolkit._cdf_tk.resource_ios import ViewIO
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     FileContentIO,
     FileMetadataContentIO,
+    Page,
     T_Selector,
-    UploadableStorageIO,
+    TableDataIO,
+    UploadableDataIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Page, TableStorageIO, TableUploadableStorageIO
-from cognite_toolkit._cdf_tk.storageio.logger import (
+from cognite_toolkit._cdf_tk.dataio._base import TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio.logger import (
     DataLogger,
     FileWithAggregationLogger,
     LogEntryV2,
     Severity,
     display_item_results,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
-from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
+from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
+from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
@@ -243,7 +245,7 @@ class UploadCommand(ToolkitCommand):
                     continue
                 io.logger = logger
                 logger.reset()
-                schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
+                schema = io.get_schema(selector) if isinstance(io, TableDataIO) else None
                 reader = MultiFileReader(datafiles, schema=schema)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
@@ -313,7 +315,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _create_selected_io(
         cls, selector: Selector, data_file: Path, client: ToolkitClient, skip_strict_mode: bool
-    ) -> UploadableStorageIO | None:
+    ) -> UploadableDataIO | None:
         try:
             io_cls = get_upload_io(selector)
         except ValueError as e:
@@ -333,7 +335,7 @@ class UploadCommand(ToolkitCommand):
         cls,
         data_chunk: Page[T_ResourceRequest],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        io: UploadableDataIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
         dry_run: bool,
         console: Console,

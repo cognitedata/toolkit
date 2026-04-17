@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 T = TypeVar("T")

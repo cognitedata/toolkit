@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, DataItem, Page, UploadableStorageIO
+from ._base import Bookmark, DataItem, Page, UploadableDataIO
 from .logger import LogEntryV2, Severity
 from .progress import NoBookmark
 from .selectors import (
@@ -61,7 +61,7 @@ TChartBackendResponse = TypeVar(
 )
 
 
-class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
+class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     KIND = "Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -513,7 +513,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         return failed_charts
 
 
-class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
+class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
     """Download and upload Industrial Canvases to/from CDF.
 
     Args:
