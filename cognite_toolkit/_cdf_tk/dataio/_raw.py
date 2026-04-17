@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import (
     Bookmark,
-    ConfigurableStorageIO,
+    ConfigurableDataIO,
     DataItem,
     Page,
     StorageIOConfig,
@@ -25,7 +25,7 @@ from .selectors import RawTableSelector
 
 
 class RawIO(
-    ConfigurableStorageIO[RawTableSelector, Row],
+    ConfigurableDataIO[RawTableSelector, Row],
     TableUploadableStorageIO[RawTableSelector, Row, RowWrite],
 ):
     KIND = "RawRows"

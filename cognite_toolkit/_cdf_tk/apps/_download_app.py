@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
+    DataIO,
     DatapointsIO,
     DataSelector,
     EventDataIO,
@@ -24,7 +25,6 @@ from cognite_toolkit._cdf_tk.dataio import (
     InstanceIO,
     RawIO,
     RecordIO,
-    StorageIO,
     TimeSeriesDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -623,7 +623,7 @@ class DownloadApp(typer.Typer):
                     max_limit=1000 if include_file_contents else None,
                     available_formats=AssetCentricFormats,
                 )
-        io: StorageIO
+        io: DataIO
         selectors: list[DataSelector]
         if include_file_contents:
             selector = DocumentsInteractiveSelect(client, max_selected=100)

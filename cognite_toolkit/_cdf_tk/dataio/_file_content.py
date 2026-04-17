@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, DataItem, Page, UploadableStorageIO
+from ._base import Bookmark, DataItem, Page, UploadableDataIO
 from .progress import NoBookmark
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
@@ -70,7 +70,7 @@ class MetadataWithFilePath(ResourceResponseProtocol):
         return self.metadata.as_request_resource()
 
 
-class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePath, FileMetadataRequest]):
+class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, FileMetadataRequest]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10

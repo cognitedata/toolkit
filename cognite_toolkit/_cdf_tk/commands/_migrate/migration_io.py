@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     HierarchyIO,
     InstanceIO,
     T_Selector,
-    UploadableStorageIO,
+    UploadableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio._base import Bookmark, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
@@ -66,7 +66,7 @@ from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, Mi
 
 
 class AssetCentricMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -399,7 +399,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
 
 class AnnotationMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
 ):
     """IO class for migrating Annotations.
 
@@ -550,7 +550,7 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
-class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
+class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
     """IO class for downloading and migrating 3D models.
 
     Args:
@@ -667,7 +667,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
 
 
 class ThreeDAssetMappingMigrationIO(
-    UploadableStorageIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
+    UploadableDataIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
 ):
     KIND = "3DMigrationAssetMapping"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})

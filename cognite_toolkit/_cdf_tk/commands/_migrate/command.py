@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     T_DataRequest,
     T_DataResponse,
     T_Selector,
-    UploadableStorageIO,
+    UploadableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import (
     FileWithAggregationLogger,
@@ -67,7 +67,7 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selectors: Sequence[T_Selector],
-        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        data: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         log_dir: Path,
         dry_run: bool = False,
@@ -118,7 +118,7 @@ class MigrationCommand(ToolkitCommand):
     def _run_migration_steps(
         self,
         plan: Sequence[MigrationStep],
-        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        data: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         logger: FileWithAggregationLogger,
         write_client: HTTPClient,
@@ -176,7 +176,7 @@ class MigrationCommand(ToolkitCommand):
 
     def _create_plan(
         self,
-        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        data: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         selectors: Sequence[T_Selector],
         log_dir: Path,
     ) -> list[MigrationStep]:
@@ -305,7 +305,7 @@ class MigrationCommand(ToolkitCommand):
         self,
         selected: T_Selector,
         write_client: HTTPClient,
-        target: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,

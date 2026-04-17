@@ -21,10 +21,10 @@ from cognite_toolkit._cdf_tk.dataio import (
     FileContentIO,
     FileMetadataContentIO,
     T_Selector,
-    UploadableStorageIO,
+    UploadableDataIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.dataio._base import Page, TableStorageIO, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio._base import Page, TableDataIO, TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
@@ -228,7 +228,7 @@ class UploadCommand(ToolkitCommand):
                 io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
                 if io is None:
                     continue
-                schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
+                schema = io.get_schema(selector) if isinstance(io, TableDataIO) else None
                 reader = MultiFileReader(datafiles, schema=schema)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
@@ -285,7 +285,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _create_selected_io(
         cls, selector: Selector, data_file: Path, client: ToolkitClient, skip_strict_mode: bool
-    ) -> UploadableStorageIO | None:
+    ) -> UploadableDataIO | None:
         try:
             io_cls = get_upload_io(selector)
         except ValueError as e:
@@ -305,7 +305,7 @@ class UploadCommand(ToolkitCommand):
         cls,
         data_chunk: Page[T_ResourceRequest],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        io: UploadableDataIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[str],
