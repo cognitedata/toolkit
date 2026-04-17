@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.storageio import (
     DatapointsIO,
     DataSelector,
     EventDataIO,
-    FileContentIO,
     FileMetadataDataIO,
     HierarchyIO,
     InstanceIO,
@@ -36,7 +35,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ChartSelector,
     DataPointsDataSetSelector,
     DataSetSelector,
-    FileIdentifierSelector,
     InstanceSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
@@ -44,7 +42,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedTable,
     SelectedView,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FileInternalID
 from cognite_toolkit._cdf_tk.storageio.selectors._records import (
     RecordContainerSelector,
     SelectedContainer,
@@ -551,7 +548,7 @@ class DownloadApp(typer.Typer):
                 "--include-file-contents",
                 "-c",
                 help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
-                "only download 1000 files at a time.",
+                "only download 100 files at a time.",
                 hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
             ),
         ] = False,
@@ -610,42 +607,23 @@ class DownloadApp(typer.Typer):
                 ).unsafe_ask()
             else:
                 include_file_contents = False
-
-            available_formats = FileContentFormats if include_file_contents else AssetCentricFormats
-            file_format = FileContentFormats.ndjson if include_file_contents else file_format  # type: ignore[assignment]
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
-                FileMetadataInteractiveSelect(client, "download"),
-                file_format,
-                compression,
-                output_dir,
-                limit if not include_file_contents else 1000,
-                "file metadata",
-                max_limit=1000 if include_file_contents else None,
-                available_formats=available_formats,
-            )
-
+            if not include_file_contents:
+                # Continue with regular interactive selection
+                data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                    FileMetadataInteractiveSelect(client, "download"),
+                    file_format,
+                    compression,
+                    output_dir,
+                    limit if not include_file_contents else 1000,
+                    "file metadata",
+                    max_limit=1000 if include_file_contents else None,
+                    available_formats=AssetCentricFormats,
+                )
         io: StorageIO
         selectors: list[DataSelector]
         if include_file_contents:
-            if limit == -1 or limit > 1000:
-                limit = 1000
-                print(
-                    "[yellow]When including file contents, the maximum number of files that can be downloaded at a time is 1000. "
-                )
-            if file_format == AssetCentricFormats.csv or file_format == AssetCentricFormats.parquet:
-                print(
-                    "[red]When including file contents, the only supported format is ndjson. Overriding the format to ndjson.[/]"
-                )
-                file_format = AssetCentricFormats.ndjson
-            files = client.files.list(data_set_external_ids=data_sets, limit=limit)
-            download_dir_name = "asset-centric-files"
-            selector = FileIdentifierSelector(
-                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files]),
-                download_dir_name=download_dir_name,
-            )
-            selectors = [selector]
-            io = FileContentIO(client, output_dir / download_dir_name)
-        else:
+            raise NotImplementedError()
+        elif data_sets is not None:
             selectors = [
                 DataSetSelector(
                     kind="FileMetadata", data_set_external_id=data_set, download_dir_name="asset-centric-files"
@@ -653,6 +631,8 @@ class DownloadApp(typer.Typer):
                 for data_set in data_sets
             ]
             io = FileMetadataDataIO(client)
+        else:
+            raise NotImplementedError("Bug in Toolkit. Unexpected execution path.")
 
         cmd = DownloadCommand(client=client)
         cmd.run(
