@@ -183,11 +183,11 @@ class TestThreeDAssetMappingMigrationIO:
         )
 
         model_endpoint = f"/3d/models/{model_id}/revisions/{revision_id}/mappings"
-        # Create items with some duplicates: asset_id 0-49 appear twice (once in each batch)
+        # Create items with some duplicates: same nodeId and assetId appear twice
         duplicate_count = 50
         first_batch_items = [{"nodeId": i, "assetId": i} for i in range(ThreeDAssetMappingMigrationIO.CHUNK_SIZE)]
-        # Second batch has duplicates (asset_id 0-49) plus new ones (asset_id 100-149)
-        second_batch_items = [{"nodeId": i + 1000, "assetId": i} for i in range(duplicate_count)] + [
+        # Second batch has actual duplicates (same nodeId and assetId) plus new ones
+        second_batch_items = [{"nodeId": i, "assetId": i} for i in range(duplicate_count)] + [
             {"nodeId": i, "assetId": i} for i in range(ThreeDAssetMappingMigrationIO.CHUNK_SIZE, N)
         ]
         respx_mock.post(
