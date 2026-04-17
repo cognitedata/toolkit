@@ -2146,8 +2146,6 @@ class TestCDFResourceAPI:
         except ToolkitAPIError as e:
             raise EndpointAssertionError(aggregate_endpoint.path, f"documents.unique failed: {e!s}") from e
 
-        # The cardinality endpoint seems to be broken, it returns total and not cardinality.
-        # add this back in, when it is fixed.
         if len(unique_vals) != cardinality:
             raise EndpointAssertionError(
                 aggregate_endpoint.path,
