@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 BASE_URL = "http://neat.cognitedata.com"
 
 
-
 @pytest.fixture()
 def tlk_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
     return ToolkitClient(config=toolkit_config)
