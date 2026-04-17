@@ -262,16 +262,12 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         This includes an optional .sql file with the query.
         """
         # Check if queryFile is specified in the YAML
-        query_file: Path | None = None
+        query_file: Path | None
         if "queryFile" in item:
+            # Explicit definition
             query_file = filepath.parent / Path(item["queryFile"])
         else:
-            # Check for conventional file names: {stem}.sql or {external_id}.sql
-            sql_candidates = [
-                filepath.parent / f"{filepath.stem}.sql",
-                filepath.parent / f"{identifier.external_id}.sql",
-            ]
-            query_file = next((p for p in sql_candidates if p.exists()), None)
+            query_file = cls._try_get_adjacent_sql_file_implicitly(filepath, identifier)
 
         if query_file is None or not query_file.exists():
             # No external SQL file - query might be inline, which is valid
@@ -286,6 +282,20 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             content=content,
             description="transformation query",
         )
+
+    @classmethod
+    def _try_get_adjacent_sql_file_implicitly(cls, filepath: Path, identifier: ExternalId) -> Path | None:
+        """You can either define .sql file explicity with the 'queryFile' argument, or this
+        implicit method will be used."""
+        filestem = filepath.stem[: -len(cls.kind)].removesuffix(".")
+
+        # Check for conventional file names: {stem}.sql or {external_id}.sql
+        sql_candidates = [
+            filepath.parent / f"{filestem}.sql",
+            filepath.parent / f"{filepath.stem}.sql",
+            filepath.parent / f"{identifier.external_id}.sql",
+        ]
+        return next((p for p in sql_candidates if p.exists()), None)
 
     @classmethod
     def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
@@ -359,16 +369,15 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
 
         raw_list = resources if isinstance(resources, list) else [resources]
         for item in raw_list:
-            query_file: Path | None = None
+            identifier = self.get_id(item)
+            external_id = identifier.external_id
+            query_file: Path | None
             if "queryFile" in item:
-                if filepath is None:
-                    raise ValueError("filepath must be set if queryFile is set")
                 query_file = filepath.parent / Path(item.pop("queryFile"))
+            else:
+                query_file = self._try_get_adjacent_sql_file_implicitly(filepath, identifier)
 
-            external_id = self.get_id(item).external_id
             if query_file is None and "query" not in item:
-                if filepath is None:
-                    raise ValueError("filepath must be set if query is not set")
                 warning = HighSeverityWarning(
                     f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                 )
