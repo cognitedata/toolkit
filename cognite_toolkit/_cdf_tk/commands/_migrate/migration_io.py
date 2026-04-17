@@ -713,7 +713,12 @@ class ThreeDAssetMappingMigrationIO(
                     unique_items: list[AssetMappingClassicResponse] = []
                     skipped_entries: list[MigrationEntryV2] = []
                     for item in response.items:
-                        mapping_key = (item.model_id, item.revision_id, item.node_id, item.asset_id if item.asset_id is not None else -1)
+                        mapping_key = (
+                            item.model_id,
+                            item.revision_id,
+                            item.node_id,
+                            item.asset_id if item.asset_id is not None else -1,
+                        )
                         if mapping_key in seen_mappings:
                             skipped_entries.append(
                                 MigrationEntryV2(
