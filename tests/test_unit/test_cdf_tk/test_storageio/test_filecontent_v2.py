@@ -7,16 +7,17 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio._file_contentv2 import (
     FILENAME_VARIABLE,
-    FILEPATH,
     FileMetadataContentIO,
-    FileMetadataContentSelector,
-    FileMetadataFilesSelector,
-    FileMetadataTemplate,
-    FileMetadataTemplateSelector,
+)
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    FileMetadataContentSelectorV2,
+    FileMetadataFilesSelectorV2,
+    FileMetadataTemplateSelectorV2,
+    FileMetadataTemplateV2,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
@@ -30,8 +31,8 @@ class TestFileMetadataContentIO:
         text_file.write_text("This is a test file.")
         json_file.write_text('{"key": "value"}')
 
-        selector = FileMetadataTemplateSelector(
-            template=FileMetadataTemplate.model_validate(
+        selector = FileMetadataTemplateSelectorV2(
+            template=FileMetadataTemplateV2.model_validate(
                 dict(
                     name=FILENAME_VARIABLE,
                     external_id=f"my_id_{FILENAME_VARIABLE}",
@@ -58,7 +59,7 @@ class TestFileMetadataContentIO:
         text_file.write_text("This is a test file.")
         json_file.write_text('{"key": "value"}')
 
-        selector = FileMetadataFilesSelector()
+        selector = FileMetadataFilesSelectorV2()
         selector.dump_to_file(tmp_path)
         csv_file = f"""externalId,name,{FILEPATH}\n
 my_json_file,my_json_file.json,{json_file.relative_to(tmp_path)}\n
@@ -73,7 +74,7 @@ my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
             ItemsSuccessResponse(ids=["row 2"], status_code=200, body="", content=b""),
         ]
 
-    def _upload_files(self, selector: FileMetadataContentSelector, tmp_path: Path) -> list[ItemsResultMessage]:
+    def _upload_files(self, selector: FileMetadataContentSelectorV2, tmp_path: Path) -> list[ItemsResultMessage]:
         with monkeypatch_toolkit_client() as client:
             client.tool.filemetadata.create.return_value = [
                 FileMetadataResponse(
