@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceViewSelector,
     SelectedView,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -195,7 +196,7 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--yes",
                 "-y",
-                help="Automatically confirm that you are sure you want to purge the space.",
+                help="Deprecated. Purge operations now always require manual confirmation.",
             ),
         ] = False,
         verbose: Annotated[
@@ -210,6 +211,13 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified space."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
+
+        if auto_yes:
+            ToolkitDeprecationWarning(
+                feature="--yes / -y flag in cdf data purge space",
+                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+            ).print_warning()
+            auto_yes = False
 
         if space is None:
             # Is Interactive
@@ -237,7 +245,6 @@ class PurgeApp(typer.Typer):
                 delete_datapoints=delete_datapoints,
                 delete_file_content=delete_file_content,
                 dry_run=dry_run,
-                auto_yes=auto_yes,
                 verbose=verbose,
             )
         )
@@ -310,7 +317,7 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--yes",
                 "-y",
-                help="Automatically confirm that you are sure you want to purge the instances.",
+                help="Deprecated. Purge operations now always require manual confirmation.",
             ),
         ] = False,
         verbose: Annotated[
@@ -325,6 +332,13 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified instances."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
+
+        if auto_yes:
+            ToolkitDeprecationWarning(
+                feature="--yes / -y flag in cdf data purge instances",
+                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+            ).print_warning()
+            auto_yes = False
 
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
@@ -367,7 +381,6 @@ class PurgeApp(typer.Typer):
                 selector=selector,
                 unlink=unlink,
                 dry_run=dry_run,
-                auto_yes=auto_yes,
                 verbose=verbose,
             )
         )
