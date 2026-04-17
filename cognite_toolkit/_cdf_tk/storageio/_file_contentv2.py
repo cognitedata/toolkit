@@ -58,7 +58,7 @@ class FileMetadataContentIO(
         self,
         client: ToolkitClient,
         config_directory: Path,
-        file_directory: Path,
+        file_directory: Path | None = None,
         overwrite: bool = False,
     ) -> None:
         super().__init__(client)
@@ -80,6 +80,8 @@ class FileMetadataContentIO(
         self, selector: FileMetadataContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         file_ids = self._verify_download_selector(selector)
+        if self._file_directory is None:
+            raise ValueError("Bug in Toolkit: File directory must be specified for downloading file content.")
         self._file_directory.mkdir(exist_ok=True, parents=True)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             self.logger.register([item.display_name for item in chunk])

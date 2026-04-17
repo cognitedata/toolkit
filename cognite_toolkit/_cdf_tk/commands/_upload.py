@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.storageio import (
     ChartIO,
     FileContentIO,
+    FileMetadataContentIO,
     T_Selector,
     UploadableStorageIO,
     get_upload_io,
@@ -294,6 +295,8 @@ class UploadCommand(ToolkitCommand):
             return None
         if issubclass(io_cls, ChartIO):
             return ChartIO(client, skip_strict_mode=skip_strict_mode)
+        elif issubclass(io_cls, FileMetadataContentIO):
+            return FileMetadataContentIO(client, config_directory=data_file.parent)
         else:
             return io_cls(client)
 
