@@ -238,9 +238,8 @@ class PurgeCommand(ToolkitCommand):
                 if not acknowledge_soft_delete:
                     return DeployResults([], "purge", dry_run=dry_run)
             self._print_panel("space", selected_space)
-            confirm = questionary.confirm(
-                f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-            ).ask()
+
+            confirm = self._confirm_purge(f"You are about purge the {selected_space!r} space", client)
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -429,9 +428,9 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
         if not dry_run and not auto_yes:
-            confirm = questionary.confirm(
-                f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
-            ).ask()
+            confirm = self._confirm_purge(
+                f"You are about t purge the {selected_data_set_external_id!r} dataSet", client
+            )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -637,7 +636,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> DeleteResults:
         """Purge instances"""
         io = InstanceIO(client)
-        console = Console()
+        console = client.console
         validator = ValidateAccess(client, default_operation="purge")
         self.validate_instance_access(validator, selector.get_instance_spaces())
         if unlink:
@@ -657,10 +656,10 @@ class PurgeCommand(ToolkitCommand):
             if not acknowledge_soft_delete:
                 return DeleteResults()
             self._print_panel("instances", str(selector))
-            confirm_purge = questionary.confirm(
-                f"Are you sure you want to purge all {total:,} instances in {selector!s}?",
-                default=False,
-            ).ask()
+
+            confirm_purge = self._confirm_purge(
+                f"You are about to purge all {total:,} instances in {selector!s}", client
+            )
             if not confirm_purge:
                 return DeleteResults()
 
@@ -695,6 +694,18 @@ class PurgeCommand(ToolkitCommand):
                 f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
             )
         return results
+
+    def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
+        client_project = client.config.project
+        client.console.print(f"{message} the CDF project [bold]{client_project}[/bold]")
+        typed_project = questionary.text("To confirm, please type the name of the project: ").unsafe_ask()
+        if typed_project != client_project:
+            client.console.print(
+                f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
+            )
+            return False
+
+        return True
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
