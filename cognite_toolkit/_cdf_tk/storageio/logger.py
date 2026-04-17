@@ -16,21 +16,16 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
-class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
-    """Represents a log entry for tracking storage I/O operations."""
-
-    id: str
-
-
 class Severity(Enum):
     warning = 1
     skipped = 2
     failure = 3
 
 
-class LogAggregation(LogEntry):
+class LogAggregation(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Storing the aggregated log entries"""
 
+    id: str
     label: str
     severity: Severity
     attributes: set[str] | None = None
@@ -42,10 +37,6 @@ class LogEntryV2(LogAggregation):
 
     def as_aggregation(self) -> LogAggregation:
         return LogAggregation.model_validate(self.model_dump(), extra="ignore")
-
-
-class LogIssue(LogEntry):
-    message: str
 
 
 OperationStatus: TypeAlias = Literal[
@@ -69,7 +60,7 @@ class DataLogger(ABC):
     """Abstract base class for data loggers that track operations and log entries."""
 
     @abstractmethod
-    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+    def log(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
         """Log a detailed entry."""
         raise NotImplementedError()
 
@@ -87,21 +78,9 @@ class DataLogger(ABC):
 class NoOpLogger(DataLogger):
     """A no-op logger that discards all log entries and does no tracking."""
 
-    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+    def log(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
         """Discard the log entry (no-op)."""
         pass
-
-
-class FileDataLogger(DataLogger):
-    """Composes aggregation tracking with detailed file logging."""
-
-    def __init__(self, writer: NDJsonWriter) -> None:
-        self._writer = writer
-
-    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
-        """Log a detailed entry to the file."""
-        entries = entry if isinstance(entry, Sequence) else [entry]
-        self._writer.write_chunks([e.model_dump(by_alias=True, mode="json") for e in entries])
 
 
 @dataclass
@@ -137,7 +116,7 @@ class FileWithAggregationLogger(DataLogger):
     def __init__(self, writer: NDJsonWriter) -> None:
         self._writer = writer
         self._lock = Lock()
-        self._batch: list[LogEntry] = []
+        self._batch: list[LogEntryV2] = []
         self.aggregations_by_ids: dict[str, list[LogAggregation]] = {}
 
     def __enter__(self) -> "FileWithAggregationLogger":
@@ -167,7 +146,7 @@ class FileWithAggregationLogger(DataLogger):
                         )
                     )
 
-    def _update_aggregation_unlocked(self, entries: list[LogEntry]) -> None:
+    def _update_aggregation_unlocked(self, entries: list[LogEntryV2]) -> None:
         """Internal method to update aggregations without acquiring the lock."""
         for entry in entries:
             if isinstance(entry, LogEntryV2):
@@ -184,7 +163,7 @@ class FileWithAggregationLogger(DataLogger):
                         )
                     )
 
-    def _log_unlocked(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+    def _log_unlocked(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
         """Internal method to log entries without acquiring the lock."""
         entries = list(entry) if isinstance(entry, Sequence) else [entry]
         self._update_aggregation_unlocked(entries)
@@ -192,7 +171,7 @@ class FileWithAggregationLogger(DataLogger):
         if len(self._batch) >= self.BATCH_SIZE:
             self._write_to_file_unlocked()
 
-    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+    def log(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
         with self._lock:
             self._log_unlocked(entry)
 

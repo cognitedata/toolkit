@@ -162,17 +162,17 @@ class TaskDefinition(BaseModelResource, ABC):
         max_length=500,
         description="Description of the intention of the task",
     )
-    retries: int = Field(
-        3,
+    retries: int | None = Field(
+        None,
         ge=0,
         le=10,
         description="Number of times to retry the task if it fails. If set to 0, the task will not be retried. The behavior for timeouts and retries is defined by the onFailure parameter, refer to it for more information.",
     )
-    timeout: int = Field(
-        3600,
+    timeout: int | None = Field(
+        None,
         ge=60,
         le=86400,
-        description="TTimeout in seconds. After this time, the task will be marked as TIMED_OUT. By default, the task won't be retried upon timeout. Use the onFailure parameter to change this behavior.",
+        description="Timeout in seconds. After this time, the task will be marked as TIMED_OUT. By default, the task won't be retried upon timeout. Use the onFailure parameter to change this behavior.",
     )
     on_failure: Literal["abortWorkflow", "skipTask"] | None = Field(
         None,

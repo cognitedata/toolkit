@@ -47,6 +47,7 @@ from ._base import (
     TableStorageIO,
     TableUploadableStorageIO,
 )
+from .logger import DataLogger
 from .progress import CursorBookmark, NoBookmark
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
@@ -771,6 +772,16 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AssetCentricResource]]:
         yield from self.get_resource_io(selector.kind).stream_data(selector, limit, bookmark=bookmark)
+
+    @property
+    def logger(self) -> DataLogger:
+        return self.logger
+
+    @logger.setter
+    def logger(self, new_logger: DataLogger) -> None:
+        self._logger = new_logger
+        for subio in self._io_by_kind.values():
+            subio.logger = new_logger
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)

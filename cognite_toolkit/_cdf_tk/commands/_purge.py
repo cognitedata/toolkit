@@ -212,26 +212,38 @@ class PurgeCommand(ToolkitCommand):
         delete_datapoints: bool = False,
         delete_file_content: bool = False,
         dry_run: bool = False,
-        auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        # Warning Messages
-        if not dry_run:
-            self._print_panel("space", selected_space)
-
-        if not dry_run and not auto_yes:
-            confirm = questionary.confirm(
-                f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-            ).ask()
-            if not confirm:
-                return DeployResults([], "purge", dry_run=dry_run)
-
         stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
         if stats is None:
             raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
 
-        # ValidateAuth
+        instance_count = stats.nodes + stats.edges
+
         validator = ValidateAccess(client, "purge")
+        # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
+        # This check will be removed once DMS limits are available through the limits service.
+        if instance_count > 0 and validator.data_model(["read"]) is not None:
+            raise AuthorizationError(
+                "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
+            )
+
+        if not dry_run:
+            if instance_count > 0:
+                self._print_instance_purge_soft_delete_panel(client, instance_count)
+                acknowledge_soft_delete = questionary.confirm(
+                    "Do you understand the soft-delete resource limit impact and wish to continue?",
+                    default=False,
+                ).ask()
+                if not acknowledge_soft_delete:
+                    return DeployResults([], "purge", dry_run=dry_run)
+            self._print_panel("space", selected_space)
+
+            confirm = self._confirm_purge(f"You are about purge the {selected_space!r} space", client)
+            if not confirm:
+                return DeployResults([], "purge", dry_run=dry_run)
+
+        # ValidateAuth
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
             # We check for write even in dry-run mode. This is because dry-run is expected to fail
             # if the user cannot perform the purge.
@@ -416,9 +428,9 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
         if not dry_run and not auto_yes:
-            confirm = questionary.confirm(
-                f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
-            ).ask()
+            confirm = self._confirm_purge(
+                f"You are about t purge the {selected_data_set_external_id!r} dataSet", client
+            )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -562,18 +574,69 @@ class PurgeCommand(ToolkitCommand):
             )
         )
 
+    @staticmethod
+    def _print_instance_purge_soft_delete_panel(
+        client: ToolkitClient,
+        instances_to_delete: int,
+    ) -> None:
+        """Step 1 panel: soft-delete resource limit impact and related notices."""
+        inst_stats = client.data_modeling.statistics.project().instances
+        used = max(0, inst_stats.soft_deleted_instances)
+        limit = inst_stats.soft_deleted_instances_limit
+        projected = used + instances_to_delete
+        remaining_after = max(0, limit - projected)
+        bar_width = 44
+
+        bar = "".join(
+            "[yellow]█[/yellow]"
+            if (i + 0.5) / bar_width * limit < used
+            else "[bright_magenta]█[/bright_magenta]"
+            if (i + 0.5) / bar_width * limit < min(projected, limit)
+            else "[dim]░[/dim]"
+            for i in range(bar_width)
+        )
+        resource_usage_bar = (
+            "[yellow]█[/yellow] [dim]already soft-deleted   [/dim]"
+            "[bright_magenta]█[/bright_magenta] [dim]this purge   [/dim]"
+            "[dim]░ remaining[/dim]\n\n"
+            f"{bar}\n"
+            f"[dim]Limit [/dim][bold]{limit:,}[/bold][dim]  ·  [/dim]"
+            f"[yellow]{used:,}[/yellow][dim] + [/dim][bright_magenta]{instances_to_delete:,}[/bright_magenta]"
+            f"[dim] → [/dim][bold]{projected:,}[/bold][dim] total soft-deleted (est.)  ·  [/dim]"
+            f"[green]{remaining_after:,}[/green][dim] remaining[/dim]"
+        )
+
+        print(
+            Panel(
+                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
+                "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
+                "not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per "
+                "the retention policy, which can take multiple days (see "
+                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).\n\n"
+                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance "
+                f"counts toward the total soft-delete limit below.\n\n{resource_usage_bar}\n\n"
+                "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
+                "require deleting instances. You can delete or change schema resources (containers, views, data models) "
+                "without purging the instance data first. Only run an instance purge when you intend to remove specific "
+                "data which was either ingested by error or is no longer needed or valid.",
+                title="Purging instances: Please acknowledge the following",
+                title_align="left",
+                border_style="yellow",
+                expand=False,
+            )
+        )
+
     def instances(
         self,
         client: ToolkitClient,
         selector: InstanceSelector,
         dry_run: bool = False,
-        auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
     ) -> DeleteResults:
         """Purge instances"""
         io = InstanceIO(client)
-        console = Console()
+        console = client.console
         validator = ValidateAccess(client, default_operation="purge")
         self.validate_instance_access(validator, selector.get_instance_spaces())
         if unlink:
@@ -585,14 +648,20 @@ class PurgeCommand(ToolkitCommand):
             print("No instances found.")
             return DeleteResults()
         if not dry_run:
+            self._print_instance_purge_soft_delete_panel(client, total)
+            acknowledge_soft_delete = questionary.confirm(
+                "Do you understand the soft-delete resource limit impact and wish to continue?",
+                default=False,
+            ).ask()
+            if not acknowledge_soft_delete:
+                return DeleteResults()
             self._print_panel("instances", str(selector))
-            if not auto_yes:
-                confirm = questionary.confirm(
-                    f"Are you really sure you want to purge all {total:,} instances in {selector!s}?",
-                    default=False,
-                ).ask()
-                if not confirm:
-                    return DeleteResults()
+
+            confirm_purge = self._confirm_purge(
+                f"You are about to purge all {total:,} instances in {selector!s}", client
+            )
+            if not confirm_purge:
+                return DeleteResults()
 
         process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
@@ -625,6 +694,18 @@ class PurgeCommand(ToolkitCommand):
                 f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
             )
         return results
+
+    def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
+        client_project = client.config.project
+        client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
+        typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
+        if typed_project != client_project:
+            client.console.print(
+                f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
+            )
+            return False
+
+        return True
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
