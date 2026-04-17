@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FileMetadataRequest,
     FileMetadataResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, FileMetadataCRUD, LabelIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -172,7 +172,34 @@ class FileMetadataContentIO(
         return data_chunk.create_from(dumped)
 
     def configurations(self, selector: FileMetadataContentSelectorV2) -> Iterable[StorageIOConfig]:
-        raise NotImplementedError()
+        data_set_ids = self._downloaded_data_sets_by_selector[selector]
+        if data_set_ids:
+            data_set_external_ids = [
+                ExternalId(external_id=data_set_external_id)
+                for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
+            ]
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
+
+        labels = self._downloaded_labels_by_selector[selector]
+        if labels:
+            yield from self._configurations(list(labels), LabelIO.create_loader(self.client))
+
+    @classmethod
+    def _configurations(
+        cls,
+        ids: Sequence[Hashable],
+        loader: DataSetsIO | LabelIO,
+    ) -> Iterable[StorageIOConfig]:
+        if not ids:
+            return
+
+        items = loader.retrieve(ids)  # type: ignore[arg-type]
+        yield StorageIOConfig(
+            kind=loader.kind,
+            folder_name=loader.folder_name,
+            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
+            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+        )
 
     def upload_items(
         self,
