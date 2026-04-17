@@ -17,12 +17,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
-from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
-from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetDataIO
-from cognite_toolkit._cdf_tk.storageio._base import DataItem, Page
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio import RawIO
+from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
+from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import NoOpLogger
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceFileSelector,
     InstanceQuerySelector,
     InstanceSelector,
@@ -33,7 +32,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
     Selector,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._asset_centric import DataSetSelector
+from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
+from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -235,7 +236,8 @@ class TestUploadCommand:
                     io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
                     dry_run=False,
-                    tracker=MagicMock(),
                     console=MagicMock(spec=Console),
                     verbose=False,
+                    logger=NoOpLogger(),
+                    get_log_file=MagicMock(),
                 )

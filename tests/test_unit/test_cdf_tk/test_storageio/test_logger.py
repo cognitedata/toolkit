@@ -1,7 +1,7 @@
 from collections import Counter
 from unittest.mock import MagicMock
 
-from cognite_toolkit._cdf_tk.storageio.logger import (
+from cognite_toolkit._cdf_tk.dataio.logger import (
     FileWithAggregationLogger,
     ItemsResult,
     LabelResult,

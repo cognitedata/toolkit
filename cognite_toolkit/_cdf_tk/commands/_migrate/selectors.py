@@ -5,8 +5,8 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMappingList
-from cognite_toolkit._cdf_tk.storageio import DataSelector
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
+from cognite_toolkit._cdf_tk.dataio import DataSelector
+from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKindExtended
 
 

@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -204,6 +204,7 @@ class TestPurgeInstances:
         client = purge_client
         questionary_mock = MagicMock()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -296,6 +297,7 @@ class TestPurgeSpace:
         rsps = purge_responses
         questionary_mock = MagicMock()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         container_count = 10
         view_count = 15
         data_model_count = 3

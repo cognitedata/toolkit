@@ -5,7 +5,7 @@ from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeUntypedId
 
 FILEPATH = "$FILEPATH"
 
@@ -19,7 +19,7 @@ class FileMetadata(BaseModelObject):
     metadata: Metadata | None = None
     asset_ids: list[int] | None = None
     data_set_id: int | None = None
-    labels: list[dict[Literal["externalId"], str]] | None = None
+    labels: list[ExternalId] | None = None
     geo_location: JsonValue | None = None
     source_created_time: int | None = None
     source_modified_time: int | None = None
@@ -62,3 +62,11 @@ class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):
     @classmethod
     def request_cls(cls) -> type[FileMetadataRequest]:
         return FileMetadataRequest
+
+    def as_internal_id(self) -> InternalId:
+        return InternalId(id=self.id)
+
+
+class DownloadResponse(BaseModelObject):
+    id: int
+    download_url: str | None = None

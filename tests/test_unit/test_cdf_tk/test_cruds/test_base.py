@@ -447,8 +447,10 @@ class TestResourceCRUDs:
 
     @pytest.mark.parametrize("loader_cls, local_file, expected_strings", list(sensitive_strings_test_cases()))
     def test_sensitive_strings(
-        self, loader_cls: type[ResourceIO], local_file: str, expected_strings: set[str], tmp_path: Path
+        self, loader_cls: type[ResourceIO], local_file: str, expected_strings: set[str], tmp_path: Path, monkeypatch
     ) -> None:
+        # Avoid returning an external .sql file for TransformationIO.
+        monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
             loader = loader_cls.create_loader(client, build_dir=tmp_path)

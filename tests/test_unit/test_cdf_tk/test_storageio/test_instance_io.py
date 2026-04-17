@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
-from cognite_toolkit._cdf_tk.storageio import DataItem, InstanceIO, Page
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.dataio import DataItem, InstanceIO, Page
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 

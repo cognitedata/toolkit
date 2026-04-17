@@ -43,8 +43,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     ThreeDMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import DataItem, Page
-from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
+from cognite_toolkit._cdf_tk.dataio import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.selectors import ThreeDModelIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests_smoke.exceptions import EndpointAssertionError

@@ -6,18 +6,18 @@ from pathlib import Path
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.dataio import (
+    ConfigurableDataIO,
+    DataIO,
+    Page,
+    T_Selector,
+    TableDataIO,
+)
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
+from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio import (
-    ConfigurableStorageIO,
-    Page,
-    StorageIO,
-    T_Selector,
-    TableStorageIO,
-)
-from cognite_toolkit._cdf_tk.storageio.logger import FileWithAggregationLogger, display_item_results
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
@@ -38,7 +38,7 @@ class DownloadCommand(ToolkitCommand):
     def download(
         self,
         selectors: Sequence[T_Selector],
-        io: StorageIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_ResourceResponse],
         output_dir: Path,
         verbose: bool,
         file_format: str,
@@ -119,7 +119,7 @@ class DownloadCommand(ToolkitCommand):
             selector.dump_to_file(target_dir)
             columns: list[SchemaColumn] | None = None
             is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
-            if is_table and isinstance(io, TableStorageIO):
+            if is_table and isinstance(io, TableDataIO):
                 columns = io.get_schema(selector)
             elif is_table:
                 raise ToolkitValueError(
@@ -161,7 +161,7 @@ class DownloadCommand(ToolkitCommand):
                 executor.raise_on_error()
                 file_count = writer.file_count
 
-            if isinstance(io, ConfigurableStorageIO):
+            if isinstance(io, ConfigurableDataIO):
                 for config in io.configurations(selector):
                     filename = config.filename or filestem
                     config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
@@ -193,12 +193,12 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def create_data_process(
-        io: StorageIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         is_table: bool,
     ) -> Callable[[Page[T_ResourceResponse]], Page[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
-        if is_table and isinstance(io, TableStorageIO):
+        if is_table and isinstance(io, TableDataIO):
             return partial(io.data_to_row, selector=selector)
         return partial(io.data_to_json_chunk, selector=selector)
 

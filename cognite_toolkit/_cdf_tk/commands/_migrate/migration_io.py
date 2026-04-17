@@ -27,23 +27,23 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     AnnotationIO,
     HierarchyIO,
     InstanceIO,
     T_Selector,
-    UploadableStorageIO,
+    UploadableDataIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Bookmark, DataItem, Page
-from cognite_toolkit._cdf_tk.storageio.logger import Severity
-from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, FileBookmark, NoBookmark
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio._base import Bookmark, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, FileBookmark, NoBookmark
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
     ThreeDSelector,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
@@ -66,7 +66,7 @@ from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, Mi
 
 
 class AssetCentricMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -399,7 +399,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
 
 class AnnotationMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
 ):
     """IO class for migrating Annotations.
 
@@ -550,7 +550,7 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
-class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
+class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
     """IO class for downloading and migrating 3D models.
 
     Args:
@@ -667,7 +667,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
 
 
 class ThreeDAssetMappingMigrationIO(
-    UploadableStorageIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
+    UploadableDataIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
 ):
     KIND = "3DMigrationAssetMapping"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})

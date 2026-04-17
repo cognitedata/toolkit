@@ -59,6 +59,16 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         with self._lock:
             return len(self._writer_by_filepath)
 
+    @property
+    def latest_file(self) -> Path | None:
+        """Get the path of the most recently written file."""
+        with self._lock:
+            if not self._writer_by_filepath:
+                return None
+            # Get the most recently modified file among the currently open writers
+            latest_filepath = max(self._writer_by_filepath.keys(), key=lambda p: p.stat().st_mtime)
+            return latest_filepath
+
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         with self._lock:
             selected_filestem = filestem or self.default_filestem or ""

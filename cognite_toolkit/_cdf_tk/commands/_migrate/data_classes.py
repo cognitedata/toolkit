@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_ANNOTATIONS_ID,
     create_default_mappings,
 )
+from cognite_toolkit._cdf_tk.dataio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,

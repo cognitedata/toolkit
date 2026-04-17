@@ -21,15 +21,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     AssetCentricIO,
     AssetDataIO,
     EventDataIO,
     FileMetadataDataIO,
     TimeSeriesDataIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Page, TableUploadableStorageIO
-from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.dataio._base import Page, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 

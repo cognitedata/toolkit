@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
+from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -88,7 +88,7 @@ class Page(Generic[T_DataItem], Sized):
         return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
 
 
-class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
+class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
     """This is a base class for all storage classes in Cognite Toolkit
 
     It defines the interface for downloading data from CDF. Note this can also be used for multiple
@@ -174,9 +174,7 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
         raise NotImplementedError()
 
 
-class UploadableStorageIO(
-    Generic[T_Selector, T_DataResponse, T_DataRequest], StorageIO[T_Selector, T_DataResponse], ABC
-):
+class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support uploading data to CDF.
 
     Attributes:
@@ -304,7 +302,7 @@ class UploadableStorageIO(
         return reader.count()
 
 
-class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
+class TableUploadableStorageIO(UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
     """A base class for storage items that support uploading data with table schemas."""
 
     def rows_to_data(self, rows: Page[dict[str, JsonVal]], selector: T_Selector | None = None) -> Page[T_DataRequest]:
@@ -339,7 +337,7 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T
         raise NotImplementedError()
 
 
-class ConfigurableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
+class ConfigurableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support configurations for different storage items."""
 
     @abstractmethod
@@ -348,7 +346,7 @@ class ConfigurableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
         raise NotImplementedError()
 
 
-class TableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
+class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support table schemas."""
 
     @abstractmethod

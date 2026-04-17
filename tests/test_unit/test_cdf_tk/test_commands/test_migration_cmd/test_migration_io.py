@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     ThreeDAssetMappingMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import AssetDataIO, Page
-from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
+from cognite_toolkit._cdf_tk.dataio import AssetDataIO, Page
+from cognite_toolkit._cdf_tk.dataio.selectors import ThreeDModelIdSelector
 
 
 @pytest.fixture(scope="module")
