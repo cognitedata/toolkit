@@ -33,9 +33,13 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerRequest,
+    ContainerResponse,
     DataModelRequest,
     InstanceSource,
     NodeRequest,
+    TextProperty,
     ViewId,
     ViewRequest,
 )
@@ -643,6 +647,19 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Itera
 
 
 @pytest.fixture(scope="module")
+def persistent_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
+    return toolkit_client.tool.containers.create(
+        [
+            ContainerRequest(
+                space=toolkit_space.space,
+                external_id="persistent_container_toolkit_integration_tests",
+                properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+            )
+        ]
+    )[0]
+
+
+@pytest.fixture(scope="module")
 def two_views(
     toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
 ) -> Iterable[dm.ViewList]:
@@ -1114,7 +1131,7 @@ class TestNodeLoader:
 
 class TestViewLoader:
     def test_no_implement_not_redeployed(
-        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, persistent_container: ContainerResponse
     ) -> None:
         definition_yaml = f"""space: {toolkit_space.space}
 externalId: ToolkitTestNoImplementsNotRedeployed
@@ -1123,8 +1140,8 @@ implements: []
 properties:
   name:
     container:
-      space: {a_container.space}
-      externalId: {a_container.external_id}
+      space: {persistent_container.space}
+      externalId: {persistent_container.external_id}
       type: container
     containerPropertyIdentifier: name
         """
