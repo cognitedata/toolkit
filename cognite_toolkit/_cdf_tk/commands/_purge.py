@@ -642,35 +642,35 @@ class PurgeCommand(ToolkitCommand):
         instances_to_delete: int,
     ) -> None:
         """Step 1 panel: soft-delete resource limit impact and related notices."""
-        intro = "\n".join(
-            [
-                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide [bold]soft-delete resource limit[/bold] for instances. "
-                "If that resource limit is exhausted, you will not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per the retention policy, which can take multiple days (see "
-                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).",
-                "",
-                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance counts toward "
-                "the total soft-delete limit below.",
-            ]
-        )
-
-        note = (
-            "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not require deleting instances. You can delete or "
-            "change schema resources (containers, views, data models) without purging the instance data first. Only run "
-            "an instance purge when you intend to remove specific data which was either ingested by error or "
-            "is no longer needed or valid."
-        )
-
         stats = client.data_modeling.statistics.project()
-        inst_stats = stats.instances
-        middle = _soft_delete_resource_limit_bar(
-            inst_stats.soft_deleted_instances,
-            inst_stats.soft_deleted_instances_limit,
+        resource_usage_bar = _soft_delete_resource_limit_bar(
+            stats.instances.soft_deleted_instances,
+            stats.instances.soft_deleted_instances_limit,
             instances_to_delete,
+        )
+
+        dialog_text = (
+            Text.from_markup(
+                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
+                "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
+                "not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per "
+                "the retention policy, which can take multiple days (see "
+                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).\n\n"
+                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance "
+                "counts toward the total soft-delete limit below.\n"
+            ),
+            resource_usage_bar,
+            Text.from_markup(
+                "\n[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
+                "require deleting instances. You can delete or change schema resources (containers, views, data models) "
+                "without purging the instance data first. Only run an instance purge when you intend to remove specific "
+                "data which was either ingested by error or is no longer needed or valid."
+            ),
         )
 
         print(
             Panel(
-                Group(Text.from_markup(intro), Text(""), middle, Text(""), Text.from_markup(note)),
+                Group(*dialog_text),
                 title="Purging instances: Please acknowledge the following",
                 title_align="left",
                 border_style="yellow",
