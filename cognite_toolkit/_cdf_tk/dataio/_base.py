@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
+from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 

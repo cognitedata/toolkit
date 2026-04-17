@@ -29,6 +29,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
+from cognite_toolkit._cdf_tk.dataio import InstanceIO
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
@@ -54,8 +56,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
     WorkflowIO,
 )
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LimitedAccessWarning,

@@ -98,15 +98,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import T_DataRequest, T_DataResponse, T_Selector
-from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger, Severity
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio import T_DataRequest, T_DataResponse, T_Selector
+from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, NoOpLogger, Severity
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
     ChartSelector,
     InstanceSelector,
     ThreeDSelector,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp, datetime_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended

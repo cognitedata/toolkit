@@ -6,18 +6,18 @@ from pathlib import Path
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     ConfigurableStorageIO,
     Page,
     StorageIO,
     T_Selector,
     TableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio.logger import FileWithAggregationLogger, display_item_results
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
+from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (

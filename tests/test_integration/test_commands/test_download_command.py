@@ -3,8 +3,8 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
-from cognite_toolkit._cdf_tk.storageio import AssetDataIO, RawIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector, RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.dataio import AssetDataIO, RawIO
+from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector, RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, NDJsonReader
 from tests.test_integration.conftest import HierarchyMinimal

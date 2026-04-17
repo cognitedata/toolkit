@@ -27,23 +27,23 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     AnnotationIO,
     HierarchyIO,
     InstanceIO,
     T_Selector,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Bookmark, DataItem, Page
-from cognite_toolkit._cdf_tk.storageio.logger import Severity
-from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, FileBookmark, NoBookmark
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio._base import Bookmark, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, FileBookmark, NoBookmark
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
     ThreeDSelector,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (

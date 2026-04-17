@@ -6,7 +6,7 @@ from cognite.client.data_classes import DataSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, DataItem, Page
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 

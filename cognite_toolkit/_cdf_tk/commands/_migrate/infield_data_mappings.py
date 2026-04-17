@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceQuerySelector
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, safe_read
 
 

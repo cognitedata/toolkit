@@ -8,7 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     TimeSeriesDataIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
     AssetSubtreeSelector,

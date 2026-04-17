@@ -4,8 +4,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import DatapointsIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsFileSelector, ExternalIdColumn
+from cognite_toolkit._cdf_tk.dataio import DatapointsIO
+from cognite_toolkit._cdf_tk.dataio.selectors import DataPointsFileSelector, ExternalIdColumn
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
 

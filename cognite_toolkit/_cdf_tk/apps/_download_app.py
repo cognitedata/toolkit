@@ -11,8 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, V
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
@@ -28,7 +27,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     StorageIO,
     TimeSeriesDataIO,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors import (
+from cognite_toolkit._cdf_tk.dataio.selectors import (
     AssetSubtreeSelector,
     CanvasExternalIdSelector,
     CanvasSelector,
@@ -45,11 +44,12 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedTable,
     SelectedView,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._records import (
+from cognite_toolkit._cdf_tk.dataio.selectors._records import (
     RecordContainerSelector,
     SelectedContainer,
     SelectedStream,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
