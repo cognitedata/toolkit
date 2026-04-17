@@ -238,11 +238,21 @@ class FileMetadataContentIO(
 
     def _upload_single_item(self, item: DataItem[FileMetadataRequest]) -> ItemsResultMessage:
         request = item.item
-        if request.filepath is None:
+        filepath = request.filepath
+        if filepath is None:
             return ItemsFailedRequest(
                 ids=[item.tracking_id],
                 error_message=f"Failed to create {item.tracking_id}. Not file path provided ({FILENAME_VARIABLE} is missing).",
             )
+        if not filepath.is_file():
+            candidate = self._config_directory / filepath
+            if candidate.is_file():
+                filepath = candidate
+            else:
+                return ItemsFailedRequest(
+                    ids=[item.tracking_id],
+                    error_message=f"Failed to create {item.tracking_id}. File path {filepath.as_posix()} does not exist.",
+                )
 
         created = self._create_file_metadata(item, request)
         if not isinstance(created, FileMetadataResponse):
@@ -254,7 +264,7 @@ class FileMetadataContentIO(
                 error_message=f"Failed to retrieve upload URL for item {item.tracking_id}.",
             )
 
-        return self._upload_file_content(request.filepath, created.upload_url, request.mime_type, item.tracking_id)
+        return self._upload_file_content(filepath, created.upload_url, request.mime_type, item.tracking_id)
 
     def _create_file_metadata(
         self, item: DataItem[FileMetadataRequest], request: FileMetadataRequest
