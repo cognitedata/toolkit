@@ -143,6 +143,7 @@ class SuccessExtra(ReadExtra):
     content: str | None = None
     byte_content: bytes | None = None
     description: str
+    yaml_reference_key: str | None = None
 
 
 class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):

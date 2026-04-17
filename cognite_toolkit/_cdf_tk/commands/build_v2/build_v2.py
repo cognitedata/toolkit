@@ -665,12 +665,11 @@ class BuildV2Command(ToolkitCommand):
             for resource in file.resources:
                 resource_counter.update([file.resource_type])
                 index = resource_counter[file.resource_type]
-                source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
                 identifier_filename = resource.identifier.as_filename(include_type=False)
-                filestem = f"{index}-{source_stem}-{identifier_filename}"
+                filestem = f"{index}-{identifier_filename}"
                 filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
-                safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
+                resource_raw = dict(resource.raw)
                 for extra_file in resource.extra_files:
                     if not isinstance(extra_file, SuccessExtra):
                         continue
@@ -681,6 +680,9 @@ class BuildV2Command(ToolkitCommand):
                         extra_path.write_bytes(extra_file.byte_content)
                     else:
                         shutil.copy2(extra_file.source_path, extra_path)
+                    if extra_file.yaml_reference_key:
+                        resource_raw[extra_file.yaml_reference_key] = extra_path.name
+                safe_write(destination_path, yaml_safe_dump(resource_raw), encoding=BUILD_FOLDER_ENCODING)
 
                 crud_cls = file.resource_type.crud_cls
                 if resource.validated:

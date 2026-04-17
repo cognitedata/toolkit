@@ -285,6 +285,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             suffix=".sql",
             content=content,
             description="transformation query",
+            yaml_reference_key="queryFile",
         )
 
     @classmethod
