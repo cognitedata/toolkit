@@ -26,6 +26,7 @@ from ._base import (
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._datapoints import DatapointsIO
 from ._file_content import FileContentIO
+from ._file_contentv2 import FileMetadataContentIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from ._records import RecordIO
@@ -56,6 +57,7 @@ __all__ = [
     "DatapointsIO",
     "EventDataIO",
     "FileContentIO",
+    "FileMetadataContentIO",
     "FileMetadataDataIO",
     "HierarchyIO",
     "InstanceIO",

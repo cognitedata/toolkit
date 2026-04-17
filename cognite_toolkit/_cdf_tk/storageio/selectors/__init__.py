@@ -30,6 +30,14 @@ from ._file_content import (
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
+from ._file_contentv2 import (
+    FILENAME_VARIABLE,
+    FileMetadataContentSelectorV2,
+    FileMetadataFilesSelectorV2,
+    FileMetadataTemplateSelectorV2,
+    FileMetadataTemplateV2,
+    InternalWithNameId,
+)
 from ._instances import (
     InstanceFileSelector,
     InstanceQuerySelector,
@@ -60,6 +68,8 @@ Selector = Annotated[
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
     | FileDataModelingTemplateSelector
+    | FileMetadataTemplateSelectorV2
+    | FileMetadataFilesSelectorV2
     | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,
@@ -98,6 +108,7 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
 
 
 __all__ = [
+    "FILENAME_VARIABLE",
     "AllChartsSelector",
     "AssetCentricFileSelector",
     "AssetCentricSelector",
@@ -117,8 +128,12 @@ __all__ = [
     "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
     "FileIdentifierSelector",
+    "FileMetadataContentSelectorV2",
+    "FileMetadataFilesSelectorV2",
     "FileMetadataTemplate",
     "FileMetadataTemplateSelector",
+    "FileMetadataTemplateSelectorV2",
+    "FileMetadataTemplateV2",
     "InstanceColumn",
     "InstanceFileSelector",
     "InstanceQuerySelector",
@@ -126,6 +141,7 @@ __all__ = [
     "InstanceSpaceSelector",
     "InstanceViewSelector",
     "InternalIdColumn",
+    "InternalWithNameId",
     "RawTableSelector",
     "RecordContainerSelector",
     "SelectedContainer",
