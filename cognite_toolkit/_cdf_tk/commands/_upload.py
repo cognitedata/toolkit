@@ -5,7 +5,6 @@ from functools import partial
 from pathlib import Path
 
 from rich.console import Console
-from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -343,8 +342,6 @@ class UploadCommand(ToolkitCommand):
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True
-        # Group failed ids by error description for cleaner output
-        failures_by_error: dict[str, list[str]] = {}
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
                 all_failed = False
@@ -357,16 +354,7 @@ class UploadCommand(ToolkitCommand):
                     label = "Failed request"
                 for id_ in message.ids:
                     logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
-        if verbose:
-            for error_description, failed_ids in failures_by_error.items():
-                ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
-                if len(failed_ids) > cls._MAX_VERBOSE_PRINTED_FAILED_IDS:
-                    ids_display += f" ... and {len(failed_ids) - cls._MAX_VERBOSE_PRINTED_FAILED_IDS} more"
-                console.print(
-                    f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold] "
-                    f"{error_description}\n"
-                    f"  Failed items: {ids_display}"
-                )
+
         if all_failed and results:
             logger.apply_to_all_unprocessed(
                 label="Early termination of upload process",
