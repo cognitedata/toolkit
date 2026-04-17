@@ -633,7 +633,7 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
     a_container = toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
@@ -647,7 +647,7 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Itera
 
 
 @pytest.fixture(scope="module")
-def persistent_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
+def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
     return toolkit_client.tool.containers.create(
         [
             ContainerRequest(
@@ -661,7 +661,7 @@ def persistent_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space)
 
 @pytest.fixture(scope="module")
 def two_views(
-    toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+    toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
 ) -> Iterable[dm.ViewList]:
     created_views = toolkit_client.data_modeling.views.apply(
         [
@@ -670,7 +670,9 @@ def two_views(
                 external_id=f"first_view{RUN_UNIQUE_ID}",
                 version="1",
                 properties={
-                    "name": dm.MappedPropertyApply(container=a_container.as_id(), container_property_identifier="name")
+                    "name": dm.MappedPropertyApply(
+                        container=container_ephemeral.as_id(), container_property_identifier="name"
+                    )
                 },
             ),
             dm.ViewApply(
@@ -679,7 +681,7 @@ def two_views(
                 version="1",
                 properties={
                     "alsoName": dm.MappedPropertyApply(
-                        container=a_container.as_id(), container_property_identifier="name", name="name2"
+                        container=container_ephemeral.as_id(), container_property_identifier="name", name="name2"
                     )
                 },
             ),
@@ -1131,7 +1133,7 @@ class TestNodeLoader:
 
 class TestViewLoader:
     def test_no_implement_not_redeployed(
-        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, persistent_container: ContainerResponse
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_persistent: ContainerResponse
     ) -> None:
         definition_yaml = f"""space: {toolkit_space.space}
 externalId: ToolkitTestNoImplementsNotRedeployed
@@ -1140,8 +1142,8 @@ implements: []
 properties:
   name:
     container:
-      space: {persistent_container.space}
-      externalId: {persistent_container.external_id}
+      space: {container_persistent.space}
+      externalId: {container_persistent.external_id}
       type: container
     containerPropertyIdentifier: name
         """
