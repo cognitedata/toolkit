@@ -627,13 +627,21 @@ class DownloadApp(typer.Typer):
         selectors: list[DataSelector]
         if include_file_contents:
             selector = DocumentsInteractiveSelect(client, max_selected=100)
+            file_format = AssetCentricFormats.ndjson
+            download_dir_name = "asset_centric-files-with-content"
+            output_dir = Path(
+                questionary.path(
+                    "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
+                ).unsafe_ask()
+            )
             documents = selector.select_documents()
-            io = FileMetadataContentIO(client)
+            io = FileMetadataContentIO(client, target_dir=output_dir / download_dir_name / "files")
             selectors = [
                 FileMetadataFilesSelectorV2(
                     ids=tuple(
                         InternalWithNameId(id=document.id, name=document.source_file.name) for document in documents
-                    )
+                    ),
+                    download_dir_name=download_dir_name,
                 )
             ]
         elif data_sets is not None:
