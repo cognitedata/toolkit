@@ -204,6 +204,7 @@ class TestPurgeInstances:
         client = purge_client
         questionary_mock = MagicMock()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -296,6 +297,7 @@ class TestPurgeSpace:
         rsps = purge_responses
         questionary_mock = MagicMock()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         container_count = 10
         view_count = 15
         data_model_count = 3
