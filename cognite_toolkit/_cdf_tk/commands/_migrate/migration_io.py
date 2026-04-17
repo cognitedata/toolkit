@@ -693,6 +693,7 @@ class ThreeDAssetMappingMigrationIO(
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):
             for data_item in three_d_page.items:
+                seen_mappings: set[tuple[int, int, int]] = set()  # (model_id, revision_id, asset_id)
                 model = data_item.item
                 if model.last_revision_info is None or model.last_revision_info.revision_id is None:
                     continue
@@ -709,9 +710,28 @@ class ThreeDAssetMappingMigrationIO(
                         cursor=cursor,
                         limit=request_limit,
                     )
-                    items = response.items
-                    total += len(items)
-                    if items:
+                    unique_items: list[AssetMappingClassicResponse] = []
+                    skipped_entries: list[MigrationEntryV2] = []
+                    for item in response.items:
+                        mapping_key = (item.model_id, item.revision_id, item.asset_id)
+                        if mapping_key in seen_mappings:
+                            skipped_entries.append(
+                                MigrationEntryV2(
+                                    id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}",
+                                    label="Skipped",
+                                    message="Duplicate asset mapping found.",
+                                    severity=Severity.skipped,
+                                    source=self.KIND,
+                                    destination="3D asset mappings",
+                                )
+                            )
+                        else:
+                            seen_mappings.add(mapping_key)
+                            unique_items.append(item)
+                    if skipped_entries:
+                        self.logger.log(skipped_entries)
+                    total += len(unique_items)
+                    if unique_items:
                         bm: Bookmark = (
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
@@ -723,7 +743,7 @@ class ThreeDAssetMappingMigrationIO(
                                         tracking_id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}",
                                         item=item,
                                     )
-                                    for item in items
+                                    for item in unique_items
                                 ],
                                 bookmark=bm,
                             )
