@@ -10,10 +10,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio._file_contentv2 import (
-    FILENAME_VARIABLE,
     FileMetadataContentIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
+    FILENAME_VARIABLE,
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,

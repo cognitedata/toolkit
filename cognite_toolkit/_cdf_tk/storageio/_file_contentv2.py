@@ -181,6 +181,11 @@ class FileMetadataContentIO(
                 security_ids.update(item.security_categories)
             if item.labels:
                 label_ids.update(item.labels)
+
+        self.client.lookup.assets.external_id(list(asset_ids))
+        self.client.lookup.data_sets.external_id(list(data_set_ids))
+        self.client.lookup.security_categories.external_id(list(security_ids))
+
         self._downloaded_data_sets_by_selector[selector].update(data_set_ids)
         self._downloaded_labels_by_selector[selector].update(label_ids)
         self._downloaded_security_categories_by_selector[selector].update(security_ids)
