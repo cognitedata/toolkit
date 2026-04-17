@@ -89,9 +89,8 @@ def validate_soft_delete_purge_headroom(
     if instances_to_soft_delete <= 0:
         return
     stats = client.data_modeling.statistics.project()
-    inst = stats.instances
-    used = inst.soft_deleted_instances
-    limit = inst.soft_deleted_instances_limit
+    used = stats.instances.soft_deleted_instances
+    limit = stats.instances.soft_deleted_instances_limit
     margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
     projected = used + instances_to_soft_delete
     headroom_after = limit - projected
@@ -108,7 +107,6 @@ def validate_soft_delete_purge_headroom(
             f"Reduce what you purge, or wait for soft-deleted data to expire before retrying "
             f"(see: https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details)."
         )
-
 
 
 @dataclass

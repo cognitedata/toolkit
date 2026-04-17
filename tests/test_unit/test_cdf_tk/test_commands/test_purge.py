@@ -34,7 +34,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.commands._purge import validate_soft_delete_purge_headroom
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -203,15 +205,13 @@ class TestPurgeInstances:
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
-        questionary_mock = MagicMock()
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
-        if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
-                json=project_statistics_response,
-            )
+        rsps.add(
+            responses.GET,
+            config.create_api_url("/models/statistics"),
+            json=project_statistics_response,
+        )
         rsps.add(
             responses.POST,
             config.create_api_url("/models/instances/aggregate"),
@@ -296,8 +296,7 @@ class TestPurgeSpace:
         config = purge_client.config
         space = "test_space"
         rsps = purge_responses
-        questionary_mock = MagicMock()
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", questionary_mock)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         container_count = 10
         view_count = 15
