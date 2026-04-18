@@ -88,6 +88,9 @@ class Page(Generic[T_DataItem], Sized):
         return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
 
 
+WRITE_TABLE_SENTINEL = object()
+
+
 class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
     """This is a base class for all storage classes in Cognite Toolkit
 
