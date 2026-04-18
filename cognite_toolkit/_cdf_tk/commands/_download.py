@@ -3,7 +3,7 @@ from datetime import date
 from functools import partial
 from pathlib import Path
 
-from rich import Console
+from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
