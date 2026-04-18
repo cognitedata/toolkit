@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import partial
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Literal, TypeAlias
 
 from rich.console import Console
 from rich.table import Table
@@ -33,6 +33,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
 
+FormatType: TypeAlias = Literal["json", "table", "delayed-table"]
+
 
 @dataclass
 class DownloadStep(Generic[T_Selector]):
@@ -41,8 +43,12 @@ class DownloadStep(Generic[T_Selector]):
     filestem: str
     target_dir: Path
     schema: list[SchemaColumn] | None
-    is_table: bool
+    format_type: FormatType
     limit: int | None
+
+    @property
+    def is_table(self) -> bool:
+        return self.format_type == "table"
 
     @property
     def download_count(self) -> int | None:
@@ -138,9 +144,8 @@ class DownloadCommand(ToolkitCommand):
             target_dir = cls._get_target_dir(selector, output_dir)
 
             filestem = sanitize_filename(str(selector))
-            columns = cls._get_columns(io, selector, file_format)
-            is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
-            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, is_table, limit))
+            columns, format_type = cls._get_columns(io, selector, file_format)
+            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, format_type, limit))
         return plan
 
     @classmethod
@@ -172,16 +177,20 @@ class DownloadCommand(ToolkitCommand):
     @classmethod
     def _get_columns(
         cls, io: DataIO[T_Selector, T_ResourceResponse], selector: T_Selector, file_format: str
-    ) -> list[SchemaColumn] | None:
+    ) -> tuple[list[SchemaColumn] | None, FormatType]:
         columns: list[SchemaColumn] | None = None
         is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
+        format_type: FormatType = "table" if is_table else "json"
         if is_table and isinstance(io, TableDataIO):
-            columns = io.get_schema(selector)
+            available_schema = io.get_schema(selector)
+            if available_schema is None:
+                format_type = "delayed-table"
+            columns = available_schema
         elif is_table:
             raise ToolkitValueError(
                 f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} data type does not support table schemas."
             )
-        return columns
+        return columns, format_type
 
     @classmethod
     def _create_data_file_writer(cls, step: DownloadStep[T_Selector], file_format: str, compression: str) -> FileWriter:
