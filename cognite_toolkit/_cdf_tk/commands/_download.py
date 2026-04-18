@@ -105,7 +105,7 @@ class DownloadCommand(ToolkitCommand):
             if skip_message := step.skip_message:
                 console.print(skip_message)
                 continue
-            if verbose:
+            elif verbose:
                 console.print(
                     f"Downloading {step.selector.display_name} '{step.selector!s}' to {step.target_dir.as_posix()!r}"
                 )
