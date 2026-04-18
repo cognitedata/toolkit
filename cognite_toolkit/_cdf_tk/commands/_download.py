@@ -298,7 +298,7 @@ class DownloadCommand(ToolkitCommand):
                 total_item_count=step.download_count if step.download_count else reader.count(),
                 # Limit queue size to avoid filling up memory before the workers can write to disk.
                 max_queue_size=8 * 10,  # 8 workers, 10 items per worker
-                download_description=f"Reading {step.selector!s}",
+                download_description=f"Reading {step.selector!s} json format.",
                 process_description="Converting to rows",
                 write_description=f"Writing to .{file_format}",
                 console=console,
@@ -309,7 +309,7 @@ class DownloadCommand(ToolkitCommand):
             for file in json_files:
                 file.unlink()
 
-            console.print(f"Converted {step.selector!s} from .json to table format")
+            console.print(f"Converted {step.selector!s} from .json to .{file_format} format")
 
     @classmethod
     def _create_json_to_row(
