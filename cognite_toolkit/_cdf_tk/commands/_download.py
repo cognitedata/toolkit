@@ -154,7 +154,7 @@ class DownloadCommand(ToolkitCommand):
                 step.limit is not None
                 and step.count is not None
                 and download_count is not None
-                and step.count < step.limit
+                and step.count > step.limit
             ):
                 display_value = f"{download_count:,} (of {step.count:,} available)"
             else:
