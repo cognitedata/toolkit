@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_
 from cognite_toolkit._cdf_tk.dataio import (
     ConfigurableDataIO,
     DataIO,
+    DataItem,
     Page,
     T_Selector,
     TableDataIO,
@@ -316,7 +317,7 @@ class DownloadCommand(ToolkitCommand):
         cls, io: TableDataIO[T_Selector, T_ResourceResponse]
     ) -> Callable[[Page[dict[str, JsonVal]]], Page[dict[str, JsonVal]]]:
         def process(page: Page[dict[str, JsonVal]]) -> Page[dict[str, JsonVal]]:
-            rows = [io.json_to_row(item) for item in page.as_raw_items()]  # type: ignore
+            rows = [DataItem(item=io.json_to_row(item.item), tracking_id=item.tracking_id) for item in page.items]
             return page.create_from(rows)
 
         return process

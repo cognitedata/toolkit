@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
+from . import T_Selector
 from ._base import (
     Bookmark,
     ConfigurableDataIO,
@@ -174,14 +175,17 @@ class AssetCentricIO(
         json_page = self.data_to_json_chunk(data_chunk, selector)
         rows: list[DataItem[dict[str, JsonVal]]] = []
         for data_item in json_page.items:
-            chunk = data_item.item
-            if "metadata" in chunk and isinstance(chunk["metadata"], dict):
-                metadata = chunk.pop("metadata")
-                # MyPy does understand that metadata is a dict here due to the check above.
-                for key, value in metadata.items():  # type: ignore[union-attr]
-                    chunk[f"metadata.{key}"] = value
-            rows.append(DataItem(tracking_id=data_item.tracking_id, item=chunk))
+            row_item = self.json_to_row(data_item.item)
+            rows.append(DataItem(tracking_id=data_item.tracking_id, item=row_item))
         return json_page.create_from(rows)
+
+    def json_to_row(self, item_json: dict[str, JsonVal], selector: T_Selector | None = None) -> dict[str, JsonVal]:
+        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
+            metadata = item_json.pop("metadata")
+            # MyPy does understand that metadata is a dict here due to the check above.
+            for key, value in metadata.items():  # type: ignore[union-attr]
+                item_json[f"metadata.{key}"] = value
+        return item_json
 
 
 class UploadableAssetCentricIO(
