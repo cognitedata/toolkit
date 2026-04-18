@@ -186,6 +186,7 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
 
     KIND: ClassVar[str]
     SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]]
+    CHUNK_SIZE: ClassVar[int] = 1_000
     UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
     UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]
