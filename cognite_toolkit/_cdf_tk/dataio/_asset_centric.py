@@ -270,7 +270,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
             data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
@@ -593,7 +593,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesRequest:
         return self._crud.load_resource(item_json)
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
             data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
@@ -646,7 +646,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
             data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)

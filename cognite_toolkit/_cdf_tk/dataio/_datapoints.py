@@ -77,7 +77,7 @@ class DatapointsIO(
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
 
-    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
         return [
             SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="timestamp", type="epoch"),
