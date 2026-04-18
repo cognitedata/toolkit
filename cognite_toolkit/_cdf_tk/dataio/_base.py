@@ -88,9 +88,6 @@ class Page(Generic[T_DataItem], Sized):
         return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
 
 
-WRITE_TABLE_SENTINEL = object()
-
-
 class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
     """This is a base class for all storage classes in Cognite Toolkit
 
@@ -353,7 +350,7 @@ class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support table schemas."""
 
     @abstractmethod
-    def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
+    def get_schema(self, selector: T_Selector) -> list[SchemaColumn] | None:
         """Get the schema of the table associated with the given selector.
 
         Args:
@@ -361,6 +358,8 @@ class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
 
         Returns:
             A list of SchemaColumn objects representing the schema of the table.
+            None indicates that no schema is available, and the data must first be downloaded
+            before becoming available.
 
         """
         raise NotImplementedError()
