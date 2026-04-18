@@ -68,10 +68,12 @@ class DownloadCommand(ToolkitCommand):
                 console.print(f"No items to download for {selector!s}. Skipping.")
                 continue
             elif self._already_downloaded(target_dir, filestem):
-                warning = LowSeverityWarning(
-                    f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
+                self.warn(
+                    LowSeverityWarning(
+                        f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
+                    ),
+                    console=console,
                 )
-                self.warn(warning, console=console)
                 continue
 
             selector.dump_to_file(target_dir)
@@ -193,10 +195,6 @@ class DownloadCommand(ToolkitCommand):
                 return True
 
         return False
-
-    @staticmethod
-    def _download_filestem(filestem: str) -> str:
-        return f"downloaded_{filestem!s}"
 
     @staticmethod
     def create_data_process(
