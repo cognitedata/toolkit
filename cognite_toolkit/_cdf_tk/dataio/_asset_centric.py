@@ -420,30 +420,19 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD.create_loader(self.client)
+        self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
-        data_set_ids: list[int] = []
-        if isinstance(selector, DataSetSelector):
-            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
-            if data_set_id is None:
-                raise ToolkitMissingResourceError(
-                    f"Data set with external ID {selector.data_set_external_id} not found."
-                )
-            data_set_ids.append(data_set_id)
-        if isinstance(selector, AssetSubtreeSelector):
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileIO.")
-
-        if data_set_ids:
-            metadata_keys = metadata_key_counts(self.client, "files", data_sets=data_set_ids or None, hierarchies=None)
-        else:
-            metadata_keys = []
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
+        if selector not in self._metadata_keys:
+            self._metadata_keys[selector] = set()
+            return None
         metadata_schema: list[SchemaColumn] = []
-        if metadata_keys:
+        if metadata_keys := self._metadata_keys[selector]:
             metadata_schema.extend(
-                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
         file_schema = [
             SchemaColumn(name="externalId", type="string"),
@@ -507,6 +496,8 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
         # Ensure data sets/assets/security-categories are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call
         raw_items = [di.item for di in data_chunk.items]
+        if selector in self._metadata_keys:
+            self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         self._populate_data_set_id_cache(raw_items)
         self._populate_asset_id_cache(raw_items)
         self._populate_security_category_cache(raw_items)
