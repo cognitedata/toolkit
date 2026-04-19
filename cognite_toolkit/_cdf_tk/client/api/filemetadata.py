@@ -284,15 +284,26 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         return to_check, elapsed_time
 
     def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> SuccessResponse:
+        """Upload a file to CDF using streaming to avoid loading entire file into memory.
+
+        Args:
+            filepath: The local path to the file to upload.
+            upload_url: The URL to upload the file to.
+            mime_type: MIME type of the file. Defaults to "application/octet-stream".
+
+        Returns:
+            SuccessResponse object containing the upload response details.
+        """
         # Todo: If file size is above 5000 MB - 5,000,000,000 bytes, do a multipart file upload.
-        fileupoad = RequestMessage(
-            endpoint_url=upload_url,
-            method="PUT",
-            content_type=mime_type or "application/octet-stream",
-            data_content=filepath.read_bytes(),
-        )
-        upload_response = self._http_client.request_single_retries(fileupoad)
-        return upload_response.get_success_or_raise(fileupoad)
+        content_type = mime_type or "application/octet-stream"
+        with filepath.open("rb") as file_stream:
+            response = httpx.put(upload_url, content=file_stream, headers={"Content-Type": content_type})
+            if response.status_code not in (200, 201):
+                raise ToolkitAPIError(
+                    message=f"Upload failed with status code {response.status_code}: {response.text}",
+                    code=response.status_code,
+                )
+            return SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
 
     def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
         """Get a URL to upload a file to CDF for one or more file metadata entries."""
