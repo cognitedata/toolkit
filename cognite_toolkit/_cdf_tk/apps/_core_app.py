@@ -92,6 +92,7 @@ class CoreApp(typer.Typer):
         Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
         Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
         """
+        ctx.obj = Common(override_env=override_env)
         if ctx.invoked_subcommand is None:
             print(
                 Panel(
@@ -132,7 +133,7 @@ class CoreApp(typer.Typer):
                 # Did not find .env file
                 try:
                     env_vars = EnvironmentVariables.create_from_environment()
-                except Exception:
+                except (ValueError, KeyError):
                     warn = True
                 else:
                     warn = bool(env_vars.get_missing_vars())
@@ -162,8 +163,6 @@ class CoreApp(typer.Typer):
         if not has_loaded:
             display_path = relative_to_if_possible(env_path)
             print(f"  [bold yellow]WARNING:[/] No environment variables found in {display_path.as_posix()!r} file.")
-
-        ctx.obj = Common(override_env=override_env)
 
     def build(
         self,
