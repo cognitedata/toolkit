@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
@@ -29,7 +29,6 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     FileAggregator,
     TimeSeriesAggregator,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.useful_types import (
@@ -270,36 +269,19 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = AssetIO.create_loader(self.client)
+        self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
-        data_set_ids: list[int] = []
-        if isinstance(selector, DataSetSelector):
-            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
-            if data_set_id is None:
-                raise ToolkitMissingResourceError(
-                    f"Data set with external ID {selector.data_set_external_id} not found."
-                )
-            data_set_ids.append(data_set_id)
-        hierarchy: list[int] = []
-        if isinstance(selector, AssetSubtreeSelector):
-            asset_id = self.client.lookup.assets.id(selector.hierarchy)
-            if asset_id is None:
-                raise ToolkitMissingResourceError(f"Asset with external ID {selector.hierarchy} not found.")
-            hierarchy.append(asset_id)
-
-        if hierarchy or data_set_ids:
-            metadata_keys = metadata_key_counts(
-                self.client, "assets", data_sets=data_set_ids or None, hierarchies=hierarchy or None
-            )
-        else:
-            metadata_keys = []
+        if selector not in self._metadata_keys:
+            self._metadata_keys[selector] = set()
+            return None
         metadata_schema: list[SchemaColumn] = []
-        if metadata_keys:
+        if metadata_keys := self._metadata_keys[selector]:
             metadata_schema.extend(
-                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
         asset_schema = [
             SchemaColumn(name="externalId", type="string"),
@@ -360,6 +342,8 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         # Ensure data sets are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call.
         raw_items = [di.item for di in data_chunk.items]
+        if selector in self._metadata_keys:
+            self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         self._populate_data_set_id_cache(raw_items)
         asset_ids = {
             segment["id"]
@@ -519,6 +503,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = TimeSeriesCRUD.create_loader(self.client)
+        self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
@@ -568,6 +553,8 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
     ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets/security categories are looked up to populate cache.
         raw_items = [di.item for di in data_chunk.items]
+        if selector in self._metadata_keys:
+            self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         self._populate_data_set_id_cache(raw_items)
         self._populate_security_category_cache(raw_items)
         asset_ids = {item.asset_id for item in raw_items if item.asset_id is not None}
@@ -589,27 +576,13 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
         return self._crud.load_resource(item_json)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
-        data_set_ids: list[int] = []
-        if isinstance(selector, DataSetSelector):
-            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
-            if data_set_id is None:
-                raise ToolkitMissingResourceError(
-                    f"Data set with external ID {selector.data_set_external_id} not found."
-                )
-            data_set_ids.append(data_set_id)
-        elif isinstance(selector, AssetSubtreeSelector):
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
-
-        if data_set_ids:
-            metadata_keys = metadata_key_counts(
-                self.client, "timeseries", data_sets=data_set_ids or None, hierarchies=None
-            )
-        else:
-            metadata_keys = []
+        if selector not in self._metadata_keys:
+            self._metadata_keys[selector] = set()
+            return None
         metadata_schema: list[SchemaColumn] = []
-        if metadata_keys:
+        if metadata_keys := self._metadata_keys[selector]:
             metadata_schema.extend(
-                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
         ts_schema = [
             SchemaColumn(name="externalId", type="string"),
@@ -637,33 +610,19 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = EventIO.create_loader(self.client)
+        self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn] | None:
-        data_set_ids: list[int] = []
-        if isinstance(selector, DataSetSelector):
-            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
-            if data_set_id is None:
-                raise ToolkitMissingResourceError(
-                    f"Data set with external ID {selector.data_set_external_id} not found."
-                )
-            data_set_ids.append(data_set_id)
-        hierarchy: list[int] = []
-        if isinstance(selector, AssetSubtreeSelector):
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
-
-        if hierarchy or data_set_ids:
-            metadata_keys = metadata_key_counts(
-                self.client, "events", data_sets=data_set_ids or None, hierarchies=hierarchy or None
-            )
-        else:
-            metadata_keys = []
+        if selector not in self._metadata_keys:
+            self._metadata_keys[selector] = set()
+            return None
         metadata_schema: list[SchemaColumn] = []
-        if metadata_keys:
+        if metadata_keys := self._metadata_keys[selector]:
             metadata_schema.extend(
-                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
         event_schema = [
             SchemaColumn(name="externalId", type="string"),
@@ -720,6 +679,8 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets are looked up to populate cache.
         raw_items = [di.item for di in data_chunk.items]
+        if selector in self._metadata_keys:
+            self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         self._populate_data_set_id_cache(raw_items)
         self._populate_asset_id_cache(raw_items)
 
