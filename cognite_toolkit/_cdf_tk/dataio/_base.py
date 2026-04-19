@@ -95,16 +95,12 @@ class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
     types of resources, for example, a hierarchy of assets/files/events/time series.
 
     Attributes
-        SUPPORTED_DOWNLOAD_FORMATS: A set of formats that the storage item supports for downloading.
-        SUPPORTED_COMPRESSIONS: A set of compression formats that the storage item supports.
         CHUNK_SIZE: The size of the data chunks to be processed during download and upload operations.
 
     Args:
         client: An instance of ToolkitClient to interact with the CDF API.
     """
 
-    SUPPORTED_DOWNLOAD_FORMATS: ClassVar[frozenset[str]]
-    SUPPORTED_COMPRESSIONS: ClassVar[frozenset[str]]
     CHUNK_SIZE: ClassVar[int]
     BASE_SELECTOR: ClassVar[type[DataSelector]]
 
@@ -179,13 +175,11 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
 
     Attributes:
         KIND: The kind of storage item (e.g., "RAW", "AssetCentric").
-        SUPPORTED_READ_FORMATS: A set of formats that the storage item supports for reading.
         UPLOAD_ENDPOINT: The API endpoint for uploading data to the storage item.
         UPLOAD_EXTRA_ARGS: Additional arguments to include in the upload request.
     """
 
     KIND: ClassVar[str]
-    SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]]
     UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
     UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]

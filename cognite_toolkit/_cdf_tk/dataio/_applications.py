@@ -63,9 +63,6 @@ TChartBackendResponse = TypeVar(
 
 class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     KIND = "Charts"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = ChartSelector
     UPLOAD_ENDPOINT_TYPE = "app"
@@ -524,9 +521,6 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
     """
 
     KIND = "IndustrialCanvas"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 

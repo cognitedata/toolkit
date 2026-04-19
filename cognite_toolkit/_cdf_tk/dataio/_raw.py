@@ -30,9 +30,6 @@ class RawIO(
 ):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector
