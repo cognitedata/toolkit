@@ -1,6 +1,7 @@
 """This is the core functionality of the Cognite Data Fusion Toolkit."""
 
 import contextlib
+import os
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -8,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Union
 
 import typer
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
@@ -118,8 +119,6 @@ class CoreApp(typer.Typer):
                 )
             )
             return
-        if override_env:
-            print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
 
         if env_path is not None:
             if not (dotenv_file := Path(env_path)).is_file():
@@ -140,6 +139,16 @@ class CoreApp(typer.Typer):
                             print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
 
         if dotenv_file.is_file():
+            dotenv_vars = dotenv_values(dotenv_file)
+            if override_env:
+                overridden_vars = [
+                    key for key, value in dotenv_vars.items() if key in os.environ and os.environ[key] != value
+                ]
+                if overridden_vars:
+                    print(
+                        f"  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file: "
+                        f"{', '.join(sorted(overridden_vars))}"
+                    )
             has_loaded = load_dotenv(dotenv_file, override=override_env)
             if not has_loaded:
                 print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
