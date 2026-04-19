@@ -37,7 +37,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
-from . import T_Selector
 from ._base import (
     Bookmark,
     ConfigurableDataIO,
@@ -178,7 +177,9 @@ class AssetCentricIO(
             rows.append(DataItem(tracking_id=data_item.tracking_id, item=row_item))
         return json_page.create_from(rows)
 
-    def json_to_row(self, item_json: dict[str, JsonVal], selector: T_Selector | None = None) -> dict[str, JsonVal]:
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: AssetCentricSelector | None = None
+    ) -> dict[str, JsonVal]:
         if "metadata" in item_json and isinstance(item_json["metadata"], dict):
             metadata = item_json.pop("metadata")
             # MyPy does understand that metadata is a dict here due to the check above.

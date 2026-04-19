@@ -130,7 +130,7 @@ class DownloadCommand(ToolkitCommand):
                 if isinstance(io, ConfigurableDataIO):
                     self._dump_configuration(io, step)
 
-            if step.format_type == "table-delayed" and isinstance(io, TableDataIO):
+            if step.format_type == "delayed-table" and isinstance(io, TableDataIO):
                 self._convert_json_to_table(io, step, file_format, compression, console)
 
             console.print(f"Downloaded {step.selector!s} to {file_count} file(s) in {step.target_dir.as_posix()!r}.")
@@ -202,7 +202,7 @@ class DownloadCommand(ToolkitCommand):
     def _create_data_file_writer(
         cls, step: DownloadStep[T_Selector], file_format: str, compression: str, is_conversion: bool = False
     ) -> FileWriter:
-        use_file_format = file_format if step.format_type != "delayed-table" and not is_conversion else "ndjson"
+        use_file_format = file_format if step.format_type != "delayed-table" or is_conversion else ".ndjson"
         return FileWriter.create_from_format(
             use_file_format,
             step.target_dir,
@@ -290,6 +290,7 @@ class DownloadCommand(ToolkitCommand):
         schema = io.get_schema(selector=step.selector)
         if schema is None:
             raise RuntimeError("Bug in Toolkit. Schema should not be None after data is downloaded.")
+        step.schema = schema
         reader = MultiFileReader(json_files, schema=schema)
         with cls._create_data_file_writer(step, file_format, compression, is_conversion=True) as writer:
             executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page[dict[str, JsonVal]]](
@@ -301,16 +302,15 @@ class DownloadCommand(ToolkitCommand):
                 max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                 download_description=f"Reading {step.selector!s} json format.",
                 process_description="Converting to rows",
-                write_description=f"Writing to .{file_format}",
+                write_description=f"Writing to {file_format}",
                 console=console,
             )
             executor.run()
             executor.raise_on_error()
+            console.print(f"Converted {step.selector!s} from .ndjson to {file_format} format")
 
-            for file in json_files:
-                file.unlink()
-
-            console.print(f"Converted {step.selector!s} from .json to .{file_format} format")
+        for file in json_files:
+            file.unlink()
 
     @classmethod
     def _create_json_to_row(
