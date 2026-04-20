@@ -180,6 +180,7 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
     """
 
     KIND: ClassVar[str]
+    CHUNK_SIZE: ClassVar[int] = 1_000
     UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
     UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]
@@ -344,7 +345,7 @@ class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support table schemas."""
 
     @abstractmethod
-    def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
+    def get_schema(self, selector: T_Selector) -> list[SchemaColumn] | None:
         """Get the schema of the table associated with the given selector.
 
         Args:
@@ -352,11 +353,12 @@ class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
 
         Returns:
             A list of SchemaColumn objects representing the schema of the table.
+            None indicates that no schema is available, and the data must first be downloaded
+            before becoming available.
 
         """
         raise NotImplementedError()
 
-    @abstractmethod
     def data_to_row(
         self, data_chunk: Page[T_DataResponse], selector: T_Selector | None = None
     ) -> Page[dict[str, JsonVal]]:
@@ -369,5 +371,23 @@ class TableDataIO(DataIO[T_Selector, T_DataResponse], ABC):
         Returns:
             A list of dictionaries representing the data in a JSON-compatible format.
 
+        """
+        json_chunks = self.data_to_json_chunk(data_chunk=data_chunk, selector=selector)
+        result: list[DataItem[dict[str, JsonVal]]] = []
+        for item in json_chunks:
+            row = self.json_to_row(item.item, selector=selector)
+            result.append(DataItem(tracking_id=item.tracking_id, item=row))
+        return data_chunk.create_from(result)
+
+    @abstractmethod
+    def json_to_row(self, item_json: dict[str, JsonVal], selector: T_Selector | None = None) -> dict[str, JsonVal]:
+        """Convert a JSON-compatible dictionary to a row-based JSON-compatible dictionary.
+
+        Args:
+            item_json: A dictionary representing the data in a JSON-compatible format.
+            selector: Optional selection criteria to identify the data. This is required for some storage types.
+
+        Returns:
+            A dictionary representing the data in a row-based JSON-compatible format.
         """
         raise NotImplementedError()

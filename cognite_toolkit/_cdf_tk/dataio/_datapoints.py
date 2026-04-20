@@ -74,7 +74,7 @@ class DatapointsIO(
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
 
-    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
         return [
             SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="timestamp", type="epoch"),
@@ -252,6 +252,11 @@ class DatapointsIO(
                             )
                         )
         return data_chunk.create_from(result)
+
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: DataPointsSelector | None = None
+    ) -> dict[str, JsonVal]:
+        raise NotImplementedError(f"json_to_row not implemented for {type(self).__name__}")
 
     def upload_items(
         self,

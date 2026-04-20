@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import partial
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Literal, TypeAlias
 
 from rich.console import Console
 from rich.table import Table
@@ -12,9 +12,11 @@ from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_
 from cognite_toolkit._cdf_tk.dataio import (
     ConfigurableDataIO,
     DataIO,
+    DataItem,
     Page,
     T_Selector,
     TableDataIO,
+    UploadableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -24,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
     Compression,
     FileWriter,
+    MultiFileReader,
     NDJsonWriter,
     SchemaColumn,
     Uncompressed,
@@ -33,6 +36,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
 
+FormatType: TypeAlias = Literal["json", "table", "delayed-table"]
+
 
 @dataclass
 class DownloadStep(Generic[T_Selector]):
@@ -41,8 +46,12 @@ class DownloadStep(Generic[T_Selector]):
     filestem: str
     target_dir: Path
     schema: list[SchemaColumn] | None
-    is_table: bool
+    format_type: FormatType
     limit: int | None
+
+    @property
+    def is_table(self) -> bool:
+        return self.format_type == "table"
 
     @property
     def download_count(self) -> int | None:
@@ -121,6 +130,9 @@ class DownloadCommand(ToolkitCommand):
                 if isinstance(io, ConfigurableDataIO):
                     self._dump_configuration(io, step)
 
+            if step.format_type == "delayed-table" and isinstance(io, TableDataIO):
+                self._convert_json_to_table(io, step, file_format, compression, console)
+
             console.print(f"Downloaded {step.selector!s} to {file_count} file(s) in {step.target_dir.as_posix()!r}.")
 
     @classmethod
@@ -138,9 +150,8 @@ class DownloadCommand(ToolkitCommand):
             target_dir = cls._get_target_dir(selector, output_dir)
 
             filestem = sanitize_filename(str(selector))
-            columns = cls._get_columns(io, selector, file_format)
-            is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
-            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, is_table, limit))
+            columns, format_type = cls._get_columns(io, selector, file_format)
+            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, format_type, limit))
         return plan
 
     @classmethod
@@ -172,21 +183,32 @@ class DownloadCommand(ToolkitCommand):
     @classmethod
     def _get_columns(
         cls, io: DataIO[T_Selector, T_ResourceResponse], selector: T_Selector, file_format: str
-    ) -> list[SchemaColumn] | None:
+    ) -> tuple[list[SchemaColumn] | None, FormatType]:
         columns: list[SchemaColumn] | None = None
         is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
+        format_type: FormatType = "table" if is_table else "json"
         if is_table and isinstance(io, TableDataIO):
-            columns = io.get_schema(selector)
+            available_schema = io.get_schema(selector)
+            if available_schema is None:
+                format_type = "delayed-table"
+            columns = available_schema
         elif is_table:
             raise ToolkitValueError(
                 f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} data type does not support table schemas."
             )
-        return columns
+        return columns, format_type
 
     @classmethod
-    def _create_data_file_writer(cls, step: DownloadStep[T_Selector], file_format: str, compression: str) -> FileWriter:
+    def _create_data_file_writer(
+        cls, step: DownloadStep[T_Selector], file_format: str, compression: str, is_conversion: bool = False
+    ) -> FileWriter:
+        use_file_format = file_format if step.format_type != "delayed-table" or is_conversion else ".ndjson"
         return FileWriter.create_from_format(
-            file_format, step.target_dir, step.selector.kind, Compression.from_name(compression), columns=step.schema
+            use_file_format,
+            step.target_dir,
+            step.selector.kind,
+            Compression.from_name(compression),
+            columns=step.schema,
         )
 
     @classmethod
@@ -253,3 +275,49 @@ class DownloadCommand(ToolkitCommand):
             config_file = step.target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
             config_file.parent.mkdir(parents=True, exist_ok=True)
             safe_write(config_file, yaml_safe_dump(config.value))
+
+    @classmethod
+    def _convert_json_to_table(
+        cls,
+        io: TableDataIO[T_Selector, T_ResourceResponse],
+        step: DownloadStep[T_Selector],
+        file_format: str,
+        compression: str,
+        console: Console,
+    ) -> None:
+        manifest_path = step.target_dir / step.selector.as_filename()
+        json_files = step.selector.find_data_files(step.target_dir, manifest_path)
+        schema = io.get_schema(selector=step.selector)
+        if schema is None:
+            raise RuntimeError("Bug in Toolkit. Schema should not be None after data is downloaded.")
+        step.schema = schema
+        reader = MultiFileReader(json_files, schema=schema)
+        with cls._create_data_file_writer(step, file_format, compression, is_conversion=True) as writer:
+            executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page[dict[str, JsonVal]]](
+                download_iterable=UploadableDataIO.read_chunks(reader, step.selector),
+                process=cls._create_json_to_row(io),
+                write=cls.create_writer(writer, step.filestem),
+                total_item_count=step.download_count if step.download_count else reader.count(),
+                # Limit queue size to avoid filling up memory before the workers can write to disk.
+                max_queue_size=8 * 10,  # 8 workers, 10 items per worker
+                download_description=f"Reading {step.selector!s} json format.",
+                process_description="Converting to rows",
+                write_description=f"Writing to {file_format}",
+                console=console,
+            )
+            executor.run()
+            executor.raise_on_error()
+            console.print(f"Converted {step.selector!s} from .ndjson to {file_format} format")
+
+        for file in json_files:
+            file.unlink()
+
+    @classmethod
+    def _create_json_to_row(
+        cls, io: TableDataIO[T_Selector, T_ResourceResponse]
+    ) -> Callable[[Page[dict[str, JsonVal]]], Page[dict[str, JsonVal]]]:
+        def process(page: Page[dict[str, JsonVal]]) -> Page[dict[str, JsonVal]]:
+            rows = [DataItem(item=io.json_to_row(item.item), tracking_id=item.tracking_id) for item in page.items]
+            return page.create_from(rows)
+
+        return process
