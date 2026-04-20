@@ -207,8 +207,12 @@ class InstanceIO(
             if not isinstance(prop, dm.ViewCorePropertyResponse):
                 # We do not include anny edges in the table
                 continue
+
+            data_type = self._get_property_type(prop.type)
             is_array = prop.type.list or False if isinstance(prop.type, dm.ListablePropertyTypeDefinition) else False
-            columns.append(SchemaColumn(name=prop_id, type=self._get_property_type(prop.type), is_array=is_array))
+            if data_type == "json":
+                is_array = False
+            columns.append(SchemaColumn(name=prop_id, type=data_type, is_array=is_array))
         return columns
 
     def _get_property_type(self, prop_type: dm.DataType) -> DataType:
