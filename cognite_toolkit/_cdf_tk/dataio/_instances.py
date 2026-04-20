@@ -467,8 +467,9 @@ class InstanceIO(
         """Convert a row-based dictionary back to an InstanceRequest.
 
         The row format is the inverse of json_to_row:
-        - Instance-level fields are prefixed with `node.` or `edge.` (e.g., `node.space`, `node.externalId`)
-        - Source properties are at the root level without prefix
+        - Instance-level fields: `space`, `externalId`, `existingVersion`
+        - Nested fields flattened with dots: `type.space`, `type.externalId`, `startNode.space`, etc.
+        - Source properties are at the root level (any key not matching the above)
 
         Args:
             source_id: The source identifier (e.g., row number in a CSV file).
@@ -478,28 +479,38 @@ class InstanceIO(
         Returns:
             An InstanceRequest representing the data.
         """
-        # Determine instance type from row keys
-        instance_type: Literal["node", "edge"] = "node"
-        if any(key.startswith("edge.") for key in row):
-            instance_type = "edge"
+        # Known instance-level fields and nested field prefixes
+        instance_scalar_fields = {"space", "externalId", "existingVersion"}
+        nested_field_prefixes = {"type", "startNode", "endNode"}
 
-        prefix = f"{instance_type}."
         instance_fields: dict[str, JsonVal] = {}
+        nested_fields: dict[str, dict[str, JsonVal]] = {}
         source_properties: dict[str, JsonVal] = {}
 
         for key, value in row.items():
-            if key.startswith(prefix):
-                # Remove the prefix and convert to camelCase field name
-                field_name = key[len(prefix) :]
-                instance_fields[field_name] = value
-            elif not key.startswith("node.") and not key.startswith("edge."):
-                # This is a source property
+            if key in instance_scalar_fields:
+                instance_fields[key] = value
+            elif "." in key:
+                prefix, subkey = key.split(".", 1)
+                if prefix in nested_field_prefixes:
+                    if prefix not in nested_fields:
+                        nested_fields[prefix] = {}
+                    nested_fields[prefix][subkey] = value
+                else:
+                    # Dot in key but not a known prefix - treat as source property
+                    source_properties[key] = value
+            else:
+                # Not an instance field - treat as source property
                 source_properties[key] = value
+
+        # Determine instance type: if we have startNode/endNode, it's an edge
+        instance_type: Literal["node", "edge"] = "edge" if "startNode" in nested_fields else "node"
 
         # Build the JSON structure expected by json_to_resource
         item_json: dict[str, JsonVal] = {
             "instanceType": instance_type,
             **instance_fields,
+            **nested_fields,
         }
 
         # Add sources if we have properties and a selector with a view
@@ -511,8 +522,8 @@ class InstanceIO(
                     "properties": source_properties,
                 }
             ]
-        else:
-            raise NotImplementedError(f"{type(selector).__name__} dose not support upload from table format.")
+        elif source_properties:
+            raise NotImplementedError(f"{type(selector).__name__} does not support upload from table format.")
 
         return self.json_to_resource(item_json)
 
