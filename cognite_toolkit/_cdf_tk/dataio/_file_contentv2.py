@@ -22,11 +22,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, FileMetadataCRUD, LabelIO, SecurityCategoryIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableUploadableDataIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableDataIO
 from .logger import LogEntryV2, Severity
 from .selectors import (
     FileMetadataContentSelectorV2,
@@ -37,6 +37,7 @@ from .selectors import (
 
 
 class FileMetadataContentIO(
+    TableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
     TableUploadableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
     ConfigurableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
 ):
@@ -72,11 +73,37 @@ class FileMetadataContentIO(
         self._downloaded_security_categories_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = (
             defaultdict(set)
         )
+        self._metadata_keys: dict[FileMetadataContentSelectorV2 | None, set[str]] = {}
 
     def _verify_download_selector(self, selector: FileMetadataContentSelectorV2) -> tuple[InternalWithNameId, ...]:
         if isinstance(selector, FileMetadataFilesSelectorV2) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")
+
+    def get_schema(self, selector: FileMetadataContentSelectorV2) -> list[SchemaColumn] | None:
+        if selector not in self._metadata_keys:
+            self._metadata_keys[selector] = set()
+            return None
+        metadata_schema: list[SchemaColumn] = []
+        if metadata_keys := self._metadata_keys[selector]:
+            metadata_schema.extend(
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
+            )
+        file_schema = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="directory", type="string"),
+            SchemaColumn(name="mimeType", type="string"),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+            SchemaColumn(name="source", type="string"),
+            SchemaColumn(name="sourceCreatedTime", type="integer"),
+            SchemaColumn(name="sourceModifiedTime", type="integer"),
+            SchemaColumn(name="securityCategories", type="string", is_array=True),
+            SchemaColumn(name="labels", type="string", is_array=True),
+            SchemaColumn(name="geoLocation", type="json"),
+        ]
+        return file_schema + metadata_schema
 
     def stream_data(
         self, selector: FileMetadataContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
@@ -165,7 +192,7 @@ class FileMetadataContentIO(
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataRequest:
         return self._crud.load_resource(item_json)
 
-    def _populate_id_cache(
+    def _populate_external_id_cache(
         self, items: Iterable[FileMetadataResponse], selector: FileMetadataContentSelectorV2 | None = None
     ) -> None:
         data_set_ids: set[int] = set()
@@ -195,7 +222,11 @@ class FileMetadataContentIO(
     ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets/security-categories are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call
-        self._populate_id_cache(di.item for di in data_chunk.items)
+        self._populate_external_id_cache(di.item for di in data_chunk.items)
+        if selector in self._metadata_keys:
+            self._metadata_keys[selector].update(
+                key for item in data_chunk for key in (item.item.metadata or {}).keys()
+            )
         dumped: list[DataItem[dict[str, JsonVal]]] = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
@@ -207,6 +238,16 @@ class FileMetadataContentIO(
                 dumped_item[FILEPATH] = dumped_filepath.as_posix()
             dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
         return data_chunk.create_from(dumped)
+
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
+    ) -> dict[str, JsonVal]:
+        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
+            metadata = item_json.pop("metadata")
+            # MyPy does understand that metadata is a dict here due to the check above.
+            for key, value in metadata.items():  # type: ignore[union-attr]
+                item_json[f"metadata.{key}"] = value
+        return item_json
 
     def configurations(self, selector: FileMetadataContentSelectorV2) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
