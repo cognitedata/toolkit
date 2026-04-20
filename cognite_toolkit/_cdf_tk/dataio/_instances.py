@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, UploadableDataIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableStorageIO
 from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
@@ -47,7 +47,7 @@ from .selectors._instances import InstanceQuerySelector
 class InstanceIO(
     ConfigurableDataIO[InstanceSelector, InstanceResponse],
     TableDataIO[InstanceSelector, InstanceResponse],
-    UploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
+    TableUploadableStorageIO[InstanceSelector, InstanceResponse, InstanceRequest],
 ):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
@@ -458,6 +458,61 @@ class InstanceIO(
             else:
                 row[f"{instance_type}.{key}"] = value
         return row
+
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: InstanceSelector | None = None
+    ) -> InstanceRequest:
+        """Convert a row-based dictionary back to an InstanceRequest.
+
+        The row format is the inverse of json_to_row:
+        - Instance-level fields are prefixed with `node.` or `edge.` (e.g., `node.space`, `node.externalId`)
+        - Source properties are at the root level without prefix
+
+        Args:
+            source_id: The source identifier (e.g., row number in a CSV file).
+            row: A dictionary representing the instance data in row format.
+            selector: The selector used to identify the view for source properties.
+
+        Returns:
+            An InstanceRequest representing the data.
+        """
+        # Determine instance type from row keys
+        instance_type: Literal["node", "edge"] = "node"
+        if any(key.startswith("edge.") for key in row):
+            instance_type = "edge"
+
+        prefix = f"{instance_type}."
+        instance_fields: dict[str, JsonVal] = {}
+        source_properties: dict[str, JsonVal] = {}
+
+        for key, value in row.items():
+            if key.startswith(prefix):
+                # Remove the prefix and convert to camelCase field name
+                field_name = key[len(prefix) :]
+                instance_fields[field_name] = value
+            elif not key.startswith("node.") and not key.startswith("edge."):
+                # This is a source property
+                source_properties[key] = value
+
+        # Build the JSON structure expected by json_to_resource
+        item_json: dict[str, JsonVal] = {
+            "instanceType": instance_type,
+            **instance_fields,
+        }
+
+        # Add sources if we have properties and a selector with a view
+        if source_properties and isinstance(selector, InstanceViewSelector | InstanceSpaceSelector) and selector.view:
+            view_id = selector.view.as_id()
+            item_json["sources"] = [
+                {
+                    "source": view_id.dump(include_type=True),
+                    "properties": source_properties,
+                }
+            ]
+        else:
+            raise NotImplementedError(f"{type(selector).__name__} dose not support upload from table format.")
+
+        return self.json_to_resource(item_json)
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
