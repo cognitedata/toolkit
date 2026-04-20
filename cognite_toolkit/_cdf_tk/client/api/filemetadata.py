@@ -81,7 +81,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             results.append(file_response)
         return results
 
-    def upload_multi_parts(self, item: FileMetadataResponse, overwrite: bool, parts: int) -> FileMetadataResponse:
+    def upload_multi_parts(self, item: FileMetadataRequest, overwrite: bool, parts: int) -> FileMetadataResponse:
         """Upload file metadata to CDF and return mutiple URLs for uploading"""
         self._validate_parts_parameter(parts)
         endpoint = self._multipart_file_upload_link
@@ -93,13 +93,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         )
         response = self._http_client.request_single_retries(request)
         result = response.get_success_or_raise(request)
-        items = ResponseItems[FileMetadataResponse].model_validate_json(result.body).items
-        if len(items) != 1:
-            raise ToolkitAPIError(
-                message=f"Expected exactly one item in response, got {len(items)}", code=result.status_code
-            )
-        items[0].filepath = item.filepath
-        return items[0]
+        result_item = FileMetadataResponse.model_validate_json(result.body)
+        result_item.filepath = item.filepath
+        return result_item
 
     def _validate_parts_parameter(self, parts: int) -> None:
         if not (1 <= parts <= 250):
@@ -317,15 +313,20 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Args:
             filepath: The local path to the file to upload.
             upload_urls: List of URLs to upload file parts to.
-            mime_type: MIME type of the file. Defaults to "application/octet-stream".
+            mime_type: MIME type of the file. If None, no Content-Type header is sent
+                (required for GCS signed URLs that were generated without a Content-Type).
 
         Returns:
             List of SuccessResponse objects containing the upload response details for each part.
         """
-        content_type = mime_type or "application/octet-stream"
         file_size = filepath.stat().st_size
         num_parts = len(upload_urls)
         part_size = file_size // num_parts
+
+        # Only include Content-Type header if explicitly provided.
+        # GCS signed URLs embed the expected Content-Type in the signature,
+        # so sending a different Content-Type (or any when none was signed) causes SignatureDoesNotMatch.
+        headers = {"Content-Type": mime_type} if mime_type else {}
 
         results: builtins.list[SuccessResponse] = []
         with filepath.open("rb") as file_stream:
@@ -336,7 +337,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 else:
                     chunk = file_stream.read(part_size)
 
-                response = httpx.put(upload_url, content=chunk, headers={"Content-Type": content_type})
+                response = httpx.put(upload_url, content=chunk, headers=headers)
                 if response.status_code not in (200, 201):
                     raise ToolkitAPIError(
                         message=f"Upload of part {i + 1} failed with status code {response.status_code}: {response.text}",
