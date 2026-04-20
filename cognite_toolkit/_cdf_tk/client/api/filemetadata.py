@@ -192,26 +192,6 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         return self._list(limit=limit)
 
-    def upload_file_link(
-        self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> builtins.list[FileMetadataResponse]:
-        """Upload file link to CDF."""
-        results: list[FileMetadataResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
-                method="POST",
-                body_content={"items": [item.dump()]},
-            )
-            response = self._http_client.request_single_retries(request)
-            if isinstance(response, SuccessResponse):
-                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
-            elif ignore_unknown_ids:
-                continue
-            else:
-                _ = response.get_success_or_raise(request)
-        return results
-
     def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
         """Uploads file content to CDF.
 
