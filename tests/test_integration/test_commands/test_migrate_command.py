@@ -290,7 +290,7 @@ def cdm_file(
     _ = client.tool.cognite_files.create([node])
 
     file = client.tool.filemetadata.get_upload_url([node.as_instance_id()])[0]
-    _ = client.tool.filemetadata.upload_file(b"This is the CDM file content", file.upload_url, mime_type="text/plain")
+    _ = client.tool.filemetadata.upload_file("This is the CDM file content", file.upload_url, mime_type="text/plain")
     request = RequestMessage(
         endpoint_url=client.config.create_api_url("/files/update"),
         method="POST",

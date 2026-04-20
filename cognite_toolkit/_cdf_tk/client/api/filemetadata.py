@@ -1,4 +1,5 @@
 import builtins
+import io
 import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -245,11 +246,13 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             sleep_time *= 2
         return to_check, elapsed_time
 
-    def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> SuccessResponse:
+    def upload_file(
+        self, filepath: Path | str | bytes, upload_url: str, mime_type: str | None = None
+    ) -> SuccessResponse:
         """Upload a file to CDF using streaming to avoid loading entire file into memory.
 
         Args:
-            filepath: The local path to the file to upload.
+            filepath: The local path to the file to upload, or raw bytes content.
             upload_url: The URL to upload the file to.
             mime_type: MIME type of the file. Defaults to "application/octet-stream".
 
@@ -258,7 +261,15 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         # Todo: If file size is above 5000 MB - 5,000,000,000 bytes, do a multipart file upload.
         content_type = mime_type or "application/octet-stream"
-        with filepath.open("rb") as file_stream:
+
+        if isinstance(filepath, bytes):
+            file_stream: io.BufferedIOBase = io.BytesIO(filepath)
+        elif isinstance(filepath, str):
+            file_stream = Path(filepath).open("rb")
+        else:
+            file_stream = filepath.open("rb")
+
+        try:
             response = httpx.put(upload_url, content=file_stream, headers={"Content-Type": content_type})
             if response.status_code not in (200, 201):
                 raise ToolkitAPIError(
@@ -266,6 +277,8 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                     code=response.status_code,
                 )
             return SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
+        finally:
+            file_stream.close()
 
     def get_upload_url(
         self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
