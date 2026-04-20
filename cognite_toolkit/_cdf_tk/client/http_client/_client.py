@@ -2,7 +2,7 @@ import random
 import sys
 import time
 from collections import deque
-from collections.abc import MutableMapping, Sequence, Set
+from collections.abc import Iterable, MutableMapping, Sequence, Set
 from typing import Literal, TypeVar
 
 import httpx
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedRequest,
     ItemsFailedResponse,
@@ -258,6 +259,91 @@ class HTTPClient:
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return FailedRequest(error=error_msg)
+
+    def request_raw_retries(
+        self,
+        method: Literal["GET", "POST", "PUT", "DELETE"],
+        url: str,
+        content: bytes | Iterable[bytes],
+        headers: dict[str, str] | None = None,
+        max_retries: int | None = None,
+    ) -> SuccessResponse:
+        """Send a raw HTTP request with retry logic but without authentication headers.
+
+        This is useful for uploading to signed URLs (e.g., GCS signed URLs) where
+        authentication is embedded in the URL and adding auth headers would cause errors.
+
+        Args:
+            method: HTTP method to use.
+            url: The URL to send the request to.
+            content: The content to send. Can be bytes or an iterable of bytes for streaming.
+            headers: Optional headers to include in the request.
+            max_retries: Maximum number of retries. Defaults to the client's max_retries setting.
+
+        Returns:
+            SuccessResponse object containing the response details.
+
+        Raises:
+            ToolkitAPIError: If the request fails after all retries.
+        """
+        retries = max_retries if max_retries is not None else self._max_retries
+        attempt = 0
+        last_error: Exception | None = None
+
+        while attempt <= retries:
+            try:
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    content=content,
+                    headers=headers or {},
+                    follow_redirects=False,
+                )
+                if 200 <= response.status_code < 300:
+                    return SuccessResponse(
+                        status_code=response.status_code,
+                        body=response.text,
+                        content=response.content,
+                    )
+
+                # Check if we should retry based on status code
+                if response.status_code in self._retry_status_codes:
+                    retry_after = self._get_retry_after_in_header(response)
+                    if retry_after is not None:
+                        time.sleep(retry_after)
+                    else:
+                        time.sleep(self._backoff_time(attempt))
+                    attempt += 1
+                    continue
+
+                # Non-retryable error
+                raise ToolkitAPIError(
+                    message=f"Request failed with status code {response.status_code}: {response.text}",
+                    code=response.status_code,
+                )
+
+            except (
+                httpx.ReadTimeout,
+                httpx.TimeoutException,
+                ConnectionError,
+                httpx.ConnectError,
+                httpx.ConnectTimeout,
+            ) as e:
+                last_error = e
+                attempt += 1
+                if attempt <= retries:
+                    time.sleep(self._backoff_time(attempt))
+                    continue
+                raise ToolkitAPIError(
+                    message=f"Request failed after {attempt} attempts: {e!s}",
+                    code=-1,
+                ) from e
+
+        # Should not reach here, but just in case
+        raise ToolkitAPIError(
+            message=f"Request failed after {attempt} attempts: {last_error!s}",
+            code=-1,
+        )
 
     def request_items(self, message: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
         """Send an HTTP request with multiple items and return the response.

@@ -1,9 +1,8 @@
 import builtins
-import io
 import time
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 import httpx
 
@@ -37,7 +36,7 @@ class _LimitedFileReader(Iterable[bytes]):
 
     _CHUNK_SIZE = 64 * 1024  # 64 KB chunks
 
-    def __init__(self, file_stream: io.IOBase, limit: int) -> None:
+    def __init__(self, file_stream: IO[bytes], limit: int) -> None:
         self._file_stream = file_stream
         self._limit = limit
         self._remaining = limit
@@ -310,26 +309,19 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Returns:
             SuccessResponse object containing the upload response details.
         """
-        # Todo: If file size is above 5000 MB - 5,000,000,000 bytes, do a multipart file upload.
-        content_type = mime_type or "application/octet-stream"
-
         if isinstance(filepath, bytes):
-            file_stream: io.IOBase = io.BytesIO(filepath)
+            content: Iterable[bytes] = (filepath,)
         elif isinstance(filepath, str):
-            file_stream = io.StringIO(filepath)
+            content = (filepath.encode("utf-8"),)
         else:
-            file_stream = filepath.open("rb")
+            content = _LimitedFileReader(filepath.open("rb"), filepath.stat().st_size)
 
-        try:
-            response = httpx.put(upload_url, content=file_stream, headers={"Content-Type": content_type})
-            if response.status_code not in (200, 201):
-                raise ToolkitAPIError(
-                    message=f"Upload failed with status code {response.status_code}: {response.text}",
-                    code=response.status_code,
-                )
-            return SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
-        finally:
-            file_stream.close()
+        return self._http_client.request_raw_retries(
+            method="PUT",
+            url=upload_url,
+            content=content,
+            headers={"Content-Type": mime_type} if mime_type else None,
+        )
 
     def upload_file_multiparts(
         self, filepath: Path, upload_urls: builtins.list[str], mime_type: str | None = None
@@ -370,15 +362,13 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 # allowing httpx to stream directly from disk without loading the entire chunk into memory.
                 chunk_stream = _LimitedFileReader(file_stream, current_part_size)
 
-                response = httpx.put(upload_url, content=chunk_stream, headers=headers)
-                if response.status_code not in (200, 201):
-                    raise ToolkitAPIError(
-                        message=f"Upload of part {i + 1} failed with status code {response.status_code}: {response.text}",
-                        code=response.status_code,
-                    )
-                results.append(
-                    SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
+                response = self._http_client.request_raw_retries(
+                    method="PUT",
+                    url=upload_url,
+                    content=chunk_stream,
+                    headers=headers,
                 )
+                results.append(response)
 
         return results
 
