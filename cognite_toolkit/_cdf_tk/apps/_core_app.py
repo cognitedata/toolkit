@@ -1,6 +1,8 @@
 """This is the core functionality of the Cognite Data Fusion Toolkit."""
 
 import contextlib
+import os
+import sys
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -8,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Union
 
 import typer
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
@@ -27,8 +29,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParamete
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
-from cognite_toolkit._cdf_tk.utils import get_cicd_environment, humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -71,7 +74,7 @@ class CoreApp(typer.Typer):
             ),
         ] = True,
         env_path: Annotated[
-            str | None,
+            Path | None,
             typer.Option(
                 help="Path to .env file to load. Defaults to .env in current or parent directory.",
             ),
@@ -89,6 +92,7 @@ class CoreApp(typer.Typer):
         Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
         Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
         """
+        ctx.obj = Common(override_env=override_env)
         if ctx.invoked_subcommand is None:
             print(
                 Panel(
@@ -118,33 +122,47 @@ class CoreApp(typer.Typer):
                 )
             )
             return
+
+        if env_path is None:
+            candidates = [Path.cwd() / ".env", Path.cwd().parent / ".env"]
+            for candidate in candidates:
+                if candidate.is_file():
+                    env_path = candidate
+                    break
+            else:
+                # Did not find .env file
+                try:
+                    env_vars = EnvironmentVariables.create_from_environment()
+                except (ValueError, KeyError):
+                    warn = True
+                else:
+                    warn = bool(env_vars.get_missing_vars())
+                if warn:
+                    print(
+                        "[bold yellow]WARNING:[/] No .env file found and missing required environment variables. "
+                        "Searched current or parent directory.",
+                        file=sys.stderr,
+                    )
+                return
+
+        if not env_path.is_file():
+            raise ToolkitFileNotFoundError(env_path)
+
         if override_env:
-            print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
-
-        if env_path is not None:
-            if not (dotenv_file := Path(env_path)).is_file():
-                raise ToolkitFileNotFoundError(env_path)
-
-        else:
-            if not (dotenv_file := Path.cwd() / ".env").is_file():
-                if not (dotenv_file := Path.cwd().parent / ".env").is_file():
-                    if get_cicd_environment() == "local":
-                        warn = False
-                        try:
-                            env_vars = EnvironmentVariables.create_from_environment()
-                        except Exception:
-                            warn = True
-                        else:
-                            warn = bool(env_vars.get_missing_vars())
-                        if warn:
-                            print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
-
-        if dotenv_file.is_file():
-            has_loaded = load_dotenv(dotenv_file, override=override_env)
-            if not has_loaded:
-                print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
-
-        ctx.obj = Common(override_env=override_env)
+            dotenv_vars = dotenv_values(env_path)
+            overridden_vars = [
+                key for key, value in dotenv_vars.items() if key in os.environ and os.environ[key] != value
+            ]
+            if overridden_vars:
+                display_path = relative_to_if_possible(env_path)
+                print(
+                    "  [bold yellow]WARNING:[/] Overriding the following environment variables with values "
+                    f"from {display_path.as_posix()!r} file: {humanize_collection(overridden_vars)}"
+                )
+        has_loaded = load_dotenv(env_path, override=override_env)
+        if not has_loaded:
+            display_path = relative_to_if_possible(env_path)
+            print(f"  [bold yellow]WARNING:[/] No environment variables found in {display_path.as_posix()!r} file.")
 
     def build(
         self,

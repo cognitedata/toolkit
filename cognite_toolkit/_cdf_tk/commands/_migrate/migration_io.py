@@ -69,9 +69,6 @@ class AssetCentricMigrationIO(
     UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
 ):
     KIND = "AssetCentricMigration"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
@@ -412,9 +409,6 @@ class AnnotationMigrationIO(
     """
 
     KIND = "AnnotationMigration"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
@@ -560,9 +554,6 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
     """
 
     KIND = "3DMigration"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     DOWNLOAD_LIMIT = 1000
     CHUNK_SIZE = 1
     UPLOAD_ENDPOINT = "/3d/migrate/models"
@@ -670,9 +661,6 @@ class ThreeDAssetMappingMigrationIO(
     UploadableDataIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
 ):
     KIND = "3DMigrationAssetMapping"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     DOWNLOAD_LIMIT = 1000
     CHUNK_SIZE = 100
     UPLOAD_ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"

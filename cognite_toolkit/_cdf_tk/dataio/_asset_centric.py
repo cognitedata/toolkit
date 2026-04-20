@@ -262,9 +262,6 @@ class UploadableAssetCentricIO(
 class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     UPLOAD_ENDPOINT = "/assets"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -397,9 +394,6 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
     KIND = "FileMetadata"
     RESOURCE_TYPE = "file"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -495,9 +489,6 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
 
 class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
     KIND = "TimeSeries"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
     RESOURCE_TYPE = "timeseries"
 
@@ -602,9 +593,6 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
 
 class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     KIND = "Events"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
     RESOURCE_TYPE = "event"
 
@@ -706,8 +694,6 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 class HierarchyIO(ConfigurableDataIO[AssetCentricSelector, AssetCentricResource]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)

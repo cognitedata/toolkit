@@ -1,6 +1,5 @@
 import json
 from collections.abc import Iterable
-from typing import ClassVar
 
 from pydantic import JsonValue
 
@@ -26,9 +25,6 @@ class RecordIO(
     UploadableDataIO[RecordContainerSelector, RecordResponse, RecordRequest],
 ):  # pyright: ignore[reportInvalidTypeArguments]
     KIND = "Records"
-    SUPPORTED_DOWNLOAD_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS: ClassVar[frozenset[str]] = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
     _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
     # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size

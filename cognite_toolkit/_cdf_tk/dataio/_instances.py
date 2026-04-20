@@ -62,9 +62,6 @@ class InstanceIO(
 
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType(
