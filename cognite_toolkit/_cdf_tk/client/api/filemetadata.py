@@ -110,7 +110,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         return results
 
     def upload_multi_parts(self, item: FileMetadataRequest, overwrite: bool, parts: int) -> FileMetadataResponse:
-        """Upload file metadata to CDF and return mutiple URLs for uploading"""
+        """Upload file metadata to CDF and return multiple URLs for uploading"""
         self._validate_parts_parameter(parts)
         endpoint = self._multipart_file_upload_link
         request = RequestMessage(
