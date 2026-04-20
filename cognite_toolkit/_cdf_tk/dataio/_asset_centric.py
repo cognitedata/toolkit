@@ -44,7 +44,7 @@ from ._base import (
     Page,
     StorageIOConfig,
     TableDataIO,
-    TableUploadableStorageIO,
+    TableUploadableDataIO,
 )
 from .logger import DataLogger
 from .progress import CursorBookmark, NoBookmark
@@ -191,7 +191,7 @@ class AssetCentricIO(
 class UploadableAssetCentricIO(
     Generic[T_ResourceResponse, T_ResourceRequest],
     AssetCentricIO[T_ResourceResponse],
-    TableUploadableStorageIO[AssetCentricSelector, T_ResourceResponse, T_ResourceRequest],
+    TableUploadableDataIO[AssetCentricSelector, T_ResourceResponse, T_ResourceRequest],
     ABC,
 ):
     def _populate_data_set_external_id_cache(self, chunk: Sequence[dict[str, Any]]) -> None:

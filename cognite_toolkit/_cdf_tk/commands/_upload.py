@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     UploadableDataIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.dataio._base import TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio._base import TableUploadableDataIO
 from cognite_toolkit._cdf_tk.dataio.logger import (
     DataLogger,
     FileWithAggregationLogger,
@@ -245,13 +245,17 @@ class UploadCommand(ToolkitCommand):
                     continue
                 io.logger = logger
                 logger.reset()
-                schema = io.get_schema(selector) if isinstance(io, TableDataIO) else None
-                reader = MultiFileReader(datafiles, schema=schema)
+                # Create reader first to determine if input is table format
+                reader = MultiFileReader(datafiles)
                 # FileContentIO supports uploading any file format.
-                if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
+                if reader.is_table and not isinstance(io, TableUploadableDataIO | FileContentIO):
                     raise ToolkitValueError(
                         f"{selector.type}.{selector.kind} does not support {reader.format!r} files."
                     )
+                # Only fetch schema for table formats (e.g., CSV, Parquet), not for JSON formats
+                if reader.is_table and isinstance(io, TableDataIO):
+                    schema = io.get_schema(selector)
+                    reader = MultiFileReader(datafiles, schema=schema)
 
                 item_count = io.count_items(reader, selector)
 
@@ -262,7 +266,7 @@ class UploadCommand(ToolkitCommand):
                 executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
                     download_iterable=read_chunks_with_registered_pages(),
                     process=partial(io.rows_to_data, selector=selector)
-                    if reader.is_table and isinstance(io, TableUploadableStorageIO)
+                    if reader.is_table and isinstance(io, TableUploadableDataIO)
                     else io.json_chunk_to_data,
                     write=partial(
                         cls._upload_items,

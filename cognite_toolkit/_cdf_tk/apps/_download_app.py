@@ -97,8 +97,16 @@ class DatapointsDataTypes(str, Enum):
     string = "string"
 
 
-class InstanceFormats(str, Enum):
-    ndjson = "ndjson"
+if Flags.EXTEND_DOWNLOAD.is_enabled():
+
+    class InstanceFormats(str, Enum):
+        ndjson = "ndjson"
+        csv = "csv"
+        parquet = "parquet"
+else:
+
+    class InstanceFormats(str, Enum):  # type: ignore[no-redef]
+        ndjson = "ndjson"
 
 
 class ChartFormats(str, Enum):

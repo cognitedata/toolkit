@@ -297,7 +297,7 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
         return reader.count()
 
 
-class TableUploadableStorageIO(UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
+class TableUploadableDataIO(UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
     """A base class for storage items that support uploading data with table schemas."""
 
     def rows_to_data(self, rows: Page[dict[str, JsonVal]], selector: T_Selector | None = None) -> Page[T_DataRequest]:

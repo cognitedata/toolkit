@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -19,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_schedule_selector
 from cognite_toolkit._cdf_tk.dataio import InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
@@ -86,6 +89,9 @@ def node_view_with_edges(
     return created[0], edge_type
 
 
+TEST_STREAM_PREFIX = "test_stream_nodes_with_edges_"
+
+
 @pytest.fixture(scope="module")
 def two_nodes_with_edge(
     toolkit_client: ToolkitClient,
@@ -96,7 +102,7 @@ def two_nodes_with_edge(
     view, _ = node_view_with_edges
 
     node_view_source = view.as_id()
-    prefix = "test_stream_nodes_with_edges_"
+    prefix = TEST_STREAM_PREFIX
     node_a = NodeRequest(
         space=toolkit_space.space,
         external_id=f"{prefix}node_a",
@@ -216,7 +222,12 @@ class TestInstanceIO:
         io = InstanceIO(toolkit_client)
         pages = list(io.stream_data(selector))
 
-        results = [instance for page in pages for instance in page.items]
+        results = [
+            instance
+            for page in pages
+            for instance in page.items
+            if instance.item.external_id.startswith(TEST_STREAM_PREFIX)
+        ]
         assert len(results) == 3, f"Expected 3 instances (2 nodes + 1 edge), got {len(results)}"
 
     def test_stream_nodes_by_infield_query(
@@ -234,3 +245,55 @@ class TestInstanceIO:
         actual = [instance.item.as_id() for page in pages for instance in page.items]
         expected = infield_apm_app_data_schedule_populated
         assert set(actual) == set(expected), f"Expected edge instances {expected[1:]}, got {actual[1:]}"
+
+    def test_upload_download_roundtrip(
+        self,
+        toolkit_client: ToolkitClient,
+        toolkit_space: Space,
+        node_view_with_edges: tuple[ViewResponse, NodeId],
+        tmp_path: Path,
+    ) -> None:
+        view, _ = node_view_with_edges
+        # Create the CSV file with node data
+        upload_dir = tmp_path / "upload"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        selector = InstanceViewSelector(
+            download_dir_name="my_instance",
+            instance_type="node",
+            view=SelectedView(space=view.space, external_id=view.external_id, version=view.version),
+        )
+        selector.dump_to_file(upload_dir)
+        csv_files = upload_dir / f"{selector.as_filestem()}.csv"
+        external_id = "test_upload_download_node"
+        csv_files.write_text(
+            f"""space,externalId,name
+{toolkit_space.space},{external_id},Test Upload/Download Node
+"""
+        )
+
+        upload_cmd = UploadCommand(silent=True, skip_tracking=True)
+        upload_cmd.upload(
+            upload_dir,
+            toolkit_client,
+            deploy_resources=False,
+            dry_run=False,
+            verbose=True,
+        )
+        download_cmd = DownloadCommand(silent=True, skip_tracking=True)
+        download_cmd.download(
+            selectors=[selector],
+            io=InstanceIO(toolkit_client),
+            output_dir=tmp_path / "download",
+            verbose=True,
+            file_format=".csv",
+            compression="none",
+            limit=100_000,
+        )
+
+        csv_files = list((tmp_path / "download").rglob("*.csv"))
+        assert len(csv_files) == 1
+        csv_file = csv_files[0]
+        expected_row = f"{toolkit_space.space},{external_id},,,1,Test Upload/Download Node"
+        # There is likely more data in the view, so we cannot assert the entire file.
+        assert expected_row in csv_file.read_text()
+        toolkit_client.tool.instances.delete([NodeId(space=toolkit_space.space, external_id=external_id)])

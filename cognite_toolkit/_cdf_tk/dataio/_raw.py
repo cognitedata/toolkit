@@ -19,14 +19,14 @@ from ._base import (
     DataItem,
     Page,
     StorageIOConfig,
-    TableUploadableStorageIO,
+    TableUploadableDataIO,
 )
 from .selectors import RawTableSelector
 
 
 class RawIO(
     ConfigurableDataIO[RawTableSelector, Row],
-    TableUploadableStorageIO[RawTableSelector, Row, RowWrite],
+    TableUploadableDataIO[RawTableSelector, Row, RowWrite],
 ):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"

@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     FileMetadataDataIO,
     TimeSeriesDataIO,
 )
-from cognite_toolkit._cdf_tk.dataio._base import Page, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.dataio._base import Page, TableUploadableDataIO
 from cognite_toolkit._cdf_tk.dataio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
@@ -264,7 +264,7 @@ class TestAssetCentricIO:
         if create_endpoint is None:
             return  # No upload test for this IO class
 
-        assert isinstance(io, TableUploadableStorageIO)
+        assert isinstance(io, TableUploadableDataIO)
         config = toolkit_config
         resources = {
             AssetDataIO: some_asset_data,

@@ -2,7 +2,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from cognite.client import data_modeling as dm
+from cognite.client import data_modeling as sdk_dm
 from cognite.client.data_classes.aggregations import Count
 
 from cognite_toolkit._cdf_tk import constants
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
@@ -32,10 +33,11 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, UploadableDataIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableDataIO
 from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
@@ -44,7 +46,8 @@ from .selectors._instances import InstanceQuerySelector
 
 class InstanceIO(
     ConfigurableDataIO[InstanceSelector, InstanceResponse],
-    UploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
+    TableDataIO[InstanceSelector, InstanceResponse],
+    TableUploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
 ):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
@@ -159,6 +162,83 @@ class InstanceIO(
             if not readonly_properties:
                 continue
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
+
+    def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
+        instance_type, view_id = self._get_instance_type_and_view_id(selector)
+        instance_columns: list[SchemaColumn] = [
+            SchemaColumn(name="space", type="string"),
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="type.space", type="string"),
+            SchemaColumn(name="type.externalId", type="string"),
+            SchemaColumn(name="existingVersion", type="integer"),
+        ]
+        if instance_type == "edge":
+            instance_columns.extend(
+                [
+                    SchemaColumn(name="startNode.space", type="string"),
+                    SchemaColumn(name="startNode.externalId", type="string"),
+                    SchemaColumn(name="endNode.space", type="string"),
+                    SchemaColumn(name="endNode.externalId", type="string"),
+                ]
+            )
+        property_columns: list[SchemaColumn] = []
+        if view_id is not None:
+            views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
+            if not views:
+                raise ToolkitValueError(f"View {view_id.as_id()} not found.")
+            property_columns = self._get_schema_from_view(views[0])
+
+        return instance_columns + property_columns
+
+    def _get_instance_type_and_view_id(self, selector: InstanceSelector) -> tuple[str, SelectedView | None]:
+        if isinstance(selector, InstanceViewSelector):
+            return selector.instance_type, selector.view
+        elif isinstance(selector, InstanceSpaceSelector):
+            return selector.instance_type, selector.view
+        else:
+            raise NotImplementedError(f"{type(selector).__name__} does not support downloading to table-format.")
+
+    def _get_schema_from_view(self, view: dm.ViewResponse) -> list[SchemaColumn]:
+        columns: list[SchemaColumn] = []
+        for prop_id, prop in view.properties.items():
+            if not isinstance(prop, dm.ViewCorePropertyResponse):
+                # We do not include anny edges in the table
+                continue
+
+            data_type = self._get_property_type(prop.type)
+            is_array = prop.type.list or False if isinstance(prop.type, dm.ListablePropertyTypeDefinition) else False
+            if data_type == "json":
+                is_array = False
+            columns.append(SchemaColumn(name=prop_id, type=data_type, is_array=is_array))
+        return columns
+
+    def _get_property_type(self, prop_type: dm.DataType) -> DataType:
+        match prop_type:
+            case (
+                dm.TextProperty()
+                | dm.TimeseriesCDFExternalIdReference()
+                | dm.FileCDFExternalIdReference()
+                | dm.SequenceCDFExternalIdReference()
+            ):
+                return "string"
+            case dm.BooleanProperty():
+                return "boolean"
+            case dm.Float32Property() | dm.Float64Property():
+                return "float"
+            case dm.Int32Property() | dm.Int64Property():
+                return "integer"
+            case dm.TimestampProperty():
+                return "timestamp"
+            case dm.DateProperty():
+                return "date"
+            case dm.JSONProperty():
+                return "json"
+            case dm.DirectNodeRelation():
+                return "json"
+            case dm.EnumProperty():
+                return "string"
+            case _:
+                return "string"
 
     def stream_data(
         self,
@@ -322,7 +402,7 @@ class InstanceIO(
         ):
             view_id = cast(SelectedView, selector.view)
             result = self.client.data_modeling.instances.aggregate(
-                view=dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                view=sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=selector.get_instance_spaces(),
@@ -360,6 +440,92 @@ class InstanceIO(
         instance = InstanceRequestAdapter.validate_python(item_to_load)
         self._filter_readonly_properties(instance)
         return instance
+
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: InstanceSelector | None = None
+    ) -> dict[str, JsonVal]:
+        row: dict[str, JsonVal] = {}
+        for key, value in item_json.items():
+            if key == "sources" and isinstance(value, list):
+                for source in value:
+                    if not isinstance(source, dict):
+                        continue
+                    row.update(source.get("properties", {}))  # type: ignore[arg-type]
+            elif key == "instanceType":
+                # This is stored in the manifest
+                continue
+            elif isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    row[f"{key}.{subkey}"] = subvalue
+            else:
+                row[key] = value
+        return row
+
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: InstanceSelector | None = None
+    ) -> InstanceRequest:
+        """Convert a row-based dictionary back to an InstanceRequest.
+
+        The row format is the inverse of json_to_row:
+        - Instance-level fields: `space`, `externalId`, `existingVersion`
+        - Nested fields flattened with dots: `type.space`, `type.externalId`, `startNode.space`, etc.
+        - Source properties are at the root level (any key not matching the above)
+
+        Args:
+            source_id: The source identifier (e.g., row number in a CSV file).
+            row: A dictionary representing the instance data in row format.
+            selector: The selector used to identify the view for source properties.
+
+        Returns:
+            An InstanceRequest representing the data.
+        """
+        # Known instance-level fields and nested field prefixes
+        instance_scalar_fields = {"space", "externalId", "existingVersion"}
+        nested_field_prefixes = {"type", "startNode", "endNode"}
+
+        instance_fields: dict[str, JsonVal] = {}
+        nested_fields: dict[str, dict[str, JsonVal]] = {}
+        source_properties: dict[str, JsonVal] = {}
+
+        for key, value in row.items():
+            if key in instance_scalar_fields:
+                instance_fields[key] = value
+            elif "." in key:
+                prefix, subkey = key.split(".", 1)
+                if prefix in nested_field_prefixes:
+                    if prefix not in nested_fields:
+                        nested_fields[prefix] = {}
+                    nested_fields[prefix][subkey] = value
+                else:
+                    # Dot in key but not a known prefix - treat as source property
+                    source_properties[key] = value
+            else:
+                # Not an instance field - treat as source property
+                source_properties[key] = value
+
+        # Determine instance type: if we have startNode/endNode, it's an edge
+        instance_type: Literal["node", "edge"] = "edge" if "startNode" in nested_fields else "node"
+
+        # Build the JSON structure expected by json_to_resource
+        item_json: dict[str, JsonVal] = {
+            "instanceType": instance_type,
+            **instance_fields,
+            **nested_fields,
+        }
+
+        # Add sources if we have properties and a selector with a view
+        if source_properties and isinstance(selector, InstanceViewSelector | InstanceSpaceSelector) and selector.view:
+            view_id = selector.view.as_id()
+            item_json["sources"] = [
+                {
+                    "source": view_id.dump(include_type=True),
+                    "properties": source_properties,
+                }
+            ]
+        elif source_properties:
+            raise NotImplementedError(f"{type(selector).__name__} does not support upload from table format.")
+
+        return self.json_to_resource(item_json)
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
