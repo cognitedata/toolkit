@@ -123,7 +123,7 @@ class FunctionAppTaskParameters(TaskParameterDefinition):
 
 class UnknownTaskParameters(TaskParameterDefinition):
     model_config = ConfigDict(extra="allow")
-    type: str
+    type: str = Field(exclude=True)
 
 
 def _handle_unknown_parameter(value: Any) -> Any:

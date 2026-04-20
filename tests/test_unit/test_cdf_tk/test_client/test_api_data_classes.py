@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 import pytest
-from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
@@ -30,7 +29,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Parameter, UnknownTaskParameters
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowVersionRequest,
+)
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -590,15 +591,22 @@ class TestWorkflowTriggers:
 
 class TestWorkflowVersion:
     def test_unknown_task_parameters(self) -> None:
-        """Unknown parameters.type values become UnknownTaskParameters with extra fields kept (same idea as TriggerRule).
-
-        Uses TypeAdapter(Parameter) because Task.move_type_to_field overwrites parameters.type from the task when
-        loading a full workflow request.
-        """
         data = {
-            "type": "notYetInToolkit",
-            "some": "value",
-            "that": ["is", "unknown", "to", "toolkit"],
+            "workflowExternalId": "my_workflow",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "my_task",
+                        "type": "unknown_task_type",
+                        "parameters": {
+                            "param1": "value1",
+                            "some": "value",
+                            "that": ["is", "unknown", "to", "toolkit"],
+                        },
+                    }
+                ]
+            },
         }
-        params = TypeAdapter(Parameter).validate_python(data)
-        assert type(params) is UnknownTaskParameters and params.dump() == data
+
+        assert WorkflowVersionRequest.model_validate(data).dump() == data
