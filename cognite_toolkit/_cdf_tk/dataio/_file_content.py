@@ -71,12 +71,9 @@ class MetadataWithFilePath(ResourceResponseProtocol):
 
 
 class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, FileMetadataRequest]):
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = FileContentSelector
     KIND = "FileContent"
-    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
     def __init__(self, client: ToolkitClient, target_dir: Path = Path.cwd()) -> None:

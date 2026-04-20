@@ -19,8 +19,6 @@ from .selectors import AssetCentricSelector
 
 
 class AnnotationIO(DataIO[AssetCentricSelector, AnnotationResponse]):
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
 
