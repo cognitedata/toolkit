@@ -1,7 +1,7 @@
 import builtins
 import io
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,6 +25,35 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+
+
+class _LimitedFileReader(Iterable[bytes]):
+    """A file-like wrapper that limits the number of bytes read from a file stream.
+
+    This allows httpx to stream content directly from disk in smaller chunks,
+    without loading the entire part into memory at once. Implements Iterable[bytes]
+    for compatibility with httpx's content parameter.
+    """
+
+    _CHUNK_SIZE = 64 * 1024  # 64 KB chunks
+
+    def __init__(self, file_stream: io.IOBase, limit: int) -> None:
+        self._file_stream = file_stream
+        self._limit = limit
+        self._remaining = limit
+
+    def __iter__(self) -> Iterator[bytes]:
+        while self._remaining > 0:
+            chunk_size = min(self._CHUNK_SIZE, self._remaining)
+            data = self._file_stream.read(chunk_size)
+            if not data:
+                break
+            self._remaining -= len(data)
+            yield data
+
+    def __len__(self) -> int:
+        """Return the total size for Content-Length header."""
+        return self._limit
 
 
 class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
@@ -308,7 +337,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """Upload a file to CDF in multiple parts using the provided upload URLs.
 
         The file is split uniformly across all upload URLs, with each part uploaded
-        to its corresponding URL.
+        to its corresponding URL. Uses streaming to avoid loading entire chunks into memory.
 
         Args:
             filepath: The local path to the file to upload.
@@ -333,11 +362,15 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             for i, upload_url in enumerate(upload_urls):
                 # Last part gets any remaining bytes
                 if i == num_parts - 1:
-                    chunk = file_stream.read()
+                    current_part_size = file_size - file_stream.tell()
                 else:
-                    chunk = file_stream.read(part_size)
+                    current_part_size = part_size
 
-                response = httpx.put(upload_url, content=chunk, headers=headers)
+                # Use a stream wrapper that limits reads to the part size,
+                # allowing httpx to stream directly from disk without loading the entire chunk into memory.
+                chunk_stream = _LimitedFileReader(file_stream, current_part_size)
+
+                response = httpx.put(upload_url, content=chunk_stream, headers=headers)
                 if response.status_code not in (200, 201):
                     raise ToolkitAPIError(
                         message=f"Upload of part {i + 1} failed with status code {response.status_code}: {response.text}",
