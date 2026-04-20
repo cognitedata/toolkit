@@ -90,8 +90,8 @@ class FileMetadataContentIO(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
         file_schema = [
-            SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="directory", type="string"),
             SchemaColumn(name="mimeType", type="string"),
             SchemaColumn(name="dataSetExternalId", type="string"),
@@ -102,6 +102,7 @@ class FileMetadataContentIO(
             SchemaColumn(name="securityCategories", type="string", is_array=True),
             SchemaColumn(name="labels", type="string", is_array=True),
             SchemaColumn(name="geoLocation", type="json"),
+            SchemaColumn(name=FILEPATH, type="string"),
         ]
         return file_schema + metadata_schema
 
