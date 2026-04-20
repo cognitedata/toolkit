@@ -1,6 +1,6 @@
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field
+from pydantic import BeforeValidator, ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_model_classes
 
 
 class Mapping(BaseModelObject):
@@ -43,9 +44,29 @@ class JSONInput(BaseModelObject):
     type: Literal["json"] = "json"
 
 
+class UnknownMappingInput(MappingInputDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
+def _handle_unknown_mapping_input(value: Any) -> Any:
+    if isinstance(value, dict):
+        input_type = dict_discriminator_value(value, "type")
+        if input_type not in _MAPPING_INPUT_BY_TYPE:
+            return UnknownMappingInput.model_validate(value)
+        return _MAPPING_INPUT_BY_TYPE[input_type].model_validate(value)
+    return value
+
+
+_MAPPING_INPUT_BY_TYPE = registry_from_model_classes(
+    (ProtobufInput, CSVInput, XMLInput, JSONInput),
+    type_field="type",
+)
+
+
 MappingInput = Annotated[
-    ProtobufInput | CSVInput | XMLInput | JSONInput,
-    Field(discriminator="type"),
+    ProtobufInput | CSVInput | XMLInput | JSONInput | UnknownMappingInput,
+    BeforeValidator(_handle_unknown_mapping_input),
 ]
 
 

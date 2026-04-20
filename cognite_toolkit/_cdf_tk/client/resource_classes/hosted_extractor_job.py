@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, JsonValue, field_validator
+from pydantic import BeforeValidator, ConfigDict, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
 
 
 class JobFormatDefinition(BaseModelObject):
@@ -54,9 +55,30 @@ class ValueFormat(JobFormatDefinition):
     data_models: list[SpaceRef] | None = None
 
 
+class UnknownJobFormat(JobFormatDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
+def _handle_unknown_job_format(value: Any) -> Any:
+    if isinstance(value, dict):
+        fmt_type = dict_discriminator_value(value, "type")
+        if fmt_type not in _JOB_FORMAT_BY_TYPE:
+            return UnknownJobFormat.model_validate(value)
+        return _JOB_FORMAT_BY_TYPE[fmt_type].model_validate(value)
+    return value
+
+
+_JOB_FORMAT_BY_TYPE = registry_from_subclasses_with_type_field(
+    JobFormatDefinition,
+    type_field="type",
+    exclude=(UnknownJobFormat,),
+)
+
+
 JobFormat = Annotated[
-    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat,
-    Field(discriminator="type"),
+    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat | UnknownJobFormat,
+    BeforeValidator(_handle_unknown_job_format),
 ]
 
 
@@ -86,6 +108,37 @@ class QueryParamIncrementalLoad(IncrementalLoadDefinition):
     value: str
 
 
+class UnknownIncrementalLoad(IncrementalLoadDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
+def _handle_unknown_incremental_load(value: Any) -> Any:
+    if isinstance(value, dict):
+        load_type = dict_discriminator_value(value, "type")
+        if load_type not in _INCREMENTAL_LOAD_BY_TYPE:
+            return UnknownIncrementalLoad.model_validate(value)
+        return _INCREMENTAL_LOAD_BY_TYPE[load_type].model_validate(value)
+    return value
+
+
+_INCREMENTAL_LOAD_BY_TYPE = registry_from_subclasses_with_type_field(
+    IncrementalLoadDefinition,
+    type_field="type",
+    exclude=(UnknownIncrementalLoad,),
+)
+
+
+IncrementalLoad = Annotated[
+    BodyIncrementalLoad
+    | NextUrlIncrementalLoad
+    | HeaderIncrementalLoad
+    | QueryParamIncrementalLoad
+    | UnknownIncrementalLoad,
+    BeforeValidator(_handle_unknown_incremental_load),
+]
+
+
 class MQTTConfig(BaseModelObject):
     topic_filter: str
 
@@ -102,12 +155,8 @@ class RestConfig(BaseModelObject):
     body: JsonValue | None = None
     query: dict[str, str] | None = None
     headers: dict[str, str] | None = None
-    incremental_load: BodyIncrementalLoad | HeaderIncrementalLoad | QueryParamIncrementalLoad | None = Field(
-        None, discriminator="type"
-    )
-    pagination: (
-        BodyIncrementalLoad | NextUrlIncrementalLoad | HeaderIncrementalLoad | QueryParamIncrementalLoad | None
-    ) = Field(None, discriminator="type")
+    incremental_load: IncrementalLoad | None = None
+    pagination: IncrementalLoad | None = None
 
 
 class HostedExtractorJob(BaseModelObject):

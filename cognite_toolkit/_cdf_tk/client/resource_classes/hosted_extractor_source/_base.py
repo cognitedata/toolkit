@@ -1,5 +1,7 @@
 from typing import Any, Literal
 
+from pydantic import ConfigDict
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     UpdatableRequestResource,
@@ -26,3 +28,13 @@ class SourceResponseDefinition(BaseModelObject):
     external_id: str
     created_time: int
     last_updated_time: int
+
+
+class UnknownSourceRequest(SourceRequestDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
+class UnknownSourceResponse(SourceResponseDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str

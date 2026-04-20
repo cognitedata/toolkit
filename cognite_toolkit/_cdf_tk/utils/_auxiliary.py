@@ -1,10 +1,72 @@
 import inspect
+import types
 from abc import ABC
-from typing import TypeVar
+from collections.abc import Iterable
+from typing import Annotated, Any, Literal, TypeVar, Union, get_args, get_origin
+
+from pydantic.alias_generators import to_camel
+from pydantic_core import PydanticUndefined
 
 from cognite_toolkit import _version
 
 T_Cls = TypeVar("T_Cls")
+
+
+def dict_discriminator_value(value: dict[str, Any], field_name: str) -> Any:
+    """Read discriminator from an API dict (snake_case or camelCase alias)."""
+    if field_name in value:
+        return value[field_name]
+    camel = to_camel(field_name)
+    if camel in value:
+        return value[camel]
+    return None
+
+
+def literal_string_values_from_annotation(annotation: Any) -> list[str]:
+    """Collect string literal values from a typing annotation (Literal, unions, Annotated)."""
+    if annotation is None:
+        return []
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin is Literal:
+        return [str(a) for a in args]
+    if origin is Annotated:
+        return literal_string_values_from_annotation(args[0])
+    if origin is Union or origin is types.UnionType:
+        result: list[str] = []
+        for arg in args:
+            if arg is type(None):
+                continue
+            result.extend(literal_string_values_from_annotation(arg))
+        return result
+    return []
+
+
+def registry_from_model_classes(classes: Iterable[type[Any]], *, type_field: str) -> dict[str, type[Any]]:
+    """Map discriminator string to concrete model class for BeforeValidator routing."""
+    registry: dict[str, type[Any]] = {}
+    for cls_ in classes:
+        field_info = cls_.model_fields.get(type_field)
+        if field_info is None:
+            continue
+        default = field_info.default
+        if default is not PydanticUndefined:
+            registry[str(default)] = cls_
+            continue
+        for lit in literal_string_values_from_annotation(field_info.annotation):
+            registry[lit] = cls_
+    return registry
+
+
+def registry_from_subclasses_with_type_field(
+    base_cls: type[Any],
+    *,
+    type_field: str,
+    exclude: tuple[type[Any], ...] = (),
+) -> dict[str, type[Any]]:
+    excluded = set(exclude)
+    classes: list[type[Any]] = [c for c in get_concrete_subclasses(base_cls) if c not in excluded]
+    return registry_from_model_classes(classes, type_field=type_field)
 
 
 def get_concrete_subclasses(base_cls: type[T_Cls], exclude_ABC_base: bool = True) -> list[type[T_Cls]]:

@@ -1,11 +1,11 @@
 import builtins
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BeforeValidator, ConfigDict, Field
+from pydantic import BeforeValidator, ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses, registry_from_model_classes
 
 
 class SinkRefWithExternalId(BaseModelObject):
@@ -17,9 +17,29 @@ class CurrentUserSinkRef(BaseModelObject):
     type: Literal["current_user"] = "current_user"
 
 
+class UnknownSinkRef(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
+def _handle_unknown_sink_ref(value: Any) -> Any:
+    if isinstance(value, dict):
+        sink_type = value.get("type")
+        if sink_type not in _SINK_REF_BY_TYPE:
+            return UnknownSinkRef.model_validate(value)
+        return _SINK_REF_BY_TYPE[sink_type].model_validate(value)
+    return value
+
+
+_SINK_REF_BY_TYPE = registry_from_model_classes(
+    (SinkRefWithExternalId, CurrentUserSinkRef),
+    type_field="type",
+)
+
+
 SinkRef = Annotated[
-    SinkRefWithExternalId | CurrentUserSinkRef,
-    Field(discriminator="type"),
+    SinkRefWithExternalId | CurrentUserSinkRef | UnknownSinkRef,
+    BeforeValidator(_handle_unknown_sink_ref),
 ]
 
 
