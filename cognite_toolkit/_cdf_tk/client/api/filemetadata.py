@@ -40,8 +40,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             },
             api_version="alpha",
         )
+        self._create_multipart = Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1)
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
-        self._multipart_file_upload_link = Endpoint(method="POST", path="/files/multiuploadlink", item_limit=1)
+        self._multipart_file_upload_link = Endpoint(method="POST", path="/files/initmultipartupload", item_limit=1)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -79,6 +80,30 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             file_response.filepath = item.filepath
             results.append(file_response)
         return results
+
+    def upload_multi_parts(self, item: FileMetadataResponse, overwrite: bool, parts: int) -> FileMetadataResponse:
+        """Upload file metadata to CDF and return mutiple URLs for uploading"""
+        self._validate_parts_parameter(parts)
+        endpoint = self._multipart_file_upload_link
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            body_content=item.dump(),
+            parameters={"overwrite": overwrite, "parts": parts},
+        )
+        response = self._http_client.request_single_retries(request)
+        result = response.get_success_or_raise(request)
+        items = ResponseItems[FileMetadataResponse].model_validate_json(result.body).items
+        if len(items) != 1:
+            raise ToolkitAPIError(
+                message=f"Expected exactly one item in response, got {len(items)}", code=result.status_code
+            )
+        items[0].filepath = item.filepath
+        return items[0]
+
+    def _validate_parts_parameter(self, parts: int) -> None:
+        if not (1 <= parts <= 250):
+            raise ValueError("Parts parameter must be between 1 and 250")
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
@@ -313,8 +338,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def get_multipart_upload_urls(self, item: ExternalId | InstanceId, parts: int) -> FileMetadataResponse:
         """Get URLs to upload a file in multiple parts to CDF for one file metadata entry."""
-        if not (1 <= parts <= 250):
-            raise ValueError("Parts must be between 1 and 250")
+        self._validate_parts_parameter(parts)
         endpoint = self._multipart_file_upload_link
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
