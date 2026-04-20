@@ -245,13 +245,17 @@ class UploadCommand(ToolkitCommand):
                     continue
                 io.logger = logger
                 logger.reset()
-                schema = io.get_schema(selector) if isinstance(io, TableDataIO) else None
-                reader = MultiFileReader(datafiles, schema=schema)
+                # Create reader first to determine if input is table format
+                reader = MultiFileReader(datafiles)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableDataIO | FileContentIO):
                     raise ToolkitValueError(
                         f"{selector.type}.{selector.kind} does not support {reader.format!r} files."
                     )
+                # Only fetch schema for table formats (e.g., CSV, Parquet), not for JSON formats
+                if reader.is_table and isinstance(io, TableDataIO):
+                    schema = io.get_schema(selector)
+                    reader = MultiFileReader(datafiles, schema=schema)
 
                 item_count = io.count_items(reader, selector)
 
