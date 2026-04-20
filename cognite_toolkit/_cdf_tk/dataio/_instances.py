@@ -2,7 +2,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from cognite.client import data_modeling as dm
+from cognite.client import data_modeling as sdk_dm
 from cognite.client.data_classes.aggregations import Count
 
 from cognite_toolkit._cdf_tk import constants
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
@@ -32,10 +33,11 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, UploadableDataIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, UploadableDataIO
 from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
@@ -44,6 +46,7 @@ from .selectors._instances import InstanceQuerySelector
 
 class InstanceIO(
     ConfigurableDataIO[InstanceSelector, InstanceResponse],
+    TableDataIO[InstanceSelector, InstanceResponse],
     UploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
 ):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
@@ -162,6 +165,79 @@ class InstanceIO(
             if not readonly_properties:
                 continue
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
+
+    def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
+        instance_type, view_id = self._get_instance_type_and_view_id(selector)
+        instance_columns: list[SchemaColumn] = [
+            SchemaColumn(name=f"{instance_type}.space", type="string"),
+            SchemaColumn(name=f"{instance_type}.externalId", type="string"),
+            SchemaColumn(
+                name=f"{instance_type}.type",
+                type="json",
+            ),
+        ]
+        if instance_type == "edge":
+            instance_columns.extend(
+                [
+                    SchemaColumn(name=f"{instance_type}.startNode", type="json"),
+                    SchemaColumn(name=f"{instance_type}.endNode", type="json"),
+                ]
+            )
+
+        property_columns: list[SchemaColumn] = []
+        if view_id is not None:
+            views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
+            if not views:
+                raise ToolkitValueError(f"View {view_id.as_id()} not found.")
+            property_columns = self._get_schema_from_view(views[0])
+
+        return instance_columns + property_columns
+
+    def _get_instance_type_and_view_id(self, selector: InstanceSelector) -> tuple[str, SelectedView | None]:
+        if isinstance(selector, InstanceViewSelector):
+            return selector.instance_type, selector.view
+        elif isinstance(selector, InstanceSpaceSelector):
+            return selector.instance_space, selector.view
+        else:
+            raise NotImplementedError(f"{type(selector).__name__} does not support downloading to table-format.")
+
+    def _get_schema_from_view(self, view: dm.ViewResponse) -> list[SchemaColumn]:
+        columns: list[SchemaColumn] = []
+        for prop_id, prop in view.properties.items():
+            if not isinstance(prop, dm.ViewCorePropertyResponse):
+                # We do not include anny edges in the table
+                continue
+            is_array = prop.type.list or False if isinstance(prop.type, dm.ListablePropertyTypeDefinition) else False
+            columns.append(SchemaColumn(name=prop_id, type=self._get_property_type(prop.type), is_array=is_array))
+        return columns
+
+    def _get_property_type(self, prop_type: dm.DataType) -> DataType:
+        match prop_type:
+            case (
+                dm.TextProperty()
+                | dm.TimeseriesCDFExternalIdReference()
+                | dm.FileCDFExternalIdReference()
+                | dm.SequenceCDFExternalIdReference()
+            ):
+                return "string"
+            case dm.BooleanProperty():
+                return "boolean"
+            case dm.Float32Property() | dm.Float64Property():
+                return "float"
+            case dm.Int32Property() | dm.Int64Property():
+                return "integer"
+            case dm.TimestampProperty():
+                return "timestamp"
+            case dm.DateProperty():
+                return "date"
+            case dm.JSONProperty():
+                return "json"
+            case dm.DirectNodeRelation():
+                return "json"
+            case dm.EnumProperty():
+                return "string"
+            case _:
+                return "string"
 
     def stream_data(
         self,
@@ -325,7 +401,7 @@ class InstanceIO(
         ):
             view_id = cast(SelectedView, selector.view)
             result = self.client.data_modeling.instances.aggregate(
-                view=dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                view=sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=selector.get_instance_spaces(),
