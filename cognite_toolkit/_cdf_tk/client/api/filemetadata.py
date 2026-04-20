@@ -192,23 +192,6 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         return self._list(limit=limit)
 
-    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
-        """Uploads file content to CDF.
-
-        Args:
-            data_content: Content to be uploaded.
-            upload_url: Upload URL.
-            mime_type: MIME type to upload. None for no MIME type.
-        """
-        return self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=upload_url,
-                method="PUT",
-                content_type=mime_type or "application/octet-stream",
-                data_content=data_content,
-            )
-        )
-
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
 
@@ -262,6 +245,23 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             time.sleep(max(0, to_sleep))
             sleep_time *= 2
         return to_check, elapsed_time
+
+    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
+        """Uploads file content to CDF.
+
+        Args:
+            data_content: Content to be uploaded.
+            upload_url: Upload URL.
+            mime_type: MIME type to upload. None for no MIME type.
+        """
+        return self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=upload_url,
+                method="PUT",
+                content_type=mime_type or "application/octet-stream",
+                data_content=data_content,
+            )
+        )
 
     def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> SuccessResponse:
         """Upload a file to CDF using streaming to avoid loading entire file into memory.
