@@ -57,13 +57,10 @@ class DatapointsIO(
     TableDataIO[DataPointsSelector, DataPointListResponse],
     TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DatapointsRequestAdapter],
 ):
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10_000
     DOWNLOAD_CHUNK_SIZE = 100
     BASE_SELECTOR = DataPointsSelector
     KIND = "Datapoints"
-    SUPPORTED_READ_FORMATS = frozenset({".csv"})
     UPLOAD_ENDPOINT = "/timeseries/data"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
     MAX_TOTAL_DATAPOINTS = 10_000_000
