@@ -41,6 +41,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             api_version="alpha",
         )
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
+        self._multipart_file_upload_link = Endpoint(method="POST", path="/files/multiuploadlink", item_limit=1)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -310,6 +311,26 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 _ = response.get_success_or_raise(request)
         return results
 
+    def get_multipart_upload_urls(self, item: ExternalId | InstanceId, parts: int) -> FileMetadataResponse:
+        """Get URLs to upload a file in multiple parts to CDF for one file metadata entry."""
+        if not (1 <= parts <= 250):
+            raise ValueError("Parts must be between 1 and 250")
+        endpoint = self._multipart_file_upload_link
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method="POST",
+            parameters={"parts": parts},
+            body_content={"items": [item.dump()]},
+        )
+        success = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        items = ResponseItems[FileMetadataResponse].model_validate_json(success.body).items
+        if len(items) != 1:
+            raise ToolkitAPIError(
+                message=f"Expected exactly one item in response, got {len(items)}",
+                code=success.status_code,
+            )
+        return items[0]
+
     def get_download_url(
         self, items: Sequence[InternalId], extended_expiration: bool = False
     ) -> builtins.list[DownloadResponse]:
@@ -351,3 +372,14 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             with destination.open(mode="wb") as file_stream:
                 for chunk in response.iter_bytes(chunk_size=8192):
                     file_stream.write(chunk)
+
+    def complete_multipart_upload(self, item: InternalId | ExternalId | InstanceId, upload_id: str) -> SuccessResponse:
+        """Complete a multipart upload for one or more file metadata entries."""
+        body = item.dump()
+        body["uploadId"] = upload_id
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url("/files/completemultipartupload"),
+            method="POST",
+            body_content=body,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
