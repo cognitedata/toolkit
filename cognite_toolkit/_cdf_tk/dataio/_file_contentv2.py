@@ -174,6 +174,40 @@ class FileMetadataContentIO(
         )
         return False
 
+    def _populate_internal_id_cache(self, data: Page[dict[str, JsonVal]]) -> None:
+        data_set_external_ids: set[str] = set()
+        asset_external_ids: set[str] = set()
+        security_category_names: set[str] = set()
+        for item in data:
+            json_chunk = item.item
+            if isinstance(data_set_external_id := json_chunk.get("dataSetExternalId"), str):
+                data_set_external_ids.add(data_set_external_id)
+            if isinstance(asset_external_ids_chunk := json_chunk.get("assetExternalIds"), list):
+                asset_external_ids.update(
+                    asset_external_id
+                    for asset_external_id in asset_external_ids_chunk
+                    if isinstance(asset_external_id, str)
+                )
+            if isinstance(security_categories_chunk := json_chunk.get("securityCategories"), list):
+                security_category_names.update(
+                    security_category_name
+                    for security_category_name in security_categories_chunk
+                    if isinstance(security_category_name, str)
+                )
+        self.client.lookup.data_sets.id(list(data_set_external_ids))
+        self.client.lookup.assets.id(list(asset_external_ids))
+        self.client.lookup.security_categories.id(list(security_category_names))
+
+    def rows_to_data(
+        self, rows: Page[dict[str, JsonVal]], selector: FileMetadataContentSelectorV2 | None = None
+    ) -> Page[FileMetadataRequest]:
+        self._populate_internal_id_cache(rows)
+        return super().rows_to_data(rows, selector)
+
+    def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[FileMetadataRequest]:
+        self._populate_internal_id_cache(data_chunk)
+        return super().json_chunk_to_data(data_chunk)
+
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
     ) -> FileMetadataRequest:
