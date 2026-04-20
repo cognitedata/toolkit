@@ -194,7 +194,7 @@ class InstanceIO(
         if isinstance(selector, InstanceViewSelector):
             return selector.instance_type, selector.view
         elif isinstance(selector, InstanceSpaceSelector):
-            return selector.instance_space, selector.view
+            return selector.instance_type, selector.view
         else:
             raise NotImplementedError(f"{type(selector).__name__} does not support downloading to table-format.")
 
