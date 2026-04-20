@@ -440,6 +440,21 @@ class InstanceIO(
         self._filter_readonly_properties(instance)
         return instance
 
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: InstanceSelector | None = None
+    ) -> dict[str, JsonVal]:
+        instance_type = item_json.pop("instanceType", "node")
+        row: dict[str, JsonVal] = {}
+        for key, value in item_json.items():
+            if key == "sources" and isinstance(value, list):
+                for source in value:
+                    if not isinstance(source, dict):
+                        continue
+                    row.update(source.get("properties", {}))  # type: ignore[arg-type]
+            else:
+                row[f"{instance_type}.{key}"] = value
+        return row
+
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             return
