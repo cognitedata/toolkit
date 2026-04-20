@@ -305,19 +305,34 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 )
             return SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
 
-    def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
-        """Get a URL to upload a file to CDF for one or more file metadata entries."""
+    def get_upload_url(
+        self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[FileMetadataResponse]:
+        """Get a URL to upload a file to CDF for one or more file metadata entries.
+
+        Args:
+            items: Sequence of InternalId identifying the files to upload.
+            ignore_unknown_ids: Whether to ignore unknown identifiers.
+
+        Returns:
+            List of updated FileMetadataResponse objects.
+
+        """
         results: list[FileMetadataResponse] = []
         for item in items:
             # The API only supports one
-            url_request = RequestMessage(
+            request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
                 body_content={"items": [item.dump()]},
             )
-            url_response = self._http_client.request_single_retries(url_request).get_success_or_raise(url_request)
-            responses_with_url = ResponseItems[FileMetadataResponse].model_validate_json(url_response.body).items
-            results.extend(responses_with_url)
+            response = self._http_client.request_single_retries(request)
+            if isinstance(response, SuccessResponse):
+                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise(request)
         return results
 
     def get_download_url(
