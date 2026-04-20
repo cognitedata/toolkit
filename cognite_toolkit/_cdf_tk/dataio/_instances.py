@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableStorageIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableDataIO
 from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
@@ -47,7 +47,7 @@ from .selectors._instances import InstanceQuerySelector
 class InstanceIO(
     ConfigurableDataIO[InstanceSelector, InstanceResponse],
     TableDataIO[InstanceSelector, InstanceResponse],
-    TableUploadableStorageIO[InstanceSelector, InstanceResponse, InstanceRequest],
+    TableUploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
 ):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 

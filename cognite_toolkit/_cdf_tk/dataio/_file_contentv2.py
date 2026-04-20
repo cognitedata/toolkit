@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableUploadableStorageIO
+from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableUploadableDataIO
 from .logger import LogEntryV2, Severity
 from .selectors import (
     FileMetadataContentSelectorV2,
@@ -37,7 +37,7 @@ from .selectors import (
 
 
 class FileMetadataContentIO(
-    TableUploadableStorageIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
+    TableUploadableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
     ConfigurableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
 ):
     """FileMetadataContentIO
