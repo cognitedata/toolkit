@@ -306,6 +306,48 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         finally:
             file_stream.close()
 
+    def upload_file_multiparts(
+        self, filepath: Path, upload_urls: builtins.list[str], mime_type: str | None = None
+    ) -> builtins.list[SuccessResponse]:
+        """Upload a file to CDF in multiple parts using the provided upload URLs.
+
+        The file is split uniformly across all upload URLs, with each part uploaded
+        to its corresponding URL.
+
+        Args:
+            filepath: The local path to the file to upload.
+            upload_urls: List of URLs to upload file parts to.
+            mime_type: MIME type of the file. Defaults to "application/octet-stream".
+
+        Returns:
+            List of SuccessResponse objects containing the upload response details for each part.
+        """
+        content_type = mime_type or "application/octet-stream"
+        file_size = filepath.stat().st_size
+        num_parts = len(upload_urls)
+        part_size = file_size // num_parts
+
+        results: builtins.list[SuccessResponse] = []
+        with filepath.open("rb") as file_stream:
+            for i, upload_url in enumerate(upload_urls):
+                # Last part gets any remaining bytes
+                if i == num_parts - 1:
+                    chunk = file_stream.read()
+                else:
+                    chunk = file_stream.read(part_size)
+
+                response = httpx.put(upload_url, content=chunk, headers={"Content-Type": content_type})
+                if response.status_code not in (200, 201):
+                    raise ToolkitAPIError(
+                        message=f"Upload of part {i + 1} failed with status code {response.status_code}: {response.text}",
+                        code=response.status_code,
+                    )
+                results.append(
+                    SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)
+                )
+
+        return results
+
     def get_upload_url(
         self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
     ) -> builtins.list[FileMetadataResponse]:
