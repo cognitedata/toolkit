@@ -263,9 +263,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         content_type = mime_type or "application/octet-stream"
 
         if isinstance(filepath, bytes):
-            file_stream: io.BufferedIOBase = io.BytesIO(filepath)
+            file_stream: io.IOBase = io.BytesIO(filepath)
         elif isinstance(filepath, str):
-            file_stream = Path(filepath).open("rb")
+            file_stream = io.StringIO(filepath)
         else:
             file_stream = filepath.open("rb")
 
