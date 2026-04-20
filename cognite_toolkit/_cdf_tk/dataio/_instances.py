@@ -166,21 +166,21 @@ class InstanceIO(
     def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
         instance_type, view_id = self._get_instance_type_and_view_id(selector)
         instance_columns: list[SchemaColumn] = [
-            SchemaColumn(name=f"{instance_type}.space", type="string"),
-            SchemaColumn(name=f"{instance_type}.externalId", type="string"),
-            SchemaColumn(
-                name=f"{instance_type}.type",
-                type="json",
-            ),
+            SchemaColumn(name="space", type="string"),
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="type.space", type="string"),
+            SchemaColumn(name="type.externalId", type="string"),
+            SchemaColumn(name="existingVersion", type="integer"),
         ]
         if instance_type == "edge":
             instance_columns.extend(
                 [
-                    SchemaColumn(name=f"{instance_type}.startNode", type="json"),
-                    SchemaColumn(name=f"{instance_type}.endNode", type="json"),
+                    SchemaColumn(name="startNode.space", type="string"),
+                    SchemaColumn(name="startNode.externalId", type="string"),
+                    SchemaColumn(name="endNode.space", type="string"),
+                    SchemaColumn(name="endNode.externalId", type="string"),
                 ]
             )
-
         property_columns: list[SchemaColumn] = []
         if view_id is not None:
             views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
@@ -444,7 +444,6 @@ class InstanceIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: InstanceSelector | None = None
     ) -> dict[str, JsonVal]:
-        instance_type = item_json.pop("instanceType", "node")
         row: dict[str, JsonVal] = {}
         for key, value in item_json.items():
             if key == "sources" and isinstance(value, list):
@@ -452,8 +451,14 @@ class InstanceIO(
                     if not isinstance(source, dict):
                         continue
                     row.update(source.get("properties", {}))  # type: ignore[arg-type]
+            elif key == "instanceType":
+                # This is stored in the manifest
+                continue
+            elif isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    row[f"{key}.{subkey}"] = subvalue
             else:
-                row[f"{instance_type}.{key}"] = value
+                row[key] = value
         return row
 
     def row_to_resource(
