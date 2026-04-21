@@ -1,4 +1,3 @@
-import math
 import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
@@ -36,12 +35,14 @@ from .selectors import (
     InternalWithNameId,
 )
 
-
-SINGLE_FILE_LIMIT_BYTES = 5_000 * 1024 * 1024 # 5 GB is the maximum size for a single file upload.
-IDEAL_FILE_SIZE = 50 * 1024 * 1024 # We aim to have this size for each file
-MULTI_FILE_PART_MIN_SIZE_BYTES = 5 * 1024 * 1024 # Each part in a multi-part upload must be at least 5 MiB, except for the last part.
-MULTI_FILE_PART_MAX_SIZE_BYTES = 4_000 * 1024 * 1024 # Each part in a multi-part upload must be smaller than 4000 MiB.
+SINGLE_FILE_LIMIT_BYTES = 5_000 * 1024 * 1024  # 5 GB is the maximum size for a single file upload.
+IDEAL_FILE_SIZE = 50 * 1024 * 1024  # We aim to have this size for each file
+MULTI_FILE_PART_MIN_SIZE_BYTES = (
+    5 * 1024 * 1024
+)  # Each part in a multi-part upload must be at least 5 MiB, except for the last part.
+MULTI_FILE_PART_MAX_SIZE_BYTES = 4_000 * 1024 * 1024  # Each part in a multi-part upload must be smaller than 4000 MiB.
 MULTI_FILE_MAX_PART_COUNT = 250  # Maximum number of parts
+
 
 class FileMetadataContentIO(
     TableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
@@ -60,7 +61,6 @@ class FileMetadataContentIO(
     CHUNK_SIZE = 10
     KIND = "FileMetadataContent"
     BASE_SELECTOR = FileMetadataContentSelectorV2
-
 
     def __init__(
         self,
@@ -355,53 +355,62 @@ class FileMetadataContentIO(
                 )
         filesize = filepath.stat().st_size
         if filesize > MULTI_FILE_MAX_PART_COUNT * MULTI_FILE_PART_MAX_SIZE_BYTES:
-            self.logger.log(LogEntryV2(
-                id=item.tracking_id,
-                label="File too large for upload",
-                severity=Severity.failure,
-                message=f"The {item.tracking_id} is {filesize} bytes, which exceeds the maximum "
-                        f"supported file size of {MULTI_FILE_MAX_PART_COUNT * MULTI_FILE_PART_MAX_SIZE_BYTES} bytes for upload.",
-            ))
-            return ItemsFailedRequest(ids=[item.tracking_id], error_message=f"Failed to upload {item.tracking_id}.")
-        elif filesize < IDEAL_FILE_SIZE:
-            created = self.client.tool.filemetadata.create([item], overwrite=self.overwrite)[0]
-        else:
-            # We aim to have each part the size of 50MiB
-            parts = min(filesize // IDEAL_FILE_SIZE, MULTI_FILE_MAX_PART_COUNT)
-            created = self.client.tool.filemetadata.upload_multi_parts(item, overwrite=self.overwrite, parts=parts)
-
-        created = self._create_file_metadata(item, request)
-        if not isinstance(created, FileMetadataResponse):
-            return created
-
-        if created.upload_url is None:
-            return ItemsFailedRequest(
-                ids=[item.tracking_id],
-                error_message=f"Failed to retrieve upload URL for item {item.tracking_id}.",
+            self.logger.log(
+                LogEntryV2(
+                    id=item.tracking_id,
+                    label="File too large for upload",
+                    severity=Severity.failure,
+                    message=f"The {item.tracking_id} is {filesize} bytes, which exceeds the maximum "
+                    f"supported file size of {MULTI_FILE_MAX_PART_COUNT * MULTI_FILE_PART_MAX_SIZE_BYTES} bytes for upload.",
+                )
             )
+            return ItemsFailedRequest(ids=[item.tracking_id], error_message=f"Failed to upload {item.tracking_id}.")
 
-        return self._upload_file_content(filepath, created.upload_url, request.mime_type, item.tracking_id)
+        created = self._create_file_metadata(request, item.tracking_id, filesize)
+
+        if not isinstance(created, FileMetadataResponse):
+            return created  # Failed request
+
+        return self._upload_file_content(filepath, created, item.tracking_id)
 
     def _create_file_metadata(
-        self, item: DataItem[FileMetadataRequest], request: FileMetadataRequest
+        self, request: FileMetadataRequest, tracking_id: str, filesize: int
     ) -> FileMetadataResponse | ItemsResultMessage:
         try:
-            return self.client.tool.filemetadata.create([request], self.overwrite)[0]
+            # We aim to have each request the size of 50MiB
+            if filesize < IDEAL_FILE_SIZE:
+                return self.client.tool.filemetadata.create([request], overwrite=self.overwrite)[0]
+            else:
+                parts = min(filesize // IDEAL_FILE_SIZE, MULTI_FILE_MAX_PART_COUNT)
+                return self.client.tool.filemetadata.upload_multi_parts(request, overwrite=self.overwrite, parts=parts)
         except ToolkitAPIError as error:
             if error.response is not None:
-                return error.response.as_item_response(item.tracking_id)
+                return error.response.as_item_response(tracking_id)
             raise
         except IndexError:
             return ItemsFailedRequest(
-                ids=[item.tracking_id],
-                error_message=f"No response returned from CDF for item {item.tracking_id}.",
+                ids=[tracking_id],
+                error_message=f"No response returned from CDF for item {tracking_id}.",
             )
 
     def _upload_file_content(
-        self, filepath: Path, upload_url: str, mime_type: str | None, tracking_id: str
+        self, filepath: Path, created: FileMetadataResponse, tracking_id: str
     ) -> ItemsResultMessage:
         try:
-            response = self.client.tool.filemetadata.upload_file(filepath, upload_url, mime_type)
+            if created.upload_url is not None:
+                # Upload single
+                response = self.client.tool.filemetadata.upload_file(filepath, created.upload_url, created.mime_type)
+            elif created.upload_urls and created.upload_id:
+                responses = self.client.tool.filemetadata.upload_file_multiparts(
+                    filepath, created.upload_urls, created.mime_type
+                )
+                self.client.tool.filemetadata.complete_multipart_upload(created.as_internal_id(), created.upload_id)
+                response = responses[-1]
+            else:
+                # This should never happen.
+                raise NotImplementedError(
+                    f"Unexpected response from CDF for item {tracking_id}. No upload URLs provided."
+                )
         except ToolkitAPIError as error:
             if error.response is not None:
                 return error.response.as_item_response(tracking_id)
