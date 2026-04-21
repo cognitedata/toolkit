@@ -488,7 +488,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="blocked"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
@@ -536,7 +536,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="blocked"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
