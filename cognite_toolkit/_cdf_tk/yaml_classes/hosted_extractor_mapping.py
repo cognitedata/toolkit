@@ -70,6 +70,7 @@ class CSVMappingInput(MappingInput):
         max_length=1,
         default=",",
     )
+    skip: int = Field(0, description="Undocumented, but is returned in the response form the API.")
     custom_keys: list[str] | None = Field(
         None,
         description="List of headers. If this is not set, the headers will be retrieved from the CSV file.",

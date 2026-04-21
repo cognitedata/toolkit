@@ -1,20 +1,14 @@
 import builtins
 from typing import ClassVar, Literal
 
-from pydantic import Field
-
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
 )
 
 from ._auth import (
-    BasicAuthenticationRequest,
-    BasicAuthenticationResponse,
-    ClientCredentialAuthenticationRequest,
-    ClientCredentialAuthenticationResponse,
-    ScramShaAuthenticationRequest,
-    ScramShaAuthenticationResponse,
+    AuthenticationRequestUnion,
+    AuthenticationResponseUnion,
 )
 from ._base import SourceRequestDefinition, SourceResponseDefinition
 from ._certificate import AuthCertificateRequest, CACertificateRequest, CertificateResponse
@@ -33,9 +27,7 @@ class KafkaSource(BaseModelObject):
 
 class KafkaSourceRequest(KafkaSource, SourceRequestDefinition):
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls"})
-    authentication: (
-        BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest | None
-    ) = Field(None, discriminator="type")
+    authentication: AuthenticationRequestUnion | None = None
     ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
@@ -45,9 +37,7 @@ class KafkaSourceResponse(
     KafkaSource,
     ResponseResource[KafkaSourceRequest],
 ):
-    authentication: (
-        BasicAuthenticationResponse | ClientCredentialAuthenticationResponse | ScramShaAuthenticationResponse | None
-    ) = Field(None, discriminator="type")
+    authentication: AuthenticationResponseUnion | None = None
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 

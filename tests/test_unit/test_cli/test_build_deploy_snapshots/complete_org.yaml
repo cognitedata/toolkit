@@ -429,6 +429,7 @@ HostedExtractorMappingRequest:
 - externalId: MyMapping
   input:
     delimiter: ','
+    skip: 0
     type: csv
   mapping:
     expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
