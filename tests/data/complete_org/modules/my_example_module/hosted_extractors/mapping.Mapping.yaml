@@ -6,4 +6,5 @@ mapping:
 input:
   type: csv
   delimiter: ','
+  skip: 0
 published: true

@@ -1,6 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import Field, TypeAdapter
+from pydantic import BeforeValidator, TypeAdapter
+
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 from ._auth import (
     BasicAuthenticationRequest,
@@ -11,16 +13,49 @@ from ._auth import (
     HTTPBasicAuthenticationResponse,
     ScramShaAuthenticationRequest,
     ScramShaAuthenticationResponse,
+    UnknownAuthenticationRequest,
 )
+from ._base import SourceRequestDefinition, SourceResponseDefinition, UnknownSourceRequest, UnknownSourceResponse
 from ._certificate import AuthCertificateRequest, CACertificateRequest, CertificateResponse
 from ._eventhub import EventHubSourceRequest, EventHubSourceResponse
 from ._kafka import KafkaBroker, KafkaSourceRequest, KafkaSourceResponse
 from ._mqtt import MQTTSourceRequest, MQTTSourceResponse
 from ._rest import RESTSourceRequest, RESTSourceResponse
 
+
+def _handle_source_request_union(value: Any) -> Any:
+    if isinstance(value, dict):
+        source_type = value.get("type")
+        if source_type not in _SOURCE_REQUEST_BY_TYPE:
+            return UnknownSourceRequest.model_validate(value)
+        return _SOURCE_REQUEST_BY_TYPE[source_type].model_validate(value)
+    return value
+
+
+def _handle_source_response_union(value: Any) -> Any:
+    if isinstance(value, dict):
+        source_type = value.get("type")
+        if source_type not in _SOURCE_RESPONSE_BY_TYPE:
+            return UnknownSourceResponse.model_validate(value)
+        return _SOURCE_RESPONSE_BY_TYPE[source_type].model_validate(value)
+    return value
+
+
+_SOURCE_REQUEST_BY_TYPE = registry_from_subclasses_with_type_field(
+    SourceRequestDefinition,
+    type_field="type",
+    exclude=(UnknownSourceRequest,),
+)
+_SOURCE_RESPONSE_BY_TYPE = registry_from_subclasses_with_type_field(
+    SourceResponseDefinition,
+    type_field="type",
+    exclude=(UnknownSourceResponse,),
+)
+
+
 HostedExtractorSourceRequestUnion = Annotated[
-    KafkaSourceRequest | EventHubSourceRequest | MQTTSourceRequest | RESTSourceRequest,
-    Field(discriminator="type"),
+    KafkaSourceRequest | EventHubSourceRequest | MQTTSourceRequest | RESTSourceRequest | UnknownSourceRequest,
+    BeforeValidator(_handle_source_request_union),
 ]
 
 HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = TypeAdapter(
@@ -28,8 +63,8 @@ HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = T
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
-    KafkaSourceResponse | EventHubSourceResponse | MQTTSourceResponse | RESTSourceResponse,
-    Field(discriminator="type"),
+    KafkaSourceResponse | EventHubSourceResponse | MQTTSourceResponse | RESTSourceResponse | UnknownSourceResponse,
+    BeforeValidator(_handle_source_response_union),
 ]
 
 HostedExtractorSourceResponse: TypeAdapter[HostedExtractorSourceResponseUnion] = TypeAdapter(
@@ -60,4 +95,7 @@ __all__ = [
     "RESTSourceResponse",
     "ScramShaAuthenticationRequest",
     "ScramShaAuthenticationResponse",
+    "UnknownAuthenticationRequest",
+    "UnknownSourceRequest",
+    "UnknownSourceResponse",
 ]

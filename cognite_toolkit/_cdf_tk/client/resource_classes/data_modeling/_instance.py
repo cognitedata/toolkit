@@ -2,7 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeUntypedId,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class InstanceDefinition(BaseModelObject, ABC):
@@ -185,13 +186,79 @@ class InstanceSlimDefinition(BaseModelObject):
         return InstanceId(instance_id=node_id)
 
 
+class UnknownInstanceRequest(InstanceRequestDefinition):
+    instance_type: str
+
+    def as_id(self) -> NodeId:
+        """Address unknown kinds by node external id until a typed instance model exists."""
+        return NodeId(space=self.space, external_id=self.external_id)
+
+
+class UnknownInstanceResponse(InstanceResponseDefinition[UnknownInstanceRequest]):
+    instance_type: str
+
+    def as_id(self) -> NodeId:
+        """Address unknown kinds by node external id until a typed instance model exists."""
+        return NodeId(space=self.space, external_id=self.external_id)
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[UnknownInstanceRequest]:
+        return UnknownInstanceRequest
+
+    def as_request_resource(self) -> UnknownInstanceRequest:
+        dumped = self.dump()
+        if self.properties:
+            dumped["sources"] = [
+                InstanceSource(source=source_ref, properties=props) for source_ref, props in self.properties.items()
+            ]
+        dumped["existingVersion"] = dumped.pop("version", None)
+        return UnknownInstanceRequest.model_validate(dumped, extra="ignore")
+
+
+def _handle_unknown_instance_request(value: Any) -> Any:
+    if isinstance(value, dict):
+        instance_type = value.get("instanceType")
+        if instance_type not in _INSTANCE_REQUEST_BY_TYPE:
+            return UnknownInstanceRequest.model_validate(value)
+        return _INSTANCE_REQUEST_BY_TYPE[instance_type].model_validate(value)
+    return value
+
+
+def _handle_unknown_instance_response(value: Any) -> Any:
+    if isinstance(value, dict):
+        instance_type = value.get("instanceType")
+        if instance_type not in _INSTANCE_RESPONSE_BY_TYPE:
+            return UnknownInstanceResponse.model_validate(value)
+        return _INSTANCE_RESPONSE_BY_TYPE[instance_type].model_validate(value)
+    return value
+
+
+_INSTANCE_REQUEST_BY_TYPE = registry_from_subclasses_with_type_field(
+    InstanceRequestDefinition,
+    type_field="instance_type",
+    exclude=(UnknownInstanceRequest,),
+)
+_INSTANCE_RESPONSE_BY_TYPE = registry_from_subclasses_with_type_field(
+    InstanceResponseDefinition,
+    type_field="instance_type",
+    exclude=(UnknownInstanceResponse,),
+)
+
+
 InstanceRequest: TypeAlias = Annotated[
-    NodeRequest | EdgeRequest,
-    Field(discriminator="instance_type"),
+    NodeRequest | EdgeRequest | UnknownInstanceRequest,
+    BeforeValidator(_handle_unknown_instance_request),
 ]
 InstanceResponse: TypeAlias = Annotated[
-    NodeResponse | EdgeResponse,
-    Field(discriminator="instance_type"),
+    NodeResponse | EdgeResponse | UnknownInstanceResponse,
+    BeforeValidator(_handle_unknown_instance_response),
 ]
+
+# We are not using discriminator in general for request/response classes,
+# however, this is an exception for the cases that we want exactly a Node or Edge.
+NodeOrEdgeRequest: TypeAlias = Annotated[NodeRequest | EdgeRequest, Field(discriminator="instance_type")]
+NodeOrEdgeResponse: TypeAlias = Annotated[NodeResponse | EdgeResponse, Field(discriminator="instance_type")]
+
+NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(NodeOrEdgeRequest)
 
 InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest)

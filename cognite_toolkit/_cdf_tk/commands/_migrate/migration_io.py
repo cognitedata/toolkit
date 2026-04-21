@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
@@ -66,7 +66,7 @@ from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, Mi
 
 
 class AssetCentricMigrationIO(
-    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], NodeOrEdgeRequest]
 ):
     KIND = "AssetCentricMigration"
     CHUNK_SIZE = 1000
@@ -195,12 +195,12 @@ class AssetCentricMigrationIO(
             [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
         )
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:
         raise NotImplementedError()
 
     def upload_items(
         self,
-        data_chunk: Page[InstanceRequest],
+        data_chunk: Page[NodeOrEdgeRequest],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
@@ -224,11 +224,11 @@ class AssetCentricMigrationIO(
             results.extend(super().upload_items(to_upload, http_client, None))
         return results
 
-    def _remove_existing(self, data_chunk: Page[InstanceRequest]) -> Page[InstanceRequest]:
+    def _remove_existing(self, data_chunk: Page[NodeOrEdgeRequest]) -> Page[NodeOrEdgeRequest]:
         """Remove items from the chunk that already exist in CDF to avoid upload failures."""
         data_by_instance_id = {item.item.as_id(): item for item in data_chunk.items}
         existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
-        to_create: list[DataItem[InstanceRequest]] = []
+        to_create: list[DataItem[NodeOrEdgeRequest]] = []
         skipped_entries: list[MigrationEntryV2] = []
         for instance_id, data in data_by_instance_id.items():
             if instance_id in existing_ids:
@@ -251,10 +251,10 @@ class AssetCentricMigrationIO(
 
     def link_asset_centric(
         self,
-        data_chunk: Page[InstanceRequest],
+        data_chunk: Page[NodeOrEdgeRequest],
         http_client: HTTPClient,
         pending_instance_id_endpoint: str,
-    ) -> Page[InstanceRequest]:
+    ) -> Page[NodeOrEdgeRequest]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
@@ -295,7 +295,7 @@ class AssetCentricMigrationIO(
         return data_chunk.create_from(to_upload)
 
     @staticmethod
-    def as_pending_instance_id(item: InstanceRequest) -> PendingInstanceId:
+    def as_pending_instance_id(item: NodeOrEdgeRequest) -> PendingInstanceId:
         """Convert an InstanceApply to a PendingInstanceId for linking."""
         source = next((source for source in item.sources or [] if source.source == INSTANCE_SOURCE_VIEW_ID), None)
         if source is None:
@@ -396,7 +396,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
 
 class AnnotationMigrationIO(
-    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], NodeOrEdgeRequest]
 ):
     """IO class for migrating Annotations.
 
@@ -533,7 +533,7 @@ class AnnotationMigrationIO(
                 "Please specify the ingestion view explicitly in the CSV file."
             ) from e
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
 
     def data_to_json_chunk(
