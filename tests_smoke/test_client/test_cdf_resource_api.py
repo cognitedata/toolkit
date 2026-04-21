@@ -9,8 +9,10 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
+from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
@@ -313,6 +315,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Requires a timeseries.
         ChartMonitoringJobsAPI,
         ChartScheduledCalculationsAPI,
+        # Folders do not support delete. For channels, we only have list, thus these cannot be
+        # generically tested.
+        ChartFoldersAPI,
+        AlertChannelsAPI,
     }
 )
 
@@ -2147,10 +2153,10 @@ class TestCDFResourceAPI:
         except ToolkitAPIError as e:
             raise EndpointAssertionError(aggregate_endpoint.path, f"documents.unique failed: {e!s}") from e
 
-        if len(unique_vals) != cardinality:
+        if len(unique_vals) == cardinality:
             raise EndpointAssertionError(
                 aggregate_endpoint.path,
-                f"Documents.cardinality and documents.unique returned inconsistent results: cardinality was {cardinality} but unique returned {len(unique_vals)} unique values",
+                "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
     @pytest.mark.parametrize(
