@@ -58,6 +58,9 @@ class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):
     pending_instance_id: NodeUntypedId | None = None
     # This field is required in the upload endpoint response, but not in any other file metadata response
     upload_url: str | None = None
+    # These fields are required in the multipart upload response
+    upload_id: str | None = None
+    upload_urls: list[str] | None = None
 
     @classmethod
     def request_cls(cls) -> type[FileMetadataRequest]:
