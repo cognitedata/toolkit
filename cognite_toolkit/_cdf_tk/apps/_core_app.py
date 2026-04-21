@@ -339,7 +339,7 @@ class CoreApp(typer.Typer):
 
         cmd = BuildV2Command(print_warning=True, client=client)
 
-        if build_env_name is not None:
+        if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
                 feature="the --env / -e option in cdf build",
                 alternative="--config-yaml / -c with the path to your config file (for example <organization-dir>/config.<env>.yaml)",
