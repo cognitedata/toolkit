@@ -29,6 +29,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowVersionRequest,
+)
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -584,3 +587,26 @@ class TestWorkflowTriggers:
             "authentication": {"nonce": "123"},
         }
         assert WorkflowTriggerRequest._load(data).dump() == data
+
+
+class TestWorkflowVersion:
+    def test_unknown_task_parameters(self) -> None:
+        data = {
+            "workflowExternalId": "my_workflow",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "my_task",
+                        "type": "unknown_task_type",
+                        "parameters": {
+                            "param1": "value1",
+                            "some": "value",
+                            "that": ["is", "unknown", "to", "toolkit"],
+                        },
+                    }
+                ]
+            },
+        }
+
+        assert WorkflowVersionRequest.model_validate(data).dump() == data
