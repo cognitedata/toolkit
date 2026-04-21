@@ -47,6 +47,7 @@ APIMethod: TypeAlias = Literal[
     "upsert",
     "search",
     "aggregate",
+    "inspect",
 ]
 
 
