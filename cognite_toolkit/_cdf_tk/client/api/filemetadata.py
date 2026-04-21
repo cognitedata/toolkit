@@ -1,16 +1,16 @@
 import builtins
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 import httpx
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
     HTTPClient,
-    HTTPResult,
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
@@ -27,6 +27,35 @@ from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import 
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
+class _LimitedFileReader(Iterable[bytes]):
+    """A file-like wrapper that limits the number of bytes read from a file stream.
+
+    This allows httpx to stream content directly from disk in smaller chunks,
+    without loading the entire part into memory at once. Implements Iterable[bytes]
+    for compatibility with httpx's content parameter.
+    """
+
+    _CHUNK_SIZE = 64 * 1024  # 64 KB chunks
+
+    def __init__(self, file_stream: IO[bytes], limit: int) -> None:
+        self._file_stream = file_stream
+        self._limit = limit
+        self._remaining = limit
+
+    def __iter__(self) -> Iterator[bytes]:
+        while self._remaining > 0:
+            chunk_size = min(self._CHUNK_SIZE, self._remaining)
+            data = self._file_stream.read(chunk_size)
+            if not data:
+                break
+            self._remaining -= len(data)
+            yield data
+
+    def __len__(self) -> int:
+        """Return the total size for Content-Length header."""
+        return self._limit
+
+
 class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
@@ -40,7 +69,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             },
             api_version="alpha",
         )
+        self._create_multipart = Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1)
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
+        self._multipart_file_upload_link = Endpoint(method="POST", path="/files/initmultipartupload", item_limit=1)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -78,6 +109,26 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             file_response.filepath = item.filepath
             results.append(file_response)
         return results
+
+    def upload_multi_parts(self, item: FileMetadataRequest, overwrite: bool, parts: int) -> FileMetadataResponse:
+        """Upload file metadata to CDF and return multiple URLs for uploading"""
+        self._validate_parts_parameter(parts)
+        endpoint = self._multipart_file_upload_link
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            body_content=item.dump(),
+            parameters={"overwrite": overwrite, "parts": parts},
+        )
+        response = self._http_client.request_single_retries(request)
+        result = response.get_success_or_raise(request)
+        result_item = FileMetadataResponse.model_validate_json(result.body)
+        result_item.filepath = item.filepath
+        return result_item
+
+    def _validate_parts_parameter(self, parts: int) -> None:
+        if not (1 <= parts <= 250):
+            raise ValueError("Parts parameter must be between 1 and 250")
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
@@ -192,43 +243,6 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         return self._list(limit=limit)
 
-    def upload_file_link(
-        self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> builtins.list[FileMetadataResponse]:
-        """Upload file link to CDF."""
-        results: list[FileMetadataResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
-                method="POST",
-                body_content={"items": [item.dump()]},
-            )
-            response = self._http_client.request_single_retries(request)
-            if isinstance(response, SuccessResponse):
-                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
-            elif ignore_unknown_ids:
-                continue
-            else:
-                _ = response.get_success_or_raise(request)
-        return results
-
-    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
-        """Uploads file content to CDF.
-
-        Args:
-            data_content: Content to be uploaded.
-            upload_url: Upload URL.
-            mime_type: MIME type to upload. None for no MIME type.
-        """
-        return self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=upload_url,
-                method="PUT",
-                content_type=mime_type or "application/octet-stream",
-                data_content=data_content,
-            )
-        )
-
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
 
@@ -283,31 +297,136 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             sleep_time *= 2
         return to_check, elapsed_time
 
-    def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> SuccessResponse:
-        # Todo: If file size is above 5000 MB - 5,000,000,000 bytes, do a multipart file upload.
-        fileupoad = RequestMessage(
-            endpoint_url=upload_url,
-            method="PUT",
-            content_type=mime_type or "application/octet-stream",
-            data_content=filepath.read_bytes(),
-        )
-        upload_response = self._http_client.request_single_retries(fileupoad)
-        return upload_response.get_success_or_raise(fileupoad)
+    def upload_file(
+        self, filepath: Path | str | bytes, upload_url: str, mime_type: str | None = None
+    ) -> SuccessResponse:
+        """Upload a file to CDF using streaming to avoid loading entire file into memory.
 
-    def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
-        """Get a URL to upload a file to CDF for one or more file metadata entries."""
+        Args:
+            filepath: The local path to the file to upload, or raw bytes content.
+            upload_url: The URL to upload the file to.
+            mime_type: MIME type of the file. Defaults to "application/octet-stream".
+
+        Returns:
+            SuccessResponse object containing the upload response details.
+        """
+        if isinstance(filepath, bytes):
+            content: Iterable[bytes] = (filepath,)
+        elif isinstance(filepath, str):
+            content = (filepath.encode("utf-8"),)
+        else:
+            content = _LimitedFileReader(filepath.open("rb"), filepath.stat().st_size)
+
+        response = self._http_client.request_raw_retries(
+            method="PUT",
+            url=upload_url,
+            content=content,
+            headers={"Content-Type": mime_type} if mime_type else None,
+        )
+        if isinstance(response, FailedResponse):
+            raise ToolkitAPIError(message=response.body, code=response.status_code)
+
+        return response
+
+    def upload_file_multiparts(
+        self, filepath: Path, upload_urls: builtins.list[str], mime_type: str | None = None
+    ) -> builtins.list[SuccessResponse]:
+        """Upload a file to CDF in multiple parts using the provided upload URLs.
+
+        The file is split uniformly across all upload URLs, with each part uploaded
+        to its corresponding URL. Uses streaming to avoid loading entire chunks into memory.
+
+        Args:
+            filepath: The local path to the file to upload.
+            upload_urls: List of URLs to upload file parts to.
+            mime_type: MIME type of the file. If None, no Content-Type header is sent
+                (required for GCS signed URLs that were generated without a Content-Type).
+
+        Returns:
+            List of SuccessResponse objects containing the upload response details for each part.
+        """
+        file_size = filepath.stat().st_size
+        num_parts = len(upload_urls)
+        part_size = file_size // num_parts
+
+        # Only include Content-Type header if explicitly provided.
+        # GCS signed URLs embed the expected Content-Type in the signature,
+        # so sending a different Content-Type (or any when none was signed) causes SignatureDoesNotMatch.
+        headers = {"Content-Type": mime_type} if mime_type else {}
+
+        results: builtins.list[SuccessResponse] = []
+        with filepath.open("rb") as file_stream:
+            for i, upload_url in enumerate(upload_urls):
+                # Last part gets any remaining bytes
+                if i == num_parts - 1:
+                    current_part_size = file_size - file_stream.tell()
+                else:
+                    current_part_size = part_size
+
+                # Use a stream wrapper that limits reads to the part size,
+                # allowing httpx to stream directly from disk without loading the entire chunk into memory.
+                chunk_stream = _LimitedFileReader(file_stream, current_part_size)
+
+                response = self._http_client.request_raw_retries(
+                    method="PUT",
+                    url=upload_url,
+                    content=chunk_stream,
+                    headers=headers,
+                )
+                if isinstance(response, FailedResponse):
+                    raise ToolkitAPIError(message=response.body, code=response.status_code)
+                results.append(response)
+
+        return results
+
+    def get_upload_url(
+        self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[FileMetadataResponse]:
+        """Get a URL to upload a file to CDF for one or more file metadata entries.
+
+        Args:
+            items: Sequence of InternalId identifying the files to upload.
+            ignore_unknown_ids: Whether to ignore unknown identifiers.
+
+        Returns:
+            List of updated FileMetadataResponse objects.
+
+        """
         results: list[FileMetadataResponse] = []
         for item in items:
             # The API only supports one
-            url_request = RequestMessage(
+            request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
                 body_content={"items": [item.dump()]},
             )
-            url_response = self._http_client.request_single_retries(url_request).get_success_or_raise(url_request)
-            responses_with_url = ResponseItems[FileMetadataResponse].model_validate_json(url_response.body).items
-            results.extend(responses_with_url)
+            response = self._http_client.request_single_retries(request)
+            if isinstance(response, SuccessResponse):
+                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise(request)
         return results
+
+    def get_multipart_upload_urls(self, item: ExternalId | InstanceId, parts: int) -> FileMetadataResponse:
+        """Get URLs to upload a file in multiple parts to CDF for one file metadata entry."""
+        self._validate_parts_parameter(parts)
+        endpoint = self._multipart_file_upload_link
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method="POST",
+            parameters={"parts": parts},
+            body_content={"items": [item.dump()]},
+        )
+        success = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        items = ResponseItems[FileMetadataResponse].model_validate_json(success.body).items
+        if len(items) != 1:
+            raise ToolkitAPIError(
+                message=f"Expected exactly one item in response, got {len(items)}",
+                code=success.status_code,
+            )
+        return items[0]
 
     def get_download_url(
         self, items: Sequence[InternalId], extended_expiration: bool = False
@@ -350,3 +469,14 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             with destination.open(mode="wb") as file_stream:
                 for chunk in response.iter_bytes(chunk_size=8192):
                     file_stream.write(chunk)
+
+    def complete_multipart_upload(self, item: InternalId | ExternalId | InstanceId, upload_id: str) -> SuccessResponse:
+        """Complete a multipart upload for one or more file metadata entries."""
+        body = item.dump()
+        body["uploadId"] = upload_id
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url("/files/completemultipartupload"),
+            method="POST",
+            body_content=body,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
