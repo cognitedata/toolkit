@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
-SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
+SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, min_length=1, max_length=43)]
 
 
 class ViewInstanceSpaces(BaseModelResource):
