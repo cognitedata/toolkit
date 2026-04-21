@@ -1,12 +1,16 @@
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+import respx
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
@@ -19,10 +23,12 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentStep,
     ReadBuildDirectory,
     ResourceDirectory,
+    ResourceToDeploy,
     Skipped,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
+    ResourceCreationError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitValueError,
@@ -484,3 +490,55 @@ class TestApplyPlan:
             client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
+
+
+class TestDeployResourcesValidationError:
+    """Tests for handling pydantic ValidationError when the API returns an unexpected response."""
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_deploy_resources_raises_resource_creation_error_on_unexpected_api_response(
+        self, toolkit_config: ToolkitClientConfig, tmp_path: Path
+    ) -> None:
+        """Test that deploy_resources raises ResourceCreationError when the API returns an unexpected response.
+
+        This tests the _handle_validation_error method by mocking the spaces API to return
+        an unexpected JSON structure that will cause a pydantic ValidationError.
+        """
+        client = ToolkitClient(config=toolkit_config)
+        crud = SpaceCRUD.create_loader(client)
+
+        resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
+        resources.to_create = [SpaceRequest(space="my_space")]
+
+        # Mock the spaces API to return an unexpected response structure
+        # This will cause a pydantic ValidationError when parsing the response
+        spaces_url = toolkit_config.create_api_url("/models/spaces")
+
+        with respx.mock() as mock_router:
+            mock_router.post(spaces_url).mock(
+                return_value=httpx.Response(
+                    status_code=200,
+                    # Missing space
+                    json={"items": [{"createdTime": 0, "lastUpdatedTime": 1, "isGlobal": False}]},
+                )
+            )
+
+            with pytest.raises(ResourceCreationError) as exc_info:
+                DeployV2Command.deploy_resources(crud, resources, skipped_cruds=set(), deploy_dir=tmp_path)
+
+        assert "unexpected CDF API response" in str(exc_info.value)
+        assert "spaces" in str(exc_info.value)
+        debug_file = list(tmp_path.glob("*.json"))
+        assert len(debug_file) == 1
+        dumped = json.loads(debug_file[0].read_text())
+        assert len(dumped) == 1
+        # Remove URL as it depends on version of pydantic
+        dumped[0].pop("url")
+        assert dumped == [
+            {
+                "input": {"createdTime": 0, "isGlobal": False, "lastUpdatedTime": 1},
+                "loc": ["items", 0, "space"],
+                "msg": "Field required",
+                "type": "missing",
+            }
+        ]

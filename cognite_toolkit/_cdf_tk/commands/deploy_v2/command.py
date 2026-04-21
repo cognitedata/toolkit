@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedT
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
+    ResourceRetrievalError,
     ResourceUpdateError,
     ToolkitError,
     ToolkitNotADirectoryError,
@@ -519,9 +520,18 @@ class DeployV2Command(ToolkitCommand):
                 is_missing_write = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
 
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
-                cdf_resource_by_id = {
-                    crud.get_id(resource): resource for resource in crud.retrieve(list(resource_by_id.keys()))
-                }
+                try:
+                    cdf_resource_by_id = {
+                        crud.get_id(resource): resource for resource in crud.retrieve(list(resource_by_id.keys()))
+                    }
+                except ValidationError as validation_error:
+                    cls._handle_validation_error(
+                        validation_error,
+                        "retrieve",
+                        crud,
+                        [read.request for read in resource_by_id.values()],
+                        options.deployment_dir,
+                    )
                 resources_to_deploy = cls._categorize_resources(
                     crud,
                     resource_by_id,
@@ -746,7 +756,7 @@ class DeployV2Command(ToolkitCommand):
         except ToolkitAPIError as error:
             cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir)
         except ValidationError as error:
-            cls._handle_validation_error(error, action, crud, resources, deploy_dir)
+            cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
         return DeploymentResult(
             resource_name=crud.display_name,
@@ -801,9 +811,9 @@ class DeployV2Command(ToolkitCommand):
     def _handle_validation_error(
         cls,
         error: ValidationError,
-        action: Literal["create", "delete", "update"] | None,
+        action: Literal["retrieve", "create", "delete", "update"] | None,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
-        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        resources: Sequence[T_RequestResource],
         deploy_dir: Path | None = None,
     ) -> None:
         if action is None:
@@ -813,10 +823,9 @@ class DeployV2Command(ToolkitCommand):
         if deploy_dir:
             deploy_dir.mkdir(parents=True, exist_ok=True)
             filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
-            suffix = f"\nThe pydantic error has been written to {filepath.as_posix()} for debugging purposes."
-            pydantic_errors = list(error.errors())
-            json_str = json.dumps(pydantic_errors, indent=2, sort_keys=False)
-            for resource in resources.to_create + resources.to_update:
+            suffix = f"\nThe error details has been written to {filepath.as_posix()} for debugging purposes."
+            json_str = json.dumps(list(error.errors()), indent=2, sort_keys=False)
+            for resource in resources:
                 for string in crud.sensitive_strings(resource):
                     json_str = json_str.replace(string, "********")
             filepath.write_text(json_str, encoding="utf-8")
@@ -840,8 +849,13 @@ class DeployV2Command(ToolkitCommand):
         return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
 
     @classmethod
-    def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
-        return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
+    def _get_resource_exception(cls, action: Literal["create", "retrieve", "update", "delete"]) -> type[ToolkitError]:
+        return {
+            "update": ResourceUpdateError,
+            "delete": ResourceDeleteError,
+            "create": ResourceCreationError,
+            "retrieve": ResourceRetrievalError,
+        }[action]
 
     def _merge_clean_results(
         self, results: Sequence[DeploymentResult], clean_results: Sequence[DeploymentResult]
