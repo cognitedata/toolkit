@@ -1,6 +1,6 @@
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, field_validator
+from pydantic import BeforeValidator, Field, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class NonceCredentials(BaseModelObject):
@@ -82,14 +82,13 @@ class SequenceRowDataSource(DestinationDefinition):
 
 
 class UnknownDestinationDefinition(DestinationDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 
 def _handle_unknown_destination(value: Any) -> Any:
     if isinstance(value, dict):
-        dest_type = dict_discriminator_value(value, "type")
-        if dest_type not in _DESTINATION_BY_TYPE:
+        dest_type = value.get("type")
+        if dest_type not in _DESTINATION_BY_TYPE or dest_type is None:
             return UnknownDestinationDefinition.model_validate(value)
         return _DESTINATION_BY_TYPE[dest_type].model_validate(value)
     return value
