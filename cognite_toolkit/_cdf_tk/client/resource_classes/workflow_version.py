@@ -123,7 +123,7 @@ class FunctionAppTaskParameters(TaskParameterDefinition):
 
 class UnknownTaskParameters(TaskParameterDefinition):
     model_config = ConfigDict(extra="allow")
-    type: str
+    type: str = Field(exclude=True)
 
 
 def _handle_unknown_parameter(value: Any) -> Any:
@@ -158,7 +158,8 @@ Parameter = Annotated[
 class Task(BaseModelObject):
     model_config = ConfigDict(extra="allow")
     external_id: str
-    type: TaskType
+    # The str is to handle unknown tasks.
+    type: TaskType | str
     name: str | None = None
     description: str | None = None
     retries: int | None = None
