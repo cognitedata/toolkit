@@ -430,7 +430,12 @@ class AuthCommand(ToolkitCommand):
                 continue
 
             crud = crud_cls.create_loader(client)
-            if crud.prerequisite_warning() is not None:
+            try:
+                warning_str = crud.prerequisite_warning()
+            except ToolkitAPIError:
+                # Requires access we do not have.
+                continue
+            if warning_str is not None:
                 continue
             for acl in crud.create_acl({"READ", "WRITE"}, AllScope()):
                 required_acls.append(acl)
