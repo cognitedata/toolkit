@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, JsonValue, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, field_serializer, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 TaskType: TypeAlias = Literal[
     "function", "transformation", "cdf", "dynamic", "subworkflow", "simulation", "functionApp"
@@ -120,6 +121,27 @@ class FunctionAppTaskParameters(TaskParameterDefinition):
     function_app: FunctionAppRef
 
 
+class UnknownTaskParameters(TaskParameterDefinition):
+    model_config = ConfigDict(extra="allow")
+    type: str = Field(exclude=True)
+
+
+def _handle_unknown_parameter(value: Any) -> Any:
+    if isinstance(value, dict):
+        param_type = value.get("type")
+        if param_type not in _PARAMETER_BY_TYPE:
+            return UnknownTaskParameters.model_validate(value)
+        return _PARAMETER_BY_TYPE[param_type].model_validate(value)
+    return value
+
+
+_PARAMETER_BY_TYPE = {
+    cls_.model_fields["type"].default: cls_
+    for cls_ in get_concrete_subclasses(TaskParameterDefinition)
+    if cls_ is not UnknownTaskParameters
+}
+
+
 Parameter = Annotated[
     FunctionTaskParameters
     | TransformationTaskParameters
@@ -127,15 +149,17 @@ Parameter = Annotated[
     | DynamicTaskParameters
     | SubworkflowTaskParameters
     | SimulationTaskParameters
-    | FunctionAppTaskParameters,
-    Field(discriminator="type"),
+    | FunctionAppTaskParameters
+    | UnknownTaskParameters,
+    BeforeValidator(_handle_unknown_parameter),
 ]
 
 
 class Task(BaseModelObject):
     model_config = ConfigDict(extra="allow")
     external_id: str
-    type: TaskType
+    # The str is to handle unknown tasks.
+    type: TaskType | str
     name: str | None = None
     description: str | None = None
     retries: int | None = None
