@@ -14,6 +14,7 @@ from pydantic import JsonValue
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -606,8 +607,10 @@ class PurgeCommand(ToolkitCommand):
     def _block_if_external_views_reference_containers(client: ToolkitClient, selected_space: str) -> None:
         """Block the purge if any container in the space is referenced by views in other spaces.
 
-        Uses the ``models/containers/inspect`` endpoint to discover the views that reference each
-        container, then filters out same-space references (which are part of the purge).
+        Uses the ``models/containers/inspect`` endpoint with both the ``involvedViews`` and
+        ``totalInvolvedViewCount`` operations.  The total count is authoritative — it includes views
+        the caller cannot access — so blocking is decided on the count, not the view list.
+        Same-space views are excluded because they are themselves part of the purge.
         """
         container_ids = [
             ContainerId(space=container.space, external_id=container.external_id)
@@ -615,26 +618,44 @@ class PurgeCommand(ToolkitCommand):
         ]
         if not container_ids:
             return
-        external_views_by_container: dict[ContainerId, list[ViewId]] = {}
+
+        # (external_views_seen, hidden_count) per blocked container
+        blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
         for inspected in client.tool.containers.inspect(container_ids):
-            external_views = [
-                view for view in inspected.inspection_results.involved_views if view.space != selected_space
-            ]
-            if external_views:
-                container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
-                external_views_by_container[container_id] = external_views
-        if not external_views_by_container:
+            results = inspected.inspection_results
+            if results.involved_view_count == 0:
+                continue
+            external_seen = [view for view in results.involved_views if view.space != selected_space]
+            hidden_count = results.involved_view_count - len(results.involved_views)
+            container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
+            blocked[container_id] = (external_seen, hidden_count)
+        if not blocked:
             return
 
-        lines = [
-            f"Cannot purge space {selected_space!r}: the following container(s) are referenced by views "
-            "in other spaces. Delete or move those views first, then re-run the purge."
-        ]
-        for container_id, views in external_views_by_container.items():
-            shown = ", ".join(f"{view.space}:{view.external_id}/{view.version}" for view in views[:10])
-            suffix = f" (+{len(views) - 10} more)" if len(views) > 10 else ""
-            lines.append(f"  - {container_id}: {shown}{suffix}")
-        raise ToolkitValueError("\n".join(lines))
+        table = Table(
+            title=f"Containers in [bold]{selected_space}[/bold] referenced by views in other spaces",
+            title_justify="left",
+            show_lines=True,
+        )
+        table.add_column("Container", no_wrap=True)
+        table.add_column("Referencing view(s)", no_wrap=True)
+        for container_id, (external_seen, hidden_count) in blocked.items():
+            container_label = f"{container_id.space}:{container_id.external_id}"
+            rows: list[tuple[str, str]] = [
+                (container_label if index == 0 else "", f"{view.space}:{view.external_id}/{view.version}")
+                for index, view in enumerate(external_seen)
+            ]
+            if hidden_count > 0:
+                hidden_label = f"[dim italic]{hidden_count} view(s) you do not have access to[/]"
+                rows.append(("" if external_seen else container_label, hidden_label))
+            for label, view_label in rows:
+                table.add_row(label, view_label)
+        print(table)
+        raise ToolkitValueError(
+            f"Cannot proceed with purge of space {selected_space!r}: one or more containers in this space are referenced by views "
+            "in other spaces. Deleting containers that are still referenced by views would cause breaking changes to those views. "
+            "If you are sure you still want to delete these containers, you need to remove all versions of all views that reference these containers (refer to the table above), then re-run the purge."
+        )
 
     @staticmethod
     def _print_cross_reference_check_panel() -> None:

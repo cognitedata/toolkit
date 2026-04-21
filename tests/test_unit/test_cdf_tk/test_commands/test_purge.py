@@ -488,7 +488,55 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="other_space:ExternalView/v1"):
+        with pytest.raises(ToolkitValueError, match="blocked"):
+            cmd.space(purge_client, space, dry_run=dry_run)
+        assert delete_route.call_count == 0
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_blocks_when_hidden_views_reference_container(
+        self,
+        dry_run: bool,
+        purge_client: ToolkitClient,
+        rsps: responses.RequestsMock,
+        respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """involvedViewCount > len(involvedViews) means inaccessible views exist; should still block."""
+        config = purge_client.config
+        space = "test_space"
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/statistics/spaces/byids"),
+            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+        )
+
+        gen = FakeCogniteResourceGenerator(seed=2)
+        container = gen.create_instance(ContainerResponse)
+        container.space = space
+        container.external_id = "blocked_container"
+        respx_mock.get(config.create_api_url("/models/containers")).respond(
+            status_code=200, json={"items": [container.dump()]}
+        )
+        # involvedViewCount=3 but involvedViews is empty — caller has no access to any referencing views
+        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": space,
+                        "externalId": container.external_id,
+                        "inspectionResults": {"involvedViewCount": 3, "involvedViews": []},
+                    }
+                ]
+            },
+        )
+        delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
+
+        cmd = PurgeCommand(silent=True)
+        with pytest.raises(ToolkitValueError, match="blocked"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
