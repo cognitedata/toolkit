@@ -56,7 +56,6 @@ class ValueFormat(JobFormatDefinition):
 
 
 class UnknownJobFormat(JobFormatDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 

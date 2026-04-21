@@ -1,6 +1,6 @@
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BeforeValidator, ConfigDict
+from pydantic import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -45,7 +45,6 @@ class JSONInput(BaseModelObject):
 
 
 class UnknownMappingInput(MappingInputDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 

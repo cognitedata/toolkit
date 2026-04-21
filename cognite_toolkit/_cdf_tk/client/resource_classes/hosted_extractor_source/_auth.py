@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, ConfigDict
+from pydantic import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -67,12 +67,10 @@ class HTTPBasicAuthenticationResponse(AuthenticationResponseDefinition):
 
 
 class UnknownAuthenticationRequest(AuthenticationRequestDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 
 class UnknownAuthenticationResponse(AuthenticationResponseDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 
