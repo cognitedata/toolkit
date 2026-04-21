@@ -312,7 +312,7 @@ class CoreApp(typer.Typer):
                 "-e",
                 help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
             ),
-        ] = None,
+        ] = CDF_TOML.cdf.default_env,
         insight_format: Annotated[
             InsightFormat,
             typer.Option(
