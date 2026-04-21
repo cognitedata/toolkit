@@ -252,9 +252,12 @@ class FileMetadataContentIO(
             if item.labels:
                 label_ids.update(item.labels)
 
-        self.client.lookup.assets.external_id(list(asset_ids))
-        self.client.lookup.data_sets.external_id(list(data_set_ids))
-        self.client.lookup.security_categories.external_id(list(security_ids))
+        if asset_ids:
+            self.client.lookup.assets.external_id(list(asset_ids))
+        if data_set_ids:
+            self.client.lookup.data_sets.external_id(list(data_set_ids))
+        if security_ids:
+            self.client.lookup.security_categories.external_id(list(security_ids))
 
         self._downloaded_data_sets_by_selector[selector].update(data_set_ids)
         self._downloaded_labels_by_selector[selector].update(label_ids)
@@ -376,13 +379,14 @@ class FileMetadataContentIO(
     def _create_file_metadata(
         self, request: FileMetadataRequest, tracking_id: str, filesize: int
     ) -> FileMetadataResponse | ItemsResultMessage:
+        parts = filesize // IDEAL_FILE_SIZE
         try:
             # We aim to have each request the size of 50MiB
-            if filesize < IDEAL_FILE_SIZE:
+            if parts <= 1:
                 return self.client.tool.filemetadata.create([request], overwrite=self.overwrite)[0]
-            else:
-                parts = min(filesize // IDEAL_FILE_SIZE, MULTI_FILE_MAX_PART_COUNT)
-                return self.client.tool.filemetadata.upload_multi_parts(request, overwrite=self.overwrite, parts=parts)
+
+            parts = min(parts, MULTI_FILE_MAX_PART_COUNT)
+            return self.client.tool.filemetadata.upload_multi_parts(request, overwrite=self.overwrite, parts=parts)
         except ToolkitAPIError as error:
             if error.response is not None:
                 return error.response.as_item_response(tracking_id)
