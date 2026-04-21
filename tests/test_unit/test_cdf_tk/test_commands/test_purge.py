@@ -327,8 +327,28 @@ class TestPurgeSpace:
         def delete_space_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
             return 200, {}, request.body
 
+        gen = FakeCogniteResourceGenerator(seed=42)
+        # The cross-reference safety check runs in both dry-run and real mode and lists/inspects all
+        # containers in the space. Mock both endpoints with no external view references.
+        container_items = [gen.create_instance(ContainerResponse) for _ in range(container_count)]
+        respx_mock.get(config.create_api_url("/models/containers")).respond(
+            status_code=200, json={"items": [item.dump() for item in container_items]}
+        )
+        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": item.space,
+                        "externalId": item.external_id,
+                        "inspectionResults": {"involvedViewCount": 0, "involvedViews": []},
+                    }
+                    for item in container_items
+                ]
+            },
+        )
+
         if not dry_run:
-            gen = FakeCogniteResourceGenerator(seed=42)
             space_obj = gen.create_instance(Space)
             space_obj.space = space
             delete_urls = [
@@ -343,7 +363,6 @@ class TestPurgeSpace:
                 respx_mock.post(config.create_api_url("/models/spaces/delete")).mock(side_effect=delete_callback)
 
             list_calls = [
-                ("/models/containers", "GET", ContainerResponse, container_count),
                 ("/models/views", "GET", ViewResponse, view_count),
                 ("/models/datamodels", "GET", DataModelResponse, data_model_count),
             ]
@@ -414,6 +433,64 @@ class TestPurgeSpace:
             expected["spaces"] = 1
 
         assert {name: value.deleted for name, value in results.data.items()} == expected
+
+
+class TestPurgeSpaceCrossReferenceCheck:
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_blocks_when_external_view_references_container(
+        self,
+        dry_run: bool,
+        purge_client: ToolkitClient,
+        rsps: responses.RequestsMock,
+        respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = purge_client.config
+        space = "test_space"
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
+        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/statistics/spaces/byids"),
+            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+        )
+
+        gen = FakeCogniteResourceGenerator(seed=1)
+        container = gen.create_instance(ContainerResponse)
+        container.space = space
+        container.external_id = "blocked_container"
+        respx_mock.get(config.create_api_url("/models/containers")).respond(
+            status_code=200, json={"items": [container.dump()]}
+        )
+        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": space,
+                        "externalId": container.external_id,
+                        "inspectionResults": {
+                            "involvedViewCount": 1,
+                            "involvedViews": [
+                                {
+                                    "type": "view",
+                                    "space": "other_space",
+                                    "externalId": "ExternalView",
+                                    "version": "v1",
+                                }
+                            ],
+                        },
+                    }
+                ]
+            },
+        )
+        delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
+
+        cmd = PurgeCommand(silent=True)
+        with pytest.raises(ToolkitValueError, match="other_space:ExternalView/v1"):
+            cmd.space(purge_client, space, dry_run=dry_run)
+        assert delete_route.call_count == 0
 
 
 class TestSoftDeletePurgeHeadroom:
