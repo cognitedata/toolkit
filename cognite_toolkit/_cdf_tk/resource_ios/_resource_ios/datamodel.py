@@ -438,7 +438,7 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
 
         lines = [
             f"Container {item_id} has differing config in your local YAML as opposed to CDF.",
-            "This may occur if you have tried to remove previously deployed properties, constraints or indexes from a container in your local container YAML file.",
+            "This may occur if you have tried to remove previously deployed properties, constraints or indexes from a container in your local YAML file.",
             "Please note that CDF containers do not support removing existing property definitions and CDF toolkit currently does not support removing constraints or indexes.",
             "This warning will persist until the discrepancies are resolved.",
         ]
