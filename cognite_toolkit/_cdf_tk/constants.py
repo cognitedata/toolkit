@@ -145,7 +145,9 @@ class URL:
     plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
     libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"
     build_variables = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/api/config_yaml#the-variables-section"
-    container_changes_docs = "https://docs.cognite.com/cdf/dm/dm_concepts/dm_containers_views_datamodels#container-changes"
+    container_changes_docs = (
+        "https://docs.cognite.com/cdf/dm/dm_concepts/dm_containers_views_datamodels#container-changes"
+    )
 
 
 # The number of instances that should be left as a margin when Toolkit writes to CDF through the DMS API.
