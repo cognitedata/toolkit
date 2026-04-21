@@ -26,6 +26,7 @@ from ._container import (
     ContainerRequest,
     ContainerResponse,
 )
+from ._container_inspect import ContainerInspection, InspectedContainer
 from ._data_model import DataModelRequest, DataModelResponse, DataModelResponseWithViews
 from ._data_types import (
     BooleanProperty,
@@ -134,6 +135,7 @@ __all__ = [
     "ContainerDirectId",
     "ContainerId",
     "ContainerIndexId",
+    "ContainerInspection",
     "ContainerPropertyDefinition",
     "ContainerRequest",
     "ContainerResponse",
@@ -159,6 +161,7 @@ __all__ = [
     "Index",
     "IndexAdapter",
     "IndexDefinition",
+    "InspectedContainer",
     "InstanceDefinition",
     "InstanceRequest",
     "InstanceResponse",

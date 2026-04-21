@@ -23,10 +23,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerId,
     InstanceDefinitionId,
     InstanceId,
     InternalId,
+    ViewId,
 )
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
@@ -259,7 +262,11 @@ class PurgeCommand(ToolkitCommand):
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
             )
 
+        if stats.containers > 0:
+            self._block_if_external_views_reference_containers(client, selected_space)
+
         if not dry_run:
+            self._print_cross_reference_check_panel()
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
                 validate_soft_delete_purge_headroom(
@@ -594,6 +601,54 @@ class PurgeCommand(ToolkitCommand):
                 ]
             )
         return to_delete
+
+    @staticmethod
+    def _block_if_external_views_reference_containers(client: ToolkitClient, selected_space: str) -> None:
+        """Block the purge if any container in the space is referenced by views in other spaces.
+
+        Uses the ``models/containers/inspect`` endpoint to discover the views that reference each
+        container, then filters out same-space references (which are part of the purge).
+        """
+        container_ids = [
+            ContainerId(space=container.space, external_id=container.external_id)
+            for container in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
+        ]
+        if not container_ids:
+            return
+        external_views_by_container: dict[ContainerId, list[ViewId]] = {}
+        for inspected in client.tool.containers.inspect(container_ids):
+            external_views = [
+                view for view in inspected.inspection_results.involved_views if view.space != selected_space
+            ]
+            if external_views:
+                container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
+                external_views_by_container[container_id] = external_views
+        if not external_views_by_container:
+            return
+
+        lines = [
+            f"Cannot purge space {selected_space!r}: the following container(s) are referenced by views "
+            "in other spaces. Delete or move those views first, then re-run the purge."
+        ]
+        for container_id, views in external_views_by_container.items():
+            shown = ", ".join(f"{view.space}:{view.external_id}/{view.version}" for view in views[:10])
+            suffix = f" (+{len(views) - 10} more)" if len(views) > 10 else ""
+            lines.append(f"  - {container_id}: {shown}{suffix}")
+        raise ToolkitValueError("\n".join(lines))
+
+    @staticmethod
+    def _print_cross_reference_check_panel() -> None:
+        print(
+            Panel(
+                "Before deleting containers, Toolkit calls the [bold]models/containers/inspect[/bold] "
+                "endpoint and blocks the purge if any container is referenced by a view in another "
+                "space. References inside this space are part of the purge and are not blocked.",
+                title="Cross-reference safety check",
+                title_align="left",
+                border_style="cyan",
+                expand=False,
+            )
+        )
 
     @staticmethod
     def _print_panel(resource_type: str, resource: str) -> None:
