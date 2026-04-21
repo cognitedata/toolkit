@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias
 
 import questionary
+from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
@@ -744,6 +745,8 @@ class DeployV2Command(ToolkitCommand):
                 updated = len(crud.update(resources.to_update))
         except ToolkitAPIError as error:
             cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir)
+        except ValidationError as error:
+            cls._handle_validation_error(error, action, crud, resources, deploy_dir)
 
         return DeploymentResult(
             resource_name=crud.display_name,
@@ -792,6 +795,33 @@ class DeployV2Command(ToolkitCommand):
             )
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
+        raise cls._get_resource_exception(action)(error_message) from error
+
+    @classmethod
+    def _handle_validation_error(
+        cls,
+        error: ValidationError,
+        action: Literal["create", "delete", "update"] | None,
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        deploy_dir: Path | None = None,
+    ) -> None:
+        if action is None:
+            raise RuntimeError("Bug in Toolkit. No action to perform but got Validation error.") from error
+
+        suffix = ""
+        if deploy_dir:
+            deploy_dir.mkdir(parents=True, exist_ok=True)
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            suffix = f"\nThe pydantic error has been written to {filepath.as_posix()} for debugging purposes."
+            pydantic_errors = list(error.errors())
+            json_str = json.dumps(pydantic_errors, indent=2, sort_keys=False)
+            for resource in resources.to_create + resources.to_update:
+                for string in crud.sensitive_strings(resource):
+                    json_str = json_str.replace(string, "********")
+            filepath.write_text(json_str, encoding="utf-8")
+
+        error_message = f"Failed to {action} {crud.display_name} due to unexpected CDF API response: {error}.{suffix}"
         raise cls._get_resource_exception(action)(error_message) from error
 
     @classmethod
