@@ -159,7 +159,13 @@ class DataModelSource(Destination):
     _destination_type = "instances"
     type: Literal["instances"] = "instances"
     data_model: DataModelInfo = Field(description="Target data model info.")
-    instance_space: str | None = Field(None, description="The space where the instances will be created.")
+    instance_space: str | None = Field(
+        None,
+        description="The space where the instances will be created.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
 
 
 class ViewDataSource(Destination):
@@ -168,7 +174,11 @@ class ViewDataSource(Destination):
     view: ViewInfo | None = Field(default=None, description="Target view info.")
     edge_type: EdgeType | None = Field(default=None, description="Target type of the connection definition.")
     instance_space: str | None = Field(
-        default=None, description="The space where the instances(nodes/edges) will be created."
+        default=None,
+        description="The space where the instances(nodes/edges) will be created.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
     )
 
 

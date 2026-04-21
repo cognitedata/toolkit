@@ -56,7 +56,7 @@ class DataStorage(BaseModelResource):
     """Data storage configuration."""
 
     root_location: DataFilterPath | None = None
-    app_instance_space: str | None = None
+    app_instance_space: str | None = Field(None, min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
 
 
 class ViewMapping(BaseModelResource):

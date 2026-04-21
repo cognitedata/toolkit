@@ -1,6 +1,7 @@
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -91,8 +92,8 @@ class RootLocationConfiguration(BaseModelResource):
     data_set_external_id: str | None = None
     template_admins: list[str] | None = None  # list of Group Names
     checklist_admins: list[str] | None = None  # list of Group Names
-    app_data_instance_space: str | None = None
-    source_data_instance_space: str | None = None
+    app_data_instance_space: str | None = Field(None, min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
+    source_data_instance_space: str | None = Field(None, min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     data_filters: RootLocationDataFilters | None = None
     feature_toggles: RootLocationFeatureToggles | None = None
     observations: ObservationsConfig | None = None
