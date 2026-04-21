@@ -3,13 +3,14 @@ from typing import Any, Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
 
 class NodeId(BaseModelResource):
     external_id: str
-    space: str
+    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
 
 
 class FileMetadataYAML(ToolkitResource):

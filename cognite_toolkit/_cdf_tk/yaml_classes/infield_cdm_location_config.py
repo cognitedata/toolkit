@@ -1,6 +1,9 @@
 from typing import Any
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -27,7 +30,7 @@ class AccessManagement(BaseModelResource):
 class DataFilterPath(BaseModelResource):
     """Path reference for data filters."""
 
-    space: str
+    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     external_id: str
 
 
@@ -59,7 +62,7 @@ class DataStorage(BaseModelResource):
 class ViewMapping(BaseModelResource):
     """View mapping configuration."""
 
-    space: str
+    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     version: str
     external_id: str
 
@@ -98,7 +101,7 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     - data_exploration_config: Data exploration configuration
     """
 
-    space: str
+    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     external_id: str
 
     name: str | None = None

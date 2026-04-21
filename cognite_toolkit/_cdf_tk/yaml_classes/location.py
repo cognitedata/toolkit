@@ -3,24 +3,40 @@ from typing import Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
 
 class Scenes(BaseModelResource):
     external_id: str = Field(description="External ID of the scene.")
-    space: str = Field(description="The space that the scene is in")
+    space: str = Field(
+        description="The space that the scene is in",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
 
 
 class DataModelID(BaseModelResource):
     external_id: str = Field(description="The external ID of the data model.")
-    space: str = Field(description="The space of the data model.")
+    space: str = Field(
+        description="The space of the data model.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     version: str = Field(description="The version of the data model.")
 
 
 class LocationFilterViewId(BaseModelResource):
     external_id: str = Field(description="The external ID of the view.")
-    space: str = Field(description="The space of the view.")
+    space: str = Field(
+        description="The space of the view.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     version: str = Field(description="The version of the view.")
     represents_entity: Literal["MAINTENANCE_ORDER", "OPERATION", "NOTIFICATION", "ASSET"] = Field(
         description="Represents entity type"
