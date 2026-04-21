@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, ConfigDict, TypeAdapter
+from pydantic import BeforeValidator, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field

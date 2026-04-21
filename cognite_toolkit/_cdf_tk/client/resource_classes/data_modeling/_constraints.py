@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, ConfigDict, TypeAdapter, field_serializer
+from pydantic import BeforeValidator, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject

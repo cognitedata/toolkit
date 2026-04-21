@@ -2,7 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, JsonValue, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
