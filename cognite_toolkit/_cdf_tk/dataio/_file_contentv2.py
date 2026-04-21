@@ -1,3 +1,4 @@
+import math
 import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
@@ -36,6 +37,12 @@ from .selectors import (
 )
 
 
+SINGLE_FILE_LIMIT_BYTES = 5_000 * 1024 * 1024 # 5 GB is the maximum size for a single file upload.
+IDEAL_FILE_SIZE = 50 * 1024 * 1024 # We aim to have this size for each file
+MULTI_FILE_PART_MIN_SIZE_BYTES = 5 * 1024 * 1024 # Each part in a multi-part upload must be at least 5 MiB, except for the last part.
+MULTI_FILE_PART_MAX_SIZE_BYTES = 4_000 * 1024 * 1024 # Each part in a multi-part upload must be smaller than 4000 MiB.
+MULTI_FILE_MAX_PART_COUNT = 250  # Maximum number of parts
+
 class FileMetadataContentIO(
     TableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
     TableUploadableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
@@ -53,6 +60,7 @@ class FileMetadataContentIO(
     CHUNK_SIZE = 10
     KIND = "FileMetadataContent"
     BASE_SELECTOR = FileMetadataContentSelectorV2
+
 
     def __init__(
         self,
@@ -345,6 +353,22 @@ class FileMetadataContentIO(
                     ids=[item.tracking_id],
                     error_message=f"Failed to create {item.tracking_id}. File path {filepath.as_posix()} does not exist.",
                 )
+        filesize = filepath.stat().st_size
+        if filesize > MULTI_FILE_MAX_PART_COUNT * MULTI_FILE_PART_MAX_SIZE_BYTES:
+            self.logger.log(LogEntryV2(
+                id=item.tracking_id,
+                label="File too large for upload",
+                severity=Severity.failure,
+                message=f"The {item.tracking_id} is {filesize} bytes, which exceeds the maximum "
+                        f"supported file size of {MULTI_FILE_MAX_PART_COUNT * MULTI_FILE_PART_MAX_SIZE_BYTES} bytes for upload.",
+            ))
+            return ItemsFailedRequest(ids=[item.tracking_id], error_message=f"Failed to upload {item.tracking_id}.")
+        elif filesize < IDEAL_FILE_SIZE:
+            created = self.client.tool.filemetadata.create([item], overwrite=self.overwrite)[0]
+        else:
+            # We aim to have each part the size of 50MiB
+            parts = min(filesize // IDEAL_FILE_SIZE, MULTI_FILE_MAX_PART_COUNT)
+            created = self.client.tool.filemetadata.upload_multi_parts(item, overwrite=self.overwrite, parts=parts)
 
         created = self._create_file_metadata(item, request)
         if not isinstance(created, FileMetadataResponse):
