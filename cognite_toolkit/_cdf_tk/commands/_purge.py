@@ -1,8 +1,10 @@
+import re
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import questionary
@@ -19,6 +21,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
+    ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
 )
@@ -31,6 +34,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio import InstanceIO
+from cognite_toolkit._cdf_tk.dataio._base import DataItem
+from cognite_toolkit._cdf_tk.dataio.logger import (
+    FileWithAggregationLogger,
+    LogEntryV2,
+    Severity,
+    display_item_results,
+)
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -72,6 +82,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
@@ -701,18 +712,55 @@ class PurgeCommand(ToolkitCommand):
             if not confirm_purge:
                 return DeleteResults()
 
-        process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
-        if unlink:
-            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
+        log_dir = Path.cwd()
+        log_filestem = self._create_purge_logfile_stem(log_dir)
+        results = DeleteResults()
 
-        with HTTPClient(config=client.config) as delete_client:
+        with (
+            NDJsonWriter(
+                log_dir, kind="PurgeIssues", default_filestem=log_filestem, compression=Uncompressed
+            ) as log_file,
+            FileWithAggregationLogger(log_file) as logger,
+            HTTPClient(config=client.config) as delete_client,
+        ):
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
-            results = DeleteResults()
-            executor = ProducerWorkerExecutor[Sequence[InstanceDefinitionId], list[dict[str, JsonVal]]](
-                download_iterable=io.download_ids(selector),
+
+            def download_with_tracking() -> Iterable[list[DataItem[InstanceDefinitionId]]]:
+                for batch in io.download_ids(selector):
+                    items = [
+                        DataItem(
+                            tracking_id=f"{instance_id.space}:{instance_id.external_id}",
+                            item=instance_id,
+                        )
+                        for instance_id in batch
+                    ]
+                    logger.register([item.tracking_id for item in items])
+                    yield items
+
+            process: Callable[[list[DataItem[InstanceDefinitionId]]], list[DataItem[dict[str, Any]]]]
+            if unlink:
+                process = partial(
+                    self._unlink_prepare_tracked,
+                    client=client,
+                    dry_run=dry_run,
+                    console=console,
+                    verbose=verbose,
+                    logger=logger,
+                )
+            else:
+                process = self._prepare_tracked
+
+            executor = ProducerWorkerExecutor[list[DataItem[InstanceDefinitionId]], list[DataItem[dict[str, Any]]]](
+                download_iterable=download_with_tracking(),
                 process=process,
-                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
+                write=partial(
+                    self._delete_instance_ids_tracked,
+                    dry_run=dry_run,
+                    delete_client=delete_client,
+                    results=results,
+                    logger=logger,
+                ),
                 total_item_count=total,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
@@ -722,6 +770,8 @@ class PurgeCommand(ToolkitCommand):
             )
 
             executor.run()
+            items_results = logger.finalize(dry_run)
+            display_item_results(items_results, title=f"Purge {selector!s}", console=console)
             executor.raise_on_error()
 
         prefix = "Would have purged" if dry_run else "Purged"
@@ -732,6 +782,24 @@ class PurgeCommand(ToolkitCommand):
                 f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
             )
         return results
+
+    @staticmethod
+    def _create_purge_logfile_stem(log_dir: Path) -> str:
+        """Create a filestem for the purge log file that does not conflict with existing files in the directory."""
+        base_logstem = "purge-"
+        existing_files = list(log_dir.glob(f"{base_logstem}*"))
+        if not existing_files:
+            return base_logstem
+
+        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+        max_run = 0
+        for f in existing_files:
+            match = run_pattern.match(f.name)
+            if match:
+                max_run = max(max_run, int(match.group(1)))
+
+        next_run = max(2, max_run + 1)
+        return f"{base_logstem}run{next_run}-"
 
     def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
         client_project = client.config.project
@@ -805,6 +873,17 @@ class PurgeCommand(ToolkitCommand):
 
         return output
 
+    @staticmethod
+    def _prepare_tracked(
+        items: list[DataItem[InstanceDefinitionId]],
+    ) -> list[DataItem[dict[str, Any]]]:
+        """Prepare instance IDs for deletion while preserving tracking IDs."""
+        output: list[DataItem[dict[str, Any]]] = []
+        for item in items:
+            dumped = item.item.dump(include_instance_type=True)
+            output.append(DataItem(tracking_id=item.tracking_id, item=dumped))
+        return output
+
     def _unlink_prepare(
         self,
         instance_ids: Sequence[InstanceDefinitionId],
@@ -816,6 +895,21 @@ class PurgeCommand(ToolkitCommand):
         self._unlink_timeseries(instance_ids, client, dry_run, console, verbose)
         self._unlink_files(instance_ids, client, dry_run, console, verbose)
         return self._prepare(instance_ids)
+
+    def _unlink_prepare_tracked(
+        self,
+        items: list[DataItem[InstanceDefinitionId]],
+        client: ToolkitClient,
+        dry_run: bool,
+        console: Console,
+        logger: FileWithAggregationLogger,
+        verbose: bool = False,
+    ) -> list[DataItem[dict[str, Any]]]:
+        """Unlink timeseries and files while preserving tracking IDs."""
+        instance_ids = [item.item for item in items]
+        self._unlink_timeseries(instance_ids, client, dry_run, console, verbose)
+        self._unlink_files(instance_ids, client, dry_run, console, verbose)
+        return self._prepare_tracked(items)
 
     @staticmethod
     def _delete_instance_ids(
@@ -837,6 +931,65 @@ class PurgeCommand(ToolkitCommand):
                 results.deleted += len(response.ids)
             else:
                 results.failed += len(response.ids)
+
+    @staticmethod
+    def _delete_instance_ids_tracked(
+        items: list[DataItem[dict[str, Any]]],
+        dry_run: bool,
+        delete_client: HTTPClient,
+        results: DeleteResults,
+        logger: FileWithAggregationLogger,
+    ) -> None:
+        """Delete instances while logging success/failure for each item."""
+        if dry_run:
+            results.deleted += len(items)
+            return
+
+        # Build a mapping from instance ID string to tracking ID for logging
+        tracking_by_instance: dict[str, str] = {}
+        request_items: list[InstanceDefinitionId] = []
+        for item in items:
+            instance_id = InstanceDefinitionId._load(item.item)
+            tracking_by_instance[str(instance_id)] = item.tracking_id
+            request_items.append(instance_id)
+
+        responses = delete_client.request_items_retries(
+            ItemsRequest(
+                endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
+                method="POST",
+                items=request_items,
+            )
+        )
+        for response in responses:
+            if isinstance(response, ItemsSuccessResponse):
+                results.deleted += len(response.ids)
+                # Success items don't need logging - they remain without log entries (= success/pending)
+            elif isinstance(response, ItemsFailedResponse):
+                results.failed += len(response.ids)
+                # Log failures for each failed item
+                for failed_id in response.ids:
+                    tracking_id = tracking_by_instance.get(failed_id, failed_id)
+                    logger.log(
+                        LogEntryV2(
+                            id=tracking_id,
+                            label="Delete failed",
+                            severity=Severity.failure,
+                            message=response.error_message,
+                        )
+                    )
+            else:
+                # Other failure types
+                results.failed += len(response.ids)
+                for failed_id in response.ids:
+                    tracking_id = tracking_by_instance.get(failed_id, failed_id)
+                    logger.log(
+                        LogEntryV2(
+                            id=tracking_id,
+                            label="Delete failed",
+                            severity=Severity.failure,
+                            message="Unknown error during deletion",
+                        )
+                    )
 
     @staticmethod
     def _unlink_timeseries(
