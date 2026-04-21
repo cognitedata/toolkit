@@ -2,6 +2,7 @@ import io
 import types
 import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
+from pathlib import Path
 from typing import Annotated, Any, cast, get_args, get_origin
 
 import pytest
@@ -2478,3 +2479,62 @@ class TestCDFResourceAPI:
             client.charts.folders.create([request])
         except ToolkitAPIError as e:
             raise EndpointAssertionError(endpoints["create"].path, f"Failed to create chart folder: {e!s}")
+
+    def test_upload_large_file(
+        self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse, tmp_path: Path
+    ) -> None:
+        api = toolkit_client.tool.filemetadata
+
+        # Create a 10 MB file (each part must be at least 5MB for multipart upload)
+        content_to_repeat = b"This is a smoke test"
+        file_size = 12 * 1024 * 1024  # 10 MB
+        repetitions = file_size // len(content_to_repeat) + 1
+
+        file_path = tmp_path / "large_test_file.txt"
+        file_path.write_bytes(content_to_repeat * repetitions)
+
+        request = FileMetadataRequest(
+            external_id="Smoke test large file",
+            name="Smoke test large file",
+            data_set_id=smoke_dataset.id,
+            mime_type="text/plain",
+        )
+        try:
+            result = api.upload_multi_parts(request, overwrite=True, parts=2)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                api._multipart_file_upload_link.path,
+                f"Failed to initiate multipart upload: {e!s}",
+            ) from e
+
+        if not result.upload_urls or len(result.upload_urls) != 2:
+            raise EndpointAssertionError(
+                api._multipart_file_upload_link.path,
+                f"Expected 2 upload URLs, got {len(result.upload_urls) if result.upload_urls else 0}",
+            )
+        if not result.upload_id:
+            raise EndpointAssertionError(
+                api._multipart_file_upload_link.path,
+                "Expected upload_id in response, got None",
+            )
+
+        try:
+            api.upload_file_multiparts(file_path, result.upload_urls)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                api._multipart_file_upload_link.path,
+                f"Failed to upload file parts: {e!s}",
+            ) from e
+
+        try:
+            api.complete_multipart_upload(result.as_internal_id(), result.upload_id)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                "/files/completemultipartupload",
+                f"Failed to complete multipart upload: {e!s}",
+            ) from e
+
+        try:
+            api.delete([result.as_id()], ignore_unknown_ids=True)
+        except ToolkitAPIError:
+            pass
