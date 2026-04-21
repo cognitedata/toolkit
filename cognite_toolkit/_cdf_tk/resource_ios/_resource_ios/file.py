@@ -214,7 +214,7 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
 
     def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
         if response.filepath and response.upload_url:
-            self.client.tool.filemetadata.upload_file(response.filepath, response.upload_url)
+            self.client.tool.filemetadata.upload_file(response.filepath, response.upload_url, response.mime_type)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
@@ -486,7 +486,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
         if item.filepath:
             upload_urls = self.client.tool.filemetadata.get_upload_url([item.as_instance_id()])
             if upload_urls and upload_urls[0].upload_url:
-                self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url)
+                self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(ids)
