@@ -40,7 +40,7 @@ class ToolkitLocalRule(ABC):
 
 
 class RuleSetStatus(BaseModel):
-    code: Literal["ready", "skip", "unavailable"]
+    code: Literal["ready", "reduced", "skip", "unavailable"]
     message: str | None = None
 
 

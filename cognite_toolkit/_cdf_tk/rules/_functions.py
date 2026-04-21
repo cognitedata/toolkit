@@ -14,21 +14,21 @@ from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 class FunctionLimitsRule(ToolkitGlobalRulSet):
     CODE_PREFIX = "FUNCTION"
-    DISPLAY_NAME = "Function limits"
+    DISPLAY_NAME = "Functions checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
             return RuleSetStatus(
-                code="unavailable",
+                code="reduced",
                 message=(
                     "Function limits validation requires a client. "
-                    "Provide client credentials to use Neat for validation."
+                    "Provide client credentials to validate function CPU and MEMORY limits."
                 ),
             )
 
         return RuleSetStatus(
             code="ready",
-            message="Will validate function definitions against CDF Project limits.",
+            message="Will validate function limits and requirement txt.",
         )
 
     def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
@@ -66,7 +66,7 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
             function_def = FunctionsYAML.model_validate(function_def_data)
 
             # Validate CPU cores
-            if function_def.cpu is not None:
+            if function_def.cpu is not None and limits:
                 if function_def.cpu < limits.cpu_cores.min or function_def.cpu > limits.cpu_cores.max:
                     yield ConsistencyError(
                         message=(
@@ -78,7 +78,7 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
                     )
 
             # Validate memory
-            if function_def.memory is not None:
+            if function_def.memory is not None and limits:
                 if function_def.memory < limits.memory_gb.min or function_def.memory > limits.memory_gb.max:
                     yield ConsistencyError(
                         message=(
@@ -90,7 +90,7 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
                     )
 
     @cached_property
-    def limits(self) -> FunctionLimits:
+    def limits(self) -> FunctionLimits | None:
         if not self.client:
-            raise ValueError("Client is required to fetch function limits.")
+            return None
         return self.client.tool.functions.limits()
