@@ -22,11 +22,12 @@ from ._constraints import (
 )
 from ._container import (
     Container,
+    ContainerInspectResult,
+    ContainerInspectResultItem,
     ContainerPropertyDefinition,
     ContainerRequest,
     ContainerResponse,
 )
-from ._container_inspect import ContainerInspection, InspectedContainer
 from ._data_model import DataModelRequest, DataModelResponse, DataModelResponseWithViews
 from ._data_types import (
     BooleanProperty,
@@ -135,7 +136,7 @@ __all__ = [
     "ContainerDirectId",
     "ContainerId",
     "ContainerIndexId",
-    "ContainerInspection",
+    "ContainerInspectResult",
     "ContainerPropertyDefinition",
     "ContainerRequest",
     "ContainerResponse",
@@ -161,7 +162,7 @@ __all__ = [
     "Index",
     "IndexAdapter",
     "IndexDefinition",
-    "InspectedContainer",
+    "ContainerInspectResultItem",
     "InstanceDefinition",
     "InstanceRequest",
     "InstanceResponse",

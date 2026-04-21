@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     ContainerRequest,
     ContainerResponse,
-    InspectedContainer,
+    ContainerInspectResultItem,
 )
 from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
 
@@ -123,7 +123,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
             params=filter.dump() if filter else None,
         )
 
-    def inspect(self, items: Sequence[ContainerId], all_versions: bool = True) -> list[InspectedContainer]:
+    def inspect(self, items: Sequence[ContainerId], all_versions: bool = True) -> list[ContainerInspectResultItem]:
         """Inspect containers to discover which views reference them.
 
         Args:
@@ -131,14 +131,14 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
             all_versions: Whether to include all view versions in the result. Defaults to True.
 
         Returns:
-            One InspectedContainer per requested container, with the involved views populated.
+            One ContainerInspectResultItem per requested container, with the involved views populated.
         """
         inspection_operations = {"involvedViews": {"allVersions": all_versions}}
-        results: list[InspectedContainer] = []
+        results: list[ContainerInspectResultItem] = []
         for response in self._chunk_requests(
             items, "inspect", self._serialize_items, extra_body={"inspectionOperations": inspection_operations}
         ):
-            results.extend(ResponseItems[InspectedContainer].model_validate_json(response.body).items)
+            results.extend(ResponseItems[ContainerInspectResultItem].model_validate_json(response.body).items)
         return results
 
     def list(self, filter: ContainerFilter | None = None, limit: int | None = None) -> list[ContainerResponse]:
