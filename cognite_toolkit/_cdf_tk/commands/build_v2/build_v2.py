@@ -697,6 +697,7 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
+                        extra_files=resource.extra_files,
                     )
                 )
         return built_resources
