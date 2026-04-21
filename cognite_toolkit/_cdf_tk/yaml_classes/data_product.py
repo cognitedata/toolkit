@@ -1,6 +1,7 @@
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import ToolkitResource
 
@@ -20,6 +21,9 @@ class DataProductYAML(ToolkitResource):
     schema_space: str | None = Field(
         default=None,
         description="The schema space where the data product's data model and views are located. Defaults to the data product's externalId.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
     )
     description: str | None = Field(
         default=None,

@@ -13,7 +13,12 @@ from .view_field_definitions import DirectRelationReference
 
 
 class CogniteFileYAML(ToolkitResource):
-    space: str = Field(description="The space where the file is located.", max_length=43, pattern=SPACE_FORMAT_PATTERN)
+    space: str = Field(
+        description="The space where the file is located.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str = Field(
         description="External-id of the file.", max_length=255, pattern=INSTANCE_EXTERNAL_ID_PATTERN
     )

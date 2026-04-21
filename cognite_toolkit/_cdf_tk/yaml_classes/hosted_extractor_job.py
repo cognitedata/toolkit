@@ -7,6 +7,7 @@ from pydantic import Field, JsonValue, ModelWrapValidatorHandler, field_validato
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
@@ -72,7 +73,12 @@ class PrefixConfig(BaseModelResource):
 
 
 class SpaceRef(BaseModelResource):
-    space: str = Field(description="The data models space where time series will be created.")
+    space: str = Field(
+        description="The data models space where time series will be created.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
 
 
 class DataModelFormat(JobFormat, ABC):

@@ -5,6 +5,7 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import BaseModelResource
@@ -16,7 +17,12 @@ else:
 
 
 class DataModelInfo(BaseModelResource):
-    space: str = Field(description="Space of the Data Model.")
+    space: str = Field(
+        description="Space of the Data Model.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str = Field(description="External ID of the Data Model.")
     version: str = Field(description="Version of the Data Model.")
     destination_type: str = Field(description="External ID of the type(view) in the data model.")
@@ -26,13 +32,23 @@ class DataModelInfo(BaseModelResource):
 
 
 class ViewInfo(BaseModelResource):
-    space: str = Field(description="Space of the view.")
+    space: str = Field(
+        description="Space of the view.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str = Field(description="External ID of the view.")
     version: str = Field(description="Version of the view.")
 
 
 class EdgeType(BaseModelResource):
-    space: str = Field(description="Space of the type.")
+    space: str = Field(
+        description="Space of the type.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str = Field(description="External ID of the type.")
 
 
@@ -143,7 +159,13 @@ class DataModelSource(Destination):
     _destination_type = "instances"
     type: Literal["instances"] = "instances"
     data_model: DataModelInfo = Field(description="Target data model info.")
-    instance_space: str | None = Field(None, description="The space where the instances will be created.")
+    instance_space: str | None = Field(
+        None,
+        description="The space where the instances will be created.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
 
 
 class ViewDataSource(Destination):
@@ -152,7 +174,11 @@ class ViewDataSource(Destination):
     view: ViewInfo | None = Field(default=None, description="Target view info.")
     edge_type: EdgeType | None = Field(default=None, description="Target type of the connection definition.")
     instance_space: str | None = Field(
-        default=None, description="The space where the instances(nodes/edges) will be created."
+        default=None,
+        description="The space where the instances(nodes/edges) will be created.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
     )
 
 
