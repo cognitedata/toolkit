@@ -2,7 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import BeforeValidator, JsonValue, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -197,6 +197,10 @@ class UnknownInstanceRequest(InstanceRequestDefinition):
 class UnknownInstanceResponse(InstanceResponseDefinition[UnknownInstanceRequest]):
     instance_type: str
 
+    def as_id(self) -> NodeId:
+        """Address unknown kinds by node external id until a typed instance model exists."""
+        return NodeId(space=self.space, external_id=self.external_id)
+
     @classmethod
     def request_cls(cls) -> builtins.type[UnknownInstanceRequest]:
         return UnknownInstanceRequest
@@ -249,5 +253,12 @@ InstanceResponse: TypeAlias = Annotated[
     NodeResponse | EdgeResponse | UnknownInstanceResponse,
     BeforeValidator(_handle_unknown_instance_response),
 ]
+
+# We are not using discriminator in general for request/response classes,
+# however, this is an exception for the cases that we want exactly a Node or Edge.
+NodeOrEdgeRequest: TypeAlias = Annotated[NodeRequest | EdgeRequest, Field(discriminator="instance_type")]
+NodeOrEdgeResponse: TypeAlias = Annotated[NodeResponse | EdgeResponse, Field(discriminator="instance_type")]
+
+NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(NodeOrEdgeRequest)
 
 InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest)

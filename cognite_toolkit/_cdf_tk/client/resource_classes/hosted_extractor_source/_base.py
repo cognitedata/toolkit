@@ -1,7 +1,9 @@
+import builtins
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
+    ResponseResource,
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -32,5 +34,12 @@ class UnknownSourceRequest(SourceRequestDefinition):
     type: str
 
 
-class UnknownSourceResponse(SourceResponseDefinition):
+class UnknownSourceResponse(SourceResponseDefinition, ResponseResource[UnknownSourceRequest]):
     type: str
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[UnknownSourceRequest]:
+        return UnknownSourceRequest
+
+    def as_request_resource(self) -> UnknownSourceRequest:
+        return UnknownSourceRequest.model_validate(self.dump(), extra="allow")

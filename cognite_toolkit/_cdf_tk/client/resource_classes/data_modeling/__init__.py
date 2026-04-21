@@ -66,6 +66,8 @@ from ._instance import (
     InstanceResponseDefinition,
     InstanceSlimDefinition,
     InstanceSource,
+    NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
     NodeRequest,
     NodeResponse,
 )
@@ -174,6 +176,8 @@ __all__ = [
     "MultiReverseDirectRelationPropertyRequest",
     "MultiReverseDirectRelationPropertyResponse",
     "NodeId",
+    "NodeOrEdgeRequest",
+    "NodeOrEdgeResponse",
     "NodeRequest",
     "NodeResponse",
     "PropertyTypeDefinition",

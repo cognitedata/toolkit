@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     MQTTSourceRequest,
     RESTSourceRequest,
     ScramShaAuthenticationRequest,
+    UnknownAuthenticationRequest,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
@@ -148,7 +149,8 @@ class HostedExtractorSourceIO(
         auth: BasicAuthenticationRequest
         | ClientCredentialAuthenticationRequest
         | ScramShaAuthenticationRequest
-        | HTTPBasicAuthenticationRequest,
+        | HTTPBasicAuthenticationRequest
+        | UnknownAuthenticationRequest,
     ) -> Iterable[str]:
         if isinstance(auth, BasicAuthenticationRequest | ScramShaAuthenticationRequest) and auth.password:
             yield auth.password
@@ -156,6 +158,9 @@ class HostedExtractorSourceIO(
             yield auth.client_secret
         elif isinstance(auth, HTTPBasicAuthenticationRequest):
             yield auth.value
+        elif isinstance(auth, UnknownAuthenticationRequest):
+            # Assume all keys are sensitive. Ensuring that we do not expose secrets.
+            yield from set(auth.dump().keys()) - {"type"}
 
 
 @final

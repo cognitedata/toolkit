@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    InstanceRequest,
-    InstanceResponse,
+    NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySelectSource,
     QuerySortSpec,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import NodeOrEdgeRequestAdapter
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
@@ -45,9 +45,9 @@ from .selectors._instances import InstanceQuerySelector
 
 
 class InstanceIO(
-    ConfigurableDataIO[InstanceSelector, InstanceResponse],
-    TableDataIO[InstanceSelector, InstanceResponse],
-    TableUploadableDataIO[InstanceSelector, InstanceResponse, InstanceRequest],
+    ConfigurableDataIO[InstanceSelector, NodeOrEdgeResponse],
+    TableDataIO[InstanceSelector, NodeOrEdgeResponse],
+    TableUploadableDataIO[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest],
 ):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
@@ -135,7 +135,7 @@ class InstanceIO(
             return leaf_filters[0]
         return {"and": leaf_filters}
 
-    def _filter_readonly_properties(self, instance: InstanceRequest) -> None:
+    def _filter_readonly_properties(self, instance: NodeOrEdgeRequest) -> None:
         """Filter out read-only properties from the instance.
 
         Warnings: This mutates the instance in-place.
@@ -425,7 +425,7 @@ class InstanceIO(
         raise NotImplementedError()
 
     def data_to_json_chunk(
-        self, data_chunk: Page[InstanceResponse], selector: InstanceSelector | None = None
+        self, data_chunk: Page[NodeOrEdgeResponse], selector: InstanceSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
         result = [
             DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
@@ -433,11 +433,11 @@ class InstanceIO(
         ]
         return data_chunk.create_from(result)
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:
         item_to_load = item_json.copy()
         if self._remove_existing_version and "existingVersion" in item_to_load:
             del item_to_load["existingVersion"]
-        instance = InstanceRequestAdapter.validate_python(item_to_load)
+        instance = NodeOrEdgeRequestAdapter.validate_python(item_to_load)
         self._filter_readonly_properties(instance)
         return instance
 
@@ -463,8 +463,8 @@ class InstanceIO(
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: InstanceSelector | None = None
-    ) -> InstanceRequest:
-        """Convert a row-based dictionary back to an InstanceRequest.
+    ) -> NodeOrEdgeRequest:
+        """Convert a row-based dictionary back to an NodeOrEdgeRequest.
 
         The row format is the inverse of json_to_row:
         - Instance-level fields: `space`, `externalId`, `existingVersion`
@@ -477,7 +477,7 @@ class InstanceIO(
             selector: The selector used to identify the view for source properties.
 
         Returns:
-            An InstanceRequest representing the data.
+            An NodeOrEdgeRequest representing the data.
         """
         # Known instance-level fields and nested field prefixes
         instance_scalar_fields = {"space", "externalId", "existingVersion"}

@@ -13,6 +13,7 @@ from ._auth import (
     HTTPBasicAuthenticationResponse,
     ScramShaAuthenticationRequest,
     ScramShaAuthenticationResponse,
+    UnknownAuthenticationRequest,
 )
 from ._base import SourceRequestDefinition, SourceResponseDefinition, UnknownSourceRequest, UnknownSourceResponse
 from ._certificate import AuthCertificateRequest, CACertificateRequest, CertificateResponse
@@ -94,6 +95,7 @@ __all__ = [
     "RESTSourceResponse",
     "ScramShaAuthenticationRequest",
     "ScramShaAuthenticationResponse",
+    "UnknownAuthenticationRequest",
     "UnknownSourceRequest",
     "UnknownSourceResponse",
 ]
