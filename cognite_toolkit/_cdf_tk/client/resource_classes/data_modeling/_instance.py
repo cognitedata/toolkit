@@ -190,6 +190,10 @@ class UnknownInstanceRequest(InstanceRequestDefinition):
     model_config = ConfigDict(extra="allow")
     instance_type: str
 
+    def as_id(self) -> NodeId:
+        """Address unknown kinds by node external id until a typed instance model exists."""
+        return NodeId(space=self.space, external_id=self.external_id)
+
 
 class UnknownInstanceResponse(InstanceResponseDefinition[UnknownInstanceRequest]):
     model_config = ConfigDict(extra="allow")
