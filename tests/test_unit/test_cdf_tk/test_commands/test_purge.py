@@ -540,6 +540,48 @@ class TestPurgeSpaceCrossReferenceCheck:
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
+    def test_does_not_block_when_only_same_space_views_reference_container(
+        self,
+        purge_client: ToolkitClient,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        """Same-space views are part of the purge and must not trigger the guardrail."""
+        config = purge_client.config
+        space = "test_space"
+
+        gen = FakeCogniteResourceGenerator(seed=3)
+        container = gen.create_instance(ContainerResponse)
+        container.space = space
+        container.external_id = "same_space_container"
+        respx_mock.get(config.create_api_url("/models/containers")).respond(
+            status_code=200, json={"items": [container.dump()]}
+        )
+        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": space,
+                        "externalId": container.external_id,
+                        "inspectionResults": {
+                            "involvedViewCount": 1,
+                            "involvedViews": [
+                                {
+                                    "type": "view",
+                                    "space": space,
+                                    "externalId": "SameSpaceView",
+                                    "version": "v1",
+                                }
+                            ],
+                        },
+                    }
+                ]
+            },
+        )
+
+        # Should not raise — same-space view is part of the purge
+        PurgeCommand._block_if_external_views_reference_containers(purge_client, space)
+
 
 class TestSoftDeletePurgeHeadroom:
     def test_validate_blocks_when_headroom_below_margin(self) -> None:

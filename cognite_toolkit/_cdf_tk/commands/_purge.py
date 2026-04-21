@@ -622,10 +622,12 @@ class PurgeCommand(ToolkitCommand):
         blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
         for inspected in client.tool.containers.inspect(container_ids):
             results = inspected.inspection_results
-            if results.involved_view_count == 0:
-                continue
             external_seen = [view for view in results.involved_views if view.space != selected_space]
+            # Hidden views (not returned in involvedViews) must be from other spaces: purge access
+            # to selected_space implies read access, so any same-space views would be visible.
             hidden_count = results.involved_view_count - len(results.involved_views)
+            if not external_seen and hidden_count == 0:
+                continue
             container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
             blocked[container_id] = (external_seen, hidden_count)
         if not blocked:
