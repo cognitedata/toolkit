@@ -46,7 +46,8 @@ class CLIConfig:
 
         return cls(
             default_organization_dir=default_organization_dir,
-            default_env=raw.get("default_env", "dev"),
+            default_env=raw.get("default_env"),
+            default_config_yaml=raw.get("default_config_yaml"),
             file_encoding=raw.get("file_encoding"),
             has_user_set_default_org=has_user_set_default_org,
             has_user_set_default_env=has_user_set_default_env,

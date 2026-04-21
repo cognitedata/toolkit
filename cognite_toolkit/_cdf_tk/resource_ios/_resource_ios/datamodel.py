@@ -91,6 +91,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
     HAS_DATA_FILTER_LIMIT,
+    HINT_LEAD_TEXT,
+    URL,
     VIEW_UPSERT_BATCH_LIMIT,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
@@ -409,32 +411,64 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         updated = self.create(items)
-        # The API might silently fail to update a container.
+        # The API might silently fail to apply some changes.
         updated_by_id = {item.as_id(): item for item in updated}
         for local in items:
             item_id = local.as_id()
             local_dict = local.dump()
             if item_id not in updated_by_id:
                 raise ToolkitAPIError(
-                    f"The container {item_id} was not updated. You might need to delete and recreate it.",
+                    f"The container {item_id} was not updated due to an unknown error.",
                     code=500,
                 )
             cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
             if cdf_dict != local_dict:
-                is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
-                if is_verbose:
-                    print(
-                        Panel(
-                            "\n".join(to_diff(cdf_dict, local_dict)),
-                            title=f"{self.display_name}: {item_id}",
-                            expand=False,
-                        )
-                    )
-                suffix = "" if is_verbose else " (use -v for more info)"
-                HighSeverityWarning(
-                    f"The container {item_id} was not updated. You might need to delete and recreate it{suffix}."
-                ).print_warning()
+                self._print_container_diff_warning(item_id, local_dict, cdf_dict)
         return updated
+
+    def _print_container_diff_warning(
+        self,
+        item_id: ContainerId,
+        local_dict: dict[str, Any],
+        cdf_dict: dict[str, Any],
+    ) -> None:
+        only_in_cdf_props = sorted(set(cdf_dict.get("properties", {})) - set(local_dict.get("properties", {})))
+        only_in_cdf_constraints = sorted(set(cdf_dict.get("constraints", {})) - set(local_dict.get("constraints", {})))
+        only_in_cdf_indexes = sorted(set(cdf_dict.get("indexes", {})) - set(local_dict.get("indexes", {})))
+
+        lines = [
+            f"Container {item_id} has differing config in your local YAML as opposed to CDF.",
+            "This may occur if you have tried to remove previously deployed properties, constraints or indexes from a container in your local YAML file.",
+            "Please note that CDF containers do not support removing existing property definitions and CDF toolkit currently does not support removing constraints or indexes.",
+            "This warning will persist until the discrepancies are resolved.",
+        ]
+        if only_in_cdf_props:
+            lines.append(f"• Properties missing in your local YAML: [bold]{', '.join(only_in_cdf_props)}[/bold]")
+        if only_in_cdf_constraints:
+            lines.append(f"• Constraints missing in your local YAML: [bold]{', '.join(only_in_cdf_constraints)}[/bold]")
+        if only_in_cdf_indexes:
+            lines.append(f"• Indexes missing in your local YAML: [bold]{', '.join(only_in_cdf_indexes)}[/bold]")
+
+        HighSeverityWarning("\n".join(lines)).print_warning(console=self.console)
+
+        self.console.print(
+            f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
+        )
+        self.console.print(
+            f"{HINT_LEAD_TEXT}For more details on allowed container changes, see: {URL.container_changes_docs}"
+        )
+
+        is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        if is_verbose:
+            self.console.print(
+                Panel(
+                    "\n".join(to_diff(cdf_dict, local_dict)),
+                    title=f"{self.display_name}: {item_id}",
+                    expand=False,
+                )
+            )
+        else:
+            self.console.print("    Use -v/--verbose for a full diff.")
 
     def delete(self, ids: Sequence[ContainerId]) -> int:
         self.client.tool.containers.delete(list(ids))
