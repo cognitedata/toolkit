@@ -291,7 +291,7 @@ class HTTPClient:
                     method=method,
                     url=url,
                     content=content,
-                    headers=headers or {},
+                    headers=headers,
                     follow_redirects=False,
                 )
                 if 200 <= response.status_code < 300:

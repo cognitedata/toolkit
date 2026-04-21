@@ -312,16 +312,26 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         if isinstance(filepath, bytes):
             content: Iterable[bytes] = (filepath,)
+            content_length = len(filepath)
         elif isinstance(filepath, str):
-            content = (filepath.encode("utf-8"),)
+            encoded = filepath.encode("utf-8")
+            content = (encoded,)
+            content_length = len(encoded)
         else:
-            content = _LimitedFileReader(filepath.open("rb"), filepath.stat().st_size)
+            content_length = filepath.stat().st_size
+            content = _LimitedFileReader(filepath.open("rb"), content_length)
+
+        # Build headers with explicit Content-Length to avoid chunked transfer encoding.
+        # AWS S3 and other cloud storage services don't support Transfer-Encoding: chunked.
+        headers: dict[str, str] = {"Content-Length": str(content_length)}
+        if mime_type:
+            headers["Content-Type"] = mime_type
 
         response = self._http_client.request_raw_retries(
             method="PUT",
             url=upload_url,
             content=content,
-            headers={"Content-Type": mime_type} if mime_type else None,
+            headers=headers,
         )
         if isinstance(response, FailedResponse):
             raise ToolkitAPIError(message=response.body, code=response.status_code)
@@ -349,11 +359,6 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         num_parts = len(upload_urls)
         part_size = file_size // num_parts
 
-        # Only include Content-Type header if explicitly provided.
-        # GCS signed URLs embed the expected Content-Type in the signature,
-        # so sending a different Content-Type (or any when none was signed) causes SignatureDoesNotMatch.
-        headers = {"Content-Type": mime_type} if mime_type else {}
-
         results: builtins.list[SuccessResponse] = []
         with filepath.open("rb") as file_stream:
             for i, upload_url in enumerate(upload_urls):
@@ -366,6 +371,15 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 # Use a stream wrapper that limits reads to the part size,
                 # allowing httpx to stream directly from disk without loading the entire chunk into memory.
                 chunk_stream = _LimitedFileReader(file_stream, current_part_size)
+
+                # Build headers with explicit Content-Length to avoid chunked transfer encoding.
+                # AWS S3 and other cloud storage services don't support Transfer-Encoding: chunked.
+                headers: dict[str, str] = {"Content-Length": str(current_part_size)}
+                # Only include Content-Type header if explicitly provided.
+                # GCS signed URLs embed the expected Content-Type in the signature,
+                # so sending a different Content-Type (or any when none was signed) causes SignatureDoesNotMatch.
+                if mime_type:
+                    headers["Content-Type"] = mime_type
 
                 response = self._http_client.request_raw_retries(
                     method="PUT",
