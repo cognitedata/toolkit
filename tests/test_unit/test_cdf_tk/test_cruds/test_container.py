@@ -1,6 +1,7 @@
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerResponse,
@@ -63,3 +64,24 @@ indexes: {}
 
         dumped_no_local = crud.dump_resource(cdf_container)
         assert "usedFor" in dumped_no_local
+
+    def test_only_in_cdf_properties_listed(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+        item_id = ContainerId(space="my_space", external_id="MyContainer")
+
+        local_dict = {"properties": {"name": {"type": {"type": "text"}}}}
+        cdf_dict = {
+            "properties": {
+                "name": {"type": {"type": "text"}},
+                "attempted_deleted_field": {"type": {"type": "int32"}},
+            }
+        }
+
+        with patch(
+            "cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel.HighSeverityWarning"
+        ) as mock_warning_cls:
+            mock_warning_cls.return_value.print_warning = MagicMock()
+            crud._print_container_diff_warning(item_id, local_dict, cdf_dict)
+
+        message = mock_warning_cls.call_args[0][0]
+        assert "attempted_deleted_field" in message
