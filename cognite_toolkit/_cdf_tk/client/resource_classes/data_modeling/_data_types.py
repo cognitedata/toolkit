@@ -102,7 +102,6 @@ class EnumProperty(PropertyTypeDefinition):
 
 
 class UnknownPropertyType(PropertyTypeDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 

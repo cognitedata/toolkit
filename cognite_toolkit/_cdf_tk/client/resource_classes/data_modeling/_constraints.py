@@ -30,7 +30,6 @@ class RequiresConstraintDefinition(ConstraintDefinition):
 
 
 class UnknownConstraintDefinition(ConstraintDefinition):
-    model_config = ConfigDict(extra="allow")
     constraint_type: str
 
 

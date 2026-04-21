@@ -23,7 +23,6 @@ class InvertedIndex(IndexDefinition):
 
 
 class UnknownIndexDefinition(IndexDefinition):
-    model_config = ConfigDict(extra="allow")
     index_type: str
 
 

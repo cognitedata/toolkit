@@ -142,7 +142,6 @@ class UnknownViewPropertyRequest(ViewPropertyDefinition):
 
 
 class UnknownViewPropertyResponse(ViewPropertyDefinition):
-    model_config = ConfigDict(extra="allow")
     connection_type: str
 
 

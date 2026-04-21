@@ -187,7 +187,6 @@ class InstanceSlimDefinition(BaseModelObject):
 
 
 class UnknownInstanceRequest(InstanceRequestDefinition):
-    model_config = ConfigDict(extra="allow")
     instance_type: str
 
     def as_id(self) -> NodeId:
@@ -196,7 +195,6 @@ class UnknownInstanceRequest(InstanceRequestDefinition):
 
 
 class UnknownInstanceResponse(InstanceResponseDefinition[UnknownInstanceRequest]):
-    model_config = ConfigDict(extra="allow")
     instance_type: str
 
     @classmethod
