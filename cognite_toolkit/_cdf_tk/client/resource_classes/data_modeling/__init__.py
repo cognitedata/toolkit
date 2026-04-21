@@ -22,6 +22,8 @@ from ._constraints import (
 )
 from ._container import (
     Container,
+    ContainerInspectResult,
+    ContainerInspectResultItem,
     ContainerPropertyDefinition,
     ContainerRequest,
     ContainerResponse,
@@ -136,6 +138,8 @@ __all__ = [
     "ContainerDirectId",
     "ContainerId",
     "ContainerIndexId",
+    "ContainerInspectResult",
+    "ContainerInspectResultItem",
     "ContainerPropertyDefinition",
     "ContainerRequest",
     "ContainerResponse",
