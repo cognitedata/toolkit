@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedRequest,
     ItemsFailedResponse,
@@ -267,7 +266,7 @@ class HTTPClient:
         content: bytes | Iterable[bytes],
         headers: dict[str, str] | None = None,
         max_retries: int | None = None,
-    ) -> SuccessResponse:
+    ) -> SuccessResponse | FailedResponse:
         """Send a raw HTTP request with retry logic but without authentication headers.
 
         This is useful for uploading to signed URLs (e.g., GCS signed URLs) where
@@ -281,15 +280,11 @@ class HTTPClient:
             max_retries: Maximum number of retries. Defaults to the client's max_retries setting.
 
         Returns:
-            SuccessResponse object containing the response details.
-
-        Raises:
-            ToolkitAPIError: If the request fails after all retries.
+            HTTPResult: The result of the HTTP request, either SuccessResponse or FailedResponse.
         """
         retries = max_retries if max_retries is not None else self._max_retries
         attempt = 0
-        last_error: Exception | None = None
-
+        last_error_code: int = -1
         while attempt <= retries:
             try:
                 response = self.session.request(
@@ -305,7 +300,7 @@ class HTTPClient:
                         body=response.text,
                         content=response.content,
                     )
-
+                last_error_code = response.status_code
                 # Check if we should retry based on status code
                 if response.status_code in self._retry_status_codes:
                     retry_after = self._get_retry_after_in_header(response)
@@ -315,11 +310,11 @@ class HTTPClient:
                         time.sleep(self._backoff_time(attempt))
                     attempt += 1
                     continue
-
                 # Non-retryable error
-                raise ToolkitAPIError(
-                    message=f"Request failed with status code {response.status_code}: {response.text}",
-                    code=response.status_code,
+                return FailedResponse(
+                    status_code=response.status_code,
+                    body=response.text,
+                    error=ErrorDetails(code=response.status_code, message=response.text),
                 )
 
             except (
@@ -329,20 +324,21 @@ class HTTPClient:
                 httpx.ConnectError,
                 httpx.ConnectTimeout,
             ) as e:
-                last_error = e
                 attempt += 1
                 if attempt <= retries:
                     time.sleep(self._backoff_time(attempt))
                     continue
-                raise ToolkitAPIError(
-                    message=f"Request failed after {attempt} attempts: {e!s}",
-                    code=-1,
-                ) from e
+                return FailedResponse(
+                    status_code=last_error_code,
+                    body=f"Request failed after {attempt} attempts: {e!s}",
+                    error=ErrorDetails(code=last_error_code, message=f"Request failed after {attempt} attempts: {e!s}"),
+                )
 
         # Should not reach here, but just in case
-        raise ToolkitAPIError(
-            message=f"Request failed after {attempt} attempts: {last_error!s}",
-            code=-1,
+        return FailedResponse(
+            status_code=last_error_code,
+            body=f"Request failed after {attempt} attempts.",
+            error=ErrorDetails(code=last_error_code, message=f"Request failed after {attempt} attempts."),
         )
 
     def request_items(self, message: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:

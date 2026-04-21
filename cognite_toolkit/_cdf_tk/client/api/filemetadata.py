@@ -9,6 +9,7 @@ import httpx
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
     HTTPClient,
     ItemsSuccessResponse,
     RequestMessage,
@@ -316,12 +317,16 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         else:
             content = _LimitedFileReader(filepath.open("rb"), filepath.stat().st_size)
 
-        return self._http_client.request_raw_retries(
+        response = self._http_client.request_raw_retries(
             method="PUT",
             url=upload_url,
             content=content,
             headers={"Content-Type": mime_type} if mime_type else None,
         )
+        if isinstance(response, FailedResponse):
+            raise ToolkitAPIError(message=response.body, code=response.status_code)
+
+        return response
 
     def upload_file_multiparts(
         self, filepath: Path, upload_urls: builtins.list[str], mime_type: str | None = None
@@ -368,6 +373,8 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                     content=chunk_stream,
                     headers=headers,
                 )
+                if isinstance(response, FailedResponse):
+                    raise ToolkitAPIError(message=response.body, code=response.status_code)
                 results.append(response)
 
         return results
