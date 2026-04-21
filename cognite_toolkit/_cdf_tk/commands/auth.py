@@ -432,7 +432,7 @@ class AuthCommand(ToolkitCommand):
             crud = crud_cls.create_loader(client)
             try:
                 warning_str = crud.prerequisite_warning()
-            except ToolkitAPIError:
+            except (ToolkitAPIError, CogniteAPIError):
                 # Requires access we do not have.
                 continue
             if warning_str is not None:
