@@ -780,6 +780,7 @@ class DeployV2Command(ToolkitCommand):
             for item in resources.to_create + resources.to_update:
                 for string in crud.sensitive_strings(item):
                     json_str = json_str.replace(string, "********")
+            filepath.parent.mkdir(parents=True, exist_ok=True)
             filepath.write_text(json_str, encoding="utf-8")
 
         if skipped_cruds:
@@ -801,6 +802,8 @@ class DeployV2Command(ToolkitCommand):
         if not match:
             return None
         missing_variables = [variable for id in match for variable in resources.missing_env_vars_by_id[id]]
+        if not missing_variables:
+            return None
         variables_str = humanize_collection(missing_variables)
         suffix = "s" if len(missing_variables) > 1 else ""
         return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
