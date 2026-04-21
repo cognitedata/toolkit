@@ -1,6 +1,9 @@
 from typing import Any
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -61,7 +64,12 @@ class DataExplorationConfig(BaseModelResource):
     - assets: Asset page configuration
     """
 
-    space: str | None = None
+    space: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str | None = None
 
     observations: dict[str, Any] | None = None  # ObservationsConfigFeature
@@ -85,12 +93,12 @@ class InfieldLocationConfigYAML(ToolkitResource):
     - data_exploration_config: Direct relation to the DataExplorationConfig node (shared across all locations)
     """
 
-    space: str
+    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     external_id: str
 
     root_location_external_id: str | None = None
     feature_toggles: FeatureToggles | None = None
-    app_instance_space: str | None = None
+    app_instance_space: str | None = Field(None, min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     access_management: AccessManagement | None = None
     data_filters: RootLocationDataFilters | None = None
     data_exploration_config: DataExplorationConfig | None = None
