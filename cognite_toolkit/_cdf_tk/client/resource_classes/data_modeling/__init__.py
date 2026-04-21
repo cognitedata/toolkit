@@ -22,6 +22,8 @@ from ._constraints import (
 )
 from ._container import (
     Container,
+    ContainerInspectResult,
+    ContainerInspectResultItem,
     ContainerPropertyDefinition,
     ContainerRequest,
     ContainerResponse,
@@ -66,6 +68,8 @@ from ._instance import (
     InstanceResponseDefinition,
     InstanceSlimDefinition,
     InstanceSource,
+    NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
     NodeRequest,
     NodeResponse,
 )
@@ -134,6 +138,8 @@ __all__ = [
     "ContainerDirectId",
     "ContainerId",
     "ContainerIndexId",
+    "ContainerInspectResult",
+    "ContainerInspectResultItem",
     "ContainerPropertyDefinition",
     "ContainerRequest",
     "ContainerResponse",
@@ -174,6 +180,8 @@ __all__ = [
     "MultiReverseDirectRelationPropertyRequest",
     "MultiReverseDirectRelationPropertyResponse",
     "NodeId",
+    "NodeOrEdgeRequest",
+    "NodeOrEdgeResponse",
     "NodeRequest",
     "NodeResponse",
     "PropertyTypeDefinition",

@@ -168,6 +168,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if changed := (set(loader.get_ids(resources.to_update)) - {dm.NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
+            worker.prepare_resources(files, environment_variables=env_vars.dump(), verbose=True)
 
     return changed_resources
 

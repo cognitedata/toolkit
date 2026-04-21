@@ -7,10 +7,12 @@ https://api-docs.cognite.com/20230101/tag/Containers/operation/ApplyContainers
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
+    ContainerInspectResultItem,
     ContainerRequest,
     ContainerResponse,
 )
@@ -31,6 +33,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
                 "retrieve": Endpoint(method="POST", path="/models/containers/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/containers/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/containers", item_limit=1000),
+                "inspect": Endpoint(method="POST", path="/models/containers/inspect", item_limit=10),
             },
         )
 
@@ -119,6 +122,33 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
             limit=limit,
             params=filter.dump() if filter else None,
         )
+
+    def inspect(
+        self, items: Sequence[ContainerId], all_versions: bool = True, include_unavailable_views: bool = True
+    ) -> list[ContainerInspectResultItem]:
+        """Inspect containers to discover which views reference them.
+
+        Args:
+            items: Containers to inspect.
+            all_versions: Whether to include all view versions in the result. Defaults to True.
+            include_unavailable_views: Whether to include unavailable views in the result. Defaults to True.
+
+        Returns:
+            One ContainerInspectResultItem per requested container, with the involved views populated.
+        """
+        inspection_operations = {
+            "involvedViews": {"allVersions": all_versions},
+            "totalInvolvedViewCount": {
+                "allVersions": all_versions,
+                "includeUnavailableViews": include_unavailable_views,
+            },
+        }
+        results: list[ContainerInspectResultItem] = []
+        for response in self._chunk_requests(
+            items, "inspect", self._serialize_items, extra_body={"inspectionOperations": inspection_operations}
+        ):
+            results.extend(ResponseItems[ContainerInspectResultItem].model_validate_json(response.body).items)
+        return results
 
     def list(self, filter: ContainerFilter | None = None, limit: int | None = None) -> list[ContainerResponse]:
         """List all containers in CDF.

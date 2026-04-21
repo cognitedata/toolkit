@@ -2,24 +2,44 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import KNOWN_TOOLS, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    InstanceRequest,
+    InstanceResponse,
+    InstanceSource,
+    NodeRequest,
+    ViewRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import HostedExtractorMappingRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    HostedExtractorSourceRequest,
+    HostedExtractorSourceResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._kafka import (
+    KafkaSourceRequest,
+    KafkaSourceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     LoginSession,
+    Principal,
     ServiceAccountPrincipal,
     UserPrincipal,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import SignalSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
     Disabled,
     ScheduleConfig,
@@ -28,6 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
@@ -610,3 +631,211 @@ class TestWorkflowVersion:
         }
 
         assert WorkflowVersionRequest.model_validate(data).dump() == data
+
+
+class TestUnknownPrincipalUnion:
+    """Principal union routes unknown type strings to UnknownPrincipal."""
+
+    def test_unknown_principal_type(self) -> None:
+        data = {
+            "id": "principal_unknown_1",
+            "type": "NOT_YET_IN_SDK",
+            "name": "Future principal",
+            "pictureUrl": "https://example.com/p.png",
+            "extraFromApi": {"tier": "preview"},
+        }
+        assert TypeAdapter(Principal).validate_python(data).dump() == data
+
+
+class TestUnknownTransformationDestinationUnion:
+    """Destination union accepts unknown transformation destination kinds."""
+
+    def test_unknown_destination_type(self) -> None:
+        data = {
+            "externalId": "tf_unknown_dest",
+            "name": "Transformation",
+            "ignoreNullFields": False,
+            "destination": {"type": "futureWarehouse", "catalog": "iceberg", "table": "events"},
+        }
+        assert TransformationRequest._load(data).dump() == data
+
+
+class TestUnknownHostedExtractorMappingInputUnion:
+    def test_unknown_mapping_input_type(self) -> None:
+        data = {
+            "externalId": "mapping_1",
+            "mapping": {"expression": "true"},
+            "published": False,
+            "input": {"type": "avro", "schemaRegistryUrl": "https://registry.example.com", "subject": "topic-value"},
+        }
+        assert HostedExtractorMappingRequest._load(data).dump() == data
+
+
+class TestUnknownSinkRefUnion:
+    def test_unknown_sink_type(self) -> None:
+        data = {
+            "externalId": "sub_unknown_sink",
+            "sink": {"type": "webhook_sink", "url": "https://example.com/hooks/cdf", "secretHeader": "abc"},
+            "filter": {"topic": "cognite_workflows"},
+        }
+        assert SignalSubscriptionRequest._load(data).dump() == data
+
+
+class TestUnknownSubscriptionFilterUnion:
+    def test_unknown_filter_topic(self) -> None:
+        data = {
+            "externalId": "sub_unknown_filter",
+            "sink": {"type": "current_user"},
+            "filter": {"topic": "cognite_futureSignals", "routingHint": "priority-high"},
+        }
+        assert SignalSubscriptionRequest._load(data).dump() == data
+
+
+class TestUnknownHostedExtractorJobUnions:
+    def test_unknown_job_format(self) -> None:
+        data = {
+            "externalId": "job_unknown_format",
+            "destinationId": "dest_1",
+            "sourceId": "src_1",
+            "format": {"type": "futureBinaryFormat", "endianness": "little", "blockSize": 4096},
+        }
+        assert HostedExtractorJobRequest._load(data).dump() == data
+
+    def test_unknown_incremental_load_in_rest_config(self) -> None:
+        data = {
+            "externalId": "job_unknown_incremental",
+            "destinationId": "dest_1",
+            "sourceId": "src_1",
+            "format": {"type": "cognite"},
+            "config": {
+                "interval": "5m",
+                "path": "/ingest",
+                "incrementalLoad": {
+                    "type": "futureCursor",
+                    "opaqueState": {"token": "abc", "seq": 42},
+                },
+            },
+        }
+        assert HostedExtractorJobRequest._load(data).dump() == data
+
+
+class TestUnknownHostedExtractorSourceUnions:
+    def test_unknown_source_request_type(self) -> None:
+        data = {
+            "externalId": "source_future",
+            "type": "quantumBridge",
+            "endpoint": "https://edge.example.com/v1",
+            "handshake": {"protocol": "v2"},
+        }
+        assert HostedExtractorSourceRequest.validate_python(data).dump() == data
+
+    def test_unknown_source_response_type(self) -> None:
+        data = {
+            "externalId": "source_future_resp",
+            "type": "quantumBridge",
+            "createdTime": 1700000000000,
+            "lastUpdatedTime": 1700000001000,
+            "health": "nominal",
+        }
+        assert HostedExtractorSourceResponse.validate_python(data).dump() == data
+
+
+class TestUnknownHostedExtractorAuthenticationUnion:
+    def test_unknown_authentication_request_on_kafka_source(self) -> None:
+        data = {
+            "externalId": "kafka_auth_unknown",
+            "type": "kafka",
+            "bootstrapBrokers": [{"host": "broker.example.com", "port": 9092}],
+            "authentication": {
+                "type": "oauthDeviceCode",
+                "deviceUri": "https://idp.example.com/device",
+                "userCode": "ABCD",
+            },
+        }
+        assert KafkaSourceRequest._load(data).dump() == data
+
+    def test_unknown_authentication_response_on_kafka_source(self) -> None:
+        data = {
+            "externalId": "kafka_auth_unknown_resp",
+            "type": "kafka",
+            "bootstrapBrokers": [{"host": "broker.example.com", "port": 9092}],
+            "createdTime": 1700000000000,
+            "lastUpdatedTime": 1700000001000,
+            "authentication": {"type": "futureTokenExchange", "expiresIn": 3600},
+        }
+        assert KafkaSourceResponse._load(data).dump() == data
+
+
+class TestUnknownDataModelingContainerUnions:
+    """Container embeds Constraint, Index, and DataType unions on properties/constraints/indexes."""
+
+    def test_unknown_constraint_index_and_property_data_type(self) -> None:
+        data = {
+            "space": "dm_space",
+            "externalId": "container_future",
+            "properties": {
+                "propA": {
+                    "type": {
+                        "type": "hypotheticalGeometry",
+                        "srid": 4326,
+                        "coordinatesDimension": 3,
+                    },
+                }
+            },
+            "constraints": {
+                "c_future": {
+                    "constraintType": "futureBusinessRule",
+                    "expression": "volume > 0",
+                    "severity": "warn",
+                }
+            },
+            "indexes": {
+                "idx_future": {
+                    "indexType": "vectorApproximate",
+                    "properties": ["propA"],
+                    "dimensions": 128,
+                    "metric": "cosine",
+                }
+            },
+        }
+        assert ContainerRequest._load(data).dump() == data
+
+
+class TestUnknownViewPropertyUnion:
+    def test_unknown_view_request_property_connection_type(self) -> None:
+        data = {
+            "space": "view_space",
+            "externalId": "view_future",
+            "version": "v1",
+            "properties": {
+                "edge_like": {
+                    "connectionType": "future_graph_connector",
+                    "opaqueConfig": {"apiVersion": "2026-01"},
+                    "name": "External graph",
+                }
+            },
+        }
+        assert ViewRequest._load(data).dump() == data
+
+
+class TestUnknownInstanceUnions:
+    def test_unknown_instance_request(self) -> None:
+        data = {
+            "instanceType": "future_instance_kind",
+            "space": "instance_space",
+            "externalId": "inst_unknown",
+            "opaquePayload": {"routing": "shard-7"},
+        }
+        assert TypeAdapter(InstanceRequest).validate_python(data).dump() == data
+
+    def test_unknown_instance_response(self) -> None:
+        data = {
+            "instanceType": "future_instance_kind",
+            "space": "instance_space",
+            "externalId": "inst_unknown_resp",
+            "version": 3,
+            "createdTime": 1700000000000,
+            "lastUpdatedTime": 1700000001000,
+            "opaqueApiFields": {"replicated": True},
+        }
+        assert TypeAdapter(InstanceResponse).validate_python(data).dump() == data
