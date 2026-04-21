@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
-class FunctionLimitsRule(ToolkitGlobalRulSet):
+class FunctionRules(ToolkitGlobalRulSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions checks"
 

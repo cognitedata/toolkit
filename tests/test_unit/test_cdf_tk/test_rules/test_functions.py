@@ -6,7 +6,7 @@ import yaml
 
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.rules._functions import FunctionLimitsRule
+from cognite_toolkit._cdf_tk.rules._functions import FunctionRules
 
 
 class TestFunctionLimitsRule:
@@ -31,11 +31,11 @@ class TestFunctionLimitsRule:
             yaml.safe_dump(content, f)
 
     @staticmethod
-    def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionLimitsRule:
+    def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionRules:
         """Create a FunctionLimitsRule with mocked client."""
         mock_client = MagicMock()
         mock_client.tool.functions.limits.return_value = function_limits
-        rule = FunctionLimitsRule(modules=[], client=mock_client)
+        rule = FunctionRules(modules=[], client=mock_client)
         return rule
 
     def test_get_status_with_client(self, function_limits: FunctionLimits) -> None:
@@ -47,7 +47,7 @@ class TestFunctionLimitsRule:
 
     def test_get_status_without_client(self) -> None:
         """Test get_status returns unavailable when no client is provided."""
-        rule = FunctionLimitsRule(modules=[])
+        rule = FunctionRules(modules=[])
         status = rule.get_status()
         assert status.code == "unavailable"
         assert "client" in status.message.lower()
@@ -186,6 +186,6 @@ class TestFunctionLimitsRule:
 
     def test_limits_property_raises_without_client(self) -> None:
         """Test that limits property raises when no client is available."""
-        rule = FunctionLimitsRule(modules=[])
+        rule = FunctionRules(modules=[])
         with pytest.raises(ValueError, match="Client is required"):
             _ = rule.limits
