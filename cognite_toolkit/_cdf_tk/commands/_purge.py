@@ -633,7 +633,7 @@ class PurgeCommand(ToolkitCommand):
             return
 
         table = Table(
-            title=f"Containers in [bold]{selected_space}[/bold] referenced by views in other spaces",
+            title=f"Purge is blocked since containers in [bold]{selected_space}[/bold] are referenced by views in other spaces",
             title_justify="left",
             show_lines=True,
         )
