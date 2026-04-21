@@ -79,6 +79,7 @@ class BuiltResource(BaseModel):
     crud_cls: builtins.type[ResourceIO]
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
     extra_files: list[ReadExtra] = Field(default_factory=list)
+    has_syntax_errors: bool
 
 
 class BuiltModule(BaseModel):

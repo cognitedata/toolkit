@@ -698,6 +698,7 @@ class BuildV2Command(ToolkitCommand):
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
                         extra_files=resource.extra_files,
+                        has_syntax_errors=file.syntax_warning is not None,
                     )
                 )
         return built_resources
