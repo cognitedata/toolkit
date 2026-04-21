@@ -64,7 +64,7 @@ class ViewCorePropertyResponse(ViewCoreProperty):
     type: DataType
 
     def as_request(self) -> ViewCorePropertyRequest:
-        return ViewCorePropertyRequest.model_validate(self.model_dump(by_alias=True))
+        return ViewCorePropertyRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
 
 
 class ConnectionPropertyDefinition(ViewPropertyDefinition, ABC):

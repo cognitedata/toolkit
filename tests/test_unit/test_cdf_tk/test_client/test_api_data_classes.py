@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Parameter
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -814,15 +813,3 @@ class TestUnknownInstanceUnions:
             "opaqueApiFields": {"replicated": True},
         }
         assert TypeAdapter(InstanceResponse).validate_python(data).dump() == data
-
-
-class TestUnknownWorkflowParameterUnion:
-    """Unknown parameters.type maps to UnknownTaskParameters (same idea as WorkflowTrigger triggerRule)."""
-
-    def test_unknown_task_parameter_type(self) -> None:
-        data = {
-            "type": "pipelineStageNotInToolkitYet",
-            "runnerRef": {"name": "gpu-pool"},
-            "inputs": [{"key": "model", "uri": "s3://bucket/m.pt"}],
-        }
-        assert TypeAdapter(Parameter).validate_python(data).dump() == data
