@@ -10,6 +10,7 @@ from typing import Any, Generic, Literal, TypeAlias
 
 import questionary
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
@@ -772,6 +773,7 @@ class DeployV2Command(ToolkitCommand):
 
         suffix = ""
         if deploy_dir:
+            deploy_dir.mkdir(parents=True, exist_ok=True)
             filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
             suffix = (
                 f"\nThe request body and response has been written to {filepath.as_posix()} for debugging purposes."
@@ -801,7 +803,9 @@ class DeployV2Command(ToolkitCommand):
         if not match:
             return None
         missing_variables = [variable for id in match for variable in resources.missing_env_vars_by_id[id]]
-        variables_str = humanize_collection(missing_variables)
+        if not missing_variables:
+            return None
+        variables_str = escape(humanize_collection(missing_variables))
         suffix = "s" if len(missing_variables) > 1 else ""
         return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
 
