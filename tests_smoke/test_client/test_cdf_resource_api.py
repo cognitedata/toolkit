@@ -315,7 +315,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Requires a timeseries.
         ChartMonitoringJobsAPI,
         ChartScheduledCalculationsAPI,
-        # Manually tested
+        # Folders do not support delete. For channels, we only have list, thus these cannot be
+        # generically tested.
         ChartFoldersAPI,
         AlertChannelsAPI,
     }
