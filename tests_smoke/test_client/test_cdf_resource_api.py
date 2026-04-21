@@ -2155,7 +2155,7 @@ class TestCDFResourceAPI:
         if len(unique_vals) != cardinality:
             raise EndpointAssertionError(
                 aggregate_endpoint.path,
-                f"Documents.cardinality and documents.unique returned inconsistent results: cardinality was {cardinality} but unique returned {len(unique_vals)} unique values",
+                "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
     @pytest.mark.parametrize(
