@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 
 from ._constraints import Constraint
 from ._data_types import DataType
@@ -49,3 +49,18 @@ class ContainerResponse(Container, ResponseResource[ContainerRequest]):
     @classmethod
     def request_cls(cls) -> type[ContainerRequest]:
         return ContainerRequest
+
+
+class ContainerInspectResult(BaseModelObject):
+    """Inspection results for a single container."""
+
+    involved_view_count: int
+    involved_views: list[ViewId]
+
+
+class ContainerInspectResultItem(BaseModelObject):
+    """A container together with the results of running container inspection operations on it."""
+
+    space: str
+    external_id: str
+    inspection_results: ContainerInspectResult

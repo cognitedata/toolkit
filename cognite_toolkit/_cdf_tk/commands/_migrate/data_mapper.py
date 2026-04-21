@@ -45,10 +45,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
-    InstanceRequest,
-    InstanceResponse,
     InstanceSource,
     NodeId,
+    NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
     NodeRequest,
     NodeResponse,
     ViewCorePropertyResponse,
@@ -299,7 +299,7 @@ class AssetCentricMapper(
         return output
 
 
-class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExtended, InstanceRequest]):
+class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExtended, NodeOrEdgeRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._ingestion_view_by_id: dict[ViewId, ViewResponse] = {}
@@ -1254,7 +1254,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         return mapped_request, issue
 
 
-class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
+class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """This mapper maps instances to instances accounting for the difference between older data models
     (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
 
@@ -1282,7 +1282,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         mappings: Sequence[ViewToViewMapping],
         connection_creator: ConnectionCreator,
         custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
-        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]]
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
         | None = None,
     ) -> None:
         super().__init__(client)
@@ -1308,7 +1308,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         views = self.client.tool.views.retrieve(list(view_ids))
         self._connection_creator.update_view_cache(views)
 
-    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         if self._custom_instance_mappings and (
             intersecting_view_ids := (self._get_view_ids(source) & set(self._custom_instance_mappings))
         ):
@@ -1323,7 +1323,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
-        mapped_instances: list[InstanceRequest | None] = []
+        mapped_instances: list[NodeOrEdgeRequest | None] = []
         issue_by_node_id: dict[NodeId, InstanceConversionIssue] = {}
         target_view_ids: set[ViewId] = set()
         for node in nodes:
@@ -1362,7 +1362,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             )
         return mapped_instances
 
-    def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
+    def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
         return {
             view_or_container_id
             for item in source
@@ -1501,7 +1501,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             new_id=new_id,
         )
 
-    def _update_existing_node_cache(self, mapped_instances: Sequence[InstanceRequest | EdgeRequest | None]) -> None:
+    def _update_existing_node_cache(self, mapped_instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]) -> None:
         """Updates the existing nodes cache for all direct relations properties that have
         constraints on the target node.
         """
@@ -1544,7 +1544,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         this with the DMS API as you cannot retrieve node with properties in a given container only given view.
 
         Args:
-            mapped_instances: Iterable of InstanceRequest or EdgeRequest or None. CAVEAT: The node request are
+            mapped_instances: Iterable of NodeOrEdgeRequest or EdgeRequest or None. CAVEAT: The node request are
                 mutated by this function
             issue_by_node_id: The issues by node id. CAVEAT: The collection is mutated if any property value
                 is removed.
@@ -1586,7 +1586,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                     source.properties[prop_id] = keep  # type: ignore[assignment]
 
     def _iterate_constrained_direct_relation_properties(
-        self, instances: Sequence[InstanceRequest | EdgeRequest | None]
+        self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
     ) -> Iterable[tuple[NodeId, dict[str, ContainerId], InstanceSource]]:
         for node in instances:
             if node is None or isinstance(node, EdgeRequest):
@@ -1619,7 +1619,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                     yield node.as_id(), constraint_by_prop_id, source
 
 
-class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
+class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """This is a custom case for mapping InField legacy to InField on CDM.
 
     In legacy, the schedules are modeled with edge connections as follows:
@@ -1634,7 +1634,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
     Template <- Schedule.template
     TemplateItems <- Schedule.templateItems (many).
 
-    This mapper assumes that the sequence of InstanceResponses are all schedules connected to a single template,
+    This mapper assumes that the sequence of NodeOrEdgeResponses are all schedules connected to a single template,
     along with all the edges between the template and template items, as well as the template items and schedules.
     Note there should be no template or template items in the source, only schedules and edges.
 
@@ -1675,9 +1675,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         retrieved = self.client.tool.views.retrieve([self._mapping.destination_view])
         self._connection_creator.update_view_cache(retrieved)
 
-    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
-        output: list[InstanceRequest | None] = []
+        output: list[NodeOrEdgeRequest | None] = []
         for duplicated_schedules in schedules.values():
             # Sort for deterministic output.
             duplicated_schedules.sort(key=lambda item: item.external_id)
@@ -1699,7 +1699,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         return output
 
     def _as_schedules_and_edges(
-        self, source: Sequence[InstanceResponse]
+        self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
         dict[str, list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
@@ -1764,7 +1764,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         duplicated_schedules: list[NodeResponse],
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
-    ) -> tuple[InstanceRequest | None, InstanceConversionIssue]:
+    ) -> tuple[NodeOrEdgeRequest | None, InstanceConversionIssue]:
         if not duplicated_schedules:
             raise ValueError("At least one schedule is required to create a schedule mapping.")
         first = duplicated_schedules[0]

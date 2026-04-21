@@ -1,11 +1,12 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, TypeAdapter, field_serializer
+from pydantic import BeforeValidator, Field, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class PropertyTypeDefinition(BaseModelObject, ABC):
@@ -100,6 +101,26 @@ class EnumProperty(PropertyTypeDefinition):
     values: dict[str, EnumValue]
 
 
+class UnknownPropertyType(PropertyTypeDefinition):
+    type: str
+
+
+def _handle_unknown_property_type(value: Any) -> Any:
+    if isinstance(value, dict):
+        prop_type = value.get("type")
+        if prop_type not in _PROPERTY_TYPE_BY_TYPE:
+            return UnknownPropertyType.model_validate(value)
+        return _PROPERTY_TYPE_BY_TYPE[prop_type].model_validate(value)
+    return value
+
+
+_PROPERTY_TYPE_BY_TYPE = registry_from_subclasses_with_type_field(
+    PropertyTypeDefinition,
+    type_field="type",
+    exclude=(UnknownPropertyType,),
+)
+
+
 DataType = Annotated[
     TextProperty
     | Float32Property
@@ -114,8 +135,9 @@ DataType = Annotated[
     | FileCDFExternalIdReference
     | SequenceCDFExternalIdReference
     | EnumProperty
-    | DirectNodeRelation,
-    Field(discriminator="type"),
+    | DirectNodeRelation
+    | UnknownPropertyType,
+    BeforeValidator(_handle_unknown_property_type),
 ]
 
 DataTypeAdapter: TypeAdapter[DataType] = TypeAdapter(DataType)

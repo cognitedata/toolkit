@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, JsonValue, TypeAdapter, field_serializer
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ViewDirectId,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_model_classes
 
 from ._data_types import DataType
 
@@ -63,7 +64,7 @@ class ViewCorePropertyResponse(ViewCoreProperty):
     type: DataType
 
     def as_request(self) -> ViewCorePropertyRequest:
-        return ViewCorePropertyRequest.model_validate(self.model_dump(by_alias=True))
+        return ViewCorePropertyRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
 
 
 class ConnectionPropertyDefinition(ViewPropertyDefinition, ABC):
@@ -135,21 +136,72 @@ class MultiReverseDirectRelationPropertyResponse(ReverseDirectRelationProperty):
         return MultiReverseDirectRelationPropertyRequest.model_validate(self.model_dump(by_alias=True))
 
 
+class UnknownViewPropertyRequest(ViewPropertyDefinition):
+    model_config = ConfigDict(extra="allow")
+    connection_type: str
+
+
+class UnknownViewPropertyResponse(ViewPropertyDefinition):
+    connection_type: str
+
+
+def _handle_view_request_property(value: Any) -> Any:
+    if isinstance(value, dict):
+        connection_type = value.get("connectionType") or "primary_property"
+        if connection_type not in _VIEW_REQUEST_PROPERTY_BY_CT:
+            return UnknownViewPropertyRequest.model_validate(value)
+        return _VIEW_REQUEST_PROPERTY_BY_CT[connection_type].model_validate(value)
+    return value
+
+
+def _handle_view_response_property(value: Any) -> Any:
+    if isinstance(value, dict):
+        connection_type = value.get("connectionType") or "primary_property"
+        if connection_type not in _VIEW_RESPONSE_PROPERTY_BY_CT:
+            return UnknownViewPropertyResponse.model_validate(value)
+        return _VIEW_RESPONSE_PROPERTY_BY_CT[connection_type].model_validate(value)
+    return value
+
+
+_VIEW_REQUEST_PROPERTY_BY_CT = registry_from_model_classes(
+    (
+        SingleEdgeProperty,
+        MultiEdgeProperty,
+        SingleReverseDirectRelationPropertyRequest,
+        MultiReverseDirectRelationPropertyRequest,
+        ViewCorePropertyRequest,
+    ),
+    type_field="connection_type",
+)
+_VIEW_RESPONSE_PROPERTY_BY_CT = registry_from_model_classes(
+    (
+        SingleEdgeProperty,
+        MultiEdgeProperty,
+        SingleReverseDirectRelationPropertyResponse,
+        MultiReverseDirectRelationPropertyResponse,
+        ViewCorePropertyResponse,
+    ),
+    type_field="connection_type",
+)
+
+
 ViewRequestProperty = Annotated[
     SingleEdgeProperty
     | MultiEdgeProperty
     | SingleReverseDirectRelationPropertyRequest
     | MultiReverseDirectRelationPropertyRequest
-    | ViewCorePropertyRequest,
-    Field(discriminator="connection_type"),
+    | ViewCorePropertyRequest
+    | UnknownViewPropertyRequest,
+    BeforeValidator(_handle_view_request_property),
 ]
 ViewResponseProperty = Annotated[
     SingleEdgeProperty
     | MultiEdgeProperty
     | SingleReverseDirectRelationPropertyResponse
     | MultiReverseDirectRelationPropertyResponse
-    | ViewCorePropertyResponse,
-    Field(discriminator="connection_type"),
+    | ViewCorePropertyResponse
+    | UnknownViewPropertyResponse,
+    BeforeValidator(_handle_view_response_property),
 ]
 
 ViewRequestPropertyAdapter: TypeAdapter[ViewRequestProperty] = TypeAdapter(ViewRequestProperty)
