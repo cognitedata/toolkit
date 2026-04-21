@@ -5,7 +5,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLim
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, FailedValidation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRulSet
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
@@ -90,23 +89,13 @@ class FunctionLimitsRule(ToolkitGlobalRulSet):
                     fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                 )
 
-        if requirement_txt := next(
-            (extra for extra in resource.extra_files if extra.source_path.name == "requirements.txt"), None
-        ):
+        function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
+        if function_folder.is_dir() and (requirement_txt := next(function_folder.rglob("requirements.txt"), None)):
             pip_result = validate_requirements_with_pip(
-                requirement_txt.source_path, function_def.index_url, function_def.extra_index_urls
+                requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
-            message = (
-                f"Function [bold]{function_def.external_id}[/bold] requirements.txt validation failed. "
-                f"Packages could not be resolved: {pip_result.error_message}"
-            )
-            if pip_result.is_credential_error:
-                message += (
-                    f"\n{HINT_LEAD_TEXT}This appears to be a credential/authentication issue. "
-                    "Check if the Personal Access Token (PAT) or credentials in indexUrl are valid and not expired."
-                )
             yield ConsistencyError(
-                message=message,
+                message=pip_result.create_message("Function", function_def.external_id),
                 code=f"{self.CODE_PREFIX}-REQUIREMENTS-TXT",
                 fix="Ensure that requirements.txt is valid.",
             )
