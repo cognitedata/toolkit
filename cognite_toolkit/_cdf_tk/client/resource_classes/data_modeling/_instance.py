@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeUntypedId,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class InstanceDefinition(BaseModelObject, ABC):
@@ -215,7 +215,7 @@ class UnknownInstanceResponse(InstanceResponseDefinition[UnknownInstanceRequest]
 
 def _handle_unknown_instance_request(value: Any) -> Any:
     if isinstance(value, dict):
-        instance_type = dict_discriminator_value(value, "instance_type")
+        instance_type = value.get("instanceType")
         if instance_type not in _INSTANCE_REQUEST_BY_TYPE:
             return UnknownInstanceRequest.model_validate(value)
         return _INSTANCE_REQUEST_BY_TYPE[instance_type].model_validate(value)
@@ -224,7 +224,7 @@ def _handle_unknown_instance_request(value: Any) -> Any:
 
 def _handle_unknown_instance_response(value: Any) -> Any:
     if isinstance(value, dict):
-        instance_type = dict_discriminator_value(value, "instance_type")
+        instance_type = value.get("instanceType")
         if instance_type not in _INSTANCE_RESPONSE_BY_TYPE:
             return UnknownInstanceResponse.model_validate(value)
         return _INSTANCE_RESPONSE_BY_TYPE[instance_type].model_validate(value)

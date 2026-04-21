@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ViewDirectId,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_model_classes
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_model_classes
 
 from ._data_types import DataType
 
@@ -148,7 +148,7 @@ class UnknownViewPropertyResponse(ViewPropertyDefinition):
 
 def _handle_view_request_property(value: Any) -> Any:
     if isinstance(value, dict):
-        connection_type = dict_discriminator_value(value, "connection_type") or "primary_property"
+        connection_type = value.get("connectionType") or "primary_property"
         if connection_type not in _VIEW_REQUEST_PROPERTY_BY_CT:
             return UnknownViewPropertyRequest.model_validate(value)
         return _VIEW_REQUEST_PROPERTY_BY_CT[connection_type].model_validate(value)
@@ -157,7 +157,7 @@ def _handle_view_request_property(value: Any) -> Any:
 
 def _handle_view_response_property(value: Any) -> Any:
     if isinstance(value, dict):
-        connection_type = dict_discriminator_value(value, "connection_type") or "primary_property"
+        connection_type = value.get("connectionType") or "primary_property"
         if connection_type not in _VIEW_RESPONSE_PROPERTY_BY_CT:
             return UnknownViewPropertyResponse.model_validate(value)
         return _VIEW_RESPONSE_PROPERTY_BY_CT[connection_type].model_validate(value)

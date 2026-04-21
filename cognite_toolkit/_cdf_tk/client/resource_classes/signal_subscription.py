@@ -18,7 +18,6 @@ class CurrentUserSinkRef(BaseModelObject):
 
 
 class UnknownSinkRef(BaseModelObject):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 

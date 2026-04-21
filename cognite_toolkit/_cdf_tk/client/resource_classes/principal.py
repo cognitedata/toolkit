@@ -7,11 +7,11 @@ https://api-docs.cognite.com/20230101/tag/Principals
 from abc import ABC
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, Field
+from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import PrincipalId
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 PrincipalType: TypeAlias = Literal["SERVICE_ACCOUNT", "USER"]
 
@@ -50,13 +50,12 @@ class UserPrincipal(PrincipalDefinition):
 
 
 class UnknownPrincipal(PrincipalDefinition):
-    model_config = ConfigDict(extra="allow")
     type: str
 
 
 def _handle_unknown_principal(value: Any) -> Any:
     if isinstance(value, dict):
-        principal_type = dict_discriminator_value(value, "type")
+        principal_type = value.get("type")
         if principal_type not in _PRINCIPAL_BY_TYPE:
             return UnknownPrincipal.model_validate(value)
         return _PRINCIPAL_BY_TYPE[principal_type].model_validate(value)

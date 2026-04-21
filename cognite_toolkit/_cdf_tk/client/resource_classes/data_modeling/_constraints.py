@@ -6,7 +6,7 @@ from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class ConstraintDefinition(BaseModelObject, ABC):
@@ -36,7 +36,7 @@ class UnknownConstraintDefinition(ConstraintDefinition):
 
 def _handle_unknown_constraint(value: Any) -> Any:
     if isinstance(value, dict):
-        constraint_type = dict_discriminator_value(value, "constraint_type")
+        constraint_type = value.get("constraintType")
         if constraint_type not in _CONSTRAINT_BY_TYPE:
             return UnknownConstraintDefinition.model_validate(value)
         return _CONSTRAINT_BY_TYPE[constraint_type].model_validate(value)

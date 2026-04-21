@@ -4,22 +4,11 @@ from abc import ABC
 from collections.abc import Iterable
 from typing import Annotated, Any, Literal, TypeVar, Union, get_args, get_origin
 
-from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticUndefined
 
 from cognite_toolkit import _version
 
 T_Cls = TypeVar("T_Cls")
-
-
-def dict_discriminator_value(value: dict[str, Any], field_name: str) -> Any:
-    """Read discriminator from an API dict (snake_case or camelCase alias)."""
-    if field_name in value:
-        return value[field_name]
-    camel = to_camel(field_name)
-    if camel in value:
-        return value[camel]
-    return None
 
 
 def literal_string_values_from_annotation(annotation: Any) -> list[str]:

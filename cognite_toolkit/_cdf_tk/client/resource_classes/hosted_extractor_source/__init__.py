@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from pydantic import BeforeValidator, TypeAdapter
 
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 from ._auth import (
     BasicAuthenticationRequest,
@@ -24,7 +24,7 @@ from ._rest import RESTSourceRequest, RESTSourceResponse
 
 def _handle_source_request_union(value: Any) -> Any:
     if isinstance(value, dict):
-        source_type = dict_discriminator_value(value, "type")
+        source_type = value.get("type")
         if source_type not in _SOURCE_REQUEST_BY_TYPE:
             return UnknownSourceRequest.model_validate(value)
         return _SOURCE_REQUEST_BY_TYPE[source_type].model_validate(value)
@@ -33,7 +33,7 @@ def _handle_source_request_union(value: Any) -> Any:
 
 def _handle_source_response_union(value: Any) -> Any:
     if isinstance(value, dict):
-        source_type = dict_discriminator_value(value, "type")
+        source_type = value.get("type")
         if source_type not in _SOURCE_RESPONSE_BY_TYPE:
             return UnknownSourceResponse.model_validate(value)
         return _SOURCE_RESPONSE_BY_TYPE[source_type].model_validate(value)

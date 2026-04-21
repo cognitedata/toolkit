@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.utils._auxiliary import dict_discriminator_value, registry_from_subclasses_with_type_field
+from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 
 class JobFormatDefinition(BaseModelObject):
@@ -62,7 +62,7 @@ class UnknownJobFormat(JobFormatDefinition):
 
 def _handle_unknown_job_format(value: Any) -> Any:
     if isinstance(value, dict):
-        fmt_type = dict_discriminator_value(value, "type")
+        fmt_type = value.get("type")
         if fmt_type not in _JOB_FORMAT_BY_TYPE:
             return UnknownJobFormat.model_validate(value)
         return _JOB_FORMAT_BY_TYPE[fmt_type].model_validate(value)
@@ -115,7 +115,7 @@ class UnknownIncrementalLoad(IncrementalLoadDefinition):
 
 def _handle_unknown_incremental_load(value: Any) -> Any:
     if isinstance(value, dict):
-        load_type = dict_discriminator_value(value, "type")
+        load_type = value.get("type")
         if load_type not in _INCREMENTAL_LOAD_BY_TYPE:
             return UnknownIncrementalLoad.model_validate(value)
         return _INCREMENTAL_LOAD_BY_TYPE[load_type].model_validate(value)
