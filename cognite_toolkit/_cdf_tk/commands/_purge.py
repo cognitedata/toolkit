@@ -267,7 +267,6 @@ class PurgeCommand(ToolkitCommand):
             self._block_if_external_views_reference_containers(client, selected_space)
 
         if not dry_run:
-            self._print_cross_reference_check_panel()
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
                 validate_soft_delete_purge_headroom(
@@ -655,20 +654,6 @@ class PurgeCommand(ToolkitCommand):
             f"Cannot proceed with purge of space {selected_space!r}: one or more containers in this space are referenced by views "
             "in other spaces. Deleting containers that are still referenced by views would cause breaking changes to those views. "
             "If you are sure you still want to delete these containers, you need to remove all versions of all views that reference these containers (refer to the table above), then re-run the purge."
-        )
-
-    @staticmethod
-    def _print_cross_reference_check_panel() -> None:
-        print(
-            Panel(
-                "Before deleting containers, Toolkit calls the [bold]models/containers/inspect[/bold] "
-                "endpoint and blocks the purge if any container is referenced by a view in another "
-                "space. References inside this space are part of the purge and are not blocked.",
-                title="Cross-reference safety check",
-                title_align="left",
-                border_style="cyan",
-                expand=False,
-            )
         )
 
     @staticmethod
