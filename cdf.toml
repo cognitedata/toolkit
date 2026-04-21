@@ -1,6 +1,7 @@
 [cdf]
 default_organization_dir = "cognite_toolkit"
 #default_env = "dev"
+#default_config_yaml = "my_sim/config.dev2.yaml"
 file_encoding = "utf-8"
 file_upload_timeout_seconds = 90
 
