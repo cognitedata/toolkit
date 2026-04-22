@@ -112,12 +112,12 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE", "RUN"]], scope: ScopeDefinition) -> Iterable[AclType]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
             yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
             # The files ACL is needed to deploy the function code.
-            yield FilesAcl(actions=sorted(actions & {"READ", "WRITE"}), scope=scope)
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
