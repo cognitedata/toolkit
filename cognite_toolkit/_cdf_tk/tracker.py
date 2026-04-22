@@ -156,12 +156,6 @@ class Tracker:
     def _cicd(self) -> str:
         return get_cicd_environment()
 
-    def enable(self) -> None:
-        self._opt_status_file.write_text("opted-in")
-
-    def disable(self) -> None:
-        self._opt_status_file.write_text("opted-out")
-
 
 def _collect_click_command_names(group: "Command", names: set[str]) -> None:
     if hasattr(group, "commands"):
