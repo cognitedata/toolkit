@@ -27,7 +27,6 @@ class TestTracker:
         """Create a tracker instance for testing with mocked mixpanel."""
         with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
             tracker = Tracker(skip_tracking=False)
-            tracker._opt_status = "opted-in"
             return tracker
 
     def test_basic_info(self) -> None:

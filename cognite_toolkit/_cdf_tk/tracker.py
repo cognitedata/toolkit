@@ -6,7 +6,6 @@ import threading
 import uuid
 from collections import Counter
 from contextlib import suppress
-from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -35,12 +34,6 @@ class Tracker:
         self.skip_tracking = skip_tracking
         self.client = client
         self._cdf_toml = CDFToml.load()
-
-    @cached_property
-    def _opt_status(self) -> str:
-        if self._opt_status_file.exists():
-            return self._opt_status_file.read_text()
-        return ""
 
     def track_cli_command(
         self,
