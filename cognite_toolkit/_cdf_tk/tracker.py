@@ -110,13 +110,6 @@ class Tracker:
         if additional_tracking_info:
             event_information.update(additional_tracking_info.to_dict())
 
-        distinct_id = self.get_distinct_id()
-        if self.client:
-            user_info = UserInfo.load(self.client)
-            event_information.update(user_info.model_dump(exclude_none=True))
-            if user_info.id:
-                distinct_id = user_info.id
-
         return self._track(distinct_id, f"command{cmd.capitalize()}", event_information)
 
     def _track(self, distinct_id: str, event_name: str, event_information: dict[str, Any]) -> bool:
@@ -137,21 +130,29 @@ class Tracker:
     def get_distinct_id(self, client: ToolkitClient | None = None) -> str:
         if self._distinct_id:
             return self._distinct_id
+        distinct_id: str | None = None
+        user_properties = {"$os": platform.system(), "CICD": self._cicd}
+        if client:
+            # First choice, use CDF.
+            user_info = UserInfo.load(client)
+            user_properties.update(user_info.model_dump(exclude_none=True, mode="json", exclude_unset=True))
+            if user_info.id:
+                distinct_id = user_info.id
+                user_properties["mode"] = "online"
 
-        cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
-        if cache_file.exists():
-            return cache_file.read_text()
-        distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
-        cache_file.write_text(distinct_id)
+        if distinct_id is None:
+            # Fallback to generate an ID and load from file.
+            user_properties["mode"] = "offline"
+            cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
+            if cache_file.exists():
+                distinct_id = cache_file.read_text()
+            else:
+                distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
+                cache_file.write_text(distinct_id)
 
-        user_properties = {
-            "$os": platform.system(),
-            # "$python_version": platform.python_version(),
-            "$distinct_id": distinct_id,
-            "CICD": self._cicd,
-        }
         with suppress(ConnectionError, MixpanelException):
             self.mp.people_set(distinct_id, user_properties)
+        self._distinct_id = distinct_id
         return distinct_id
 
     @staticmethod
