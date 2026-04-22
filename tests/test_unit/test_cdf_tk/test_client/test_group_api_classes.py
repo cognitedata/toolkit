@@ -64,6 +64,7 @@ def all_acls() -> Iterable[tuple]:
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"functionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"functionsAcl": {"actions": ["READ", "WRITE", "RUN"], "scope": {"all": {}}}},
         {"genericsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
