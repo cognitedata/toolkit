@@ -8,8 +8,11 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
@@ -40,6 +43,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     ResourceWorker,
 )
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios import ContainerCRUD, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import Loader
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios import SimulatorModelRevisionIO, SimulatorRoutineRevisionIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -297,6 +301,11 @@ class CleanCommand(ToolkitCommand):
         }
         selected_loaders = self.get_selected_loaders(build_dir, selected_resource_folders, include)
 
+        if ContainerCRUD in selected_loaders:
+            self._block_if_out_of_scope_views_reference_containers(
+                client, build_dir, selected_modules, env_vars
+            )
+
         results = DeployResults([], "clean", dry_run=dry_run)
 
         resolved_list: list[type[Loader]] = []
@@ -334,6 +343,56 @@ class CleanCommand(ToolkitCommand):
             print(results.counts_table())
         if results.has_uploads:
             print(results.uploads_table())
+
+    @staticmethod
+    def _block_if_out_of_scope_views_reference_containers(
+        client: ToolkitClient,
+        build_dir: Path,
+        selected_modules: list[ReadModule],
+        env_vars: EnvironmentVariables,
+    ) -> None:
+        """Block the clean if any container being cleaned is referenced by views not in scope.
+
+        Loads in-scope container and view IDs from the selected modules' YAML files, calls
+        the ``models/containers/inspect`` endpoint, and raises if any referencing view is not
+        part of the current clean operation.
+        """
+        environment_variables = env_vars.dump(include_os=True)
+
+        container_loader = ContainerCRUD.create_loader(client, build_dir)
+        container_worker = ResourceWorker(container_loader, "clean")
+        container_files = container_worker.load_files(read_modules=selected_modules)
+        if not container_files:
+            return
+        container_local = container_worker.load_resources(
+            filepaths=container_files,
+            environment_variables=environment_variables,
+            is_dry_run=True,
+        )
+        if not container_local:
+            return
+        existing_containers = container_loader.retrieve(list(container_local.keys()))
+        if not existing_containers:
+            return
+        existing_container_ids = [ContainerId(space=c.space, external_id=c.external_id) for c in existing_containers]
+
+        view_loader = ViewIO.create_loader(client, build_dir)
+        view_worker = ResourceWorker(view_loader, "clean")
+        view_files = view_worker.load_files(read_modules=selected_modules)
+        in_scope_view_ids: set[ViewId] = set()
+        if view_files:
+            view_local = view_worker.load_resources(
+                filepaths=view_files,
+                environment_variables=environment_variables,
+                is_dry_run=True,
+            )
+            in_scope_view_ids = set(view_local.keys())
+
+        block_if_views_reference_containers(
+            client=client,
+            container_ids=existing_container_ids,
+            is_in_scope=in_scope_view_ids.__contains__,
+        )
 
     def get_selected_loaders(
         self, build_dir: Path, read_resource_folders: set[str], include: list[str] | None

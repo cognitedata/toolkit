@@ -21,7 +21,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, Cognit
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.commands._purge import validate_soft_delete_purge_headroom
+from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -488,7 +489,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with the operation"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
@@ -536,7 +537,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with the operation"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
@@ -580,7 +581,14 @@ class TestPurgeSpaceCrossReferenceCheck:
         )
 
         # Should not raise — same-space view is part of the purge
-        PurgeCommand._block_if_external_views_reference_containers(purge_client, space)
+        container_ids_to_check = [
+            ContainerId(space=container.space, external_id=container.external_id)
+        ]
+        block_if_views_reference_containers(
+            client=purge_client,
+            container_ids=container_ids_to_check,
+            is_in_scope=lambda view: view.space == space,
+        )
 
 
 class TestSoftDeletePurgeHeadroom:
@@ -595,7 +603,7 @@ class TestSoftDeletePurgeHeadroom:
             instances=1000,
             soft_deleted_instances=9_200_000,
         )
-        with pytest.raises(ToolkitValueError, match="Cannot proceed"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with test purge"):
             validate_soft_delete_purge_headroom(inst_stats, 900_000, action="test purge")
 
     def test_validate_ok_when_headroom_sufficient(self) -> None:

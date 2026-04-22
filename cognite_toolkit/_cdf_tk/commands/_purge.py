@@ -14,7 +14,6 @@ from pydantic import JsonValue
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -81,6 +80,11 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
+from ._utils import block_if_views_reference_containers
+
+
+def _view_is_in_space(space: str, view: ViewId) -> bool:
+    return view.space == space
 
 
 def validate_soft_delete_purge_headroom(
@@ -264,7 +268,15 @@ class PurgeCommand(ToolkitCommand):
             )
 
         if stats.containers > 0:
-            self._block_if_external_views_reference_containers(client, selected_space)
+            container_ids = [
+                ContainerId(space=c.space, external_id=c.external_id)
+                for c in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
+            ]
+            block_if_views_reference_containers(
+                client=client,
+                container_ids=container_ids,
+                is_in_scope=partial(_view_is_in_space, selected_space),
+            )
 
         if not dry_run:
             if instance_count > 0:
@@ -601,62 +613,6 @@ class PurgeCommand(ToolkitCommand):
                 ]
             )
         return to_delete
-
-    @staticmethod
-    def _block_if_external_views_reference_containers(client: ToolkitClient, selected_space: str) -> None:
-        """Block the purge if any container in the space is referenced by views in other spaces.
-
-        Uses the ``models/containers/inspect`` endpoint with both the ``involvedViews`` and
-        ``totalInvolvedViewCount`` operations.  The total count is authoritative — it includes views
-        the caller cannot access — so blocking is decided on the count, not the view list.
-        Same-space views are excluded because they are themselves part of the purge.
-        """
-        container_ids = [
-            ContainerId(space=container.space, external_id=container.external_id)
-            for container in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
-        ]
-        if not container_ids:
-            return
-
-        # (external_views_seen, hidden_count) per blocked container
-        blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
-        for inspected in client.tool.containers.inspect(container_ids):
-            results = inspected.inspection_results
-            external_seen = [view for view in results.involved_views if view.space != selected_space]
-            # Hidden views (not returned in involvedViews) must be from other spaces: purge access
-            # to selected_space implies read access, so any same-space views would be visible.
-            hidden_count = results.involved_view_count - len(results.involved_views)
-            if not external_seen and hidden_count == 0:
-                continue
-            container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
-            blocked[container_id] = (external_seen, hidden_count)
-        if not blocked:
-            return
-
-        table = Table(
-            title=f"Purge is blocked since containers in [bold]{selected_space}[/bold] are referenced by views in other spaces",
-            title_justify="left",
-            show_lines=True,
-        )
-        table.add_column("Container", no_wrap=True)
-        table.add_column("Referencing view(s)", no_wrap=True)
-        for container_id, (external_seen, hidden_count) in blocked.items():
-            container_label = f"{container_id.space}:{container_id.external_id}"
-            rows: list[tuple[str, str]] = [
-                (container_label if index == 0 else "", f"{view.space}:{view.external_id}/{view.version}")
-                for index, view in enumerate(external_seen)
-            ]
-            if hidden_count > 0:
-                hidden_label = f"[dim italic]{hidden_count} view(s) you do not have access to[/]"
-                rows.append(("" if external_seen else container_label, hidden_label))
-            for label, view_label in rows:
-                table.add_row(label, view_label)
-        print(table)
-        raise ToolkitValueError(
-            f"Cannot proceed with purge of space {selected_space!r}: one or more containers in this space are referenced by views "
-            "in other spaces. Deleting containers that are still referenced by views would cause breaking changes to those views. "
-            "If you are sure you still want to delete these containers, you need to remove all versions of all views that reference these containers (refer to the table above), then re-run the purge."
-        )
 
     @staticmethod
     def _print_panel(resource_type: str, resource: str) -> None:
