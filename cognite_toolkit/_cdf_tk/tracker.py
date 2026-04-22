@@ -63,16 +63,15 @@ class Tracker:
         return self._all_event_properties
 
     def track(self, event: TrackingEvent, client: ToolkitClient | None) -> bool:
-        distinct_id = self.get_distinct_id(client)
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
+            return False
+        distinct_id = self._get_distinct_id(client)
         event_properties = event.to_dict()
         event_properties.update(self._get_all_event_properties(client))
 
         return self._track(distinct_id, event.event_name, event_properties)
 
     def _track(self, distinct_id: str, event_name: str, event_information: dict[str, Any]) -> bool:
-        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
-            return False
-
         def track() -> None:
             with suppress(ConnectionError, MixpanelException):
                 self.mp.track(distinct_id, event_name, event_information)
@@ -84,7 +83,7 @@ class Tracker:
 
         return True
 
-    def get_distinct_id(self, client: ToolkitClient | None = None) -> str:
+    def _get_distinct_id(self, client: ToolkitClient | None = None) -> str:
         if self._distinct_id:
             return self._distinct_id
         distinct_id: str | None = None
