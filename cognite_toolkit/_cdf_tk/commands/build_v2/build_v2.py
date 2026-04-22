@@ -744,7 +744,9 @@ class BuildV2Command(ToolkitCommand):
         table.add_column("Status", style="dim")
         table.add_column("Message", style="dim")
         for step in plan:
-            status_style = {"ready": "green", "skip": "yellow", "unavailable": "yellow"}[step.status.code]
+            status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
+                step.status.code
+            ]
             status_display = f"[{status_style}]{step.status.code}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
