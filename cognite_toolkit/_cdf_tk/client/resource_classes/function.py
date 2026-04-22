@@ -23,7 +23,7 @@ class FunctionBase(BaseModelObject):
     env_vars: dict[str, str] | None = None
     cpu: float | None = None
     memory: float | None = None
-    runtime: FunctionRuntime | None = None
+    runtime: FunctionRuntime | str | None = None
     metadata: Metadata | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
