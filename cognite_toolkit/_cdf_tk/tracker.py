@@ -1,26 +1,18 @@
 import os
 import platform
-import sys
 import tempfile
 import threading
 import uuid
-from collections import Counter
 from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-
-if TYPE_CHECKING:
-    from click import Command
+from typing import Any
 
 from mixpanel import Consumer, Mixpanel, MixpanelException
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo, TrackingEvent
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
+from cognite_toolkit._cdf_tk.data_classes import TrackingEvent
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
 from cognite_toolkit._version import __version__
@@ -29,13 +21,9 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, skip_tracking: bool = False, client: ToolkitClient | None = None) -> None:
-        self.user_command = "".join(sys.argv[1:])
+    def __init__(self, skip_tracking: bool = False) -> None:
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
-        self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = skip_tracking
-        self.client = client
-        self._cdf_toml = CDFToml.load()
         self._distinct_id: str | None = None
         self._all_event_properties: dict[str, Any] | None = None
 
@@ -74,43 +62,12 @@ class Tracker:
         }
         return self._all_event_properties
 
-    def track(self, event: TrackingEvent, client: ToolkitClient) -> bool:
+    def track(self, event: TrackingEvent, client: ToolkitClient | None) -> bool:
         distinct_id = self.get_distinct_id(client)
         event_properties = event.to_dict()
         event_properties.update(self._get_all_event_properties(client))
 
         return self._track(distinct_id, event.event_name, event_properties)
-
-    def track_cli_command(
-        self,
-        warning_list: WarningList[ToolkitWarning],
-        result: str | Exception,
-        cmd: str,
-        additional_tracking_info: CommandTrackingInfo | None = None,
-    ) -> bool:
-        warning_count = Counter([type(w).__name__ for w in warning_list])
-
-        warning_details: dict[str, str | int] = {}
-        for no, (warning, count) in enumerate(warning_count.most_common(3), 1):
-            warning_details[f"warningMostCommon{no}Count"] = count
-            warning_details[f"warningMostCommon{no}Name"] = warning
-
-        subcommands = self._parse_sys_args(self._collect_known_commands())
-        event_information = {
-            "userInput": " ".join(subcommands),
-            "warningTotalCount": len(warning_list),
-            **warning_details,
-            "result": type(result).__name__ if isinstance(result, Exception) else result,
-            "error": str(result) if isinstance(result, Exception) else "",
-            "subcommands": subcommands,
-            "alphaFlags": [name for name, value in self._cdf_toml.alpha_flags.items() if value],
-            "plugins": [name for name, value in self._cdf_toml.plugins.items() if value],
-        }
-
-        if additional_tracking_info:
-            event_information.update(additional_tracking_info.to_dict())
-
-        return self._track(distinct_id, f"command{cmd.capitalize()}", event_information)
 
     def _track(self, distinct_id: str, event_name: str, event_information: dict[str, Any]) -> bool:
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
@@ -155,39 +112,6 @@ class Tracker:
         self._distinct_id = distinct_id
         return distinct_id
 
-    @staticmethod
-    def _parse_sys_args(known_commands: frozenset[str]) -> list[str]:
-        return [arg for arg in sys.argv[1:] if arg in known_commands]
-
-    @staticmethod
-    def _collect_known_commands() -> frozenset[str]:
-        """Collect all registered CLI command names by introspecting the loaded Typer app.
-
-        Uses sys.modules to avoid a circular import — the app module is always loaded
-        before tracking runs, so no explicit import is needed here.
-        """
-        module = sys.modules.get("cognite_toolkit._cdf")
-        if module is None:
-            return frozenset()
-        try:
-            import typer.main as typer_main
-
-            app = getattr(module, "_app", None)
-            if app is None:
-                return frozenset()
-            names: set[str] = set()
-            _collect_click_command_names(typer_main.get_command(app), names)
-            return frozenset(names)
-        except (ImportError, AttributeError):
-            return frozenset()
-
     @property
     def _cicd(self) -> str:
         return get_cicd_environment()
-
-
-def _collect_click_command_names(group: "Command", names: set[str]) -> None:
-    if hasattr(group, "commands"):
-        for name, cmd in group.commands.items():
-            names.add(name)
-            _collect_click_command_names(cmd, names)

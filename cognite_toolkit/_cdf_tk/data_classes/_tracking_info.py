@@ -9,9 +9,6 @@ from pydantic.alias_generators import to_camel
 class TrackingEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel)
     event_name: str = Field(exclude=True)
-    project: str | None = Field(default=None)
-    cluster: str | None = Field(default=None)
-    organization: str | None = Field(default=None)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the tracking info to a dictionary for Mixpanel.
@@ -23,7 +20,7 @@ class TrackingEvent(BaseModel):
         return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
 
 
-class CommandTrackingInfo(TrackingEvent):
+class CommandTracking(TrackingEvent):
     """Structured tracking information for CLI commands.
 
     This model provides type-safe tracking information that can be collected
@@ -50,3 +47,9 @@ class CommandTrackingInfo(TrackingEvent):
     function_validation_failures: int = Field(default=0)
     function_validation_credential_errors: int = Field(default=0)
     function_validation_time_ms: int = Field(default=0)
+    warning_total_count: int = Field(default=0)
+    result: str = Field(default="")
+    error: str | None = Field(default=None)
+    subcommands: list[str] = Field(default_factory=list)
+    alpha_flags: list[str] = Field(default_factory=list)
+    plugins: list[str] = Field(default_factory=list)
