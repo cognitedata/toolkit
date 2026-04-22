@@ -34,6 +34,7 @@ class Tracker:
         self.skip_tracking = skip_tracking
         self.client = client
         self._cdf_toml = CDFToml.load()
+        self._distinct_id: str | None = None
 
     def track_cli_command(
         self,
@@ -93,22 +94,23 @@ class Tracker:
         return True
 
     def get_distinct_id(self) -> str:
+        if self._distinct_id:
+            return self._distinct_id
+
         cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
         if cache_file.exists():
             return cache_file.read_text()
-
         distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
         cache_file.write_text(distinct_id)
+
+        user_properties = {
+            "$os": platform.system(),
+            "$python_version": platform.python_version(),
+            "$distinct_id": distinct_id,
+            "CICD": self._cicd,
+        }
         with suppress(ConnectionError, MixpanelException):
-            self.mp.people_set(
-                distinct_id,
-                {
-                    "$os": platform.system(),
-                    "$python_version": platform.python_version(),
-                    "$distinct_id": distinct_id,
-                    "CICD": self._cicd,
-                },
-            )
+            self.mp.people_set(distinct_id, user_properties)
         return distinct_id
 
     @staticmethod

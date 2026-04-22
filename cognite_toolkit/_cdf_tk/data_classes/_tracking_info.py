@@ -30,8 +30,6 @@ class CommandTrackingInfo(MixpanelEvent):
     during command execution and sent to Mixpanel for analytics.
 
     Attributes:
-        project: The CDF project name.
-        cluster: The CDF cluster name.
         module_ids: List of module IDs that were deployed or built.
         package_ids: List of package IDs that were deployed or built.
         installed_module_ids: List of module IDs that were installed.
