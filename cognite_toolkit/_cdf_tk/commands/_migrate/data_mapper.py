@@ -455,6 +455,20 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         chart_dest = "Charts (data modeling)"
         for item in source:
             identifier = item.external_id
+
+            if not item.data.time_series_collection:
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=identifier,
+                        label="No asset-centric timeseries in Chart.",
+                        severity=Severity.skipped,
+                        message=f"There are only {len(item.data.core_timeseries_collection or [])} CogniteTimesSeries in the chart.",
+                        source=chart_src,
+                        destination=chart_dest,
+                    )
+                )
+                output.append(None)
+                continue
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
             )

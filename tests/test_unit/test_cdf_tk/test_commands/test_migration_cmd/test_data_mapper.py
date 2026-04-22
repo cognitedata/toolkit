@@ -71,7 +71,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger
+from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.data import MIGRATION_DIR
 
@@ -459,7 +459,7 @@ class TestChartMapper:
 
         data_regression.check(dumped, fullpath=output_chart_path)
 
-    def test_skip_dms_chart(self) -> None:
+    def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
         request_format = yaml.safe_load(dms_chart.read_text(encoding="utf-8"))
         # Make this into response
@@ -474,9 +474,13 @@ class TestChartMapper:
             mapper = ChartMapper(client)
             logger = FileWithAggregationLogger(MagicMock())
             mapper.logger = logger
-            result = ChartMapper(client).map([chart])
+            result = mapper.map([chart])
 
         assert result == [None]
+
+        aggregations = logger.aggregations_by_ids[chart.external_id]
+        assert len(aggregations) == 1
+        assert aggregations[0].severity == Severity.skipped
 
 
 class TestFDMtoCDMMapper:
