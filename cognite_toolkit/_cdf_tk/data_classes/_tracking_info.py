@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
-class MixpanelEvent(BaseModel):
+class TrackingEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel)
     event_name: str = Field(exclude=True)
     project: str | None = Field(default=None)
@@ -23,7 +23,7 @@ class MixpanelEvent(BaseModel):
         return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
 
 
-class CommandTrackingInfo(MixpanelEvent):
+class CommandTrackingInfo(TrackingEvent):
     """Structured tracking information for CLI commands.
 
     This model provides type-safe tracking information that can be collected
