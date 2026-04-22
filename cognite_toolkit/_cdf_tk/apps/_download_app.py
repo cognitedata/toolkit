@@ -635,7 +635,11 @@ class DownloadApp(typer.Typer):
         selectors: list[DataSelector]
         if include_file_contents:
             selector = DocumentsInteractiveSelect(client, max_selected=100)
-            file_format = AssetCentricFormats.ndjson
+            file_format = questionary.select(
+                "Select format for the downloaded file metadata:",
+                choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
+                default=file_format,
+            ).unsafe_ask()
             download_dir_name = "asset_centric-files-with-content"
             output_dir = Path(
                 questionary.path(
