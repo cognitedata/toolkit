@@ -9,7 +9,6 @@ from typing import Any, Literal, cast
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate
-from cognite.client.data_classes.data_modeling import Edge
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
@@ -148,8 +147,13 @@ class ToDelete(ABC):
 
     @abstractmethod
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
         raise NotImplementedError()
 
     def get_extra_fields(self) -> dict[str, JsonVal]:
@@ -159,11 +163,19 @@ class ToDelete(ABC):
 @dataclass
 class DataModelingToDelete(ToDelete):
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
+        def as_id(chunk: list[DataItem[ResourceResponseProtocol]]) -> list[DataItem[dict[str, Any]]]:
             # We know that all data modeling resources implement as_id
-            return [item.as_id().dump() for item in chunk]  # type: ignore[attr-defined]
+            return [
+                DataItem(tracking_id=item.tracking_id, item=item.item.as_id().dump())  # type: ignore[attr-defined]
+                for item in chunk
+            ]
 
         return as_id
 
@@ -171,12 +183,20 @@ class DataModelingToDelete(ToDelete):
 @dataclass
 class EdgeToDelete(ToDelete):
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
+        def as_id(chunk: list[DataItem[ResourceResponseProtocol]]) -> list[DataItem[dict[str, Any]]]:
             return [
-                {"space": item.space, "externalId": item.external_id, "instanceType": "edge"}
-                for item in cast(list[Edge], chunk)
+                DataItem(
+                    tracking_id=item.tracking_id,
+                    item={"space": item.item.space, "externalId": item.item.external_id, "instanceType": "edge"},  # type: ignore[attr-defined]
+                )
+                for item in chunk
             ]
 
         return as_id
@@ -188,10 +208,23 @@ class NodesToDelete(ToDelete):
     delete_file_content: bool
 
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def check_for_data(chunk: list[NodeResponse]) -> list[JsonVal]:
-            instance_ids = [InstanceId(instance_id=item.as_id()) for item in chunk]
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
+        def check_for_data(chunk: list[DataItem[ResourceResponseProtocol]]) -> list[DataItem[dict[str, Any]]]:
+            # Build mapping from NodeId to DataItem for tracking
+            nodes_by_id: dict[NodeId, DataItem[ResourceResponseProtocol]] = {}
+            instance_ids: list[InstanceId] = []
+            for item in chunk:
+                node = cast(NodeResponse, item.item)
+                node_id = node.as_id()
+                nodes_by_id[node_id] = item
+                instance_ids.append(InstanceId(instance_id=node_id))
+
             found_ids: set[NodeId] = set()
             if not self.delete_datapoints:
                 timeseries = client.tool.timeseries.retrieve(instance_ids, ignore_unknown_ids=True)
@@ -199,26 +232,50 @@ class NodesToDelete(ToDelete):
             if not self.delete_file_content:
                 files = client.tool.filemetadata.retrieve(instance_ids, ignore_unknown_ids=True)
                 found_ids |= {f.instance_id for f in files if f.instance_id is not None}
+
             if found_ids and verbose:
-                console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
+                console.print(f"Skipping {len(found_ids)} nodes as they have datapoints or file content")
+
+            # Log skipped items
+            for node_id in found_ids:
+                if node_id in nodes_by_id:
+                    data_item = nodes_by_id[node_id]
+                    logger.log(
+                        LogEntryV2(
+                            id=data_item.tracking_id,
+                            label="Skipped - has linked data",
+                            severity=Severity.skipped,
+                            message="Node has datapoints or file content and was not deleted",
+                        )
+                    )
+
             process_results.unchanged += len(found_ids)
-            result: list[JsonVal] = []
-            for node_id in (n.instance_id for n in instance_ids if n.instance_id not in found_ids):
-                dumped = node_id.dump(include_instance_type=True)
-                result.append(dumped)
+            result: list[DataItem[dict[str, Any]]] = []
+            for node_id, data_item in nodes_by_id.items():
+                if node_id not in found_ids:
+                    dumped = node_id.dump(include_instance_type=True)
+                    result.append(DataItem(tracking_id=data_item.tracking_id, item=dumped))
             return result
 
-        return check_for_data  # type: ignore[return-value]
+        return check_for_data
 
 
 @dataclass
 class IdResourceToDelete(ToDelete):
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
+        def as_id(chunk: list[DataItem[ResourceResponseProtocol]]) -> list[DataItem[dict[str, Any]]]:
             # We know that all id resources have an id attribute
-            return [{"id": item.id} for item in chunk]  # type: ignore[attr-defined]
+            return [
+                DataItem(tracking_id=item.tracking_id, item={"id": item.item.id})  # type: ignore[attr-defined]
+                for item in chunk
+            ]
 
         return as_id
 
@@ -226,11 +283,19 @@ class IdResourceToDelete(ToDelete):
 @dataclass
 class ExternalIdToDelete(ToDelete):
     def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def as_external_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+        self,
+        client: ToolkitClient,
+        console: Console,
+        verbose: bool,
+        process_results: ResourceDeployResult,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[ResourceResponseProtocol]]], list[DataItem[dict[str, Any]]]]:
+        def as_external_id(chunk: list[DataItem[ResourceResponseProtocol]]) -> list[DataItem[dict[str, Any]]]:
             # We know that all external id resources have an external_id attribute
-            return [{"externalId": item.external_id} for item in chunk]  # type: ignore[attr-defined]
+            return [
+                DataItem(tracking_id=item.tracking_id, item={"externalId": item.item.external_id})  # type: ignore[attr-defined]
+                for item in chunk
+            ]
 
         return as_external_id
 
@@ -306,9 +371,21 @@ class PurgeCommand(ToolkitCommand):
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            results = self._delete_resources(to_delete, client, verbose, selected_space, None)
-            if include_space:
-                self._delete_space(client, selected_space, results)
+            log_dir = Path.cwd()
+            log_filestem = self._create_purge_logfile_stem(log_dir)
+            console = client.console
+
+            with (
+                NDJsonWriter(
+                    log_dir, kind="PurgeIssues", default_filestem=log_filestem, compression=Uncompressed
+                ) as log_file,
+                FileWithAggregationLogger(log_file) as logger,
+            ):
+                results = self._delete_resources(
+                    to_delete, client, verbose, selected_space, None, dry_run=False, logger=logger, console=console
+                )
+                if include_space:
+                    self._delete_space(client, selected_space, results, logger)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
 
@@ -346,13 +423,24 @@ class PurgeCommand(ToolkitCommand):
         ]
         return to_delete
 
-    def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
+    def _delete_space(
+        self, client: ToolkitClient, selected_space: str, results: DeployResults, logger: FileWithAggregationLogger
+    ) -> None:
         space_loader = SpaceCRUD.create_loader(client)
+        logger.register([selected_space])
         try:
             space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+            logger.log(
+                LogEntryV2(
+                    id=selected_space,
+                    label="Delete space failed",
+                    severity=Severity.failure,
+                    message=str(e),
+                )
+            )
         else:
             results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
 
@@ -363,23 +451,44 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool,
         space: str | None,
         data_set_external_id: str | None,
+        dry_run: bool,
+        logger: FileWithAggregationLogger,
+        console: Console,
     ) -> DeployResults:
-        results = DeployResults([], "purge", dry_run=False)
-        console = Console()
+        results = DeployResults([], "purge", dry_run=dry_run)
         with HTTPClient(client.config, max_retries=10) as delete_client:
             for item in to_delete:
                 if item.total == 0:
                     results[item.display_name] = ResourceDeployResult(item.display_name, deleted=0)
                     continue
+
+                logger.reset()
                 # Two results objects since they are updated concurrently
                 process_results = ResourceDeployResult(item.display_name)
                 write_results = ResourceDeployResult(item.display_name)
-                executor = ProducerWorkerExecutor[list[ResourceResponseProtocol], list[JsonVal]](
-                    download_iterable=self._iterate_batch(
+
+                def download_with_tracking() -> Iterable[list[DataItem[ResourceResponseProtocol]]]:
+                    for batch in self._iterate_batch(
                         item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
+                    ):
+                        items = [
+                            DataItem(
+                                tracking_id=self._get_resource_tracking_id(item.crud, resource),
+                                item=resource,
+                            )
+                            for resource in batch
+                        ]
+                        logger.register([data_item.tracking_id for data_item in items])
+                        yield items
+
+                executor = ProducerWorkerExecutor[
+                    list[DataItem[ResourceResponseProtocol]], list[DataItem[dict[str, Any]]]
+                ](
+                    download_iterable=download_with_tracking(),
+                    process=item.get_process_function(client, console, verbose, process_results, logger),
+                    write=self._purge_batch_tracked(
+                        item, item.delete_url, delete_client, write_results, dry_run, logger
                     ),
-                    process=item.get_process_function(client, console, verbose, process_results),
-                    write=self._purge_batch(item, item.delete_url, delete_client, write_results),
                     max_queue_size=10,
                     total_item_count=item.total,
                     download_description=f"Downloading {item.display_name}",
@@ -390,6 +499,11 @@ class PurgeCommand(ToolkitCommand):
                 executor.run()
                 write_results += process_results
                 results[item.display_name] = write_results
+
+                # Finalize and display results for this resource type
+                items_results = logger.finalize(dry_run)
+                display_item_results(items_results, title=f"Purge {item.display_name}", console=console)
+
                 if executor.error_occurred:
                     if verbose and executor.error_traceback:
                         executor.print_traceback()
@@ -397,6 +511,18 @@ class PurgeCommand(ToolkitCommand):
                         HighSeverityWarning(f"Failed to delete all {item.display_name}. {executor.error_message}")
                     )
         return results
+
+    @staticmethod
+    def _get_resource_tracking_id(crud: ResourceIO, resource: ResourceResponseProtocol) -> str:
+        """Get a tracking ID for a resource based on its type."""
+        # Try external_id first, then id, then fall back to string representation
+        if hasattr(resource, "external_id") and resource.external_id is not None:
+            return str(resource.external_id)
+        if hasattr(resource, "space") and hasattr(resource, "external_id"):
+            return f"{resource.space}:{resource.external_id}"
+        if hasattr(resource, "id") and resource.id is not None:
+            return str(resource.id)
+        return str(resource)
 
     @staticmethod
     def _iterate_batch(
@@ -438,6 +564,78 @@ class PurgeCommand(ToolkitCommand):
                     result.deleted += len(response.ids)
                 else:
                     result.unchanged += len(response.ids)
+
+        return process
+
+    @staticmethod
+    def _purge_batch_tracked(
+        delete_item: ToDelete,
+        delete_url: str,
+        delete_client: HTTPClient,
+        result: ResourceDeployResult,
+        dry_run: bool,
+        logger: FileWithAggregationLogger,
+    ) -> Callable[[list[DataItem[dict[str, Any]]]], None]:
+        """Purge a batch of items while tracking success/failure with the logger."""
+        crud = delete_item.crud
+
+        def as_id(item: JsonVal) -> str:
+            try:
+                return str(crud.get_id(item))
+            except KeyError:
+                # Fallback to internal ID
+                return str(crud.get_internal_id(item))
+
+        def process(items: list[DataItem[dict[str, Any]]]) -> None:
+            if dry_run:
+                result.deleted += len(items)
+                return
+
+            # Build tracking ID mapping
+            tracking_by_id: dict[str, str] = {}
+            delete_items: list[DeleteItem] = []
+            for data_item in items:
+                item_id = as_id(data_item.item)
+                tracking_by_id[item_id] = data_item.tracking_id
+                delete_items.append(DeleteItem(item=data_item.item, as_id_fun=as_id))
+
+            responses = delete_client.request_items_retries(
+                ItemsRequest(
+                    endpoint_url=delete_url,
+                    method="POST",
+                    items=delete_items,
+                    extra_body_fields=delete_item.get_extra_fields(),
+                )
+            )
+            for response in responses:
+                if isinstance(response, ItemsSuccessResponse):
+                    result.deleted += len(response.ids)
+                    # Success items don't need logging - they remain without log entries
+                elif isinstance(response, ItemsFailedResponse):
+                    result.unchanged += len(response.ids)
+                    # Log failures
+                    for failed_id in response.ids:
+                        tracking_id = tracking_by_id.get(failed_id, failed_id)
+                        logger.log(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label="Delete failed",
+                                severity=Severity.failure,
+                                message=response.error_message,
+                            )
+                        )
+                else:
+                    result.unchanged += len(response.ids)
+                    for failed_id in response.ids:
+                        tracking_id = tracking_by_id.get(failed_id, failed_id)
+                        logger.log(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label="Delete failed",
+                                severity=Severity.failure,
+                                message="Unknown error during deletion",
+                            )
+                        )
 
         return process
 
@@ -505,7 +703,26 @@ class PurgeCommand(ToolkitCommand):
             for item in to_delete:
                 results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
         else:
-            results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
+            log_dir = Path.cwd()
+            log_filestem = self._create_purge_logfile_stem(log_dir)
+            console = client.console
+
+            with (
+                NDJsonWriter(
+                    log_dir, kind="PurgeIssues", default_filestem=log_filestem, compression=Uncompressed
+                ) as log_file,
+                FileWithAggregationLogger(log_file) as logger,
+            ):
+                results = self._delete_resources(
+                    to_delete,
+                    client,
+                    verbose,
+                    None,
+                    selected_data_set_external_id,
+                    dry_run=False,
+                    logger=logger,
+                    console=console,
+                )
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         if archive_dataset and not dry_run:
             self._archive_dataset(client, selected_data_set_external_id)
