@@ -71,7 +71,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio.logger import DataLogger
+from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.data import MIGRATION_DIR
 
@@ -458,6 +458,25 @@ class TestChartMapper:
         ] or None
 
         data_regression.check(dumped, fullpath=output_chart_path)
+
+    def test_skip_dms_chart(self) -> None:
+        dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
+        request_format = yaml.safe_load(dms_chart.read_text(encoding="utf-8"))
+        # Make this into response
+        request_format["createdTime"] = 0
+        request_format["lastUpdatedTime"] = 0
+        request_format["ownerId"] = "me"
+        request_format["monitoringJobs"][0]["id"] = -1
+
+        chart = ChartResponse.model_validate(request_format)
+
+        with monkeypatch_toolkit_client() as client:
+            mapper = ChartMapper(client)
+            logger = FileWithAggregationLogger(MagicMock())
+            mapper.logger = logger
+            result = ChartMapper(client).map([chart])
+
+        assert result == [None]
 
 
 class TestFDMtoCDMMapper:
