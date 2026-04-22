@@ -473,6 +473,7 @@ class TestChartMapper:
         with monkeypatch_toolkit_client() as client:
             mapper = ChartMapper(client)
             logger = FileWithAggregationLogger(MagicMock())
+            logger.register([chart.external_id])
             mapper.logger = logger
             result = mapper.map([chart])
 
