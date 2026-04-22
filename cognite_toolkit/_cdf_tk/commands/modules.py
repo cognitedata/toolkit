@@ -294,17 +294,7 @@ class ModulesCommand(ToolkitCommand):
 
         modules_root_dir = organization_dir / MODULES
 
-        # Determine which library to use (if any)
-        library: Library | None = None
-        if library_url:
-            library = Library(url=library_url)
-        elif not (organization_dir / CDFToml.file_name).exists():
-            # Load default library from resources when cdf.toml doesn't exist
-            default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
-            library = default_cdf_toml.libraries.get("cognite")
-            if library is None:
-                raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
-
+        library: Library | None = Library(url=library_url) if library_url else None
         packages, modules_source_path = self._get_available_packages(library)
 
         if select_all:
@@ -865,7 +855,15 @@ class ModulesCommand(ToolkitCommand):
         cdf_toml = CDFToml.load()
 
         if self._module_source_dir is None:
-            libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
+            if user_library:
+                libraries = {"userdefined": user_library}
+            elif not (Path.cwd() / CDFToml.file_name).exists():
+                default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
+                libraries = default_cdf_toml.libraries
+                if not libraries:
+                    raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
+            else:
+                libraries = cdf_toml.libraries
 
             for library_name, library in libraries.items():
                 try:
