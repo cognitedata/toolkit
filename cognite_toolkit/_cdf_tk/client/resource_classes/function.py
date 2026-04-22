@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
-FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312"]
+FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312", "py313"]
 
 
 class FunctionBase(BaseModelObject):
