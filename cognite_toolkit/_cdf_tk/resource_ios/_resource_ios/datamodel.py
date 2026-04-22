@@ -371,9 +371,18 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
                 dumped.pop(key, None)
 
         for key in ["constraints", "indexes"]:
-            if not dumped.get(key) and key not in local:
-                # Set to empty dict by server.
-                dumped.pop(key, None)
+            cdf_value = dumped.get(key)
+            local_value = local.get(key)
+            if not cdf_value and not local_value:
+                # Both sides represent "no constraints/indexes". The API and
+                # the local YAML can each express this by not including the
+                # keys, or setting them to null, or {}.
+                # This normalizes the CDF side to match the shape used locally so the
+                # diff doesn't flag a purely cosmetic mismatch.
+                if key in local:
+                    dumped[key] = local_value
+                else:
+                    dumped.pop(key, None)
                 continue
             if isinstance((cdf_value := dumped.get(key)), dict) and isinstance((local_value := local.get(key)), dict):
                 for cdf_id, cdf_item in cdf_value.items():
@@ -433,8 +442,10 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         cdf_dict: dict[str, Any],
     ) -> None:
         only_in_cdf_props = sorted(set(cdf_dict.get("properties", {})) - set(local_dict.get("properties", {})))
-        only_in_cdf_constraints = sorted(set(cdf_dict.get("constraints", {})) - set(local_dict.get("constraints", {})))
-        only_in_cdf_indexes = sorted(set(cdf_dict.get("indexes", {})) - set(local_dict.get("indexes", {})))
+        only_in_cdf_constraints = sorted(
+            set(cdf_dict.get("constraints") or {}) - set(local_dict.get("constraints") or {})
+        )
+        only_in_cdf_indexes = sorted(set(cdf_dict.get("indexes") or {}) - set(local_dict.get("indexes") or {}))
 
         lines = [
             f"Container {item_id} has differing config in your local YAML as opposed to CDF.",
