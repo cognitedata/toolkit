@@ -1,6 +1,6 @@
 """Unit tests for CommandTrackingInfo data class."""
 
-from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
+from cognite_toolkit._cdf_tk.data_classes import CommandTracking
 
 
 class TestCommandTrackingInfo:
@@ -8,13 +8,13 @@ class TestCommandTrackingInfo:
 
     def test_to_dict_empty(self) -> None:
         """Test that empty CommandTrackingInfo returns empty dict."""
-        info = CommandTrackingInfo()
+        info = CommandTracking()
         result = info.to_dict()
         assert result == {}
 
     def test_to_dict_excludes_default_values(self) -> None:
         """Test that empty sets are excluded from to_dict output."""
-        info = CommandTrackingInfo()
+        info = CommandTracking()
         info.module_ids.add("module1")
         result = info.to_dict()
         assert "moduleIds" in result
@@ -24,7 +24,7 @@ class TestCommandTrackingInfo:
 
     def test_to_dict_includes_all_non_empty_fields(self) -> None:
         """Test that all non-empty fields are included with camelCase aliases."""
-        info = CommandTrackingInfo(
+        info = CommandTracking(
             project="test_project",
             cluster="test_cluster",
         )
