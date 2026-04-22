@@ -32,7 +32,7 @@ class Tracker:
         self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
-        self.skip_tracking = self.opted_out or skip_tracking
+        self.skip_tracking = skip_tracking
         self.client = client
         self._cdf_toml = CDFToml.load()
 
@@ -41,14 +41,6 @@ class Tracker:
         if self._opt_status_file.exists():
             return self._opt_status_file.read_text()
         return ""
-
-    @property
-    def opted_out(self) -> bool:
-        return False
-
-    @property
-    def opted_in(self) -> bool:
-        return True
 
     def track_cli_command(
         self,
