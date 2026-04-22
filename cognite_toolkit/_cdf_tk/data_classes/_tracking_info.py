@@ -1,16 +1,17 @@
 """Data class for command tracking information."""
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 
-
-class TrackingEvent(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class MixpanelEvent(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel)
     event_name: str = Field(exclude=True)
+    project: str | None = Field(default=None)
+    cluster: str | None = Field(default=None)
+    organization: str | None = Field(default=None)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the tracking info to a dictionary for Mixpanel.
@@ -22,13 +23,15 @@ class TrackingEvent(BaseModel):
         return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
 
 
-class CommandTracking(TrackingEvent):
+class CommandTrackingInfo(MixpanelEvent):
     """Structured tracking information for CLI commands.
 
     This model provides type-safe tracking information that can be collected
     during command execution and sent to Mixpanel for analytics.
 
     Attributes:
+        project: The CDF project name.
+        cluster: The CDF cluster name.
         module_ids: List of module IDs that were deployed or built.
         package_ids: List of package IDs that were deployed or built.
         installed_module_ids: List of module IDs that were installed.
@@ -49,31 +52,3 @@ class CommandTracking(TrackingEvent):
     function_validation_failures: int = Field(default=0)
     function_validation_credential_errors: int = Field(default=0)
     function_validation_time_ms: int = Field(default=0)
-    warning_total_count: int = Field(default=0)
-    result: str = Field(default="")
-    error: str | None = Field(default=None)
-    subcommands: list[str] = Field(default_factory=list)
-    alpha_flags: list[str] = Field(default_factory=list)
-    plugins: list[str] = Field(default_factory=list)
-
-
-class DataTracking(TrackingEvent):
-    """Structured tracking information for CLI commands."""
-
-    model_config = ConfigDict(extra="allow")
-    event_name: Literal["DownloadResult", "UploadResult", "MigrationResult", "PurgeResult"] = Field(exclude=True)
-    data_type: str
-    total: int
-
-    @classmethod
-    def from_item_results(
-        cls,
-        event_name: Literal["DownloadResult", "UploadResult", "MigrationResult", "PurgeResult"],
-        data_type: str,
-        item_results: list[ItemsResult],
-    ) -> "DataTracking":
-        total = sum(result.count for result in item_results)
-        tracking_data = {"eventName": event_name, "dataType": data_type, "total": total}
-        for result in item_results:
-            tracking_data[result.status] = result.count
-        return cls.model_validate(tracking_data)
