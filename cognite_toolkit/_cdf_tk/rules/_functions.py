@@ -95,11 +95,12 @@ class FunctionRules(ToolkitGlobalRulSet):
             pip_result = validate_requirements_with_pip(
                 requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
-            yield ConsistencyError(
-                message=pip_result.create_message("Function", function_def.external_id),
-                code=f"{self.CODE_PREFIX}-REQUIREMENTS-TXT",
-                fix="Ensure that requirements.txt is valid.",
-            )
+            if not pip_result.success:
+                yield ConsistencyError(
+                    message=pip_result.create_message("Function", function_def.external_id),
+                    code=f"{self.CODE_PREFIX}-REQUIREMENTS-TXT",
+                    fix="Ensure that requirements.txt is valid.",
+                )
 
     @cached_property
     def limits(self) -> FunctionLimits | None:
