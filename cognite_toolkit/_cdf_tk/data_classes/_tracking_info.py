@@ -7,7 +7,7 @@ from pydantic.alias_generators import to_camel
 
 
 class TrackingEvent(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
     event_name: str = Field(exclude=True)
 
     def to_dict(self) -> dict[str, Any]:
