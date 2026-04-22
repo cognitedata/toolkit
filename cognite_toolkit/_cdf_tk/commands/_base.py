@@ -5,7 +5,6 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
@@ -29,15 +28,6 @@ class ToolkitCommand:
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(skip_tracking, client=client)
         self._additional_tracking_info = CommandTrackingInfo(event_name=type(self).__name__.removesuffix("Command"))
-        if client is not None:
-            self._additional_tracking_info.cluster = client.config.cdf_cluster
-            try:
-                result = client.project.organization()
-            except (ToolkitAPIError, ValueError):
-                self._additional_tracking_info.project = client.config.project
-            else:
-                self._additional_tracking_info.organization = result.organization
-                self._additional_tracking_info.project = result.name
 
     @property
     def print_warning(self) -> bool:
