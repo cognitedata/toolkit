@@ -43,7 +43,7 @@ from .selectors import (
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
     InternalWithNameId,
-    NodeIdWithName,
+    NodeWithNameId,
 )
 
 SINGLE_FILE_LIMIT_BYTES = 5_000 * 1024 * 1024  # 5 GB is the maximum size for a single file upload.
@@ -517,7 +517,7 @@ class CogniteFileContentIO(
         self._crud = CogniteFileCRUD(client, None, None, support_upload=False)
         self._dump_keys_by_selector: dict[CogniteFileContentSelectorV2 | None, set[str]] = {}
 
-    def _verify_download_selector(self, selector: CogniteFileContentSelectorV2) -> tuple[NodeIdWithName, ...]:
+    def _verify_download_selector(self, selector: CogniteFileContentSelectorV2) -> tuple[NodeWithNameId, ...]:
         if isinstance(selector, CogniteFileFilesSelectorV2) and selector.ids:
             return selector.ids
         raise NotImplementedError(f"{selector.type} does not support download")

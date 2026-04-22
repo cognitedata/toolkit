@@ -41,7 +41,7 @@ from ._file_contentv2 import (
     FileMetadataTemplateSelectorV2,
     FileMetadataTemplateV2,
     InternalWithNameId,
-    NodeIdWithName,
+    NodeWithNameId,
 )
 from ._instances import (
     InstanceFileSelector,
@@ -153,7 +153,7 @@ __all__ = [
     "InstanceViewSelector",
     "InternalIdColumn",
     "InternalWithNameId",
-    "NodeIdWithName",
+    "NodeWithNameId",
     "RawTableSelector",
     "RecordContainerSelector",
     "SelectedContainer",

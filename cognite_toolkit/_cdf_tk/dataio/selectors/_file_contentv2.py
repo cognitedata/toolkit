@@ -22,7 +22,7 @@ class InternalWithNameId(InternalId):
         return f"{self.name} (id={self.id})"
 
 
-class NodeIdWithName(NodeId):
+class NodeWithNameId(NodeId):
     """Node id with a display name for logging (CogniteFile content download)."""
 
     name: str = Field(exclude=True, description="The name of the item.")
@@ -140,7 +140,7 @@ class CogniteFileFilesSelectorV2(CogniteFileContentSelectorV2):
     """
 
     type: Literal["CogniteFileFiles"] = "CogniteFileFiles"
-    ids: tuple[NodeIdWithName, ...] | None = Field(None, exclude=True, description="Only used for download")
+    ids: tuple[NodeWithNameId, ...] | None = Field(None, exclude=True, description="Only used for download")
 
     def __str__(self) -> str:
         return self.type
