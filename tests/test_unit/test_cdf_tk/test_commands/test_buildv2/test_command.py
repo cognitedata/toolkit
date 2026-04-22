@@ -226,6 +226,7 @@ class TestDependencyValidationSearchConfig:
                 build_path=AbsoluteFilePath(build_file.resolve()),
                 crud_cls=ViewIO,
                 dependencies=set(),
+                has_syntax_errors=False,
             )
         )
         module.resources.append(
@@ -240,6 +241,7 @@ class TestDependencyValidationSearchConfig:
                 build_path=AbsoluteFilePath(build_file.resolve()),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
+                has_syntax_errors=False,
             )
         )
         result = list(DependencyRuleSet([module]).validate())

@@ -5,6 +5,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+
 
 @dataclass
 class PipValidationResult:
@@ -44,6 +46,18 @@ class PipValidationResult:
         relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-self.max_error_lines :]
         error_detail = "\n      ".join(relevant_lines)
         return error_detail
+
+    def create_message(self, resource_type: str, identifier: str) -> str:
+        message = (
+            f"{resource_type} [bold]{identifier}[/bold] requirements.txt validation failed."
+            f"Packages could not be resolved: {self.error_message}"
+        )
+        if self.is_credential_error:
+            message += (
+                f"\n{HINT_LEAD_TEXT}This appears to be a credential/authentication issue. "
+                "Check if the Personal Access Token (PAT) or credentials in indexUrl are valid and not expired."
+            )
+        return message
 
 
 def validate_requirements_with_pip(
