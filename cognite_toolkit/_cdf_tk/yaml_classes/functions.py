@@ -45,7 +45,7 @@ class FunctionsYAML(ToolkitResource):
     )
     cpu: float | None = Field(default=None, description="Number of CPU cores per function.")
     memory: float | None = Field(default=None, description="Memory per function measured in GB.")
-    runtime: Literal["py39", "py310", "py311", "py312"] | None = Field(
+    runtime: Literal["py39", "py310", "py311", "py312", "py313"] | None = Field(
         default="py311", description="Runtime of the function."
     )
     metadata: dict[str, str] | None = Field(

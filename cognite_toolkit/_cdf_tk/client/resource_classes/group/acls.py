@@ -264,7 +264,7 @@ class FunctionsAcl(Acl):
     """ACL for Functions resources."""
 
     acl_name: Literal["functionsAcl"] = Field("functionsAcl", exclude=True)
-    actions: Sequence[Literal["READ", "WRITE"]]
+    actions: Sequence[Literal["READ", "WRITE", "RUN"]]
     scope: AllScope
 
 

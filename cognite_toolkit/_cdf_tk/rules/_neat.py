@@ -106,6 +106,8 @@ class NeatRuleSet(ToolkitGlobalRulSet):
 
     @cached_property
     def _neat_client(self) -> "NeatClient":
+        from cognite.neat._toolkit_adapter import NeatClient
+
         if self.client is None:
             raise RuntimeError(
                 "NeatRules requires a client to be provided to fetch CDF snapshot and limits for validation. Please provide client credentials."
