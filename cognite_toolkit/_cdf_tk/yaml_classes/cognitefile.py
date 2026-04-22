@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.constants import (
     INSTANCE_EXTERNAL_ID_PATTERN,
     SPACE_FORMAT_PATTERN,
@@ -51,6 +52,7 @@ class CogniteFileYAML(ToolkitResource):
     )
     existing_version: int | None = Field(default=None, description="Existing version of the file.")
     type: DirectRelationReference | None = Field(default=None, description="Direct relation to the type of the file.")
+    filepath: str | None = Field(None, alias=FILEPATH)
 
     def as_id(self) -> NodeId:
         return NodeId(space=self.space, external_id=self.external_id)

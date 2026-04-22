@@ -3,6 +3,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
@@ -64,6 +65,7 @@ class FileMetadataYAML(ToolkitResource):
     security_categories: list[str] | None = Field(
         default=None, description="The security category IDs required to access this file.", max_length=100
     )
+    filepath: str | None = Field(None, alias=FILEPATH, description="The path to the file content")
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
