@@ -29,7 +29,7 @@ class ToolkitCommand:
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(skip_tracking, client=client)
-        self._additional_tracking_info = CommandTrackingInfo()
+        self._additional_tracking_info = CommandTrackingInfo(event_name=type(self).__name__.removesuffix("Command"))
         if client is not None:
             self._additional_tracking_info.cluster = client.config.cdf_cluster
             try:

@@ -2,10 +2,28 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
-class CommandTrackingInfo(BaseModel):
+class MixpanelEvent(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel)
+    event_name: str = Field(exclude=True)
+    project: str | None = Field(default=None)
+    cluster: str | None = Field(default=None)
+    organization: str | None = Field(default=None)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the tracking info to a dictionary for Mixpanel.
+
+        Returns:
+            A dictionary with camelCase keys matching Mixpanel's expected format.
+            Default values are excluded.
+        """
+        return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
+
+
+class CommandTrackingInfo(MixpanelEvent):
     """Structured tracking information for CLI commands.
 
     This model provides type-safe tracking information that can be collected
@@ -23,26 +41,14 @@ class CommandTrackingInfo(BaseModel):
         downloaded_module_ids: List of module IDs that were downloaded.
     """
 
-    project: str | None = Field(default=None)
-    cluster: str | None = Field(default=None)
-    organization: str | None = Field(default=None)
-    module_ids: set[str] = Field(default_factory=set, alias="moduleIds")
-    package_ids: set[str] = Field(default_factory=set, alias="packageIds")
-    installed_module_ids: set[str] = Field(default_factory=set, alias="installedModuleIds")
-    installed_package_ids: set[str] = Field(default_factory=set, alias="installedPackageIds")
-    downloaded_library_ids: set[str] = Field(default_factory=set, alias="downloadedLibraryIds")
-    downloaded_package_ids: set[str] = Field(default_factory=set, alias="downloadedPackageIds")
-    downloaded_module_ids: set[str] = Field(default_factory=set, alias="downloadedModuleIds")
-    function_validation_count: int = Field(default=0, alias="functionValidationCount")
-    function_validation_failures: int = Field(default=0, alias="functionValidationFailures")
-    function_validation_credential_errors: int = Field(default=0, alias="functionValidationCredentialErrors")
-    function_validation_time_ms: int = Field(default=0, alias="functionValidationTimeMs")
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the tracking info to a dictionary for Mixpanel.
-
-        Returns:
-            A dictionary with camelCase keys matching Mixpanel's expected format.
-            Default values are excluded.
-        """
-        return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
+    module_ids: set[str] = Field(default_factory=set)
+    package_ids: set[str] = Field(default_factory=set)
+    installed_module_ids: set[str] = Field(default_factory=set)
+    installed_package_ids: set[str] = Field(default_factory=set)
+    downloaded_library_ids: set[str] = Field(default_factory=set)
+    downloaded_package_ids: set[str] = Field(default_factory=set)
+    downloaded_module_ids: set[str] = Field(default_factory=set)
+    function_validation_count: int = Field(default=0)
+    function_validation_failures: int = Field(default=0)
+    function_validation_credential_errors: int = Field(default=0)
+    function_validation_time_ms: int = Field(default=0)
