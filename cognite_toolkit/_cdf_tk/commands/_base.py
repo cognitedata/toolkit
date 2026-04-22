@@ -45,6 +45,7 @@ class ToolkitCommand:
 
         command.warning_total_count = len(self.warning_list)
         command.result = "success" if error is None else type(error).__name__
+        command.error = str(error) if error is not None else None
         command.subcommands = subcommands
         command.alpha_flags = [name for name, value in CDF_TOML.alpha_flags.items() if value]
         command.plugins = [name for name, value in CDF_TOML.plugins.items() if value]
