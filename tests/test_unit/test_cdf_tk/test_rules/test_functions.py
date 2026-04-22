@@ -293,8 +293,4 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
 
-        # Valid requirements should still yield an error due to unconditional yield in the code
-        # Let's check this behavior
-        assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-REQUIREMENTS-TXT"
-        mock_validate_pip.assert_called_once()
+        assert len(errors) == 0
