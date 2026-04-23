@@ -243,6 +243,7 @@ class DeployV2Command(ToolkitCommand):
                 options.dry_run,
                 client.console,
                 options.verbose,
+                self.tracker,
             )
 
         return results

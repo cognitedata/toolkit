@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.data_classes import _tracking_info
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     CogniteFileContentIO,
@@ -40,6 +41,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValue
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -112,7 +114,9 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
-        self.upload_data(data_files_by_selector, input_dir, client, dry_run, console, verbose, skip_strict_mode)
+        self.upload_data(
+            data_files_by_selector, input_dir, client, dry_run, console, verbose, self.tracker, skip_strict_mode
+        )
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -227,6 +231,7 @@ class UploadCommand(ToolkitCommand):
         dry_run: bool,
         console: Console,
         verbose: bool,
+        tracker: Tracker,
         skip_strict_mode: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
@@ -290,6 +295,9 @@ class UploadCommand(ToolkitCommand):
                 executor.run()
                 items_results = logger.finalize(dry_run)
                 display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
+                tracker.track(
+                    _tracking_info.DataTracking.from_item_results("UploadResult", selector.kind, items_results), client
+                )
                 executor.raise_on_error()
 
     @staticmethod

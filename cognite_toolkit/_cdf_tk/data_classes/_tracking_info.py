@@ -1,9 +1,11 @@
 """Data class for command tracking information."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 
 
 class TrackingEvent(BaseModel):
@@ -53,3 +55,25 @@ class CommandTracking(TrackingEvent):
     subcommands: list[str] = Field(default_factory=list)
     alpha_flags: list[str] = Field(default_factory=list)
     plugins: list[str] = Field(default_factory=list)
+
+
+class DataTracking(TrackingEvent):
+    """Structured tracking information for CLI commands."""
+
+    model_config = ConfigDict(extra="allow")
+    event_name: Literal["DownloadResult", "UploadResult", "MigrationResult", "PurgeResult"] = Field(exclude=True)
+    data_type: str
+    total: int
+
+    @classmethod
+    def from_item_results(
+        cls,
+        event_name: Literal["DownloadResult", "UploadResult", "MigrationResult", "PurgeResult"],
+        data_type: str,
+        item_results: list[ItemsResult],
+    ) -> "DataTracking":
+        total = sum(result.count for result in item_results)
+        tracking_data = {"eventName": event_name, "dataType": data_type, "total": total}
+        for result in item_results:
+            tracking_data[result.status] = result.count
+        return cls.model_validate(tracking_data)
