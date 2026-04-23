@@ -9,7 +9,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
@@ -158,6 +158,18 @@ class TestMigrateChart:
             )
 
         request = migrated_chart.as_request_resource()
+        for job in request.monitoring_jobs or []:
+            # Replace internal ID with instance ID if possible.
+            # Ensure a more consistent snapshot.
+            if job.model.timeseries_id and not job.model.timeseries_instance_id:
+                lookup = toolkit_client.tool.timeseries.retrieve([InternalId(id=job.model.timeseries_id)])[0]
+                if lookup.instance_id:
+                    job.model.timeseries_instance_id = lookup.instance_id
+
+            if job.model.timeseries_id and job.model.timeseries_instance_id:
+                # Remove internal ID if we have an instance ID.
+                job.model.timeseries_id = None
+
         dumped = request.dump()
         dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs or []] or None
         dumped["scheduledCalculations"] = [
