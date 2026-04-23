@@ -838,7 +838,9 @@ class BuildV2Command(ToolkitCommand):
         sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
         # Combine them
         prioritized_insights = sorted_unique_insights + sorted_remaining
-        return sorted(prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True)
+        return sorted(
+            prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
+        )
 
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
