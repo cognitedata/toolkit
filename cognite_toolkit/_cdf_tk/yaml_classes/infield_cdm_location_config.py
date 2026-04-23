@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -18,6 +18,9 @@ class FeatureToggles(BaseModelResource):
     notifications: bool | None = None
     media: bool | None = None
     template_checklist_flow: bool | None = None
+    workorder_checklist_flow: bool | None = None
+    observations: bool | None = None
+    copilot: bool | None = None
 
 
 class AccessManagement(BaseModelResource):
@@ -39,6 +42,7 @@ class DataFilter(BaseModelResource):
 
     path: DataFilterPath | None = None
     instance_spaces: list[str] | None = None
+    external_id_prefix: str | None = None
 
 
 class DataFilters(BaseModelResource):
@@ -65,15 +69,16 @@ class ViewMapping(BaseModelResource):
     space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     version: str
     external_id: str
+    type: Literal["view"] = "view"
 
 
 class ViewMappings(BaseModelResource):
     """View mappings configuration."""
 
     asset: ViewMapping | None = None
-    operation: ViewMapping | None = None
+    operation: list[ViewMapping] | None = None
     notification: ViewMapping | None = None
-    maintenance_order: ViewMapping | None = None
+    activity: ViewMapping | None = None
     file: ViewMapping | None = None
 
 
