@@ -159,7 +159,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}:
             # Data Products and Rule Sets APIs are not yet available on the test server.
             continue
-
+        if loader_cls in {CogniteFileCRUD}:
+            # This is running the legacy deploy command that does not hash the file blob like deploy v2
+            continue
         loader = create_loader(loader_cls, client, build_dir)
 
         worker = ResourceWorker(loader, "deploy")
@@ -196,6 +198,8 @@ def get_changed_source_files(
             or loader_cls is SearchConfigIO
             # Data Products and Rule Sets APIs are not yet available on the test server.
             or loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}
+            # This is running the legacy deploy command that does not hash the file blob like deploy v2
+            or loader_cls in {CogniteFileCRUD}
         ):
             continue
 
