@@ -524,7 +524,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Content read successfully.
         substituted_content = content
-        line_count = content.count("\n")
+        line_count = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
@@ -912,7 +912,7 @@ class BuildV2Command(ToolkitCommand):
         self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
     ) -> None:
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
-        duration_ms = (build_folder.finished_at - build_folder.finished_at).total_seconds() * 1000
+        duration_ms = (build_folder.finished_at - build_folder.started_at).total_seconds() * 1000
 
         resource_counts: Counter[str] = Counter(
             f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
