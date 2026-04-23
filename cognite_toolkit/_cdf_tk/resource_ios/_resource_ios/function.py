@@ -193,7 +193,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
         function_rootdir = cls.get_function_code_implicitly(filepath, identifier)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="NOT-EXISTING",
+                code="MISSING",
                 error=f"Cannot find function code for function {identifier.external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )

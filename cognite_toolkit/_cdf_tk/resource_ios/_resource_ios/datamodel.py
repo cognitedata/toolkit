@@ -1421,7 +1421,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
-                code="NOT-EXISTING",
+                code="MISSING",
                 error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
                 source_path=graphql_file,
             )
