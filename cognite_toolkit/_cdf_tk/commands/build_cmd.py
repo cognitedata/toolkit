@@ -141,11 +141,6 @@ class BuildCommand(ToolkitCommand):
         if selected:
             config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
-        # tracking which project the module is being built for to trace promotion
-        if client:
-            self._additional_tracking_info.project = client.config.project
-            self._additional_tracking_info.cluster = client.config.cdf_cluster
-
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
             module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()

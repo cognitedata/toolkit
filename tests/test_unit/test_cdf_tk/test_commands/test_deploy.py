@@ -46,8 +46,6 @@ read_modules:
             verbose=False,
         )
 
-        assert cmd._additional_tracking_info.project == "my_project"
-        assert cmd._additional_tracking_info.cluster == "my_cluster"
         assert cmd._additional_tracking_info.package_ids == {"rmdm"}
         assert cmd._additional_tracking_info.module_ids == {"agent", "data_model"}
 
