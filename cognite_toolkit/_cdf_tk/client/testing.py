@@ -75,6 +75,7 @@ from .api.migration import (
     MigrationLookupAPI,
     ResourceViewMappingsAPI,
 )
+from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
@@ -156,6 +157,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
+        self.principals = MagicMock(spec_set=PrincipalsAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
