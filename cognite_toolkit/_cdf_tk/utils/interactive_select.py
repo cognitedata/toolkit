@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property, lru_cache, partial
 from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.constants import COGNITE_FILE_CONTAINER
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -1104,6 +1105,49 @@ class RecordInteractiveSelect:
         return selected_spaces
 
 
+@dataclass
+class DocumentSelectStatus:
+    ASSET_CENTRIC_PROPERTIES: ClassVar[set[DocumentPropertyPath]] = {
+        ("labels",),
+        ("sourceFile", "source"),
+        ("sourceFile", "metadata"),
+        ("sourceFile", "labels"),
+    }
+    search_query: str | None = None
+    document_filter: dict[DocumentPropertyPath, Any] = field(default_factory=dict)
+    metadata_filter: dict[DocumentPropertyPath, Any] = field(default_factory=dict)
+    attempted_options: set[DocumentPropertyPath] = field(default_factory=set)
+    view_id: ViewId | None = None
+    data_set_id: int | None = None
+
+    @property
+    def file_type(self) -> Literal["asset-centric", "dms", "ambiguous"]:
+        if self.view_id is not None:
+            return "dms"
+        if (
+            self.data_set_id is not None
+            or self.metadata_filter is not None
+            or (self.ASSET_CENTRIC_PROPERTIES.intersection(self.document_filter.keys()))
+        ):
+            return "asset-centric"
+        return "ambiguous"
+
+    @property
+    def current_filter(self) -> dict[str, Any] | None:
+        if not self.document_filter and not self.metadata_filter and self.data_set_id is not None:
+            return None
+        leaf_filter = list(*self.document_filter.values(), *self.metadata_filter.values())
+        if self.data_set_id is not None:
+            leaf_filter.append({"equals": {"property": ["sourceFile", "dataSetId"], "value": self.data_set_id}})
+        return {"and": leaf_filter}
+
+
+@dataclass
+class SelectedDocuments:
+    documents: list[DocumentResponse]
+    selection: DocumentSelectStatus
+
+
 class DocumentsInteractiveSelect:
     MAX_TERMINAL_CHOICES = 100
     # This can be increased by implementing pagination for the /documents/search endpoint
@@ -1112,35 +1156,40 @@ class DocumentsInteractiveSelect:
     def __init__(self, client: ToolkitClient, max_selected: int = 100) -> None:
         self.client = client
         self.max_selected = max_selected
-        self._filter: dict[DocumentPropertyPath, Any] = {}
-        self._search_query: str | None = None
-        self._attempted_options: set[DocumentPropertyPath] = set()
+        self.status = DocumentSelectStatus()
 
     @cached_property
-    def _all_filter_options(self) -> set[DocumentPropertyPath]:
+    def _all_document_properties(self) -> set[DocumentPropertyPath]:
+        # Dataset is treated specially.
+        return set(DOCUMENT_PROPERTY_OPTIONS) - {("sourceFile", "dataSetId")}
+
+    @cached_property
+    def _all_metadata_keys(self) -> set[DocumentPropertyPath]:
         metadata_keys = self.client.tool.documents.unique(("sourceFile", "metadata"))
-        return set(DOCUMENT_PROPERTY_OPTIONS) | {("sourceFile", "metadata", str(key.value)) for key in metadata_keys}
+        return {("sourceFile", "metadata", str(key.value)) for key in metadata_keys}
 
-    @property
-    def _current_filter(self) -> dict[str, Any] | None:
-        if not self._filter:
-            return None
-        return {"and": list(self._filter.values())}
-
-    def select_documents(self) -> list[DocumentResponse]:
+    def select_documents(self) -> SelectedDocuments:
         while True:
-            count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
+            count = self.client.tool.documents.count(filter=self.status.current_filter, query=self._search_query)
             action = self._action(count)
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
             elif action == "finished":
                 break
-            elif action == "filter":
-                self._update_filter()
-                continue
+            elif action == "filter-document-properties":
+                self._update_filter(
+                    self._all_document_properties - self.status.attempted_options, self.status.document_filter
+                )
+            elif action == "filter-metadata-properties":
+                self._update_filter(
+                    self._all_metadata_keys - self.status.attempted_options, self.status.metadata_filter
+                )
+            elif action == "select-data-sets":
+                self._select_dataset()
+            elif action == "select-view":
+                self._select_view()
             elif action == "search":
                 self._prompt_search_query()
-                continue
             elif action == "name":
                 return self._select_by_name()
             else:
@@ -1150,8 +1199,14 @@ class DocumentsInteractiveSelect:
 
     def _action(self, count: int) -> str:
         choices = [
-            Choice(title="Filter documents", value="filter"),
+            Choice(title="Filter document properties", value="filter-document-properties"),
         ]
+        selected_file_type = self.status.file_type
+        if selected_file_type != "dms":
+            choices.append(Choice(title="Filter metadata properties", value="filter-metadata-properties"))
+            choices.append(Choice(title="Select data sets", value="select-data-sets"))
+        if selected_file_type != "asset-centric":
+            choices.append(Choice(title="Select view", value="select-view"))
         if self.max_selected <= self.MAX_SEARCH_RESULTS:
             choices.append(
                 Choice(title="Search documents (full-text query)", value="search"),
@@ -1167,14 +1222,17 @@ class DocumentsInteractiveSelect:
         query_note = ""
         if self._search_query is not None:
             query_note = f' Active full-text query: "{self._search_query}".'
-
+        caveat = ""
+        if selected_file_type == "dms":
+            caveat = " (approximate)"
         return questionary.select(
-            f"{count} documents found. What do you want to do?{query_note}{suffix}",
+            f"{count} documents found{caveat}. What do you want to do?{query_note}{suffix}",
             choices=choices,
         ).unsafe_ask()
 
-    def _update_filter(self) -> None:
-        available_options = self._all_filter_options - self._attempted_options
+    def _update_filter(
+        self, available_options: set[DocumentPropertyPath], filter: dict[DocumentPropertyPath, Any]
+    ) -> None:
         if len(available_options) == 0:
             self.client.console.print("No more filtering options available.", style="bold red")
             return
@@ -1184,9 +1242,9 @@ class DocumentsInteractiveSelect:
         ).unsafe_ask()
 
         buckets = self.client.tool.documents.unique(
-            property=filter_type, filter=self._current_filter, query=self._search_query
+            property=filter_type, filter=self.status.current_filter, query=self._search_query
         )
-        self._attempted_options.add(filter_type)
+        self.status.attempted_options.add(filter_type)
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
@@ -1194,7 +1252,7 @@ class DocumentsInteractiveSelect:
             self.client.console.print(
                 f"Only one value found for {filter_type!r}: {buckets[0].value!r}. Automatically applying this filter."
             )
-            selected_values = [buckets[0].value]
+            filter[filter_type] = {"equals": {"property": list(filter_type), "value": buckets[0].value}}
         else:
             selected_values = questionary.checkbox(
                 f"Select values for {filter_type!r}:",
@@ -1203,37 +1261,74 @@ class DocumentsInteractiveSelect:
                 ],
                 validator=lambda choices: True if choices else "You must select at least one value.",
             ).unsafe_ask()
-        self._filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+            filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+
+    def _select_dataset(self) -> None:
+        buckets = self.client.tool.documents.unique(
+            property=("sourceFile", "dataSetId"), filter=self.status.current_filter, query=self._search_query
+        )
+        internal_ids = [int(bucket.value) for bucket in buckets if isinstance(bucket.value, int | float)]
+        if len(internal_ids) == 0:
+            self.client.console.print("No documents found for filtering on data set ID.", style="bold red")
+            return
+        external_ids = self.client.lookup.data_sets.external_id(internal_ids)
+        if len(external_ids) == 1:
+            self.client.console.print(
+                f"Only one data set found: {external_ids[0]!r}. Automatically applying this filter."
+            )
+            self.status.data_set_id = internal_ids[0]
+            return
+        selected_data_set_id = questionary.select(
+            message="Select data set:",
+            choices=[
+                Choice(title=external_id, value=internal_id)
+                for internal_id, external_id in zip(internal_ids, external_ids)
+            ],
+        ).unsafe_ask()
+        self.status.data_set_id = selected_data_set_id
+
+    def _select_view(self) -> None:
+        res = self.client.tool.containers.inspect(
+            [COGNITE_FILE_CONTAINER], all_versions=False, include_unavailable_views=False
+        )[0]
+        view_id = questionary.select(
+            message="Select view to retrieve through",
+            choices=[Choice(title=repr(view_id), value=view_id) for view_id in res.inspection_results.involved_views],
+        ).unsafe_ask()
+        self.status.view_id = view_id
 
     def _prompt_search_query(self) -> None:
         answer = questionary.text(
             "Full-text search query (empty clears search and uses list/filter only):",
-            default=self._search_query or "",
+            default=self.status.search_query or "",
         ).unsafe_ask()
         stripped = (answer or "").strip()
         self._search_query = stripped or None
-        count = self.client.tool.documents.count(filter=self._current_filter, query=self._search_query)
+        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self._search_query)
         if count == 0:
             self.client.console.print("No documents found. Clearing search query.", style="bold red")
             self._search_query = None
 
-    def _documents_list_or_search(self, *, limit: int) -> list[DocumentResponse]:
+    def _documents_list_or_search(self, *, limit: int) -> SelectedDocuments:
         if self._search_query is None:
-            return self.client.tool.documents.list(filter=self._current_filter, limit=limit)
+            return SelectedDocuments(
+                self.client.tool.documents.list(filter=self.status.current_filter, limit=limit), self.status
+            )
         page = self.client.tool.documents.search(
             query=self._search_query,
-            filter=self._current_filter,
+            filter=self.status.current_filter,
             limit=limit,
         )
-        return [hit.item for hit in page.items]
+        return SelectedDocuments([hit.item for hit in page.items], self.status)
 
-    def _select_by_name(self) -> list[DocumentResponse]:
-        documents = self._documents_list_or_search(limit=self.max_selected)
+    def _select_by_name(self) -> SelectedDocuments:
+        docs = self._documents_list_or_search(limit=self.max_selected)
         choices = [
-            Choice(title=f"{doc.source_file.name} ({doc.mime_type}, {doc.id!r})", value=doc) for doc in documents
+            Choice(title=f"{doc.source_file.name} ({doc.mime_type}, {doc.id!r})", value=doc) for doc in docs.documents
         ]
-        return questionary.checkbox(
+        documents = questionary.checkbox(
             "Select documents:",
             choices=choices,
             validator=lambda choices: True if choices else "You must select at least one document.",
         ).unsafe_ask()
+        return SelectedDocuments(documents, self.status)

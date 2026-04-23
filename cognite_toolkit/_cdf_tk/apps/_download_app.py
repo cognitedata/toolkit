@@ -646,20 +646,24 @@ class DownloadApp(typer.Typer):
                     "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
                 ).unsafe_ask()
             )
-            documents = selector.select_documents()
-            io = FileMetadataContentIO(
-                client,
-                config_directory=output_dir / download_dir_name,
-                file_directory=output_dir / download_dir_name / "files",
-            )
-            selectors = [
-                FileMetadataFilesSelectorV2(
-                    ids=tuple(
-                        InternalWithNameId(id=document.id, name=document.source_file.name) for document in documents
-                    ),
-                    download_dir_name=download_dir_name,
+            selected = selector.select_documents()
+            if selected.selection.file_type == "dms":
+                raise NotImplementedError()
+            else:
+                io = FileMetadataContentIO(
+                    client,
+                    config_directory=output_dir / download_dir_name,
+                    file_directory=output_dir / download_dir_name / "files",
                 )
-            ]
+                selectors = [
+                    FileMetadataFilesSelectorV2(
+                        ids=tuple(
+                            InternalWithNameId(id=document.id, name=document.source_file.name)
+                            for document in selected.documents
+                        ),
+                        download_dir_name=download_dir_name,
+                    )
+                ]
         elif data_sets is not None:
             selectors = [
                 DataSetSelector(
