@@ -262,7 +262,7 @@ class BuildV2Command(ToolkitCommand):
             errors.append("ambiguous selected")
         if misplaced_modules_count:
             summary_lines.append(
-                f"[yellow]![/] {misplaced_modules_count}[/] modules are located directly under the another module."
+                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
             )
             border_color = max(border_color, 1)
         if non_existing_module_count:
