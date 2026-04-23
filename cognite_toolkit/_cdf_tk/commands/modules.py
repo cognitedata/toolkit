@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.commands._questionary_style import custom_style_fan
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
     MODULES,
-    RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
@@ -56,7 +55,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -294,17 +293,7 @@ class ModulesCommand(ToolkitCommand):
 
         modules_root_dir = organization_dir / MODULES
 
-        # Determine which library to use (if any)
-        library: Library | None = None
-        if library_url:
-            library = Library(url=library_url)
-        elif not (organization_dir / CDFToml.file_name).exists():
-            # Load default library from resources when cdf.toml doesn't exist
-            default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
-            library = default_cdf_toml.libraries.get("cognite")
-            if library is None:
-                raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
-
+        library: Library | None = Library(url=library_url) if library_url else None
         packages, modules_source_path = self._get_available_packages(library)
 
         if select_all:
@@ -865,7 +854,15 @@ class ModulesCommand(ToolkitCommand):
         cdf_toml = CDFToml.load()
 
         if self._module_source_dir is None:
-            libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
+            if user_library:
+                libraries = {"userdefined": user_library}
+            elif cdf_toml.libraries:
+                libraries = cdf_toml.libraries
+            else:
+                self.warn(LowSeverityWarning("No libraries defined in cdf.toml. Using default library."))
+                libraries = CDFToml.load_default().libraries
+                if not libraries:
+                    raise ToolkitError("Toolkit Bug: Default cdf.toml in resources is missing Library configuration.")
 
             for library_name, library in libraries.items():
                 try:

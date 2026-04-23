@@ -178,6 +178,11 @@ class CDFToml:
             )
 
     @classmethod
+    def load_default(cls) -> "CDFToml":
+        """Loads the bundled default cdf.toml in the toolkit `_resources` folder."""
+        return cls.load(cwd=RESOURCES_PATH, use_singleton=False)
+
+    @classmethod
     def write(cls, organization_dir: Path, env: EnvType = "dev", version: str = _version.__version__) -> None:
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
