@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStats
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -975,23 +975,25 @@ class DeployV2Command(ToolkitCommand):
 
         is_dry_run = results[0].is_dry_run
 
-        resource_stats = [
-            ResourceDeploymentStats(
-                resource_name=result.resource_name,
-                created=result.created_count,
-                updated=result.updated_count,
-                deleted=result.deleted_count,
-                unchanged=result.unchanged_count,
-                skipped=result.skipped_count,
-                total=result.total_count,
-            )
-            for result in results
-        ]
+        # Build flattened per-resource stats for Mixpanel compatibility
+        # Creates keys like "dataSets_created", "spaces_updated", etc.
+        per_resource_stats: dict[str, int] = {}
+        resource_types: list[str] = []
+        for result in results:
+            # Convert resource name to camelCase key prefix (e.g., "Data Sets" -> "dataSets")
+            key_prefix = cls._to_tracking_key(result.resource_name)
+            resource_types.append(result.resource_name)
+            per_resource_stats[f"{key_prefix}_created"] = result.created_count
+            per_resource_stats[f"{key_prefix}_updated"] = result.updated_count
+            per_resource_stats[f"{key_prefix}_deleted"] = result.deleted_count
+            per_resource_stats[f"{key_prefix}_unchanged"] = result.unchanged_count
+            per_resource_stats[f"{key_prefix}_skipped"] = result.skipped_count
+            per_resource_stats[f"{key_prefix}_total"] = result.total_count
 
         event = DeploymentTracking(
             is_dry_run=is_dry_run,
             operation=operation,
-            resource_stats=resource_stats,
+            resource_types=resource_types,
             total_created=sum(r.created_count for r in results),
             total_updated=sum(r.updated_count for r in results),
             total_deleted=sum(r.deleted_count for r in results),
@@ -999,8 +1001,23 @@ class DeployV2Command(ToolkitCommand):
             total_skipped=sum(r.skipped_count for r in results),
             total_resources=sum(r.total_count for r in results),
             resource_type_count=len(results),
+            **per_resource_stats,
         )
         tracker.track(event, client)
+
+    @staticmethod
+    def _to_tracking_key(resource_name: str) -> str:
+        """Convert a resource display name to a camelCase tracking key.
+
+        Examples:
+            "Data Sets" -> "dataSets"
+            "Extraction Pipelines" -> "extractionPipelines"
+            "RAW Tables" -> "rawTables"
+        """
+        words = resource_name.replace("-", " ").split()
+        if not words:
+            return resource_name.lower()
+        return words[0].lower() + "".join(word.capitalize() for word in words[1:])
 
     @classmethod
     def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
