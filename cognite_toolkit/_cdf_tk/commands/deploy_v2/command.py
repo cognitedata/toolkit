@@ -983,12 +983,12 @@ class DeployV2Command(ToolkitCommand):
             # Convert resource name to camelCase key prefix (e.g., "Data Sets" -> "dataSets")
             key_prefix = cls._to_tracking_key(result.resource_name)
             resource_types.append(result.resource_name)
-            per_resource_stats[f"{key_prefix}_created"] = result.created_count
-            per_resource_stats[f"{key_prefix}_updated"] = result.updated_count
-            per_resource_stats[f"{key_prefix}_deleted"] = result.deleted_count
-            per_resource_stats[f"{key_prefix}_unchanged"] = result.unchanged_count
-            per_resource_stats[f"{key_prefix}_skipped"] = result.skipped_count
-            per_resource_stats[f"{key_prefix}_total"] = result.total_count
+            per_resource_stats[f"{key_prefix}Created"] = result.created_count
+            per_resource_stats[f"{key_prefix}Updated"] = result.updated_count
+            per_resource_stats[f"{key_prefix}Deleted"] = result.deleted_count
+            per_resource_stats[f"{key_prefix}Unchanged"] = result.unchanged_count
+            per_resource_stats[f"{key_prefix}Skipped"] = result.skipped_count
+            per_resource_stats[f"{key_prefix}Total"] = result.total_count
 
         event = DeploymentTracking(
             is_dry_run=is_dry_run,
