@@ -840,7 +840,62 @@ class BuildV2Command(ToolkitCommand):
 
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
-    ) -> None: ...
+    ) -> None:
+        module_count = len(build_folder.built_modules)
+        resource_count = sum(len(module.resources) for module in build_folder.built_modules)
+        resource_type_count = len(
+            {resource.type for module in build_folder.built_modules for resource in module.resources}
+        )
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
+        ]
+        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        max_severity = 0
+        for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
+            max_severity = max(max_severity, severity)
+            match severity:
+                case severity if severity <= 15:
+                    insight_style = "[green]✓[/]"
+                case severity if 15 < severity <= 35:
+                    insight_style = "[yellow]![/]"
+                case _:
+                    insight_style = "[red]✗[/]"
+
+            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
+
+        build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
+        if not build_dir_display.endswith("/"):
+            build_dir_display = f"{build_dir_display}/"
+
+        match max_severity:
+            case severity if severity <= 15:
+                border_color = "green"
+                recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
+            case severity if 15 < severity <= 35:
+                border_color = "yellow"
+                recommendation = (
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources."
+                )
+            case _:
+                recommendation = (
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are YAML parsing errors that must be fixed before deployment."
+                )
+                border_color = "red"
+        summary_lines.append("")
+        summary_lines.append(recommendation)
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Built to directory {build_dir_display}[/]",
+                border_style=border_color,
+                expand=False,
+            )
+        )
+
+        return None
 
     def _display_build_folder(
         self,

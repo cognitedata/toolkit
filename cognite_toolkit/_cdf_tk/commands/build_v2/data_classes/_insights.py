@@ -29,23 +29,23 @@ class ModelSyntaxWarning(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
-    severity = 20
+    severity = 40
+
+
+class IgnoredFileWarning(InsightDefinition):
+    severity = 30
 
 
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 40
+    severity = 20
 
 
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
     severity = 10
-
-
-class IgnoredFileWarning(InsightDefinition):
-    severity = 50
 
 
 Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning
