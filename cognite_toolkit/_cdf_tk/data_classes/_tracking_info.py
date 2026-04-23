@@ -77,3 +77,37 @@ class DataTracking(TrackingEvent):
         for result in item_results:
             tracking_data[result.status] = result.count
         return cls.model_validate(tracking_data)
+
+
+class DeploymentTracking(TrackingEvent):
+    """Structured tracking information for deployment commands.
+
+    This model uses a flattened structure for Mixpanel compatibility.
+    Per-resource stats are stored as dynamic fields like "dataSets_created", "spaces_updated", etc.
+
+    Attributes:
+        is_dry_run: Whether this was a dry run.
+        operation: The operation performed (deploy or clean).
+        resource_types: List of resource type names that were deployed.
+        total_created: Total resources created across all types.
+        total_updated: Total resources updated across all types.
+        total_deleted: Total resources deleted across all types.
+        total_unchanged: Total unchanged resources across all types.
+        total_skipped: Total skipped resources across all types.
+        total_resources: Total resources across all types.
+        resource_type_count: Number of different resource types deployed.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
+
+    event_name: Literal["DeploymentResult"] = Field("DeploymentResult", exclude=True)
+    is_dry_run: bool = False
+    operation: str = "deploy"
+    resource_types: list[str] = Field(default_factory=list)
+    total_created: int = 0
+    total_updated: int = 0
+    total_deleted: int = 0
+    total_unchanged: int = 0
+    total_skipped: int = 0
+    total_resources: int = 0
+    resource_type_count: int = 0
