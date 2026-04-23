@@ -104,6 +104,7 @@ class BuiltModule(BaseModel):
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
+    yaml_line_count: int
 
     @property
     def files_built(self) -> bool:

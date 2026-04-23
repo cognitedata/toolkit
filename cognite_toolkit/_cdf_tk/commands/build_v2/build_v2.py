@@ -463,6 +463,9 @@ class BuildV2Command(ToolkitCommand):
                             for file in module.files
                             if file.unresolved_variables
                         },
+                        yaml_line_count=sum(
+                            file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
+                        ),
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -521,6 +524,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Content read successfully.
         substituted_content = content
+        line_count = content.count("\n")
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
@@ -556,6 +560,7 @@ class BuildV2Command(ToolkitCommand):
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
+            line_count=line_count,
         )
 
         if isinstance(parsed_yaml, dict):
@@ -918,6 +923,7 @@ class BuildV2Command(ToolkitCommand):
         dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
 
         insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
+        yaml_line_count = sum(module.yaml_line_count for module in build_folder.built_modules)
 
         payload: dict[str, Any] = {
             "build_duration_ms": duration_ms,
@@ -928,6 +934,7 @@ class BuildV2Command(ToolkitCommand):
             "built_resource_total": built_count,
             "module_count": len(build_folder.built_modules),
             "insight_total_count": len(insights),
+            "yaml_line_count": yaml_line_count,
         }
         payload.update(resource_counts)
         event = BuildTracking.model_validate(payload)

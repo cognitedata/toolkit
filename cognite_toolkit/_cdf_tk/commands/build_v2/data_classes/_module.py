@@ -234,6 +234,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     resource_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
     syntax_warning: ModelSyntaxWarning | None = None
+    line_count: int
 
 
 class IgnoredFile(BaseModel):

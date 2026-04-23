@@ -140,3 +140,4 @@ class BuildTracking(TrackingEvent):
     built_resource_total: int = 0
     module_count: int = 0
     insight_total_count: int = 0
+    yaml_line_count: int = 0
