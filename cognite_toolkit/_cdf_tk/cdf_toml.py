@@ -179,7 +179,7 @@ class CDFToml:
 
     @classmethod
     def load_default(cls) -> "CDFToml":
-        """Loads the bundled default cdf.toml shipped with the toolkit `_resources` folder."""
+        """Loads the bundled default cdf.toml in the toolkit `_resources` folder."""
         return cls.load(cwd=RESOURCES_PATH, use_singleton=False)
 
     @classmethod
