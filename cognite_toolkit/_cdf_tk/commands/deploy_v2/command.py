@@ -1001,7 +1001,8 @@ class DeployV2Command(ToolkitCommand):
             total_skipped=sum(r.skipped_count for r in results),
             total_resources=sum(r.total_count for r in results),
             resource_type_count=len(results),
-            **per_resource_stats,
+            # This pydantic class allows extra
+            **per_resource_stats,  # type: ignore [arg-type]
         )
         tracker.track(event, client)
 
