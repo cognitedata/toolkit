@@ -32,13 +32,13 @@ class ModelSyntaxWarning(InsightDefinition):
     severity = 40
 
 
-class IgnoredFileWarning(InsightDefinition):
-    severity = 30
-
-
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
+    severity = 30
+
+
+class IgnoredFileWarning(InsightDefinition):
     severity = 20
 
 
