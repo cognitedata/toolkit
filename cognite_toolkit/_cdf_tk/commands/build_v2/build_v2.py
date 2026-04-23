@@ -75,6 +75,22 @@ from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
+def _to_tracking_key(display_name: str) -> str:
+    """Convert a resource label to a camelCase Mixpanel key prefix (matches deploy_v2)."""
+    words = display_name.replace("-", " ").split()
+    if not words:
+        return display_name.lower()
+    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
+
+
+def _tracking_label_for_resource_type(resource_type: ResourceType) -> str:
+    """Build a spaced label suitable for `_to_tracking_key` from a build ResourceType."""
+    parts: list[str] = []
+    for segment in (resource_type.kind, resource_type.resource_folder):
+        parts.extend(segment.replace("-", " ").replace("_", " ").split())
+    return " ".join(parts)
+
+
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
@@ -115,7 +131,7 @@ class BuildV2Command(ToolkitCommand):
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
         self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, insights, client)
+        self._track_build_results(build_folder, client)
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
@@ -903,10 +919,39 @@ class BuildV2Command(ToolkitCommand):
 
         return None
 
-    def _track_build_results(
-        self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
-    ) -> None:
-        event = BuildTracking.from_build_folder(build_folder, insights)
+    def _track_build_results(self, build_folder: BuildFolder, client: ToolkitClient | None = None) -> None:
+        insights = build_folder.all_insights
+        built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
+        duration_ms = int(build_folder.build_duration_seconds * 1000)
+
+        label_counts: Counter[str] = Counter()
+        for resource in built_resources:
+            label_counts[_tracking_label_for_resource_type(resource.type)] += 1
+
+        per_type_built: dict[str, int] = {}
+        for label, count in label_counts.items():
+            prefix = _to_tracking_key(label)
+            per_type_built[f"{prefix}Built"] = count
+
+        dependency_total = sum(len(resource.dependencies) for resource in built_resources)
+        built_count = len(built_resources)
+        dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
+
+        insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
+
+        payload: dict[str, Any] = {
+            "build_duration_ms": duration_ms,
+            "resource_types": sorted(label_counts.keys()),
+            "insight_codes": sorted(insight_codes_set),
+            "dependency_total": dependency_total,
+            "dependency_average": dependency_average,
+            "built_resource_total": built_count,
+            "module_count": len(build_folder.built_modules),
+            "insight_total_count": len(insights),
+            "event_name": "BuildResult",
+        }
+        payload.update(per_type_built)
+        event = BuildTracking.model_validate(payload)
         self.tracker.track(event, client)
 
     def _write_results(

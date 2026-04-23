@@ -1,38 +1,11 @@
 """Data class for command tracking information."""
 
-from collections import Counter
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
-
-if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList
-
-
-def _to_tracking_key(display_name: str) -> str:
-    """Convert a resource label to a camelCase tracking key prefix (matches deploy_v2).
-
-    Examples:
-        "Data Sets" -> "dataSets"
-        "Space data modeling" -> "spaceDataModeling"
-    """
-    words = display_name.replace("-", " ").split()
-    if not words:
-        return display_name.lower()
-    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
-
-
-def _tracking_label_for_resource_type(resource_type: ResourceType) -> str:
-    """Build a spaced label suitable for `_to_tracking_key` from a build ResourceType."""
-    parts: list[str] = []
-    for segment in (resource_type.kind, resource_type.resource_folder):
-        parts.extend(segment.replace("-", " ").replace("_", " ").split())
-    return " ".join(parts)
 
 
 class TrackingEvent(BaseModel):
@@ -144,7 +117,8 @@ class BuildTracking(TrackingEvent):
     """Structured tracking information for build v2 (`cdf build`).
 
     Per-resource-type built counts use flattened Mixpanel fields such as ``spaceDataModelingBuilt``,
-    matching the ``DeploymentTracking`` pattern (``extra="allow"``).
+    matching the ``DeploymentTracking`` pattern (``extra="allow"``). Populate via
+    ``BuildTracking.model_validate({...})`` in ``BuildV2Command._track_build_results``.
     """
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
@@ -158,41 +132,3 @@ class BuildTracking(TrackingEvent):
     built_resource_total: int = 0
     module_count: int = 0
     insight_total_count: int = 0
-
-    @classmethod
-    def from_build_folder(
-        cls,
-        build_folder: "BuildFolder",
-        insights: "InsightList",
-    ) -> "BuildTracking":
-        built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
-        duration_ms = int(build_folder.build_duration_seconds * 1000)
-
-        label_counts: Counter[str] = Counter()
-        for resource in built_resources:
-            label_counts[_tracking_label_for_resource_type(resource.type)] += 1
-
-        per_type_built: dict[str, int] = {}
-        for label, count in label_counts.items():
-            prefix = _to_tracking_key(label)
-            per_type_built[f"{prefix}Built"] = count
-
-        dependency_total = sum(len(resource.dependencies) for resource in built_resources)
-        built_count = len(built_resources)
-        dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
-
-        insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
-
-        payload: dict[str, Any] = {
-            "build_duration_ms": duration_ms,
-            "resource_types": sorted(label_counts.keys()),
-            "insight_codes": sorted(insight_codes_set),
-            "dependency_total": dependency_total,
-            "dependency_average": dependency_average,
-            "built_resource_total": built_count,
-            "module_count": len(build_folder.built_modules),
-            "insight_total_count": len(insights),
-            "event_name": "BuildResult",
-        }
-        payload.update(per_type_built)
-        return cls.model_validate(payload)
