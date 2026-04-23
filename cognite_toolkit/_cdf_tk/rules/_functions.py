@@ -36,8 +36,8 @@ class FunctionRules(ToolkitGlobalRulSet):
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
         for module in self.modules:
             for resource in module.resources:
-                if resource.has_syntax_errors:
-                    # We do not do further validation if there are syntax errrors.
+                if resource.can_verify:
+                    # We se do not do further validation if there aryntax errrors.
                     continue
                 if resource.type == function_type:
                     try:

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO
 
 from ._insights import Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
@@ -78,8 +78,16 @@ class BuiltResource(BaseModel):
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceIO]
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
-    extra_files: list[ReadExtra] = Field(default_factory=list)
-    has_syntax_errors: bool
+
+    failed_extra: list[FailedReadExtra] = Field(default_factory=list)
+    has_syntax_error: bool
+
+    @property
+    def can_verify(self) -> bool:
+        """If a resource has a syntax error or failed extra files
+        We assume these must be fixed before further validation can be done.
+        """
+        return not self.has_syntax_error and not self.failed_extra
 
 
 class BuiltModule(BaseModel):

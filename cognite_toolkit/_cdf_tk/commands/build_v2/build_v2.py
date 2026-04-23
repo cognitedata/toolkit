@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
@@ -694,8 +694,8 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
-                        extra_files=resource.extra_files,
-                        has_syntax_errors=file.syntax_warning is not None,
+                        failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
+                        has_syntax_error=resource.validated is None,
                     )
                 )
         return built_resources
