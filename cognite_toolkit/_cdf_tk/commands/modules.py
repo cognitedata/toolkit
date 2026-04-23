@@ -864,7 +864,7 @@ class ModulesCommand(ToolkitCommand):
                 default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
                 libraries = default_cdf_toml.libraries
                 if not libraries:
-                    raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
+                    raise ToolkitError("Toolkit Bug: Default cdf.toml in resources is missing Library configuration.")
 
             for library_name, library in libraries.items():
                 try:
