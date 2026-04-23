@@ -440,10 +440,11 @@ class InfieldV2ConfigCreator(MigrationCreator):
         ]:
             view_mappings[key] = default_view.dump()
 
+        name = config.display_name or config.asset_external_id or external_id
         return InFieldCDMLocationConfigRequest(
             space=config.source_data_instance_space or "<Please fill in the source data instance space>",
             external_id=external_id,
-            name="InField Location Config",
+            name=name,
             description="Migrated InField Location Configuration",
             feature_toggles=feature_toggles,
             access_management=access_management or None,
