@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.commands._questionary_style import custom_style_fan
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
     MODULES,
-    RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
@@ -861,8 +860,7 @@ class ModulesCommand(ToolkitCommand):
                 libraries = cdf_toml.libraries
             else:
                 self.warn(LowSeverityWarning("No libraries defined in cdf.toml. Using default library."))
-                default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
-                libraries = default_cdf_toml.libraries
+                libraries = CDFToml.load_default().libraries
                 if not libraries:
                     raise ToolkitError("Toolkit Bug: Default cdf.toml in resources is missing Library configuration.")
 
