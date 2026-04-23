@@ -7,8 +7,6 @@ from typing import Literal, TypeAlias
 
 from cognite.client import data_modeling as dm
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
-
 try:
     from pyodide.ffi import IN_BROWSER
 except ModuleNotFoundError:
@@ -173,7 +171,7 @@ MAX_RUN_QUERY_FREQUENCY_MIN = 10
 COGNITE_MIGRATION_SPACE = "cognite_migration"
 
 COGNITE_TIME_SERIES_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteTimeSeries")
-COGNITE_FILE_CONTAINER = ContainerId(space="cdf_cdm", external_id="CogniteFile")
+COGNITE_FILE_CONTAINER = dict(space="cdf_cdm", external_id="CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
 

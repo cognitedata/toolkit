@@ -1126,7 +1126,7 @@ class DocumentSelectStatus:
             return "dms"
         if (
             self.data_set_id is not None
-            or self.metadata_filter is not None
+            or self.metadata_filter
             or (self.ASSET_CENTRIC_PROPERTIES.intersection(self.document_filter.keys()))
         ):
             return "asset-centric"
@@ -1134,9 +1134,9 @@ class DocumentSelectStatus:
 
     @property
     def current_filter(self) -> dict[str, Any] | None:
-        if not self.document_filter and not self.metadata_filter and self.data_set_id is not None:
+        if not self.document_filter and not self.metadata_filter and self.data_set_id is None:
             return None
-        leaf_filter = list(*self.document_filter.values(), *self.metadata_filter.values())
+        leaf_filter = [*self.document_filter.values(), *self.metadata_filter.values()]
         if self.data_set_id is not None:
             leaf_filter.append({"equals": {"property": ["sourceFile", "dataSetId"], "value": self.data_set_id}})
         return {"and": leaf_filter}
@@ -1170,7 +1170,7 @@ class DocumentsInteractiveSelect:
 
     def select_documents(self) -> SelectedDocuments:
         while True:
-            count = self.client.tool.documents.count(filter=self.status.current_filter, query=self._search_query)
+            count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
             action = self._action(count)
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
@@ -1220,8 +1220,8 @@ class DocumentsInteractiveSelect:
         else:
             suffix = f" You have to filter down to below {self.max_selected} documents to continue."
         query_note = ""
-        if self._search_query is not None:
-            query_note = f' Active full-text query: "{self._search_query}".'
+        if self.status.search_query is not None:
+            query_note = f' Active full-text query: "{self.status.search_query}".'
         caveat = ""
         if selected_file_type == "dms":
             caveat = " (approximate)"
@@ -1242,7 +1242,7 @@ class DocumentsInteractiveSelect:
         ).unsafe_ask()
 
         buckets = self.client.tool.documents.unique(
-            property=filter_type, filter=self.status.current_filter, query=self._search_query
+            property=filter_type, filter=self.status.current_filter, query=self.status.search_query
         )
         self.status.attempted_options.add(filter_type)
         if len(buckets) == 0:
@@ -1265,7 +1265,7 @@ class DocumentsInteractiveSelect:
 
     def _select_dataset(self) -> None:
         buckets = self.client.tool.documents.unique(
-            property=("sourceFile", "dataSetId"), filter=self.status.current_filter, query=self._search_query
+            property=("sourceFile", "dataSetId"), filter=self.status.current_filter, query=self.status.search_query
         )
         internal_ids = [int(bucket.value) for bucket in buckets if isinstance(bucket.value, int | float)]
         if len(internal_ids) == 0:
@@ -1289,7 +1289,9 @@ class DocumentsInteractiveSelect:
 
     def _select_view(self) -> None:
         res = self.client.tool.containers.inspect(
-            [COGNITE_FILE_CONTAINER], all_versions=False, include_unavailable_views=False
+            [ContainerId(**COGNITE_FILE_CONTAINER)],  # type: ignore[arg-type]
+            all_versions=False,
+            include_unavailable_views=False,
         )[0]
         view_id = questionary.select(
             message="Select view to retrieve through",
@@ -1303,19 +1305,19 @@ class DocumentsInteractiveSelect:
             default=self.status.search_query or "",
         ).unsafe_ask()
         stripped = (answer or "").strip()
-        self._search_query = stripped or None
-        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self._search_query)
+        self.status.search_query = stripped or None
+        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
         if count == 0:
             self.client.console.print("No documents found. Clearing search query.", style="bold red")
-            self._search_query = None
+            self.status.search_query = None
 
     def _documents_list_or_search(self, *, limit: int) -> SelectedDocuments:
-        if self._search_query is None:
+        if self.status.search_query is None:
             return SelectedDocuments(
                 self.client.tool.documents.list(filter=self.status.current_filter, limit=limit), self.status
             )
         page = self.client.tool.documents.search(
-            query=self._search_query,
+            query=self.status.search_query,
             filter=self.status.current_filter,
             limit=limit,
         )
