@@ -240,5 +240,5 @@ class FunctionsCommand(ToolkitCommand):
         if path.exists() and not questionary.confirm(f"{path.name} already exists. Overwrite?").unsafe_ask():
             print(f"[yellow]Skipping {path.as_posix()}[/yellow]")
             return
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         print(f"[green]Created {path.as_posix()}[/green]")
