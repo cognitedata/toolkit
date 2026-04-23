@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, to_tracking_key
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -114,9 +115,10 @@ class BuildV2Command(ToolkitCommand):
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
         self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
+        self._track_build_results(build_folder, insights, client)
+
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
-        # Todo: Some mixpanel tracking.
         return build_folder
 
     @classmethod
@@ -461,6 +463,9 @@ class BuildV2Command(ToolkitCommand):
                             for file in module.files
                             if file.unresolved_variables
                         },
+                        yaml_line_count=sum(
+                            file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
+                        ),
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -519,6 +524,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Content read successfully.
         substituted_content = content
+        line_count = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
@@ -554,6 +560,7 @@ class BuildV2Command(ToolkitCommand):
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
+            line_count=line_count,
         )
 
         if isinstance(parsed_yaml, dict):
@@ -900,6 +907,38 @@ class BuildV2Command(ToolkitCommand):
         )
 
         return None
+
+    def _track_build_results(
+        self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
+    ) -> None:
+        built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
+        duration_ms = int((build_folder.finished_at - build_folder.started_at).total_seconds() * 1000)
+
+        resource_counts: Counter[str] = Counter(
+            f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
+            for resource in built_resources
+        )
+        dependency_total = sum(len(resource.dependencies) for resource in built_resources)
+        built_count = len(built_resources)
+        dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
+
+        insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
+        yaml_line_count = sum(module.yaml_line_count for module in build_folder.built_modules)
+
+        payload: dict[str, Any] = {
+            "build_duration_ms": duration_ms,
+            "resource_types": sorted(resource_counts.keys()),
+            "insight_codes": sorted(insight_codes_set),
+            "dependency_total": dependency_total,
+            "dependency_average": dependency_average,
+            "built_resource_total": built_count,
+            "module_count": len(build_folder.built_modules),
+            "insight_total_count": len(insights),
+            "yaml_line_count": yaml_line_count,
+        }
+        payload.update(resource_counts)
+        event = BuildTracking.model_validate(payload)
+        self.tracker.track(event, client)
 
     def _write_results(
         self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None

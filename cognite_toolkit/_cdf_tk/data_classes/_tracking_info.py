@@ -8,6 +8,14 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 
 
+def to_tracking_key(display_name: str) -> str:
+    """Convert a resource label to a camelCase Mixpanel key prefix (matches deploy_v2)."""
+    words = display_name.replace("-", " ").replace("_", " ").split()
+    if not words:
+        return display_name.lower()
+    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
+
+
 class TrackingEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
     event_name: str = Field(exclude=True)
@@ -111,3 +119,25 @@ class DeploymentTracking(TrackingEvent):
     total_skipped: int = 0
     total_resources: int = 0
     resource_type_count: int = 0
+
+
+class BuildTracking(TrackingEvent):
+    """Structured tracking information for build v2 (`cdf build`).
+
+    Per-resource-type built counts use flattened Mixpanel fields such as ``spaceDataModelingBuilt``,
+    matching the ``DeploymentTracking`` pattern (``extra="allow"``). Populate via
+    ``BuildTracking.model_validate({...})`` in ``BuildV2Command._track_build_results``.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
+
+    event_name: Literal["BuildResult"] = Field("BuildResult", exclude=True)
+    build_duration_ms: int = 0
+    resource_types: set[str] = Field(default_factory=set)
+    insight_codes: set[str] = Field(default_factory=set)
+    dependency_total: int = 0
+    dependency_average: float = 0.0
+    built_resource_total: int = 0
+    module_count: int = 0
+    insight_total_count: int = 0
+    yaml_line_count: int = 0
