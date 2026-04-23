@@ -218,7 +218,7 @@ class ReadYAMLFile(BaseModel):
 
 
 class FailedReadYAMLFile(ReadYAMLFile):
-    code: str
+    code: Literal["MISSING-SUFFIX", "INVALID-KIND", "READ-ERROR", "YAML-PARSE-ERROR", "EMPTY-YAML"]
     error: str
 
 
@@ -238,7 +238,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: str
+    code: Literal["MISSING-SUFFIX"]
     reason: str
 
 

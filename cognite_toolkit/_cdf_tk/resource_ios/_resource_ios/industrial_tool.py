@@ -119,7 +119,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         app_path = filepath.with_name(identifier.external_id)
         if not app_path.is_dir():
             yield FailedReadExtra(
-                code="NOT-EXISTING",
+                code="MISSING",
                 error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
                 source_path=app_path,
             )
@@ -127,7 +127,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         if "entrypoint" not in item:
             yield FailedReadExtra(
                 code="MISSING",
-                error=f"Cannot creat Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
+                error=f"Cannot create Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
                 source_path=app_path,
             )
             return
@@ -159,7 +159,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
 
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
-                code="INVALID",
+                code="SYNTAX-ERROR",
                 source_path=app_path,
                 error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",
             )
