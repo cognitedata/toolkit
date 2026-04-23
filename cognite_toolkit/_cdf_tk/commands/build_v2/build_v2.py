@@ -431,10 +431,7 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        validator = LocalRulesOrchestrator(
-            exclude_rule_codes=None,
-            enable_alpha_validators=False,
-        )
+        validator = LocalRulesOrchestrator(exclude_rule_codes=None, enable_alpha_validators=False)
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
