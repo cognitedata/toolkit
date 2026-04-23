@@ -241,7 +241,7 @@ class TestDependencyValidationSearchConfig:
                 build_path=AbsoluteFilePath(build_file.resolve()),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
-                can_verify=False,
+                has_syntax_error=False,
             )
         )
         result = list(DependencyRuleSet([module]).validate())
