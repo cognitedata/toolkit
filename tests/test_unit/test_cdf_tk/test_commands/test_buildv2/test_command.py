@@ -211,6 +211,7 @@ class TestDependencyValidationSearchConfig:
         module = BuiltModule(
             module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
             resources=[],
+            yaml_line_count=2,
         )
         return module, source_file, build_file
 
