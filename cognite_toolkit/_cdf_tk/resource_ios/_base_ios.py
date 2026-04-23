@@ -132,7 +132,7 @@ class ReadExtra(BaseModel):
 
 
 class FailedReadExtra(ReadExtra):
-    code: str
+    code: Literal["MISSING", "SYNTAX-ERROR"]
     error: str
 
 

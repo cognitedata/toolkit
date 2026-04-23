@@ -341,7 +341,7 @@ def _iter_file_content_read_extras(
         return
     if not source.is_file():
         yield FailedReadExtra(
-            code="NOT-EXISTING",
+            code="MISSING",
             error=f"File contents path does not exist: {source.as_posix()}",
             source_path=source,
         )

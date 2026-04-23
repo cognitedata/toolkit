@@ -47,7 +47,7 @@ class TestFunctionLimitsRule:
             build_path=AbsoluteFilePath(build_path.resolve()),
             crud_cls=FunctionIO,
             dependencies=set(),
-            has_syntax_errors=False,
+            has_syntax_error=False,
         )
 
     @staticmethod

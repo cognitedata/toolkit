@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
+    InsightList,
     Module,
     ModuleSource,
     RelativeDirPath,
@@ -59,7 +60,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
@@ -109,15 +110,11 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(
-            build_folder,
-            parameters.config_yaml.name if parameters.config_yaml else "",
-            console,
-            parameters.verbose,
-            parameters.insight_path,
-        )
+        insights = build_folder.all_insights
+        self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
+        self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
-        self._write_results(build_folder, parameters, client.config.project if client else None)
+        self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -431,10 +428,7 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        validator = LocalRulesOrchestrator(
-            exclude_rule_codes=None,
-            enable_alpha_validators=False,
-        )
+        validator = LocalRulesOrchestrator(exclude_rule_codes=None, enable_alpha_validators=False)
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -697,8 +691,8 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
-                        extra_files=resource.extra_files,
-                        has_syntax_errors=file.syntax_warning is not None,
+                        failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
+                        has_syntax_error=resource.validated is None,
                     )
                 )
         return built_resources
@@ -777,219 +771,146 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_build_folder(
-        self,
-        build_folder: BuildFolder,
-        config_yaml_filename: str,
-        console: Console,
-        verbose: bool,
-        insight_path: Path,
+    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+        if not insights:
+            return
+
+        console.print("\n[bold]Build Insights[/bold]")
+
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
+        remaining_count = len(insights) - len(display_insights)
+
+        # Map severity to style information
+        severity_style = {
+            "FileReadError": ("red", "✗"),
+            "ConsistencyError": ("red", "✗"),
+            "ModelSyntaxWarning": ("yellow", "!"),
+            "Recommendation": ("blue", "🛈"),
+            "IgnoredFileWarning": ("dim", "○"),
+        }
+
+        for insight in reversed(display_insights):
+            insight_type_name = type(insight).__name__
+            style, icon = severity_style.get(insight_type_name, ("white", "•"))
+
+            # Build the content for this insight
+            content_lines = [f"[bold]{insight.message}[/bold]"]
+            if insight.fix:
+                content_lines.append(f"\n[dim]Fix:[/dim] {insight.fix}")
+
+            panel_title = f"[{style}]{icon}[/] [{style}]{insight_type_name}[/]"
+            if insight.code:
+                panel_title += f" [dim]({insight.code})[/dim]"
+
+            console.print(
+                Panel(
+                    "\n".join(content_lines),
+                    title=panel_title,
+                    border_style=style,
+                    expand=False,
+                )
+            )
+
+        insight_destination = relative_to_if_possible(insight_path)
+        footer = f"All insights are written to {insight_destination.as_posix()}"
+        suffix = ""
+        if not verbose:
+            suffix = " Add --verbose to show more."
+        if remaining_count > 0:
+            footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
+        console.print(f"[dim]{footer}[/dim]")
+
+    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+        """Prioritize one insight per code, then by severity"""
+        insights_by_code: dict[str, Insight] = {}
+        remaining_insights: list[Insight] = []
+
+        for insight in insights:
+            code = insight.code or "UNDEFINED"
+            if code not in insights_by_code:
+                insights_by_code[code] = insight
+            else:
+                remaining_insights.append(insight)
+
+        # Sort the unique codes by severity
+        sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
+        # Sort remaining by severity
+        sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
+        # Combine them
+        prioritized_insights = sorted_unique_insights + sorted_remaining
+        return sorted(
+            prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
+        )
+
+    def _display_build_summary(
+        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
         resource_type_count = len(
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
-        syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
-        failed_read_files = [file for module in build_folder.built_modules for file in module.failed_files]
-        failed_read_file_count = len(failed_read_files)
-        ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
-        ignore_file_count = len(ignored_files)
-        unresolved_files = {
-            source_path: variables
-            for module in build_folder.built_modules
-            for source_path, variables in module.unresolved_variables_by_source.items()
-        }
-        unresolved_file_count = len(unresolved_files)
-
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        border_color = 0
-        if failed_read_file_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{failed_read_file_count}[/] resource files failed to be read.\n    These files are ignored in the build, but you should fix the issues to\n"
-                f"    ensure all your resources are included in the build."
-            )
-            border_color = max(border_color, 2)
-        if unresolved_file_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
-                f"    Make sure to define the variables in the {config_yaml_filename or 'config YAML'} file and that they are correctly placed in the variables section matching the file path."
-            )
-            border_color = max(border_color, 2)
+        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        max_severity = 0
+        for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
+            max_severity = max(max_severity, severity)
+            match severity:
+                case severity if severity <= 15:
+                    insight_style = "[green]✓[/]"
+                case severity if 15 < severity <= 35:
+                    insight_style = "[yellow]![/]"
+                case _:
+                    insight_style = "[red]✗[/]"
 
-        if ignored_files:
-            most_common = Counter([file.code for file in ignored_files]).most_common(3)
-            most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
-            summary_lines.append(
-                f"[yellow]![/] [bold]{ignore_file_count}[/] resource files were ignored. The most common reasons {most_common_str}."
-            )
-            border_color = max(border_color, 1)
-
-        if syntax_warning_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
-            )
-            border_color = max(border_color, 1)
-
-        for validation in build_folder.validation_results:
-            if validation.failed:
-                prefix = "[red]✗[/]"
-            elif validation.insights:
-                prefix = "[yellow]![/]"
-                border_color = max(border_color, 1)
-            else:
-                prefix = "[green]✓[/]"
-            suffix: list[str] = []
-            if validation.failed:
-                suffix.append(f"failed {len(validation.failed)} checks")
-            if validation.insights:
-                suffix.append(f"found {len(validation.insights)} insights")
-            if not validation.failed and not validation.insights:
-                suffix.append("all checks passed")
-            summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
+            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
+
+        match max_severity:
+            case severity if severity <= 15:
+                border_color = "green"
+                recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
+            case severity if 15 < severity <= 35:
+                recommendation = (
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources."
+                )
+                border_color = "orange1"
+            case _:
+                recommendation = (
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are YAML parsing errors that must be fixed before deployment."
+                )
+                border_color = "red"
+        summary_lines.append("")
+        summary_lines.append(recommendation)
         console.print(
             Panel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
-                border_style={0: "green", 1: "yellow", 2: "red"}[border_color],
+                border_style=border_color,
                 expand=False,
             )
         )
 
-        all_insights = build_folder.all_insights
-        if all_insights:
-            # Prioritize one insight per code, then by severity
-            insights_by_code: dict[str, Insight] = {}
-            remaining_insights: list[Insight] = []
-
-            for insight in all_insights:
-                code = insight.code or "UNDEFINED"
-                if code not in insights_by_code:
-                    insights_by_code[code] = insight
-                else:
-                    remaining_insights.append(insight)
-
-            # Sort the unique codes by severity
-            sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
-            # Sort remaining by severity
-            sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
-            # Combine them
-            prioritized_insights = sorted_unique_insights + sorted_remaining
-
-            table = Table(title="Insights", expand=False, show_edge=False)
-            table.add_column("Type", style="dim")
-            table.add_column("Code", style="dim")
-            table.add_column("Description", style="dim")
-            table.add_column("Fix", style="dim")
-            max_reached = False
-            for no, issue in enumerate(prioritized_insights):
-                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
-                if no > 10:
-                    max_reached = True
-                    break
-            console.print(table)
-            if max_reached:
-                console.print(
-                    f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
-                    style="dim",
-                )
-            insight_destination = relative_to_if_possible(insight_path)
-            console.print(
-                f"[dim]All insights are written to {insight_destination.as_posix()}[/]",
-                style="dim",
-            )
-        if verbose and unresolved_files:
-            table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
-            table.add_column("Path")
-            table.add_column("Variables")
-            for source_path, variables in unresolved_files.items():
-                table.add_row(
-                    relative_to_if_possible(source_path).as_posix(), humanize_collection(variables, sort=False)
-                )
-            console.print(table)
-
-        if verbose and ignored_files:
-            table = Table(title="Ignored Files", expand=False, show_edge=False)
-            table.add_column("Code", style="bold")
-            table.add_column("Path", style="bold")
-            table.add_column("Reason", style="bold")
-            for file in ignored_files:
-                table.add_row(file.code, relative_to_if_possible(file.filepath).as_posix(), file.reason)
-            console.print(table)
-
-        if failed_read_file_count:
-            available_variable_names = {variable.name for variable in build_folder.all_variables}
-            table = Table(title="Failed Read Files", expand=False, show_edge=True, border_style="red", show_lines=True)
-            table.add_column(
-                "Code",
-            )
-            table.add_column("Description")
-            table.add_column("File Path")
-            table.add_column("Fix")
-            for failed_file in failed_read_files:
-                display_path = relative_to_if_possible(failed_file.source_path).as_posix()
-                fix = ""
-                if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
-                    fix = (
-                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the {config_yaml_filename or 'config YAML file'}.\n"
-                        "Make sure they are placed correctly in the variables section matching the file path."
-                    )
-
-                table.add_row(failed_file.code, failed_file.error, display_path, fix)
-            console.print(table)
-
-        # Display deployment recommendation based on build status
-        has_yaml_errors = failed_read_file_count > 0
-        has_model_syntax_errors = all_insights.has_model_syntax_errors if all_insights else False
-
-        if has_yaml_errors:
-            console.print(
-                Panel(
-                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
-                    "There are YAML parsing errors that must be fixed before deployment.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="red",
-                    expand=False,
-                )
-            )
-        elif has_model_syntax_errors:
-            console.print(
-                Panel(
-                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
-                    "There are model syntax warnings. Deployment may fail for some resources.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="yellow",
-                    expand=False,
-                )
-            )
-        else:
-            console.print(
-                Panel(
-                    "[green]✓[/] [bold]Ready to deploy.[/bold]\n"
-                    "No critical errors found. You can proceed with deployment.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="green",
-                    expand=False,
-                )
-            )
-
         return None
 
-    def _write_results(self, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None) -> None:
+    def _write_results(
+        self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
+    ) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
         insight_file = parameters.insight_path
         if parameters.insight_format == "csv":
-            insight_file_content = build.all_insights.to_csv()
+            insight_file_content = insights.to_csv()
         else:
-            insight_file_content = build.all_insights.to_json()
+            insight_file_content = insights.to_json()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
