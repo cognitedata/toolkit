@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
@@ -321,10 +322,11 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
     KIND = "RecordsMigration"
     CHUNK_SIZE = 500
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+    UPSERT_ENDPOINT = "/streams/{streamId}/records/upsert"
 
-    def __init__(self, client: ToolkitClient, stream_external_id: str, skip_existing: bool = False) -> None:
+    def __init__(self, client: ToolkitClient, stream: StreamResponse, skip_existing: bool = False) -> None:
         super().__init__(client)
-        self.stream_external_id = stream_external_id
+        self.stream = stream
         self.skip_existing = skip_existing
         self._last_updated_time_windows: list[dict[str, int] | None] | None = None
 
@@ -337,15 +339,14 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             return data_chunk
 
         if self._last_updated_time_windows is None:
-            stream_crud = StreamIO.create_loader(self.client)
-            self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
+            self._last_updated_time_windows = StreamIO.last_updated_time_windows(self.stream)
         last_updated_time_windows = self._last_updated_time_windows
 
         record_ids = [upload_item.item.as_id() for upload_item in data_chunk.items]
         existing_pairs: set[tuple[str, str]] = set()
         for last_updated_time in last_updated_time_windows:
             for record in self.client.records.retrieve(
-                stream_external_id=self.stream_external_id,
+                stream_external_id=self.stream.external_id,
                 items=record_ids,
                 last_updated_time=last_updated_time,
             ):
@@ -385,7 +386,8 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
             if not data_chunk.items:
                 return ItemsResultList()
 
-        endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
+        endpoint_template = self.UPSERT_ENDPOINT if self.stream.type == "Mutable" else self.UPLOAD_ENDPOINT
+        endpoint = endpoint_template.format(streamId=self.stream.external_id)
         return http_client.request_items_retries(
             message=ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(endpoint),

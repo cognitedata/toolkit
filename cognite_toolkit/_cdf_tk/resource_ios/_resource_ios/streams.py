@@ -87,23 +87,19 @@ class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
         all_streams = self.client.streams.list()
         return iter(all_streams)
 
+    @staticmethod
     def last_updated_time_windows(
-        self, stream_external_id: str, start_ms: int | None = None
+        stream: StreamResponse, start_ms: int | None = None
     ) -> list[dict[str, int] | None]:
         """Return lastUpdatedTime filter dicts to use in record queries.
 
         Each dict is {"gte": ..., "lt": ...} representing one query window.
         None is returned for Mutable streams with no start_ms — meaning no time filter is needed.
-        Returns an empty list if the stream does not exist.
 
         Immutable streams enforce a maxFilteringInterval per request, so the range
         [start_ms (or stream.createdTime), now) is split into consecutive windows.
         Mutable streams have no such constraint and are covered in a single pass.
         """
-        streams = self.retrieve(ExternalId.from_external_ids([stream_external_id]))
-        if not streams:
-            return []
-        stream = streams[0]
         now_ms = int(time.time() * 1000)
         if stream.type == "Mutable":
             if start_ms is None:

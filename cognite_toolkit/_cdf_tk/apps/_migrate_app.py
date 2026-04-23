@@ -9,6 +9,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -51,6 +52,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
@@ -676,7 +678,19 @@ class MigrateApp(typer.Typer):
         """Migrate Events to records (Streams API)."""
         client = EnvironmentVariables.create_from_environment().get_client()
         migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
-        if mapping_file is None and data_set_id is None:
+        streams = client.streams.retrieve(
+            [ExternalId(external_id=migration_config.stream_external_id)],
+            include_statistics=True,
+            ignore_unknown_ids=True,
+        )
+        if not streams:
+            raise ToolkitMigrationError(
+                f"Stream '{migration_config.stream_external_id}' does not exist. "
+                "Please create the stream before running a records migration."
+            )
+        stream = streams[0]
+        is_interactive = mapping_file is None and data_set_id is None
+        if is_interactive:
             data_set_id = EventInteractiveSelect(client, "migrate").select_data_set(allow_empty=False)
         if data_set_id is not None and migration_config.default_mapping is None:
             raise typer.BadParameter(
@@ -701,13 +715,18 @@ class MigrateApp(typer.Typer):
         elif data_set_id is not None:
             selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Events")
 
+        if is_interactive:
+            skip_existing = questionary.confirm(
+                "Do you want to check for and skip existing records?", default=skip_existing
+            ).unsafe_ask()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(  # type: ignore[misc]
                 selectors=[selected],
-                data=RecordsMigrationIO(
-                    client, stream_external_id=migration_config.stream_external_id, skip_existing=skip_existing
-                ),
+                data=RecordsMigrationIO(client, stream=stream, skip_existing=skip_existing),
                 mapper=AssetCentricToRecordMapper(
                     client,
                     mappings_by_external_id=mappings_by_external_id,
