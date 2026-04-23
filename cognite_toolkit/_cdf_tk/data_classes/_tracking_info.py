@@ -111,3 +111,7 @@ class DeploymentTracking(TrackingEvent):
     total_skipped: int = 0
     total_resources: int = 0
     resource_type_count: int = 0
+
+
+class BuildTracking(TrackingEvent):
+    event_name: Literal["BuildResult"] = Field("BuildResult", exclude=True)

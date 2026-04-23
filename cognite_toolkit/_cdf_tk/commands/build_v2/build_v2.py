@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -114,9 +115,10 @@ class BuildV2Command(ToolkitCommand):
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
         self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
+        self._track_build_results(build_folder, insights, client)
+
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
-        # Todo: Some mixpanel tracking.
         return build_folder
 
     @classmethod
@@ -900,6 +902,12 @@ class BuildV2Command(ToolkitCommand):
         )
 
         return None
+
+    def _track_build_results(
+        self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
+    ) -> None:
+        event = BuildTracking()
+        self.tracker.track(event, client)
 
     def _write_results(
         self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
