@@ -775,6 +775,8 @@ class BuildV2Command(ToolkitCommand):
         if not insights:
             return
 
+        console.print("\n[bold]Build Insights[/bold]")
+
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 12)
         remaining_count = len(insights) - len(display_insights)
 
