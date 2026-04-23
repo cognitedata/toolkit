@@ -179,8 +179,10 @@ chart:
       granularity: 1m
       lowerThreshold: null
       timeseriesExternalId: null
-      timeseriesId: 1356054795741013
-      timeseriesInstanceId: null
+      timeseriesId: null
+      timeseriesInstanceId:
+        externalId: SmokeCalculationOutput_1776064037261_TS
+        space: toolkit_smoke_test_space
       upperThreshold: 42.0
     name: Check_the_output_of_smoke_test_chart_migration
     nonce: <missingNonce>
