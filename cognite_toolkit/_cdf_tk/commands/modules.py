@@ -56,7 +56,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -857,13 +857,14 @@ class ModulesCommand(ToolkitCommand):
         if self._module_source_dir is None:
             if user_library:
                 libraries = {"userdefined": user_library}
-            elif not (Path.cwd() / CDFToml.file_name).exists():
+            elif cdf_toml.libraries:
+                libraries = cdf_toml.libraries
+            else:
+                self.warn(LowSeverityWarning("No libraries defined in cdf.toml. Using default library."))
                 default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
                 libraries = default_cdf_toml.libraries
                 if not libraries:
                     raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
-            else:
-                libraries = cdf_toml.libraries
 
             for library_name, library in libraries.items():
                 try:
