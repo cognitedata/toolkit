@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
+    InsightList,
     Module,
     ModuleSource,
     RelativeDirPath,
@@ -770,7 +771,28 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None: ...
+    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 12)
+
+    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+        """Prioritize one insight per code, then by severity"""
+        insights_by_code: dict[str, Insight] = {}
+        remaining_insights: list[Insight] = []
+
+        for insight in insights:
+            code = insight.code or "UNDEFINED"
+            if code not in insights_by_code:
+                insights_by_code[code] = insight
+            else:
+                remaining_insights.append(insight)
+
+        # Sort the unique codes by severity
+        sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
+        # Sort remaining by severity
+        sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
+        # Combine them
+        prioritized_insights = sorted_unique_insights + sorted_remaining
+        return sorted(prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code), reverse=True)
 
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
