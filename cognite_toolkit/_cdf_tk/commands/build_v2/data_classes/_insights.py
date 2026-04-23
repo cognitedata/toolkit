@@ -45,7 +45,7 @@ class Recommendation(InsightDefinition):
 
 
 class IgnoredFileWarning(InsightDefinition):
-    severity = 5
+    severity = 50
 
 
 Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning

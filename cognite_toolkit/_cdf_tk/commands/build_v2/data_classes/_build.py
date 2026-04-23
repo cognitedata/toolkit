@@ -123,7 +123,9 @@ class BuiltModule(BaseModel):
             for failed_extra in resource.failed_extra:
                 display_path = relative_to_if_possible(resource.source_path)
                 insights.append(
-                    FileReadError(message=f"In {display_path!r}: {failed_extra.error}", code=failed_extra.code)
+                    FileReadError(
+                        message=f"In {display_path.as_posix()!r}: {failed_extra.error}", code=failed_extra.code
+                    )
                 )
         insights.extend(self.syntax_warnings_by_source.values())
         for path, variables in self.unresolved_variables_by_source.items():
@@ -131,17 +133,22 @@ class BuiltModule(BaseModel):
             insights.append(
                 ConsistencyError(
                     code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variables in {display_path}: {humanize_collection(variables)}",
+                    message=f"Unresolved variables in {display_path.as_posix()!r}: {humanize_collection(variables)}",
                     fix="Make sure to define the variables in the 'config YAML' file and that they are "
                     "correctly placed in the variables section matching the file path",
                 )
             )
-        for failed_file in self.insights:
-            insights.append(FileReadError(code=failed_file.code, message=failed_file.message))
+        for failed_file in self.failed_files:
+            display_path = relative_to_if_possible(failed_file.source_path)
+            insights.append(
+                FileReadError(code=failed_file.code, message=f"In {display_path.as_posix()!r}: {failed_file.error}")
+            )
         for ignored_file in self.ignored_files:
             display_path = relative_to_if_possible(ignored_file.filepath)
             insights.append(
-                IgnoredFileWarning(code=ignored_file.code, message=f"In {display_path!r}: {ignored_file.reason}")
+                IgnoredFileWarning(
+                    code=ignored_file.code, message=f"In {display_path.as_posix()!r}: {ignored_file.reason}"
+                )
             )
 
         return insights
@@ -179,9 +186,7 @@ class BuildFolder(BaseModel):
         """Insights from all built modules."""
         insights = InsightList()
         for module in self.built_modules:
-            insights.extend(module.insights)
-            insights.extend(module.syntax_warnings_by_source.values())
-
+            insights.extend(module.all_insights)
         for result in self.validation_results:
             insights.extend(result.insights)
 

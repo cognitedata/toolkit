@@ -5,6 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
 
@@ -64,5 +65,6 @@ class DependencyRuleSet(ToolkitGlobalRulSet):
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
         return " - ".join(
-            f"{resource.identifier!s} in {resource.source_path.as_posix()!r}" for resource in expected_resources
+            f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}"
+            for resource in expected_resources
         )
