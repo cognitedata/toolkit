@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
+    CogniteFileContentIO,
     FileContentIO,
     FileMetadataContentIO,
     Page,
@@ -329,8 +330,8 @@ class UploadCommand(ToolkitCommand):
             return None
         if issubclass(io_cls, ChartIO):
             return ChartIO(client, skip_strict_mode=skip_strict_mode)
-        elif issubclass(io_cls, FileMetadataContentIO):
-            return FileMetadataContentIO(client, config_directory=data_file.parent)
+        elif issubclass(io_cls, FileMetadataContentIO | CogniteFileContentIO):
+            return io_cls(client, config_directory=data_file.parent)
         else:
             return io_cls(client)
 

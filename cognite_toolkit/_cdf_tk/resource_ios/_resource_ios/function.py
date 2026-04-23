@@ -185,8 +185,12 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
         return raw_list
 
     @classmethod
+    def get_function_code_implicitly(cls, filepath: Path, identifier: ExternalId) -> Path:
+        return filepath.parent / identifier.external_id
+
+    @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        function_rootdir = filepath.parent / identifier.external_id
+        function_rootdir = cls.get_function_code_implicitly(filepath, identifier)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
                 code="NOT-EXISTING",

@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
@@ -11,8 +13,34 @@ from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
+@pytest.fixture
+def cdf_container() -> ContainerResponse:
+    return ContainerResponse(
+        space="sp_enterprise_process_industry_full",
+        external_id="Toolkit360Image",
+        last_updated_time=1739469813633,
+        created_time=1739469813633,
+        description=None,
+        name=None,
+        used_for="node",
+        is_global=False,
+        properties={
+            "UUID": ContainerPropertyDefinition(
+                type=TextProperty(list=False, collation="ucs_basic"),
+                immutable=False,
+                nullable=True,
+                auto_increment=False,
+            )
+        },
+        indexes={},
+        constraints={},
+    )
+
+
 class TestContainerCRUD:
-    def test_unchanged_used_for_not_set(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+    def test_unchanged_used_for_not_set(
+        self, toolkit_client_approval: ApprovalToolkitClient, cdf_container: ContainerResponse
+    ) -> None:
         crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
         raw_file = """space: sp_enterprise_process_industry_full
 externalId: Toolkit360Image
@@ -30,26 +58,6 @@ indexes: {}
 """
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
-        cdf_container = ContainerResponse(
-            space="sp_enterprise_process_industry_full",
-            external_id="Toolkit360Image",
-            last_updated_time=1739469813633,
-            created_time=1739469813633,
-            description=None,
-            name=None,
-            used_for="node",
-            is_global=False,
-            properties={
-                "UUID": ContainerPropertyDefinition(
-                    type=TextProperty(list=False, collation="ucs_basic"),
-                    immutable=False,
-                    nullable=True,
-                    auto_increment=False,
-                )
-            },
-            indexes={},
-            constraints={},
-        )
 
         toolkit_client_approval.append(ContainerResponse, [cdf_container])
 
@@ -85,3 +93,23 @@ indexes: {}
 
         message = mock_warning_cls.call_args[0][0]
         assert "attempted_deleted_field" in message
+
+    def test_dump_resource_normalizes_empty_constraints_and_indexes_to_local_shape(
+        self, toolkit_client_approval: ApprovalToolkitClient, cdf_container: ContainerResponse
+    ) -> None:
+        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+
+        local_with_null = {"constraints": None, "indexes": None}
+        dumped = crud.dump_resource(cdf_container, local_with_null)
+        assert dumped.get("constraints") is None
+        assert dumped.get("indexes") is None
+
+        local_with_empty_dict = {"constraints": {}, "indexes": {}}
+        dumped = crud.dump_resource(cdf_container, local_with_empty_dict)
+        assert dumped.get("constraints") == {}
+        assert dumped.get("indexes") == {}
+
+        local_absent: dict = {}
+        dumped = crud.dump_resource(cdf_container, local_absent)
+        assert "constraints" not in dumped
+        assert "indexes" not in dumped
