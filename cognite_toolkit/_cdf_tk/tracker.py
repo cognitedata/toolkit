@@ -64,6 +64,8 @@ class Tracker:
 
     def track(self, event: TrackingEvent, client: ToolkitClient | None) -> bool:
         distinct_id = self._get_distinct_id(client)
+        if isinstance(distinct_id, bool):
+            return False
         event_properties = event.to_dict()
         event_properties.update(self._get_all_event_properties(client))
 
@@ -84,7 +86,7 @@ class Tracker:
 
         return True
 
-    def _get_distinct_id(self, client: ToolkitClient | None = None) -> str:
+    def _get_distinct_id(self, client: ToolkitClient | None = None) -> str | bool:
         if "PYTEST_CURRENT_TEST" in os.environ:
             return "pytest"
         if self._distinct_id:
@@ -97,11 +99,10 @@ class Tracker:
             user_properties.update(user_info.model_dump(exclude_none=True, mode="json", exclude_unset=True))
             if user_info.id:
                 distinct_id = user_info.id
-                user_properties["mode"] = "online"
 
         if distinct_id is None:
             # Fallback to generate an ID and load from file.
-            user_properties["mode"] = "offline"
+            user_properties["type"] = "offline"
             cache_file = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
             if cache_file.exists():
                 distinct_id = cache_file.read_text()
@@ -109,8 +110,10 @@ class Tracker:
                 distinct_id = f"{self._cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
                 cache_file.write_text(distinct_id)
 
-        with suppress(ConnectionError, MixpanelException):
+        try:
             self.mp.people_set(distinct_id, user_properties)
+        except Exception:
+            return False
         self._distinct_id = distinct_id
         return distinct_id
 
