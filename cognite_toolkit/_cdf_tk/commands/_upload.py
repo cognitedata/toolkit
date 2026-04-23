@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
+from cognite_toolkit._cdf_tk.data_classes import _tracking_info
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     CogniteFileContentIO,
@@ -295,7 +295,9 @@ class UploadCommand(ToolkitCommand):
                 executor.run()
                 items_results = logger.finalize(dry_run)
                 display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
-                tracker.track(DataTracking.from_item_results("UploadResult", selector.kind, items_results), client)
+                tracker.track(
+                    _tracking_info.DataTracking.from_item_results("UploadResult", selector.kind, items_results), client
+                )
                 executor.raise_on_error()
 
     @staticmethod
