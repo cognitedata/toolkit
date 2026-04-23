@@ -77,3 +77,46 @@ class DataTracking(TrackingEvent):
         for result in item_results:
             tracking_data[result.status] = result.count
         return cls.model_validate(tracking_data)
+
+
+class ResourceDeploymentStats(BaseModel):
+    """Statistics for a single resource type deployment."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    resource_name: str
+    created: int = 0
+    updated: int = 0
+    deleted: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    total: int = 0
+
+
+class DeploymentTracking(TrackingEvent):
+    """Structured tracking information for deployment commands.
+
+    Attributes:
+        is_dry_run: Whether this was a dry run.
+        operation: The operation performed (deploy or clean).
+        resource_stats: List of statistics per resource type.
+        total_created: Total resources created across all types.
+        total_updated: Total resources updated across all types.
+        total_deleted: Total resources deleted across all types.
+        total_unchanged: Total unchanged resources across all types.
+        total_skipped: Total skipped resources across all types.
+        total_resources: Total resources across all types.
+        resource_type_count: Number of different resource types deployed.
+    """
+
+    event_name: Literal["DeploymentResult"] = Field("DeploymentResult", exclude=True)
+    is_dry_run: bool = False
+    operation: str = "deploy"
+    resource_stats: list[ResourceDeploymentStats] = Field(default_factory=list)
+    total_created: int = 0
+    total_updated: int = 0
+    total_deleted: int = 0
+    total_unchanged: int = 0
+    total_skipped: int = 0
+    total_resources: int = 0
+    resource_type_count: int = 0

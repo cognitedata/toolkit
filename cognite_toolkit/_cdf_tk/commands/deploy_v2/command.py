@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStats
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -50,6 +51,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     catch_warnings,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -231,8 +233,8 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        # Todo: Some mixpanel tracking??
         self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
+        self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             self._display_deprecation_warning(raw_files, client.console)
@@ -963,6 +965,42 @@ class DeployV2Command(ToolkitCommand):
                 for skip in total.skipped
             ]
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+
+    @classmethod
+    def _track_deployment_result(
+        cls, tracker: Tracker, client: ToolkitClient, results: Sequence[DeploymentResult], operation: str
+    ) -> None:
+        if not results:
+            return
+
+        is_dry_run = results[0].is_dry_run
+
+        resource_stats = [
+            ResourceDeploymentStats(
+                resource_name=result.resource_name,
+                created=result.created_count,
+                updated=result.updated_count,
+                deleted=result.deleted_count,
+                unchanged=result.unchanged_count,
+                skipped=result.skipped_count,
+                total=result.total_count,
+            )
+            for result in results
+        ]
+
+        event = DeploymentTracking(
+            is_dry_run=is_dry_run,
+            operation=operation,
+            resource_stats=resource_stats,
+            total_created=sum(r.created_count for r in results),
+            total_updated=sum(r.updated_count for r in results),
+            total_deleted=sum(r.deleted_count for r in results),
+            total_unchanged=sum(r.unchanged_count for r in results),
+            total_skipped=sum(r.skipped_count for r in results),
+            total_resources=sum(r.total_count for r in results),
+            resource_type_count=len(results),
+        )
+        tracker.track(event, client)
 
     @classmethod
     def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:
