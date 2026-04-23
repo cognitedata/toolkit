@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, to_tracking_key
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -73,22 +73,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
-
-
-def _to_tracking_key(display_name: str) -> str:
-    """Convert a resource label to a camelCase Mixpanel key prefix (matches deploy_v2)."""
-    words = display_name.replace("-", " ").split()
-    if not words:
-        return display_name.lower()
-    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
-
-
-def _tracking_label_for_resource_type(resource_type: ResourceType) -> str:
-    """Build a spaced label suitable for `_to_tracking_key` from a build ResourceType."""
-    parts: list[str] = []
-    for segment in (resource_type.kind, resource_type.resource_folder):
-        parts.extend(segment.replace("-", " ").replace("_", " ").split())
-    return " ".join(parts)
 
 
 @dataclass
@@ -925,15 +909,10 @@ class BuildV2Command(ToolkitCommand):
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
         duration_ms = (build_folder.finished_at - build_folder.finished_at).total_seconds() * 1000
 
-        label_counts: Counter[str] = Counter()
-        for resource in built_resources:
-            label_counts[_tracking_label_for_resource_type(resource.type)] += 1
-
-        per_type_built: dict[str, int] = {}
-        for label, count in label_counts.items():
-            prefix = _to_tracking_key(label)
-            per_type_built[f"{prefix}Built"] = count
-
+        resource_counts: Counter[str] = Counter(
+            f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
+            for resource in built_resources
+        )
         dependency_total = sum(len(resource.dependencies) for resource in built_resources)
         built_count = len(built_resources)
         dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
@@ -942,7 +921,7 @@ class BuildV2Command(ToolkitCommand):
 
         payload: dict[str, Any] = {
             "build_duration_ms": duration_ms,
-            "resource_types": sorted(label_counts.keys()),
+            "resource_types": sorted(resource_counts.keys()),
             "insight_codes": sorted(insight_codes_set),
             "dependency_total": dependency_total,
             "dependency_average": dependency_average,
@@ -950,7 +929,7 @@ class BuildV2Command(ToolkitCommand):
             "module_count": len(build_folder.built_modules),
             "insight_total_count": len(insights),
         }
-        payload.update(per_type_built)
+        payload.update(resource_counts)
         event = BuildTracking.model_validate(payload)
         self.tracker.track(event, client)
 

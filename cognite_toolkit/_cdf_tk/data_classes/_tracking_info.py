@@ -8,6 +8,14 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 
 
+def to_tracking_key(display_name: str) -> str:
+    """Convert a resource label to a camelCase Mixpanel key prefix (matches deploy_v2)."""
+    words = display_name.replace("-", " ").replace("_", " ").split()
+    if not words:
+        return display_name.lower()
+    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
+
+
 class TrackingEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
     event_name: str = Field(exclude=True)
