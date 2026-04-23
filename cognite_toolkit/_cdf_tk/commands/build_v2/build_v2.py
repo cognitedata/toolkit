@@ -906,7 +906,7 @@ class BuildV2Command(ToolkitCommand):
     def _track_build_results(
         self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
     ) -> None:
-        event = BuildTracking()
+        event = BuildTracking.from_build_folder(build_folder, insights)
         self.tracker.track(event, client)
 
     def _write_results(
