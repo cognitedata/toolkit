@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -109,15 +109,11 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(
-            build_folder,
-            parameters.config_yaml.name if parameters.config_yaml else "",
-            console,
-            parameters.verbose,
-            parameters.insight_path,
-        )
+        insights = build_folder.all_insights
+        self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
+        self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
-        self._write_results(build_folder, parameters, client.config.project if client else None)
+        self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
         # Todo: Some mixpanel tracking.
         return build_folder
@@ -774,6 +770,12 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
 
+    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None: ...
+
+    def _display_build_summary(
+        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
+    ) -> None: ...
+
     def _display_build_folder(
         self,
         build_folder: BuildFolder,
@@ -979,14 +981,16 @@ class BuildV2Command(ToolkitCommand):
 
         return None
 
-    def _write_results(self, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None) -> None:
+    def _write_results(
+        self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
+    ) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
         insight_file = parameters.insight_path
         if parameters.insight_format == "csv":
-            insight_file_content = build.all_insights.to_csv()
+            insight_file_content = insights.to_csv()
         else:
-            insight_file_content = build.all_insights.to_json()
+            insight_file_content = insights.to_json()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 

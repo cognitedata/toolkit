@@ -8,8 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._insights import Insight, InsightList, ModelSyntaxWarning
+from ._insights import ConsistencyError, FileReadError, IgnoredFileWarning, Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -40,6 +42,10 @@ class BuildParameters(BaseModel):
     @property
     def insight_path(self) -> Path:
         return self.build_dir / f"insights.{self.insight_format}"
+
+    @property
+    def config_file_name(self) -> str:
+        return self.config_yaml.name if self.config_yaml else ""
 
 
 class BuildSourceFiles(BaseModel):
@@ -113,7 +119,31 @@ class BuiltModule(BaseModel):
     def all_insights(self) -> InsightList:
         """The list of all insights for this module."""
         insights = InsightList(self.insights)
+        for resource in self.resources:
+            for failed_extra in resource.failed_extra:
+                display_path = relative_to_if_possible(resource.source_path)
+                insights.append(
+                    FileReadError(message=f"In {display_path!r}: {failed_extra.error}", code=failed_extra.code)
+                )
         insights.extend(self.syntax_warnings_by_source.values())
+        for path, variables in self.unresolved_variables_by_source.items():
+            display_path = relative_to_if_possible(path)
+            insights.append(
+                ConsistencyError(
+                    code="UNRESOLVED-VARIABLES",
+                    message=f"Unresolved variables in {display_path}: {humanize_collection(variables)}",
+                    fix="Make sure to define the variables in the 'config YAML' file and that they are "
+                    "correctly placed in the variables section matching the file path",
+                )
+            )
+        for failed_file in self.insights:
+            insights.append(FileReadError(code=failed_file.code, message=failed_file.message))
+        for ignored_file in self.ignored_files:
+            display_path = relative_to_if_possible(ignored_file.filepath)
+            insights.append(
+                IgnoredFileWarning(code=ignored_file.code, message=f"In {display_path!r}: {ignored_file.reason}")
+            )
+
         return insights
 
     def __hash__(self) -> int:
@@ -151,8 +181,10 @@ class BuildFolder(BaseModel):
         for module in self.built_modules:
             insights.extend(module.insights)
             insights.extend(module.syntax_warnings_by_source.values())
+
         for result in self.validation_results:
             insights.extend(result.insights)
+
         return insights
 
     @property

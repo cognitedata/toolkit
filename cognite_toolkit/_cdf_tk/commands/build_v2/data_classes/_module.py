@@ -238,7 +238,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: str
+    code: Literal["MISSING-SUFFIX"]
     reason: str
 
 
