@@ -88,9 +88,7 @@ class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
         return iter(all_streams)
 
     @staticmethod
-    def last_updated_time_windows(
-        stream: StreamResponse, start_ms: int | None = None
-    ) -> list[dict[str, int] | None]:
+    def last_updated_time_windows(stream: StreamResponse, start_ms: int | None = None) -> list[dict[str, int] | None]:
         """Return lastUpdatedTime filter dicts to use in record queries.
 
         Each dict is {"gte": ..., "lt": ...} representing one query window.
