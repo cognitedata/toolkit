@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import RecordsMigrat
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     DataItem,
@@ -136,7 +137,7 @@ class MigrationCommand(ToolkitCommand):
             if step.is_completed:
                 continue
 
-            selected = step.selector
+            selected: T_Selector = step.selector
             logger.reset()
             mapper.prepare(selected)
 
@@ -162,6 +163,9 @@ class MigrationCommand(ToolkitCommand):
             results_by_selector[str(selected)] = items_results
 
             display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
+            self.tracker.track(
+                DataTracking.from_item_results("MigrationResult", selected.kind, items_results), data.client
+            )
             self._print_txt(items_results, log_dir, f"{selected!s}Items", console)
             progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
             if progress is not None:
