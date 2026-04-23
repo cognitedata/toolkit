@@ -777,7 +777,7 @@ class BuildV2Command(ToolkitCommand):
 
         console.print("\n[bold]Build Insights[/bold]")
 
-        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 12)
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
 
         # Map severity to style information
@@ -875,11 +875,11 @@ class BuildV2Command(ToolkitCommand):
                 border_color = "green"
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
             case severity if 15 < severity <= 35:
-                border_color = "yellow"
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are model syntax warnings. Deployment may fail for some resources."
                 )
+                border_color = "orange1"
             case _:
                 recommendation = (
                     "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
