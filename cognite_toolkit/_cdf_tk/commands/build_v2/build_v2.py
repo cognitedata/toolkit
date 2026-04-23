@@ -783,7 +783,7 @@ class BuildV2Command(ToolkitCommand):
             "FileReadError": ("red", "✗"),
             "ConsistencyError": ("red", "✗"),
             "ModelSyntaxWarning": ("yellow", "!"),
-            "Recommendation": ("blue", "i"),
+            "Recommendation": ("blue", "🛈"),
             "IgnoredFileWarning": ("dim", "○"),
         }
 
@@ -809,12 +809,14 @@ class BuildV2Command(ToolkitCommand):
                 )
             )
 
+        insight_destination = relative_to_if_possible(insight_path)
+        footer = f"All insights are written to {insight_destination.as_posix()}"
+        suffix = ""
+        if not verbose:
+            suffix = " Add --verbose to show more."
         if remaining_count > 0:
-            insight_destination = relative_to_if_possible(insight_path)
-            console.print(
-                f"[dim]... and {remaining_count} more insights not shown. "
-                f"All insights are written to {insight_destination.as_posix()}[/dim]"
-            )
+            footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
+        console.print(f"[dim]{footer}[/dim]")
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
