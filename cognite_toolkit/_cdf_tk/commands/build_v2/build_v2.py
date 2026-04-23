@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -772,7 +772,49 @@ class BuildV2Command(ToolkitCommand):
         return validation_results
 
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+        if not insights:
+            return
+
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 12)
+        remaining_count = len(insights) - len(display_insights)
+
+        # Map severity to style information
+        severity_style = {
+            "FileReadError": ("red", "✗"),
+            "ConsistencyError": ("red", "✗"),
+            "ModelSyntaxWarning": ("yellow", "!"),
+            "Recommendation": ("blue", "i"),
+            "IgnoredFileWarning": ("dim", "○"),
+        }
+
+        for insight in reversed(display_insights):
+            insight_type_name = type(insight).__name__
+            style, icon = severity_style.get(insight_type_name, ("white", "•"))
+
+            # Build the content for this insight
+            content_lines = [f"[bold]{insight.message}[/bold]"]
+            if insight.fix:
+                content_lines.append(f"\n[dim]Fix:[/dim] {insight.fix}")
+
+            panel_title = f"[{style}]{icon}[/] [{style}]{insight_type_name}[/]"
+            if insight.code:
+                panel_title += f" [dim]({insight.code})[/dim]"
+
+            console.print(
+                Panel(
+                    "\n".join(content_lines),
+                    title=panel_title,
+                    border_style=style,
+                    expand=False,
+                )
+            )
+
+        if remaining_count > 0:
+            insight_destination = relative_to_if_possible(insight_path)
+            console.print(
+                f"[dim]... and {remaining_count} more insights not shown. "
+                f"All insights are written to {insight_destination.as_posix()}[/dim]"
+            )
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
