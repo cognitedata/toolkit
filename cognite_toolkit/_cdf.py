@@ -126,11 +126,16 @@ def about() -> None:
 
 def app() -> NoReturn:
     # --- Main entry point ---
+    # Strip --traceback from sys.argv before Typer processes it (hidden debug flag)
+    show_traceback = "--traceback" in sys.argv
+    if show_traceback:
+        sys.argv.remove("--traceback")
+
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         _app()
     except ToolkitError as err:
-        if "--verbose" in sys.argv:
+        if show_traceback:
             print(Panel(traceback.format_exc(), title="Traceback", expand=False))
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
