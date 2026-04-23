@@ -125,8 +125,8 @@ class BuildTracking(TrackingEvent):
 
     event_name: Literal["BuildResult"] = Field("BuildResult", exclude=True)
     build_duration_ms: int = 0
-    resource_types: list[str] = Field(default_factory=list)
-    insight_codes: list[str] = Field(default_factory=list)
+    resource_types: set[str] = Field(default_factory=set)
+    insight_codes: set[str] = Field(default_factory=set)
     dependency_total: int = 0
     dependency_average: float = 0.0
     built_resource_total: int = 0

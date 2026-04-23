@@ -131,7 +131,7 @@ class BuildV2Command(ToolkitCommand):
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
         self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, client)
+        self._track_build_results(build_folder, insights, client)
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
@@ -919,10 +919,11 @@ class BuildV2Command(ToolkitCommand):
 
         return None
 
-    def _track_build_results(self, build_folder: BuildFolder, client: ToolkitClient | None = None) -> None:
-        insights = build_folder.all_insights
+    def _track_build_results(
+        self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
+    ) -> None:
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
-        duration_ms = int(build_folder.build_duration_seconds * 1000)
+        duration_ms = (build_folder.finished_at - build_folder.finished_at).total_seconds() * 1000
 
         label_counts: Counter[str] = Counter()
         for resource in built_resources:
@@ -948,7 +949,6 @@ class BuildV2Command(ToolkitCommand):
             "built_resource_total": built_count,
             "module_count": len(build_folder.built_modules),
             "insight_total_count": len(insights),
-            "event_name": "BuildResult",
         }
         payload.update(per_type_built)
         event = BuildTracking.model_validate(payload)
