@@ -199,6 +199,10 @@ class ApprovalToolkitClient:
 
         # All files are uploaded successfully
         self.mock_client.tool.filemetadata.await_file_uploaded.return_value = set(), 0.0
+        # Return a single (no-op) upload URL response so the update-upload path doesn't raise
+        self.mock_client.tool.filemetadata.get_upload_url.return_value = [
+            FileMetadataResponse(id=1, uploaded=False, created_time=0, last_updated_time=0, name="file")
+        ]
 
         # Use Hybrid project
         return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])
