@@ -3,10 +3,12 @@ from collections.abc import Iterable
 
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ContainerCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
@@ -26,11 +28,25 @@ class RecordIO(
 ):  # pyright: ignore[reportInvalidTypeArguments]
     KIND = "Records"
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+    UPSERT_ENDPOINT = "/streams/{streamId}/records/upsert"
     _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
     # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._stream_by_external_id: dict[str, StreamResponse] = {}
+
+    def _get_stream(self, stream_external_id: str) -> StreamResponse:
+        """Get a stream by external ID, caching the response."""
+        if stream_external_id not in self._stream_by_external_id:
+            streams = StreamIO.create_loader(self.client).retrieve([ExternalId(external_id=stream_external_id)])
+            if not streams:
+                raise ToolkitValueError(f"Stream '{stream_external_id}' does not exist or is not accessible.")
+            self._stream_by_external_id[stream_external_id] = streams[0]
+        return self._stream_by_external_id[stream_external_id]
 
     def count(self, selector: RecordContainerSelector) -> int | None:
         if selector.initialize_cursor is None:
@@ -38,11 +54,11 @@ class RecordIO(
         sync_filter = self._build_sync_filter(selector)
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
-        stream_crud = StreamIO.create_loader(self.client)
+        stream = self._get_stream(selector.stream.external_id)
         aggregate_url = self.client.http_client.config.create_api_url(
             self._AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         )
-        for last_updated_time in stream_crud.last_updated_time_windows(selector.stream.external_id, start_ms=start_ms):
+        for last_updated_time in StreamIO.last_updated_time_windows(stream, start_ms=start_ms):
             body: dict[str, JsonValue] = {
                 "filter": sync_filter,
                 "aggregates": {"total": {"count": {}}},
@@ -190,7 +206,9 @@ class RecordIO(
     ) -> ItemsResultList:
         if selector is None:
             raise ToolkitValueError("Selector must be provided for RecordIO upload_items")
-        url = self.UPLOAD_ENDPOINT.format(streamId=selector.stream.external_id)
+        stream = self._get_stream(selector.stream.external_id)
+        endpoint_template = self.UPSERT_ENDPOINT if stream.type == "Mutable" else self.UPLOAD_ENDPOINT
+        url = endpoint_template.format(streamId=selector.stream.external_id)
         config = http_client.config
         return http_client.request_items_retries(
             message=ItemsRequest(
