@@ -313,6 +313,7 @@ class TestPurgeSpace:
         project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         space = "test_space"
@@ -437,6 +438,7 @@ class TestPurgeSpace:
             delete_file_content=delete_file_content,
             dry_run=dry_run,
             verbose=False,
+            log_dir=tmp_path,
         )
         expected_node_count = (
             node_count
@@ -465,6 +467,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         space = "test_space"
@@ -510,7 +513,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         cmd = PurgeCommand(silent=True)
         with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
-            cmd.space(purge_client, space, dry_run=dry_run)
+            cmd.space(purge_client, space, log_dir=tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
     @pytest.mark.parametrize("dry_run", [True, False])
@@ -521,6 +524,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         """involvedViewCount > len(involvedViews) means inaccessible views exist; should still block."""
         config = purge_client.config
@@ -558,7 +562,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         cmd = PurgeCommand(silent=True)
         with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
-            cmd.space(purge_client, space, dry_run=dry_run)
+            cmd.space(purge_client, space, log_dir=tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
     def test_does_not_block_when_only_same_space_views_reference_container(
