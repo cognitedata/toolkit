@@ -66,7 +66,8 @@ class TestRecordIO:
         data_items = [DataItem(tracking_id=f"{r.space}:{r.external_id}", item=r) for r in records]
         page = Page(worker_id="main", items=data_items)
 
-        expected_url = toolkit_config.create_api_url("/streams/my_stream/records")
+        expected_url = toolkit_config.create_api_url("/streams/my_stream/records/upsert")
+        stream_url = toolkit_config.create_api_url("/streams/my_stream")
 
         def record_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -77,6 +78,17 @@ class TestRecordIO:
 
         with HTTPClient(toolkit_config) as http_client:
             with respx.mock() as mock_router:
+                mock_router.get(stream_url).mock(
+                    return_value=httpx.Response(
+                        status_code=200,
+                        json={
+                            "externalId": "my_stream",
+                            "createdTime": 0,
+                            "createdFromTemplate": "BasicLiveData",
+                            "type": "Mutable",
+                        },
+                    )
+                )
                 mock_router.post(expected_url).mock(side_effect=record_callback)
                 io = RecordIO(client)
                 results = io.upload_items(page, http_client, selector=selector)
@@ -219,7 +231,7 @@ class TestRecordIO:
         stream_url = config.create_api_url("/streams/my_stream")
         aggregate_url = config.create_api_url("/streams/my_stream/records/aggregate")
         sync_url = config.create_api_url("/streams/my_stream/records/sync")
-        upload_url = config.create_api_url(RecordIO.UPLOAD_ENDPOINT.format(streamId="my_stream"))
+        upload_url = config.create_api_url(RecordIO.UPSERT_ENDPOINT.format(streamId="my_stream"))
 
         respx_mock.get(stream_url).respond(
             json={
@@ -290,4 +302,4 @@ class TestRecordIO:
             kind=RecordIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 7
+        assert len(respx_mock.calls) == 8

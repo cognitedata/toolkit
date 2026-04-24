@@ -3,6 +3,7 @@ import uuid
 from collections import Counter
 from collections.abc import Iterator, Sequence
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -229,12 +230,13 @@ def _make_stream_response(
     provisioned_gb: float = 100.0,
     consumed_gb: float = 0.0,
     external_id: str = "my_stream",
+    stream_type: Literal["Mutable", "Immutable"] = "Mutable",
 ) -> StreamResponse:
     return StreamResponse(
         external_id=external_id,
         created_time=0,
         created_from_template="t",
-        type="Mutable",
+        type=stream_type,
         settings=StreamSettings(
             lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
             limits=LimitsObject(
@@ -1218,31 +1220,30 @@ class TestMigrationCommand:
 
         assert actual == expected
 
-    def test_validate_stream_capacity_stream_missing(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.streams.retrieve.return_value = []
-            with pytest.raises(ToolkitMigrationError, match="does not exist"):
-                MigrationCommand(silent=True).validate_stream_capacity(client, "missing_stream", 1)
-
     def test_validate_stream_capacity_insufficient_records(self) -> None:
         stream = _make_stream_response(provisioned_records=1_000, consumed_records=900)
-        with monkeypatch_toolkit_client() as client:
-            client.streams.retrieve.return_value = [stream]
-            with pytest.raises(ToolkitValueError, match="enough record capacity"):
-                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 200)
+        with pytest.raises(ToolkitValueError, match="enough record capacity"):
+            MigrationCommand(silent=True).validate_stream_capacity(stream, 200)
 
     def test_validate_stream_capacity_insufficient_storage(self) -> None:
         stream = _make_stream_response(
             provisioned_records=1_000_000, consumed_records=0, provisioned_gb=10.0, consumed_gb=10.0
         )
-        with monkeypatch_toolkit_client() as client:
-            client.streams.retrieve.return_value = [stream]
-            with pytest.raises(ToolkitValueError, match="enough storage capacity"):
-                MigrationCommand(silent=True).validate_stream_capacity(client, stream.external_id, 1)
+        with pytest.raises(ToolkitValueError, match="enough storage capacity"):
+            MigrationCommand(silent=True).validate_stream_capacity(stream, 1)
 
     @pytest.mark.usefixtures("cognite_migration_model")
+    @pytest.mark.parametrize(
+        "stream_type, expected_endpoint",
+        [
+            ("Mutable", "/streams/{stream}/records/upsert"),
+            ("Immutable", "/streams/{stream}/records"),
+        ],
+    )
     def test_migrate_events_to_records(
         self,
+        stream_type: Literal["Mutable", "Immutable"],
+        expected_endpoint: str,
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
         tmp_path: Path,
@@ -1272,9 +1273,11 @@ class TestMigrationCommand:
             )
         )
         # Stream retrieve for validate_stream_exists + validate_stream_capacity
-        stream = _make_stream_response(provisioned_records=1_000_000, consumed_records=0)
-        respx_mock.get(config.create_api_url(f"/streams/{stream_external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=stream.dump())
+        stream = _make_stream_response(
+            provisioned_records=1_000_000,
+            consumed_records=0,
+            external_id=stream_external_id,
+            stream_type=stream_type,
         )
         # Event retrieve
         respx_mock.post(config.create_api_url("/events/byids")).mock(
@@ -1297,10 +1300,10 @@ class TestMigrationCommand:
         respx_mock.post(config.create_api_url("/models/containers/byids")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [container.dump()]})
         )
-        # Records upload — capture the request
-        ingest_records = respx_mock.post(config.create_api_url(f"/streams/{stream_external_id}/records")).mock(
-            return_value=httpx.Response(status_code=200, json={})
-        )
+        # Records upload — capture the request. Endpoint depends on stream mutability.
+        ingest_records = respx_mock.post(
+            config.create_api_url(expected_endpoint.format(stream=stream_external_id))
+        ).mock(return_value=httpx.Response(status_code=200, json={}))
 
         csv_file = tmp_path / "events.csv"
         csv_file.write_text(
@@ -1317,7 +1320,7 @@ class TestMigrationCommand:
         command = MigrationCommand(silent=True)
         results_by_selector = command.migrate(
             selectors=[selector],
-            data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+            data=RecordsMigrationIO(client, stream=stream),
             mapper=AssetCentricToRecordMapper(
                 client,
                 mappings_by_external_id={"my_mapping": record_mapping},
