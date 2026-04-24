@@ -76,4 +76,5 @@ class FunctionLimits(BaseModelObject):
     cpu_cores: ResourceLimit
     memory_gb: ResourceLimit
     runtimes: list[FunctionRuntime]
-    response_size_mb: int
+    # As of 24.04.2026 this is marked as a required field in the API, but it's currently only returned for projects on Gcloud
+    response_size_mb: int | None = None
