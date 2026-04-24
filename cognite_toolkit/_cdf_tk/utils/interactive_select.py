@@ -1225,7 +1225,7 @@ class DocumentsInteractiveSelect:
         if selected_file_type == "dms":
             caveat = " (approximate)"
         return questionary.select(
-            f"{count} documents found{caveat}. What do you want to do?{query_note}{suffix}",
+            f"{count} documents found{caveat}. How would you like to proceed?{query_note}{suffix}",
             choices=choices,
         ).unsafe_ask()
 
