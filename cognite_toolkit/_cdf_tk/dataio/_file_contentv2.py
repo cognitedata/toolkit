@@ -730,7 +730,7 @@ class CogniteFileContentIO(
 
     def _create_cognite_file(self, request: CogniteFileRequest, tracking_id: str) -> ItemsResultMessage | None:
         try:
-            self.client.tool.cognite_files.create([request])
+            self.client.tool.cognite_files.create([request], replace=self.overwrite)
         except ToolkitAPIError as error:
             if error.response is not None:
                 return error.response.as_item_response(tracking_id)
