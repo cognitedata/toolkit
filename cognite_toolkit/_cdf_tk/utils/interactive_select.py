@@ -1267,22 +1267,22 @@ class DocumentsInteractiveSelect:
         buckets = self.client.tool.documents.unique(
             property=("sourceFile", "dataSetId"), filter=self.status.current_filter, query=self.status.search_query
         )
-        internal_ids = [int(bucket.value) for bucket in buckets if isinstance(bucket.value, int | float)]
+        internal_ids = {int(bucket.value): bucket.count for bucket in buckets if isinstance(bucket.value, int | float)}
         if len(internal_ids) == 0:
             self.client.console.print("No documents found for filtering on data set ID.", style="bold red")
             return
-        external_ids = self.client.lookup.data_sets.external_id(internal_ids)
+        external_ids = self.client.lookup.data_sets.external_id(list(internal_ids))
         if len(external_ids) == 1:
             self.client.console.print(
                 f"Only one data set found: {external_ids[0]!r}. Automatically applying this filter."
             )
-            self.status.data_set_id = internal_ids[0]
+            self.status.data_set_id = next(iter(internal_ids.keys()))
             return
         selected_data_set_id = questionary.select(
             message="Select data set:",
             choices=[
-                Choice(title=external_id, value=internal_id)
-                for internal_id, external_id in zip(internal_ids, external_ids)
+                Choice(title=f"{external_id} ({count})", value=internal_id)
+                for (internal_id, count), external_id in zip(internal_ids.items(), external_ids)
             ],
         ).unsafe_ask()
         self.status.data_set_id = selected_data_set_id
