@@ -809,7 +809,7 @@ class PurgeCommand(ToolkitCommand):
             executor = ProducerWorkerExecutor[Page[InstanceDefinitionId], Page[InstanceDefinitionId]](
                 download_iterable=io.download_ids(selector),
                 process=process,
-                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client),
+                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, logger=logger),
                 total_item_count=total,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",

@@ -27,7 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySelectSource,
     QuerySortSpec,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import NodeOrEdgeRequestAdapter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
+    EdgeResponse,
+    NodeOrEdgeRequestAdapter,
+    NodeResponse,
+)
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
@@ -271,7 +275,7 @@ class InstanceIO(
                         )
                         continue
                     value = retrieved_by_id[item_id]
-                    if not isinstance(value, NodeOrEdgeResponse):
+                    if not isinstance(value, NodeResponse | EdgeResponse):
                         self.logger.log(
                             LogEntryV2(
                                 id=item_id,
