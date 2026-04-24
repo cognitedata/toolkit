@@ -2,7 +2,9 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from functools import partial
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import questionary
@@ -34,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
-from cognite_toolkit._cdf_tk.dataio import InstanceIO
+from cognite_toolkit._cdf_tk.dataio import InstanceIO, Page
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -80,6 +82,8 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
+from ..dataio.logger import FileWithAggregationLogger, LogEntryV2, Severity, display_item_results
+from ..utils.fileio import NDJsonWriter, Uncompressed
 from ._base import ToolkitCommand
 
 
@@ -727,6 +731,7 @@ class PurgeCommand(ToolkitCommand):
         self,
         client: ToolkitClient,
         selector: InstanceSelector,
+        log_dir: Path,
         dry_run: bool = False,
         unlink: bool = True,
         verbose: bool = False,
@@ -764,18 +769,34 @@ class PurgeCommand(ToolkitCommand):
             if not confirm_purge:
                 return DeleteResults()
 
-        process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
-        if unlink:
-            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
+        log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
+        with (
+            HTTPClient(config=client.config) as delete_client,
+            NDJsonWriter(
+                log_dir, kind="PurgeLogs", default_filestem=log_filestem, compression=Uncompressed
+            ) as log_writer,
+        ):
+            logger = FileWithAggregationLogger(log_writer)
+            io.logger = logger
 
-        with HTTPClient(config=client.config) as delete_client:
+            process: Callable[[Page[InstanceDefinitionId]], Page[InstanceDefinitionId]] = self._no_op
+            if unlink:
+                process = partial(
+                    self._unlink_prepare,
+                    client=client,
+                    dry_run=dry_run,
+                    console=console,
+                    logger=logger,
+                    verbose=verbose,
+                )
+
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
-            results = DeleteResults()
-            executor = ProducerWorkerExecutor[Sequence[InstanceDefinitionId], list[dict[str, JsonVal]]](
+
+            executor = ProducerWorkerExecutor[Page[InstanceDefinitionId], Page[InstanceDefinitionId]](
                 download_iterable=io.download_ids(selector),
                 process=process,
-                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
+                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client),
                 total_item_count=total,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
@@ -783,18 +804,13 @@ class PurgeCommand(ToolkitCommand):
                 write_description=f"{write_str} instances",
                 console=console,
             )
-
             executor.run()
+            items_results = logger.finalize(is_dry_run=False)
+            display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
+
             executor.raise_on_error()
 
-        prefix = "Would have purged" if dry_run else "Purged"
-        if results.failed == 0:
-            console.print(f"{prefix} {results.deleted:,} instances in {selector!s}")
-        else:
-            console.print(
-                f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
-            )
-        return results
+        return
 
     def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
         client_project = client.config.project
@@ -860,29 +876,23 @@ class PurgeCommand(ToolkitCommand):
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
 
     @staticmethod
-    def _prepare(instance_ids: Sequence[InstanceDefinitionId]) -> list[dict[str, JsonVal]]:
-        output: list[dict[str, JsonVal]] = []
-        for instance_id in instance_ids:
-            dumped = instance_id.dump(include_instance_type=True)
-            output.append(dumped)
-
-        return output
+    def _no_op(instance_ids: Page[InstanceDefinitionId]) -> Page[InstanceDefinitionId]:
+        return instance_ids
 
     def _unlink_prepare(
         self,
-        instance_ids: Sequence[InstanceDefinitionId],
+        instance_ids: Page[InstanceDefinitionId],
         client: ToolkitClient,
         dry_run: bool,
-        console: Console,
-        verbose: bool = False,
-    ) -> list[dict[str, JsonVal]]:
-        self._unlink_timeseries(instance_ids, client, dry_run, console, verbose)
-        self._unlink_files(instance_ids, client, dry_run, console, verbose)
-        return self._prepare(instance_ids)
+        logger: FileWithAggregationLogger,
+    ) -> Page[InstanceDefinitionId]:
+        self._unlink_timeseries(instance_ids, client, dry_run, logger)
+        self._unlink_files(instance_ids, client, dry_run, logger)
+        return instance_ids
 
     @staticmethod
     def _delete_instance_ids(
-        items: list[dict[str, JsonVal]], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
+        items: Page[InstanceDefinitionId], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
     ) -> None:
         if dry_run:
             results.deleted += len(items)
@@ -903,29 +913,46 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _unlink_timeseries(
-        instances: Sequence[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
-    ) -> list[InstanceDefinitionId]:
-        node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
-        if node_ids:
-            timeseries = client.tool.timeseries.retrieve(
-                [InstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id)) for node in node_ids],
-                ignore_unknown_ids=True,
-            )
-            migrated_timeseries_ids = [
-                InternalId(id=ts.id) for ts in timeseries if ts.instance_id and ts.pending_instance_id
-            ]
+        page: Page[InstanceDefinitionId],
+        client: ToolkitClient,
+        dry_run: bool,
+        logger: FileWithAggregationLogger,
+    ) -> None:
+        node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
+        if node_items:
+            timeseries = client.tool.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            migrated_timeseries_ids = {
+                InternalId(id=ts.id): ts.instance_id for ts in timeseries if ts.instance_id and ts.pending_instance_id
+            }
             if not dry_run and timeseries:
-                client.tool.timeseries.unlink_instance_ids(migrated_timeseries_ids)
-                if verbose:
-                    console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
-            elif verbose and migrated_timeseries_ids:
-                console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
-        return list(instances)
+                client.tool.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
+                for value in migrated_timeseries_ids.values():
+                    data_item = node_items[value]
+                    logger.log(
+                        LogEntryV2(
+                            id=data_item.tracking_id,
+                            label="Unlinked timeseries",
+                            severity=Severity.info,
+                            message=f"Unlinked TimeSeries with internal ID {value.id} from Node {data_item.item!r}",
+                        )
+                    )
+            elif migrated_timeseries_ids:
+                for value in migrated_timeseries_ids.values():
+                    data_item = node_items[value]
+                    logger.log(
+                        LogEntryV2(
+                            id=data_item.tracking_id,
+                            label="Ready to unlink timeseries",
+                            severity=Severity.info,
+                            message=f"Ready to unlink TimeSeries with internal ID {value.id} from Node {data_item.item!r}",
+                        )
+                    )
+        return None
 
     @staticmethod
     def _unlink_files(
-        instances: Sequence[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
-    ) -> list[InstanceDefinitionId]:
+        instances: Page[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+    ) -> None:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
             files = client.tool.filemetadata.retrieve(
