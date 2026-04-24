@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
 class Severity(Enum):
+    info = 0
     warning = 1
     skipped = 2
     failure = 3
