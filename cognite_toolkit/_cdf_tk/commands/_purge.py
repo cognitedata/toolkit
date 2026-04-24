@@ -8,7 +8,7 @@ from typing import Any, Literal, cast
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
@@ -31,14 +31,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
-from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio import InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -80,40 +78,16 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
-from ._utils import block_if_views_reference_containers
+from ._utils import (
+    block_if_views_reference_containers,
+    confirm_by_typing_project_name,
+    print_soft_delete_panel,
+    validate_soft_delete_headroom,
+)
 
 
 def _view_is_in_space(space: str, view: ViewId) -> bool:
     return view.space == space
-
-
-def validate_soft_delete_purge_headroom(
-    instance_statistics: InstanceStatistics,
-    instances_to_soft_delete: int,
-    *,
-    action: str,
-) -> None:
-    """Abort if the purge would exhaust the soft-delete resource limit."""
-    if instances_to_soft_delete <= 0:
-        return
-    used = instance_statistics.soft_deleted_instances
-    limit = instance_statistics.soft_deleted_instances_limit
-    margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
-    projected = used + instances_to_soft_delete
-    headroom_after = limit - projected
-    if headroom_after < margin:
-        headroom_clause = (
-            f"leaving only {headroom_after:,} instances of headroom, which is less than the required margin of {margin:,}."
-            if headroom_after >= 0
-            else f"exceeding the limit by {-headroom_after:,} instances."
-        )
-        raise ToolkitValueError(
-            f"Cannot proceed with {action}, not enough soft-deleted instance capacity available. "
-            f"Currently {used:,} of {limit:,} instances are soft-deleted. Performing this operation would add up to "
-            f"{instances_to_soft_delete:,} more (projected total: {projected:,}), {headroom_clause} "
-            f"Reduce what you purge, or wait for soft-deleted data to expire before retrying "
-            f"(see: https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details)."
-        )
 
 
 @dataclass
@@ -281,10 +255,10 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
-                validate_soft_delete_purge_headroom(
+                validate_soft_delete_headroom(
                     project_instance_statistics, instance_count, action="purging this space (including its instances)"
                 )
-                self._print_instance_purge_soft_delete_panel(project_instance_statistics, instance_count)
+                print_soft_delete_panel(project_instance_statistics, instance_count)
                 acknowledge_soft_delete = questionary.confirm(
                     "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
@@ -293,7 +267,7 @@ class PurgeCommand(ToolkitCommand):
                     return DeployResults([], "purge", dry_run=dry_run)
             self._print_panel("space", selected_space)
 
-            confirm = self._confirm_purge(f"You are about purge the {selected_space!r} space", client)
+            confirm = confirm_by_typing_project_name(f"You are about purge the {selected_space!r} space", client)
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -628,57 +602,6 @@ class PurgeCommand(ToolkitCommand):
             )
         )
 
-    @staticmethod
-    def _print_instance_purge_soft_delete_panel(
-        instance_statistics: InstanceStatistics,
-        instances_to_delete: int,
-    ) -> None:
-        """Step 1 panel: soft-delete resource limit impact and related notices."""
-        used = max(0, instance_statistics.soft_deleted_instances)
-        limit = instance_statistics.soft_deleted_instances_limit
-        projected = used + instances_to_delete
-        remaining_after = max(0, limit - projected)
-        bar_width = 44
-
-        bar = "".join(
-            "[yellow]█[/yellow]"
-            if (i + 0.5) / bar_width * limit < used
-            else "[bright_magenta]█[/bright_magenta]"
-            if (i + 0.5) / bar_width * limit < min(projected, limit)
-            else "[dim]░[/dim]"
-            for i in range(bar_width)
-        )
-        resource_usage_bar = (
-            "[yellow]█[/yellow] [dim]already soft-deleted   [/dim]"
-            "[bright_magenta]█[/bright_magenta] [dim]this purge   [/dim]"
-            "[dim]░ remaining[/dim]\n\n"
-            f"{bar}\n"
-            f"[dim]Limit [/dim][bold]{limit:,}[/bold][dim]  ·  [/dim]"
-            f"[yellow]{used:,}[/yellow][dim] + [/dim][bright_magenta]{instances_to_delete:,}[/bright_magenta]"
-            f"[dim] → [/dim][bold]{projected:,}[/bold][dim] total soft-deleted (est.)  ·  [/dim]"
-            f"[green]{remaining_after:,}[/green][dim] remaining[/dim]"
-        )
-
-        print(
-            Panel(
-                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
-                "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
-                "not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per "
-                "the retention policy, which can take multiple days (see "
-                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).\n\n"
-                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance "
-                f"counts toward the total soft-delete limit below.\n\n{resource_usage_bar}\n\n"
-                "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
-                "require deleting instances. You can delete or change schema resources (containers, views, data models) "
-                "without purging the instance data first. Only run an instance purge when you intend to remove specific "
-                "data which was either ingested by error or is no longer needed or valid.",
-                title="Purging instances: Please acknowledge the following",
-                title_align="left",
-                border_style="yellow",
-                expand=False,
-            )
-        )
-
     def instances(
         self,
         client: ToolkitClient,
@@ -702,10 +625,10 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_purge_headroom(
+            validate_soft_delete_headroom(
                 project_instance_statistics, total, action="purging the selected instances"
             )
-            self._print_instance_purge_soft_delete_panel(project_instance_statistics, total)
+            print_soft_delete_panel(project_instance_statistics, total)
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
                 default=False,
@@ -714,7 +637,7 @@ class PurgeCommand(ToolkitCommand):
                 return DeleteResults()
             self._print_panel("instances", str(selector))
 
-            confirm_purge = self._confirm_purge(
+            confirm_purge = confirm_by_typing_project_name(
                 f"You are about to purge all {total:,} instances in {selector!s}", client
             )
             if not confirm_purge:
@@ -751,18 +674,6 @@ class PurgeCommand(ToolkitCommand):
                 f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
             )
         return results
-
-    def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
-        client_project = client.config.project
-        client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
-        typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
-        if typed_project != client_project:
-            client.console.print(
-                f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
-            )
-            return False
-
-        return True
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(

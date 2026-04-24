@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._purge import validate_soft_delete_purge_headroom
+from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_headroom
 from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -206,7 +206,7 @@ class TestPurgeInstances:
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -298,7 +298,7 @@ class TestPurgeSpace:
         space = "test_space"
         rsps = purge_responses
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
         container_count = 10
         view_count = 15
         data_model_count = 3
@@ -449,7 +449,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
 
         rsps.add(
             responses.POST,
@@ -506,7 +506,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
 
         rsps.add(
             responses.POST,
@@ -604,7 +604,7 @@ class TestSoftDeletePurgeHeadroom:
             soft_deleted_instances=9_200_000,
         )
         with pytest.raises(ToolkitValueError, match="Cannot proceed with test purge"):
-            validate_soft_delete_purge_headroom(inst_stats, 900_000, action="test purge")
+            validate_soft_delete_headroom(inst_stats, 900_000, action="test purge")
 
     def test_validate_ok_when_headroom_sufficient(self) -> None:
         inst_stats = InstanceStatistics(
@@ -617,4 +617,4 @@ class TestSoftDeletePurgeHeadroom:
             instances=1000,
             soft_deleted_instances=100,
         )
-        validate_soft_delete_purge_headroom(inst_stats, 2000, action="test purge")
+        validate_soft_delete_headroom(inst_stats, 2000, action="test purge")
