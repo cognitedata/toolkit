@@ -48,7 +48,9 @@ class CheckDataSetMissing(ToolkitLocalRule):
             space = getattr(resource, "space", None) if supports_space else None
             if data_set_external_id is None and space is None:
                 if supports_space:
-                    message = f"Missing data set external ID or space for {resource.as_id()!s} {source_file.resource_type!s}"
+                    message = (
+                        f"Missing data set external ID or space for {resource.as_id()!s} {source_file.resource_type!s}"
+                    )
                     fix = f"Add a dataset or space association to the {source_file.resource_type!s}."
                 else:
                     message = f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}"
