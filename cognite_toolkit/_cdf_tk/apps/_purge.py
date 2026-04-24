@@ -1,3 +1,4 @@
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any
@@ -23,6 +24,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     ViewSelectFilter,
 )
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
+
+TODAY = date.today()
 
 
 class InstanceTypeEnum(str, Enum):
@@ -312,6 +315,14 @@ class PurgeApp(typer.Typer):
                 "themselves, not the links to their parent nodes.",
             ),
         ] = True,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -381,6 +392,7 @@ class PurgeApp(typer.Typer):
                 selector=selector,
                 unlink=unlink,
                 dry_run=dry_run,
+                log_dir=log_dir,
                 verbose=verbose,
             )
         )

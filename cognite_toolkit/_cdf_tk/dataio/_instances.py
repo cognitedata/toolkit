@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
@@ -245,7 +245,7 @@ class InstanceIO(
         selector: InstanceSelector,
         limit: int | None = None,
         bookmark: Bookmark | None = None,
-    ) -> Iterable[Page]:
+    ) -> Iterable[Page[NodeOrEdgeResponse]]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
@@ -385,16 +385,22 @@ class InstanceIO(
 
     def download_ids(
         self, selector: InstanceSelector, limit: int | None = None
-    ) -> Iterable[Sequence[InstanceDefinitionId]]:
+    ) -> Iterable[Page[InstanceDefinitionId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
-            yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
-        else:
             yield from (
-                [data_item.item.as_id() for data_item in chunk.items] for chunk in self.stream_data(selector, limit)
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in chunk],
+                )
+                for chunk in chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
             )
+        else:
+            for page in self.stream_data(selector, limit):
+                ids = [DataItem(tracking_id=item.tracking_id, item=item.item.as_id()) for item in page.items]
+                yield page.create_from(items=ids)
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
