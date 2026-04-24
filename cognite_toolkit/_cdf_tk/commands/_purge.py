@@ -11,7 +11,6 @@ import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
-from cognite.client.exceptions import CogniteAPIError
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -26,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
@@ -427,7 +427,7 @@ class PurgeCommand(ToolkitCommand):
         try:
             space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
         else:
             results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
