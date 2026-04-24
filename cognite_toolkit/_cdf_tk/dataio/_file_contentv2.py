@@ -661,7 +661,7 @@ class CogniteFileContentIO(
     ) -> dict[str, JsonVal]:
         row = dict(item_json)
         for key in ["category", "type"]:
-            value = item_json.pop(key, None)
+            value = row.pop(key, None)
             if value is not None and isinstance(value, dict):
                 for subkey, subvalue in value.items():
                     row[f"{key}.{subkey}"] = subvalue
