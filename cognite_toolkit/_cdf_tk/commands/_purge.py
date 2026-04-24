@@ -482,6 +482,7 @@ class PurgeCommand(ToolkitCommand):
                     DataTracking.from_item_results("PurgeResult", step.crud.display_name, item_result), client
                 )
                 logger.write_success()
+                logger.force_write()
                 # Adapt item results to ResourceDeployResult. It is another refactoring to remove the
                 # ResourceDeployResult (together with deployv1)
                 delete_results = DeleteResults.from_item_results(item_result)
@@ -915,6 +916,7 @@ class PurgeCommand(ToolkitCommand):
             display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
             self.tracker.track(DataTracking.from_item_results("PurgeResult", io.KIND, items_results), client)
             logger.write_success()
+            logger.force_write()
             executor.raise_on_error()
 
         return DeleteResults.from_item_results(items_results)
