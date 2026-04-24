@@ -111,3 +111,42 @@ class TestLoadResources:
             "name": "my_file.txt",
             "mimeType": "text/plain",
         }
+
+
+class TestFileMetadataCRUDUpdate:
+    @pytest.mark.parametrize(
+        "cdf_hash, local_hash, expect_upload",
+        [
+            pytest.param("old", "new", True, id="hash_changed_triggers_reupload"),
+            pytest.param("same", "same", False, id="hash_unchanged_skips_reupload"),
+        ],
+    )
+    def test_reupload_based_on_hash(self, cdf_hash: str, local_hash: str, expect_upload: bool) -> None:
+        mock_client = MagicMock()
+        fileio = FileMetadataCRUD(mock_client, None, None, support_upload=True)
+
+        def _response(h: str) -> FileMetadataResponse:
+            return FileMetadataResponse(
+                external_id="f",
+                name="f.txt",
+                id=1,
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: h},
+            )
+
+        mock_client.tool.filemetadata.retrieve.return_value = [_response(cdf_hash)]
+        mock_client.tool.filemetadata.update.return_value = [_response(local_hash)]
+        upload_resp = MagicMock(filepath=MagicMock(spec=Path), upload_url="https://upload.example.com", mime_type=None)
+        mock_client.tool.filemetadata.get_upload_url.return_value = [upload_resp]
+
+        item = FileMetadataRequest(
+            external_id="f",
+            name="f.txt",
+            metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: local_hash},
+            filepath=MagicMock(spec=Path),
+        )
+        fileio.update([item])
+
+        assert mock_client.tool.filemetadata.upload_file.called == expect_upload
