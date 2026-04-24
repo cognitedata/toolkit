@@ -819,7 +819,7 @@ class PurgeCommand(ToolkitCommand):
                 console=console,
             )
             executor.run()
-            items_results = logger.finalize(is_dry_run=False)
+            items_results = logger.finalize(is_dry_run=dry_run)
             display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
             self.tracker.track(DataTracking.from_item_results("PurgeResult", io.KIND, items_results), client)
             executor.raise_on_error()
