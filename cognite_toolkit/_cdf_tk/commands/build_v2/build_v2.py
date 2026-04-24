@@ -769,15 +769,9 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Checking {display_name}...")
 
-                insights: list[Insight] = []
-                failures: list[FailedValidation] = []
-                for result in step.rule.validate():
-                    if isinstance(result, FailedValidation):
-                        failures.append(result)
-                    else:
-                        insights.append(result)
+                insights: list[Insight] = list(step.rule.validate())
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
+                validation_results.append(ValidationResult(name=display_name, insights=insights))
                 progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results

@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Reso
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._insights import ConsistencyError, FailedValidation, FileReadError, IgnoredFileWarning, Insight, InsightList, ModelSyntaxWarning
+from ._insights import ConsistencyError, FileReadError, IgnoredFileWarning, Insight, InsightList, ModelSyntaxWarning
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -161,7 +161,6 @@ class BuiltModule(BaseModel):
 class ValidationResult(BaseModel):
     name: str
     insights: list[Insight]
-    failed: list[FailedValidation]
 
 
 class BuildFolder(BaseModel):
@@ -185,7 +184,6 @@ class BuildFolder(BaseModel):
             insights.extend(module.all_insights)
         for result in self.validation_results:
             insights.extend(result.insights)
-            insights.extend(result.failed)
 
         return insights
 
