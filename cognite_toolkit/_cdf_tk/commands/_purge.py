@@ -82,7 +82,7 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
-from ..dataio.logger import FileWithAggregationLogger, LogEntryV2, Severity, display_item_results
+from ..dataio.logger import FileWithAggregationLogger, ItemsResult, LogEntryV2, Severity, display_item_results
 from ..utils.fileio import NDJsonWriter, Uncompressed
 from ._base import ToolkitCommand
 
@@ -120,6 +120,18 @@ def validate_soft_delete_purge_headroom(
 class DeleteResults:
     deleted: int = 0
     failed: int = 0
+
+    @classmethod
+    def from_item_results(cls, items_results: list[ItemsResult]) -> "DeleteResults":
+        deleted = 0
+        failed = 0
+        for result in items_results:
+            if result.status in ("success", "success-with-warning", "pending", "pending-with-warning"):
+                deleted += result.count
+            elif result.status == "failure":
+                failed += result.count
+            # "skipped" items are neither deleted nor failed
+        return cls(deleted=deleted, failed=failed)
 
 
 class DeleteItem(RequestItem):
@@ -781,14 +793,7 @@ class PurgeCommand(ToolkitCommand):
 
             process: Callable[[Page[InstanceDefinitionId]], Page[InstanceDefinitionId]] = self._no_op
             if unlink:
-                process = partial(
-                    self._unlink_prepare,
-                    client=client,
-                    dry_run=dry_run,
-                    console=console,
-                    logger=logger,
-                    verbose=verbose,
-                )
+                process = partial(self._unlink_prepare, client=client, dry_run=dry_run, logger=logger)
 
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
@@ -810,7 +815,7 @@ class PurgeCommand(ToolkitCommand):
 
             executor.raise_on_error()
 
-        return
+        return DeleteResults.from_item_results(items_results)
 
     def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
         client_project = client.config.project
@@ -892,24 +897,22 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _delete_instance_ids(
-        items: Page[InstanceDefinitionId], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
+        items: Page[InstanceDefinitionId], dry_run: bool, delete_client: HTTPClient, logger: FileWithAggregationLogger,
     ) -> None:
         if dry_run:
-            results.deleted += len(items)
+            ...
             return
 
         responses = delete_client.request_items_retries(
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[InstanceDefinitionId._load(item) for item in items],
+                items=items,
             )
         )
         for response in responses:
-            if isinstance(response, ItemsSuccessResponse):
-                results.deleted += len(response.ids)
-            else:
-                results.failed += len(response.ids)
+            if not isinstance(response, ItemsSuccessResponse):
+
 
     @staticmethod
     def _unlink_timeseries(
@@ -951,21 +954,38 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _unlink_files(
-        instances: Page[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+        page: Page[InstanceDefinitionId],
+        client: ToolkitClient,
+        dry_run: bool,
+        logger: FileWithAggregationLogger,
     ) -> None:
-        file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
-        if file_ids:
-            files = client.tool.filemetadata.retrieve(
-                [InstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id)) for node in file_ids],
-                ignore_unknown_ids=True,
-            )
-            migrated_file_ids = [
-                InternalId(id=file.id) for file in files if file.instance_id and file.pending_instance_id
-            ]
+        node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
+        if node_items:
+            files = client.tool.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            migrated_file_ids = {
+                InternalId(id=file.id): file.instance_id for file in files if file.instance_id and file.pending_instance_id
+            }
             if not dry_run and files:
-                client.tool.filemetadata.unlink_instance_ids(migrated_file_ids)
-                if verbose:
-                    console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
-            elif verbose and files:
-                console.print(f"Would have unlinked {len(migrated_file_ids)} files from their blob content.")
-        return list(instances)
+                client.tool.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
+                for value in migrated_file_ids.values():
+                    data_item = node_items[value]
+                    logger.log(
+                        LogEntryV2(
+                            id=data_item.tracking_id,
+                            label="Unlinked file",
+                            severity=Severity.info,
+                            message=f"Unlinked File with internal ID {value.id} from Node {data_item.item!r}",
+                        )
+                    )
+            elif migrated_file_ids:
+                for value in migrated_file_ids.values():
+                    data_item = node_items[value]
+                    logger.log(
+                        LogEntryV2(
+                            id=data_item.tracking_id,
+                            label="Ready to unlink file",
+                            severity=Severity.info,
+                            message=f"Ready to unlink File with internal ID {value.id} from Node {data_item.item!r}",
+                        )
+                    )
+        return None
