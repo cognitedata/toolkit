@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
-from cognite_toolkit._cdf_tk.constants import COGNITE_FILE_CONTAINER
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -1117,12 +1116,12 @@ class DocumentSelectStatus:
     document_filter: dict[DocumentPropertyPath, Any] = field(default_factory=dict)
     metadata_filter: dict[DocumentPropertyPath, Any] = field(default_factory=dict)
     attempted_options: set[DocumentPropertyPath] = field(default_factory=set)
-    view_id: ViewId | None = None
+    is_cognite_file: bool = False
     data_set_id: int | None = None
 
     @property
     def file_type(self) -> Literal["asset-centric", "dms", "ambiguous"]:
-        if self.view_id is not None:
+        if self.is_cognite_file:
             return "dms"
         if (
             self.data_set_id is not None
@@ -1186,8 +1185,8 @@ class DocumentsInteractiveSelect:
                 )
             elif action == "select-data-sets":
                 self._select_dataset()
-            elif action == "select-view":
-                self._select_view()
+            elif action == "is-cognite-file":
+                self._set_cognite_file()
             elif action == "search":
                 self._prompt_search_query()
             elif action == "name":
@@ -1206,7 +1205,7 @@ class DocumentsInteractiveSelect:
             choices.append(Choice(title="Filter metadata properties", value="filter-metadata-properties"))
             choices.append(Choice(title="Select data sets", value="select-data-sets"))
         if selected_file_type != "asset-centric":
-            choices.append(Choice(title="Select view", value="select-view"))
+            choices.append(Choice(title="Is CogniteFile", value="is-cognite-file"))
         if self.max_selected <= self.MAX_SEARCH_RESULTS:
             choices.append(
                 Choice(title="Search documents (full-text query)", value="search"),
@@ -1287,17 +1286,8 @@ class DocumentsInteractiveSelect:
         ).unsafe_ask()
         self.status.data_set_id = selected_data_set_id
 
-    def _select_view(self) -> None:
-        res = self.client.tool.containers.inspect(
-            [ContainerId(**COGNITE_FILE_CONTAINER)],  # type: ignore[arg-type]
-            all_versions=False,
-            include_unavailable_views=False,
-        )[0]
-        view_id = questionary.select(
-            message="Select view to retrieve through",
-            choices=[Choice(title=repr(view_id), value=view_id) for view_id in res.inspection_results.involved_views],
-        ).unsafe_ask()
-        self.status.view_id = view_id
+    def _set_cognite_file(self) -> None:
+        self.status.is_cognite_file = True
 
     def _prompt_search_query(self) -> None:
         answer = questionary.text(
