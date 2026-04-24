@@ -3,7 +3,8 @@ from functools import cached_property
 
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import FailedValidation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
