@@ -124,6 +124,47 @@ def about() -> None:
     cmd.run(lambda: cmd.execute(Path.cwd()))
 
 
+def _get_subcommand_map() -> dict[str, list[str]]:
+    """Build a map from subcommand names to their full command paths.
+
+    Returns a dict where keys are subcommand names and values are lists of
+    full command paths (e.g., {"download": ["cdf data download"]}).
+    """
+    subcommand_map: dict[str, list[str]] = {}
+
+    def _add_commands_from_typer(typer_app: typer.Typer, prefix: str) -> None:
+        # Get registered commands
+        for command in typer_app.registered_commands:
+            cmd_name = command.name or (command.callback.__name__ if command.callback else None)
+            if cmd_name:
+                full_path = f"{prefix} {cmd_name}"
+                subcommand_map.setdefault(cmd_name, []).append(full_path)
+
+        # Get registered sub-typers (groups)
+        for group in typer_app.registered_groups:
+            group_name = group.name
+            if group_name and group.typer_instance:
+                # Add the group name itself as a command path
+                full_path = f"{prefix} {group_name}"
+                subcommand_map.setdefault(group_name, []).append(full_path)
+                # Recursively add commands from the sub-typer
+                _add_commands_from_typer(group.typer_instance, full_path)
+
+    _add_commands_from_typer(_app, "cdf")
+    return subcommand_map
+
+
+def _suggest_command(unknown_cmd: str) -> str | None:
+    """Check if the unknown command exists as a subcommand and return a suggestion."""
+    subcommand_map = _get_subcommand_map()
+    if unknown_cmd in subcommand_map:
+        paths = subcommand_map[unknown_cmd]
+        if len(paths) == 1:
+            return f"Did you mean [bold]{paths[0]}[/bold]?"
+        return "Did you mean one of: " + ", ".join(f"[bold]{p}[/bold]" for p in paths) + "?"
+    return None
+
+
 def app() -> NoReturn:
     # --- Main entry point ---
     # Strip --traceback from sys.argv before Typer processes it (hidden debug flag)
@@ -151,6 +192,8 @@ def app() -> NoReturn:
                     f"[bold]{escape(plugin)}[/bold] section."
                     f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
                 )
+            elif suggestion := _suggest_command(cmd):
+                print(f"{HINT_LEAD_TEXT} {suggestion}")
         raise
 
     raise SystemExit(0)

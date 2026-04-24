@@ -70,6 +70,14 @@ class UploadApp(typer.Typer):
                 hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
             ),
         ] = False,
+        overwrite: Annotated[
+            bool,
+            typer.Option(
+                "--overwrite",
+                help="If the data type supports it, overwrite the data in CDF with the local data.",
+                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -127,5 +135,6 @@ class UploadApp(typer.Typer):
                 deploy_resources=deploy_resources,
                 client=client,
                 skip_strict_mode=skip_strict_mode,
+                overwrite=overwrite,
             )
         )

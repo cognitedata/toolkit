@@ -1,5 +1,5 @@
 from ._auth import CheckDataSetMissing
-from ._base import ToolkitGlobalRulSet, ToolkitLocalRule
+from ._base import ToolkitGlobalRuleSet, ToolkitLocalRule
 from ._dependencies import DependencyRuleSet
 from ._functions import FunctionRules
 from ._neat import NeatRuleSet
@@ -11,8 +11,8 @@ __all__ = [
     "FunctionRules",
     "LocalRulesOrchestrator",
     "NeatRuleSet",
-    "ToolkitGlobalRulSet",
-    "ToolkitGlobalRulSet",
+    "ToolkitGlobalRuleSet",
+    "ToolkitGlobalRuleSet",
     "ToolkitLocalRule",
     "get_global_rules_registry",
 ]

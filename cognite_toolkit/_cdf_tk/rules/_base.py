@@ -44,7 +44,7 @@ class RuleSetStatus(BaseModel):
     message: str | None = None
 
 
-class ToolkitGlobalRulSet(ABC):
+class ToolkitGlobalRuleSet(ABC):
     """Validation of all modules as a whole.
 
     This can output different
