@@ -21,17 +21,25 @@ class InsightDefinition(BaseModel):
         return cls.__name__
 
 
+class FileReadError(InsightDefinition):
+    severity = 60
+
+
 class ModelSyntaxWarning(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
-    severity = 20
+    severity = 40
 
 
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 40
+    severity = 30
+
+
+class IgnoredFileWarning(InsightDefinition):
+    severity = 20
 
 
 class Recommendation(InsightDefinition):
@@ -40,7 +48,7 @@ class Recommendation(InsightDefinition):
     severity = 10
 
 
-Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation
+Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning
 
 
 def _normalize_csv_cell(text: str) -> str:

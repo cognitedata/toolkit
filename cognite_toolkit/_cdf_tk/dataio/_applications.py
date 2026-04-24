@@ -98,7 +98,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         selector: ChartSelector,
         limit: int | None = None,
         bookmark: Bookmark | None = None,
-    ) -> Iterable[Page]:
+    ) -> Iterable[Page[ChartResponse]]:
         selected_charts = self.client.charts.list(visibility=None)
         self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):

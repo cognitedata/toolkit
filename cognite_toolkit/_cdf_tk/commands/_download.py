@@ -8,7 +8,9 @@ from typing import Generic, Literal, TypeAlias
 from rich.console import Console
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ConfigurableDataIO,
     DataIO,
@@ -18,7 +20,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     TableDataIO,
     UploadableDataIO,
 )
-from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, display_item_results
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
@@ -216,9 +218,8 @@ class DownloadCommand(ToolkitCommand):
         log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
         return NDJsonWriter(target_dir, kind="DownloadLogs", default_filestem=log_filestem, compression=Uncompressed)
 
-    @classmethod
     def _download_data(
-        cls,
+        self,
         io: DataIO[T_Selector, T_ResourceResponse],
         step: DownloadStep[T_Selector],
         writer: FileWriter,
@@ -229,8 +230,8 @@ class DownloadCommand(ToolkitCommand):
         logger.reset()
         executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
             download_iterable=io.stream_data(step.selector, step.limit),
-            process=cls.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
-            write=cls.create_writer(writer, step.filestem),
+            process=self.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
+            write=self.create_writer(writer, step.filestem),
             total_item_count=step.count,
             # Limit queue size to avoid filling up memory before the workers can write to disk.
             max_queue_size=8 * 10,  # 8 workers, 10 items per worker
@@ -240,11 +241,15 @@ class DownloadCommand(ToolkitCommand):
             console=console,
         )
         executor.run()
-
         items_results = logger.finalize(is_dry_run=False)
         display_item_results(items_results, title=f"Finished {step.selector.display_name}", console=console)
+        self._track(items_results, step.selector.kind, io.client)
         executor.raise_on_error()
         return writer.file_count
+
+    def _track(self, items_results: list[ItemsResult], data_type: str, client: ToolkitClient) -> None:
+        event = DataTracking.from_item_results("DownloadResult", data_type, items_results)
+        self.tracker.track(event, client)
 
     @staticmethod
     def create_data_process(

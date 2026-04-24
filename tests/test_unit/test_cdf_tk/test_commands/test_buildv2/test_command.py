@@ -211,6 +211,7 @@ class TestDependencyValidationSearchConfig:
         module = BuiltModule(
             module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
             resources=[],
+            yaml_line_count=2,
         )
         return module, source_file, build_file
 
@@ -226,7 +227,7 @@ class TestDependencyValidationSearchConfig:
                 build_path=AbsoluteFilePath(build_file.resolve()),
                 crud_cls=ViewIO,
                 dependencies=set(),
-                has_syntax_errors=False,
+                has_syntax_error=False,
             )
         )
         module.resources.append(
@@ -241,7 +242,7 @@ class TestDependencyValidationSearchConfig:
                 build_path=AbsoluteFilePath(build_file.resolve()),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
-                has_syntax_errors=False,
+                has_syntax_error=False,
             )
         )
         result = list(DependencyRuleSet([module]).validate())

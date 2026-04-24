@@ -4,7 +4,6 @@
 import re
 import sys
 import traceback
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
@@ -45,7 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.plugins import Plugins
-from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
 )
@@ -86,7 +84,6 @@ except AttributeError as e:
 
 _app = CoreApp(**default_typer_kws)
 
-user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
@@ -129,11 +126,16 @@ def about() -> None:
 
 def app() -> NoReturn:
     # --- Main entry point ---
+    # Strip --traceback from sys.argv before Typer processes it (hidden debug flag)
+    show_traceback = "--traceback" in sys.argv
+    if show_traceback:
+        sys.argv.remove("--traceback")
+
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         _app()
     except ToolkitError as err:
-        if "--verbose" in sys.argv:
+        if show_traceback:
             print(Panel(traceback.format_exc(), title="Traceback", expand=False))
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
@@ -152,21 +154,6 @@ def app() -> NoReturn:
         raise
 
     raise SystemExit(0)
-
-
-@user_app.callback(invoke_without_command=True)
-def user_main(ctx: typer.Context) -> None:
-    """Commands to give information about the toolkit."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf user --help[/] to see available commands.")
-    return None
-
-
-@user_app.command("info")
-def user_info() -> None:
-    """Print information about user"""
-    tracker = Tracker()
-    print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 
 if __name__ == "__main__":

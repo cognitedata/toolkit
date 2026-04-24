@@ -218,7 +218,7 @@ class ReadYAMLFile(BaseModel):
 
 
 class FailedReadYAMLFile(ReadYAMLFile):
-    code: str
+    code: Literal["MISSING-SUFFIX", "INVALID-KIND", "READ-ERROR", "YAML-PARSE-ERROR", "EMPTY-YAML"]
     error: str
 
 
@@ -234,11 +234,12 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     resource_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
     syntax_warning: ModelSyntaxWarning | None = None
+    line_count: int
 
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: str
+    code: Literal["MISSING-SUFFIX"]
     reason: str
 
 
