@@ -42,10 +42,9 @@ class FailedValidation(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
     This should never happen in normal operation — it indicates a bug in the validator itself.
-    Severity is 0 so it does not inflate max_severity in the build summary; it is checked separately.
     """
 
-    severity = 0
+    severity = 60
     source: str
     fix: str | None = "This is an unexpected error in the validator. Please report this as a bug."
 
