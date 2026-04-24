@@ -643,7 +643,6 @@ class DownloadApp(typer.Typer):
                 choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
                 default=file_format,
             ).unsafe_ask()
-            download_dir_name = "asset_centric-files-with-content"
             output_dir = Path(
                 questionary.path(
                     "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
@@ -651,6 +650,7 @@ class DownloadApp(typer.Typer):
             )
             selected = selector.select_documents()
             if selected.selection.file_type == "dms":
+                download_dir_name = "cognite-file-with-content"
                 io = CogniteFileContentIO(
                     client,
                     config_directory=output_dir / download_dir_name,
@@ -671,6 +671,7 @@ class DownloadApp(typer.Typer):
                     )
                 ]
             else:
+                download_dir_name = "asset_centric-files-with-content"
                 io = FileMetadataContentIO(
                     client,
                     config_directory=output_dir / download_dir_name,
