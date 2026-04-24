@@ -38,7 +38,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    FailedValidation,
+    Insight,
+    ModelSyntaxWarning,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -63,7 +67,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -791,6 +795,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": ("red", "✗"),
             "ConsistencyError": ("red", "✗"),
+            "FailedValidation": ("red", "✗"),
             "ModelSyntaxWarning": ("yellow", "!"),
             "Recommendation": ("blue", "🛈"),
             "IgnoredFileWarning": ("dim", "○"),
@@ -865,13 +870,14 @@ class BuildV2Command(ToolkitCommand):
         max_severity = 0
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
-            match severity:
-                case severity if severity <= 15:
-                    insight_style = "[green]✓[/]"
-                case severity if 15 < severity <= 35:
-                    insight_style = "[yellow]![/]"
-                case _:
-                    insight_style = "[red]✗[/]"
+            if insight_type == "FailedValidation":
+                insight_style = "[red]✗[/]"
+            elif severity <= 15:
+                insight_style = "[green]✓[/]"
+            elif severity <= 35:
+                insight_style = "[yellow]![/]"
+            else:
+                insight_style = "[red]✗[/]"
 
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
 
@@ -879,7 +885,14 @@ class BuildV2Command(ToolkitCommand):
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
 
+        has_failed_validation = any(isinstance(i, FailedValidation) for i in insights)
         match max_severity:
+            case severity if severity <= 15 and has_failed_validation:
+                border_color = "yellow"
+                recommendation = (
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "One or more validators could not complete. We cannot guarantee these resources are safe to deploy."
+                )
             case severity if severity <= 15:
                 border_color = "green"
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
