@@ -992,6 +992,44 @@ class InFieldUserMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldCreatableViews(CustomContainerPropertiesMapping):
+    """Custom mapping for all views that implements the creatable interface in the InField data migration.
+
+    In the Creatable in InFieldOnCDM the properties 'visibility' and 'isArchived' are typically null
+    in the Legacy model, but should be set explicitly to `PUBLIC` and `false` if they are null.
+
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset(
+        {
+            ViewId(space="cdf_apm", external_id="Action", version="v1"),
+            ViewId(space="cdf_apm", external_id="Checklist", version="v7"),
+            ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"),
+            ViewId(space="cdf_apm", external_id="Condition", version="v1"),
+            ViewId(space="cdf_apm", external_id="ConditionalAction", version="v1"),
+            ViewId(space="cdf_apm", external_id="MeasurementReading", version="v4"),
+            ViewId(space="cdf_apm", external_id="Schedule", version="v4"),
+            ViewId(space="cdf_apm", external_id="Template", version="v9"),
+            ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"),
+        }
+    )
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
+        issues: list[str] = []
+
+        is_archived = source_properties.get("isArchived", None)
+        visibility = source_properties.get("visibility", None)
+        if is_archived is None:
+            created_properties["isArchived"] = True
+        if visibility is None:
+            created_properties["isArchived"] = "PUBLIC"
+
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 

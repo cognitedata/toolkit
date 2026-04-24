@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     InFieldAssetMapping,
     InFieldConditionMapping,
+    InFieldCreatableViews,
     InFieldUserMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
@@ -1625,7 +1626,11 @@ class MigrateApp(typer.Typer):
             client,
             infield_mappings,
             connection_creator=connection_creator,
-            custom_properties_mappings=[InFieldConditionMapping(infield_mappings), InFieldUserMapping()],
+            custom_properties_mappings=[
+                InFieldConditionMapping(infield_mappings),
+                InFieldUserMapping(),
+                InFieldCreatableViews(),
+            ],
             custom_instance_mappings={
                 InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
                     client, connection_creator, schedule_mapping
