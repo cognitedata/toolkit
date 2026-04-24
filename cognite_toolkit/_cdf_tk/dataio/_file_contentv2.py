@@ -539,8 +539,10 @@ class CogniteFileContentIO(
             SchemaColumn(name="assets", type="json"),
             SchemaColumn(name="mimeType", type="string"),
             SchemaColumn(name="directory", type="string"),
-            SchemaColumn(name="category", type="json"),
-            SchemaColumn(name="type", type="json"),
+            SchemaColumn(name="category.space", type="string"),
+            SchemaColumn(name="category.externalId", type="string"),
+            SchemaColumn(name="type.space", type="string"),
+            SchemaColumn(name="type.externalId", type="string"),
             SchemaColumn(name="existingVersion", type="integer"),
             SchemaColumn(name=FILEPATH, type="string"),
         ]
@@ -633,7 +635,12 @@ class CogniteFileContentIO(
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: CogniteFileContentSelectorV2 | None = None
     ) -> CogniteFileRequest:
-        _ = source_id, selector
+        json_item = dict(row)
+        for key in ["category", "type"]:
+            subkeys = {subkey[len(key) + 1 :] for subkey in json_item if subkey.startswith(f"{key}.")}
+            if subkeys:
+                json_item[key] = {subkey: json_item.pop(f"{key}.{subkey}") for subkey in subkeys}
+
         return self.json_to_resource(dict(row))
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
@@ -652,8 +659,13 @@ class CogniteFileContentIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: CogniteFileContentSelectorV2 | None = None
     ) -> dict[str, JsonVal]:
-        _ = selector
-        return dict(item_json)
+        row = dict(item_json)
+        for key in ["category", "type"]:
+            value = item_json.pop(key, None)
+            if value is not None and isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    row[f"{key}.{subkey}"] = subvalue
+        return row
 
     def data_to_json_chunk(
         self, data_chunk: Page[CogniteFileResponse], selector: CogniteFileContentSelectorV2 | None = None
@@ -670,7 +682,6 @@ class CogniteFileContentIO(
         return data_chunk.create_from(dumped)
 
     def configurations(self, selector: CogniteFileContentSelectorV2) -> Iterable[StorageIOConfig]:
-        _ = selector
         yield from ()
 
     def upload_items(
