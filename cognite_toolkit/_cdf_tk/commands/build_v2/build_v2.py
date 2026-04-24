@@ -62,7 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
@@ -78,7 +78,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
-    rule: ToolkitGlobalRulSet
+    rule: ToolkitGlobalRuleSet
 
 
 class BuildV2Command(ToolkitCommand):

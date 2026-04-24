@@ -13,13 +13,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
+from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
 
 if TYPE_CHECKING:
     from cognite.neat._toolkit_adapter import NeatClient, NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
-class NeatRuleSet(ToolkitGlobalRulSet):
+class NeatRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "NEAT"
     DISPLAY_NAME = "Neat (data modeling)"
 

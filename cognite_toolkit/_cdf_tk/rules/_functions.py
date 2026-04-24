@@ -6,13 +6,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, FailedValidation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRulSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
-class FunctionRules(ToolkitGlobalRulSet):
+class FunctionRules(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions checks"
 

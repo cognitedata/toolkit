@@ -2,11 +2,11 @@ from collections.abc import Set
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
-from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRulSet, ToolkitLocalRule
+from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRuleSet, ToolkitLocalRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 _LOCAL_RULES_REGISTRY: list[type[ToolkitLocalRule]] | None = None
-_GLOBAL_RULES_REGISTRY: list[type[ToolkitGlobalRulSet]] | None = None
+_GLOBAL_RULES_REGISTRY: list[type[ToolkitGlobalRuleSet]] | None = None
 
 
 def get_local_rules_registry(force_reload: bool = False) -> list[type[ToolkitLocalRule]]:
@@ -24,11 +24,11 @@ def get_local_rules_registry(force_reload: bool = False) -> list[type[ToolkitLoc
     return _LOCAL_RULES_REGISTRY
 
 
-def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGlobalRulSet]]:
+def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGlobalRuleSet]]:
     """Get the registry of rules, optionally forcing a reload."""
     global _GLOBAL_RULES_REGISTRY
     if _GLOBAL_RULES_REGISTRY is None or force_reload:
-        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitGlobalRulSet))  # type: ignore[type-abstract]
+        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitGlobalRuleSet))  # type: ignore[type-abstract]
     return _GLOBAL_RULES_REGISTRY
 
 
