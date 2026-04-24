@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
+    CogniteFileContentIO,
     DataIO,
     DatapointsIO,
     DataSelector,
@@ -33,6 +34,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
     ChartExternalIdSelector,
     ChartSelector,
+    CogniteFileFilesSelectorV2,
     DataPointsDataSetSelector,
     DataSetSelector,
     FileMetadataFilesSelectorV2,
@@ -40,6 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceSpaceSelector,
     InstanceViewSelector,
     InternalWithNameId,
+    NodeWithNameId,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -640,26 +643,49 @@ class DownloadApp(typer.Typer):
                 choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
                 default=file_format,
             ).unsafe_ask()
-            download_dir_name = "asset_centric-files-with-content"
             output_dir = Path(
                 questionary.path(
                     "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
                 ).unsafe_ask()
             )
-            documents = selector.select_documents()
-            io = FileMetadataContentIO(
-                client,
-                config_directory=output_dir / download_dir_name,
-                file_directory=output_dir / download_dir_name / "files",
-            )
-            selectors = [
-                FileMetadataFilesSelectorV2(
-                    ids=tuple(
-                        InternalWithNameId(id=document.id, name=document.source_file.name) for document in documents
-                    ),
-                    download_dir_name=download_dir_name,
+            selected = selector.select_documents()
+            if selected.selection.file_type == "dms":
+                download_dir_name = "cognite-file-with-content"
+                io = CogniteFileContentIO(
+                    client,
+                    config_directory=output_dir / download_dir_name,
+                    file_directory=output_dir / download_dir_name / "files",
                 )
-            ]
+                selectors = [
+                    CogniteFileFilesSelectorV2(
+                        download_dir_name=download_dir_name,
+                        ids=tuple(
+                            NodeWithNameId(
+                                space=doc.instance_id.space,
+                                external_id=doc.instance_id.external_id,
+                                name=doc.source_file.name,
+                            )
+                            for doc in selected.documents
+                            if doc.instance_id
+                        ),
+                    )
+                ]
+            else:
+                download_dir_name = "asset-centric-files-with-content"
+                io = FileMetadataContentIO(
+                    client,
+                    config_directory=output_dir / download_dir_name,
+                    file_directory=output_dir / download_dir_name / "files",
+                )
+                selectors = [
+                    FileMetadataFilesSelectorV2(
+                        ids=tuple(
+                            InternalWithNameId(id=document.id, name=document.source_file.name)
+                            for document in selected.documents
+                        ),
+                        download_dir_name=download_dir_name,
+                    )
+                ]
         elif data_sets is not None:
             selectors = [
                 DataSetSelector(

@@ -515,7 +515,6 @@ class CogniteFileContentIO(
         self._config_directory = config_directory
         self._file_directory = file_directory
         self._crud = CogniteFileCRUD(client, None, None, support_upload=False)
-        self._dump_keys_by_selector: dict[CogniteFileContentSelectorV2 | None, set[str]] = {}
 
     def _verify_download_selector(self, selector: CogniteFileContentSelectorV2) -> tuple[NodeWithNameId, ...]:
         if isinstance(selector, CogniteFileFilesSelectorV2) and selector.ids:
@@ -523,12 +522,7 @@ class CogniteFileContentIO(
         raise NotImplementedError(f"{selector.type} does not support download")
 
     def get_schema(self, selector: CogniteFileContentSelectorV2) -> list[SchemaColumn] | None:
-        if selector not in self._dump_keys_by_selector:
-            self._dump_keys_by_selector[selector] = set()
-            return None
-        extra_keys = sorted(self._dump_keys_by_selector.get(selector, set()) - _COGNITE_FILE_BASE_SCHEMA_KEYS)
-        extra_schema = [SchemaColumn(name=key, type="string", is_array=False) for key in extra_keys]
-        base_schema = [
+        return [
             SchemaColumn(name="space", type="string"),
             SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="name", type="string"),
@@ -542,15 +536,16 @@ class CogniteFileContentIO(
             SchemaColumn(name="sourceUpdatedTime", type="timestamp"),
             SchemaColumn(name="sourceCreatedUser", type="string"),
             SchemaColumn(name="sourceUpdatedUser", type="string"),
-            SchemaColumn(name="assets", type="json", is_array=True),
+            SchemaColumn(name="assets", type="json"),
             SchemaColumn(name="mimeType", type="string"),
             SchemaColumn(name="directory", type="string"),
-            SchemaColumn(name="category", type="json"),
-            SchemaColumn(name="type", type="json"),
+            SchemaColumn(name="category.space", type="string"),
+            SchemaColumn(name="category.externalId", type="string"),
+            SchemaColumn(name="type.space", type="string"),
+            SchemaColumn(name="type.externalId", type="string"),
             SchemaColumn(name="existingVersion", type="integer"),
             SchemaColumn(name=FILEPATH, type="string"),
         ]
-        return base_schema + extra_schema
 
     def stream_data(
         self, selector: CogniteFileContentSelectorV2, limit: int | None = None, bookmark: Bookmark | None = None
@@ -640,8 +635,13 @@ class CogniteFileContentIO(
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: CogniteFileContentSelectorV2 | None = None
     ) -> CogniteFileRequest:
-        _ = source_id, selector
-        return self.json_to_resource(dict(row))
+        json_item = dict(row)
+        for key in ["category", "type"]:
+            subkeys = {subkey[len(key) + 1 :] for subkey in json_item if subkey.startswith(f"{key}.")}
+            if subkeys:
+                json_item[key] = {subkey: json_item.pop(f"{key}.{subkey}") for subkey in subkeys}
+
+        return self.json_to_resource(json_item)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
         # CogniteFileCRUD.load_resource only restores filepath from YAML-side cache; table/template
@@ -659,15 +659,17 @@ class CogniteFileContentIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: CogniteFileContentSelectorV2 | None = None
     ) -> dict[str, JsonVal]:
-        _ = selector
-        return dict(item_json)
+        row = dict(item_json)
+        for key in ["category", "type"]:
+            value = row.pop(key, None)
+            if value is not None and isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    row[f"{key}.{subkey}"] = subvalue
+        return row
 
     def data_to_json_chunk(
         self, data_chunk: Page[CogniteFileResponse], selector: CogniteFileContentSelectorV2 | None = None
     ) -> Page[dict[str, JsonVal]]:
-        if selector in self._dump_keys_by_selector:
-            for di in data_chunk.items:
-                self._dump_keys_by_selector[selector].update(self._crud.dump_resource(di.item).keys())
         dumped: list[DataItem[dict[str, JsonVal]]] = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
@@ -680,7 +682,6 @@ class CogniteFileContentIO(
         return data_chunk.create_from(dumped)
 
     def configurations(self, selector: CogniteFileContentSelectorV2) -> Iterable[StorageIOConfig]:
-        _ = selector
         yield from ()
 
     def upload_items(

@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveChartSelect,
     RawTableInteractiveSelect,
     ResourceViewMappingInteractiveSelect,
+    SelectedDocuments,
     ThreeDInteractiveSelect,
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
@@ -1284,7 +1285,8 @@ class TestDocumentsInteractiveSelect:
             result = selector.select_documents()
 
         client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
-        assert result == docs
+        assert isinstance(result, SelectedDocuments)
+        assert result.documents == docs
 
     def test_select_documents_abort(self, monkeypatch) -> None:
         answers = ["abort"]
@@ -1319,7 +1321,8 @@ class TestDocumentsInteractiveSelect:
             result = selector.select_documents()
 
         client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
-        assert result == [docs[0]]
+        assert isinstance(result, SelectedDocuments)
+        assert result.documents == [docs[0]]
 
     def test_select_documents_filter_single_bucket_then_finished(self, monkeypatch) -> None:
         docs = self._sample_documents()
@@ -1328,7 +1331,7 @@ class TestDocumentsInteractiveSelect:
             mime_choice = next(c for c in choices if c.value == ("mimeType",))
             return mime_choice.value
 
-        answers = ["filter", pick_mime_type, "finished"]
+        answers = ["filter-document-properties", pick_mime_type, "finished"]
 
         def unique_side_effect(
             property: tuple[str, ...] | tuple[str, str] | tuple[str, str, str],
@@ -1337,7 +1340,7 @@ class TestDocumentsInteractiveSelect:
             if property == ("sourceFile", "metadata"):
                 return []
             if property == ("mimeType",):
-                return [DocumentUniqueBucket(count=4, values=["application/pdf"])]
+                return [DocumentUniqueBucket(count=4, value="application/pdf")]
             raise AssertionError(f"unexpected unique property: {property!r}")
 
         with (
@@ -1352,10 +1355,11 @@ class TestDocumentsInteractiveSelect:
             result = selector.select_documents()
 
         expected_filter = {
-            "and": [{"in": {"property": ["mimeType"], "values": ["application/pdf"]}}],
+            "and": [{"equals": {"property": ["mimeType"], "value": "application/pdf"}}],
         }
         client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
-        assert result == docs
+        assert isinstance(result, SelectedDocuments)
+        assert result.documents == docs
 
     def test_select_documents_search_then_finished(self, monkeypatch) -> None:
         docs = self._sample_documents()
@@ -1376,4 +1380,5 @@ class TestDocumentsInteractiveSelect:
 
         client.tool.documents.search.assert_called_once_with(query="turbine", filter=None, limit=100)
         client.tool.documents.list.assert_not_called()
-        assert result == docs
+        assert isinstance(result, SelectedDocuments)
+        assert result.documents == docs
