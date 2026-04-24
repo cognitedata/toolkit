@@ -268,6 +268,7 @@ class PurgeCommand(ToolkitCommand):
         self,
         client: ToolkitClient,
         selected_space: str,
+        log_dir: Path,
         include_space: bool = False,
         delete_datapoints: bool = False,
         delete_file_content: bool = False,
@@ -327,7 +328,7 @@ class PurgeCommand(ToolkitCommand):
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            results = self._delete_resources(to_delete, client, verbose, selected_space, None)
+            results = self._delete_resources(to_delete, client, verbose, selected_space, None, log_dir)
             if include_space:
                 self._delete_space(client, selected_space, results)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
@@ -379,50 +380,53 @@ class PurgeCommand(ToolkitCommand):
 
     def _delete_resources(
         self,
-        to_delete: list[ToDelete],
+        delete_plan: list[ToDelete],
         client: ToolkitClient,
         verbose: bool,
         space: str | None,
         data_set_external_id: str | None,
+        log_dir: Path,
     ) -> DeployResults:
         results = DeployResults([], "purge", dry_run=False)
         console = Console()
-        with HTTPClient(client.config, max_retries=10) as delete_client:
-            for item in to_delete:
-                if item.total == 0:
-                    results[item.display_name] = ResourceDeployResult(item.display_name, deleted=0)
+        with (HTTPClient(client.config, max_retries=10) as delete_client,
+              NDJsonWriter(
+                  log_dir, kind="PurgeLogs", default_filestem=self._log_filestem(), compression=Uncompressed
+              ) as log_writer,
+              ):
+            logger = FileWithAggregationLogger(log_writer)
+            for step in delete_plan:
+                if step.total == 0:
+                    results[step.display_name] = ResourceDeployResult(step.display_name, deleted=0)
                     continue
-                # Two results objects since they are updated concurrently
-                process_results = ResourceDeployResult(item.display_name)
-                write_results = ResourceDeployResult(item.display_name)
-                executor = ProducerWorkerExecutor[list[ResourceResponseProtocol], list[JsonVal]](
+                logger.reset()
+                executor = ProducerWorkerExecutor[Page[ResourceResponseProtocol], list[JsonVal]](
                     download_iterable=self._iterate_batch(
-                        item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
+                        step.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
                     ),
-                    process=item.get_process_function(client, console, verbose, process_results),
-                    write=self._purge_batch(item, item.delete_url, delete_client, write_results),
+                    process=step.get_process_function(client, console, verbose),
+                    write=self._purge_batch(step, step.delete_url, delete_client),
                     max_queue_size=10,
-                    total_item_count=item.total,
-                    download_description=f"Downloading {item.display_name}",
-                    process_description=f"Preparing {item.display_name} for deletion",
-                    write_description=f"Deleting {item.display_name}",
+                    total_item_count=step.total,
+                    download_description=f"Downloading {step.display_name}",
+                    process_description=f"Preparing {step.display_name} for deletion",
+                    write_description=f"Deleting {step.display_name}",
                     console=console,
                 )
                 executor.run()
-                write_results += process_results
-                results[item.display_name] = write_results
-                if executor.error_occurred:
-                    if verbose and executor.error_traceback:
-                        executor.print_traceback()
-                    self.warn(
-                        HighSeverityWarning(f"Failed to delete all {item.display_name}. {executor.error_message}")
-                    )
+                item_result = logger.finalize(is_dry_run=False)
+                display_item_results(item_result, title=f"{step.display_name} purge results", console=console)
+                self.tracker(DataTracking.from_item_results(
+                    "PurgeResult", step.crud.display_name, item_result), client
+                )
+                results[step.display_name] = DeployResults.from_item_results(item_result)
+                executor.raise_on_error()
         return results
 
     @staticmethod
     def _iterate_batch(
         crud: ResourceIO, selected_space: str | None, data_set_external_id: str | None, batch_size: int
-    ) -> Iterable[list[ResourceResponseProtocol]]:
+    ) -> Iterable[Page[ResourceResponseProtocol]]:
         batch: list[ResourceResponseProtocol] = []
         for resource in crud.iterate(space=selected_space, data_set_external_id=data_set_external_id):
             batch.append(resource)
@@ -466,6 +470,7 @@ class PurgeCommand(ToolkitCommand):
         self,
         client: ToolkitClient,
         selected_data_set_external_id: str,
+        log_dir: Path,
         archive_dataset: bool = False,
         include_data: bool = True,
         include_configurations: bool = False,
@@ -526,7 +531,7 @@ class PurgeCommand(ToolkitCommand):
             for item in to_delete:
                 results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
         else:
-            results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
+            results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id, log_dir)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         if archive_dataset and not dry_run:
             self._archive_dataset(client, selected_data_set_external_id)
@@ -790,11 +795,10 @@ class PurgeCommand(ToolkitCommand):
             if not confirm_purge:
                 return DeleteResults()
 
-        log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
         with (
             HTTPClient(config=client.config) as delete_client,
             NDJsonWriter(
-                log_dir, kind="PurgeLogs", default_filestem=log_filestem, compression=Uncompressed
+                log_dir, kind="PurgeLogs", default_filestem=self._log_filestem(), compression=Uncompressed
             ) as log_writer,
         ):
             logger = FileWithAggregationLogger(log_writer)
@@ -825,6 +829,10 @@ class PurgeCommand(ToolkitCommand):
             executor.raise_on_error()
 
         return DeleteResults.from_item_results(items_results)
+
+    def _log_filestem(self) -> str:
+        log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
+        return log_filestem
 
     def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
         client_project = client.config.project
