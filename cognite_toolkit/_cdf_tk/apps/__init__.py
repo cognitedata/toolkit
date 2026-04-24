@@ -11,7 +11,6 @@ from ._modules_app import ModulesApp
 from ._profile_app import ProfileApp
 from ._purge import PurgeApp
 from ._repo_app import RepoApp
-from ._respace_app import RespaceApp
 from ._run import RunApp
 from ._upload_app import UploadApp
 
@@ -29,7 +28,6 @@ __all__ = [
     "ProfileApp",
     "PurgeApp",
     "RepoApp",
-    "RespaceApp",
     "RunApp",
     "UploadApp",
 ]
