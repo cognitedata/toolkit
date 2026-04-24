@@ -171,7 +171,7 @@ MAX_RUN_QUERY_FREQUENCY_MIN = 10
 COGNITE_MIGRATION_SPACE = "cognite_migration"
 
 COGNITE_TIME_SERIES_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteTimeSeries")
-COGNITE_FILE_CONTAINER = dict(space="cdf_cdm", external_id="CogniteFile")
+COGNITE_FILE_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
 
