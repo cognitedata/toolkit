@@ -1022,7 +1022,7 @@ class InFieldCreatableViews(CustomContainerPropertiesMapping):
 
         is_archived = source_properties.get("isArchived", None)
         if is_archived is None:
-            created_properties["isArchived"] = True
+            created_properties["isArchived"] = False
         visibility = source_properties.get("visibility", None)
         if visibility is None:
             created_properties["visibility"] = "PUBLIC"
