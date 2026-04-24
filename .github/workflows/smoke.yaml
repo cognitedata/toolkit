@@ -15,6 +15,16 @@ env:
 jobs:
   smoke-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - CDF_CLUSTER: greenfield
+            CDF_PROJECT: project-loader-dev
+          - CDF_CLUSTER: bluefield
+            CDF_PROJECT: toolkit-blue
+          - CDF_CLUSTER: orangefield
+            CDF_PROJECT: toolkit-orange
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -33,8 +43,8 @@ jobs:
 
       - name: Run smoke tests
         env:
-          CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
-          CDF_PROJECT: ${{ vars.CDF_PROJECT }}
+          CDF_CLUSTER: ${{ matrix.CDF_CLUSTER }}
+          CDF_PROJECT: ${{ matrix.CDF_PROJECT }}
           IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
           IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
           IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
