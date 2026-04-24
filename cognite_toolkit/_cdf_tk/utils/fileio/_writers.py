@@ -262,6 +262,18 @@ class CSVWriter(TableWriter[TextIOWrapper]):
 class ParquetWriter(TableWriter["pq.ParquetWriter"]):
     FORMAT = ".parquet"
 
+    def __init__(
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: Sequence[SchemaColumn],
+        default_filestem: str | None = None,
+        max_file_size_bytes: int = 128 * 1024 * 1024,
+    ) -> None:
+        super().__init__(output_dir, kind, compression, columns, default_filestem, max_file_size_bytes)
+        self._check_pyarrow_dependency()
+
     def _create_writer(self, filepath: Path) -> "pq.ParquetWriter":
         import pyarrow.parquet as pq
 

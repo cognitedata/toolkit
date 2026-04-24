@@ -70,10 +70,6 @@ class Flags(Enum):
         visible=True,
         description="Enables validation of function requirements.txt during build using pip dry-run",
     )
-    RESPACE = FlagMetadata(
-        visible=False,
-        description="Enables the respace command for moving nodes between spaces",
-    )
     DATA_PRODUCTS = FlagMetadata(
         visible=False,
         description="Enables support for data product resources",
