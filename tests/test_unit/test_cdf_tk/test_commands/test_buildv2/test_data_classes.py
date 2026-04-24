@@ -7,7 +7,12 @@ from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ResourceLineageItem
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import (
+    BuildLineage,
+    ModuleLineageItem,
+    ResourceLineageItem,
+)
+from cognite_toolkit._cdf_tk.utils import calculate_hash
 
 
 @pytest.fixture(scope="session")
@@ -250,3 +255,49 @@ class TestBuildLinage:
         }
         linage = ResourceLineageItem.model_validate(data)
         assert isinstance(linage.identifier, ExternalId)
+
+    @pytest.mark.parametrize(
+        "special_content",
+        [
+            pytest.param("description: Temperature in °C\nname: My View °", id="degree_symbol"),
+            pytest.param("description: Completion is 50% done\nname: Progress %", id="percent_symbol"),
+        ],
+    )
+    def test_validate_source_files_unchanged_special_chars(self, tmp_path: Path, special_content: str) -> None:
+        """Regression test: files with special characters must not trigger false hash mismatches.
+
+        The build-time hash uses raw bytes (calculate_hash with a Path).
+        The validation-time hash must use the same method, not safe_read which
+        can produce different bytes when file_encoding != UTF-8.
+        """
+        source_file = tmp_path / "my_view.view.yaml"
+        source_file.write_bytes(special_content.encode("utf-8"))
+        built_file = tmp_path / "1-my_view.view.yaml"
+        built_file.touch()
+
+        build_hash = calculate_hash(source_file, shorten=True)
+
+        lineage = BuildLineage(
+            organization_dir=tmp_path,
+            build_dir=tmp_path,
+            modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
+            insights_summary={},
+            module_lineage=[
+                ModuleLineageItem(
+                    module_id="modules/my_module",
+                    module_path=tmp_path,
+                    insights_summary={},
+                    resource_lineage=[
+                        ResourceLineageItem(
+                            source_file=source_file,
+                            source_hash=build_hash,
+                            type={"resource_folder": "data_models", "kind": "View"},
+                            built_file=built_file,
+                            identifier={"space": "my_space", "externalId": "MyView", "version": "1"},
+                        )
+                    ],
+                )
+            ],
+        )
+
+        lineage.validate_source_files_unchanged()
