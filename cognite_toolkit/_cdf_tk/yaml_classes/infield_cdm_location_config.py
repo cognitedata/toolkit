@@ -78,7 +78,12 @@ class ViewMappings(BaseModelResource):
     asset: ViewMapping | None = None
     operation: ViewMapping | None = None
     notification: ViewMapping | None = None
+    # As of 26/04-26, activity is supported,
+    # but InField will likely rename it ot maintenance_order, thus we keep
+    # both for now to avoid complaining to the user of either.
     maintenance_order: ViewMapping | None = None
+    activity: ViewMapping | None = None
+
     file: ViewMapping | None = None
     observation: list[ViewMapping] | None = None
 
