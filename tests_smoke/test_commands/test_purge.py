@@ -389,6 +389,7 @@ class TestPurgeSmoke:
             dry_run=False,
             unlink=True,
             verbose=False,
+            log_dir=tmp_path / "log",
         )
         if results.deleted != 2:
             raise AssertionError(f"Expected 2 deleted instances from purge, got {results.deleted!r}")

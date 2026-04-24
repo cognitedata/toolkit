@@ -1,6 +1,7 @@
 import itertools
 import json
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -172,6 +173,7 @@ def purge_client(toolkit_config: ToolkitClientConfig) -> Iterator[ToolkitClient]
 
 
 class TestPurgeInstances:
+    @pytest.mark.usefixtures("disable_gzip")
     @pytest.mark.parametrize(
         "dry_run,unlink,instance_type",
         [
@@ -199,6 +201,7 @@ class TestPurgeInstances:
         cognite_files_2000_list: NodeList[CogniteFile],
         files_by_node_id: dict[dm.NodeId, dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         rsps = purge_responses
@@ -235,11 +238,28 @@ class TestPurgeInstances:
                 json={"items": {"root": instance_dumps[1000:]}, "nextCursor": {"root": None}},
             ),
         ]
-        ts_objects = list(timeseries_by_node_id.values()) if instance_type == "timeseries" else []
-        file_objects = list(files_by_node_id.values()) if instance_type == "files" else []
         if unlink:
-            respx_mock.post(config.create_api_url("/timeseries/byids")).respond(json={"items": ts_objects})
-            respx_mock.post(config.create_api_url("/files/byids")).respond(json={"items": file_objects})
+
+            def ts_byids_callback(request: httpx.Request) -> httpx.Response:
+                body = json.loads(request.content.decode("utf-8"))
+                requested_ids = {
+                    dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
+                    for item in body.get("items", [])
+                }
+                filtered = [v for k, v in timeseries_by_node_id.items() if k in requested_ids]
+                return httpx.Response(status_code=200, json={"items": filtered})
+
+            def files_byids_callback(request: httpx.Request) -> httpx.Response:
+                body = json.loads(request.content.decode("utf-8"))
+                requested_ids = {
+                    dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
+                    for item in body.get("items", [])
+                }
+                filtered = [v for k, v in files_by_node_id.items() if k in requested_ids]
+                return httpx.Response(status_code=200, json={"items": filtered})
+
+            respx_mock.post(config.create_api_url("/timeseries/byids")).mock(side_effect=ts_byids_callback)
+            respx_mock.post(config.create_api_url("/files/byids")).mock(side_effect=files_byids_callback)
         if unlink and not dry_run and instance_type == "timeseries":
             respx_mock.post(config.create_api_url("/timeseries/unlink-instance-ids")).mock(
                 return_value=httpx.Response(
@@ -268,6 +288,7 @@ class TestPurgeInstances:
         result = cmd.instances(
             client,
             InstanceViewSelector(view=SelectedView(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
+            log_dir=tmp_path,
             dry_run=dry_run,
             unlink=unlink,
             verbose=False,
