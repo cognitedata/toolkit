@@ -641,7 +641,7 @@ class CogniteFileContentIO(
             if subkeys:
                 json_item[key] = {subkey: json_item.pop(f"{key}.{subkey}") for subkey in subkeys}
 
-        return self.json_to_resource(dict(row))
+        return self.json_to_resource(json_item)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
         # CogniteFileCRUD.load_resource only restores filepath from YAML-side cache; table/template
