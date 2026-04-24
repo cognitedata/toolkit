@@ -22,6 +22,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
 )
@@ -37,6 +39,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio import InstanceIO, Page
+from cognite_toolkit._cdf_tk.dataio.logger import (
+    FileWithAggregationLogger,
+    ItemsResult,
+    LogEntryV2,
+    Severity,
+    display_item_results,
+)
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -78,12 +87,11 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
-from ..dataio.logger import FileWithAggregationLogger, ItemsResult, LogEntryV2, Severity, display_item_results
-from ..utils.fileio import NDJsonWriter, Uncompressed
 from ._base import ToolkitCommand
 
 
@@ -897,22 +905,39 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _delete_instance_ids(
-        items: Page[InstanceDefinitionId], dry_run: bool, delete_client: HTTPClient, logger: FileWithAggregationLogger,
+        page: Page[InstanceDefinitionId],
+        dry_run: bool,
+        delete_client: HTTPClient,
+        logger: FileWithAggregationLogger,
     ) -> None:
         if dry_run:
-            ...
             return
 
         responses = delete_client.request_items_retries(
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=items,
+                items=page.items,
             )
         )
         for response in responses:
-            if not isinstance(response, ItemsSuccessResponse):
-
+            if isinstance(response, ItemsFailedRequest):
+                for id in response.ids:
+                    logger.log(
+                        LogEntryV2(
+                            id=id, severity=Severity.failure, label="Failed request", message=response.error_message
+                        )
+                    )
+            elif isinstance(response, ItemsFailedResponse):
+                for id in response.ids:
+                    logger.log(
+                        LogEntryV2(
+                            id=id,
+                            severity=Severity.failure,
+                            label=f"Failed response {response.status_code}",
+                            message=response.error_message,
+                        )
+                    )
 
     @staticmethod
     def _unlink_timeseries(
@@ -925,29 +950,31 @@ class PurgeCommand(ToolkitCommand):
         if node_items:
             timeseries = client.tool.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_timeseries_ids = {
-                InternalId(id=ts.id): ts.instance_id for ts in timeseries if ts.instance_id and ts.pending_instance_id
+                InternalId(id=ts.id): InstanceId(instance_id=ts.instance_id)
+                for ts in timeseries
+                if ts.instance_id and ts.pending_instance_id
             }
             if not dry_run and timeseries:
                 client.tool.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
-                for value in migrated_timeseries_ids.values():
+                for internal_id, value in migrated_timeseries_ids.items():
                     data_item = node_items[value]
                     logger.log(
                         LogEntryV2(
                             id=data_item.tracking_id,
                             label="Unlinked timeseries",
                             severity=Severity.info,
-                            message=f"Unlinked TimeSeries with internal ID {value.id} from Node {data_item.item!r}",
+                            message=f"Unlinked TimeSeries with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
             elif migrated_timeseries_ids:
-                for value in migrated_timeseries_ids.values():
+                for internal_id, value in migrated_timeseries_ids.items():
                     data_item = node_items[value]
                     logger.log(
                         LogEntryV2(
                             id=data_item.tracking_id,
                             label="Ready to unlink timeseries",
                             severity=Severity.info,
-                            message=f"Ready to unlink TimeSeries with internal ID {value.id} from Node {data_item.item!r}",
+                            message=f"Ready to unlink TimeSeries with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
         return None
@@ -963,29 +990,31 @@ class PurgeCommand(ToolkitCommand):
         if node_items:
             files = client.tool.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_file_ids = {
-                InternalId(id=file.id): file.instance_id for file in files if file.instance_id and file.pending_instance_id
+                InternalId(id=file.id): InstanceId(instance_id=file.instance_id)
+                for file in files
+                if file.instance_id and file.pending_instance_id
             }
             if not dry_run and files:
                 client.tool.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
-                for value in migrated_file_ids.values():
+                for internal_id, value in migrated_file_ids.items():
                     data_item = node_items[value]
                     logger.log(
                         LogEntryV2(
                             id=data_item.tracking_id,
                             label="Unlinked file",
                             severity=Severity.info,
-                            message=f"Unlinked File with internal ID {value.id} from Node {data_item.item!r}",
+                            message=f"Unlinked File with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
             elif migrated_file_ids:
-                for value in migrated_file_ids.values():
+                for internal_id, value in migrated_file_ids.items():
                     data_item = node_items[value]
                     logger.log(
                         LogEntryV2(
                             id=data_item.tracking_id,
                             label="Ready to unlink file",
                             severity=Severity.info,
-                            message=f"Ready to unlink File with internal ID {value.id} from Node {data_item.item!r}",
+                            message=f"Ready to unlink File with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
         return None

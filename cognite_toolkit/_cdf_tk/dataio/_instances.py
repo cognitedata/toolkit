@@ -255,12 +255,12 @@ class InstanceIO(
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 ids = [f"{item.space}:{item.external_id}" for item in chunk]
                 self.logger.register(ids)
-                items = [
-                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
-                    for item in self.client.tool.instances.retrieve(chunk)
-                ]
-                if missing_ids := (set(ids) - {item.tracking_id for item in items}):
-                    for item_id in missing_ids:
+                retrieved_by_id = {
+                    f"{item.space}:{item.external_id}": item for item in self.client.tool.instances.retrieve(chunk)
+                }
+                items: list[DataItem[NodeOrEdgeResponse]] = []
+                for item_id in ids:
+                    if item_id not in retrieved_by_id:
                         self.logger.log(
                             LogEntryV2(
                                 id=item_id,
@@ -269,6 +269,20 @@ class InstanceIO(
                                 message=f"The {item_id} was not found in CDF",
                             )
                         )
+                        continue
+                    value = retrieved_by_id[item_id]
+                    if not isinstance(value, NodeOrEdgeResponse):
+                        self.logger.log(
+                            LogEntryV2(
+                                id=item_id,
+                                label="Unknown format",
+                                severity=Severity.failure,
+                                message=f"The {item_id} was found in CDF but is not in the expected format. Expected NodeOrEdgeResponse, got {type(value).__name__}",
+                            )
+                        )
+                        continue
+                    items.append(DataItem(tracking_id=item_id, item=value))
+
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
             return
         elif isinstance(selector, InstanceQuerySelector):
@@ -400,7 +414,8 @@ class InstanceIO(
         else:
             for page in self.stream_data(selector, limit):
                 ids = [DataItem(tracking_id=item.tracking_id, item=item.item.as_id()) for item in page.items]
-                yield page.create_from(items=ids)
+                # NodeId | EdgeId are InstanceDefinitionId
+                yield page.create_from(items=ids)  # type: ignore[arg-type]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
