@@ -158,15 +158,9 @@ class BuiltModule(BaseModel):
         return hash(self.module_id.path)
 
 
-class FailedValidation(BaseModel):
-    message: str
-    source: str
-
-
 class ValidationResult(BaseModel):
     name: str
     insights: list[Insight]
-    failed: list[FailedValidation]
 
 
 class BuildFolder(BaseModel):
