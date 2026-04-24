@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import InstanceIO, Page
 from cognite_toolkit._cdf_tk.dataio.logger import (
     FileWithAggregationLogger,
@@ -820,7 +821,7 @@ class PurgeCommand(ToolkitCommand):
             executor.run()
             items_results = logger.finalize(is_dry_run=False)
             display_item_results(items_results, title=f"Finished {selector.display_name}", console=console)
-
+            self.tracker.track(DataTracking.from_item_results("PurgeResult", io.KIND, items_results), client)
             executor.raise_on_error()
 
         return DeleteResults.from_item_results(items_results)
