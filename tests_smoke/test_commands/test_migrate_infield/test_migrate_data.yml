@@ -8,7 +8,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: true
+        isArchived: false
         item:
           externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
           space: smoke_infield_migration_target_space
@@ -27,7 +27,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: true
+        isArchived: false
         item:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
@@ -104,7 +104,7 @@ instances:
           test description character limitation test description character limitation
           test description character limitation test description character limitation
           test 111111111111111111111111111111111111
-        isArchived: true
+        isArchived: false
         labels:
         - group:one Task group
         order: 141
@@ -192,7 +192,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: true
+        isArchived: false
         parameters:
           message: 'item is not okay '
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
@@ -208,7 +208,7 @@ instances:
   properties:
     cdf_infield:
       ConditionalAction/v1:
-        isArchived: true
+        isArchived: false
         logic: or
         parentObject:
           externalId: RhIUePwMQI0WDEQQv-xkig
@@ -225,7 +225,7 @@ instances:
           externalId: 1DC026YVbKG3QYAOMzJoXw
           space: smoke_infield_migration_target_space
         field: status
-        isArchived: true
+        isArchived: false
         operator: equals
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
