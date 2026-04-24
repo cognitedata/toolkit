@@ -500,12 +500,13 @@ class PurgeCommand(ToolkitCommand):
         batch: list[DataItem[ResourceResponseProtocol]] = []
         for resource in step.crud.iterate(space=selected_space, data_set_external_id=data_set_external_id):
             tracking_id = step.get_tracking_id(resource)
-            logger.register([tracking_id])
             batch.append(DataItem(tracking_id=tracking_id, item=resource))
             if len(batch) >= batch_size:
+                logger.register([item.tracking_id for item in batch])
                 yield Page(worker_id="main", items=batch)
                 batch = []
         if batch:
+            logger.register([item.tracking_id for item in batch])
             yield Page(worker_id="main", items=batch)
 
     @staticmethod
