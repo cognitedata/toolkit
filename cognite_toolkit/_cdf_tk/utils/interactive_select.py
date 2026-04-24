@@ -1202,7 +1202,7 @@ class DocumentsInteractiveSelect:
         ]
         selected_file_type = self.status.file_type
         if selected_file_type != "dms":
-            choices.append(Choice(title="Filter metadata properties", value="filter-metadata-properties"))
+            choices.append(Choice(title="Filter by metadata properties", value="filter-metadata-properties"))
             choices.append(Choice(title="Select data sets", value="select-data-sets"))
         if selected_file_type != "asset-centric":
             choices.append(Choice(title="Is CogniteFile", value="is-cognite-file"))
