@@ -42,9 +42,17 @@ class CheckDataSetMissing(ToolkitLocalRule):
             if "data_set_external_id" not in type(resource).model_fields:
                 continue
             data_set_external_id = getattr(resource, "data_set_external_id", None)
-            if data_set_external_id is None:
-                yield Recommendation(
-                    message=f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}",
-                    code=self.CODE,
-                    fix=f"Add a dataset association to the {source_file.resource_type!s}.",
-                )
+            # Some resources (e.g. functions) can be scoped to a space instead of a dataset, so we also check for space,
+            # But only if the resource actually has a space field.
+            supports_space = "space" in type(resource).model_fields
+            space = getattr(resource, "space", None) if supports_space else None
+            if data_set_external_id is None and space is None:
+                if supports_space:
+                    message = (
+                        f"Missing data set external ID or space for {resource.as_id()!s} {source_file.resource_type!s}"
+                    )
+                    fix = f"Add a dataset or space association to the {source_file.resource_type!s}."
+                else:
+                    message = f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}"
+                    fix = f"Add a dataset association to the {source_file.resource_type!s}."
+                yield Recommendation(message=message, code=self.CODE, fix=fix)

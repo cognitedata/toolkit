@@ -7,10 +7,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
+from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
 
 
-class DependencyRuleSet(ToolkitGlobalRulSet):
+class DependencyRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "MISSING-DEPENDENCY"
     DISPLAY_NAME = "dependencies"
 
