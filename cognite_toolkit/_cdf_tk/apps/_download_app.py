@@ -671,7 +671,7 @@ class DownloadApp(typer.Typer):
                     )
                 ]
             else:
-                download_dir_name = "asset_centric-files-with-content"
+                download_dir_name = "asset-centric-files-with-content"
                 io = FileMetadataContentIO(
                     client,
                     config_directory=output_dir / download_dir_name,
