@@ -319,7 +319,6 @@ class PurgeApp(typer.Typer):
             Path,
             typer.Option(
                 "--log-dir",
-                "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
         ] = Path(f"purge_logs_{TODAY!s}"),

@@ -911,6 +911,7 @@ class PurgeCommand(ToolkitCommand):
         logger: FileWithAggregationLogger,
     ) -> None:
         if dry_run:
+            logger.apply_to_all_unprocessed("Ready to delete", Severity.info)
             return
 
         responses = delete_client.request_items_retries(
