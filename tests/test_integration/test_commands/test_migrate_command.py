@@ -390,7 +390,7 @@ class TestMigrateEventsToRecordsCommand:
         )
         result = cmd.migrate(
             selectors=[selector],
-            data=RecordsMigrationIO(client, stream_external_id=toolkit_stream.external_id),
+            data=RecordsMigrationIO(client, stream=toolkit_stream),
             mapper=AssetCentricToRecordMapper(
                 client,
                 mappings_by_external_id={"default": record_mapping},

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -18,6 +18,9 @@ class FeatureToggles(BaseModelResource):
     notifications: bool | None = None
     media: bool | None = None
     template_checklist_flow: bool | None = None
+    workorder_checklist_flow: bool | None = None
+    observations: bool | None = None
+    copilot: bool | None = None
 
 
 class AccessManagement(BaseModelResource):
@@ -39,6 +42,7 @@ class DataFilter(BaseModelResource):
 
     path: DataFilterPath | None = None
     instance_spaces: list[str] | None = None
+    external_id_prefix: str | None = None
 
 
 class DataFilters(BaseModelResource):
@@ -65,6 +69,7 @@ class ViewMapping(BaseModelResource):
     space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
     version: str
     external_id: str
+    type: Literal["view"] = "view"
 
 
 class ViewMappings(BaseModelResource):
@@ -73,8 +78,14 @@ class ViewMappings(BaseModelResource):
     asset: ViewMapping | None = None
     operation: ViewMapping | None = None
     notification: ViewMapping | None = None
+    # As of 26/04-26, activity is supported,
+    # but InField will likely rename it ot maintenance_order, thus we keep
+    # both for now to avoid complaining to the user of either.
     maintenance_order: ViewMapping | None = None
+    activity: ViewMapping | None = None
+
     file: ViewMapping | None = None
+    observation: list[ViewMapping] | None = None
 
 
 class Discipline(BaseModelResource):
@@ -112,6 +123,8 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     data_storage: DataStorage | None = None
     view_mappings: ViewMappings | None = None
     disciplines: list[Discipline] | None = None
+    # Data exploration Config is as of 26/04-26 in development.
+    # Thus, we do not validate it (i.e., not creating a pydantic model for it) but allow any dict to be passed in.
     data_exploration_config: dict[str, Any] | None = None
 
     def as_id(self) -> NodeId:
