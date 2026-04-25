@@ -670,6 +670,8 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         raw_items = [di.item for di in data_chunk.items]
         if selector in self._metadata_keys:
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
+        if self.api_format == "response":
+            return data_chunk.create_from([di.dump() for di in raw_items])
         self._populate_data_set_id_cache(raw_items)
         self._populate_asset_id_cache(raw_items)
 
