@@ -352,6 +352,9 @@ class TestMigrateInfield:
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
 
+        for instance in destination_instances:
+            instance.pop("createdTime", None)
+
         data_regression.check({"instances": destination_instances})
 
     def _get_destination_nodes(
