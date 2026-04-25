@@ -129,6 +129,11 @@ class InstanceTypes(str, Enum):
     edge = "edge"
 
 
+class ApiFormat(str, Enum):
+    request = "request"
+    response = "response"
+
+
 class CompressionFormat(str, Enum):
     gzip = "gzip"
     none = "none"
@@ -186,6 +191,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the raw tables in. Supported formats: ndjson, yaml",
             ),
         ] = RawFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -245,7 +258,7 @@ class DownloadApp(typer.Typer):
                     )
                     for item in selected_tables
                 ],
-                io=RawIO(client),
+                io=RawIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -273,6 +286,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the assets in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -331,7 +352,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=AssetDataIO(client),
+                io=AssetDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -398,6 +419,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the time series in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -454,7 +483,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=TimeSeriesDataIO(client),
+                io=TimeSeriesDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -482,6 +511,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the events in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -537,7 +574,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=EventDataIO(client),
+                io=EventDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -575,6 +612,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the file metadata in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -655,6 +700,7 @@ class DownloadApp(typer.Typer):
                     client,
                     config_directory=output_dir / download_dir_name,
                     file_directory=output_dir / download_dir_name / "files",
+                    api_format=api_format.value,
                 )
                 selectors = [
                     CogniteFileFilesSelectorV2(
@@ -676,6 +722,7 @@ class DownloadApp(typer.Typer):
                     client,
                     config_directory=output_dir / download_dir_name,
                     file_directory=output_dir / download_dir_name / "files",
+                    api_format=api_format.value,
                 )
                 selectors = [
                     FileMetadataFilesSelectorV2(
@@ -693,7 +740,7 @@ class DownloadApp(typer.Typer):
                 )
                 for data_set in data_sets
             ]
-            io = FileMetadataDataIO(client)
+            io = FileMetadataDataIO(client, api_format=api_format.value)
         else:
             raise NotImplementedError("Bug in Toolkit. Unexpected execution path.")
 
@@ -727,6 +774,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the asset hierarchy.",
             ),
         ] = HierarchyFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -781,7 +836,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=HierarchyIO(client),
+                io=HierarchyIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -836,6 +891,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the instances in.",
             ),
         ] = InstanceFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -967,7 +1030,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=InstanceIO(client),
+                io=InstanceIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1062,6 +1125,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the datapoints.",
             ),
         ] = DatapointFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -1146,7 +1217,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=DatapointsIO(client),
+                io=DatapointsIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression="none",
@@ -1172,6 +1243,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the charts.",
             ),
         ] = ChartFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         skip_backend_services: Annotated[
             bool,
             typer.Option(
@@ -1227,7 +1306,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=ChartIO(client, skip_backend_services=skip_backend_services),
+                io=ChartIO(client, skip_backend_services=skip_backend_services, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1253,6 +1332,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the canvas.",
             ),
         ] = CanvasFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1300,7 +1387,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=CanvasIO(client),
+                io=CanvasIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1356,6 +1443,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the records in.",
             ),
         ] = RecordFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1464,7 +1559,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=RecordIO(client),
+                io=RecordIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
