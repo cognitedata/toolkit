@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
@@ -27,7 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySelectSource,
     QuerySortSpec,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import NodeOrEdgeRequestAdapter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
+    EdgeResponse,
+    NodeOrEdgeRequestAdapter,
+    NodeResponse,
+)
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
@@ -245,7 +249,7 @@ class InstanceIO(
         selector: InstanceSelector,
         limit: int | None = None,
         bookmark: Bookmark | None = None,
-    ) -> Iterable[Page]:
+    ) -> Iterable[Page[NodeOrEdgeResponse]]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
@@ -255,12 +259,12 @@ class InstanceIO(
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 ids = [f"{item.space}:{item.external_id}" for item in chunk]
                 self.logger.register(ids)
-                items = [
-                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
-                    for item in self.client.tool.instances.retrieve(chunk)
-                ]
-                if missing_ids := (set(ids) - {item.tracking_id for item in items}):
-                    for item_id in missing_ids:
+                retrieved_by_id = {
+                    f"{item.space}:{item.external_id}": item for item in self.client.tool.instances.retrieve(chunk)
+                }
+                items: list[DataItem[NodeOrEdgeResponse]] = []
+                for item_id in ids:
+                    if item_id not in retrieved_by_id:
                         self.logger.log(
                             LogEntryV2(
                                 id=item_id,
@@ -269,6 +273,20 @@ class InstanceIO(
                                 message=f"The {item_id} was not found in CDF",
                             )
                         )
+                        continue
+                    value = retrieved_by_id[item_id]
+                    if not isinstance(value, NodeResponse | EdgeResponse):
+                        self.logger.log(
+                            LogEntryV2(
+                                id=item_id,
+                                label="Unknown format",
+                                severity=Severity.failure,
+                                message=f"The {item_id} was found in CDF but is not in the expected format. Expected NodeOrEdgeResponse, got {type(value).__name__}",
+                            )
+                        )
+                        continue
+                    items.append(DataItem(tracking_id=item_id, item=value))
+
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
             return
         elif isinstance(selector, InstanceQuerySelector):
@@ -385,16 +403,23 @@ class InstanceIO(
 
     def download_ids(
         self, selector: InstanceSelector, limit: int | None = None
-    ) -> Iterable[Sequence[InstanceDefinitionId]]:
+    ) -> Iterable[Page[InstanceDefinitionId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
-            yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
-        else:
             yield from (
-                [data_item.item.as_id() for data_item in chunk.items] for chunk in self.stream_data(selector, limit)
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in chunk],
+                )
+                for chunk in chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
             )
+        else:
+            for page in self.stream_data(selector, limit):
+                ids = [DataItem(tracking_id=item.tracking_id, item=item.item.as_id()) for item in page.items]
+                # NodeId | EdgeId are InstanceDefinitionId
+                yield page.create_from(items=ids)  # type: ignore[arg-type]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (

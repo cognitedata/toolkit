@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content, safe_read
+from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import ResourceType
@@ -208,7 +208,7 @@ class BuildLineage(_BaseLineageModel):
 
         Reads each source file tracked in the lineage and compares its current hash
         with the stored hash from build time. Uses the same hashing method as
-        BuildV2Command (calculate_hash with shorten=True on file content read via safe_read).
+        BuildV2Command (calculate_hash with shorten=True on the raw file Path).
 
         Raises:
             ToolkitValidationError: If any source file has changed or is missing.
@@ -224,12 +224,10 @@ class BuildLineage(_BaseLineageModel):
                     continue
 
                 try:
-                    content = safe_read(source_file)
+                    current_hash = calculate_hash(source_file, shorten=True)
                 except Exception:
                     missing_files.append(source_file.as_posix())
                     continue
-
-                current_hash = calculate_hash(content, shorten=True)
 
                 if current_hash != resource.source_hash:
                     changed_files.append(source_file.as_posix())
