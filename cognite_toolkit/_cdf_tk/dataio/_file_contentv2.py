@@ -2,6 +2,7 @@ import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -79,8 +80,9 @@ class FileMetadataContentIO(
         config_directory: Path,
         file_directory: Path | None = None,
         overwrite: bool = False,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
@@ -284,7 +286,18 @@ class FileMetadataContentIO(
             self._metadata_keys[selector].update(
                 key for item in data_chunk for key in (item.item.metadata or {}).keys()
             )
-        dumped: list[DataItem[dict[str, JsonVal]]] = []
+        if self.api_format == "response":
+            dumped: list[DataItem[dict[str, JsonVal]]] = []
+            for item in data_chunk.items:
+                dumped_item = item.item.dump()
+                if item.item.filepath:
+                    dumped_filepath = item.item.filepath
+                    if dumped_filepath.is_relative_to(self._config_directory):
+                        dumped_filepath = dumped_filepath.relative_to(self._config_directory)
+                    dumped_item[FILEPATH] = dumped_filepath.as_posix()
+                dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
+            return data_chunk.create_from(dumped)
+        dumped = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
             # Preserve filepath
@@ -509,8 +522,9 @@ class CogniteFileContentIO(
         config_directory: Path,
         file_directory: Path | None = None,
         overwrite: bool = False,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
@@ -670,7 +684,18 @@ class CogniteFileContentIO(
     def data_to_json_chunk(
         self, data_chunk: Page[CogniteFileResponse], selector: CogniteFileContentSelectorV2 | None = None
     ) -> Page[dict[str, JsonVal]]:
-        dumped: list[DataItem[dict[str, JsonVal]]] = []
+        if self.api_format == "response":
+            dumped: list[DataItem[dict[str, JsonVal]]] = []
+            for item in data_chunk.items:
+                dumped_item = item.item.dump()
+                if item.item.filepath:
+                    dumped_filepath = item.item.filepath
+                    if dumped_filepath.is_relative_to(self._config_directory):
+                        dumped_filepath = dumped_filepath.relative_to(self._config_directory)
+                    dumped_item[FILEPATH] = dumped_filepath.as_posix()
+                dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
+            return data_chunk.create_from(dumped)
+        dumped = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
             if item.item.filepath:

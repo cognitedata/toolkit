@@ -82,7 +82,12 @@ class RawIO(
     def data_to_json_chunk(
         self, data_chunk: Page[Row], selector: RawTableSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
-        result = [DataItem(tracking_id=item.tracking_id, item=item.item.as_write().dump()) for item in data_chunk.items]
+        if self.api_format == "response":
+            result = [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+        else:
+            result = [
+                DataItem(tracking_id=item.tracking_id, item=item.item.as_write().dump()) for item in data_chunk.items
+            ]
         return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RowWrite:

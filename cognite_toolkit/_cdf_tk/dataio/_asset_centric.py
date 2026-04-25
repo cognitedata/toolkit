@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, ClassVar, Generic
+from typing import Any, ClassVar, Generic, Literal
 
 from cognite.client.data_classes import Label, LabelDefinition
 
@@ -61,8 +61,8 @@ class AssetCentricIO(
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
@@ -264,8 +264,8 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     RESOURCE_TYPE = "asset"
     UPLOAD_ENDPOINT = "/assets"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._crud = AssetIO.create_loader(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
@@ -342,6 +342,10 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         raw_items = [di.item for di in data_chunk.items]
         if selector in self._metadata_keys:
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
+        if self.api_format == "response":
+            return data_chunk.create_from(
+                [DataItem(tracking_id=di.tracking_id, item=di.item.dump()) for di in data_chunk.items]
+            )
         self._populate_data_set_id_cache(raw_items)
         asset_ids = {
             segment["id"]
@@ -396,8 +400,8 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
     RESOURCE_TYPE = "file"
     UPLOAD_ENDPOINT = "/files"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._crud = FileMetadataCRUD.create_loader(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
@@ -477,6 +481,10 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
         raw_items = [di.item for di in data_chunk.items]
         if selector in self._metadata_keys:
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
+        if self.api_format == "response":
+            return data_chunk.create_from(
+                [DataItem(tracking_id=di.tracking_id, item=di.item.dump()) for di in data_chunk.items]
+            )
         self._populate_data_set_id_cache(raw_items)
         self._populate_asset_id_cache(raw_items)
         self._populate_security_category_cache(raw_items)
@@ -492,8 +500,8 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
     UPLOAD_ENDPOINT = "/timeseries"
     RESOURCE_TYPE = "timeseries"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._crud = TimeSeriesCRUD.create_loader(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
@@ -547,6 +555,10 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
         raw_items = [di.item for di in data_chunk.items]
         if selector in self._metadata_keys:
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
+        if self.api_format == "response":
+            return data_chunk.create_from(
+                [DataItem(tracking_id=di.tracking_id, item=di.item.dump()) for di in data_chunk.items]
+            )
         self._populate_data_set_id_cache(raw_items)
         self._populate_security_category_cache(raw_items)
         asset_ids = {item.asset_id for item in raw_items if item.asset_id is not None}
@@ -596,8 +608,8 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
     UPLOAD_ENDPOINT = "/events"
     RESOURCE_TYPE = "event"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._crud = EventIO.create_loader(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
@@ -671,7 +683,9 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         if selector in self._metadata_keys:
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         if self.api_format == "response":
-            return data_chunk.create_from([di.dump() for di in raw_items])
+            return data_chunk.create_from(
+                [DataItem(tracking_id=di.tracking_id, item=di.item.dump()) for di in data_chunk.items]
+            )
         self._populate_data_set_id_cache(raw_items)
         self._populate_asset_id_cache(raw_items)
 
@@ -697,12 +711,12 @@ class HierarchyIO(ConfigurableDataIO[AssetCentricSelector, AssetCentricResource]
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
-        self._asset_io = AssetDataIO(client)
-        self._file_io = FileMetadataDataIO(client)
-        self._timeseries_io = TimeSeriesDataIO(client)
-        self._event_io = EventDataIO(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
+        self._asset_io = AssetDataIO(client, api_format=api_format)
+        self._file_io = FileMetadataDataIO(client, api_format=api_format)
+        self._timeseries_io = TimeSeriesDataIO(client, api_format=api_format)
+        self._event_io = EventDataIO(client, api_format=api_format)
         self._io_by_kind: dict[str, AssetCentricIO] = {
             self._asset_io.KIND: self._asset_io,
             self._file_io.KIND: self._file_io,
