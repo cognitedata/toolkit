@@ -110,21 +110,44 @@ class FileMetadataContentIO(
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        file_schema = [
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="directory", type="string"),
-            SchemaColumn(name="mimeType", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="sourceCreatedTime", type="integer"),
-            SchemaColumn(name="sourceModifiedTime", type="integer"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-            SchemaColumn(name=FILEPATH, type="string"),
-        ]
+        if self.api_format == "response":
+            file_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="assetIds", type="integer", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="integer", is_array=True),
+                SchemaColumn(name="labels", type="json"),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+                SchemaColumn(name="uploadedTime", type="integer"),
+                SchemaColumn(name="uploaded", type="boolean"),
+                SchemaColumn(name="instanceId", type="json"),
+                SchemaColumn(name=FILEPATH, type="string"),
+            ]
+        else:
+            file_schema = [
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name=FILEPATH, type="string"),
+            ]
         return file_schema + metadata_schema
 
     def stream_data(

@@ -281,19 +281,37 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        asset_schema = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="parentExternalId", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-            SchemaColumn(name="childCount", type="integer"),
-            SchemaColumn(name="depth", type="integer"),
-            SchemaColumn(name="path", type="string", is_array=True),
-        ]
+        if self.api_format == "response":
+            asset_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="parentId", type="integer"),
+                SchemaColumn(name="parentExternalId", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="labels", type="json"),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+                SchemaColumn(name="rootId", type="integer"),
+                SchemaColumn(name="aggregates", type="json"),
+            ]
+        else:
+            asset_schema = [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="parentExternalId", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name="childCount", type="integer"),
+                SchemaColumn(name="depth", type="integer"),
+                SchemaColumn(name="path", type="string", is_array=True),
+            ]
         return asset_schema + metadata_schema
 
     def stream_data(
@@ -417,20 +435,42 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        file_schema = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="directory", type="string"),
-            SchemaColumn(name="mimeType", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="sourceCreatedTime", type="integer"),
-            SchemaColumn(name="sourceModifiedTime", type="integer"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-        ]
+        if self.api_format == "response":
+            file_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="assetIds", type="integer", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="integer", is_array=True),
+                SchemaColumn(name="labels", type="json"),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+                SchemaColumn(name="uploadedTime", type="integer"),
+                SchemaColumn(name="uploaded", type="boolean"),
+                SchemaColumn(name="instanceId", type="json"),
+            ]
+        else:
+            file_schema = [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
         return file_schema + metadata_schema
 
     def stream_data(
@@ -588,18 +628,37 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        ts_schema = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="isString", type="boolean"),
-            SchemaColumn(name="unit", type="string"),
-            SchemaColumn(name="unitExternalId", type="string"),
-            SchemaColumn(name="assetExternalId", type="string"),
-            SchemaColumn(name="isStep", type="boolean"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-        ]
+        if self.api_format == "response":
+            ts_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="isString", type="boolean"),
+                SchemaColumn(name="unit", type="string"),
+                SchemaColumn(name="unitExternalId", type="string"),
+                SchemaColumn(name="assetId", type="integer"),
+                SchemaColumn(name="isStep", type="boolean"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="securityCategories", type="integer", is_array=True),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="instanceId", type="json"),
+                SchemaColumn(name="type", type="string"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+            ]
+        else:
+            ts_schema = [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="isString", type="boolean"),
+                SchemaColumn(name="unit", type="string"),
+                SchemaColumn(name="unitExternalId", type="string"),
+                SchemaColumn(name="assetExternalId", type="string"),
+                SchemaColumn(name="isStep", type="boolean"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+            ]
         return ts_schema + metadata_schema
 
 
@@ -625,17 +684,33 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        event_schema = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="startTime", type="integer"),
-            SchemaColumn(name="endTime", type="integer"),
-            SchemaColumn(name="type", type="string"),
-            SchemaColumn(name="subtype", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
-            SchemaColumn(name="source", type="string"),
-        ]
+        if self.api_format == "response":
+            event_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="startTime", type="integer"),
+                SchemaColumn(name="endTime", type="integer"),
+                SchemaColumn(name="type", type="string"),
+                SchemaColumn(name="subtype", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="assetIds", type="integer", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+            ]
+        else:
+            event_schema = [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="startTime", type="integer"),
+                SchemaColumn(name="endTime", type="integer"),
+                SchemaColumn(name="type", type="string"),
+                SchemaColumn(name="subtype", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+            ]
         return event_schema + metadata_schema
 
     def stream_data(

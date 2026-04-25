@@ -174,24 +174,46 @@ class InstanceIO(
 
     def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
         instance_type, view_id = self._get_instance_type_and_view_id(selector)
-        instance_columns: list[SchemaColumn] = [
-            SchemaColumn(name="space", type="string"),
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="type.space", type="string"),
-            SchemaColumn(name="type.externalId", type="string"),
-            SchemaColumn(name="existingVersion", type="integer"),
-        ]
-        if instance_type == "edge":
-            instance_columns.extend(
-                [
-                    SchemaColumn(name="startNode.space", type="string"),
-                    SchemaColumn(name="startNode.externalId", type="string"),
-                    SchemaColumn(name="endNode.space", type="string"),
-                    SchemaColumn(name="endNode.externalId", type="string"),
-                ]
-            )
+        if self.api_format == "response":
+            instance_columns: list[SchemaColumn] = [
+                SchemaColumn(name="space", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="instanceType", type="string"),
+                SchemaColumn(name="version", type="integer"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+            ]
+            if instance_type == "edge":
+                instance_columns.extend(
+                    [
+                        SchemaColumn(name="type.space", type="string"),
+                        SchemaColumn(name="type.externalId", type="string"),
+                        SchemaColumn(name="startNode.space", type="string"),
+                        SchemaColumn(name="startNode.externalId", type="string"),
+                        SchemaColumn(name="endNode.space", type="string"),
+                        SchemaColumn(name="endNode.externalId", type="string"),
+                    ]
+                )
+            instance_columns.append(SchemaColumn(name="properties", type="json"))
+        else:
+            instance_columns = [
+                SchemaColumn(name="space", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="type.space", type="string"),
+                SchemaColumn(name="type.externalId", type="string"),
+                SchemaColumn(name="existingVersion", type="integer"),
+            ]
+            if instance_type == "edge":
+                instance_columns.extend(
+                    [
+                        SchemaColumn(name="startNode.space", type="string"),
+                        SchemaColumn(name="startNode.externalId", type="string"),
+                        SchemaColumn(name="endNode.space", type="string"),
+                        SchemaColumn(name="endNode.externalId", type="string"),
+                    ]
+                )
         property_columns: list[SchemaColumn] = []
-        if view_id is not None:
+        if view_id is not None and self.api_format == "request":
             views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
             if not views:
                 raise ToolkitValueError(f"View {view_id.as_id()} not found.")
