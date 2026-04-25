@@ -55,4 +55,5 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          CDF_CLUSTER: ${{ matrix.CDF_CLUSTER }}
         run: uv run python tests_smoke/check_smoke_results.py smoke-report.json
