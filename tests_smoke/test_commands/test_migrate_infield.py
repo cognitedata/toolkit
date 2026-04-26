@@ -320,7 +320,10 @@ class TestMigrateInfield:
             for node in target_nodes:
                 # Excluding "last_updated_time" and "version" as they will change for each run of the test.
                 dumped = node.model_dump(
-                    mode="json", by_alias=True, exclude_unset=True, exclude={"last_updated_time", "version"}
+                    mode="json",
+                    by_alias=True,
+                    exclude_unset=True,
+                    exclude={"last_updated_time", "version", "createdTime"},
                 )
                 for view_properties in dumped.get("properties", {}).values():
                     for properties in view_properties.values():
@@ -351,9 +354,6 @@ class TestMigrateInfield:
             raise AssertionError(
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
-
-        for instance in destination_instances:
-            instance.pop("createdTime", None)
 
         data_regression.check({"instances": destination_instances})
 
