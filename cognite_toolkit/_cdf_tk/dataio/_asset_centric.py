@@ -364,7 +364,10 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
             self._metadata_keys[selector].update(key for item in raw_items for key in (item.metadata or {}).keys())
         if self.api_format == "response":
             return data_chunk.create_from(
-                [DataItem(tracking_id=di.tracking_id, item=di.item.dump()) for di in data_chunk.items]
+                [
+                    DataItem(tracking_id=di.tracking_id, item=di.item.dump(unpack_aggregates=True))
+                    for di in data_chunk.items
+                ]
             )
         self._populate_data_set_id_cache(raw_items)
         asset_ids = {

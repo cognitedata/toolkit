@@ -1,4 +1,4 @@
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import JsonValue
 
@@ -46,3 +46,14 @@ class AssetResponse(Asset, ResponseResource[AssetRequest]):
     @classmethod
     def request_cls(cls) -> type[AssetRequest]:
         return AssetRequest
+
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, unpack_aggregates: bool = False
+    ) -> dict[str, Any]:
+        dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        if unpack_aggregates and self.aggregates is not None:
+            dumped["childCount"] = self.aggregates.child_count
+            dumped["depth"] = self.aggregates.depth
+            dumped["path"] = self.aggregates.path
+            dumped.pop("aggregates", None)
+        return dumped
