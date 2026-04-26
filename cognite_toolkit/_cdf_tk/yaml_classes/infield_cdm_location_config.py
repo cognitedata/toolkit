@@ -85,7 +85,7 @@ class ViewMappings(BaseModelResource):
     activity: ViewMapping | None = None
 
     file: ViewMapping | None = None
-    observation: list[ViewMapping] | None = None
+    observations: list[ViewMapping] | None = Field(None, min_length=1, max_length=1)
 
 
 class DataExplorationConfig(BaseModelResource):

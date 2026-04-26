@@ -109,6 +109,31 @@ def invalid_test_cases() -> Iterable:
         {"In dataExplorationConfig.assetPropertiesCard missing required field: 'externalId'"},
         id="Missing required field in dataExplorationConfig.assetPropertiesCard",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observations": [],
+            },
+        },
+        {"In viewMappings.observations list should have at least 1 item after validation, not 0"},
+        id="Empty observation list in viewMappings",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observations": [
+                    {"space": "my_space", "version": "v1", "externalId": "ObsA"},
+                    {"space": "my_space", "version": "v1", "externalId": "ObsB"},
+                ],
+            },
+        },
+        {"In viewMappings.observations list should have at most 1 item after validation, not 2"},
+        id="Multiple observations in viewMappings not supported",
+    )
 
 
 class TestInfieldCDMLocationConfigYAML:
