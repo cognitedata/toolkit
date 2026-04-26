@@ -296,7 +296,9 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 SchemaColumn(name="createdTime", type="integer"),
                 SchemaColumn(name="lastUpdatedTime", type="integer"),
                 SchemaColumn(name="rootId", type="integer"),
-                SchemaColumn(name="aggregates", type="json"),
+                SchemaColumn(name="childCount", type="integer"),
+                SchemaColumn(name="depth", type="integer"),
+                SchemaColumn(name="path", type="string", is_array=True),
             ]
         else:
             asset_schema = [
