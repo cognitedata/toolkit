@@ -217,7 +217,7 @@ InFieldCDMLocationConfigResponse:
           externalId: Notification
           space: sp_notifications_space
           version: v1
-        observations:
+        observation:
         - externalId: FieldObservation
           space: sp_observations_space
           version: v1

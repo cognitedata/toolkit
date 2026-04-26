@@ -65,7 +65,7 @@ viewMappings:
     space: sp_maintenance_space
     version: v1
     externalId: MaintenanceOrder
-  observations:
+  observation:
   - space: sp_observations_space
     version: v1
     externalId: FieldObservation

@@ -114,10 +114,10 @@ def invalid_test_cases() -> Iterable:
             "externalId": "my_config",
             "space": "my_space",
             "viewMappings": {
-                "observations": [],
+                "observation": [],
             },
         },
-        {"In viewMappings.observations list should have at least 1 item after validation, not 0"},
+        {"In viewMappings.observation list should have at least 1 item after validation, not 0"},
         id="Empty observation list in viewMappings",
     )
     yield pytest.param(
@@ -125,13 +125,13 @@ def invalid_test_cases() -> Iterable:
             "externalId": "my_config",
             "space": "my_space",
             "viewMappings": {
-                "observations": [
+                "observation": [
                     {"space": "my_space", "version": "v1", "externalId": "ObsA"},
                     {"space": "my_space", "version": "v1", "externalId": "ObsB"},
                 ],
             },
         },
-        {"In viewMappings.observations list should have at most 1 item after validation, not 2"},
+        {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
         id="Multiple observations in viewMappings not supported",
     )
 

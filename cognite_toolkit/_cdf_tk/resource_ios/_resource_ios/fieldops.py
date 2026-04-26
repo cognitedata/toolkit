@@ -462,7 +462,7 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
         elif len(json_path) == 3 and json_path[0] == "dataFilters" and json_path[2] == "instanceSpaces":
             # Handles dataFilters.<entity>.instanceSpaces (e.g., files, assets, operations, timeSeries, etc.)
             return diff_list_hashable(local, cdf)
-        elif json_path == ("viewMappings", "observations"):
+        elif json_path == ("viewMappings", "observation"):
             return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
 
         return super().diff_list(local, cdf, json_path)
