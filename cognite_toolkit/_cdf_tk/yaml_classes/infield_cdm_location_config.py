@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -88,6 +88,12 @@ class ViewMappings(BaseModelResource):
     observation: list[ViewMapping] | None = None
 
 
+class DataExplorationConfig(BaseModelResource):
+    """Data exploration configuration."""
+
+    asset_properties_card: ViewMapping | None = None
+
+
 class Discipline(BaseModelResource):
     """Discipline configuration."""
 
@@ -123,9 +129,7 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     data_storage: DataStorage | None = None
     view_mappings: ViewMappings | None = None
     disciplines: list[Discipline] | None = None
-    # Data exploration Config is as of 26/04-26 in development.
-    # Thus, we do not validate it (i.e., not creating a pydantic model for it) but allow any dict to be passed in.
-    data_exploration_config: dict[str, Any] | None = None
+    data_exploration_config: DataExplorationConfig | None = None
 
     def as_id(self) -> NodeId:
         return NodeId(space=self.space, external_id=self.external_id)

@@ -83,6 +83,32 @@ def invalid_test_cases() -> Iterable:
         },
         id="Multiple type mismatches across nested structures",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "unknownField": "bad_value",
+            },
+        },
+        {"In dataExplorationConfig unknown field: 'unknownField'"},
+        id="Unknown field in dataExplorationConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                    # Missing externalId
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetPropertiesCard missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetPropertiesCard",
+    )
 
 
 class TestInfieldCDMLocationConfigYAML:
