@@ -194,7 +194,6 @@ class InstanceIO(
                         SchemaColumn(name="endNode.externalId", type="string"),
                     ]
                 )
-            instance_columns.append(SchemaColumn(name="properties", type="json"))
         else:
             instance_columns = [
                 SchemaColumn(name="space", type="string"),
@@ -213,7 +212,7 @@ class InstanceIO(
                     ]
                 )
         property_columns: list[SchemaColumn] = []
-        if view_id is not None and self.api_format == "request":
+        if view_id is not None:
             views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
             if not views:
                 raise ToolkitValueError(f"View {view_id.as_id()} not found.")
