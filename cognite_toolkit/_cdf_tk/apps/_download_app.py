@@ -331,7 +331,7 @@ class DownloadApp(typer.Typer):
         """This command will download assets from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 AssetInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -372,7 +372,7 @@ class DownloadApp(typer.Typer):
         display_name: str,
         max_limit: int | None = None,
         available_formats: type[Enum] = AssetCentricFormats,
-    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int]:
+    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int, ApiFormat]:
         data_sets = selector.select_data_sets()
         file_format = questionary.select(
             f"Select format to download the {display_name} in:",
@@ -398,7 +398,17 @@ class DownloadApp(typer.Typer):
                 validate=lambda value: value.lstrip("-").isdigit() and (max_limit is None or int(value) <= max_limit),
             ).unsafe_ask()
         )
-        return data_sets, file_format, compression, output_dir, limit
+        api_format = ApiFormat.request
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            api_format = questionary.select(
+                message=f"Select the API format to download the {display_name}:",
+                choices=[
+                    Choice(title="Request payload format", value=ApiFormat.request),
+                    Choice(title="API response format", value=ApiFormat.response),
+                ],
+                default=ApiFormat.request,
+            ).unsafe_ask()
+        return data_sets, file_format, compression, output_dir, limit, api_format
 
     def download_timeseries_cmd(
         self,
@@ -464,7 +474,7 @@ class DownloadApp(typer.Typer):
         """This command will download time series from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 TimeSeriesInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -556,7 +566,7 @@ class DownloadApp(typer.Typer):
         """This command will download events from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 EventInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -669,7 +679,7 @@ class DownloadApp(typer.Typer):
                 include_file_contents = False
             if not include_file_contents:
                 # Continue with regular interactive selection
-                data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                     FileMetadataInteractiveSelect(client, "download"),
                     file_format,
                     compression,
