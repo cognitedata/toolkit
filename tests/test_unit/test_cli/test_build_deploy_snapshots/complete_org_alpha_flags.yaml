@@ -160,18 +160,10 @@ InFieldCDMLocationConfigResponse:
         - gp_infield_template_admins
         - gp_location_admins
       dataExplorationConfig:
-        defaultView: asset_hierarchy
-        enabled: true
-        filters:
-        - type: status
-          values:
-          - active
-          - inactive
-        - type: location
-          values:
-          - plant_a
-          - plant_b
-        searchEnabled: true
+        assetPropertiesCard:
+          externalId: AssetPropertiesCard
+          space: customer_idm_extention
+          version: v2
       dataFilters:
         assets:
           instanceSpaces:
