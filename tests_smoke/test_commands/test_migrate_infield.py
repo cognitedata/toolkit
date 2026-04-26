@@ -200,14 +200,14 @@ def infield_legacy(
     for view_id in sorted_views:
         instance_batch = to_create_by_view_id[view_id]
         try:
-            _ = client.tool.instances.create(instance_batch)
+            _ = client.tool.instances.create(instance_batch, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for view {view_id!s}. Error: {e}. Batch: {[item.as_id() for item in instance_batch]}"
             ) from e
     if edges:
         try:
-            _ = client.tool.instances.create(edges)
+            _ = client.tool.instances.create(edges, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for edges with no view. Error: {e}. Batch: {[item.as_id() for item in edges]}"
@@ -352,7 +352,14 @@ class TestMigrateInfield:
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
 
+        for instance in destination_instances:
+            instance.pop("createdTime", None)
+
         data_regression.check({"instances": destination_instances})
+
+        # Cleanup for next run.
+        destination_node_ids = [node_id for node_ids in destination_by_view_id.values() for node_id in node_ids]
+        toolkit_client.tool.instances.delete(destination_node_ids)
 
     def _get_destination_nodes(
         self, infield_legacy: list[InstanceRequest], target_space: SpaceResponse
