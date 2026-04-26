@@ -1,6 +1,5 @@
 instances:
-- createdTime: 1772711569310
-  externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
+- externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
   instanceType: node
   properties:
     cdf_infield:
@@ -8,7 +7,6 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: false
         item:
           externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
           space: smoke_infield_migration_target_space
@@ -16,10 +14,8 @@ instances:
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         title: any comments ?
         type: message
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772711569310
-  externalId: 2A7QpAmrd9eYbbY_zHH_Ag
+- externalId: 2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: node
   properties:
     cdf_infield:
@@ -27,7 +23,6 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: false
         item:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
@@ -43,10 +38,8 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772711570095
-  externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
+- externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
   instanceType: node
   properties:
     cdf_infield:
@@ -67,8 +60,7 @@ instances:
           space: smoke_infield_migration_target_space
         timezone: Asia/Colombo
   space: smoke_infield_migration_target_space
-- createdTime: 1772711570808
-  externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
+- externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
   instanceType: node
   properties:
     cdf_infield:
@@ -87,8 +79,7 @@ instances:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-- createdTime: 1772711573447
-  externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+- externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
   instanceType: node
   properties:
     cdf_infield:
@@ -104,7 +95,6 @@ instances:
           test description character limitation test description character limitation
           test description character limitation test description character limitation
           test 111111111111111111111111111111111111
-        isArchived: false
         labels:
         - group:one Task group
         order: 141
@@ -116,10 +106,8 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772711568422
-  externalId: RhIUePwMQI0WDEQQv-xkig
+- externalId: RhIUePwMQI0WDEQQv-xkig
   instanceType: node
   properties:
     cdf_infield:
@@ -143,10 +131,8 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772711572850
-  externalId: -3Z4iakG1YSFRAfVlazYMA
+- externalId: -3Z4iakG1YSFRAfVlazYMA
   instanceType: node
   properties:
     cdf_infield:
@@ -177,10 +163,8 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772715784353
-  externalId: -iExvo-uJ5JqMTPL2OYN-g
+- externalId: -iExvo-uJ5JqMTPL2OYN-g
   instanceType: node
   properties:
     cdf_infield:
@@ -192,7 +176,6 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        isArchived: false
         parameters:
           message: 'item is not okay '
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
@@ -200,23 +183,18 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772715777591
-  externalId: 1DC026YVbKG3QYAOMzJoXw
+- externalId: 1DC026YVbKG3QYAOMzJoXw
   instanceType: node
   properties:
     cdf_infield:
       ConditionalAction/v1:
-        isArchived: false
         logic: or
         parentObject:
           externalId: RhIUePwMQI0WDEQQv-xkig
           space: smoke_infield_migration_target_space
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1772715785819
-  externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
+- externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
   instanceType: node
   properties:
     cdf_infield:
@@ -225,17 +203,14 @@ instances:
           externalId: 1DC026YVbKG3QYAOMzJoXw
           space: smoke_infield_migration_target_space
         field: status
-        isArchived: false
         operator: equals
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
         sourceView: cdf_infield/ChecklistItem/v1
         value: Not applicable
-        visibility: PUBLIC
   space: smoke_infield_migration_target_space
-- createdTime: 1776149020700
-  externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
+- externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
   instanceType: node
   properties:
     cdf_infield:

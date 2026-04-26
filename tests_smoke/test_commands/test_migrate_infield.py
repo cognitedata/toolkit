@@ -323,7 +323,7 @@ class TestMigrateInfield:
                     mode="json",
                     by_alias=True,
                     exclude_unset=True,
-                    exclude={"last_updated_time", "version", "createdTime"},
+                    exclude={"last_updated_time", "version", "created_time"},
                 )
                 for view_properties in dumped.get("properties", {}).values():
                     for properties in view_properties.values():
@@ -355,11 +355,11 @@ class TestMigrateInfield:
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
 
-        data_regression.check({"instances": destination_instances})
-
         # Cleanup for next run.
         destination_node_ids = [node_id for node_ids in destination_by_view_id.values() for node_id in node_ids]
         toolkit_client.tool.instances.delete(destination_node_ids)
+
+        data_regression.check({"instances": destination_instances})
 
     def _get_destination_nodes(
         self, infield_legacy: list[InstanceRequest], target_space: SpaceResponse
