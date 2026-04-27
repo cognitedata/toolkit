@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Mapping
 from itertools import groupby
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Literal, cast
 
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
 from cognite.client._proto.data_point_list_response_pb2 import DataPointListResponse
@@ -67,8 +67,8 @@ class DatapointsIO(
     MAX_PER_REQUEST_DATAPOINTS = 100_000
     MAX_PER_REQUEST_DATAPOINTS_AGGREGATION = 10_000
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._warned_columns: set[str] = set()
         self._epoc_converter = _EpochConverter(nullable=True)
         self._numeric_converter = _Float64Converter(nullable=True)
