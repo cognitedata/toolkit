@@ -3,7 +3,7 @@ from typing import get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
@@ -16,6 +16,17 @@ def _rulesets_or_dataproducts_api_disabled(exc: ToolkitAPIError) -> bool:
         return False
     msg = str(exc)
     return "Rule Sets API is not enabled" in msg or "Data products service" in msg
+
+
+def _simulator_on_orangefield(exc: ToolkitAPIError, config: ToolkitClientConfig) -> bool:
+    if (
+        exc.code == 404
+        and exc.request
+        and "simulator" in exc.request.endpoint_url
+        and config.cdf_cluster == "orangefield"
+    ):
+        return True
+    return False
 
 
 class TestResourceCRUD:
@@ -38,11 +49,9 @@ class TestResourceCRUD:
         resource_io = resource_io_cls.create_loader(toolkit_client)
 
         try:
-            retrieved = resource_io.retrieve(
-                [non_existing_id],
-            )
+            retrieved = resource_io.retrieve([non_existing_id])
         except ToolkitAPIError as e:
-            if _rulesets_or_dataproducts_api_disabled(e):
+            if _rulesets_or_dataproducts_api_disabled(e) or _simulator_on_orangefield(e, toolkit_client.config):
                 pytest.skip(str(e))
             raise AssertionError(
                 f"Retrieving non-existing resource id in {resource_io.display_name} raised an error: {e}"

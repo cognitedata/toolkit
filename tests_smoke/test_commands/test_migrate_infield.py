@@ -320,7 +320,10 @@ class TestMigrateInfield:
             for node in target_nodes:
                 # Excluding "last_updated_time" and "version" as they will change for each run of the test.
                 dumped = node.model_dump(
-                    mode="json", by_alias=True, exclude_unset=True, exclude={"last_updated_time", "version"}
+                    mode="json",
+                    by_alias=True,
+                    exclude_unset=True,
+                    exclude={"last_updated_time", "version", "created_time"},
                 )
                 for view_properties in dumped.get("properties", {}).values():
                     for properties in view_properties.values():
