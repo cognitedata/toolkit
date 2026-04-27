@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import questionary
 import yaml
@@ -81,6 +81,9 @@ class ValidationStep:
     rule: ToolkitGlobalRuleSet
 
 
+SelectionSource = Literal["modules", "config", "interactive"]
+
+
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console(markup=True)
@@ -90,9 +93,18 @@ class BuildV2Command(ToolkitCommand):
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
+        selection_source: SelectionSource = (
+            "modules"
+            if parameters.user_selected_modules
+            else "config"
+            if build_files.selected_modules is not None
+            else "interactive"
+        )
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console, parameters.verbose)
+        self._display_module_sources(
+            build_source, console, parameters.verbose, selection_source, parameters.config_file_name
+        )
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -227,7 +239,14 @@ class BuildV2Command(ToolkitCommand):
             raise ToolkitValueError("Build cancelled by user.")
         return set(result)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
+    def _display_module_sources(
+        self,
+        build_source: BuildSource,
+        console: Console,
+        verbose: bool,
+        selection_source: SelectionSource,
+        config_file_name: str,
+    ) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -244,11 +263,28 @@ class BuildV2Command(ToolkitCommand):
         invalid_variable_count = len(build_source.invalid_variables)
         orphan_yaml_count = len(build_source.orphan_yaml_files)
 
+        module_dir_display = relative_to_if_possible(build_source.module_dir)
+
         summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{total_files}[/] total resource files",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+            f"[bold]Directory:[/] {module_dir_display.as_posix()}",
+            "",
+            f"[bold]Selection:[/] {self._module_selection_message(selection_source, config_file_name)}",
         ]
+
+        if verbose:
+            summary_lines.extend(
+                ["", *[(f"[green] -[/] {module.id.as_posix()}") for module in build_source.modules], ""]
+            )
+
+        summary_lines.extend(
+            [
+                "[bold]Loaded:[/]",
+                f"[green]✓[/] [bold]{module_count}[/] modules",
+                f"[green]✓[/] [bold]{total_files}[/] total resource files",
+                f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+                "",
+            ]
+        )
         border_color = 0
         errors: list[str] = []
         if read_variables:
@@ -281,12 +317,10 @@ class BuildV2Command(ToolkitCommand):
             )
             border_color = max(border_color, 1)
         border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        module_dir_display = relative_to_if_possible(build_source.module_dir)
         console.print(
             ToolkitPanel(
                 "\n".join(summary_lines),
-                title=f"[bold]Loading modules from directory ({module_dir_display.as_posix()})[/]",
-                subtitle="Loading modules...",
+                title="[bold]Loading modules[/]",
                 border_style=border_style,
             )
         )
@@ -343,6 +377,14 @@ class BuildV2Command(ToolkitCommand):
                 f" {humanize_collection(errors)}."
             )
         return None
+
+    @staticmethod
+    def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
+        if selection_source == "modules":
+            return "provided as arguments, overrides selection in config.env.yaml)"
+        if selection_source == "config":
+            return f"specified in {config_file_name or 'config.env.yaml'}"
+        return "interactive"
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:

@@ -26,7 +26,7 @@ class ToolkitPanel(Panel):
         border_style: StyleType = "none",
         width: int | None = None,
         height: int | None = None,
-        padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (0, 1),
+        padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (1, 2),
         highlight: bool = False,
     ) -> None:
         super().__init__(
