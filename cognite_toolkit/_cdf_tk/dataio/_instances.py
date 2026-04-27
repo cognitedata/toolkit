@@ -78,8 +78,13 @@ class InstanceIO(
     )
     BASE_SELECTOR = InstanceSelector
 
-    def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
-        super().__init__(client)
+    def __init__(
+        self,
+        client: ToolkitClient,
+        remove_existing_version: bool = True,
+        api_format: Literal["request", "response"] = "request",
+    ) -> None:
+        super().__init__(client, api_format=api_format)
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
@@ -169,22 +174,43 @@ class InstanceIO(
 
     def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
         instance_type, view_id = self._get_instance_type_and_view_id(selector)
-        instance_columns: list[SchemaColumn] = [
-            SchemaColumn(name="space", type="string"),
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="type.space", type="string"),
-            SchemaColumn(name="type.externalId", type="string"),
-            SchemaColumn(name="existingVersion", type="integer"),
-        ]
-        if instance_type == "edge":
-            instance_columns.extend(
-                [
-                    SchemaColumn(name="startNode.space", type="string"),
-                    SchemaColumn(name="startNode.externalId", type="string"),
-                    SchemaColumn(name="endNode.space", type="string"),
-                    SchemaColumn(name="endNode.externalId", type="string"),
-                ]
-            )
+        if self.api_format == "response":
+            instance_columns: list[SchemaColumn] = [
+                SchemaColumn(name="space", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="instanceType", type="string"),
+                SchemaColumn(name="version", type="integer"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+            ]
+            if instance_type == "edge":
+                instance_columns.extend(
+                    [
+                        SchemaColumn(name="type.space", type="string"),
+                        SchemaColumn(name="type.externalId", type="string"),
+                        SchemaColumn(name="startNode.space", type="string"),
+                        SchemaColumn(name="startNode.externalId", type="string"),
+                        SchemaColumn(name="endNode.space", type="string"),
+                        SchemaColumn(name="endNode.externalId", type="string"),
+                    ]
+                )
+        else:
+            instance_columns = [
+                SchemaColumn(name="space", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="type.space", type="string"),
+                SchemaColumn(name="type.externalId", type="string"),
+                SchemaColumn(name="existingVersion", type="integer"),
+            ]
+            if instance_type == "edge":
+                instance_columns.extend(
+                    [
+                        SchemaColumn(name="startNode.space", type="string"),
+                        SchemaColumn(name="startNode.externalId", type="string"),
+                        SchemaColumn(name="endNode.space", type="string"),
+                        SchemaColumn(name="endNode.externalId", type="string"),
+                    ]
+                )
         property_columns: list[SchemaColumn] = []
         if view_id is not None:
             views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
@@ -452,10 +478,13 @@ class InstanceIO(
     def data_to_json_chunk(
         self, data_chunk: Page[NodeOrEdgeResponse], selector: InstanceSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
-        result = [
-            DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
-            for item in data_chunk.items
-        ]
+        if self.api_format == "response":
+            result = [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+        else:
+            result = [
+                DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
+                for item in data_chunk.items
+            ]
         return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:

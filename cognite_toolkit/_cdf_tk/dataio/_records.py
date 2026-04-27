@@ -1,5 +1,6 @@
 import json
 from collections.abc import Iterable
+from typing import Literal
 
 from pydantic import JsonValue
 
@@ -35,8 +36,8 @@ class RecordIO(
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
         self._stream_by_external_id: dict[str, StreamResponse] = {}
 
     def _get_stream(self, stream_external_id: str) -> StreamResponse:
@@ -189,10 +190,13 @@ class RecordIO(
     def data_to_json_chunk(
         self, data_chunk: Page[RecordResponse], selector: RecordContainerSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
-        result = [
-            DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
-            for item in data_chunk.items
-        ]
+        if self.api_format == "response":
+            result = [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+        else:
+            result = [
+                DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
+                for item in data_chunk.items
+            ]
         return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RecordRequest:

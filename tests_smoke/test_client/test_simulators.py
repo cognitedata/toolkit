@@ -5,7 +5,7 @@ from cognite.client.data_classes import DataSet
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import FailedResponse, HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,
@@ -43,6 +43,12 @@ def simulator(toolkit_client: ToolkitClient) -> str:
             body_content={"limit": 1000},
         )
     )
+    if (
+        isinstance(list_response, FailedResponse)
+        and list_response.status_code == 404
+        and config.cdf_cluster == "orangefield"
+    ):
+        pytest.skip("Simulators do not work on orangefield.")
     if simulator_external_id := _parse_simulator_response(list_response):
         return simulator_external_id
 
