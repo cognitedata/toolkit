@@ -85,6 +85,8 @@ class ViewMappings(BaseModelResource):
     activity: ViewMapping | None = None
 
     file: ViewMapping | None = None
+    # As of 27/04-26, observation only supported for one view,
+    # but we keep the list for future flexibility.
     observation: list[ViewMapping] | None = Field(None, min_length=1, max_length=1)
 
 
