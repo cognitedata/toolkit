@@ -18,6 +18,7 @@ def context() -> Context:
     return Context(
         slack_webhook_url="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
         github_repo_url="https://github.com/cognitedata/toolkit",
+        cluster="test-cluster",
         # Not Monday morning
         now=datetime(2025, 11, 25, 12, 0, 0),
     )
@@ -89,7 +90,7 @@ def failed_tests_report_cases() -> Iterator[tuple]:
                 },
             ],
         },
-        [SlackMessage(topic="CDF API", message="expected 1 but got 0")],
+        [SlackMessage(topic="CDF API", message="[test-cluster] expected 1 but got 0")],
         id="single_failed_test",
     )
 
