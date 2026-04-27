@@ -15,7 +15,6 @@ import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console
-from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
 
@@ -64,6 +63,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -141,7 +141,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             content = f"  ┗ {MODULES}\n"
         organization_dir_display = relative_to_if_possible(organization_dir)
-        expected_panel = Panel(
+        expected_panel = ToolkitPanel(
             f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
             expand=False,
         )
@@ -283,11 +283,11 @@ class BuildV2Command(ToolkitCommand):
         border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
-                title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
+                title=f"[bold]Loading modules from directory ({module_dir_display.as_posix()})[/]",
+                subtitle="Loading modules...",
                 border_style=border_style,
-                expand=False,
             )
         )
 
@@ -732,7 +732,7 @@ class BuildV2Command(ToolkitCommand):
 
         border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title="[bold]Validation Plan[/]",
                 border_style=border_style,
@@ -810,7 +810,7 @@ class BuildV2Command(ToolkitCommand):
                 panel_title += f" [dim]({insight.code})[/dim]"
 
             console.print(
-                Panel(
+                ToolkitPanel(
                     "\n".join(content_lines),
                     title=panel_title,
                     border_style=style,
@@ -898,7 +898,7 @@ class BuildV2Command(ToolkitCommand):
         summary_lines.append("")
         summary_lines.append(recommendation)
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
                 border_style=border_color,
