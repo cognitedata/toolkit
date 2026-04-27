@@ -291,7 +291,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 SchemaColumn(name="description", type="string"),
                 SchemaColumn(name="dataSetId", type="integer"),
                 SchemaColumn(name="source", type="string"),
-                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="labels", type="json"),
                 SchemaColumn(name="geoLocation", type="json"),
                 SchemaColumn(name="createdTime", type="integer"),
                 SchemaColumn(name="lastUpdatedTime", type="integer"),
