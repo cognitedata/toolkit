@@ -315,7 +315,7 @@ class BuildV2Command(ToolkitCommand):
 
         if misplaced_modules_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module (misplaced modules)."
+                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
             )
             table = ToolkitTable(title="Misplaced Modules")
             table.add_column("Module Path", style="red")
