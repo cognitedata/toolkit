@@ -688,6 +688,15 @@ class DeployV2Command(ToolkitCommand):
                     continue
                 if crud.support_update:
                     resources.to_update.append(resource.request)
+                elif is_data_resource:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="HAS-DATA",
+                            source_file=resource.source_files[0],
+                            reason=(f"{identifier!s} contains data and does not support updates. "),
+                        )
+                    )
                 else:
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
