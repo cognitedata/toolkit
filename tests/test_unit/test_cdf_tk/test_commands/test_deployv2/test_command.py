@@ -9,13 +9,14 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
@@ -40,6 +41,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     FunctionScheduleIO,
     LabelIO,
+    RawDatabaseCRUD,
     ResourceIO,
     SpaceCRUD,
 )
@@ -425,6 +427,36 @@ class TestApplyPlan:
                 ),
                 id="unchanged_space",
             ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"raw/my.Database.yaml": "dbName: my_db\ntableName: my_table\n"},
+                    crud_cls=RawDatabaseCRUD,
+                    cdf_resources=[RAWDatabaseResponse(name="my_db", created_time=0)],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[
+                        DeploymentResult(
+                            resource_name="raw databases",
+                            is_dry_run=True,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                            skipped=[
+                                Skipped(
+                                    id=RawDatabaseId(name="my_db"),
+                                    code="HAS-DATA",
+                                    source_file=Path("raw/my.Database.yaml"),
+                                    reason="name='my_db' contains data and does not support updates. ",
+                                )
+                            ],
+                        )
+                    ],
+                    expected_skipped_count=1,
+                ),
+                id="raw_database_with_extra_fields_is_skipped_not_attempted_deleted",
+            ),
         ],
     )
     def test_apply_plan(self, case: ApplyPlanTestCase, tmp_path: Path) -> None:
@@ -488,6 +520,8 @@ class TestApplyPlan:
             client.tool.functions.retrieve.return_value = function_responses
             client.tool.functions.schedules.list.return_value = case.cdf_resources
             client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
+        elif issubclass(case.crud_cls, RawDatabaseCRUD):
+            client.tool.raw.databases.list.return_value = case.cdf_resources
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
 
