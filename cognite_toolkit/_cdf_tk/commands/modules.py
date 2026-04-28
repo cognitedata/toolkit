@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
-from cognite_toolkit._cdf_tk.commands._questionary_style import custom_style_fancy
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
     MODULES,
@@ -56,6 +55,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -372,7 +372,7 @@ class ModulesCommand(ToolkitCommand):
                 ],
                 qmark=INDENT,
                 pointer=POINTER,
-                style=custom_style_fancy,
+                style=QUESTIONARY_STYLE,
                 validate=lambda choices: True if choices else "You must select at least one environment.",
             ).unsafe_ask()
         else:
@@ -460,7 +460,7 @@ class ModulesCommand(ToolkitCommand):
             choices=choices,
             qmark=INDENT,
             pointer=POINTER,
-            style=custom_style_fancy,
+            style=QUESTIONARY_STYLE,
             validate=lambda choices: True if choices else "You must select at least one module.",
         ).unsafe_ask()
 
@@ -506,7 +506,7 @@ class ModulesCommand(ToolkitCommand):
                 instruction="Use arrow up/down and ⮐  to save",
                 choices=choices,
                 pointer=POINTER,
-                style=custom_style_fancy,
+                style=QUESTIONARY_STYLE,
             ).unsafe_ask()
 
             if package is None:
@@ -608,7 +608,7 @@ class ModulesCommand(ToolkitCommand):
                 questionary.Choice("Overwrite (clean existing)", "clean"),
             ],
             pointer=POINTER,
-            style=custom_style_fancy,
+            style=QUESTIONARY_STYLE,
             instruction="use arrow up/down and " + "⮐ " + " to save",
         ).unsafe_ask()
         if user_selection == "abort":

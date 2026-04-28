@@ -134,7 +134,7 @@ class BuiltModule(BaseModel):
             insights.append(
                 ConsistencyError(
                     code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variables in {display_path.as_posix()!r}: {humanize_collection(variables)}",
+                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} [bold]{humanize_collection(variables)}[/] in file {display_path.as_posix()!r}",
                     fix="Make sure to define the variables in the 'config YAML' file and that they are "
                     "correctly placed in the variables section matching the file path",
                 )
@@ -148,7 +148,10 @@ class BuiltModule(BaseModel):
             display_path = relative_to_if_possible(ignored_file.filepath)
             insights.append(
                 IgnoredFileWarning(
-                    code=ignored_file.code, message=f"In {display_path.as_posix()!r}: {ignored_file.reason}"
+                    code=ignored_file.code,
+                    message=f"File {ignored_file.filepath.name!r} is ignored because it lacks the resource kind suffix. "
+                    f"It is located at {display_path.as_posix()!r}.",
+                    fix=f"Rename it with an appropriate kind: {ignored_file.filepath.stem}.<kind>{ignored_file.filepath.suffix}.",
                 )
             )
 

@@ -48,8 +48,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         referenced_str = self._create_reference_string(expected_resources)
                         yield ConsistencyError(
                             code=f"{self.CODE_PREFIX}-CDF",
-                            message=f"{identifier} {display_name} does not exist locally or in CDF. It is referenced by: \n{referenced_str}",
-                            fix=f"Ensure that {display_name} exists or removed the reference to it.",
+                            message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
+                            fix=f"Ensure that {display_name} exists or remove the reference to it.",
                         )
         else:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
@@ -58,9 +58,9 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
                         code=f"{self.CODE_PREFIX}-LOCAL",
-                        message=f"{identifier} {resource_type_name} does not exist. It is referenced by: \n{referenced_str}",
+                        message=f"Broken reference to {resource_type_name} with id [bold]{referenced_str}[/]",
                         fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
-                        f"Or ensure that {resource_type_name} exists or removed the reference to it.",
+                        f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                     )
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:

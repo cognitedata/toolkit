@@ -8,16 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import questionary
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -64,6 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -81,6 +80,9 @@ class ValidationStep:
     rule: ToolkitGlobalRuleSet
 
 
+SelectionSource = Literal["modules", "config", "interactive"]
+
+
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console(markup=True)
@@ -90,9 +92,18 @@ class BuildV2Command(ToolkitCommand):
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
+        selection_source: SelectionSource = (
+            "modules"
+            if parameters.user_selected_modules
+            else "config"
+            if build_files.selected_modules is not None
+            else "interactive"
+        )
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console, parameters.verbose)
+        self._display_module_sources(
+            build_source, console, parameters.verbose, selection_source, parameters.config_file_name
+        )
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -141,7 +152,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             content = f"  ┗ {MODULES}\n"
         organization_dir_display = relative_to_if_possible(organization_dir)
-        expected_panel = Panel(
+        expected_panel = ToolkitPanel(
             f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
             expand=False,
         )
@@ -227,7 +238,14 @@ class BuildV2Command(ToolkitCommand):
             raise ToolkitValueError("Build cancelled by user.")
         return set(result)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
+    def _display_module_sources(
+        self,
+        build_source: BuildSource,
+        console: Console,
+        verbose: bool,
+        selection_source: SelectionSource,
+        config_file_name: str,
+    ) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -244,97 +262,116 @@ class BuildV2Command(ToolkitCommand):
         invalid_variable_count = len(build_source.invalid_variables)
         orphan_yaml_count = len(build_source.orphan_yaml_files)
 
-        summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{total_files}[/] total resource files",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-        ]
-        border_color = 0
-        errors: list[str] = []
-        if read_variables:
-            summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
-        if ambiguous_selected_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
-            )
-            border_color = 2
-            errors.append("ambiguous selected")
-        if misplaced_modules_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
-            )
-            border_color = max(border_color, 1)
-        if non_existing_module_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
-            )
-            border_color = 2
-            errors.append("non existing modules")
-        if invalid_variable_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
-            )
-            border_color = max(border_color, 1)
-        if orphan_yaml_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
-            )
-            border_color = max(border_color, 1)
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
-        console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
-                border_style=border_style,
-                expand=False,
+
+        summary_sections: list[ToolkitPanelSection] = []
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Directory",
+                description=module_dir_display.as_posix(),
             )
         )
 
-        # Print detailed issue information
+        if verbose:
+            summary_sections.append(
+                ToolkitPanelSection(
+                    title="Selection",
+                    description=self._module_selection_message(selection_source, config_file_name),
+                    content=[f"[green] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                )
+            )
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Loaded",
+                content=[
+                    f"[green]✓[/] [bold]{module_count}[/] modules",
+                    f"[green]✓[/] [bold]{total_files}[/] total resource files",
+                    f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+                    *([f"[green]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                ],
+            )
+        )
+
+        border_color = 0
+        errors: list[str] = []
+        issue_summary_section_content: list[str] = []
+        issue_details_section_content: list[RenderableType] = []
+
         if ambiguous_selected_count:
-            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+            )
+            table = ToolkitTable(title="Ambiguous Module Selections")
             table.add_column("Module Name", style="red")
             table.add_column("Matching Paths", style="dim")
             for selection in build_source.ambiguous_selection:
                 if selection.is_selected:
                     paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
                     table.add_row(selection.name, paths_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
 
         if misplaced_modules_count:
-            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module (misplaced modules)."
+            )
+            table = ToolkitTable(title="Misplaced Modules")
             table.add_column("Module Path", style="red")
             table.add_column("Parent Modules", style="dim")
             for misplaced in build_source.misplaced_modules:
                 parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
                 table.add_row(misplaced.id.as_posix(), parents_str)
-            console.print(table)
-
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
         if non_existing_module_count:
-            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
+            )
+            table = ToolkitTable(title="Non-Existing Module Names")
             table.add_column("Module Name", style="red")
             table.add_column("Closest Matches", style="dim")
             for non_existing in build_source.non_existing_module_names:
                 matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
                 table.add_row(non_existing.name, matches_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
 
         if invalid_variable_count:
-            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
+            )
+            table = ToolkitTable(title="Invalid Variables")
             table.add_column("Variable Path", style="red")
             table.add_column("Error", style="dim")
             for invalid_var in build_source.invalid_variables:
                 table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
 
-        if verbose and orphan_yaml_count:
-            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+        if orphan_yaml_count:
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
+            )
+            table = ToolkitTable(title="Orphan YAML Files")
             table.add_column("File Path", style="yellow")
             for orphan_file in build_source.orphan_yaml_files:
-                display_path = relative_to_if_possible(orphan_file)
-                table.add_row(display_path.as_posix())
-            console.print(table)
+                table.add_row(orphan_file.as_posix())
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
+
+        if issue_summary_section_content:
+            if not verbose:
+                issue_summary_section_content.append("[italic]Use -v or --verbose to see details[/italic]")
+
+            summary_sections.append(ToolkitPanelSection(title="Issues detected", content=issue_summary_section_content))
+
+        if verbose and issue_details_section_content:
+            summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
+
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        console.print(
+            ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
+        )
 
         if errors:
             console.print("\n")
@@ -343,6 +380,14 @@ class BuildV2Command(ToolkitCommand):
                 f" {humanize_collection(errors)}."
             )
         return None
+
+    @staticmethod
+    def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
+        if selection_source == "modules":
+            return "provided as arguments, overrides selection in config.env.yaml"
+        if selection_source == "config":
+            return f"specified in {config_file_name or 'config.env.yaml'}"
+        return "interactive"
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
@@ -730,20 +775,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title="[bold]Validation Plan[/]",
-                border_style=border_style,
-                expand=False,
-            )
-        )
-
-        table = Table(title="Validation Steps", expand=False, show_edge=False)
-        table.add_column("Validation", style="bold")
-        table.add_column("Status", style="dim")
-        table.add_column("Message", style="dim")
+        table = ToolkitTable(*["Validation", "Status", "Message"])
         for step in plan:
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
@@ -751,7 +783,21 @@ class BuildV2Command(ToolkitCommand):
             status_display = f"[{status_style}]{step.status.code}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-        console.print(table)
+
+        validation_sections = [
+            ToolkitPanelSection(title="Planned", content=summary_lines),
+            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
+        ]
+
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+
+        console.print(
+            ToolkitPanel(
+                Group(*validation_sections),
+                title="[bold]Planning validation[/]",
+                border_style=border_style,
+            )
+        )
         return None
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
@@ -768,48 +814,54 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = list(step.rule.validate())
 
                 validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
+                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
 
-        console.print("\n[bold]Build Insights[/bold]")
+        severity_style = {
+            "FileReadError": (AuraColor.RED.rich, "✗"),
+            "ConsistencyError": (AuraColor.RED.rich, "✗"),
+            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "🛈"),
+            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
+        }
 
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
 
-        # Map severity to style information
-        severity_style = {
-            "FileReadError": ("red", "✗"),
-            "ConsistencyError": ("red", "✗"),
-            "FailedValidation": ("red", "✗"),
-            "ModelSyntaxWarning": ("yellow", "!"),
-            "Recommendation": ("blue", "🛈"),
-            "IgnoredFileWarning": ("dim", "○"),
-        }
-
-        for insight in reversed(display_insights):
+        insights_by_type: dict[str, list[Insight]] = {}
+        for insight in display_insights:
             insight_type_name = type(insight).__name__
+            insights_by_type.setdefault(insight_type_name, []).append(insight)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for insight_type_name, insight_content in insights_by_type.items():
             style, icon = severity_style.get(insight_type_name, ("white", "•"))
+            plural_suffix = "s" if len(insight_content) > 1 else ""
 
-            # Build the content for this insight
-            content_lines = [f"[bold]{insight.message}[/bold]"]
-            if insight.fix:
-                content_lines.append(f"\n[dim]Fix:[/dim] {insight.fix}")
+            insight_subsections: list[RenderableType] = []
+            for insight in insight_content:
+                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                if insight.fix:
+                    content.append(hanging_indent("!", f"Fix: {insight.fix}", marker_style="green"))
+                insight_subsections.append(
+                    ToolkitPanelSection(
+                        title=self._humanize_insight_code(insight.code),
+                        content=content,
+                    )
+                )
+                max_border_severity = max(max_border_severity, type(insight).severity)
 
-            panel_title = f"[{style}]{icon}[/] [{style}]{insight_type_name}[/]"
-            if insight.code:
-                panel_title += f" [dim]({insight.code})[/dim]"
-
-            console.print(
-                Panel(
-                    "\n".join(content_lines),
-                    title=panel_title,
-                    border_style=style,
-                    expand=False,
+            insight_sections.append(
+                ToolkitPanelSection(
+                    title=f"[{style}]{insight_type_name}{plural_suffix}[/]",
+                    content=insight_subsections,
                 )
             )
 
@@ -820,7 +872,28 @@ class BuildV2Command(ToolkitCommand):
             suffix = " Add --verbose to show more."
         if remaining_count > 0:
             footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
-        console.print(f"[dim]{footer}[/dim]")
+        insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
+
+        match max_border_severity:
+            case severity if severity <= 15:
+                border_style = "green"
+            case severity if 15 < severity <= 35:
+                border_style = "orange1"
+            case _:
+                border_style = "red"
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    @staticmethod
+    def _humanize_insight_code(code: str | None) -> str:
+        if code is None:
+            return "Undefined"
+        return code.replace("-", " ").replace("_", " ").capitalize()
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
@@ -893,11 +966,10 @@ class BuildV2Command(ToolkitCommand):
         summary_lines.append("")
         summary_lines.append(recommendation)
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
                 border_style=border_color,
-                expand=False,
             )
         )
 
