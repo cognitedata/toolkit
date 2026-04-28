@@ -14,7 +14,7 @@ import questionary
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
 from rich.table import Table
 
@@ -63,7 +63,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -265,110 +265,114 @@ class BuildV2Command(ToolkitCommand):
 
         module_dir_display = relative_to_if_possible(build_source.module_dir)
 
-        summary_lines = [
-            f"[bold]Directory:[/] {module_dir_display.as_posix()}",
-            "",
-            f"[bold]Selection:[/] {self._module_selection_message(selection_source, config_file_name)}",
-        ]
+        summary_sections: list[ToolkitPanelSection] = []
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Directory",
+                description=module_dir_display.as_posix(),
+            )
+        )
 
         if verbose:
-            summary_lines.extend(
-                ["", *[(f"[green] -[/] {module.id.as_posix()}") for module in build_source.modules], ""]
+            summary_sections.append(
+                ToolkitPanelSection(
+                    title="Selection",
+                    description=self._module_selection_message(selection_source, config_file_name),
+                    content=[f"[green] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                )
             )
-
-        summary_lines.extend(
-            [
-                "[bold]Loaded:[/]",
-                f"[green]✓[/] [bold]{module_count}[/] modules",
-                f"[green]✓[/] [bold]{total_files}[/] total resource files",
-                f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-                "",
-            ]
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Loaded",
+                content=[
+                    f"[green]✓[/] [bold]{module_count}[/] modules",
+                    f"[green]✓[/] [bold]{total_files}[/] total resource files",
+                    f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+                    *([f"[green]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                ],
+            )
         )
+
         border_color = 0
         errors: list[str] = []
-        if read_variables:
-            summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
+        issue_summary_section_content: list[str] = []
+        issue_details_section_content: list[RenderableType] = []
+
         if ambiguous_selected_count:
-            summary_lines.append(
+            issue_summary_section_content.append(
                 f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
             )
-            border_color = 2
-            errors.append("ambiguous selected")
-        if misplaced_modules_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module."
-            )
-            border_color = max(border_color, 1)
-        if non_existing_module_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
-            )
-            border_color = 2
-            errors.append("non existing modules")
-        if invalid_variable_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
-            )
-            border_color = max(border_color, 1)
-        if orphan_yaml_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
-            )
-            border_color = max(border_color, 1)
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        console.print(
-            ToolkitPanel(
-                "\n".join(summary_lines),
-                title="[bold]Loading modules[/]",
-                border_style=border_style,
-            )
-        )
-
-        # Print detailed issue information
-        if ambiguous_selected_count:
-            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            table = ToolkitTable(title="Ambiguous Module Selections")
             table.add_column("Module Name", style="red")
             table.add_column("Matching Paths", style="dim")
             for selection in build_source.ambiguous_selection:
                 if selection.is_selected:
                     paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
                     table.add_row(selection.name, paths_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
 
         if misplaced_modules_count:
-            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under the another module (misplaced modules)."
+            )
+            table = ToolkitTable(title="Misplaced Modules")
             table.add_column("Module Path", style="red")
             table.add_column("Parent Modules", style="dim")
             for misplaced in build_source.misplaced_modules:
                 parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
                 table.add_row(misplaced.id.as_posix(), parents_str)
-            console.print(table)
-
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
         if non_existing_module_count:
-            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
+            )
+            table = ToolkitTable(title="Non-Existing Module Names")
             table.add_column("Module Name", style="red")
             table.add_column("Closest Matches", style="dim")
             for non_existing in build_source.non_existing_module_names:
                 matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
                 table.add_row(non_existing.name, matches_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
 
         if invalid_variable_count:
-            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
+            )
+            table = ToolkitTable(title="Invalid Variables")
             table.add_column("Variable Path", style="red")
             table.add_column("Error", style="dim")
             for invalid_var in build_source.invalid_variables:
                 table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
 
-        if verbose and orphan_yaml_count:
-            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+        if orphan_yaml_count:
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
+            )
+            table = ToolkitTable(title="Orphan YAML Files")
             table.add_column("File Path", style="yellow")
             for orphan_file in build_source.orphan_yaml_files:
-                display_path = relative_to_if_possible(orphan_file)
-                table.add_row(display_path.as_posix())
-            console.print(table)
+                table.add_row(orphan_file.as_posix())
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
+
+        if issue_summary_section_content:
+            if not verbose:
+                issue_summary_section_content.append("[italic]Use -v or --verbose to see details[/italic]")
+
+            summary_sections.append(ToolkitPanelSection(title="Issues detected", content=issue_summary_section_content))
+
+        if verbose and issue_details_section_content:
+            summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
+
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        console.print(
+            ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
+        )
 
         if errors:
             console.print("\n")
@@ -381,7 +385,7 @@ class BuildV2Command(ToolkitCommand):
     @staticmethod
     def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
         if selection_source == "modules":
-            return "provided as arguments, overrides selection in config.env.yaml)"
+            return "provided as arguments, overrides selection in config.env.yaml"
         if selection_source == "config":
             return f"specified in {config_file_name or 'config.env.yaml'}"
         return "interactive"

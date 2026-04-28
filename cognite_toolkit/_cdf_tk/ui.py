@@ -1,13 +1,16 @@
+from collections.abc import Iterable, Sequence
 from typing import Literal
 
 import questionary
 from rich import box as rich_box
-from rich.console import RenderableType
+from rich.console import Group, JustifyMethod, RenderableType
+from rich.padding import Padding, PaddingDimensions
 from rich.panel import Panel
 from rich.style import StyleType
+from rich.table import Column, Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "ToolkitPanel"]
+__all__ = ["QUESTIONARY_STYLE", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable"]
 
 
 class ToolkitPanel(Panel):
@@ -45,6 +48,89 @@ class ToolkitPanel(Panel):
             padding=padding,
             highlight=highlight,
         )
+
+
+class ToolkitPanelSection(Group):
+    def __init__(
+        self,
+        title: str | Text | None = None,
+        description: str | Text | None = None,
+        content: Sequence[RenderableType] | None = None,
+    ) -> None:
+        header = f"[bold]{title}:[/]" if title else ""
+        if description:
+            header = f"{header} {description}".strip()
+
+        renderables: list[RenderableType] = []
+        if header:
+            renderables.append(header)
+        renderables.extend(content or [])
+        renderables.append("")
+
+        super().__init__(*renderables)
+
+
+class ToolkitTable(Table):
+    def __init__(
+        self,
+        *headers: Column | str,
+        title: str | Text | None = None,
+        caption: str | Text | None = None,
+        width: int | None = None,
+        min_width: int | None = None,
+        box: rich_box.Box | None = rich_box.SIMPLE,
+        safe_box: bool | None = None,
+        padding: PaddingDimensions = (0, 1),
+        collapse_padding: bool = False,
+        pad_edge: bool = True,
+        expand: bool = False,
+        show_header: bool = True,
+        show_footer: bool = False,
+        show_edge: bool = False,
+        show_lines: bool = False,
+        leading: int = 0,
+        style: StyleType = "none",
+        row_styles: Iterable[StyleType] | None = None,
+        header_style: StyleType | None = "table.header",
+        footer_style: StyleType | None = "table.footer",
+        border_style: StyleType | None = None,
+        title_style: StyleType | None = None,
+        caption_style: StyleType | None = None,
+        title_justify: JustifyMethod = "left",
+        caption_justify: JustifyMethod = "left",
+        highlight: bool = False,
+    ) -> None:
+        super().__init__(
+            *headers,
+            title=title,
+            caption=caption,
+            width=width,
+            min_width=min_width,
+            box=box,
+            safe_box=safe_box,
+            padding=padding,
+            collapse_padding=collapse_padding,
+            pad_edge=pad_edge,
+            expand=expand,
+            show_header=show_header,
+            show_footer=show_footer,
+            show_edge=show_edge,
+            show_lines=show_lines,
+            leading=leading,
+            style=style,
+            row_styles=row_styles,
+            header_style=header_style,
+            footer_style=footer_style,
+            border_style=border_style,
+            title_style=title_style,
+            caption_style=caption_style,
+            title_justify=title_justify,
+            caption_justify=caption_justify,
+            highlight=highlight,
+        )
+
+    def as_panel_detail(self) -> RenderableType:
+        return Padding(self, (1, 0, 1, 2))
 
 
 QUESTIONARY_STYLE = questionary.Style(

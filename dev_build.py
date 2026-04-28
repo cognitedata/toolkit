@@ -4,6 +4,7 @@ Usage:
     uv run python dev_build.py
     uv run python dev_build.py --verbose
     uv run python dev_build.py --verbose -m modules/my_example_module
+    uv run python dev_build.py --verbose --org-dir /tmp/toolkit-build-error-sims/misplaced_org -m modules/
 """
 
 import argparse
@@ -24,12 +25,14 @@ parser.add_argument(
     dest="selected_modules",
     help="Specify paths or names to the modules to build",
 )
+parser.add_argument("--org-dir", type=Path, default=ORG_DIR, help="Where to find the organization directory")
+parser.add_argument("--build-dir", type=Path, default=BUILD_DIR, help="Where to save the built module files")
 parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose output")
 args = parser.parse_args()
 
 params = BuildParameters(
-    organization_dir=ORG_DIR,
-    build_dir=BUILD_DIR,
+    organization_dir=args.org_dir,
+    build_dir=args.build_dir,
     user_selected_modules=args.selected_modules,
     verbose=args.verbose,
 )
