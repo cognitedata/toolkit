@@ -1,3 +1,4 @@
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -13,8 +14,12 @@ from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    AmbiguousSelection,
+    BuildSource,
     FailedReadYAMLFile,
+    MisplacedModule,
     ModuleId,
+    NonExistingModuleName,
     ResourceType,
     SuccessfulReadYAMLFile,
 )
@@ -445,6 +450,88 @@ class TestReadFileSystem:
 
         assert actual_errors == errors
         assert actual_selection == selection
+
+
+class TestDisplayModuleSourcesOutput:
+    @staticmethod
+    def _console() -> tuple[Console, StringIO]:
+        output = StringIO()
+        return Console(file=output, force_terminal=False, width=120), output
+
+    def test_non_verbose_non_existing_module_prints_summary_and_raises(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        build_source = BuildSource(
+            module_dir=tmp_path,
+            modules=[],
+            non_existing_module_names=[NonExistingModuleName(name="missing_module", closest_matches=[])],
+        )
+
+        with pytest.raises(ToolkitValueError, match="non existing modules"):
+            BuildV2Command()._display_module_sources(
+                build_source,
+                console,
+                verbose=False,
+                selection_source="modules",
+                config_file_name="",
+            )
+
+        rendered = output.getvalue()
+        assert "user-selected module names did not match any module directory" in rendered
+        assert "Use -v or --verbose to see details" in rendered
+        assert "Non-Existing Module Names" not in rendered
+
+    def test_verbose_ambiguous_module_prints_details_and_raises(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        build_source = BuildSource(
+            module_dir=tmp_path,
+            modules=[],
+            ambiguous_selection=[
+                AmbiguousSelection(
+                    name="shared_module",
+                    module_paths=[Path("modules/team_a/shared_module"), Path("modules/team_b/shared_module")],
+                    is_selected=True,
+                )
+            ],
+        )
+
+        with pytest.raises(ToolkitValueError, match="ambiguous selected"):
+            BuildV2Command()._display_module_sources(
+                build_source,
+                console,
+                verbose=True,
+                selection_source="modules",
+                config_file_name="",
+            )
+
+        rendered = output.getvalue()
+        assert "user-selected modules had an ambiguous match" in rendered
+        assert "Ambiguous Module Selections" in rendered
+        assert "modules/team_a/shared_module" in rendered
+        assert "modules/team_b/shared_module" in rendered
+
+    def test_verbose_misplaced_module_prints_warning_details_without_raising(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        build_source = BuildSource(
+            module_dir=tmp_path,
+            modules=[],
+            misplaced_modules=[
+                MisplacedModule(id=Path("modules/parent/child"), parent_modules=[Path("modules/parent")])
+            ],
+        )
+
+        BuildV2Command()._display_module_sources(
+            build_source,
+            console,
+            verbose=True,
+            selection_source="modules",
+            config_file_name="",
+        )
+
+        rendered = output.getvalue()
+        assert "modules are located directly under the another module" in rendered
+        assert "Misplaced Modules" in rendered
+        assert "modules/parent/child" in rendered
+        assert "modules/parent" in rendered
 
 
 def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
