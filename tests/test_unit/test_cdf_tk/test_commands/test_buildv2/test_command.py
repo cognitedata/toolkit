@@ -528,7 +528,8 @@ class TestDisplayModuleSourcesOutput:
         )
 
         rendered = output.getvalue()
-        assert "modules are located directly under the another module" in rendered
+        assert "located directly under" in rendered
+        assert "misplaced modules" in rendered
         assert "Misplaced Modules" in rendered
         assert "modules/parent/child" in rendered
         assert "modules/parent" in rendered
