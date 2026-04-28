@@ -10,8 +10,11 @@ Usage:
 import argparse
 from pathlib import Path
 
+from rich import print
+
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 
 REPO_ROOT = Path(__file__).parent
 ORG_DIR = REPO_ROOT / "tests" / "data" / "complete_org"
@@ -38,4 +41,8 @@ params = BuildParameters(
 )
 
 cmd = BuildV2Command(print_warning=True)
-cmd.build(parameters=params, client=None)
+try:
+    cmd.run(lambda: cmd.build(parameters=params, client=None))
+except ToolkitError as err:
+    print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+    raise SystemExit(1) from err

@@ -62,7 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -823,12 +823,12 @@ class BuildV2Command(ToolkitCommand):
             return
 
         severity_style = {
-            "FileReadError": ("red", "✗"),
-            "ConsistencyError": ("red", "✗"),
-            "FailedValidation": ("red", "✗"),
-            "ModelSyntaxWarning": ("yellow", "!"),
-            "Recommendation": ("blue", "🛈"),
-            "IgnoredFileWarning": ("yellow", "○"),
+            "FileReadError": (AuraColor.RED.rich, "✗"),
+            "ConsistencyError": (AuraColor.RED.rich, "✗"),
+            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "🛈"),
+            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
