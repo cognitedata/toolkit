@@ -62,7 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
@@ -811,15 +811,9 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Checking {display_name}...")
 
-                insights: list[Insight] = []
-                failures: list[FailedValidation] = []
-                for result in step.rule.validate():
-                    if isinstance(result, FailedValidation):
-                        failures.append(result)
-                    else:
-                        insights.append(result)
+                insights: list[Insight] = list(step.rule.validate())
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
+                validation_results.append(ValidationResult(name=display_name, insights=insights))
                 progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
             progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
         return validation_results
@@ -837,6 +831,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": ("red", "✗"),
             "ConsistencyError": ("red", "✗"),
+            "FailedValidation": ("red", "✗"),
             "ModelSyntaxWarning": ("yellow", "!"),
             "Recommendation": ("blue", "🛈"),
             "IgnoredFileWarning": ("dim", "○"),
@@ -938,7 +933,7 @@ class BuildV2Command(ToolkitCommand):
             case _:
                 recommendation = (
                     "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
-                    "There are YAML parsing errors that must be fixed before deployment."
+                    "There are critical errors that must be fixed before deployment."
                 )
                 border_color = "red"
         summary_lines.append("")

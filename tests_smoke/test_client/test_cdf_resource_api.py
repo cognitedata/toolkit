@@ -1,4 +1,5 @@
 import io
+import time
 import types
 import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
@@ -939,7 +940,7 @@ class TestCDFResourceAPI:
             if hasattr(api, "list"):
                 list_endpoint = methods["list"]
                 try:
-                    listed_items = api.list(limit=1)
+                    listed_items = self.wait_until_has_value(lambda: list(api.list(limit=1)))
                 except TypeError:
                     listed_items = api.list()
                 if len(listed_items) == 0:
@@ -947,6 +948,23 @@ class TestCDFResourceAPI:
         finally:
             if hasattr(api, "delete") and id is not None:
                 api.delete([id])
+
+    def wait_until_has_value(
+        self,
+        list_func: Callable[[], list],
+        timeout_seconds: float = 30.0,
+        poll_interval: float = 1.0,
+    ) -> list:
+        """Retry list until it returns it has value or timeout expires.
+
+        This is to account for eventual consistency between listing and retrieving.
+        """
+        start_time = time.monotonic()
+        result = list_func()
+        while len(result) != 1 and (time.monotonic() - start_time) < timeout_seconds:
+            time.sleep(poll_interval)
+            result = list_func()
+        return result
 
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""

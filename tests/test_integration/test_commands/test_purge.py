@@ -1,6 +1,7 @@
 import contextlib
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from cognite.client.data_classes import (
@@ -182,7 +183,9 @@ def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet
 
 
 class TestPurge:
-    def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet) -> None:
+    def test_purge_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet, tmp_path: Path
+    ) -> None:
         client = toolkit_client
         populated = populated_datasets_3
         purge = PurgeCommand(silent=True)
@@ -196,6 +199,7 @@ class TestPurge:
             dry_run=True,
             auto_yes=True,
             verbose=False,
+            log_dir=tmp_path,
         )
         assert results.dry_run == 1
 

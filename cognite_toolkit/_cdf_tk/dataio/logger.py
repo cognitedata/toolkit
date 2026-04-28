@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
 class Severity(Enum):
+    info = 0
     warning = 1
     skipped = 2
     failure = 3
@@ -243,6 +244,14 @@ class FileWithAggregationLogger(DataLogger):
 
     def force_write(self) -> None:
         self._write_to_file()
+
+    def write_success(self) -> None:
+        with self._lock:
+            entries: list[LogEntryV2] = []
+            for id_, aggregations in self.aggregations_by_ids.items():
+                if not aggregations:
+                    entries.append(LogEntryV2(id=id_, label="Success", severity=Severity.info, message="Success"))
+            self._log_unlocked(entries)
 
 
 def display_item_results(items: list[ItemsResult], title: str, console: Console) -> None:

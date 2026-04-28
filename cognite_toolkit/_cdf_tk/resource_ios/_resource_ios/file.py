@@ -220,21 +220,22 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
+        pre_update_hash_by_id: dict[str, str | None] = {}
+        if self.support_upload:
+            # Read hashes before updating — the update payload overwrites them, making
+            # a post-update comparison always equal and preventing re-upload.
+            ids_to_retrieve = [ExternalId(external_id=item.external_id) for item in items if item.external_id]
+            for r in self.retrieve(ids_to_retrieve):
+                if r.external_id is not None:
+                    pre_update_hash_by_id[r.external_id] = (r.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
+
         responses = self.client.tool.filemetadata.update(items, mode="replace")
         if self.support_upload:
-            response_by_external_id = {
-                response.external_id: response for response in responses if response.external_id is not None
-            }
             for item in items:
-                if not (item.external_id and item.external_id in response_by_external_id):
+                if not item.external_id:
                     continue
-                response = response_by_external_id[item.external_id]
-                if (
-                    item.filepath
-                    and (response.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
-                    != (item.metadata or {})[self._MetadataKey.FILECONTENT_HASH]
-                ):
-                    # Need to reupload the file content
+                local_hash = (item.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
+                if item.filepath and local_hash != pre_update_hash_by_id.get(item.external_id):
                     responses_with_url = self.client.tool.filemetadata.get_upload_url([item.as_id()])
                     if len(responses_with_url) != 1:
                         raise RuntimeError(

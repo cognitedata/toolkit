@@ -81,7 +81,8 @@ def mock_read_yaml_file(
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = read_yaml_file(filepath, expected_output)
-                source.update(file_content)
+                if isinstance(source, dict):
+                    source.update(file_content)
                 file_content = source
             return file_content
         return read_yaml_file(filepath, expected_output)
@@ -102,7 +103,8 @@ def mock_read_yaml_file(
                 source = load_yaml_inject_variables(
                     filepath, environment_variables, required_return_type, validate, original_filepath
                 )
-                source.update(file_content)
+                if isinstance(source, dict):
+                    source.update(file_content)
                 file_content = source
             return file_content
         return load_yaml_inject_variables(
@@ -132,8 +134,8 @@ class PrintCapture:
     # Find all text within square brackets
     _pattern = re.compile(r"\[([^]]+)\]")
 
-    def __init__(self):
-        self.messages = []
+    def __init__(self) -> None:
+        self.messages: list[str] = []
 
     def __call__(
         self,
@@ -142,7 +144,7 @@ class PrintCapture:
         end: str = "\n",
         file: IO[str] | None = None,
         flush: bool = False,
-    ):
+    ) -> None:
         for obj in objects:
             if isinstance(obj, str) and (clean := self._pattern.sub("", obj).strip()):
                 # Remove square brackets and whitespace. This is to take
@@ -197,8 +199,8 @@ class FakeCogniteResourceGenerator:
         self._max_string_length = max_string_length
 
     def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
-        return list_cls(
-            [self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(self._max_list_dict_items)]
+        return list_cls(  # type: ignore[call-arg]
+            [self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(self._max_list_dict_items)]  # type: ignore[attr-defined]
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
@@ -211,7 +213,7 @@ class FakeCogniteResourceGenerator:
             return self.create_instance(first_not_none, skip_defaulted_args)
 
         if issubclass(resource_cls, BaseModel):
-            return self.create_pydantic_instance(resource_cls, skip_defaulted_args)
+            return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
 
         is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
         if is_abstract:
@@ -347,7 +349,7 @@ class FakeCogniteResourceGenerator:
                 keyword_arguments["is_list"] = True
         elif resource_cls is ZoneInfo:
             # ZoneInfo does not allow setting any parameters
-            return ZoneInfo("UTC")
+            return ZoneInfo("UTC")  # type: ignore[return-value]
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_pydantic_instance(self, model_cls: type[BaseModel], skip_defaulted_args: bool = False) -> BaseModel:
@@ -379,7 +381,7 @@ class FakeCogniteResourceGenerator:
         import numpy as np
 
         if isinstance(type_, typing.ForwardRef):
-            type_ = type_._evaluate(globals(), self._type_checking())
+            type_ = type_._evaluate(globals(), self._type_checking(), ())  # type: ignore[call-arg]
         if inspect.isclass(type_) and issubclass(type_, BaseModel):
             return self.create_pydantic_instance(type_)
 
@@ -486,7 +488,7 @@ class FakeCogniteResourceGenerator:
                     implementations.remove(LegacyCapability)
             if type_ is WorkflowTaskOutput:
                 # For Workflow Output has to match the input type
-                selected = FunctionTaskOutput
+                selected: Any = FunctionTaskOutput
             elif type_ is WorkflowTaskParameters:
                 selected = FunctionTaskParameters
             else:
@@ -594,7 +596,7 @@ class MockQuestion:
         self.choices = choices
 
     def unsafe_ask(self) -> Any:
-        if isinstance(self.answer, Callable):
+        if callable(self.answer):
             return self.answer(self.choices)
         return self.answer
 
@@ -612,25 +614,25 @@ class MockQuestionary:
         self.answers = answers
         self.monkeypatch = monkeypatch
 
-    def select(self, _: str, choices: list[Choice] | None = None, **__) -> MockQuestion:
+    def select(self, _: str, choices: list[Choice] | None = None, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
-    def confirm(self, *_, **__) -> MockQuestion:
+    def confirm(self, *_: Any, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0))
 
-    def checkbox(self, *_, choices: list[Choice], **__) -> MockQuestion:
+    def checkbox(self, *_: Any, choices: list[Choice], **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
-    def text(self, *_, **__) -> MockQuestion:
+    def text(self, *_: Any, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0))
 
-    def __enter__(self):
+    def __enter__(self) -> MockQuestionary:
         for method in [self.select, self.confirm, self.checkbox, self.text]:
             for module_target in self.module_targets:
                 self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: Any) -> Literal[False]:
         self.monkeypatch.undo()
         return False
 
@@ -638,10 +640,10 @@ class MockQuestionary:
     def select_all(choices: list[Choice]) -> list[str]:
         if not choices:
             return []
-        return [choice.value for choice in choices]
+        return [choice.value for choice in choices if choice.value is not None]
 
 
-def find_resources(resource: str, resource_dir: str | None = None, base: Path = COMPLETE_ORG / MODULES):
+def find_resources(resource: str, resource_dir: str | None = None, base: Path = COMPLETE_ORG / MODULES) -> Any:
     for path in base.rglob(f"*{resource}.yaml"):
         if resource_dir and resource_dir not in path.parts:
             continue

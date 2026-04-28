@@ -83,6 +83,57 @@ def invalid_test_cases() -> Iterable:
         },
         id="Multiple type mismatches across nested structures",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "unknownField": "bad_value",
+            },
+        },
+        {"In dataExplorationConfig unknown field: 'unknownField'"},
+        id="Unknown field in dataExplorationConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                    # Missing externalId
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetPropertiesCard missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetPropertiesCard",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [],
+            },
+        },
+        {"In viewMappings.observation list should have at least 1 item after validation, not 0"},
+        id="Empty observation list in viewMappings",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {"space": "my_space", "version": "v1", "externalId": "ObsA"},
+                    {"space": "my_space", "version": "v1", "externalId": "ObsB"},
+                ],
+            },
+        },
+        {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
+        id="Multiple observations in viewMappings not supported",
+    )
 
 
 class TestInfieldCDMLocationConfigYAML:
