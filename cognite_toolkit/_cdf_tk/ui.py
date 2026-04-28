@@ -1,16 +1,22 @@
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import ClassVar, Literal
 
 import questionary
 from rich import box as rich_box
-from rich.console import Group, JustifyMethod, RenderableType
+from rich.console import Console, ConsoleOptions, Group, JustifyMethod, RenderableType, RenderResult
 from rich.padding import Padding, PaddingDimensions
 from rich.panel import Panel
 from rich.style import StyleType
 from rich.table import Column, Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable"]
+__all__ = [
+    "QUESTIONARY_STYLE",
+    "ToolkitPanel",
+    "ToolkitPanelSection",
+    "ToolkitTable",
+    "hanging_indent",
+]
 
 
 class ToolkitPanel(Panel):
@@ -49,8 +55,14 @@ class ToolkitPanel(Panel):
             highlight=highlight,
         )
 
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        yield ""
+        yield from super().__rich_console__(console, options)
+
 
 class ToolkitPanelSection(Group):
+    _nested_padding: ClassVar[PaddingDimensions] = (0, 0, 0, 4)
+
     def __init__(
         self,
         title: str | Text | None = None,
@@ -64,10 +76,22 @@ class ToolkitPanelSection(Group):
         renderables: list[RenderableType] = []
         if header:
             renderables.append(header)
-        renderables.extend(content or [])
+        for item in content or []:
+            if isinstance(item, ToolkitPanelSection):
+                renderables.append(Padding(item, self._nested_padding))
+            else:
+                renderables.append(item)
         renderables.append("")
 
         super().__init__(*renderables)
+
+
+def hanging_indent(marker: str, text: RenderableType, *, marker_style: StyleType = "none") -> RenderableType:
+    grid = Table.grid(padding=(0, 1))
+    grid.add_column(no_wrap=True, style=marker_style)
+    grid.add_column(ratio=1, overflow="fold")
+    grid.add_row(marker, text)
+    return grid
 
 
 class ToolkitTable(Table):

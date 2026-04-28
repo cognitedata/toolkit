@@ -62,7 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -822,38 +822,46 @@ class BuildV2Command(ToolkitCommand):
         if not insights:
             return
 
-        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
-        remaining_count = len(insights) - len(display_insights)
-
-        # Map severity to style information
         severity_style = {
             "FileReadError": ("red", "✗"),
             "ConsistencyError": ("red", "✗"),
             "FailedValidation": ("red", "✗"),
             "ModelSyntaxWarning": ("yellow", "!"),
             "Recommendation": ("blue", "🛈"),
-            "IgnoredFileWarning": ("dim", "○"),
+            "IgnoredFileWarning": ("yellow", "○"),
         }
 
-        for insight in reversed(display_insights):
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
+        remaining_count = len(insights) - len(display_insights)
+
+        insights_by_type: dict[str, list[Insight]] = {}
+        for insight in display_insights:
             insight_type_name = type(insight).__name__
+            insights_by_type.setdefault(insight_type_name, []).append(insight)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for insight_type_name, insight_content in insights_by_type.items():
             style, icon = severity_style.get(insight_type_name, ("white", "•"))
+            plural_suffix = "s" if len(insight_content) > 1 else ""
 
-            # Build the content for this insight
-            content_lines = [f"[bold]{insight.message}[/bold]"]
-            if insight.fix:
-                content_lines.append(f"\n[dim]Fix:[/dim] {insight.fix}")
+            insight_subsections: list[RenderableType] = []
+            for insight in insight_content:
+                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                if insight.fix:
+                    content.append(hanging_indent("!", insight.fix, marker_style="green"))
+                insight_subsections.append(
+                    ToolkitPanelSection(
+                        title=self._humanize_insight_code(insight.code),
+                        content=content,
+                    )
+                )
+                max_border_severity = max(max_border_severity, type(insight).severity)
 
-            panel_title = f"[{style}]{icon}[/] [{style}]{insight_type_name}[/]"
-            if insight.code:
-                panel_title += f" [dim]({insight.code})[/dim]"
-
-            console.print(
-                ToolkitPanel(
-                    "\n".join(content_lines),
-                    title=panel_title,
-                    border_style=style,
-                    expand=False,
+            insight_sections.append(
+                ToolkitPanelSection(
+                    title=f"[{style}]{insight_type_name}{plural_suffix}[/]",
+                    content=insight_subsections,
                 )
             )
 
@@ -864,7 +872,28 @@ class BuildV2Command(ToolkitCommand):
             suffix = " Add --verbose to show more."
         if remaining_count > 0:
             footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
-        console.print(f"[dim]{footer}[/dim]")
+        insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
+
+        match max_border_severity:
+            case severity if severity <= 15:
+                border_style = "green"
+            case severity if 15 < severity <= 35:
+                border_style = "orange1"
+            case _:
+                border_style = "red"
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    @staticmethod
+    def _humanize_insight_code(code: str | None) -> str:
+        if code is None:
+            return "Undefined"
+        return code.replace("-", " ").replace("_", " ").capitalize()
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
