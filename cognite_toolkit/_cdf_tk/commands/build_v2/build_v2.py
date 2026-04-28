@@ -814,8 +814,8 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = list(step.rule.validate())
 
                 validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
+                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
@@ -849,7 +849,7 @@ class BuildV2Command(ToolkitCommand):
             for insight in insight_content:
                 content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
                 if insight.fix:
-                    content.append(hanging_indent("!", insight.fix, marker_style="green"))
+                    content.append(hanging_indent("!", f"Fix: {insight.fix}", marker_style="green"))
                 insight_subsections.append(
                     ToolkitPanelSection(
                         title=self._humanize_insight_code(insight.code),
@@ -970,7 +970,6 @@ class BuildV2Command(ToolkitCommand):
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
                 border_style=border_color,
-                expand=False,
             )
         )
 

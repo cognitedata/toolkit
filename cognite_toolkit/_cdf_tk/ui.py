@@ -61,7 +61,7 @@ class ToolkitPanel(Panel):
 
 
 class ToolkitPanelSection(Group):
-    _nested_padding: ClassVar[PaddingDimensions] = (0, 0, 0, 4)
+    _nested_padding: ClassVar[PaddingDimensions] = (0, 0, 1, 2)
 
     def __init__(
         self,
@@ -69,11 +69,11 @@ class ToolkitPanelSection(Group):
         description: str | Text | None = None,
         content: Sequence[RenderableType] | None = None,
     ) -> None:
+        renderables: list[RenderableType] = []
         header = f"[bold]{title}:[/]" if title else ""
         if description:
             header = f"{header} {description}".strip()
 
-        renderables: list[RenderableType] = []
         if header:
             renderables.append(header)
         for item in content or []:
@@ -81,7 +81,6 @@ class ToolkitPanelSection(Group):
                 renderables.append(Padding(item, self._nested_padding))
             else:
                 renderables.append(item)
-        renderables.append("")
 
         super().__init__(*renderables)
 
