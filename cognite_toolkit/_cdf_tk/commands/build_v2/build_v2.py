@@ -311,6 +311,7 @@ class BuildV2Command(ToolkitCommand):
                     table.add_row(selection.name, paths_str)
             issue_details_section_content.append(table.as_panel_detail())
             border_color = max(border_color, 2)
+            errors.append("ambiguous selected")
 
         if misplaced_modules_count:
             issue_summary_section_content.append(
@@ -336,6 +337,7 @@ class BuildV2Command(ToolkitCommand):
                 table.add_row(non_existing.name, matches_str)
             issue_details_section_content.append(table.as_panel_detail())
             border_color = max(border_color, 2)
+            errors.append("non existing modules")
 
         if invalid_variable_count:
             issue_summary_section_content.append(
