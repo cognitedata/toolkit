@@ -16,7 +16,6 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -776,20 +775,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        console.print(
-            ToolkitPanel(
-                "\n".join(summary_lines),
-                title="[bold]Validation Plan[/]",
-                border_style=border_style,
-                expand=False,
-            )
-        )
-
-        table = Table(title="Validation Steps", expand=False, show_edge=False)
-        table.add_column("Validation", style="bold")
-        table.add_column("Status", style="dim")
-        table.add_column("Message", style="dim")
+        table = ToolkitTable(*["Validation", "Status", "Message"])
         for step in plan:
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
@@ -797,7 +783,21 @@ class BuildV2Command(ToolkitCommand):
             status_display = f"[{status_style}]{step.status.code}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-        console.print(table)
+
+        validation_sections = [
+            ToolkitPanelSection(title="Planned", content=summary_lines),
+            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
+        ]
+
+        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+
+        console.print(
+            ToolkitPanel(
+                Group(*validation_sections),
+                title="[bold]Planning validation[/]",
+                border_style=border_style,
+            )
+        )
         return None
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
@@ -821,8 +821,6 @@ class BuildV2Command(ToolkitCommand):
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
-
-        console.print("\n[bold]Build Insights[/bold]")
 
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
