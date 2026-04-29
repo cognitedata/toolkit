@@ -2,6 +2,7 @@
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionQuality,
+    DataProductVersionRequest,
     DataProductVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -49,3 +50,33 @@ class TestDataProductVersionIODumpResource:
         dumped = io.dump_resource(resource, local)
 
         assert "quality" in dumped
+
+
+class TestDataProductVersionRequest:
+    def test_as_update_replaces_views_in_replace_mode(self) -> None:
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "views": [
+                    {
+                        "space": "cdf_cdm",
+                        "externalId": "Cognite3DModel",
+                        "version": "v1",
+                    }
+                ],
+            }
+        )
+
+        update = request.as_update(mode="replace")
+
+        assert update["update"]["views"] == {
+            "set": [
+                {
+                    "space": "cdf_cdm",
+                    "externalId": "Cognite3DModel",
+                    "version": "v1",
+                    "instanceSpaces": {"read": [], "write": []},
+                }
+            ]
+        }
