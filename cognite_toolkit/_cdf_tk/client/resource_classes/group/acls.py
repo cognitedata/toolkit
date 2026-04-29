@@ -620,7 +620,7 @@ def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
     loc = error["loc"]
     if not loc:
         return False
-    is_unknown_action = loc[0] == "action" and isinstance(loc[-1], int)
+    is_unknown_action = loc[0] == "actions" and isinstance(loc[-1], int)
     is_unknown_scope = loc[0] == "scope" and loc[-1] == "scope_name"
     return error["type"] == "literal_error" and (is_unknown_action or is_unknown_scope)
 

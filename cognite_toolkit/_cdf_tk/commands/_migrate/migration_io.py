@@ -103,7 +103,7 @@ class AssetCentricMigrationIO(
                 raise ToolkitValueError(
                     f"Missing instance space that maps to {selector.data_set_external_id!r}. Have you run `cdf migrate data-sets`?"
                 )
-            instance_spaces = [SpaceId(space=space_source.space)]
+            instance_spaces = [SpaceId(space=space_source.instance_space)]
             iterator = self._stream_given_dataset(selector, space_source, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")

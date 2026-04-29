@@ -2,6 +2,7 @@ import mimetypes
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -79,8 +80,9 @@ class FileMetadataContentIO(
         config_directory: Path,
         file_directory: Path | None = None,
         overwrite: bool = False,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
@@ -108,21 +110,44 @@ class FileMetadataContentIO(
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key in sorted(metadata_keys)]
             )
-        file_schema = [
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="directory", type="string"),
-            SchemaColumn(name="mimeType", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="sourceCreatedTime", type="integer"),
-            SchemaColumn(name="sourceModifiedTime", type="integer"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-            SchemaColumn(name=FILEPATH, type="string"),
-        ]
+        if self.api_format == "response":
+            file_schema = [
+                SchemaColumn(name="id", type="integer"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetId", type="integer"),
+                SchemaColumn(name="assetIds", type="integer", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="integer", is_array=True),
+                SchemaColumn(name="labels", type="json"),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name="createdTime", type="integer"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+                SchemaColumn(name="uploadedTime", type="integer"),
+                SchemaColumn(name="uploaded", type="boolean"),
+                SchemaColumn(name="instanceId", type="json"),
+                SchemaColumn(name=FILEPATH, type="string"),
+            ]
+        else:
+            file_schema = [
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+                SchemaColumn(name=FILEPATH, type="string"),
+            ]
         return file_schema + metadata_schema
 
     def stream_data(
@@ -284,7 +309,18 @@ class FileMetadataContentIO(
             self._metadata_keys[selector].update(
                 key for item in data_chunk for key in (item.item.metadata or {}).keys()
             )
-        dumped: list[DataItem[dict[str, JsonVal]]] = []
+        if self.api_format == "response":
+            dumped: list[DataItem[dict[str, JsonVal]]] = []
+            for item in data_chunk.items:
+                dumped_item = item.item.dump()
+                if item.item.filepath:
+                    dumped_filepath = item.item.filepath
+                    if dumped_filepath.is_relative_to(self._config_directory):
+                        dumped_filepath = dumped_filepath.relative_to(self._config_directory)
+                    dumped_item[FILEPATH] = dumped_filepath.as_posix()
+                dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
+            return data_chunk.create_from(dumped)
+        dumped = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
             # Preserve filepath
@@ -509,8 +545,9 @@ class CogniteFileContentIO(
         config_directory: Path,
         file_directory: Path | None = None,
         overwrite: bool = False,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
@@ -670,7 +707,18 @@ class CogniteFileContentIO(
     def data_to_json_chunk(
         self, data_chunk: Page[CogniteFileResponse], selector: CogniteFileContentSelectorV2 | None = None
     ) -> Page[dict[str, JsonVal]]:
-        dumped: list[DataItem[dict[str, JsonVal]]] = []
+        if self.api_format == "response":
+            dumped: list[DataItem[dict[str, JsonVal]]] = []
+            for item in data_chunk.items:
+                dumped_item = item.item.dump()
+                if item.item.filepath:
+                    dumped_filepath = item.item.filepath
+                    if dumped_filepath.is_relative_to(self._config_directory):
+                        dumped_filepath = dumped_filepath.relative_to(self._config_directory)
+                    dumped_item[FILEPATH] = dumped_filepath.as_posix()
+                dumped.append(DataItem(tracking_id=item.tracking_id, item=dumped_item))
+            return data_chunk.create_from(dumped)
+        dumped = []
         for item in data_chunk.items:
             dumped_item = self._crud.dump_resource(item.item)
             if item.item.filepath:

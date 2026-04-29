@@ -79,7 +79,7 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
                 update["terms"] = {"modify": terms_modify}
 
         if dumped.get("views"):
-            update["views"] = {"add": dumped["views"]}
+            update["views"] = {"add" if mode == "patch" else "set": dumped["views"]}
 
         update_item["update"] = update
         return update_item
