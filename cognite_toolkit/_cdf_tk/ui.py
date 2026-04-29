@@ -11,14 +11,7 @@ from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
-__all__ = [
-    "QUESTIONARY_STYLE",
-    "AuraColor",
-    "ToolkitPanel",
-    "ToolkitPanelSection",
-    "ToolkitTable",
-    "hanging_indent",
-]
+__all__ = ["QUESTIONARY_STYLE", "AuraColor", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable", "hanging_indent"]
 
 
 # https://cognitedata.github.io/aura/primitives/colors
