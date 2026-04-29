@@ -1,5 +1,6 @@
 from ._auth_app import AuthApp
 from ._core_app import CoreApp
+from ._entity_matching_app import EntityMatchingApp
 from ._data_app import DataApp
 from ._dev_app import DevApp
 from ._download_app import DownloadApp
@@ -20,6 +21,7 @@ __all__ = [
     "DataApp",
     "DevApp",
     "DownloadApp",
+    "EntityMatchingApp",
     "DumpApp",
     "ImportApp",
     "LandingApp",
