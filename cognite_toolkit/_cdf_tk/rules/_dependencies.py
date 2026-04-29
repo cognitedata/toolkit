@@ -44,8 +44,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 }
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
-                        expected_resources = expected_by_identifier[identifier]
-                        referenced_str = self._create_reference_string(expected_resources)
                         yield ConsistencyError(
                             code=f"{self.CODE_PREFIX}-CDF",
                             message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
@@ -58,7 +56,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
                         code=f"{self.CODE_PREFIX}-LOCAL",
-                        message=f"Broken reference to {resource_type_name} with id [bold]{referenced_str}[/]",
+                        message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
                         fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                     )

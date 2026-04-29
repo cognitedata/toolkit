@@ -370,7 +370,7 @@ class BuildV2Command(ToolkitCommand):
         if verbose and issue_details_section_content:
             summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
         console.print(
             ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
         )
@@ -792,7 +792,7 @@ class BuildV2Command(ToolkitCommand):
             ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
         ]
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
 
         console.print(
             ToolkitPanel(
@@ -852,7 +852,7 @@ class BuildV2Command(ToolkitCommand):
             for insight in insight_content:
                 content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
                 if insight.fix:
-                    content.append(hanging_indent("!", f"Fix: {insight.fix}", marker_style="green"))
+                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
                 insight_subsections.append(
                     ToolkitPanelSection(
                         title=self._humanize_insight_code(insight.code),
@@ -879,11 +879,11 @@ class BuildV2Command(ToolkitCommand):
 
         match max_border_severity:
             case severity if severity <= 15:
-                border_style = "green"
+                border_style = AuraColor.GREEN.rich
             case severity if 15 < severity <= 35:
-                border_style = "orange1"
+                border_style = AuraColor.AMBER.rich
             case _:
-                border_style = "red"
+                border_style = AuraColor.RED.rich
         console.print(
             ToolkitPanel(
                 Group(*insight_sections),
@@ -952,20 +952,20 @@ class BuildV2Command(ToolkitCommand):
 
         match max_severity:
             case severity if severity <= 15:
-                border_color = "green"
+                border_color = AuraColor.GREEN.rich
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
             case severity if 15 < severity <= 35:
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are model syntax warnings. Deployment may fail for some resources."
                 )
-                border_color = "orange1"
+                border_color = AuraColor.AMBER.rich
             case _:
                 recommendation = (
                     "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
                     "There are critical errors that must be fixed before deployment."
                 )
-                border_color = "red"
+                border_color = AuraColor.RED.rich
         summary_lines.append("")
         summary_lines.append(recommendation)
         console.print(
