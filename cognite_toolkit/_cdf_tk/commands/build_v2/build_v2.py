@@ -534,7 +534,8 @@ class BuildV2Command(ToolkitCommand):
                         IgnoredFile(
                             filepath=resource_file,
                             code="MISSING-SUFFIX",
-                            reason=f"Resource file '{resource_file.stem!r}' does not have a suffix to determine the resource kind. It is ignored.",
+                            reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                            fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
                         )
                     )
                     continue

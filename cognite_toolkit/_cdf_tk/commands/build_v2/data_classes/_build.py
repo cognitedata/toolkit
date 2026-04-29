@@ -149,9 +149,8 @@ class BuiltModule(BaseModel):
             insights.append(
                 IgnoredFileWarning(
                     code=ignored_file.code,
-                    message=f"File {ignored_file.filepath.name!r} is ignored because it lacks the resource kind suffix. "
-                    f"It is located at {display_path.as_posix()!r}.",
-                    fix=f"Rename it with an appropriate kind: {ignored_file.filepath.stem}.<kind>{ignored_file.filepath.suffix}.",
+                    message=f"{ignored_file.reason} It is located at {display_path.as_posix()!r}.",
+                    fix=ignored_file.fix,
                 )
             )
 
