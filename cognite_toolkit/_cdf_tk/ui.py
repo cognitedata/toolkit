@@ -1,6 +1,6 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from enum import Enum
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 import questionary
 from rich import box as rich_box
@@ -8,7 +8,7 @@ from rich.console import Console, ConsoleOptions, Group, JustifyMethod, Renderab
 from rich.padding import Padding, PaddingDimensions
 from rich.panel import Panel
 from rich.style import StyleType
-from rich.table import Column, Table
+from rich.table import Table
 from rich.text import Text
 
 __all__ = [
@@ -48,34 +48,18 @@ class ToolkitPanel(Panel):
         renderable: RenderableType,
         box: rich_box.Box = rich_box.ROUNDED,
         *,
-        title: str | Text | None = None,
         title_align: Literal["left", "center", "right"] = "left",
-        subtitle: str | Text | None = None,
         subtitle_align: Literal["left", "center", "right"] = "left",
-        safe_box: bool | None = None,
-        expand: bool = True,
-        style: StyleType = "none",
-        border_style: StyleType = "none",
-        width: int | None = None,
-        height: int | None = None,
         padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (1, 2),
-        highlight: bool = False,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             renderable,
             box,
-            title=title,
             title_align=title_align,
-            subtitle=subtitle,
             subtitle_align=subtitle_align,
-            safe_box=safe_box,
-            expand=expand,
-            style=style,
-            border_style=border_style,
-            width=width,
-            height=height,
             padding=padding,
-            highlight=highlight,
+            **kwargs,
         )
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
@@ -119,60 +103,24 @@ def hanging_indent(marker: str, text: RenderableType, *, marker_style: StyleType
 class ToolkitTable(Table):
     def __init__(
         self,
-        *headers: Column | str,
-        title: str | Text | None = None,
-        caption: str | Text | None = None,
-        width: int | None = None,
-        min_width: int | None = None,
+        *headers: str,
         box: rich_box.Box | None = rich_box.SIMPLE,
-        safe_box: bool | None = None,
         padding: PaddingDimensions = (0, 1),
-        collapse_padding: bool = False,
-        pad_edge: bool = True,
         expand: bool = False,
-        show_header: bool = True,
-        show_footer: bool = False,
         show_edge: bool = False,
-        show_lines: bool = False,
-        leading: int = 0,
-        style: StyleType = "none",
-        row_styles: Iterable[StyleType] | None = None,
-        header_style: StyleType | None = "table.header",
-        footer_style: StyleType | None = "table.footer",
-        border_style: StyleType | None = None,
-        title_style: StyleType | None = None,
-        caption_style: StyleType | None = None,
         title_justify: JustifyMethod = "left",
         caption_justify: JustifyMethod = "left",
-        highlight: bool = False,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             *headers,
-            title=title,
-            caption=caption,
-            width=width,
-            min_width=min_width,
             box=box,
-            safe_box=safe_box,
             padding=padding,
-            collapse_padding=collapse_padding,
-            pad_edge=pad_edge,
             expand=expand,
-            show_header=show_header,
-            show_footer=show_footer,
             show_edge=show_edge,
-            show_lines=show_lines,
-            leading=leading,
-            style=style,
-            row_styles=row_styles,
-            header_style=header_style,
-            footer_style=footer_style,
-            border_style=border_style,
-            title_style=title_style,
-            caption_style=caption_style,
             title_justify=title_justify,
             caption_justify=caption_justify,
-            highlight=highlight,
+            **kwargs,
         )
 
     def as_panel_detail(self) -> RenderableType:
