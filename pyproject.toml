@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv >=1.0.0",
-    "cognite-sdk>=7.87.0,<8.0.0",
+    "cognite-sdk>=8.2.0,<9.0.0",
     "httpx>=0.28.1",
     "pandas >=1.5.3, <3.0.0",
     "pyyaml >=6.0.1",
@@ -82,7 +82,6 @@ sql = [
     "sqlparse >=0.5.3",
 ]
 v08 = [
-
     "cognite-neat >=1.0.43"
 ]
 
