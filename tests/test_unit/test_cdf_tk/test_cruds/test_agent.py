@@ -3,8 +3,36 @@ from collections.abc import Hashable
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
+
+
+class TestAgentIODumpResource:
+    def test_dump_resource_ignores_empty_skills_when_omitted_locally(self) -> None:
+        client = ToolkitClientMock()
+        io = AgentIO(client, None, None)
+        local = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "runtimeVersion": "0.9.9",
+        }
+        resource = AgentResponse.model_validate(
+            {
+                "externalId": "my_agent",
+                "name": "My Agent",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "0.9.9",
+                "skills": [],
+            }
+        )
+
+        dumped = io.dump_resource(resource, local)
+
+        assert dumped == local
 
 
 class TestAgentIODependencies:
