@@ -26,7 +26,6 @@ from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataWrite,
     Function,
-    FunctionSchedule,
     RowWrite,
     RowWriteList,
     TimeSeries,
@@ -52,6 +51,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     SpaceRequest,
     TextProperty,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
@@ -281,20 +284,24 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 
 
 @pytest.fixture
-def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> FunctionSchedule:
+def dummy_schedule(toolkit_client: ToolkitClient, dummy_function: Function) -> FunctionScheduleResponse:
+    client = toolkit_client
     name = "integration_test_schedule_dummy"
-    if existing_list := cognite_client.functions.schedules.list(name=name):
+    if existing_list := client.tool.functions.schedules.list(name=name):
         if len(existing_list) > 1:
-            for existing in existing_list[1:]:
-                cognite_client.functions.schedules.delete(existing.id)
+            client.tool.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
         schedule = existing_list[0]
     else:
-        schedule = cognite_client.functions.schedules.create(
-            name=name,
-            cron_expression="0 7 * * MON",
-            description="Original description.",
-            function_external_id=dummy_function.external_id,
-        )
+        schedule = client.tool.functions.schedules.create(
+            [
+                FunctionScheduleRequest(
+                    name=name,
+                    cron_expression="0 7 * * MON",
+                    description="Original description.",
+                    function_external_id=dummy_function.external_id,
+                )
+            ]
+        )[0]
     if schedule.function_external_id is None:
         schedule.function_external_id = dummy_function.external_id
     if schedule.function_id is not None:
