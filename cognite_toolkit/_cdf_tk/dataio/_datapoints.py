@@ -112,7 +112,7 @@ class DatapointsIO(
             limit=limit,
             # We cannot use partitions here as it is not thread safe. This spawn multiple threads
             # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
+            # partitions=None,
         ):
             if not timeseries:
                 continue

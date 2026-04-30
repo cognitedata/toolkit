@@ -742,12 +742,22 @@ class ApprovalToolkitClient:
 
             created_resources[FileCRUD.__name__].append(entry)
 
-            return FileMetadata(external_id=external_id, instance_id=instance_id, id=len(filehash), created_time=0, last_updated_time=0, uploaded=True, name=entry.get("name", "unknown"))
+            return FileMetadata(
+                external_id=external_id,
+                instance_id=instance_id,
+                id=len(filehash),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                name=entry.get("name", "unknown"),
+            )
 
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
-            created = ThreeDModel(name=name, data_set_id=data_set_id, metadata=metadata, created_time=1, id=len(name) + 1)
+            created = ThreeDModel(
+                name=name, data_set_id=data_set_id, metadata=metadata, created_time=1, id=len(name) + 1
+            )
             created_resources[resource_cls.__name__].append(created)
             return created
 

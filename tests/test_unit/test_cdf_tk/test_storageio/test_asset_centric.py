@@ -174,7 +174,7 @@ def asset_centric_client(
         client.tool.filemetadata.paginate.side_effect = iterate_files
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
-        client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
+        client.files.aggregate_couynt.return_value = RESOURCE_COUNT
         client.events.aggregate_count.return_value = RESOURCE_COUNT
         client.time_series.aggregate_count.return_value = RESOURCE_COUNT
 

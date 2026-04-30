@@ -268,6 +268,7 @@ class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogn
             "AssetCentricMapping is built in-memory for migrations; loading from an API dict is not supported."
         )
 
+
 class ThreeDRevisionMigrationRequest(RequestResource):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
