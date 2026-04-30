@@ -6,7 +6,6 @@ from typing import overload
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
 from rich.markup import escape
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
@@ -56,6 +55,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -168,16 +168,11 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def _start_message(build_dir: Path, dry_run: bool, env_vars: EnvironmentVariables) -> None:
-        environment_vars = ""
-        if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
         verb = "Checking" if dry_run else "Deploying"
-        print(
-            Panel(
-                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
-                expand=False,
-            )
-        )
+        content = f"[bold]{verb}[/] resource files from {build_dir} directory."
+        if not _RUNNING_IN_BROWSER:
+            content += f"\n\nConnected to {env_vars.as_string()}"
+        print(ToolkitPanel(content, title="[bold]Deploy[/]", expand=False))
 
     def clean_all_resources(
         self,
@@ -193,14 +188,10 @@ class DeployCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         # Drop has to be done in the reverse order of deploy.
-        if drop and drop_data:
-            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
-        elif drop:
-            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
-        elif drop_data:
-            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
-        else:
+        if not (drop or drop_data):
             return None
+        flags = "--drop and --drop-data" if (drop and drop_data) else ("--drop" if drop else "--drop-data")
+        print(ToolkitPanel(f"Cleaning resources as {flags} is passed", title="[bold]Clean[/]", expand=False))
 
         for loader_cls in reversed(ordered_loaders):
             if not issubclass(loader_cls, ResourceIO):
@@ -289,7 +280,7 @@ class DeployCommand(ToolkitCommand):
 
         """
         if verbose:
-            print(Panel("[bold]DEPLOYING resources...[/]"))
+            print(ToolkitPanel("[bold]Deploying resources...[/]", title="[bold]Deploy[/]", expand=False))
 
         if ordered_loaders is None:
             selected_loaders = self._clean_command.get_selected_loaders(build_dir, set(), None)
