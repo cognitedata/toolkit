@@ -2,6 +2,7 @@ from ._auth_app import AuthApp
 from ._core_app import CoreApp
 from ._data_app import DataApp
 from ._dev_app import DevApp
+from ._dev_function_app import DevFunctionApp
 from ._download_app import DownloadApp
 from ._dump_app import DumpApp
 from ._import_app import ImportApp
@@ -19,6 +20,7 @@ __all__ = [
     "CoreApp",
     "DataApp",
     "DevApp",
+    "DevFunctionApp",
     "DownloadApp",
     "DumpApp",
     "ImportApp",
