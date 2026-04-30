@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
+from . import ToolkitClientConfig
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
@@ -121,6 +122,7 @@ class ToolkitClientMock(CogniteClientMock):
             return None
         super().__init__(*args, **kwargs)
         self.console = Console()
+        self.config = MagicMock(spec_set=ToolkitClientConfig)
         # Developer note:
         # - Please add your mocked APIs in chronological order
         # - For nested APIs:

@@ -1,9 +1,9 @@
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
+import httpx
 import pytest
-import requests
-import responses
+import respx
 from _pytest.mark import ParameterSet
 from cognite.client.data_classes import Event, FileMetadata
 from cognite.client.data_classes._base import CogniteResource
@@ -12,6 +12,12 @@ from cognite.client.data_classes.capabilities import Capability, EventsAcl, File
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
+
+
+@pytest.fixture
+def rsps() -> Iterator[respx.MockRouter]:
+    with respx.mock() as rsps:
+        yield rsps
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -28,7 +34,7 @@ class TestLookup:
         resource_cls: type[CogniteResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
-        rsps: responses.RequestsMock,
+        rsps: respx.MockRouter,
     ) -> None:
         resources = self._create_resources(resource_cls, N=5)
         client = self._create_client_mock(endpoint, resources, rsps, toolkit_config)
@@ -53,7 +59,7 @@ class TestLookup:
         resource_cls: type[CogniteResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
-        rsps: responses.RequestsMock,
+        rsps: respx.MockRouter,
     ) -> None:
         resources = self._create_resources(resource_cls, N=5)
         client = self._create_client_mock(endpoint, resources, rsps, toolkit_config)
@@ -79,20 +85,15 @@ class TestLookup:
         resource_cls: type[CogniteResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
-        rsps: responses.RequestsMock,
+        rsps: respx.MockRouter,
     ) -> None:
-        rsps.post(
-            toolkit_config.create_api_url(f"{endpoint}/byids"),
-            status=403,
-        )
-        rsps.add(
-            responses.GET,
-            f"{toolkit_config.base_url}/api/v1/token/inspect",
+        rsps.post(toolkit_config.create_api_url(f"{endpoint}/byids")).respond(status_code=403)
+        rsps.get(f"{toolkit_config.base_url}/api/v1/token/inspect").respond(
             json={
                 "subject": "123",
                 "projects": [],
                 "capabilities": [],
-            },
+            }
         )
         client = ToolkitClient(config=toolkit_config)
         lookup_api = getattr(client.lookup, endpoint)
@@ -105,13 +106,23 @@ class TestLookup:
     def test_lookup_external_id_missing(
         self,
         toolkit_config: ToolkitClientConfig,
-        rsps: responses.RequestsMock,
+        rsps: respx.MockRouter,
     ) -> None:
         config = toolkit_config
-        rsps.post(
-            config.create_api_url("assets/byids"),
-            status=200,
-            json={"items": [{"id": 1, "externalId": "ext-1"}]},
+        rsps.post(config.create_api_url("assets/byids")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "id": 1,
+                        "externalId": "ext-1",
+                        "name": "Asset 1",
+                        "rootId": 1,
+                        "createdTime": 1000000000000,
+                        "lastUpdatedTime": 1000000000000,
+                    }
+                ]
+            },
         )
         client = ToolkitClient(config=config)
         result = client.lookup.assets.external_id([1, 2, 3])
@@ -132,24 +143,21 @@ class TestLookup:
 
     @staticmethod
     def _create_client_mock(
-        endpoint: str, resources: list[CogniteResource], rsps: responses.RequestsMock, config: ToolkitClientConfig
+        endpoint: str, resources: list[CogniteResource], rsps: respx.MockRouter, config: ToolkitClientConfig
     ) -> ToolkitClient:
         resource_by_id = {resource.id: resource for resource in resources}
         resource_by_external_id = {resource.external_id: resource for resource in resources}
 
-        def retrieve_multiple_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
-            items = json.loads(request.body)["items"]
+        def retrieve_multiple_callback(request: httpx.Request) -> httpx.Response:
+            items = json.loads(request.content)["items"]
             response_items = []
             for item in items:
                 if "id" in item and (resource := resource_by_id.get(item["id"])) is not None:
                     response_items.append(resource.dump(camel_case=True))
                 elif "externalId" in item and (resource := resource_by_external_id.get(item["externalId"])) is not None:
                     response_items.append(resource.dump(camel_case=True))
-            # Return format: (status code, headers, body)
-            return 200, {}, json.dumps({"items": response_items})
+            return httpx.Response(200, json={"items": response_items})
 
-        rsps.add_callback(
-            responses.POST, config.create_api_url(f"{endpoint}/byids"), callback=retrieve_multiple_callback
-        )
+        rsps.post(config.create_api_url(f"{endpoint}/byids")).mock(side_effect=retrieve_multiple_callback)
         client = ToolkitClient(config)
         return client
