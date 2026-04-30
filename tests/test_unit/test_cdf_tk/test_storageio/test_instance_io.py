@@ -3,7 +3,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-import responses
 import respx
 from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
 
@@ -27,9 +26,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestInstanceIO:
-    def test_download_instance_ids(
-        self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
-    ) -> None:
+    def test_download_instance_ids(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/query")
         selector = InstanceViewSelector(
@@ -38,10 +35,8 @@ class TestInstanceIO:
             instance_spaces=("my_insta_space",),
         )
         N = 2500
-        rsps.add(
-            responses.POST,
-            toolkit_config.create_api_url("/models/instances/aggregate"),
-            status=200,
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
             json={
                 "items": [
                     {
@@ -62,29 +57,31 @@ class TestInstanceIO:
                 "version": 1,
             }
 
-        respx_mock.post(url).side_effect = [
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(1000)]},
-                    "nextCursor": {"root": "cursor_1"},
-                },
-            ),
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
-                    "nextCursor": {"root": "cursor_2"},
-                },
-            ),
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(2000, N)]},
-                    "nextCursor": {"root": None},
-                },
-            ),
-        ]
+        respx_mock.post(url).mock(
+            side_effect=[
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000)]},
+                        "nextCursor": {"root": "cursor_1"},
+                    },
+                ),
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                        "nextCursor": {"root": "cursor_2"},
+                    },
+                ),
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                        "nextCursor": {"root": None},
+                    },
+                ),
+            ]
+        )
         io = InstanceIO(client)
         ids = list(io.download_ids(selector))
         count = io.count(selector)
@@ -162,7 +159,6 @@ class TestInstanceIO:
         tmp_path: Path,
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
-        rsps: responses.RequestsMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = toolkit_config
@@ -193,8 +189,8 @@ class TestInstanceIO:
             return httpx.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
 
         # Download count
-        rsps.post(
-            config.create_api_url("/models/instances/aggregate"),
+        respx_mock.post(config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
             json={
                 "items": [
                     {
@@ -203,7 +199,6 @@ class TestInstanceIO:
                     }
                 ]
             },
-            status=200,
         )
         # Download data
         respx_mock.post(config.create_api_url("/models/instances/query")).respond(
@@ -355,43 +350,45 @@ class TestInstanceIO:
                 "endNode": {"space": "my_space", "externalId": end},
             }
 
-        respx_mock.post(query_url).side_effect = [
-            # Call 1: first node batch + first edge batch (edge cursor present)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [_node("node_0"), _node("node_1")],
-                        "edge_1": [
-                            _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
-                        ],
+        respx_mock.post(query_url).mock(
+            side_effect=[
+                # Call 1: first node batch + first edge batch (edge cursor present)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_0"), _node("node_1")],
+                            "edge_1": [
+                                _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
+                            ],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
                     },
-                    "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
-                },
-            ),
-            # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [],
-                        "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
+                ),
+                # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [],
+                            "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1"},
                     },
-                    "nextCursor": {"nodes": "node_cursor_1"},
-                },
-            ),
-            # Call 3: second node batch (no more cursors → done)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [_node("node_2"), _node("node_3")],
-                        "edge_1": [],
+                ),
+                # Call 3: second node batch (no more cursors → done)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_2"), _node("node_3")],
+                            "edge_1": [],
+                        },
+                        "nextCursor": {},
                     },
-                    "nextCursor": {},
-                },
-            ),
-        ]
+                ),
+            ]
+        )
 
         io = InstanceIO(client)
         pages = list(io.stream_data(selector))

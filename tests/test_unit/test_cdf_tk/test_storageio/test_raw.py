@@ -28,6 +28,7 @@ def some_raw_tables() -> RowList:
                     "column3": f"value3_{i}",
                     "column4": {"nested_key": f"nested_value_{i}"},
                 },
+                last_updated_time=0,
             )
             for i in range(100)
         ]

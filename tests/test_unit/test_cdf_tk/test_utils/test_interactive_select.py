@@ -78,7 +78,10 @@ class TestInteractiveSelect:
             MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = AssetInteractiveSelect(client, "test_operation")
-            client.assets.list.return_value = [Asset(id=1, external_id="Root1"), Asset(id=2, external_id="Root2")]
+            client.assets.list.return_value = [
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root2", external_id="Root2"),
+            ]
             aggregator = MagicMock(spec=AssetCentricAggregator)
             aggregator.count.return_value = 1000
             aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
@@ -114,8 +117,8 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
             client.files.aggregate_count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
@@ -167,8 +170,8 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
             client.time_series.aggregate_count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
@@ -197,8 +200,8 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
             client.events.aggregate_count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
@@ -315,8 +318,8 @@ class TestInteractiveSelect:
             selector._aggregator = aggregator
 
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
 
             result = selector.select_hierarchy()
@@ -340,8 +343,8 @@ class TestInteractiveSelect:
             selector._aggregator = aggregator
 
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
 
             result = selector.select_hierarchy(allow_empty=True)
@@ -362,8 +365,8 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
             result = selector.select_hierarchies()
         assert result == ["root2"]

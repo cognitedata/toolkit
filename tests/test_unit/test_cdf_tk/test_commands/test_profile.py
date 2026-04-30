@@ -105,11 +105,18 @@ class TestProfileCommand:
         toolkit_client_approval.append(
             Transformation,
             Transformation(
+                id=1,
                 external_id="MyTransformation",
                 name="My Transformation",
                 conflict_mode="update",
                 query="SELECT externalId, name FROM `database`.`table`",
-                destination=TransformationDestination(type="events"),
+                destination=TransformationDestination.events(),
+                is_public=False,
+                ignore_null_fields=False,
+                created_time=0,
+                last_updated_time=0,
+                owner="test",
+                owner_is_current_user=True,
             ),
         )
         toolkit_client_approval.append(RAWDatabaseResponse, RAWDatabaseResponse(name="database", created_time=1))

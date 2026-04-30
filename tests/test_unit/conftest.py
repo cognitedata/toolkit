@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import responses
 import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
@@ -233,12 +232,6 @@ def toolkit_config() -> ToolkitClientConfig:
         timeout=10,
         credentials=Token("abc"),
     )
-
-
-@pytest.fixture
-def rsps() -> Iterator[responses.RequestsMock]:
-    with responses.RequestsMock() as rsps:
-        yield rsps
 
 
 @pytest.fixture(scope="session")

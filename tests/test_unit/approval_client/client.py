@@ -940,9 +940,16 @@ class ApprovalToolkitClient:
 
         def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
             if id is not None:
-                return FileMetadata(id=id, uploaded=True)
+                return FileMetadata(id=id, uploaded=True, created_time=0, last_updated_time=0, name="function.zip")
             elif external_id is not None:
-                return FileMetadata(external_id=external_id, uploaded=True)
+                return FileMetadata(
+                    id=0,
+                    external_id=external_id,
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                    name="function.zip",
+                )
             else:
                 return return_value(external_id=external_id)
 
