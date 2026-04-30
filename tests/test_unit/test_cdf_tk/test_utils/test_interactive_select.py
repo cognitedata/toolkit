@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import (
     Asset,
-    CountAggregate,
     UserProfile,
     UserProfileList,
 )
@@ -118,7 +117,7 @@ class TestInteractiveSelect:
                 Asset(id=1, external_id="Root1", name="Root 1"),
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
-            client.files.aggregate.return_value = [CountAggregate(100)]
+            client.files.aggregate_count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -141,7 +140,7 @@ class TestInteractiveSelect:
         ):
             client.tool.datasets.list.return_value = []
             client.assets.list.return_value = []
-            client.files.aggregate.return_value = [CountAggregate(100)]
+            client.files.aggregate_count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             with pytest.raises(ToolkitValueError) as exc_info:
                 _ = selector.select_hierarchies_and_data_sets()
