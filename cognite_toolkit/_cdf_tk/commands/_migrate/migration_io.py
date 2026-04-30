@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, cast
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -171,7 +171,9 @@ class AssetCentricMigrationIO(
                     ingestion_mapping=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
-                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))  # type: ignore[arg-type]
+                mapping_list.append(
+                    AssetCentricMapping(mapping=mapping, resource=cast(T_AssetCentricResource, resource))
+                )
             yield mapping_list
 
     @staticmethod

@@ -3,12 +3,13 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from cognite.client import global_config
 from cognite.client.data_classes import UserProfile
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, MODULES
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
@@ -20,7 +21,17 @@ class CogniteToolkitDemo:
     def __init__(self) -> None:
         if _RUNNING_IN_BROWSER:
             try:
-                self._client = ToolkitClient()
+                default_cfg = global_config.default_client_config
+                if default_cfg is None:
+                    raise AuthenticationError(
+                        "No default Cognite client configuration is set; cannot initialize ToolkitClient in the browser demo."
+                    )
+                toolkit_cfg = (
+                    default_cfg
+                    if isinstance(default_cfg, ToolkitClientConfig)
+                    else ToolkitClientConfig.from_client_config(default_cfg)
+                )
+                self._client = ToolkitClient(toolkit_cfg)
             except CogniteAPIError as e:
                 raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
         else:

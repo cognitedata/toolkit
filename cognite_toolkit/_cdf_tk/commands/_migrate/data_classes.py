@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 from rich.panel import Panel
 from rich.text import Text
+from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
@@ -249,6 +250,12 @@ class AnnotationMigrationMappingList(MigrationMappingList):
 class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogniteResource[InstanceApply]):
     mapping: MigrationMapping
     resource: T_AssetCentricResourceExtended
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any]) -> Self:
+        raise NotImplementedError(
+            "AssetCentricMapping is built in-memory for migrations; loading from an API dict is not supported."
+        )
 
     def as_write(self) -> InstanceApply:
         raise NotImplementedError()

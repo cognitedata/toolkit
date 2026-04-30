@@ -317,11 +317,7 @@ class FileAggregator(LabelAggregator[FileMetadataFilter]):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        response = self.client.files.aggregate(filter=self.create_filter(hierarchy, data_set_external_id))
-        if response:
-            return response[0].count
-        else:
-            return 0
+        return self.client.files.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""

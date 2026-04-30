@@ -285,7 +285,7 @@ class EnvironmentVariables:
                 client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
                 client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
                 token_url=self.idp_token_url,
-                scopes=None,  # type: ignore[arg-type]
+                scopes=None,
             )
         return OAuthClientCredentials(
             client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
@@ -309,7 +309,7 @@ class EnvironmentVariables:
             # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
             # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
             return OAuthDeviceCode.default_for_azure_ad(
-                tenant_id=self.IDP_TENANT_ID,  # type: ignore[arg-type]
+                tenant_id=self.IDP_TENANT_ID,
                 client_id=TOOLKIT_CLIENT_ENTRA_ID,
                 cdf_cluster=self.CDF_CLUSTER,
                 clear_cache=False,

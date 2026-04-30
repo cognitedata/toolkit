@@ -2,12 +2,12 @@ import warnings
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from cognite.client.config import ClientConfig
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 
 class VerifyAPI(ToolkitAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, toolkit_client: "ToolkitClient") -> None:
-        super().__init__(config, api_version, toolkit_client)
+    def __init__(self, config: ToolkitClientConfig, toolkit_client: "ToolkitClient") -> None:
+        super().__init__(config, toolkit_client)
         self._token_inspect: TokenInspection | None = None
 
     @property
