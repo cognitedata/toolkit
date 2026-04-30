@@ -1,5 +1,7 @@
 from collections.abc import Sequence
+from difflib import SequenceMatcher
 from enum import Enum
+from itertools import zip_longest
 from typing import Any, ClassVar, Literal
 
 import questionary
@@ -11,7 +13,15 @@ from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "AuraColor", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable", "hanging_indent"]
+__all__ = [
+    "QUESTIONARY_STYLE",
+    "AuraColor",
+    "ToolkitPanel",
+    "ToolkitPanelSection",
+    "ToolkitTable",
+    "diff_table",
+    "hanging_indent",
+]
 
 
 # https://cognitedata.github.io/aura/primitives/colors
@@ -122,6 +132,54 @@ class ToolkitTable(Table):
 
     def as_panel_detail(self) -> RenderableType:
         return Padding(self, (1, 0, 1, 2))
+
+
+def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> RenderableType:
+    """Side-by-side diff table comparing old (left) and new (right) lines.
+
+    Equal regions larger than 2*context+1 lines are collapsed to a '…' separator.
+    Deleted lines are shown in red on the left, inserted lines in green on the right.
+    """
+    matcher = SequenceMatcher(None, old_lines, new_lines, autojunk=False)
+
+    table = Table(
+        box=rich_box.SIMPLE,
+        show_edge=False,
+        padding=(0, 1),
+        expand=True,
+    )
+    table.add_column("CDF", overflow="fold", ratio=1)
+    table.add_column("Local", overflow="fold", ratio=1)
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            block = old_lines[i1:i2]
+            if len(block) <= 2 * context + 1:
+                for line in block:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+            else:
+                for line in block[:context]:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+                table.add_row(
+                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
+                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
+                )
+                for line in block[-context:]:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+        elif tag == "delete":
+            for line in old_lines[i1:i2]:
+                table.add_row(f"[{AuraColor.RED.rich}]{line}[/]", "")
+        elif tag == "insert":
+            for line in new_lines[j1:j2]:
+                table.add_row("", f"[{AuraColor.GREEN.rich}]{line}[/]")
+        elif tag == "replace":
+            for old, new in zip_longest(old_lines[i1:i2], new_lines[j1:j2], fillvalue=""):
+                table.add_row(
+                    f"[{AuraColor.RED.rich}]{old}[/]" if old else "",
+                    f"[{AuraColor.GREEN.rich}]{new}[/]" if new else "",
+                )
+
+    return table
 
 
 QUESTIONARY_STYLE = questionary.Style(

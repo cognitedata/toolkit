@@ -51,9 +51,17 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
-from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
-from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
+from cognite_toolkit._cdf_tk.ui import (
+    AuraColor,
+    ToolkitPanel,
+    ToolkitPanelSection,
+    ToolkitTable,
+    diff_table,
+    hanging_indent,
+)
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -722,12 +730,14 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
-                    diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
+                    old_lines = yaml_safe_dump(cdf_dict, sort_keys=True).splitlines()
+                    new_lines = yaml_safe_dump(resource.raw_dict, sort_keys=True).splitlines()
                     for sensitive in crud.sensitive_strings(resource.request):
-                        diff_str = diff_str.replace(sensitive, "********")
+                        old_lines = [line.replace(sensitive, "********") for line in old_lines]
+                        new_lines = [line.replace(sensitive, "********") for line in new_lines]
                     console.print(
                         ToolkitPanel(
-                            diff_str,
+                            diff_table(old_lines, new_lines),
                             title=f"{crud.display_name}: {identifier}",
                         )
                     )
