@@ -110,12 +110,13 @@ class ToolkitClient(CogniteClient):
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
-        http_client = HTTPClient(self.config, console=console)
+        self._toolkit_config = config
+        http_client = HTTPClient(self._toolkit_config, console=console)
         self.http_client = http_client
         self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
-        self.verify = VerifyAPI(self._config, self._API_VERSION, self)
+        self.verify = VerifyAPI(self.lf._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
@@ -136,4 +137,5 @@ class ToolkitClient(CogniteClient):
         Returns:
             ToolkitClientConfig: The configuration object.
         """
+
         return cast(ToolkitClientConfig, self._config)

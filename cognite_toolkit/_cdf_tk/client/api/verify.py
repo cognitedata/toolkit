@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 
 class VerifyAPI(ToolkitAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
-        super().__init__(config, api_version, cognite_client)
+    def __init__(self, config: ClientConfig, api_version: str | None, toolkit_client: "ToolkitClient") -> None:
+        super().__init__(config, api_version, toolkit_client)
         self._token_inspect: TokenInspection | None = None
 
     @property
