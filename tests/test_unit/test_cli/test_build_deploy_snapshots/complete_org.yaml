@@ -514,21 +514,8 @@ Node:
   instanceType: node
   sources:
   - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
       mimeType: application/zip
       name: DataModelingOnly_function.zip
-      source: null
-      sourceContext: null
-      sourceCreatedTime: null
-      sourceCreatedUser: null
-      sourceId: null
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
-      tags: null
     source:
       externalId: CogniteFile
       space: cdf_cdm

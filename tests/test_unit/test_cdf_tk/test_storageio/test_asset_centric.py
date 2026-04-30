@@ -7,7 +7,6 @@ import httpx
 import pytest
 import respx
 from cognite.client.data_classes import (
-    CountAggregate,
     LabelDefinition,
     LabelDefinitionList,
 )

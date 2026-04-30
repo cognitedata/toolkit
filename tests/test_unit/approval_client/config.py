@@ -626,9 +626,6 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create_3dmodel")],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="__iter__", mock_class_method="iterate_values"),
-            ],
         },
     ),
     APIResource(
@@ -644,7 +641,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="sequences.rows",
+        api_name="sequences.data",
         resource_cls=SequenceRows,
         _list_cls=SequenceRowsList,
         _write_cls=SequenceRows,
