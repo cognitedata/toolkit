@@ -48,7 +48,7 @@ class ToolkitPanel(Panel):
         **kwargs: Any,
     ) -> None:
         if isinstance(title, str):
-            title = Text(title, style="bold")
+            title = Text.from_markup(title, style="bold")
         super().__init__(
             renderable,
             box,
