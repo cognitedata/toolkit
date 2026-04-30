@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigResponse,
     Discipline,
-    FeatureConfiguration,
     RootLocationConfiguration,
     RootLocationFeatureToggles,
 )
@@ -343,8 +342,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if not config.feature_configuration:
             return location_configs, location_filters
 
-        data_exploration = self._create_data_exploration(config.feature_configuration)
-
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             location_filter = self._create_location_filter(root_location_config)
             location_filters.append(location_filter)
@@ -352,7 +349,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 self._create_location_config(
                     root_location_config,
                     config.feature_configuration.disciplines,
-                    data_exploration,
                     index,
                 )
             )
@@ -384,7 +380,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
         self,
         config: RootLocationConfiguration,
         disciplines: list[Discipline] | None,
-        data_exploration: dict[str, JsonValue],
         index: int,
     ) -> InFieldCDMLocationConfigRequest:
         if (
@@ -452,27 +447,4 @@ class InfieldV2ConfigCreator(MigrationCreator):
             disciplines=[discipline.dump() for discipline in disciplines] if disciplines else None,
             data_storage=data_storage,
             view_mappings=view_mappings,
-            data_exploration_config=data_exploration or None,
         )
-
-    def _create_data_exploration(self, config: FeatureConfiguration) -> dict[str, JsonValue]:
-        data_exploration: dict[str, JsonValue] = {}
-        if config.observations:
-            data_exploration["observations"] = config.observations
-        if config.documents:
-            documents: dict[str, JsonValue] = {}
-            if config.documents.type:
-                documents["type"] = config.documents.type.removeprefix("metadata.")
-            if config.documents.title:
-                documents["title"] = config.documents.title
-            if config.documents.description:
-                documents["description"] = config.documents.description.removeprefix("metadata.")
-            data_exploration["documents"] = documents
-        if config.notifications:
-            data_exploration["notifications"] = config.notifications.dump()
-        if config.asset_page_configuration:
-            dumped = config.asset_page_configuration.dump()
-            # Linkable Asset Key is used for implicit connections in the old Asset.metaadata.
-            dumped.pop("linkableAssetKeys", None)
-            data_exploration["assets"] = dumped
-        return data_exploration

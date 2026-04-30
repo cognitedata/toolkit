@@ -4,7 +4,6 @@ InField CDM Location Configs:
     - gp_infield_oid_checklist_admins
     templateAdmins:
     - gp_infield_oid_template_admins
-  dataExplorationConfig: null
   dataFilters:
     assets:
       instanceSpaces:
