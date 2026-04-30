@@ -16,7 +16,6 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -63,7 +62,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitPanelSection, ToolkitTable
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -371,7 +370,7 @@ class BuildV2Command(ToolkitCommand):
         if verbose and issue_details_section_content:
             summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
         console.print(
             ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
         )
@@ -535,7 +534,8 @@ class BuildV2Command(ToolkitCommand):
                         IgnoredFile(
                             filepath=resource_file,
                             code="MISSING-SUFFIX",
-                            reason=f"Resource file '{resource_file.stem!r}' does not have a suffix to determine the resource kind. It is ignored.",
+                            reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                            fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
                         )
                     )
                     continue
@@ -778,20 +778,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        console.print(
-            ToolkitPanel(
-                "\n".join(summary_lines),
-                title="[bold]Validation Plan[/]",
-                border_style=border_style,
-                expand=False,
-            )
-        )
-
-        table = Table(title="Validation Steps", expand=False, show_edge=False)
-        table.add_column("Validation", style="bold")
-        table.add_column("Status", style="dim")
-        table.add_column("Message", style="dim")
+        table = ToolkitTable(*["Validation", "Status", "Message"])
         for step in plan:
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
@@ -799,7 +786,21 @@ class BuildV2Command(ToolkitCommand):
             status_display = f"[{status_style}]{step.status.code}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-        console.print(table)
+
+        validation_sections = [
+            ToolkitPanelSection(title="Planned", content=summary_lines),
+            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
+        ]
+
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
+
+        console.print(
+            ToolkitPanel(
+                Group(*validation_sections),
+                title="[bold]Planning validation[/]",
+                border_style=border_style,
+            )
+        )
         return None
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
@@ -816,48 +817,54 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = list(step.rule.validate())
 
                 validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
+                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
 
-        console.print("\n[bold]Build Insights[/bold]")
+        severity_style = {
+            "FileReadError": (AuraColor.RED.rich, "✗"),
+            "ConsistencyError": (AuraColor.RED.rich, "✗"),
+            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "🛈"),
+            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
+        }
 
         display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
 
-        # Map severity to style information
-        severity_style = {
-            "FileReadError": ("red", "✗"),
-            "ConsistencyError": ("red", "✗"),
-            "FailedValidation": ("red", "✗"),
-            "ModelSyntaxWarning": ("yellow", "!"),
-            "Recommendation": ("blue", "🛈"),
-            "IgnoredFileWarning": ("dim", "○"),
-        }
-
-        for insight in reversed(display_insights):
+        insights_by_type: dict[str, list[Insight]] = {}
+        for insight in display_insights:
             insight_type_name = type(insight).__name__
+            insights_by_type.setdefault(insight_type_name, []).append(insight)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for insight_type_name, insight_content in insights_by_type.items():
             style, icon = severity_style.get(insight_type_name, ("white", "•"))
+            plural_suffix = "s" if len(insight_content) > 1 else ""
 
-            # Build the content for this insight
-            content_lines = [f"[bold]{insight.message}[/bold]"]
-            if insight.fix:
-                content_lines.append(f"\n[dim]Fix:[/dim] {insight.fix}")
+            insight_subsections: list[RenderableType] = []
+            for insight in insight_content:
+                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                if insight.fix:
+                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
+                insight_subsections.append(
+                    ToolkitPanelSection(
+                        title=self._humanize_insight_code(insight.code),
+                        content=content,
+                    )
+                )
+                max_border_severity = max(max_border_severity, type(insight).severity)
 
-            panel_title = f"[{style}]{icon}[/] [{style}]{insight_type_name}[/]"
-            if insight.code:
-                panel_title += f" [dim]({insight.code})[/dim]"
-
-            console.print(
-                ToolkitPanel(
-                    "\n".join(content_lines),
-                    title=panel_title,
-                    border_style=style,
-                    expand=False,
+            insight_sections.append(
+                ToolkitPanelSection(
+                    title=f"[{style}]{insight_type_name}{plural_suffix}[/]",
+                    content=insight_subsections,
                 )
             )
 
@@ -868,7 +875,28 @@ class BuildV2Command(ToolkitCommand):
             suffix = " Add --verbose to show more."
         if remaining_count > 0:
             footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
-        console.print(f"[dim]{footer}[/dim]")
+        insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
+
+        match max_border_severity:
+            case severity if severity <= 15:
+                border_style = AuraColor.GREEN.rich
+            case severity if 15 < severity <= 35:
+                border_style = AuraColor.AMBER.rich
+            case _:
+                border_style = AuraColor.RED.rich
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    @staticmethod
+    def _humanize_insight_code(code: str | None) -> str:
+        if code is None:
+            return "Undefined"
+        return code.replace("-", " ").replace("_", " ").capitalize()
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
@@ -924,20 +952,20 @@ class BuildV2Command(ToolkitCommand):
 
         match max_severity:
             case severity if severity <= 15:
-                border_color = "green"
+                border_color = AuraColor.GREEN.rich
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
             case severity if 15 < severity <= 35:
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are model syntax warnings. Deployment may fail for some resources."
                 )
-                border_color = "orange1"
+                border_color = AuraColor.AMBER.rich
             case _:
                 recommendation = (
                     "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
                     "There are critical errors that must be fixed before deployment."
                 )
-                border_color = "red"
+                border_color = AuraColor.RED.rich
         summary_lines.append("")
         summary_lines.append(recommendation)
         console.print(
@@ -945,7 +973,6 @@ class BuildV2Command(ToolkitCommand):
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
                 border_style=border_color,
-                expand=False,
             )
         )
 
