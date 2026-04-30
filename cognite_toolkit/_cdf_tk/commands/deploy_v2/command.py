@@ -12,6 +12,7 @@ import questionary
 from pydantic import ValidationError
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
+from rich.padding import Padding
 from rich.progress import Progress
 from yaml import YAMLError
 
@@ -324,9 +325,9 @@ class DeployV2Command(ToolkitCommand):
     ) -> list[DeploymentStep]:
         startup_section = ToolkitPanelSection(
             content=[
-                f"Build path: {build_dir.path.as_posix()}",
-                f"CDF project: {cdf_project!r}",
+                f"Target project: {cdf_project!r}",
                 f"Toolkit version: {__version__!s}",
+                f"Build path: {build_dir.path.as_posix()}/",
             ],
         )
 
@@ -386,7 +387,7 @@ class DeployV2Command(ToolkitCommand):
                 )
             )
         read_dir_section = ToolkitPanelSection(
-            title=f"Build directory ({build_dir.path.as_posix()})",
+            title="Processed build directory",
             content=read_dir_subsections,
         )
 
@@ -396,7 +397,7 @@ class DeployV2Command(ToolkitCommand):
             console.print(
                 ToolkitPanel(
                     Group(
-                        startup_section,
+                        Padding(startup_section, (0, 0, 1, 0)),
                         read_dir_section,
                         ToolkitPanelSection(
                             description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(e))}"
@@ -416,7 +417,7 @@ class DeployV2Command(ToolkitCommand):
             step_count = len(plan)
             total_files = sum(len(step.files) for step in plan)
             plan_section = ToolkitPanelSection(
-                title=f"{operation.title()} plan",
+                title="Plan",
                 content=[
                     f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
                     f"[green]✓[/] [bold]{total_files}[/] resource files to {operation}",
@@ -426,8 +427,8 @@ class DeployV2Command(ToolkitCommand):
         border_style = AuraColor.AMBER.rich if (has_issues or not plan) else AuraColor.GREEN.rich
         console.print(
             ToolkitPanel(
-                Group(startup_section, read_dir_section, plan_section),
-                title=f"Setting up {operation}",
+                Group(Padding(startup_section, (0, 0, 1, 0)), read_dir_section, plan_section),
+                title=f"Setting up {operation} operation",
                 border_style=border_style,
             )
         )
