@@ -9,7 +9,15 @@
       "Bash(cdf*)",
       "Bash(ls*)",
       "Bash(pytest*)",
-      "Bash(ruff*)"
+      "Bash(ruff*)",
+      "Bash(git add *)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git fetch*)",
+      "Bash(git switch*)",
+      "Bash(git pull*)",
+      "Bash(uv run pre-commit*)",
+      "Bash(uv run pytest*)"
     ],
     "deny": [
       "Read(./data/**)",

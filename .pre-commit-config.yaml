@@ -30,11 +30,11 @@ repos:
     hooks:
       - id: end-of-file-fixer
 
-# Mypy must be run in the local system environment, not in the pre-commit environment.
+# Mypy must be run in the project venv to pick up the correct stubs and plugins.
   - hooks:
     - id: mypy
       name: mypy
-      entry: dmypy run -- cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
+      entry: .venv/bin/dmypy run -- cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false
