@@ -228,7 +228,6 @@ def toolkit_config() -> ToolkitClientConfig:
         client_name="test-client",
         project=CDF_PROJECT,
         base_url=BASE_URL,
-        max_workers=1,
         timeout=10,
         credentials=Token("abc"),
     )
