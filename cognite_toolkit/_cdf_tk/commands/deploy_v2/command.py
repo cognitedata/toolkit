@@ -576,7 +576,8 @@ class DeployV2Command(ToolkitCommand):
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            progress.update(task_id, description=f"Finished {options.operation}ing.")
+            finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
+            progress.update(task_id, description=finished)
         return results
 
     @classmethod
