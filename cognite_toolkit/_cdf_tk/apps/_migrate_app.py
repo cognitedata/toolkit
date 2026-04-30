@@ -1531,6 +1531,14 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        skip_observations: Annotated[
+            bool,
+            typer.Option(
+                "--skip-observations",
+                help="Skip migrating Observation data to the default cdf_infield/FieldObservation view. "
+                "Only use this when you intend to migrate observations to a custom observation view manually.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1614,6 +1622,11 @@ class MigrateApp(typer.Typer):
             "cognite_app_data": "cognite_app_data",
         }
         infield_mappings = create_infield_data_mappings()
+        if skip_observations:
+            # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
+            # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
+            # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
+            infield_mappings = [m for m in infield_mappings if m.destination_view.external_id != "FieldObservation"]
         schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
