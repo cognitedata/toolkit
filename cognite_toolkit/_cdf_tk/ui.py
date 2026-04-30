@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from difflib import SequenceMatcher
 from enum import Enum
-from itertools import zip_longest
 from typing import Any, ClassVar, Literal
 
 import questionary
@@ -146,12 +145,12 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
         box=rich_box.SIMPLE,
         show_edge=False,
         padding=(0, 1),
-        expand=True,
+        expand=False,
         highlight=False,
         show_header=True,
     )
     table.add_column(f"[{AuraColor.RED.rich}]CDF (current)[/]", overflow="fold", ratio=1, no_wrap=False)
-    table.add_column(f"[{AuraColor.GREEN.rich}]Local (desired)[/]", overflow="fold", ratio=1, no_wrap=False)
+    table.add_column("[Local (desired)", overflow="fold", ratio=1, no_wrap=False)
 
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
@@ -175,11 +174,10 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
             for line in new_lines[j1:j2]:
                 table.add_row("", f"[{AuraColor.GREEN.rich}]{line}[/]")
         elif tag == "replace":
-            for old, new in zip_longest(old_lines[i1:i2], new_lines[j1:j2], fillvalue=""):
-                table.add_row(
-                    f"[{AuraColor.RED.rich}]{old}[/]" if old else "",
-                    f"[{AuraColor.GREEN.rich}]{new}[/]" if new else "",
-                )
+            for line in old_lines[i1:i2]:
+                table.add_row(f"[{AuraColor.RED.rich}]{line}[/]", "")
+            for line in new_lines[j1:j2]:
+                table.add_row("", f"[{AuraColor.GREEN.rich}]{line}[/]")
 
     return table
 
