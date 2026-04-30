@@ -71,10 +71,6 @@ class DeployOptions:
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
 
-    @property
-    def operation_noun(self) -> str:
-        return {"deploy": "deployment", "clean": "deletion"}[self.operation]
-
 
 @dataclass
 class ResourceDirectory:
@@ -212,12 +208,7 @@ class DeployV2Command(ToolkitCommand):
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
-        self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
-        self._display_read_dir(build_dir, client.console, options.verbose)
-
-        plan = self.create_deployment_plan(build_dir)
-
-        self._display_plan(plan, options.operation, options.operation_noun, client.console)
+        plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
@@ -232,7 +223,7 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
+        self._display_results(results, options.operation, client.console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
@@ -323,85 +314,126 @@ class DeployV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
-    def _display_startup(self, operation: str, build_dir: Path, cdf_project: str, console: Console) -> None:
-        console.print(
-            ToolkitPanel(
-                ToolkitPanelSection(
-                    content=[
-                        f"[bold]{operation.title()}ing[/] {build_dir.as_posix()}",
-                        f"Toolkit version: {__version__!s}",
-                        f"CDF project: {cdf_project!r}",
-                    ]
-                ),
-                title=f"[bold]{operation.title()}[/]",
-            )
+    def _display_setup(
+        self,
+        operation: str,
+        build_dir: ReadBuildDirectory,
+        cdf_project: str,
+        console: Console,
+        verbose: bool,
+    ) -> list[DeploymentStep]:
+        startup_section = ToolkitPanelSection(
+            content=[
+                f"Build path: {build_dir.path.as_posix()}",
+                f"CDF project: {cdf_project!r}",
+                f"Toolkit version: {__version__!s}",
+            ],
         )
 
-    def _display_read_dir(self, build_dir: ReadBuildDirectory, console: Console, verbose: bool) -> None:
-        warnings = list(build_dir.create_warnings())
+        read_dir_warnings = list(build_dir.create_warnings())
         resource_dir_count = len(build_dir.resource_directories)
         skipped_dir_count = len(build_dir.skipped_directories)
         invalid_dir_count = len(build_dir.invalid_directories)
-
         resource_file_count = sum(
             len(files) for dir_ in build_dir.resource_directories for files in dir_.files_by_crud.values()
         )
         invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
+        has_issues = bool(read_dir_warnings or invalid_dir_count or invalid_yaml_file_count)
 
-        has_issues = bool(warnings or invalid_dir_count or invalid_yaml_file_count)
-
-        summary_lines = [
+        read_dir_summary = [
             f"[green]✓[/] [bold]{resource_dir_count}[/] resource directories",
             f"[green]✓[/] [bold]{resource_file_count:,}[/] resource files",
         ]
-        if warnings:
-            summary_lines.append(f"[yellow]![/] [bold]{len(warnings)}[/] warnings during reading")
+        if read_dir_warnings:
+            read_dir_summary.append(f"[yellow]![/] [bold]{len(read_dir_warnings)}[/] warnings during reading")
         if skipped_dir_count:
-            summary_lines.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
+            read_dir_summary.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
         if invalid_dir_count:
-            summary_lines.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
+            read_dir_summary.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
         if invalid_yaml_file_count:
-            summary_lines.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
+            read_dir_summary.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
 
-        sections: list[RenderableType] = [ToolkitPanelSection(content=summary_lines)]
-
+        read_dir_subsections: list[RenderableType] = [ToolkitPanelSection(content=read_dir_summary)]
         if verbose:
             if build_dir.skipped_directories:
                 t = ToolkitTable("Directory")
                 for dir_ in build_dir.skipped_directories:
                     t.add_row(dir_.directory.as_posix())
-                sections.append(ToolkitPanelSection(title="Skipped directories", content=[t.as_panel_detail()]))
+                read_dir_subsections.append(
+                    ToolkitPanelSection(title="Skipped directories", content=[t.as_panel_detail()])
+                )
             if build_dir.invalid_directories:
                 t = ToolkitTable("Directory")
                 t.columns[0].style = "red"
                 for inv_dir in build_dir.invalid_directories:
                     t.add_row(inv_dir.as_posix())
-                sections.append(ToolkitPanelSection(title="Invalid directories", content=[t.as_panel_detail()]))
+                read_dir_subsections.append(
+                    ToolkitPanelSection(title="Invalid directories", content=[t.as_panel_detail()])
+                )
             if invalid_yaml_file_count:
                 t = ToolkitTable("File")
                 t.columns[0].style = "red"
                 for dir_ in build_dir.resource_directories:
                     for file in dir_.invalid_files:
                         t.add_row(file.as_posix())
-                sections.append(ToolkitPanelSection(title="Invalid YAML files", content=[t.as_panel_detail()]))
+                read_dir_subsections.append(
+                    ToolkitPanelSection(title="Invalid YAML files", content=[t.as_panel_detail()])
+                )
         elif skipped_dir_count or invalid_dir_count or invalid_yaml_file_count:
-            sections.append(
+            read_dir_subsections.append(
                 ToolkitPanelSection(
                     description=f"{HINT_LEAD_TEXT} Use --verbose to see details about skipped and invalid directories and files."
                 )
             )
-
-        console.print(
-            ToolkitPanel(
-                Group(*sections),
-                title=f"[bold]Build directory ({build_dir.path.as_posix()})[/]",
-                border_style=AuraColor.AMBER.rich if has_issues else AuraColor.GREEN.rich,
-            )
+        read_dir_section = ToolkitPanelSection(
+            title=f"Build directory ({build_dir.path.as_posix()})",
+            content=read_dir_subsections,
         )
 
-        if warnings:
-            for warning in warnings:
+        try:
+            plan = self.create_deployment_plan(build_dir)
+        except Exception as e:
+            console.print(
+                ToolkitPanel(
+                    Group(
+                        startup_section,
+                        read_dir_section,
+                        ToolkitPanelSection(
+                            description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(e))}"
+                        ),
+                    ),
+                    title=operation,
+                    border_style=AuraColor.AMBER.rich,
+                )
+            )
+            for warning in read_dir_warnings:
                 self.warn(warning, console=console)
+            raise
+
+        if not plan:
+            plan_section = ToolkitPanelSection(description=f"[bold]No resources to {operation}.[/]")
+        else:
+            step_count = len(plan)
+            total_files = sum(len(step.files) for step in plan)
+            plan_section = ToolkitPanelSection(
+                title=f"{operation.title()} plan",
+                content=[
+                    f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+                    f"[green]✓[/] [bold]{total_files}[/] resource files to {operation}",
+                ],
+            )
+
+        border_style = AuraColor.AMBER.rich if (has_issues or not plan) else AuraColor.GREEN.rich
+        console.print(
+            ToolkitPanel(
+                Group(startup_section, read_dir_section, plan_section),
+                title="[bold]Setting up deploy[/]",
+                border_style=border_style,
+            )
+        )
+        for warning in read_dir_warnings:
+            self.warn(warning, console=console)
+        return plan
 
     def _validate_cdf_project(
         self,
@@ -472,34 +504,6 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:
-        if not plan:
-            console.print(
-                ToolkitPanel(
-                    f"[bold yellow]No resources to {operation}.[/]",
-                    title=f"[bold]{operation_noun.title()} plan[/]",
-                    border_style=AuraColor.AMBER.rich,
-                )
-            )
-            return
-
-        step_count = len(plan)
-        total_files = sum(len(step.files) for step in plan)
-
-        console.print(
-            ToolkitPanel(
-                ToolkitPanelSection(
-                    content=[
-                        f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
-                        f"[green]✓[/] [bold]{total_files}[/] resource files to {operation}",
-                    ]
-                ),
-                title=f"[bold]{operation_noun.title()} plan[/]",
-                border_style=AuraColor.GREEN.rich,
-            )
-        )
-
-    @classmethod
     def apply_plan(
         cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, is_delete: bool = False
     ) -> Sequence[DeploymentResult]:
@@ -518,7 +522,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task(f"Starting {options.operation_noun}", total=total_files)
+            task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -895,19 +899,19 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _display_results(
-        cls, results: Sequence[DeploymentResult], operation: str, operation_noun: str, console: Console, verbose: bool
+        cls, results: Sequence[DeploymentResult], operation: str, console: Console, verbose: bool
     ) -> None:
         if not results:
             console.print(
                 ToolkitPanel(
                     f"No resources were {operation}ed.",
-                    title=f"[bold]{operation_noun.title()} summary[/]",
+                    title=f"[bold]{operation.title()} summary[/]",
                 )
             )
             return
 
         is_dry_run = results[0].is_dry_run
-        panel_title = f"[bold]{operation_noun.title()} summary[/]"
+        panel_title = f"[bold]{operation.title()} summary[/]"
         if is_dry_run:
             panel_title += " [dim](dry run)[/]"
 
@@ -974,7 +978,7 @@ class DeployV2Command(ToolkitCommand):
             sections.append(
                 ToolkitPanelSection(
                     description=(
-                        f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
+                        f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation}. "
                         f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
                         f"Use --verbose to see all skipped resources."
                     )
