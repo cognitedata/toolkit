@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -172,7 +172,7 @@ class DeployCommand(ToolkitCommand):
         content = f"[bold]{verb}[/] resource files from {build_dir} directory."
         if not _RUNNING_IN_BROWSER:
             content += f"\n\nConnected to {env_vars.as_string()}"
-        print(ToolkitPanel(content, title="[bold]Deploy[/]", expand=False))
+        print(ToolkitPanel(content, title="[bold]Deploy[/]"))
 
     def clean_all_resources(
         self,
@@ -191,7 +191,11 @@ class DeployCommand(ToolkitCommand):
         if not (drop or drop_data):
             return None
         flags = "--drop and --drop-data" if (drop and drop_data) else ("--drop" if drop else "--drop-data")
-        print(ToolkitPanel(f"Cleaning resources as {flags} is passed", title="[bold]Clean[/]", expand=False))
+        print(
+            ToolkitPanel(
+                f"Cleaning resources as {flags} is passed", title="[bold]Clean[/]", border_style=AuraColor.AMBER.rich
+            )
+        )
 
         for loader_cls in reversed(ordered_loaders):
             if not issubclass(loader_cls, ResourceIO):
@@ -280,7 +284,7 @@ class DeployCommand(ToolkitCommand):
 
         """
         if verbose:
-            print(ToolkitPanel("[bold]Deploying resources...[/]", title="[bold]Deploy[/]", expand=False))
+            print(ToolkitPanel("[bold]Deploying resources...[/]", title="[bold]Deploy[/]"))
 
         if ordered_loaders is None:
             selected_loaders = self._clean_command.get_selected_loaders(build_dir, set(), None)

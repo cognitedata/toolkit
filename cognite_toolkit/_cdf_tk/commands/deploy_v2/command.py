@@ -10,11 +10,9 @@ from typing import Any, Generic, Literal, TypeAlias
 
 import questionary
 from pydantic import ValidationError
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.markup import escape
-from rich.panel import Panel
 from rich.progress import Progress
-from rich.table import Table
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -52,6 +50,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -326,10 +325,15 @@ class DeployV2Command(ToolkitCommand):
 
     def _display_startup(self, operation: str, build_dir: Path, cdf_project: str, console: Console) -> None:
         console.print(
-            Panel(
-                f"{operation.title()}ing {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - CDF project {cdf_project!r}",
-                expand=False,
+            ToolkitPanel(
+                ToolkitPanelSection(
+                    content=[
+                        f"[bold]{operation.title()}ing[/] {build_dir.as_posix()}",
+                        f"Toolkit version: {__version__!s}",
+                        f"CDF project: {cdf_project!r}",
+                    ]
+                ),
+                title=f"[bold]{operation.title()}[/]",
             )
         )
 
@@ -359,43 +363,45 @@ class DeployV2Command(ToolkitCommand):
         if invalid_yaml_file_count:
             summary_lines.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
 
+        sections: list[RenderableType] = [ToolkitPanelSection(content=summary_lines)]
+
+        if verbose:
+            if build_dir.skipped_directories:
+                t = ToolkitTable("Directory")
+                for dir_ in build_dir.skipped_directories:
+                    t.add_row(dir_.directory.as_posix())
+                sections.append(ToolkitPanelSection(title="Skipped directories", content=[t.as_panel_detail()]))
+            if build_dir.invalid_directories:
+                t = ToolkitTable("Directory")
+                t.columns[0].style = "red"
+                for inv_dir in build_dir.invalid_directories:
+                    t.add_row(inv_dir.as_posix())
+                sections.append(ToolkitPanelSection(title="Invalid directories", content=[t.as_panel_detail()]))
+            if invalid_yaml_file_count:
+                t = ToolkitTable("File")
+                t.columns[0].style = "red"
+                for dir_ in build_dir.resource_directories:
+                    for file in dir_.invalid_files:
+                        t.add_row(file.as_posix())
+                sections.append(ToolkitPanelSection(title="Invalid YAML files", content=[t.as_panel_detail()]))
+        elif skipped_dir_count or invalid_dir_count or invalid_yaml_file_count:
+            sections.append(
+                ToolkitPanelSection(
+                    description=f"{HINT_LEAD_TEXT} Use --verbose to see details about skipped and invalid directories and files."
+                )
+            )
+
         console.print(
-            Panel(
-                "\n".join(summary_lines),
+            ToolkitPanel(
+                Group(*sections),
                 title=f"[bold]Build directory ({build_dir.path.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
-                expand=False,
+                border_style=AuraColor.AMBER.rich if has_issues else AuraColor.GREEN.rich,
             )
         )
 
         if warnings:
             for warning in warnings:
                 self.warn(warning, console=console)
-
-        if not verbose and (skipped_dir_count or invalid_dir_count or invalid_yaml_file_count):
-            console.print(
-                f"{HINT_LEAD_TEXT} Use --verbose flag to get more details about the skipped and invalid directories and files."
-            )
-        if verbose:
-            if build_dir.skipped_directories:
-                table = Table(title="Skipped Directories", expand=False, show_edge=False)
-                table.add_column("Directory", style="dim")
-                for dir_ in build_dir.skipped_directories:
-                    table.add_row(dir_.directory.as_posix())
-                console.print(table)
-            if build_dir.invalid_directories:
-                table = Table(title="Invalid Directories", expand=False, show_edge=False)
-                table.add_column("Directory", style="red")
-                for inv_dir in build_dir.invalid_directories:
-                    table.add_row(inv_dir.as_posix())
-                console.print(table)
-            if invalid_yaml_file_count:
-                table = Table(title="Invalid YAML Files", expand=False, show_edge=False)
-                table.add_column("File", style="red")
-                for dir_ in build_dir.resource_directories:
-                    for file in dir_.invalid_files:
-                        table.add_row(file.as_posix())
-                console.print(table)
 
     def _validate_cdf_project(
         self,
@@ -468,22 +474,28 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:
         if not plan:
-            console.print(f"[bold yellow]No resources to {operation}.[/]")
+            console.print(
+                ToolkitPanel(
+                    f"[bold yellow]No resources to {operation}.[/]",
+                    title=f"[bold]{operation_noun.title()} plan[/]",
+                    border_style=AuraColor.AMBER.rich,
+                )
+            )
             return
 
         step_count = len(plan)
         total_files = sum(len(step.files) for step in plan)
 
-        summary_lines = [
-            f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
-            f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
-        ]
         console.print(
-            Panel(
-                "\n".join(summary_lines),
+            ToolkitPanel(
+                ToolkitPanelSection(
+                    content=[
+                        f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+                        f"[green]✓[/] [bold]{total_files}[/] resource files to {operation}",
+                    ]
+                ),
                 title=f"[bold]{operation_noun.title()} plan[/]",
-                border_style="green",
-                expand=False,
+                border_style=AuraColor.GREEN.rich,
             )
         )
 
@@ -705,10 +717,9 @@ class DeployV2Command(ToolkitCommand):
                     for sensitive in crud.sensitive_strings(resource.request):
                         diff_str = diff_str.replace(sensitive, "********")
                     console.print(
-                        Panel(
+                        ToolkitPanel(
                             diff_str,
-                            title=f"{crud.display_name}: {identifier}",
-                            expand=False,
+                            title=f"[bold]{crud.display_name}:[/] {identifier}",
                         )
                     )
         return resources
@@ -887,14 +898,20 @@ class DeployV2Command(ToolkitCommand):
         cls, results: Sequence[DeploymentResult], operation: str, operation_noun: str, console: Console, verbose: bool
     ) -> None:
         if not results:
-            console.print(f"No resources were {operation}ed.")
+            console.print(
+                ToolkitPanel(
+                    f"No resources were {operation}ed.",
+                    title=f"[bold]{operation_noun.title()} summary[/]",
+                )
+            )
             return
 
         is_dry_run = results[0].is_dry_run
-        title = f"{operation_noun.title()} Summary"
+        panel_title = f"[bold]{operation_noun.title()} summary[/]"
         if is_dry_run:
-            title += " (dry run)"
-        table = Table(title=title, show_lines=False)
+            panel_title += " [dim](dry run)[/]"
+
+        table = ToolkitTable()
         table.add_column("Resource", style="cyan")
         if is_dry_run:
             table.add_column("Would create", justify="right", style="green")
@@ -904,7 +921,6 @@ class DeployV2Command(ToolkitCommand):
             table.add_column("Created", justify="right", style="green")
             table.add_column("Updated", justify="right", style="yellow")
             table.add_column("Deleted", justify="right", style="red")
-
         table.add_column("Unchanged", justify="right", style="dim")
         table.add_column("Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right", style="cyan")
@@ -932,11 +948,7 @@ class DeployV2Command(ToolkitCommand):
                 str(result.total_count),
             ]
             if is_dry_run:
-                if result.is_missing_write_acl:
-                    row.append("[red]No[/]")
-                else:
-                    row.append("[green]Yes[/]")
-
+                row.append("[red]No[/]" if result.is_missing_write_acl else "[green]Yes[/]")
             table.add_row(*row)
             total += result
 
@@ -952,28 +964,29 @@ class DeployV2Command(ToolkitCommand):
                 f"[bold]{total.total_count}[/]",
             ]
             if is_dry_run:
-                if total.is_missing_write_acl:
-                    last_row.append("[red]No[/]")
-                else:
-                    last_row.append("[green]Yes[/]")
-
+                last_row.append("[red]No[/]" if total.is_missing_write_acl else "[green]Yes[/]")
             table.add_row(*last_row)
 
-        console.print(table)
+        sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
 
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
-            console.print(
-                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
-                f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
-                f"Use --verbose flag to get details about all skipped resources."
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
+                        f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
+                        f"Use --verbose to see all skipped resources."
+                    )
+                )
             )
-        if verbose and total.skipped:
-            skipped_str = [
-                f"{skip.id!s} in file {skip.source_file.as_posix()} | {skip.code} | {skip.reason}"
-                for skip in total.skipped
-            ]
-            console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+        elif verbose and total.skipped:
+            skipped_table = ToolkitTable("Resource", "File", "Code", "Reason")
+            for skip in total.skipped:
+                skipped_table.add_row(str(skip.id), skip.source_file.as_posix(), skip.code, skip.reason)
+            sections.append(ToolkitPanelSection(title="Skipped resources", content=[skipped_table.as_panel_detail()]))
+
+        console.print(ToolkitPanel(Group(*sections), title=panel_title))
 
     @classmethod
     def _track_deployment_result(
@@ -1054,14 +1067,22 @@ class DeployV2Command(ToolkitCommand):
     def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
         raw_table_count = len(raw_files)
         file_count = sum(len(files) for files in raw_files.values())
+        plural_t = "" if raw_table_count == 1 else "s"
+        plural_f = "" if file_count == 1 else "s"
         console.print(
-            Panel(
-                f"[yellow]Deprecation Warning[/]\n\n"
-                f"You are deploying {raw_table_count} raw table{'' if raw_table_count == 1 else 's'} based on {file_count} file{'' if file_count == 1 else 's'}.\n\n"
-                f"Support for deploying raw tables through the deploy command will be removed in a future release. "
-                f"Please migrate your raw tables to use the new data plugin. See the documentation for more details.",
-                title="Deprecation Warning",
-                border_style="yellow",
-                expand=False,
+            ToolkitPanel(
+                Group(
+                    ToolkitPanelSection(
+                        description=f"[bold]{raw_table_count}[/] raw table{plural_t} from [bold]{file_count}[/] file{plural_f}."
+                    ),
+                    ToolkitPanelSection(
+                        description=(
+                            "Support for deploying raw tables through the deploy command will be removed in a future release. "
+                            "Please migrate your raw tables to use the new data plugin. See the documentation for more details."
+                        )
+                    ),
+                ),
+                title="[bold]Deprecation warning[/]",
+                border_style=AuraColor.AMBER.rich,
             )
         )
