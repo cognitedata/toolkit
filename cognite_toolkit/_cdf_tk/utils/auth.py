@@ -335,7 +335,6 @@ class EnvironmentVariables:
             base_url=self.cdf_url,
             is_strict_validation=is_strict_validation,
             timeout=self.CDF_CLIENT_TIMEOUT,
-            max_workers=self.CDF_CLIENT_MAX_WORKERS,
         )
 
     def get_client(self, is_strict_validation: bool | None = None, console: Console | None = None) -> ToolkitClient:
