@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
-from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -357,28 +357,35 @@ class DeployV2Command(ToolkitCommand):
         read_dir_subsections: list[RenderableType] = [ToolkitPanelSection(content=read_dir_summary)]
         if verbose:
             if build_dir.skipped_directories:
-                t = ToolkitTable("Directory")
-                for dir_ in build_dir.skipped_directories:
-                    t.add_row(dir_.directory.as_posix())
                 read_dir_subsections.append(
-                    ToolkitPanelSection(title="Skipped directories", content=[t.as_panel_detail()])
+                    ToolkitPanelSection(
+                        title="Skipped directories",
+                        content=[
+                            hanging_indent("○", dir_.directory.as_posix(), marker_style="dim")
+                            for dir_ in build_dir.skipped_directories
+                        ],
+                    )
                 )
             if build_dir.invalid_directories:
-                t = ToolkitTable("Directory")
-                t.columns[0].style = "red"
-                for inv_dir in build_dir.invalid_directories:
-                    t.add_row(inv_dir.as_posix())
                 read_dir_subsections.append(
-                    ToolkitPanelSection(title="Invalid directories", content=[t.as_panel_detail()])
+                    ToolkitPanelSection(
+                        title="Invalid directories",
+                        content=[
+                            hanging_indent("✗", inv_dir.as_posix(), marker_style=AuraColor.RED.rich)
+                            for inv_dir in build_dir.invalid_directories
+                        ],
+                    )
                 )
             if invalid_yaml_file_count:
-                t = ToolkitTable("File")
-                t.columns[0].style = "red"
-                for dir_ in build_dir.resource_directories:
-                    for file in dir_.invalid_files:
-                        t.add_row(file.as_posix())
                 read_dir_subsections.append(
-                    ToolkitPanelSection(title="Invalid YAML files", content=[t.as_panel_detail()])
+                    ToolkitPanelSection(
+                        title="Invalid YAML files",
+                        content=[
+                            hanging_indent("✗", file.as_posix(), marker_style=AuraColor.RED.rich)
+                            for dir_ in build_dir.resource_directories
+                            for file in dir_.invalid_files
+                        ],
+                    )
                 )
         elif skipped_dir_count or invalid_dir_count or invalid_yaml_file_count:
             read_dir_subsections.append(
@@ -986,10 +993,19 @@ class DeployV2Command(ToolkitCommand):
                 )
             )
         elif verbose and total.skipped:
-            skipped_table = ToolkitTable("Resource", "File", "Code", "Reason")
-            for skip in total.skipped:
-                skipped_table.add_row(str(skip.id), skip.source_file.as_posix(), skip.code, skip.reason)
-            sections.append(ToolkitPanelSection(title="Skipped resources", content=[skipped_table.as_panel_detail()]))
+            sections.append(
+                ToolkitPanelSection(
+                    title="Skipped resources",
+                    content=[
+                        hanging_indent(
+                            "○",
+                            f"[bold]{skip.id}[/] {skip.source_file.as_posix()} [{skip.code}] {skip.reason}",
+                            marker_style="dim",
+                        )
+                        for skip in total.skipped
+                    ],
+                )
+            )
 
         console.print(ToolkitPanel(Group(*sections), title=panel_title))
 
