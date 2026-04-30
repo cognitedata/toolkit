@@ -41,14 +41,18 @@ class ToolkitPanel(Panel):
         renderable: RenderableType,
         box: rich_box.Box = rich_box.ROUNDED,
         *,
+        title: str | Text | None = None,
         title_align: Literal["left", "center", "right"] = "left",
         subtitle_align: Literal["left", "center", "right"] = "left",
         padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (1, 2),
         **kwargs: Any,
     ) -> None:
+        if isinstance(title, str):
+            title = Text(title, style="bold")
         super().__init__(
             renderable,
             box,
+            title=title,
             title_align=title_align,
             subtitle_align=subtitle_align,
             padding=padding,

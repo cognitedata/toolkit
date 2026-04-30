@@ -172,7 +172,7 @@ class DeployCommand(ToolkitCommand):
         content = f"[bold]{verb}[/] resource files from {build_dir} directory."
         if not _RUNNING_IN_BROWSER:
             content += f"\n\nConnected to {env_vars.as_string()}"
-        print(ToolkitPanel(content, title="[bold]Deploy[/]"))
+        print(ToolkitPanel(content, title="Deploy"))
 
     def clean_all_resources(
         self,
@@ -192,9 +192,7 @@ class DeployCommand(ToolkitCommand):
             return None
         flags = "--drop and --drop-data" if (drop and drop_data) else ("--drop" if drop else "--drop-data")
         print(
-            ToolkitPanel(
-                f"Cleaning resources as {flags} is passed", title="[bold]Clean[/]", border_style=AuraColor.AMBER.rich
-            )
+            ToolkitPanel(f"Cleaning resources as {flags} is passed", title="Clean", border_style=AuraColor.AMBER.rich)
         )
 
         for loader_cls in reversed(ordered_loaders):
@@ -284,7 +282,7 @@ class DeployCommand(ToolkitCommand):
 
         """
         if verbose:
-            print(ToolkitPanel("[bold]Deploying resources...[/]", title="[bold]Deploy[/]"))
+            print(ToolkitPanel("[bold]Deploying resources...[/]", title="Deploy"))
 
         if ordered_loaders is None:
             selected_loaders = self._clean_command.get_selected_loaders(build_dir, set(), None)

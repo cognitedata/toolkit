@@ -427,7 +427,7 @@ class DeployV2Command(ToolkitCommand):
         console.print(
             ToolkitPanel(
                 Group(startup_section, read_dir_section, plan_section),
-                title="[bold]Setting up deploy[/]",
+                title=f"Setting up {operation}",
                 border_style=border_style,
             )
         )
@@ -723,7 +723,7 @@ class DeployV2Command(ToolkitCommand):
                     console.print(
                         ToolkitPanel(
                             diff_str,
-                            title=f"[bold]{crud.display_name}:[/] {identifier}",
+                            title=f"{crud.display_name}: {identifier}",
                         )
                     )
         return resources
@@ -905,13 +905,13 @@ class DeployV2Command(ToolkitCommand):
             console.print(
                 ToolkitPanel(
                     f"No resources were {operation}ed.",
-                    title=f"[bold]{operation.title()} summary[/]",
+                    title=f"{operation.title()} summary",
                 )
             )
             return
 
         is_dry_run = results[0].is_dry_run
-        panel_title = f"[bold]{operation.title()} summary[/]"
+        panel_title = f"{operation.title()} summary"
         if is_dry_run:
             panel_title += " [dim](dry run)[/]"
 
@@ -1086,7 +1086,7 @@ class DeployV2Command(ToolkitCommand):
                         )
                     ),
                 ),
-                title="[bold]Deprecation warning[/]",
+                title="Deprecation warning",
                 border_style=AuraColor.AMBER.rich,
             )
         )
