@@ -414,8 +414,6 @@ class DeployV2Command(ToolkitCommand):
                     border_style=AuraColor.AMBER.rich,
                 )
             )
-            for warning in read_dir_warnings:
-                self.warn(warning, console=console)
             raise
 
         if not plan:
@@ -439,8 +437,6 @@ class DeployV2Command(ToolkitCommand):
                 border_style=border_style,
             )
         )
-        for warning in read_dir_warnings:
-            self.warn(warning, console=console)
         return plan
 
     def _validate_cdf_project(
