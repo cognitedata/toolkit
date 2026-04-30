@@ -147,9 +147,11 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
         show_edge=False,
         padding=(0, 1),
         expand=True,
+        highlight=False,
+        show_header=True,
     )
-    table.add_column("CDF", overflow="fold", ratio=1)
-    table.add_column("Local", overflow="fold", ratio=1)
+    table.add_column(f"[{AuraColor.RED.rich}]CDF (current)[/]", overflow="fold", ratio=1, no_wrap=False)
+    table.add_column(f"[{AuraColor.GREEN.rich}]Local (desired)[/]", overflow="fold", ratio=1, no_wrap=False)
 
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
