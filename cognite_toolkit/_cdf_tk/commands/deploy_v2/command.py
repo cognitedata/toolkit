@@ -359,7 +359,7 @@ class DeployV2Command(ToolkitCommand):
             if build_dir.skipped_directories:
                 read_dir_subsections.append(
                     ToolkitPanelSection(
-                        title="Skipped directories",
+                        title="Skipped directories (excluded by --include)",
                         content=[
                             hanging_indent("○", dir_.directory.as_posix(), marker_style="dim")
                             for dir_ in build_dir.skipped_directories
@@ -369,7 +369,7 @@ class DeployV2Command(ToolkitCommand):
             if build_dir.invalid_directories:
                 read_dir_subsections.append(
                     ToolkitPanelSection(
-                        title="Invalid directories",
+                        title="Invalid directories (will be skipped)",
                         content=[
                             hanging_indent("✗", inv_dir.as_posix(), marker_style=AuraColor.RED.rich)
                             for inv_dir in build_dir.invalid_directories
@@ -379,7 +379,7 @@ class DeployV2Command(ToolkitCommand):
             if invalid_yaml_file_count:
                 read_dir_subsections.append(
                     ToolkitPanelSection(
-                        title="Invalid YAML files",
+                        title="Invalid YAML files (will be skipped)",
                         content=[
                             hanging_indent("✗", file.as_posix(), marker_style=AuraColor.RED.rich)
                             for dir_ in build_dir.resource_directories
