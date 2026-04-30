@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, Self
 
 from cognite.client.data_classes._base import (
     WriteableCogniteResource,
@@ -262,6 +262,11 @@ class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogn
             "resource": self.resource.dump(camel_case=camel_case),
         }
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any]) -> Self:
+        raise NotImplementedError(
+            "AssetCentricMapping is built in-memory for migrations; loading from an API dict is not supported."
+        )
 
 class ThreeDRevisionMigrationRequest(RequestResource):
     space: str
