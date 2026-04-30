@@ -149,8 +149,8 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
         highlight=False,
         show_header=True,
     )
+    table.add_column(f"[{AuraColor.GREEN.rich}]Local (desired)[/]", overflow="fold", ratio=1, no_wrap=False)
     table.add_column(f"[{AuraColor.RED.rich}]CDF (current)[/]", overflow="fold", ratio=1, no_wrap=False)
-    table.add_column("[Local (desired)", overflow="fold", ratio=1, no_wrap=False)
 
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
@@ -169,15 +169,15 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
                     table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
         elif tag == "delete":
             for line in old_lines[i1:i2]:
-                table.add_row(f"[{AuraColor.RED.rich}]{line}[/]", "")
+                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
         elif tag == "insert":
             for line in new_lines[j1:j2]:
-                table.add_row("", f"[{AuraColor.GREEN.rich}]{line}[/]")
+                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
         elif tag == "replace":
-            for line in old_lines[i1:i2]:
-                table.add_row(f"[{AuraColor.RED.rich}]{line}[/]", "")
             for line in new_lines[j1:j2]:
-                table.add_row("", f"[{AuraColor.GREEN.rich}]{line}[/]")
+                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
+            for line in old_lines[i1:i2]:
+                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
 
     return table
 

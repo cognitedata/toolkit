@@ -730,8 +730,8 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
-                    old_lines = yaml_safe_dump(cdf_dict, sort_keys=True).splitlines()
-                    new_lines = yaml_safe_dump(resource.raw_dict, sort_keys=True).splitlines()
+                    old_lines = yaml_safe_dump(cdf_dict).splitlines()
+                    new_lines = yaml_safe_dump(resource.raw_dict).splitlines()
                     for sensitive in crud.sensitive_strings(resource.request):
                         old_lines = [line.replace(sensitive, "********") for line in old_lines]
                         new_lines = [line.replace(sensitive, "********") for line in new_lines]
