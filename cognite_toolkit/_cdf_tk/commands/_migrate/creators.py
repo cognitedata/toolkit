@@ -288,12 +288,14 @@ class InfieldV2ConfigCreator(MigrationCreator):
         client: ToolkitClient,
         external_ids: Sequence[str] | None = None,
         apm_configs: Sequence[APMConfigResponse] | None = None,
+        skip_invalid: bool = False,
     ) -> None:
         super().__init__(client)
         if sum([external_ids is not None, apm_configs is not None]) != 1:
             raise ValueError("Exactly one of external_ids or apm_configs must be provided.")
         self.external_ids = external_ids
         self.apm_configs = apm_configs
+        self.skip_invalid = skip_invalid
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.external_ids is not None:
@@ -346,16 +348,25 @@ class InfieldV2ConfigCreator(MigrationCreator):
         data_exploration = self._create_data_exploration(config.feature_configuration)
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
-            location_filter = self._create_location_filter(root_location_config)
-            location_filters.append(location_filter)
-            location_configs.append(
-                self._create_location_config(
+            try:
+                location_config = self._create_location_config(
                     root_location_config,
                     config.feature_configuration.disciplines,
                     data_exploration,
                     index,
                 )
-            )
+            except (ToolkitMigrationError, ToolkitMissingResourceError) as error:
+                if not self.skip_invalid:
+                    raise type(error)(
+                        f"{error} You can rerun the migration command with `--skip-invalid` to skip this and any other invalid or "
+                        "non-migrated root location configurations."
+                    ) from error
+                HighSeverityWarning(f"Skipping root location configuration: {error}").print_warning(
+                    console=self.client.console
+                )
+                continue
+            location_filters.append(self._create_location_filter(root_location_config))
+            location_configs.append(location_config)
 
         return location_configs, location_filters
 
@@ -393,7 +404,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             or config.source_data_instance_space is None
         ):
             raise ToolkitMigrationError(
-                f"Root location configuration with external ID '{config.external_id}' is missing required fields for migration. "
+                f"Root location configuration with external ID '{config.external_id}' is missing required fields for migration."
             )
         root_node = self.client.migration.lookup.assets(external_id=config.asset_external_id)
         if not root_node:

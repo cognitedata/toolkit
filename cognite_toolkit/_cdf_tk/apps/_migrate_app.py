@@ -1453,6 +1453,15 @@ class MigrateApp(typer.Typer):
                 "to govern these configurations in a git repository.",
             ),
         ] = Path("tmp"),
+        skip_invalid: Annotated[
+            bool,
+            typer.Option(
+                "--skip-invalid",
+                help="Skip root location configurations that are missing required fields or whose root asset has not "
+                "been migrated yet, instead of failing the entire command. A warning is emitted for each skipped "
+                "location.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1480,7 +1489,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.create(
                 client,
-                creator=InfieldV2ConfigCreator(client, external_id, apm_configs),
+                creator=InfieldV2ConfigCreator(client, external_id, apm_configs, skip_invalid=skip_invalid),
                 output_dir=output_dir,
                 dry_run=False,
                 deploy=False,
