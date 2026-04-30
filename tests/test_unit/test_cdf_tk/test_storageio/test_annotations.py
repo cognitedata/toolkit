@@ -33,8 +33,22 @@ class TestAnnotationIO:
             status_code=200,
             json={
                 "items": [
-                    {"id": 1, "externalId": "external_1", "name": "file_1"},
-                    {"id": 2, "externalId": "external_2", "name": "file_2"},
+                    {
+                        "id": 1,
+                        "externalId": "external_1",
+                        "name": "file_1",
+                        "uploaded": True,
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                    },
+                    {
+                        "id": 2,
+                        "externalId": "external_2",
+                        "name": "file_2",
+                        "uploaded": True,
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                    },
                 ]
             },
         )
@@ -42,7 +56,14 @@ class TestAnnotationIO:
             status_code=200,
             json={
                 "items": [
-                    {"id": 3, "externalId": "external_3", "name": "asset_3"},
+                    {
+                        "id": 3,
+                        "externalId": "external_3",
+                        "name": "asset_3",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "rootId": 3,
+                    }
                 ]
             },
         )

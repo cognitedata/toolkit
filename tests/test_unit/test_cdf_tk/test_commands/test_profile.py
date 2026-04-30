@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
+from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -96,10 +97,14 @@ class TestProfileCommand:
         assert draw_row == expected
 
     def test_profile_raw_command_fallback_row_count(
-        self, toolkit_client_approval: ApprovalToolkitClient, raw_profile_results_single_column: RawProfileResponse
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        raw_profile_results_single_column: RawProfileResponse,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that when there is more than 10 000 rows in the table,
         the fallback is to use the /transformations/preview endpoint to get the row count."""
+        monkeypatch.setattr(ThrottlerState, "throttle", lambda self: None)
         cmd = ProfileRawCommand(silent=True)
         row_count = MAX_ROW_ITERATION_RUN_QUERY
         toolkit_client_approval.append(

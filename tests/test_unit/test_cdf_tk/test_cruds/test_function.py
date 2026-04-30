@@ -371,6 +371,8 @@ authentication:
                         "externalId": "fn_example_repeater",
                         "status": "Ready",
                         "fileId": 101,
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
                     }
                 ]
             },

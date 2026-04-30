@@ -196,7 +196,7 @@ def asset_centric_client(
 
         client.tool.token.verify_acls.return_value = []
         client.labels.retrieve.return_value = LabelDefinitionList(
-            [LabelDefinition(external_id="my_label", name="my_label")]
+            [LabelDefinition(external_id="my_label", name="my_label", created_time=0)]
         )
         client.config = toolkit_config
         yield client

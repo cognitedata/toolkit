@@ -476,7 +476,6 @@ class ApprovalToolkitClient:
                     }
                     for c in created
                 ],
-                cognite_client=client,
             )
             return read_list
 
@@ -536,7 +535,7 @@ class ApprovalToolkitClient:
                         )
                     item["workflowDefinition"]["hash"] = "123"
 
-            return resource_list_cls.load(read_resource_objects, cognite_client=client)
+            return resource_list_cls.load(read_resource_objects)
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
@@ -862,7 +861,7 @@ class ApprovalToolkitClient:
                     )
                     for space in ids
                 ]
-                return read_list_cls(spaces, cognite_client=client)
+                return read_list_cls(spaces)
             elif resource_cls is DataSet:
                 if "external_ids" in kwargs:
                     external_ids = kwargs["external_ids"]
@@ -880,7 +879,7 @@ class ApprovalToolkitClient:
                     )
                     for external_id in external_ids
                 ]
-                return read_list_cls(datasets, cognite_client=client)
+                return read_list_cls(datasets)
             elif resource_cls is ExtractionPipeline:
                 if "external_ids" in kwargs:
                     external_ids = kwargs["external_ids"]
@@ -899,7 +898,7 @@ class ApprovalToolkitClient:
                     )
                     for external_id in external_ids
                 ]
-                return read_list_cls(pipelines, cognite_client=client)
+                return read_list_cls(pipelines)
 
             raise NotImplementedError(f"Return values not implemented for {resource_cls}")
 
@@ -915,7 +914,7 @@ class ApprovalToolkitClient:
             if not existing_resources[resource_cls.__name__]:
                 return DataModelList([])
             id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else set(ids)
-            to_return = read_list_cls([], cognite_client=client)
+            to_return = read_list_cls([])
             for resource in existing_resources[resource_cls.__name__]:
                 id_ = resource.as_id()
                 if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
@@ -932,7 +931,7 @@ class ApprovalToolkitClient:
 
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
-                return read_list_cls(value, cognite_client=client)[0]
+                return read_list_cls(value)[0]
             elif self.return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
                 return _create_verification_resource(*args, **kwargs)[0]
             else:
@@ -955,7 +954,7 @@ class ApprovalToolkitClient:
 
         def data_model_retrieve(ids, *args, **kwargs):
             id_set = set(ids) if isinstance(ids, Sequence) else {ids}
-            to_return = read_list_cls([], cognite_client=client)
+            to_return = read_list_cls([])
             for resource in existing_resources[resource_cls.__name__]:
                 id = resource.as_id()
                 if id in id_set or (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
@@ -1057,7 +1056,6 @@ class ApprovalToolkitClient:
                         ProjectCapability(capability=capability, project_scope=AllProjectsScope())
                         for capability in _ALL_CAPABILITIES
                     ],
-                    cognite_client=client,
                 ),
             )
 

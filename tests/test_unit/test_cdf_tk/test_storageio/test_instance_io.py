@@ -314,7 +314,7 @@ class TestInstanceIO:
             kind=InstanceIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 4
+        assert len(respx_mock.calls) == 5
 
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)

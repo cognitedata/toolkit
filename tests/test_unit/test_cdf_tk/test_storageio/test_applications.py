@@ -185,7 +185,28 @@ class TestChartIO:
         )
         respx_mock.post(ts_url).respond(
             status_code=200,
-            json={"items": [{"id": 200, "externalId": "ts_1"}, {"id": 201, "externalId": "ts_4"}]},
+            json={
+                "items": [
+                    {
+                        "id": 200,
+                        "externalId": "ts_1",
+                        "name": "ts_1",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "isStep": False,
+                        "isString": False,
+                    },
+                    {
+                        "id": 201,
+                        "externalId": "ts_4",
+                        "name": "ts_4",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "isStep": False,
+                        "isString": False,
+                    },
+                ]
+            },
         )
         assert io.count(selector) == 2
         charts_iterator = io.stream_data(selector=selector)
