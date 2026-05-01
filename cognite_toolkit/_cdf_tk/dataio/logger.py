@@ -281,4 +281,4 @@ def display_item_results(items: list[ItemsResult], title: str, console: Console)
 
         trees.append(tree)
 
-    console.print(ToolkitPanel(Group(*trees), title=title, expand=False))
+    console.print(ToolkitPanel(Group(*trees), title=title))
