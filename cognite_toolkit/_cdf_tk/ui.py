@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from difflib import SequenceMatcher
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
@@ -11,7 +12,15 @@ from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "AuraColor", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable", "hanging_indent"]
+__all__ = [
+    "QUESTIONARY_STYLE",
+    "AuraColor",
+    "ToolkitPanel",
+    "ToolkitPanelSection",
+    "ToolkitTable",
+    "diff_table",
+    "hanging_indent",
+]
 
 
 # https://cognitedata.github.io/aura/primitives/colors
@@ -122,6 +131,94 @@ class ToolkitTable(Table):
 
     def as_panel_detail(self) -> RenderableType:
         return Padding(self, (1, 0, 1, 2))
+
+
+def _yaml_key(line: str) -> str | None:
+    stripped = line.lstrip()
+    if ":" in stripped:
+        key = stripped.split(":")[0].strip()
+        return key or None
+    return None
+
+
+def _highlight_diff(old_str: str, new_str: str) -> tuple[str, str]:
+    """Return (new_highlighted, old_highlighted) with changed character spans wrapped in [bold]."""
+    matcher = SequenceMatcher(None, old_str, new_str, autojunk=False)
+    old_parts: list[str] = []
+    new_parts: list[str] = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            old_parts.append(old_str[i1:i2])
+            new_parts.append(new_str[j1:j2])
+        elif tag == "delete":
+            old_parts.append(f"[bold]{old_str[i1:i2]}[/bold]")
+        elif tag == "insert":
+            new_parts.append(f"[bold]{new_str[j1:j2]}[/bold]")
+        elif tag == "replace":
+            old_parts.append(f"[bold]{old_str[i1:i2]}[/bold]")
+            new_parts.append(f"[bold]{new_str[j1:j2]}[/bold]")
+    return "".join(new_parts), "".join(old_parts)
+
+
+def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> RenderableType:
+    """Side-by-side diff table comparing old (left) and new (right) lines.
+
+    Equal regions larger than 2*context+1 lines are collapsed to a '…' separator.
+    Deleted lines are shown in red on the left, inserted lines in green on the right.
+    """
+    matcher = SequenceMatcher(None, old_lines, new_lines, autojunk=False)
+
+    table = Table(
+        box=rich_box.SIMPLE,
+        show_edge=False,
+        padding=(0, 1),
+        expand=False,
+        highlight=False,
+        show_header=True,
+    )
+    table.add_column(f"[{AuraColor.GREEN.rich}]Local (desired)[/]", overflow="fold", ratio=1, no_wrap=False)
+    table.add_column(f"[{AuraColor.RED.rich}]CDF (current)[/]", overflow="fold", ratio=1, no_wrap=False)
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            block = old_lines[i1:i2]
+            if len(block) <= 2 * context + 1:
+                for line in block:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+            else:
+                for line in block[:context]:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+                table.add_row(
+                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
+                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
+                )
+                for line in block[-context:]:
+                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
+        elif tag == "delete":
+            for line in old_lines[i1:i2]:
+                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
+        elif tag == "insert":
+            for line in new_lines[j1:j2]:
+                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
+        elif tag == "replace":
+            old_block = old_lines[i1:i2]
+            new_block = new_lines[j1:j2]
+            old_by_key = {_yaml_key(line): line for line in old_block if _yaml_key(line)}
+            seen_old_keys: set[str] = set()
+            for line in new_block:
+                key = _yaml_key(line)
+                if key and key in old_by_key:
+                    seen_old_keys.add(key)
+                    local_hl, cdf_hl = _highlight_diff(old_by_key[key], line)
+                    table.add_row(f"[{AuraColor.GREEN.rich}]{local_hl}[/]", f"[{AuraColor.RED.rich}]{cdf_hl}[/]")
+                else:
+                    table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
+            for line in old_block:
+                key = _yaml_key(line)
+                if key not in seen_old_keys:
+                    table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
+
+    return table
 
 
 QUESTIONARY_STYLE = questionary.Style(
