@@ -133,6 +133,14 @@ class ToolkitTable(Table):
         return Padding(self, (1, 0, 1, 2))
 
 
+def _yaml_key(line: str) -> str | None:
+    stripped = line.lstrip()
+    if ":" in stripped:
+        key = stripped.split(":")[0].strip()
+        return key or None
+    return None
+
+
 def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> RenderableType:
     """Side-by-side diff table comparing old (left) and new (right) lines.
 
@@ -174,10 +182,21 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
             for line in new_lines[j1:j2]:
                 table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
         elif tag == "replace":
-            for line in new_lines[j1:j2]:
-                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
-            for line in old_lines[i1:i2]:
-                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
+            old_block = old_lines[i1:i2]
+            new_block = new_lines[j1:j2]
+            old_by_key = {_yaml_key(line): line for line in old_block if _yaml_key(line)}
+            seen_old_keys: set[str] = set()
+            for line in new_block:
+                key = _yaml_key(line)
+                if key and key in old_by_key:
+                    seen_old_keys.add(key)
+                    table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", f"[{AuraColor.RED.rich}]{old_by_key[key]}[/]")
+                else:
+                    table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
+            for line in old_block:
+                key = _yaml_key(line)
+                if key not in seen_old_keys:
+                    table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
 
     return table
 
