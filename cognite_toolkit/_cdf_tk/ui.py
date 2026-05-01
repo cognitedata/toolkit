@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from difflib import SequenceMatcher
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
@@ -18,7 +17,6 @@ __all__ = [
     "ToolkitPanel",
     "ToolkitPanelSection",
     "ToolkitTable",
-    "diff_table",
     "hanging_indent",
 ]
 
@@ -131,55 +129,6 @@ class ToolkitTable(Table):
 
     def as_panel_detail(self) -> RenderableType:
         return Padding(self, (1, 0, 1, 2))
-
-
-def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> RenderableType:
-    """Side-by-side diff table comparing old (left) and new (right) lines.
-
-    Equal regions larger than 2*context+1 lines are collapsed to a '…' separator.
-    Deleted lines are shown in red on the left, inserted lines in green on the right.
-    """
-    matcher = SequenceMatcher(None, old_lines, new_lines, autojunk=False)
-
-    table = Table(
-        box=rich_box.SIMPLE,
-        show_edge=False,
-        padding=(0, 1),
-        expand=False,
-        highlight=False,
-        show_header=True,
-    )
-    table.add_column(f"[{AuraColor.GREEN.rich}]Local (desired)[/]", overflow="fold", ratio=1, no_wrap=False)
-    table.add_column(f"[{AuraColor.RED.rich}]CDF (current)[/]", overflow="fold", ratio=1, no_wrap=False)
-
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            block = old_lines[i1:i2]
-            if len(block) <= 2 * context + 1:
-                for line in block:
-                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
-            else:
-                for line in block[:context]:
-                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
-                table.add_row(
-                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
-                    f"[{AuraColor.MOUNTAIN.rich}]…[/]",
-                )
-                for line in block[-context:]:
-                    table.add_row(f"[dim]{line}[/]", f"[dim]{line}[/]")
-        elif tag == "delete":
-            for line in old_lines[i1:i2]:
-                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
-        elif tag == "insert":
-            for line in new_lines[j1:j2]:
-                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
-        elif tag == "replace":
-            for line in old_lines[i1:i2]:
-                table.add_row("", f"[{AuraColor.RED.rich}]{line}[/]")
-            for line in new_lines[j1:j2]:
-                table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
-
-    return table
 
 
 QUESTIONARY_STYLE = questionary.Style(

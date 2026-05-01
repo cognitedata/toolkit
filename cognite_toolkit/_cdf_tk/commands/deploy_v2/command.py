@@ -1,3 +1,4 @@
+import difflib
 import json
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
@@ -56,7 +57,6 @@ from cognite_toolkit._cdf_tk.ui import (
     ToolkitPanel,
     ToolkitPanelSection,
     ToolkitTable,
-    diff_table,
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
@@ -730,17 +730,15 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
-                    old_lines = yaml_safe_dump(cdf_dict).splitlines()
-                    new_lines = yaml_safe_dump(resource.raw_dict).splitlines()
+                    old_lines = yaml_safe_dump(cdf_dict).splitlines(keepends=True)
+                    new_lines = yaml_safe_dump(resource.raw_dict).splitlines(keepends=True)
                     for sensitive in crud.sensitive_strings(resource.request):
                         old_lines = [line.replace(sensitive, "********") for line in old_lines]
                         new_lines = [line.replace(sensitive, "********") for line in new_lines]
-                    console.print(
-                        ToolkitPanel(
-                            diff_table(old_lines, new_lines),
-                            title=f"{crud.display_name}: {identifier}",
-                        )
+                    diff = "".join(
+                        difflib.unified_diff(old_lines, new_lines, fromfile="CDF (current)", tofile="Local (desired)")
                     )
+                    console.print(ToolkitPanel(diff, title=f"{crud.display_name}: {identifier}"))
         return resources
 
     @classmethod
