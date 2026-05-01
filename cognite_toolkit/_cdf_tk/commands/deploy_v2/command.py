@@ -942,7 +942,7 @@ class DeployV2Command(ToolkitCommand):
         table.add_column("Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right", style="cyan")
         if is_dry_run:
-            table.add_column("Able to deploy", justify="right")
+            table.add_column(f"Able to {operation}", justify="right")
 
         total = DeploymentResult(
             "All",
