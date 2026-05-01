@@ -141,6 +141,25 @@ def _yaml_key(line: str) -> str | None:
     return None
 
 
+def _highlight_diff(old_str: str, new_str: str) -> tuple[str, str]:
+    """Return (new_highlighted, old_highlighted) with changed character spans wrapped in [bold]."""
+    matcher = SequenceMatcher(None, old_str, new_str, autojunk=False)
+    old_parts: list[str] = []
+    new_parts: list[str] = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            old_parts.append(old_str[i1:i2])
+            new_parts.append(new_str[j1:j2])
+        elif tag == "delete":
+            old_parts.append(f"[bold]{old_str[i1:i2]}[/bold]")
+        elif tag == "insert":
+            new_parts.append(f"[bold]{new_str[j1:j2]}[/bold]")
+        elif tag == "replace":
+            old_parts.append(f"[bold]{old_str[i1:i2]}[/bold]")
+            new_parts.append(f"[bold]{new_str[j1:j2]}[/bold]")
+    return "".join(new_parts), "".join(old_parts)
+
+
 def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> RenderableType:
     """Side-by-side diff table comparing old (left) and new (right) lines.
 
@@ -190,7 +209,8 @@ def diff_table(old_lines: list[str], new_lines: list[str], context: int = 2) -> 
                 key = _yaml_key(line)
                 if key and key in old_by_key:
                     seen_old_keys.add(key)
-                    table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", f"[{AuraColor.RED.rich}]{old_by_key[key]}[/]")
+                    local_hl, cdf_hl = _highlight_diff(old_by_key[key], line)
+                    table.add_row(f"[{AuraColor.GREEN.rich}]{local_hl}[/]", f"[{AuraColor.RED.rich}]{cdf_hl}[/]")
                 else:
                     table.add_row(f"[{AuraColor.GREEN.rich}]{line}[/]", "")
             for line in old_block:
