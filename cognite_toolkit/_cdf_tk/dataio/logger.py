@@ -9,9 +9,9 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 from rich.console import Console, Group
-from rich.panel import Panel
 from rich.tree import Tree
 
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
@@ -281,5 +281,4 @@ def display_item_results(items: list[ItemsResult], title: str, console: Console)
 
         trees.append(tree)
 
-    console.print()
-    console.print(Panel(Group(*trees), title=f"[bold]{title}[/bold]", expand=False))
+    console.print(ToolkitPanel(Group(*trees), title=title, expand=False))
