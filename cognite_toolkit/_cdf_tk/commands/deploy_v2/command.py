@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -58,6 +59,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     catch_warnings,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -246,8 +248,8 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        # Todo: Some mixpanel tracking??
         self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
+        self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             self._display_deprecation_warning(raw_files, client.console)
@@ -258,6 +260,7 @@ class DeployV2Command(ToolkitCommand):
                 options.dry_run,
                 client.console,
                 options.verbose,
+                self.tracker,
             )
 
         return results
@@ -766,6 +769,15 @@ class DeployV2Command(ToolkitCommand):
                     continue
                 if crud.support_update:
                     resources.to_update.append(resource.request)
+                elif is_data_resource:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="HAS-DATA",
+                            source_file=resource.source_files[0],
+                            reason=(f"{identifier!s} contains data and does not support updates. "),
+                        )
+                    )
                 else:
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
@@ -1043,6 +1055,60 @@ class DeployV2Command(ToolkitCommand):
                 for skip in total.skipped
             ]
             console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+
+    @classmethod
+    def _track_deployment_result(
+        cls, tracker: Tracker, client: ToolkitClient, results: Sequence[DeploymentResult], operation: str
+    ) -> None:
+        if not results:
+            return
+
+        is_dry_run = results[0].is_dry_run
+
+        # Build flattened per-resource stats for Mixpanel compatibility
+        # Creates keys like "dataSets_created", "spaces_updated", etc.
+        per_resource_stats: dict[str, int] = {}
+        resource_types: list[str] = []
+        for result in results:
+            # Convert resource name to camelCase key prefix (e.g., "Data Sets" -> "dataSets")
+            key_prefix = cls._to_tracking_key(result.resource_name)
+            resource_types.append(result.resource_name)
+            per_resource_stats[f"{key_prefix}Created"] = result.created_count
+            per_resource_stats[f"{key_prefix}Updated"] = result.updated_count
+            per_resource_stats[f"{key_prefix}Deleted"] = result.deleted_count
+            per_resource_stats[f"{key_prefix}Unchanged"] = result.unchanged_count
+            per_resource_stats[f"{key_prefix}Skipped"] = result.skipped_count
+            per_resource_stats[f"{key_prefix}Total"] = result.total_count
+
+        event = DeploymentTracking(
+            is_dry_run=is_dry_run,
+            operation=operation,
+            resource_types=resource_types,
+            total_created=sum(r.created_count for r in results),
+            total_updated=sum(r.updated_count for r in results),
+            total_deleted=sum(r.deleted_count for r in results),
+            total_unchanged=sum(r.unchanged_count for r in results),
+            total_skipped=sum(r.skipped_count for r in results),
+            total_resources=sum(r.total_count for r in results),
+            resource_type_count=len(results),
+            # This pydantic class allows extra
+            **per_resource_stats,  # type: ignore [arg-type]
+        )
+        tracker.track(event, client)
+
+    @staticmethod
+    def _to_tracking_key(resource_name: str) -> str:
+        """Convert a resource display name to a camelCase tracking key.
+
+        Examples:
+            "Data Sets" -> "dataSets"
+            "Extraction Pipelines" -> "extractionPipelines"
+            "RAW Tables" -> "rawTables"
+        """
+        words = resource_name.replace("-", " ").split()
+        if not words:
+            return resource_name.lower()
+        return words[0].lower() + "".join(word.capitalize() for word in words[1:])
 
     @classmethod
     def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:

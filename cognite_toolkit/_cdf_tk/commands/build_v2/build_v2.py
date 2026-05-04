@@ -8,16 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import questionary
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -30,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
+    InsightList,
     Module,
     ModuleSource,
     RelativeDirPath,
@@ -50,6 +49,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, to_tracking_key
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -59,9 +59,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRulSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import FailedValidation, RuleSetStatus
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
@@ -76,7 +77,10 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
-    rule: ToolkitGlobalRulSet
+    rule: ToolkitGlobalRuleSet
+
+
+SelectionSource = Literal["modules", "config", "interactive"]
 
 
 class BuildV2Command(ToolkitCommand):
@@ -88,9 +92,18 @@ class BuildV2Command(ToolkitCommand):
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
+        selection_source: SelectionSource = (
+            "modules"
+            if parameters.user_selected_modules
+            else "config"
+            if build_files.selected_modules is not None
+            else "interactive"
+        )
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source, console, parameters.verbose)
+        self._display_module_sources(
+            build_source, console, parameters.verbose, selection_source, parameters.config_file_name
+        )
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -109,17 +122,14 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        self._display_build_folder(
-            build_folder,
-            parameters.config_yaml.name if parameters.config_yaml else "",
-            console,
-            parameters.verbose,
-            parameters.insight_path,
-        )
+        insights = build_folder.all_insights
+        self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
+        self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
-        self._write_results(build_folder, parameters, client.config.project if client else None)
+        self._track_build_results(build_folder, insights, client)
 
-        # Todo: Some mixpanel tracking.
+        self._write_results(insights, build_folder, parameters, client.config.project if client else None)
+
         return build_folder
 
     @classmethod
@@ -142,7 +152,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             content = f"  ┗ {MODULES}\n"
         organization_dir_display = relative_to_if_possible(organization_dir)
-        expected_panel = Panel(
+        expected_panel = ToolkitPanel(
             f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
             expand=False,
         )
@@ -228,7 +238,14 @@ class BuildV2Command(ToolkitCommand):
             raise ToolkitValueError("Build cancelled by user.")
         return set(result)
 
-    def _display_module_sources(self, build_source: BuildSource, console: Console, verbose: bool) -> None:
+    def _display_module_sources(
+        self,
+        build_source: BuildSource,
+        console: Console,
+        verbose: bool,
+        selection_source: SelectionSource,
+        config_file_name: str,
+    ) -> None:
         module_count = len(build_source.modules)
         total_files = build_source.total_files
         read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
@@ -245,97 +262,118 @@ class BuildV2Command(ToolkitCommand):
         invalid_variable_count = len(build_source.invalid_variables)
         orphan_yaml_count = len(build_source.orphan_yaml_files)
 
-        summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{total_files}[/] total resource files",
-            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-        ]
-        border_color = 0
-        errors: list[str] = []
-        if read_variables:
-            summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
-        if ambiguous_selected_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
-            )
-            border_color = 2
-            errors.append("ambiguous selected")
-        if misplaced_modules_count:
-            summary_lines.append(
-                f"[yellow]![/] {misplaced_modules_count}[/] modules are located directly under the another module."
-            )
-            border_color = max(border_color, 1)
-        if non_existing_module_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory."
-            )
-            border_color = 2
-            errors.append("non existing modules")
-        if invalid_variable_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML."
-            )
-            border_color = max(border_color, 1)
-        if orphan_yaml_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module."
-            )
-            border_color = max(border_color, 1)
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
         module_dir_display = relative_to_if_possible(build_source.module_dir)
-        console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
-                border_style=border_style,
-                expand=False,
+
+        summary_sections: list[ToolkitPanelSection] = []
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Directory",
+                description=module_dir_display.as_posix(),
             )
         )
 
-        # Print detailed issue information
+        if verbose:
+            summary_sections.append(
+                ToolkitPanelSection(
+                    title="Selection",
+                    description=self._module_selection_message(selection_source, config_file_name),
+                    content=[f"[green] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                )
+            )
+        summary_sections.append(
+            ToolkitPanelSection(
+                title="Loaded",
+                content=[
+                    f"[green]✓[/] [bold]{module_count}[/] modules",
+                    f"[green]✓[/] [bold]{total_files}[/] total resource files",
+                    f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+                    *([f"[green]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                ],
+            )
+        )
+
+        border_color = 0
+        errors: list[str] = []
+        issue_summary_section_content: list[str] = []
+        issue_details_section_content: list[RenderableType] = []
+
         if ambiguous_selected_count:
-            table = Table(title="Ambiguous Module Selections", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+            )
+            table = ToolkitTable(title="Ambiguous Module Selections")
             table.add_column("Module Name", style="red")
             table.add_column("Matching Paths", style="dim")
             for selection in build_source.ambiguous_selection:
                 if selection.is_selected:
                     paths_str = ", ".join(p.as_posix() for p in selection.module_paths)
                     table.add_row(selection.name, paths_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
+            errors.append("ambiguous selected")
 
         if misplaced_modules_count:
-            table = Table(title="Misplaced Modules", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
+            )
+            table = ToolkitTable(title="Misplaced Modules")
             table.add_column("Module Path", style="red")
             table.add_column("Parent Modules", style="dim")
             for misplaced in build_source.misplaced_modules:
                 parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
                 table.add_row(misplaced.id.as_posix(), parents_str)
-            console.print(table)
-
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
         if non_existing_module_count:
-            table = Table(title="Non-Existing Module Names", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
+            )
+            table = ToolkitTable(title="Non-Existing Module Names")
             table.add_column("Module Name", style="red")
             table.add_column("Closest Matches", style="dim")
             for non_existing in build_source.non_existing_module_names:
                 matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
                 table.add_row(non_existing.name, matches_str)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 2)
+            errors.append("non existing modules")
 
         if invalid_variable_count:
-            table = Table(title="Invalid Variables", expand=False, show_edge=False)
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
+            )
+            table = ToolkitTable(title="Invalid Variables")
             table.add_column("Variable Path", style="red")
             table.add_column("Error", style="dim")
             for invalid_var in build_source.invalid_variables:
                 table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
-            console.print(table)
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
 
-        if verbose and orphan_yaml_count:
-            table = Table(title="Orphan YAML Files", expand=False, show_edge=False)
+        if orphan_yaml_count:
+            issue_summary_section_content.append(
+                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
+            )
+            table = ToolkitTable(title="Orphan YAML Files")
             table.add_column("File Path", style="yellow")
             for orphan_file in build_source.orphan_yaml_files:
-                display_path = relative_to_if_possible(orphan_file)
-                table.add_row(display_path.as_posix())
-            console.print(table)
+                table.add_row(orphan_file.as_posix())
+            issue_details_section_content.append(table.as_panel_detail())
+            border_color = max(border_color, 1)
+
+        if issue_summary_section_content:
+            if not verbose:
+                issue_summary_section_content.append("[italic]Use -v or --verbose to see details[/italic]")
+
+            summary_sections.append(ToolkitPanelSection(title="Issues detected", content=issue_summary_section_content))
+
+        if verbose and issue_details_section_content:
+            summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
+
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
+        console.print(
+            ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
+        )
 
         if errors:
             console.print("\n")
@@ -344,6 +382,14 @@ class BuildV2Command(ToolkitCommand):
                 f" {humanize_collection(errors)}."
             )
         return None
+
+    @staticmethod
+    def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
+        if selection_source == "modules":
+            return "provided as arguments, overrides selection in config.env.yaml"
+        if selection_source == "config":
+            return f"specified in {config_file_name or 'config.env.yaml'}"
+        return "interactive"
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
@@ -431,10 +477,7 @@ class BuildV2Command(ToolkitCommand):
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
-        validator = LocalRulesOrchestrator(
-            exclude_rule_codes=None,
-            enable_alpha_validators=False,
-        )
+        validator = LocalRulesOrchestrator(exclude_rule_codes=None, enable_alpha_validators=False)
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -467,6 +510,9 @@ class BuildV2Command(ToolkitCommand):
                             for file in module.files
                             if file.unresolved_variables
                         },
+                        yaml_line_count=sum(
+                            file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
+                        ),
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
@@ -488,7 +534,8 @@ class BuildV2Command(ToolkitCommand):
                         IgnoredFile(
                             filepath=resource_file,
                             code="MISSING-SUFFIX",
-                            reason=f"Resource file '{resource_file.stem!r}' does not have a suffix to determine the resource kind. It is ignored.",
+                            reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                            fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
                         )
                     )
                     continue
@@ -525,6 +572,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Content read successfully.
         substituted_content = content
+        line_count = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
         if variables:
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
@@ -560,6 +608,7 @@ class BuildV2Command(ToolkitCommand):
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
+            line_count=line_count,
         )
 
         if isinstance(parsed_yaml, dict):
@@ -697,8 +746,8 @@ class BuildV2Command(ToolkitCommand):
                         build_path=destination_path,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
-                        extra_files=resource.extra_files,
-                        has_syntax_errors=file.syntax_warning is not None,
+                        failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
+                        has_syntax_error=resource.validated is None,
                     )
                 )
         return built_resources
@@ -729,20 +778,7 @@ class BuildV2Command(ToolkitCommand):
             summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
-        border_style = {0: "green", 1: "yellow", 2: "red"}[border_color]
-        console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title="[bold]Validation Plan[/]",
-                border_style=border_style,
-                expand=False,
-            )
-        )
-
-        table = Table(title="Validation Steps", expand=False, show_edge=False)
-        table.add_column("Validation", style="bold")
-        table.add_column("Status", style="dim")
-        table.add_column("Message", style="dim")
+        table = ToolkitTable(*["Validation", "Status", "Message"])
         for step in plan:
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
@@ -750,7 +786,21 @@ class BuildV2Command(ToolkitCommand):
             status_display = f"[{status_style}]{step.status.code}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-        console.print(table)
+
+        validation_sections = [
+            ToolkitPanelSection(title="Planned", content=summary_lines),
+            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
+        ]
+
+        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
+
+        console.print(
+            ToolkitPanel(
+                Group(*validation_sections),
+                title="[bold]Planning validation[/]",
+                border_style=border_style,
+            )
+        )
         return None
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
@@ -764,232 +814,212 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Checking {display_name}...")
 
-                insights: list[Insight] = []
-                failures: list[FailedValidation] = []
-                for result in step.rule.validate():
-                    if isinstance(result, FailedValidation):
-                        failures.append(result)
-                    else:
-                        insights.append(result)
+                insights: list[Insight] = list(step.rule.validate())
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights, failed=failures))
-                progress.update(validating_task, advance=1, description=f"Finished checking {display_name}.")
-            progress.update(validating_task, description=f"Finished checking. Ran {ready_step_count} validations.")
+                validation_results.append(ValidationResult(name=display_name, insights=insights))
+                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_build_folder(
-        self,
-        build_folder: BuildFolder,
-        config_yaml_filename: str,
-        console: Console,
-        verbose: bool,
-        insight_path: Path,
+    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+        if not insights:
+            return
+
+        severity_style = {
+            "FileReadError": (AuraColor.RED.rich, "✗"),
+            "ConsistencyError": (AuraColor.RED.rich, "✗"),
+            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "🛈"),
+            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
+        }
+
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
+        remaining_count = len(insights) - len(display_insights)
+
+        insights_by_type: dict[str, list[Insight]] = {}
+        for insight in display_insights:
+            insight_type_name = type(insight).__name__
+            insights_by_type.setdefault(insight_type_name, []).append(insight)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for insight_type_name, insight_content in insights_by_type.items():
+            style, icon = severity_style.get(insight_type_name, ("white", "•"))
+            plural_suffix = "s" if len(insight_content) > 1 else ""
+
+            insight_subsections: list[RenderableType] = []
+            for insight in insight_content:
+                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                if insight.fix:
+                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
+                insight_subsections.append(
+                    ToolkitPanelSection(
+                        title=self._humanize_insight_code(insight.code),
+                        content=content,
+                    )
+                )
+                max_border_severity = max(max_border_severity, type(insight).severity)
+
+            insight_sections.append(
+                ToolkitPanelSection(
+                    title=f"[{style}]{insight_type_name}{plural_suffix}[/]",
+                    content=insight_subsections,
+                )
+            )
+
+        insight_destination = relative_to_if_possible(insight_path)
+        footer = f"All insights are written to {insight_destination.as_posix()}"
+        suffix = ""
+        if not verbose:
+            suffix = " Add --verbose to show more."
+        if remaining_count > 0:
+            footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
+        insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
+
+        match max_border_severity:
+            case severity if severity <= 15:
+                border_style = AuraColor.GREEN.rich
+            case severity if 15 < severity <= 35:
+                border_style = AuraColor.AMBER.rich
+            case _:
+                border_style = AuraColor.RED.rich
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    @staticmethod
+    def _humanize_insight_code(code: str | None) -> str:
+        if code is None:
+            return "Undefined"
+        return code.replace("-", " ").replace("_", " ").capitalize()
+
+    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+        """Prioritize one insight per code, then by severity"""
+        insights_by_code: dict[str, Insight] = {}
+        remaining_insights: list[Insight] = []
+
+        for insight in insights:
+            code = insight.code or "UNDEFINED"
+            if code not in insights_by_code:
+                insights_by_code[code] = insight
+            else:
+                remaining_insights.append(insight)
+
+        # Sort the unique codes by severity
+        sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
+        # Sort remaining by severity
+        sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
+        # Combine them
+        prioritized_insights = sorted_unique_insights + sorted_remaining
+        return sorted(
+            prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
+        )
+
+    def _display_build_summary(
+        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
         resource_type_count = len(
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
-        syntax_warning_count = sum(len(module.syntax_warnings_by_source) for module in build_folder.built_modules)
-        failed_read_files = [file for module in build_folder.built_modules for file in module.failed_files]
-        failed_read_file_count = len(failed_read_files)
-        ignored_files = [file for module in build_folder.built_modules for file in module.ignored_files]
-        ignore_file_count = len(ignored_files)
-        unresolved_files = {
-            source_path: variables
-            for module in build_folder.built_modules
-            for source_path, variables in module.unresolved_variables_by_source.items()
-        }
-        unresolved_file_count = len(unresolved_files)
-
         summary_lines = [
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        border_color = 0
-        if failed_read_file_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{failed_read_file_count}[/] resource files failed to be read.\n    These files are ignored in the build, but you should fix the issues to\n"
-                f"    ensure all your resources are included in the build."
-            )
-            border_color = max(border_color, 2)
-        if unresolved_file_count:
-            summary_lines.append(
-                f"[yellow]![/] [bold]{unresolved_file_count}[/] resource files have unresolved variables.\n    These files were read, but the unresolved variables were not substituted.\n"
-                f"    Make sure to define the variables in the {config_yaml_filename or 'config YAML'} file and that they are correctly placed in the variables section matching the file path."
-            )
-            border_color = max(border_color, 2)
+        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        max_severity = 0
+        for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
+            max_severity = max(max_severity, severity)
+            match severity:
+                case severity if severity <= 15:
+                    insight_style = "[green]✓[/]"
+                case severity if 15 < severity <= 35:
+                    insight_style = "[yellow]![/]"
+                case _:
+                    insight_style = "[red]✗[/]"
 
-        if ignored_files:
-            most_common = Counter([file.code for file in ignored_files]).most_common(3)
-            most_common_str = humanize_collection([f"{code} ({count} files)" for code, count in most_common])
-            summary_lines.append(
-                f"[yellow]![/] [bold]{ignore_file_count}[/] resource files were ignored. The most common reasons {most_common_str}."
-            )
-            border_color = max(border_color, 1)
-
-        if syntax_warning_count:
-            summary_lines.append(
-                f"[red]✗[/] [bold]{syntax_warning_count}[/] syntax warnings found in resource files. The resources have still been built, but you should fix the syntax issues to avoid potential problems when deploying the resources."
-            )
-            border_color = max(border_color, 1)
-
-        for validation in build_folder.validation_results:
-            if validation.failed:
-                prefix = "[red]✗[/]"
-            elif validation.insights:
-                prefix = "[yellow]![/]"
-                border_color = max(border_color, 1)
-            else:
-                prefix = "[green]✓[/]"
-            suffix: list[str] = []
-            if validation.failed:
-                suffix.append(f"failed {len(validation.failed)} checks")
-            if validation.insights:
-                suffix.append(f"found {len(validation.insights)} insights")
-            if not validation.failed and not validation.insights:
-                suffix.append("all checks passed")
-            summary_lines.append(f"{prefix} {validation.name} {humanize_collection(suffix, sort=False)}.")
+            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
+
+        match max_severity:
+            case severity if severity <= 15:
+                border_color = AuraColor.GREEN.rich
+                recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
+            case severity if 15 < severity <= 35:
+                recommendation = (
+                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    "There are model syntax warnings. Deployment may fail for some resources."
+                )
+                border_color = AuraColor.AMBER.rich
+            case _:
+                recommendation = (
+                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    "There are critical errors that must be fixed before deployment."
+                )
+                border_color = AuraColor.RED.rich
+        summary_lines.append("")
+        summary_lines.append(recommendation)
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title=f"[bold]Built to directory {build_dir_display}[/]",
-                border_style={0: "green", 1: "yellow", 2: "red"}[border_color],
-                expand=False,
+                border_style=border_color,
             )
         )
 
-        all_insights = build_folder.all_insights
-        if all_insights:
-            # Prioritize one insight per code, then by severity
-            insights_by_code: dict[str, Insight] = {}
-            remaining_insights: list[Insight] = []
-
-            for insight in all_insights:
-                code = insight.code or "UNDEFINED"
-                if code not in insights_by_code:
-                    insights_by_code[code] = insight
-                else:
-                    remaining_insights.append(insight)
-
-            # Sort the unique codes by severity
-            sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
-            # Sort remaining by severity
-            sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
-            # Combine them
-            prioritized_insights = sorted_unique_insights + sorted_remaining
-
-            table = Table(title="Insights", expand=False, show_edge=False)
-            table.add_column("Type", style="dim")
-            table.add_column("Code", style="dim")
-            table.add_column("Description", style="dim")
-            table.add_column("Fix", style="dim")
-            max_reached = False
-            for no, issue in enumerate(prioritized_insights):
-                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
-                if no > 10:
-                    max_reached = True
-                    break
-            console.print(table)
-            if max_reached:
-                console.print(
-                    f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
-                    style="dim",
-                )
-            insight_destination = relative_to_if_possible(insight_path)
-            console.print(
-                f"[dim]All insights are written to {insight_destination.as_posix()}[/]",
-                style="dim",
-            )
-        if verbose and unresolved_files:
-            table = Table(title="Files with unresolved variables", expand=False, show_edge=False)
-            table.add_column("Path")
-            table.add_column("Variables")
-            for source_path, variables in unresolved_files.items():
-                table.add_row(
-                    relative_to_if_possible(source_path).as_posix(), humanize_collection(variables, sort=False)
-                )
-            console.print(table)
-
-        if verbose and ignored_files:
-            table = Table(title="Ignored Files", expand=False, show_edge=False)
-            table.add_column("Code", style="bold")
-            table.add_column("Path", style="bold")
-            table.add_column("Reason", style="bold")
-            for file in ignored_files:
-                table.add_row(file.code, relative_to_if_possible(file.filepath).as_posix(), file.reason)
-            console.print(table)
-
-        if failed_read_file_count:
-            available_variable_names = {variable.name for variable in build_folder.all_variables}
-            table = Table(title="Failed Read Files", expand=False, show_edge=True, border_style="red", show_lines=True)
-            table.add_column(
-                "Code",
-            )
-            table.add_column("Description")
-            table.add_column("File Path")
-            table.add_column("Fix")
-            for failed_file in failed_read_files:
-                display_path = relative_to_if_possible(failed_file.source_path).as_posix()
-                fix = ""
-                if misplaced := (set(failed_file.unresolved_variables) & available_variable_names):
-                    fix = (
-                        f"Unresolved variable(s) {humanize_collection(misplaced)} are likely misplaced in the {config_yaml_filename or 'config YAML file'}.\n"
-                        "Make sure they are placed correctly in the variables section matching the file path."
-                    )
-
-                table.add_row(failed_file.code, failed_file.error, display_path, fix)
-            console.print(table)
-
-        # Display deployment recommendation based on build status
-        has_yaml_errors = failed_read_file_count > 0
-        has_model_syntax_errors = all_insights.has_model_syntax_errors if all_insights else False
-
-        if has_yaml_errors:
-            console.print(
-                Panel(
-                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
-                    "There are YAML parsing errors that must be fixed before deployment.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="red",
-                    expand=False,
-                )
-            )
-        elif has_model_syntax_errors:
-            console.print(
-                Panel(
-                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
-                    "There are model syntax warnings. Deployment may fail for some resources.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="yellow",
-                    expand=False,
-                )
-            )
-        else:
-            console.print(
-                Panel(
-                    "[green]✓[/] [bold]Ready to deploy.[/bold]\n"
-                    "No critical errors found. You can proceed with deployment.",
-                    title="[bold]Deployment Recommendation[/bold]",
-                    border_style="green",
-                    expand=False,
-                )
-            )
-
         return None
 
-    def _write_results(self, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None) -> None:
+    def _track_build_results(
+        self, build_folder: BuildFolder, insights: InsightList, client: ToolkitClient | None = None
+    ) -> None:
+        built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
+        duration_ms = int((build_folder.finished_at - build_folder.started_at).total_seconds() * 1000)
+
+        resource_counts: Counter[str] = Counter(
+            f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
+            for resource in built_resources
+        )
+        dependency_total = sum(len(resource.dependencies) for resource in built_resources)
+        built_count = len(built_resources)
+        dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
+
+        insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
+        yaml_line_count = sum(module.yaml_line_count for module in build_folder.built_modules)
+
+        payload: dict[str, Any] = {
+            "build_duration_ms": duration_ms,
+            "resource_types": sorted(resource_counts.keys()),
+            "insight_codes": sorted(insight_codes_set),
+            "dependency_total": dependency_total,
+            "dependency_average": dependency_average,
+            "built_resource_total": built_count,
+            "module_count": len(build_folder.built_modules),
+            "insight_total_count": len(insights),
+            "yaml_line_count": yaml_line_count,
+        }
+        payload.update(resource_counts)
+        event = BuildTracking.model_validate(payload)
+        self.tracker.track(event, client)
+
+    def _write_results(
+        self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
+    ) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
         insight_file = parameters.insight_path
         if parameters.insight_format == "csv":
-            insight_file_content = build.all_insights.to_csv()
+            insight_file_content = insights.to_csv()
         else:
-            insight_file_content = build.all_insights.to_json()
+            insight_file_content = insights.to_json()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 

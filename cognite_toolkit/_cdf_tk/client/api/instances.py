@@ -86,7 +86,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[InstanceDefinitionId]:
         return ResponseItems[InstanceDefinitionId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[InstanceRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[InstanceRequest], replace: bool = False) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
@@ -95,7 +95,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             List of created InstanceSlimDefinition objects.
         """
         response_items: list[InstanceSlimDefinition] = []
-        for response in self._chunk_requests(items, "upsert", self._serialize_items):
+        for response in self._chunk_requests(items, "upsert", self._serialize_items, extra_body={"replace": replace}):
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
@@ -486,16 +486,17 @@ class WrappedInstancesAPI(
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[T_InstanceId]:
         raise NotImplementedError()
 
-    def create(self, items: Sequence[T_WrappedInstanceRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[T_WrappedInstanceRequest], replace: bool = False) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
             items: List of InstanceRequest objects to create.
+            replace: Whether to replace existing instances.
         Returns:
             List of created InstanceSlimDefinition objects.
         """
         response_items: list[InstanceSlimDefinition] = []
-        for response in self._chunk_requests(items, "upsert", self._serialize_items):
+        for response in self._chunk_requests(items, "upsert", self._serialize_items, extra_body={"replace": replace}):
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 

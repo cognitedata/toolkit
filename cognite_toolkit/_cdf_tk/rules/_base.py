@@ -6,8 +6,7 @@ from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import FailedValidation
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import FailedValidation, Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
@@ -44,7 +43,7 @@ class RuleSetStatus(BaseModel):
     message: str | None = None
 
 
-class ToolkitGlobalRulSet(ABC):
+class ToolkitGlobalRuleSet(ABC):
     """Validation of all modules as a whole.
 
     This can output different

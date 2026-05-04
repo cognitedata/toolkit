@@ -389,6 +389,7 @@ class TestPurgeSmoke:
             dry_run=False,
             unlink=True,
             verbose=False,
+            log_dir=tmp_path / "log",
         )
         if results.deleted != 2:
             raise AssertionError(f"Expected 2 deleted instances from purge, got {results.deleted!r}")
@@ -408,7 +409,10 @@ class TestPurgeSmoke:
             raise AssertionError("Classic time series was not found after purge; expected it to remain unlinked")
 
     def test_purge_dataset_include_data(
-        self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet
+        self,
+        toolkit_client: ToolkitClient,
+        populated_dataset: PopulatedDataSet,
+        tmp_path: Path,
     ) -> None:
         client = toolkit_client
         populated = populated_dataset
@@ -426,6 +430,7 @@ class TestPurgeSmoke:
             dry_run=False,
             auto_yes=True,
             verbose=False,
+            log_dir=tmp_path / "log",
         )
         if wait_until_deleted(lambda: client.assets.retrieve(external_id=populated.asset.external_id)) is not None:
             raise AssertionError("Expected asset to be deleted when include_data=True")
@@ -480,7 +485,7 @@ class TestPurgeSmoke:
             raise AssertionError("Expected extraction pipeline to remain when include_configurations=False")
 
     def test_purge_dataset_include_configurations(
-        self, toolkit_client: ToolkitClient, populated_datasets_2: PopulatedDataSet
+        self, toolkit_client: ToolkitClient, populated_datasets_2: PopulatedDataSet, tmp_path: Path
     ) -> None:
         client = toolkit_client
         populated = populated_datasets_2
@@ -498,6 +503,7 @@ class TestPurgeSmoke:
             dry_run=False,
             auto_yes=True,
             verbose=False,
+            log_dir=tmp_path / "log",
         )
         if wait_until_exists(lambda: client.assets.retrieve(external_id=populated.asset.external_id)) is None:
             raise AssertionError("Expected asset to remain when include_data=False")

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import RecordsMigrat
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
     DataItem,
@@ -90,7 +91,7 @@ class MigrationCommand(ToolkitCommand):
         if needed_capacity and not isinstance(data, ChartIO):
             # Charts are not creating any new nodes.
             if isinstance(data, RecordsMigrationIO):
-                self.validate_stream_capacity(data.client, data.stream_external_id, needed_capacity)
+                self.validate_stream_capacity(data.stream, needed_capacity)
             else:
                 self.validate_available_capacity(data.client, needed_capacity)
 
@@ -136,7 +137,7 @@ class MigrationCommand(ToolkitCommand):
             if step.is_completed:
                 continue
 
-            selected = step.selector
+            selected: T_Selector = step.selector
             logger.reset()
             mapper.prepare(selected)
 
@@ -162,6 +163,9 @@ class MigrationCommand(ToolkitCommand):
             results_by_selector[str(selected)] = items_results
 
             display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
+            self.tracker.track(
+                DataTracking.from_item_results("MigrationResult", selected.kind, items_results), data.client
+            )
             self._print_txt(items_results, log_dir, f"{selected!s}Items", console)
             progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
             if progress is not None:
@@ -362,16 +366,7 @@ class MigrationCommand(ToolkitCommand):
 
         return upload_items
 
-    def validate_stream_capacity(self, client: ToolkitClient, stream_external_id: str, record_count: int) -> None:
-        results = client.streams.retrieve(
-            [ExternalId(external_id=stream_external_id)], include_statistics=True, ignore_unknown_ids=True
-        )
-        if not results:
-            raise ToolkitMigrationError(
-                f"Stream '{stream_external_id}' does not exist. "
-                "Please create the stream before running a records migration."
-            )
-        stream = results[0]
+    def validate_stream_capacity(self, stream: StreamResponse, record_count: int) -> None:
         limits = stream.settings.limits if stream.settings else None
         if limits is None:
             self.console(f"Unable to check stream capacity for '{stream.external_id}' (no settings returned).")

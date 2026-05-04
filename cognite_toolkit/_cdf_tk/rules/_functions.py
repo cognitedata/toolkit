@@ -3,16 +3,16 @@ from functools import cached_property
 
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, FailedValidation
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRulSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
-class FunctionRules(ToolkitGlobalRulSet):
+class FunctionRules(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions checks"
 
@@ -36,8 +36,8 @@ class FunctionRules(ToolkitGlobalRulSet):
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
         for module in self.modules:
             for resource in module.resources:
-                if resource.has_syntax_errors:
-                    # We do not do further validation if there are syntax errrors.
+                if not resource.can_verify:
+                    # We do not do further validation if there are syntax errors.
                     continue
                 if resource.type == function_type:
                     try:

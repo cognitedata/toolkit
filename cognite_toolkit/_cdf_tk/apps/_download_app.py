@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
+    CogniteFileContentIO,
     DataIO,
     DatapointsIO,
     DataSelector,
@@ -33,6 +34,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
     ChartExternalIdSelector,
     ChartSelector,
+    CogniteFileFilesSelectorV2,
     DataPointsDataSetSelector,
     DataSetSelector,
     FileMetadataFilesSelectorV2,
@@ -40,6 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceSpaceSelector,
     InstanceViewSelector,
     InternalWithNameId,
+    NodeWithNameId,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -126,6 +129,11 @@ class InstanceTypes(str, Enum):
     edge = "edge"
 
 
+class ApiFormat(str, Enum):
+    request = "request"
+    response = "response"
+
+
 class CompressionFormat(str, Enum):
     gzip = "gzip"
     none = "none"
@@ -155,7 +163,7 @@ class DownloadApp(typer.Typer):
     def download_main(ctx: typer.Context) -> None:
         """Commands to download data from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf download --help[/] for more information.")
+            print("Use [bold yellow]cdf data download --help[/] for more information.")
         return None
 
     @staticmethod
@@ -183,6 +191,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the raw tables in. Supported formats: ndjson, yaml",
             ),
         ] = RawFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -242,7 +258,7 @@ class DownloadApp(typer.Typer):
                     )
                     for item in selected_tables
                 ],
-                io=RawIO(client),
+                io=RawIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -270,6 +286,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the assets in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -307,7 +331,7 @@ class DownloadApp(typer.Typer):
         """This command will download assets from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 AssetInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -328,7 +352,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=AssetDataIO(client),
+                io=AssetDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -348,7 +372,7 @@ class DownloadApp(typer.Typer):
         display_name: str,
         max_limit: int | None = None,
         available_formats: type[Enum] = AssetCentricFormats,
-    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int]:
+    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int, ApiFormat]:
         data_sets = selector.select_data_sets()
         file_format = questionary.select(
             f"Select format to download the {display_name} in:",
@@ -374,7 +398,17 @@ class DownloadApp(typer.Typer):
                 validate=lambda value: value.lstrip("-").isdigit() and (max_limit is None or int(value) <= max_limit),
             ).unsafe_ask()
         )
-        return data_sets, file_format, compression, output_dir, limit
+        api_format = ApiFormat.request
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            api_format = questionary.select(
+                message=f"Select the API format to download the {display_name}:",
+                choices=[
+                    Choice(title="Request payload format", value=ApiFormat.request),
+                    Choice(title="API response format", value=ApiFormat.response),
+                ],
+                default=ApiFormat.request,
+            ).unsafe_ask()
+        return data_sets, file_format, compression, output_dir, limit, api_format
 
     def download_timeseries_cmd(
         self,
@@ -395,6 +429,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the time series in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -432,7 +474,7 @@ class DownloadApp(typer.Typer):
         """This command will download time series from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 TimeSeriesInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -451,7 +493,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=TimeSeriesDataIO(client),
+                io=TimeSeriesDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -479,6 +521,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the events in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -516,7 +566,7 @@ class DownloadApp(typer.Typer):
         """This command will download events from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                 EventInteractiveSelect(client, "download"),
                 file_format,
                 compression,
@@ -534,7 +584,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=EventDataIO(client),
+                io=EventDataIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -572,6 +622,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the file metadata in.",
             ),
         ] = AssetCentricFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -621,7 +679,7 @@ class DownloadApp(typer.Typer):
                 include_file_contents = False
             if not include_file_contents:
                 # Continue with regular interactive selection
-                data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
                     FileMetadataInteractiveSelect(client, "download"),
                     file_format,
                     compression,
@@ -640,26 +698,51 @@ class DownloadApp(typer.Typer):
                 choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
                 default=file_format,
             ).unsafe_ask()
-            download_dir_name = "asset_centric-files-with-content"
             output_dir = Path(
                 questionary.path(
                     "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
                 ).unsafe_ask()
             )
-            documents = selector.select_documents()
-            io = FileMetadataContentIO(
-                client,
-                config_directory=output_dir / download_dir_name,
-                file_directory=output_dir / download_dir_name / "files",
-            )
-            selectors = [
-                FileMetadataFilesSelectorV2(
-                    ids=tuple(
-                        InternalWithNameId(id=document.id, name=document.source_file.name) for document in documents
-                    ),
-                    download_dir_name=download_dir_name,
+            selected = selector.select_documents()
+            if selected.selection.file_type == "dms":
+                download_dir_name = "cognite-file-with-content"
+                io = CogniteFileContentIO(
+                    client,
+                    config_directory=output_dir / download_dir_name,
+                    file_directory=output_dir / download_dir_name / "files",
+                    api_format=api_format.value,
                 )
-            ]
+                selectors = [
+                    CogniteFileFilesSelectorV2(
+                        download_dir_name=download_dir_name,
+                        ids=tuple(
+                            NodeWithNameId(
+                                space=doc.instance_id.space,
+                                external_id=doc.instance_id.external_id,
+                                name=doc.source_file.name,
+                            )
+                            for doc in selected.documents
+                            if doc.instance_id
+                        ),
+                    )
+                ]
+            else:
+                download_dir_name = "asset-centric-files-with-content"
+                io = FileMetadataContentIO(
+                    client,
+                    config_directory=output_dir / download_dir_name,
+                    file_directory=output_dir / download_dir_name / "files",
+                    api_format=api_format.value,
+                )
+                selectors = [
+                    FileMetadataFilesSelectorV2(
+                        ids=tuple(
+                            InternalWithNameId(id=document.id, name=document.source_file.name)
+                            for document in selected.documents
+                        ),
+                        download_dir_name=download_dir_name,
+                    )
+                ]
         elif data_sets is not None:
             selectors = [
                 DataSetSelector(
@@ -667,7 +750,7 @@ class DownloadApp(typer.Typer):
                 )
                 for data_set in data_sets
             ]
-            io = FileMetadataDataIO(client)
+            io = FileMetadataDataIO(client, api_format=api_format.value)
         else:
             raise NotImplementedError("Bug in Toolkit. Unexpected execution path.")
 
@@ -701,6 +784,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the asset hierarchy.",
             ),
         ] = HierarchyFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -755,7 +846,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=HierarchyIO(client),
+                io=HierarchyIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -810,6 +901,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the instances in.",
             ),
         ] = InstanceFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -941,7 +1040,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=InstanceIO(client),
+                io=InstanceIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1036,6 +1135,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the datapoints.",
             ),
         ] = DatapointFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -1120,7 +1227,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=DatapointsIO(client),
+                io=DatapointsIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression="none",
@@ -1146,6 +1253,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the charts.",
             ),
         ] = ChartFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         skip_backend_services: Annotated[
             bool,
             typer.Option(
@@ -1201,7 +1316,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=ChartIO(client, skip_backend_services=skip_backend_services),
+                io=ChartIO(client, skip_backend_services=skip_backend_services, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1227,6 +1342,14 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the canvas.",
             ),
         ] = CanvasFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1274,7 +1397,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=CanvasIO(client),
+                io=CanvasIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
@@ -1330,6 +1453,14 @@ class DownloadApp(typer.Typer):
                 help="Format to download the records in.",
             ),
         ] = RecordFormats.ndjson,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = ApiFormat.request,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1438,7 +1569,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=RecordIO(client),
+                io=RecordIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

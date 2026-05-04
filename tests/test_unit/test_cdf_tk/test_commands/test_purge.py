@@ -1,6 +1,7 @@
 import itertools
 import json
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -33,8 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_headroom
-from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers
+from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers, validate_soft_delete_headroom
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -173,6 +173,7 @@ def purge_client(toolkit_config: ToolkitClientConfig) -> Iterator[ToolkitClient]
 
 
 class TestPurgeInstances:
+    @pytest.mark.usefixtures("disable_gzip")
     @pytest.mark.parametrize(
         "dry_run,unlink,instance_type",
         [
@@ -200,13 +201,16 @@ class TestPurgeInstances:
         cognite_files_2000_list: NodeList[CogniteFile],
         files_by_node_id: dict[dm.NodeId, dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -236,11 +240,28 @@ class TestPurgeInstances:
                 json={"items": {"root": instance_dumps[1000:]}, "nextCursor": {"root": None}},
             ),
         ]
-        ts_objects = list(timeseries_by_node_id.values()) if instance_type == "timeseries" else []
-        file_objects = list(files_by_node_id.values()) if instance_type == "files" else []
         if unlink:
-            respx_mock.post(config.create_api_url("/timeseries/byids")).respond(json={"items": ts_objects})
-            respx_mock.post(config.create_api_url("/files/byids")).respond(json={"items": file_objects})
+
+            def ts_byids_callback(request: httpx.Request) -> httpx.Response:
+                body = json.loads(request.content.decode("utf-8"))
+                requested_ids = {
+                    dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
+                    for item in body.get("items", [])
+                }
+                filtered = [v for k, v in timeseries_by_node_id.items() if k in requested_ids]
+                return httpx.Response(status_code=200, json={"items": filtered})
+
+            def files_byids_callback(request: httpx.Request) -> httpx.Response:
+                body = json.loads(request.content.decode("utf-8"))
+                requested_ids = {
+                    dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
+                    for item in body.get("items", [])
+                }
+                filtered = [v for k, v in files_by_node_id.items() if k in requested_ids]
+                return httpx.Response(status_code=200, json={"items": filtered})
+
+            respx_mock.post(config.create_api_url("/timeseries/byids")).mock(side_effect=ts_byids_callback)
+            respx_mock.post(config.create_api_url("/files/byids")).mock(side_effect=files_byids_callback)
         if unlink and not dry_run and instance_type == "timeseries":
             respx_mock.post(config.create_api_url("/timeseries/unlink-instance-ids")).mock(
                 return_value=httpx.Response(
@@ -269,6 +290,7 @@ class TestPurgeInstances:
         result = cmd.instances(
             client,
             InstanceViewSelector(view=SelectedView(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
+            log_dir=tmp_path,
             dry_run=dry_run,
             unlink=unlink,
             verbose=False,
@@ -293,12 +315,15 @@ class TestPurgeSpace:
         project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         space = "test_space"
         rsps = purge_responses
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
         container_count = 10
         view_count = 15
         data_model_count = 3
@@ -417,6 +442,7 @@ class TestPurgeSpace:
             delete_file_content=delete_file_content,
             dry_run=dry_run,
             verbose=False,
+            log_dir=tmp_path,
         )
         expected_node_count = (
             node_count
@@ -445,11 +471,14 @@ class TestPurgeSpaceCrossReferenceCheck:
         rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
 
         rsps.add(
             responses.POST,
@@ -501,12 +530,15 @@ class TestPurgeSpaceCrossReferenceCheck:
         rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         """involvedViewCount > len(involvedViews) means inaccessible views exist; should still block."""
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
 
         rsps.add(
             responses.POST,
@@ -581,9 +613,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         )
 
         # Should not raise — same-space view is part of the purge
-        container_ids_to_check = [
-            ContainerId(space=container.space, external_id=container.external_id)
-        ]
+        container_ids_to_check = [ContainerId(space=container.space, external_id=container.external_id)]
         block_if_views_reference_containers(
             client=purge_client,
             container_ids=container_ids_to_check,

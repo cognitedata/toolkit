@@ -33,7 +33,7 @@ InField CDM Location Configs:
   disciplines: null
   externalId: WMT:VAL_0
   featureToggles: null
-  name: InField Location Config
+  name: WMT:VAL
   space: sp_asset_oid_source
   viewMappings:
     asset:

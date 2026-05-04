@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from cognite.client.credentials import OAuthDeviceCode
 from cognite.client.data_classes.data_modeling import EdgeId
@@ -76,8 +76,9 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         skip_existing: bool = False,
         skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
         skip_strict_mode: bool = False,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         # We need to store existing charts as we use different endpoints depending on whether
         # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
         # However, we know that there are only a few 1000s Charts at most, thus this should not be a problem.
@@ -98,7 +99,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         selector: ChartSelector,
         limit: int | None = None,
         bookmark: Bookmark | None = None,
-    ) -> Iterable[Page]:
+    ) -> Iterable[Page[ChartResponse]]:
         selected_charts = self.client.charts.list(visibility=None)
         self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
@@ -165,6 +166,9 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     def data_to_json_chunk(
         self, data_chunk: Page[ChartResponse], selector: ChartSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
+        if self.api_format == "response":
+            result = [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+            return data_chunk.create_from(result)
         self._populate_timeseries_id_cache([item.item for item in data_chunk.items])
         result = [
             DataItem(tracking_id=item.tracking_id, item=self._dump_resource(item.item)) for item in data_chunk.items
@@ -525,9 +529,13 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
     BASE_SELECTOR = CanvasSelector
 
     def __init__(
-        self, client: ToolkitClient, exclude_existing_version: bool = True, include_solution_tags: bool = True
+        self,
+        client: ToolkitClient,
+        exclude_existing_version: bool = True,
+        include_solution_tags: bool = True,
+        api_format: Literal["request", "response"] = "request",
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, api_format=api_format)
         self.exclude_existing_version = exclude_existing_version
         self.include_solution_tags = include_solution_tags
 
@@ -634,6 +642,9 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
     def data_to_json_chunk(
         self, data_chunk: Page[IndustrialCanvasResponse], selector: CanvasSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
+        if self.api_format == "response":
+            result = [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+            return data_chunk.create_from(result)
         self._populate_id_cache([item.item for item in data_chunk.items])
         result = [
             DataItem(tracking_id=item.tracking_id, item=self._dump_resource(item.item)) for item in data_chunk.items

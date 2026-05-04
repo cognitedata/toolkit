@@ -64,6 +64,7 @@ def all_acls() -> Iterable[tuple]:
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"functionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"functionsAcl": {"actions": ["READ", "WRITE", "RUN"], "scope": {"all": {}}}},
         {"genericsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
@@ -196,6 +197,21 @@ class TestGroupAPIClasses:
         acl = group.capabilities[0].acl
         assert isinstance(acl, UnknownAcl)
         assert acl.acl_name == "myUnknownAcl"
+        assert isinstance(acl.scope, ScopeDefinition)
+
+    def test_serialize_deserialize_known_capability_with_unknown_action(self) -> None:
+        """Test that known ACLs with future actions are preserved as unknown ACLs."""
+        acl_dict = {"functionsAcl": {"actions": ["READ", "SOME_FUTURE_ACTION"], "scope": {"all": {}}}}
+        data = {"name": "test-group", "id": 123, "capabilities": [acl_dict]}
+
+        group = GroupRequest.model_validate(data)
+
+        assert isinstance(group, GroupRequest)
+        assert group.dump() == {"name": "test-group", "capabilities": [acl_dict]}
+        assert group.capabilities and len(group.capabilities) == 1
+        acl = group.capabilities[0].acl
+        assert isinstance(acl, UnknownAcl)
+        assert acl.acl_name == "functionsAcl"
         assert isinstance(acl.scope, ScopeDefinition)
 
     def test_capability_in_sync(self) -> None:

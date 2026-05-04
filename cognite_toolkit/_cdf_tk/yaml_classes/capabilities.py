@@ -273,7 +273,7 @@ class FilesAcl(Capability):
 
 class FunctionsAcl(Capability):
     _capability_name = "functionsAcl"
-    actions: list[Literal["READ", "WRITE"]]
+    actions: list[Literal["READ", "WRITE", "RUN"]]
     scope: AllScope
 
 

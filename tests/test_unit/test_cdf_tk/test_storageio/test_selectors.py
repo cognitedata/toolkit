@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
     ChartIO,
+    CogniteFileContentIO,
     DataIO,
     DatapointsIO,
     EventDataIO,
@@ -30,6 +31,8 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
     ChartOwnerSelector,
+    CogniteFileFilesSelectorV2,
+    CogniteFileTemplateSelectorV2,
     DataPointsDataSetSelector,
     DataPointsFileSelector,
     DataSelector,
@@ -359,6 +362,36 @@ def example_selector_data() -> Iterable[tuple]:
         FileMetadataContentIO.KIND,
         id="FileMetadataFilesSelectorV2",
     )
+    yield pytest.param(
+        {
+            "type": "CogniteFileTemplate",
+            "kind": "CogniteFileContent",
+            "fileDirectory": "path/to/files",
+            "guessMimeType": True,
+            "template": {
+                "space": "my-space",
+                "externalId": "my$FILENAME",
+            },
+        },
+        CogniteFileTemplateSelectorV2,
+        CogniteFileContentIO,
+        CogniteFileContentIO.KIND,
+        id="CogniteFileTemplateSelectorV2",
+    )
+    yield pytest.param(
+        {
+            "kind": "CogniteFileContent",
+            "type": "CogniteFileFiles",
+            "ids": [
+                {"space": "s1", "externalId": "f1", "name": "file1"},
+                {"space": "s1", "externalId": "f2", "name": "file2"},
+            ],
+        },
+        CogniteFileFilesSelectorV2,
+        CogniteFileContentIO,
+        CogniteFileContentIO.KIND,
+        id="CogniteFileFilesSelectorV2",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -406,7 +439,7 @@ class TestDataSelectors:
         monkeypatch: MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        if expected_selector is FileMetadataTemplateSelectorV2:
+        if expected_selector in (FileMetadataTemplateSelectorV2, CogniteFileTemplateSelectorV2):
             (tmp_path / data["fileDirectory"]).mkdir(parents=True, exist_ok=True)
 
         instance = SelectorAdapter.validate_python(data)

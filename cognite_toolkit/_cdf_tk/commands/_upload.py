@@ -15,8 +15,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
+    CogniteFileContentIO,
     FileContentIO,
     FileMetadataContentIO,
     Page,
@@ -39,6 +41,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValue
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -70,6 +73,7 @@ class UploadCommand(ToolkitCommand):
         dry_run: bool,
         verbose: bool,
         skip_strict_mode: bool = False,
+        overwrite: bool = False,
         kind: str | None = None,
     ) -> None:
         """Uploads data from files in the specified input directory to CDF.
@@ -84,6 +88,7 @@ class UploadCommand(ToolkitCommand):
             verbose: If True, prints detailed information about the upload process.
             skip_strict_mode: If True, skips strict mode when uploading Charts with monitoring jobs and/or
                 scheduled calculations.
+            overwrite: If the data type supports it, overwrite in CDF.
             kind: Optional; if provided, only data files of this kind will be processed.
 
         The expected structure of the input directory is as follows:
@@ -111,7 +116,17 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
-        self.upload_data(data_files_by_selector, input_dir, client, dry_run, console, verbose, skip_strict_mode)
+        self.upload_data(
+            data_files_by_selector,
+            input_dir,
+            client,
+            dry_run,
+            console,
+            verbose,
+            self.tracker,
+            skip_strict_mode,
+            overwrite,
+        )
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
@@ -226,7 +241,9 @@ class UploadCommand(ToolkitCommand):
         dry_run: bool,
         console: Console,
         verbose: bool,
+        tracker: Tracker,
         skip_strict_mode: bool = False,
+        overwrite: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
 
@@ -240,7 +257,7 @@ class UploadCommand(ToolkitCommand):
             HTTPClient(config=client.config) as upload_client,
         ):
             for selector, datafiles in data_files_by_selector.items():
-                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode)
+                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode, overwrite)
                 if io is None:
                     continue
                 io.logger = logger
@@ -289,6 +306,7 @@ class UploadCommand(ToolkitCommand):
                 executor.run()
                 items_results = logger.finalize(dry_run)
                 display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
+                tracker.track(DataTracking.from_item_results("UploadResult", selector.kind, items_results), client)
                 executor.raise_on_error()
 
     @staticmethod
@@ -318,7 +336,7 @@ class UploadCommand(ToolkitCommand):
 
     @classmethod
     def _create_selected_io(
-        cls, selector: Selector, data_file: Path, client: ToolkitClient, skip_strict_mode: bool
+        cls, selector: Selector, data_file: Path, client: ToolkitClient, skip_strict_mode: bool, overwrite: bool
     ) -> UploadableDataIO | None:
         try:
             io_cls = get_upload_io(selector)
@@ -329,8 +347,8 @@ class UploadCommand(ToolkitCommand):
             return None
         if issubclass(io_cls, ChartIO):
             return ChartIO(client, skip_strict_mode=skip_strict_mode)
-        elif issubclass(io_cls, FileMetadataContentIO):
-            return FileMetadataContentIO(client, config_directory=data_file.parent)
+        elif issubclass(io_cls, FileMetadataContentIO | CogniteFileContentIO):
+            return io_cls(client, config_directory=data_file.parent, overwrite=overwrite)
         else:
             return io_cls(client)
 

@@ -99,13 +99,18 @@ class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
 
     Args:
         client: An instance of ToolkitClient to interact with the CDF API.
+        api_format: The format to download to convert in the data_to_json_chunk method.
+            This can be either "request" or "response", depending on whether the data is
+            in the form of request objects or response objects. The default is "request".
     """
 
     CHUNK_SIZE: ClassVar[int]
     BASE_SELECTOR: ClassVar[type[DataSelector]]
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         self.client = client
+        self.api_format = api_format
+
         self._logger: DataLogger = NoOpLogger()
 
     @property

@@ -65,6 +65,10 @@ viewMappings:
     space: sp_maintenance_space
     version: v1
     externalId: MaintenanceOrder
+  observation:
+  - space: sp_observations_space
+    version: v1
+    externalId: FieldObservation
 disciplines:
 - name: Electrical
   externalId: discipline_electrical
@@ -75,15 +79,7 @@ disciplines:
 - name: Civil
   externalId: discipline_civil
 dataExplorationConfig:
-  enabled: true
-  defaultView: asset_hierarchy
-  searchEnabled: true
-  filters:
-  - type: status
-    values:
-    - active
-    - inactive
-  - type: location
-    values:
-    - plant_a
-    - plant_b
+  assetPropertiesCard:
+    space: customer_idm_extention
+    version: v2
+    externalId: AssetPropertiesCard

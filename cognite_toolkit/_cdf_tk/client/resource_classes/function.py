@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
-FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312"]
+FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312", "py313"]
 
 
 class FunctionBase(BaseModelObject):
@@ -23,7 +23,7 @@ class FunctionBase(BaseModelObject):
     env_vars: dict[str, str] | None = None
     cpu: float | None = None
     memory: float | None = None
-    runtime: FunctionRuntime | None = None
+    runtime: FunctionRuntime | str | None = None
     metadata: Metadata | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
@@ -76,4 +76,5 @@ class FunctionLimits(BaseModelObject):
     cpu_cores: ResourceLimit
     memory_gb: ResourceLimit
     runtimes: list[FunctionRuntime]
-    response_size_mb: int
+    # As of 24.04.2026 this is marked as a required field in the API, but it's currently only returned for projects on Gcloud
+    response_size_mb: int | None = None

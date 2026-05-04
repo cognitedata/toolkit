@@ -11,7 +11,13 @@ if TYPE_CHECKING:
 class UserInfo(BaseModel):
     """Best-effort representation of the calling CDF principal, used for Mixpanel tracking."""
 
-    type: Literal["user", "service_account", "unknown"] = "unknown"
+    type: Literal[
+        "user",
+        "service_account",
+        "service_principal",
+        "internal_service",
+        "unknown",
+    ] = "unknown"
     id: str | None = None
     name: str | None = None
     email: str | None = None
@@ -37,7 +43,12 @@ class UserInfo(BaseModel):
 
         try:
             profile = client.user_profiles.me()
-            return cls(type="user", id=profile.user_identifier, name=profile.display_name, email=profile.email)
+            return cls(
+                type=profile.identity_type.casefold(),  # type: ignore[arg-type]
+                id=profile.user_identifier,
+                name=profile.display_name,
+                email=profile.email,
+            )
         except Exception:
             pass
 

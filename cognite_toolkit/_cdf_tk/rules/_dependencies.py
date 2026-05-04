@@ -5,11 +5,12 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRulSet
+from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
 
 
-class DependencyRuleSet(ToolkitGlobalRulSet):
+class DependencyRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "MISSING-DEPENDENCY"
     DISPLAY_NAME = "dependencies"
 
@@ -43,12 +44,10 @@ class DependencyRuleSet(ToolkitGlobalRulSet):
                 }
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
-                        expected_resources = expected_by_identifier[identifier]
-                        referenced_str = self._create_reference_string(expected_resources)
                         yield ConsistencyError(
                             code=f"{self.CODE_PREFIX}-CDF",
-                            message=f"{identifier} {display_name} does not exist locally or in CDF. It is referenced by: \n{referenced_str}",
-                            fix=f"Ensure that {display_name} exists or removed the reference to it.",
+                            message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
+                            fix=f"Ensure that {display_name} exists or remove the reference to it.",
                         )
         else:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
@@ -57,12 +56,13 @@ class DependencyRuleSet(ToolkitGlobalRulSet):
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
                         code=f"{self.CODE_PREFIX}-LOCAL",
-                        message=f"{identifier} {resource_type_name} does not exist. It is referenced by: \n{referenced_str}",
+                        message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
                         fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
-                        f"Or ensure that {resource_type_name} exists or removed the reference to it.",
+                        f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                     )
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
         return " - ".join(
-            f"{resource.identifier!s} in {resource.source_path.as_posix()!r}" for resource in expected_resources
+            f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}"
+            for resource in expected_resources
         )

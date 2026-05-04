@@ -64,7 +64,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamResponse,
     StreamTemplate,
 )
-from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -102,10 +101,6 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 @pytest.fixture(scope="session")
 def toolkit_client_config() -> ToolkitClientConfig:
     load_dotenv(REPO_ROOT / ".env", override=True)
-    # Ensure that we do not collect data during tests
-    cmd = CollectCommand()
-    cmd.execute(action="opt-out")
-
     cdf_cluster = os.environ["CDF_CLUSTER"]
     credentials = OAuthClientCredentials(
         token_url=os.environ["IDP_TOKEN_URL"],

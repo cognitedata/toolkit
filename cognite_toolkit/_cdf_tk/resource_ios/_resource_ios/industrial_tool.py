@@ -119,7 +119,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         app_path = filepath.with_name(identifier.external_id)
         if not app_path.is_dir():
             yield FailedReadExtra(
-                code="NOT-EXISTING",
+                code="MISSING",
                 error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
                 source_path=app_path,
             )
@@ -127,7 +127,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         if "entrypoint" not in item:
             yield FailedReadExtra(
                 code="MISSING",
-                error=f"Cannot creat Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
+                error=f"Cannot create Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
                 source_path=app_path,
             )
             return
@@ -159,7 +159,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
 
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
-                code="INVALID",
+                code="SYNTAX-ERROR",
                 source_path=app_path,
                 error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",
             )
@@ -318,6 +318,14 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         file_request_by_external_id = {
             cast(str, file.external_id): file for file in fileio.load_resource_files(filepaths)
         }
+        # Read hashes before updating — the update payload overwrites them, making
+        # a post-update comparison always equal and preventing re-upload.
+        current_cdf = fileio.retrieve([ExternalId(external_id=eid) for eid in file_request_by_external_id])
+        pre_update_hash_by_id: dict[str, str | None] = {
+            r.external_id: (r.metadata or {}).get(self._metadata_hash_key)
+            for r in current_cdf
+            if r.external_id is not None
+        }
         file_responses = fileio.update(list(file_request_by_external_id.values()))
         response_by_external_id = {
             response.external_id: StreamlitResponse.model_validate(response.dump()) for response in file_responses
@@ -325,14 +333,12 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         for item in items:
             if item.external_id not in response_by_external_id or item.external_id not in file_request_by_external_id:
                 continue
-            response = response_by_external_id[item.external_id]
             request = file_request_by_external_id[item.external_id]
-            if item.cognite_toolkit_app_hash == response.cognite_toolkit_app_hash:
+            if item.cognite_toolkit_app_hash == pre_update_hash_by_id.get(item.external_id):
                 # Unchanged App
                 continue
             if request.filepath is None:
                 raise ResourceUpdateError(f"Cannot update streamlit app {item.external_id}. Missing source file")
-            # Need to reupload the file content
             responses_with_url = self.client.tool.filemetadata.get_upload_url([request.as_id()])
             if len(responses_with_url) != 1:
                 raise RuntimeError(

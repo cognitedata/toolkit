@@ -4,7 +4,6 @@
 import re
 import sys
 import traceback
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
@@ -45,7 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.plugins import Plugins
-from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
 )
@@ -86,7 +84,6 @@ except AttributeError as e:
 
 _app = CoreApp(**default_typer_kws)
 
-user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
@@ -127,13 +124,59 @@ def about() -> None:
     cmd.run(lambda: cmd.execute(Path.cwd()))
 
 
+def _get_subcommand_map() -> dict[str, list[str]]:
+    """Build a map from subcommand names to their full command paths.
+
+    Returns a dict where keys are subcommand names and values are lists of
+    full command paths (e.g., {"download": ["cdf data download"]}).
+    """
+    subcommand_map: dict[str, list[str]] = {}
+
+    def _add_commands_from_typer(typer_app: typer.Typer, prefix: str) -> None:
+        # Get registered commands
+        for command in typer_app.registered_commands:
+            cmd_name = command.name or (command.callback.__name__ if command.callback else None)
+            if cmd_name:
+                full_path = f"{prefix} {cmd_name}"
+                subcommand_map.setdefault(cmd_name, []).append(full_path)
+
+        # Get registered sub-typers (groups)
+        for group in typer_app.registered_groups:
+            group_name = group.name
+            if group_name and group.typer_instance:
+                # Add the group name itself as a command path
+                full_path = f"{prefix} {group_name}"
+                subcommand_map.setdefault(group_name, []).append(full_path)
+                # Recursively add commands from the sub-typer
+                _add_commands_from_typer(group.typer_instance, full_path)
+
+    _add_commands_from_typer(_app, "cdf")
+    return subcommand_map
+
+
+def _suggest_command(unknown_cmd: str) -> str | None:
+    """Check if the unknown command exists as a subcommand and return a suggestion."""
+    subcommand_map = _get_subcommand_map()
+    if unknown_cmd in subcommand_map:
+        paths = subcommand_map[unknown_cmd]
+        if len(paths) == 1:
+            return f"Did you mean [bold]{paths[0]}[/bold]?"
+        return "Did you mean one of: " + ", ".join(f"[bold]{p}[/bold]" for p in paths) + "?"
+    return None
+
+
 def app() -> NoReturn:
     # --- Main entry point ---
+    # Strip --traceback from sys.argv before Typer processes it (hidden debug flag)
+    show_traceback = "--traceback" in sys.argv
+    if show_traceback:
+        sys.argv.remove("--traceback")
+
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         _app()
     except ToolkitError as err:
-        if "--verbose" in sys.argv:
+        if show_traceback:
             print(Panel(traceback.format_exc(), title="Traceback", expand=False))
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
@@ -149,24 +192,11 @@ def app() -> NoReturn:
                     f"[bold]{escape(plugin)}[/bold] section."
                     f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
                 )
+            elif suggestion := _suggest_command(cmd):
+                print(f"{HINT_LEAD_TEXT} {suggestion}")
         raise
 
     raise SystemExit(0)
-
-
-@user_app.callback(invoke_without_command=True)
-def user_main(ctx: typer.Context) -> None:
-    """Commands to give information about the toolkit."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf user --help[/] to see available commands.")
-    return None
-
-
-@user_app.command("info")
-def user_info() -> None:
-    """Print information about user"""
-    tracker = Tracker()
-    print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 
 if __name__ == "__main__":

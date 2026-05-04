@@ -32,11 +32,16 @@ from ._file_content import (
 )
 from ._file_contentv2 import (
     FILENAME_VARIABLE,
+    CogniteFileContentSelectorV2,
+    CogniteFileFilesSelectorV2,
+    CogniteFileTemplateSelectorV2,
+    CogniteFileTemplateV2,
     FileMetadataContentSelectorV2,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
     FileMetadataTemplateV2,
     InternalWithNameId,
+    NodeWithNameId,
 )
 from ._instances import (
     InstanceFileSelector,
@@ -70,6 +75,8 @@ Selector = Annotated[
     | FileDataModelingTemplateSelector
     | FileMetadataTemplateSelectorV2
     | FileMetadataFilesSelectorV2
+    | CogniteFileTemplateSelectorV2
+    | CogniteFileFilesSelectorV2
     | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,
@@ -118,6 +125,10 @@ __all__ = [
     "ChartExternalIdSelector",
     "ChartOwnerSelector",
     "ChartSelector",
+    "CogniteFileContentSelectorV2",
+    "CogniteFileFilesSelectorV2",
+    "CogniteFileTemplateSelectorV2",
+    "CogniteFileTemplateV2",
     "DataPointsDataSetSelector",
     "DataPointsFileSelector",
     "DataPointsSelector",
@@ -142,6 +153,7 @@ __all__ = [
     "InstanceViewSelector",
     "InternalIdColumn",
     "InternalWithNameId",
+    "NodeWithNameId",
     "RawTableSelector",
     "RecordContainerSelector",
     "SelectedContainer",

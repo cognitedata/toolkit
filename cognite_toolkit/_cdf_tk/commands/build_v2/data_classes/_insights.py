@@ -21,17 +21,36 @@ class InsightDefinition(BaseModel):
         return cls.__name__
 
 
+class FileReadError(InsightDefinition):
+    severity = 60
+
+
 class ModelSyntaxWarning(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
-    severity = 20
+    severity = 40
 
 
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 40
+    severity = 30
+
+
+class FailedValidation(InsightDefinition):
+    """A validator threw an unexpected exception and could not complete.
+
+    This should never happen in normal operation — it indicates a bug in the validator itself.
+    """
+
+    severity = 60
+    source: str
+    fix: str | None = "This is an unexpected error in the validator. Please report this as a bug."
+
+
+class IgnoredFileWarning(InsightDefinition):
+    severity = 20
 
 
 class Recommendation(InsightDefinition):
@@ -40,7 +59,9 @@ class Recommendation(InsightDefinition):
     severity = 10
 
 
-Insight: TypeAlias = ModelSyntaxWarning | ConsistencyError | Recommendation
+Insight: TypeAlias = (
+    ModelSyntaxWarning | ConsistencyError | FailedValidation | Recommendation | FileReadError | IgnoredFileWarning
+)
 
 
 def _normalize_csv_cell(text: str) -> str:
@@ -79,7 +100,9 @@ class InsightList(UserList[Insight]):
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxWarning, ConsistencyError)) for insight in self.data)
+        return any(
+            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, FailedValidation)) for insight in self.data
+        )
 
     @property
     def summary(self) -> dict[str, int]:

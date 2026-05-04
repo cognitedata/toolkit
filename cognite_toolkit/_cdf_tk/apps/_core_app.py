@@ -342,7 +342,7 @@ class CoreApp(typer.Typer):
         if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
                 feature="the --env / -e option in cdf build or default_env in cdf.toml",
-                alternative="--config-yaml / -c or config_yaml in cdf.toml with the path to your config file "
+                alternative="--config-yaml / -c or default_config_yaml in cdf.toml with the path to your config file "
                 "(for example <organization-dir>/config.<env>.yaml)",
             ).print_warning()
             if config_yaml is None:

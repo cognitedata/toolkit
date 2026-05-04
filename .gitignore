@@ -321,3 +321,4 @@ deploy_logs*/
 tests/data/**/__pycache__/
 build_info.dev.yaml
 tests/data/run_data/function_local_venvs*/**
+purge_logs*/
