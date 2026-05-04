@@ -232,33 +232,7 @@ class DeployV2Command(ToolkitCommand):
         self._display_plan(plan, options.operation, options.operation_noun, client.console)
 
         if options.drop:
-            container_ids: list[ContainerId] = []
-            for step in plan:
-                if step.crud_cls is not ContainerCRUD:
-                    continue
-                crud = step.crud_cls.create_loader(client)
-                resource_by_id = self._read_resource_files(crud, step.files, options)
-                if not resource_by_id:
-                    continue
-                existing = crud.retrieve(list(resource_by_id.keys()))
-                container_ids.extend(ContainerId(space=c.space, external_id=c.external_id) for c in existing)
-            if container_ids:
-                in_scope_view_ids: set[ViewId] = set()
-                for step in plan:
-                    if step.crud_cls is not ViewIO:
-                        continue
-                    view_crud = step.crud_cls.create_loader(client)
-                    view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
-                    in_scope_view_ids.update(view_resource_by_id.keys())
-                inspect_results = client.tool.containers.inspect(container_ids)
-                validate_no_out_of_scope_view_references(
-                    inspect_results,
-                    list(in_scope_view_ids),
-                    action="cleaning resources from the CDF project"
-                    if options.operation == "clean"
-                    else "deploying with --drop flag",
-                    scope="build directory",
-                )
+            self._validate_plan_container_references(client, plan, options)
 
         if options.drop and options.drop_data and not options.dry_run:
             if not self._confirm_drop_data(client, plan, options):
@@ -564,6 +538,42 @@ class DeployV2Command(ToolkitCommand):
             else:
                 total += len(existing)
         return total
+
+    def _validate_plan_container_references(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> None:
+        """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
+        container_ids: list[ContainerId] = []
+        for step in plan:
+            if step.crud_cls is not ContainerCRUD:
+                continue
+            crud = step.crud_cls.create_loader(client)
+            resource_by_id = self._read_resource_files(crud, step.files, options)
+            if not resource_by_id:
+                continue
+            existing = crud.retrieve(list(resource_by_id.keys()))
+            container_ids.extend(ContainerId(space=c.space, external_id=c.external_id) for c in existing)
+        if not container_ids:
+            return
+        in_scope_view_ids: set[ViewId] = set()
+        for step in plan:
+            if step.crud_cls is not ViewIO:
+                continue
+            view_crud = step.crud_cls.create_loader(client)
+            view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
+            in_scope_view_ids.update(view_resource_by_id.keys())
+        inspect_results = client.tool.containers.inspect(container_ids)
+        validate_no_out_of_scope_view_references(
+            inspect_results,
+            list(in_scope_view_ids),
+            action="cleaning resources from the CDF project"
+            if options.operation == "clean"
+            else "deploying with --drop flag",
+            scope="build directory",
+        )
 
     def _confirm_drop_data(
         self,

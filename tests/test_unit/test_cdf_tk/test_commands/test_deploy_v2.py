@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -5,10 +6,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
+    ContainerInspectResult,
+    ContainerInspectResultItem,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import EdgeCRUD, NodeCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, EdgeCRUD, NodeCRUD, SpaceCRUD, ViewIO
 
 
 def _make_instance_statistics(soft_deleted: int = 300, limit: int = 10_000_000) -> InstanceStatistics:
@@ -183,3 +189,82 @@ class TestCountDmsInstancesInPlan:
         with patch.object(SpaceCRUD, "retrieve", return_value=[space]):
             plan = [DeploymentStep(crud_cls=SpaceCRUD, files=[])]
             assert cmd._count_dms_instances_in_plan(client, plan, DeployOptions()) == 0
+
+
+_REFERENCING_VIEW = ViewId(space="my_space", external_id="ReferencingView", version="v1")
+
+
+class TestCheckNoOutOfScopeViewReferences:
+    @pytest.mark.parametrize(
+        "plan_view_ids, hidden_view_count, operation, should_raise, error_match",
+        [
+            pytest.param(
+                [_REFERENCING_VIEW],
+                0,
+                "clean",
+                False,
+                "",
+                id="passes_when_referencing_view_in_plan",
+            ),
+            pytest.param(
+                [],
+                0,
+                "clean",
+                True,
+                "Cannot proceed with cleaning resources",
+                id="blocks_when_referencing_view_missing_from_plan",
+            ),
+            pytest.param(
+                [_REFERENCING_VIEW],
+                1,
+                "deploy",
+                True,
+                "Cannot proceed with deploying",
+                id="blocks_when_hidden_views_exist",
+            ),
+        ],
+    )
+    def test_validate_plan_container_references(
+        self,
+        plan_view_ids: list[ViewId],
+        hidden_view_count: int,
+        operation: str,
+        should_raise: bool,
+        error_match: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        container_mock = MagicMock()
+        container_mock.space = "my_space"
+        container_mock.external_id = "my_container"
+        mock_container_crud = MagicMock()
+        mock_container_crud.retrieve.return_value = [container_mock]
+        mock_view_crud = MagicMock()
+
+        def mock_read_files(crud, files, opts):
+            if crud is mock_container_crud:
+                return {"container_key": MagicMock()}
+            return {view_id: MagicMock() for view_id in plan_view_ids}
+
+        monkeypatch.setattr(cmd, "_read_resource_files", mock_read_files)
+        inspect_result = ContainerInspectResultItem(
+            space="my_space",
+            external_id="my_container",
+            inspection_results=ContainerInspectResult(
+                involved_view_count=1 + hidden_view_count,
+                involved_views=[_REFERENCING_VIEW],
+            ),
+        )
+        client = MagicMock()
+        client.tool.containers.inspect.return_value = [inspect_result]
+        plan = [
+            DeploymentStep(crud_cls=ContainerCRUD, files=[]),
+            DeploymentStep(crud_cls=ViewIO, files=[]),
+        ]
+        raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
+        with (
+            patch.object(ContainerCRUD, "create_loader", return_value=mock_container_crud),
+            patch.object(ViewIO, "create_loader", return_value=mock_view_crud),
+            raises_ctx,
+        ):
+            cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
