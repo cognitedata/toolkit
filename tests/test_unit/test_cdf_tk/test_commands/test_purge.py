@@ -31,7 +31,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewResponse,
 )
-
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
