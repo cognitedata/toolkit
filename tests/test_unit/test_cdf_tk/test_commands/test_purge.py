@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._utils import block_if_views_reference_containers, validate_soft_delete_headroom
+from cognite_toolkit._cdf_tk.commands._utils import validate_no_out_of_scope_view_references, validate_soft_delete_headroom
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -518,7 +518,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with the operation"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
@@ -569,7 +569,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with the operation"):
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
             cmd.space(purge_client, space, dry_run=dry_run)
         assert delete_route.call_count == 0
 
@@ -614,11 +614,14 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         # Should not raise — same-space view is part of the purge
         container_ids_to_check = [ContainerId(space=container.space, external_id=container.external_id)]
-        block_if_views_reference_containers(
-            client=purge_client,
-            container_ids=container_ids_to_check,
-            is_in_scope=lambda view: view.space == space,
-        )
+        inspect_results = purge_client.tool.containers.inspect(container_ids_to_check)
+        in_scope_view_ids = [
+            view
+            for inspected in inspect_results
+            for view in inspected.inspection_results.involved_views
+            if view.space == space
+        ]
+        validate_no_out_of_scope_view_references(inspect_results, in_scope_view_ids, action="purging this space", scope="space")
 
 
 class TestSoftDeletePurgeHeadroom:

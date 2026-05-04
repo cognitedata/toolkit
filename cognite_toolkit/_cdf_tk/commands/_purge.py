@@ -31,7 +31,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InstanceDefinitionId,
     InstanceId,
     InternalId,
-    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
@@ -93,15 +92,11 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
 from ._utils import (
-    block_if_views_reference_containers,
+    validate_no_out_of_scope_view_references,
     confirm_by_typing_project_name,
     print_soft_delete_panel,
     validate_soft_delete_headroom,
 )
-
-
-def _view_is_in_space(space: str, view: ViewId) -> bool:
-    return view.space == space
 
 
 @dataclass
@@ -326,11 +321,14 @@ class PurgeCommand(ToolkitCommand):
                 ContainerId(space=c.space, external_id=c.external_id)
                 for c in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
             ]
-            block_if_views_reference_containers(
-                client=client,
-                container_ids=container_ids,
-                is_in_scope=partial(_view_is_in_space, selected_space),
-            )
+            inspect_results = client.tool.containers.inspect(container_ids)
+            in_scope_view_ids = [
+                view
+                for inspected in inspect_results
+                for view in inspected.inspection_results.involved_views
+                if view.space == selected_space
+            ]
+            validate_no_out_of_scope_view_references(inspect_results, in_scope_view_ids, action="purging this space", scope="space")
 
         if not dry_run:
             if instance_count > 0:

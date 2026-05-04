@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 
 import questionary
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics
@@ -9,6 +9,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerInspectResultItem
 from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
@@ -115,24 +116,24 @@ def confirm_by_typing_project_name(message: str, client: ToolkitClient) -> bool:
     return True
 
 
-def block_if_views_reference_containers(
-    client: ToolkitClient,
-    container_ids: Sequence[ContainerId],
-    is_in_scope: Callable[[ViewId], bool],
+def validate_no_out_of_scope_view_references(
+    inspect_results: Sequence[ContainerInspectResultItem],
+    in_scope_view_ids: Sequence[ViewId],
+    *,
+    action: str,
+    scope: str,
 ) -> None:
-    """Raise ToolkitValueError if any container is referenced by out-of-scope views.
+    """Raise ToolkitValueError if any view referencing an inspected container is out-of-scope.
 
-    Calls the ``models/containers/inspect`` endpoint. For each container, views where
-    ``is_in_scope`` returns True are excluded from blocking. Hidden views (those the caller
-    lacks read access to) are always treated as out-of-scope.
+    Hidden views (those the caller lacks read access to) are always treated as out-of-scope.
     """
-    if not container_ids:
+    if not inspect_results:
         return
-
+    in_scope = set(in_scope_view_ids)
     blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
-    for inspected in client.tool.containers.inspect(list(container_ids)):
+    for inspected in inspect_results:
         results = inspected.inspection_results
-        out_of_scope_seen = [view for view in results.involved_views if not is_in_scope(view)]
+        out_of_scope_seen = [view for view in results.involved_views if view not in in_scope]
         hidden_count = results.involved_view_count - len(results.involved_views)
         if not out_of_scope_seen and hidden_count == 0:
             continue
@@ -142,12 +143,12 @@ def block_if_views_reference_containers(
         return
 
     table = Table(
-        title="Container deletion blocked: referenced by out-of-scope views",
+        title=f"Container deletion blocked: referenced by views outside this {scope}",
         title_justify="left",
         show_lines=True,
     )
-    table.add_column("Container", no_wrap=True)
-    table.add_column("Referencing view", no_wrap=True)
+    table.add_column(f"Container (within this {scope})", no_wrap=True)
+    table.add_column(f"Referencing view (outside this {scope})", no_wrap=True)
     for container_id, (out_of_scope_seen, hidden_count) in blocked.items():
         container_label = f"{container_id.space}:{container_id.external_id}"
         rows: list[tuple[str, str]] = [
@@ -161,6 +162,6 @@ def block_if_views_reference_containers(
             table.add_row(label, view_label)
     print(table)
     raise ToolkitValueError(
-        "Cannot proceed with the operation: one or more containers are referenced by views outside "
-        "the current scope. Delete or move those views first, then re-run the operation."
+        f"Cannot proceed with {action}: one or more containers are referenced by views outside "
+        f"the current {scope}. Delete or move those views first, then re-run the operation."
     )

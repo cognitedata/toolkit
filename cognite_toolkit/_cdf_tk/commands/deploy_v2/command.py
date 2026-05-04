@@ -20,10 +20,11 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
+    validate_no_out_of_scope_view_references,
     confirm_by_typing_project_name,
     print_soft_delete_panel,
     validate_soft_delete_headroom,
@@ -46,12 +47,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
+    ContainerCRUD,
     EdgeCRUD,
     NodeCRUD,
     RawTableCRUD,
     ResourceContainerIO,
     ResourceIO,
     SpaceCRUD,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
@@ -231,6 +234,30 @@ class DeployV2Command(ToolkitCommand):
         if options.drop and options.drop_data and not options.dry_run:
             if not self._confirm_drop_data(client, plan, options):
                 return []
+
+        if options.drop:
+            container_ids: list[ContainerId] = []
+            for step in plan:
+                if step.crud_cls is not ContainerCRUD:
+                    continue
+                crud = step.crud_cls.create_loader(client)
+                resource_by_id = self._read_resource_files(crud, step.files, options)
+                if not resource_by_id:
+                    continue
+                existing = crud.retrieve(list(resource_by_id.keys()))
+                container_ids.extend(ContainerId(space=c.space, external_id=c.external_id) for c in existing)
+            if container_ids:
+                in_scope_view_ids: set[ViewId] = set()
+                for step in plan:
+                    if step.crud_cls is not ViewIO:
+                        continue
+                    crud = step.crud_cls.create_loader(client)
+                    resource_by_id = self._read_resource_files(crud, step.files, options)
+                    in_scope_view_ids.update(resource_by_id.keys())
+                inspect_results = client.tool.containers.inspect(container_ids)
+                validate_no_out_of_scope_view_references(
+                    inspect_results, list(in_scope_view_ids), action="this operation", scope="module"
+                )
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
