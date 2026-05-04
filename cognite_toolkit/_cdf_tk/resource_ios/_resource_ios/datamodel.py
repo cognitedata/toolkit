@@ -1270,11 +1270,7 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [
-            ViewId._load(source["source"])
-            for source in local.get("sources", [])
-            if "source" in source and source["source"].get("type") == "view"
-        ]
+        sources = [ViewId._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()
@@ -1694,11 +1690,7 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [
-            ViewId._load(source["source"])
-            for source in local.get("sources", [])
-            if "source" in source and source["source"].get("type") == "view"
-        ]
+        sources = [ViewId._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()
