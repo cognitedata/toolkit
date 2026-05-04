@@ -10,12 +10,11 @@ from typing import Any, Literal, cast
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -32,11 +31,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InstanceDefinitionId,
     InstanceId,
     InternalId,
-    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
-from cognite_toolkit._cdf_tk.constants import DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import InstanceIO, Page
@@ -52,7 +49,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -95,35 +91,12 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
-
-
-def validate_soft_delete_purge_headroom(
-    instance_statistics: InstanceStatistics,
-    instances_to_soft_delete: int,
-    *,
-    action: str,
-) -> None:
-    """Abort if the purge would exhaust the soft-delete resource limit."""
-    if instances_to_soft_delete <= 0:
-        return
-    used = instance_statistics.soft_deleted_instances
-    limit = instance_statistics.soft_deleted_instances_limit
-    margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
-    projected = used + instances_to_soft_delete
-    headroom_after = limit - projected
-    if headroom_after < margin:
-        headroom_clause = (
-            f"leaving only {headroom_after:,} instances of headroom, which is less than the required margin of {margin:,}."
-            if headroom_after >= 0
-            else f"exceeding the limit by {-headroom_after:,} instances."
-        )
-        raise ToolkitValueError(
-            f"Cannot proceed with {action}, not enough soft-deleted instance capacity available. "
-            f"Currently {used:,} of {limit:,} instances are soft-deleted. Performing this operation would add up to "
-            f"{instances_to_soft_delete:,} more (projected total: {projected:,}), {headroom_clause} "
-            f"Reduce what you purge, or wait for soft-deleted data to expire before retrying "
-            f"(see: https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details)."
-        )
+from ._utils import (
+    confirm_by_typing_project_name,
+    print_soft_delete_panel,
+    validate_no_out_of_scope_view_references,
+    validate_soft_delete_headroom,
+)
 
 
 @dataclass
@@ -344,15 +317,28 @@ class PurgeCommand(ToolkitCommand):
             )
 
         if stats.containers > 0:
-            self._block_if_external_views_reference_containers(client, selected_space)
+            container_ids = [
+                ContainerId(space=c.space, external_id=c.external_id)
+                for c in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
+            ]
+            inspect_results = client.tool.containers.inspect(container_ids)
+            in_scope_view_ids = [
+                view
+                for inspected in inspect_results
+                for view in inspected.inspection_results.involved_views
+                if view.space == selected_space
+            ]
+            validate_no_out_of_scope_view_references(
+                inspect_results, in_scope_view_ids, action="purging this space", scope="space"
+            )
 
         if not dry_run:
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
-                validate_soft_delete_purge_headroom(
+                validate_soft_delete_headroom(
                     project_instance_statistics, instance_count, action="purging this space (including its instances)"
                 )
-                self._print_instance_purge_soft_delete_panel(project_instance_statistics, instance_count)
+                print_soft_delete_panel(project_instance_statistics, instance_count)
                 acknowledge_soft_delete = questionary.confirm(
                     "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
@@ -361,7 +347,7 @@ class PurgeCommand(ToolkitCommand):
                     return DeployResults([], "purge", dry_run=dry_run)
             self._print_panel("space", selected_space)
 
-            confirm = self._confirm_purge(f"You are about purge the {selected_space!r} space", client)
+            confirm = confirm_by_typing_project_name(f"You are about purge the {selected_space!r} space", client)
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -589,8 +575,8 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
         if not dry_run and not auto_yes:
-            confirm = self._confirm_purge(
-                f"You are about t purge the {selected_data_set_external_id!r} dataSet", client
+            confirm = confirm_by_typing_project_name(
+                f"You are about to purge the {selected_data_set_external_id!r} dataSet", client
             )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
@@ -722,62 +708,6 @@ class PurgeCommand(ToolkitCommand):
         return to_delete
 
     @staticmethod
-    def _block_if_external_views_reference_containers(client: ToolkitClient, selected_space: str) -> None:
-        """Block the purge if any container in the space is referenced by views in other spaces.
-
-        Uses the ``models/containers/inspect`` endpoint with both the ``involvedViews`` and
-        ``totalInvolvedViewCount`` operations.  The total count is authoritative — it includes views
-        the caller cannot access — so blocking is decided on the count, not the view list.
-        Same-space views are excluded because they are themselves part of the purge.
-        """
-        container_ids = [
-            ContainerId(space=container.space, external_id=container.external_id)
-            for container in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
-        ]
-        if not container_ids:
-            return
-
-        # (external_views_seen, hidden_count) per blocked container
-        blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
-        for inspected in client.tool.containers.inspect(container_ids):
-            results = inspected.inspection_results
-            external_seen = [view for view in results.involved_views if view.space != selected_space]
-            # Hidden views (not returned in involvedViews) must be from other spaces: purge access
-            # to selected_space implies read access, so any same-space views would be visible.
-            hidden_count = results.involved_view_count - len(results.involved_views)
-            if not external_seen and hidden_count == 0:
-                continue
-            container_id = ContainerId(space=inspected.space, external_id=inspected.external_id)
-            blocked[container_id] = (external_seen, hidden_count)
-        if not blocked:
-            return
-
-        table = Table(
-            title=f"Purge is blocked since containers in [bold]{selected_space}[/bold] are referenced by views in other spaces",
-            title_justify="left",
-            show_lines=True,
-        )
-        table.add_column("Container", no_wrap=True)
-        table.add_column("Referencing view(s)", no_wrap=True)
-        for container_id, (external_seen, hidden_count) in blocked.items():
-            container_label = f"{container_id.space}:{container_id.external_id}"
-            rows: list[tuple[str, str]] = [
-                (container_label if index == 0 else "", f"{view.space}:{view.external_id}/{view.version}")
-                for index, view in enumerate(external_seen)
-            ]
-            if hidden_count > 0:
-                hidden_label = f"[dim italic]{hidden_count} view(s) you do not have access to[/]"
-                rows.append(("" if external_seen else container_label, hidden_label))
-            for label, view_label in rows:
-                table.add_row(label, view_label)
-        print(table)
-        raise ToolkitValueError(
-            f"Cannot proceed with purge of space {selected_space!r}: one or more containers in this space are referenced by views "
-            "in other spaces. Deleting containers that are still referenced by views would cause breaking changes to those views. "
-            "If you are sure you still want to delete these containers, you need to remove all versions of all views that reference these containers (refer to the table above), then re-run the purge."
-        )
-
-    @staticmethod
     def _print_panel(resource_type: str, resource: str) -> None:
         print(
             Panel(
@@ -787,57 +717,6 @@ class PurgeCommand(ToolkitCommand):
                 title=f"Purge {resource_type}",
                 title_align="left",
                 border_style="red",
-                expand=False,
-            )
-        )
-
-    @staticmethod
-    def _print_instance_purge_soft_delete_panel(
-        instance_statistics: InstanceStatistics,
-        instances_to_delete: int,
-    ) -> None:
-        """Step 1 panel: soft-delete resource limit impact and related notices."""
-        used = max(0, instance_statistics.soft_deleted_instances)
-        limit = instance_statistics.soft_deleted_instances_limit
-        projected = used + instances_to_delete
-        remaining_after = max(0, limit - projected)
-        bar_width = 44
-
-        bar = "".join(
-            "[yellow]█[/yellow]"
-            if (i + 0.5) / bar_width * limit < used
-            else "[bright_magenta]█[/bright_magenta]"
-            if (i + 0.5) / bar_width * limit < min(projected, limit)
-            else "[dim]░[/dim]"
-            for i in range(bar_width)
-        )
-        resource_usage_bar = (
-            "[yellow]█[/yellow] [dim]already soft-deleted   [/dim]"
-            "[bright_magenta]█[/bright_magenta] [dim]this purge   [/dim]"
-            "[dim]░ remaining[/dim]\n\n"
-            f"{bar}\n"
-            f"[dim]Limit [/dim][bold]{limit:,}[/bold][dim]  ·  [/dim]"
-            f"[yellow]{used:,}[/yellow][dim] + [/dim][bright_magenta]{instances_to_delete:,}[/bright_magenta]"
-            f"[dim] → [/dim][bold]{projected:,}[/bold][dim] total soft-deleted (est.)  ·  [/dim]"
-            f"[green]{remaining_after:,}[/green][dim] remaining[/dim]"
-        )
-
-        print(
-            Panel(
-                "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
-                "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
-                "not be able to delete any more instances until the soft-deleted data expires and is hard-deleted per "
-                "the retention policy, which can take multiple days (see "
-                "https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details).\n\n"
-                f"[bold]This purge targets up to {instances_to_delete:,} instance(s).[/bold] Each deleted instance "
-                f"counts toward the total soft-delete limit below.\n\n{resource_usage_bar}\n\n"
-                "[bold]NOTE:[/bold] Please be aware, if you intended to delete containers or views, this does not "
-                "require deleting instances. You can delete or change schema resources (containers, views, data models) "
-                "without purging the instance data first. Only run an instance purge when you intend to remove specific "
-                "data which was either ingested by error or is no longer needed or valid.",
-                title="Purging instances: Please acknowledge the following",
-                title_align="left",
-                border_style="yellow",
                 expand=False,
             )
         )
@@ -866,10 +745,8 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_purge_headroom(
-                project_instance_statistics, total, action="purging the selected instances"
-            )
-            self._print_instance_purge_soft_delete_panel(project_instance_statistics, total)
+            validate_soft_delete_headroom(project_instance_statistics, total, action="purging the selected instances")
+            print_soft_delete_panel(project_instance_statistics, total)
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
                 default=False,
@@ -878,7 +755,7 @@ class PurgeCommand(ToolkitCommand):
                 return DeleteResults()
             self._print_panel("instances", str(selector))
 
-            confirm_purge = self._confirm_purge(
+            confirm_purge = confirm_by_typing_project_name(
                 f"You are about to purge all {total:,} instances in {selector!s}", client
             )
             if not confirm_purge:
@@ -924,18 +801,6 @@ class PurgeCommand(ToolkitCommand):
     def _log_filestem(self) -> str:
         log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
         return log_filestem
-
-    def _confirm_purge(self, message: str, client: ToolkitClient) -> bool:
-        client_project = client.config.project
-        client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
-        typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
-        if typed_project != client_project:
-            client.console.print(
-                f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
-            )
-            return False
-
-        return True
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(

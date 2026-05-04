@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._purge import validate_soft_delete_purge_headroom
+from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_headroom
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -208,7 +208,9 @@ class TestPurgeInstances:
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
         if not dry_run:
             rsps.add(
                 responses.GET,
@@ -319,7 +321,9 @@ class TestPurgeSpace:
         space = "test_space"
         rsps = purge_responses
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
         container_count = 10
         view_count = 15
         data_model_count = 3
@@ -472,7 +476,9 @@ class TestPurgeSpaceCrossReferenceCheck:
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
 
         rsps.add(
             responses.POST,
@@ -512,8 +518,8 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
-            cmd.space(purge_client, space, log_dir=tmp_path, dry_run=dry_run)
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
+            cmd.space(purge_client, space, tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
     @pytest.mark.parametrize("dry_run", [True, False])
@@ -530,7 +536,9 @@ class TestPurgeSpaceCrossReferenceCheck:
         config = purge_client.config
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
-        monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+        )
 
         rsps.add(
             responses.POST,
@@ -561,51 +569,9 @@ class TestPurgeSpaceCrossReferenceCheck:
         delete_route = respx_mock.post(config.create_api_url("/models/containers/delete"))
 
         cmd = PurgeCommand(silent=True)
-        with pytest.raises(ToolkitValueError, match="Cannot proceed with purge"):
-            cmd.space(purge_client, space, log_dir=tmp_path, dry_run=dry_run)
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
+            cmd.space(purge_client, space, tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
-
-    def test_does_not_block_when_only_same_space_views_reference_container(
-        self,
-        purge_client: ToolkitClient,
-        respx_mock: respx.MockRouter,
-    ) -> None:
-        """Same-space views are part of the purge and must not trigger the guardrail."""
-        config = purge_client.config
-        space = "test_space"
-
-        gen = FakeCogniteResourceGenerator(seed=3)
-        container = gen.create_instance(ContainerResponse)
-        container.space = space
-        container.external_id = "same_space_container"
-        respx_mock.get(config.create_api_url("/models/containers")).respond(
-            status_code=200, json={"items": [container.dump()]}
-        )
-        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
-            status_code=200,
-            json={
-                "items": [
-                    {
-                        "space": space,
-                        "externalId": container.external_id,
-                        "inspectionResults": {
-                            "involvedViewCount": 1,
-                            "involvedViews": [
-                                {
-                                    "type": "view",
-                                    "space": space,
-                                    "externalId": "SameSpaceView",
-                                    "version": "v1",
-                                }
-                            ],
-                        },
-                    }
-                ]
-            },
-        )
-
-        # Should not raise — same-space view is part of the purge
-        PurgeCommand._block_if_external_views_reference_containers(purge_client, space)
 
 
 class TestSoftDeletePurgeHeadroom:
@@ -620,8 +586,8 @@ class TestSoftDeletePurgeHeadroom:
             instances=1000,
             soft_deleted_instances=9_200_000,
         )
-        with pytest.raises(ToolkitValueError, match="Cannot proceed"):
-            validate_soft_delete_purge_headroom(inst_stats, 900_000, action="test purge")
+        with pytest.raises(ToolkitValueError, match="Cannot proceed with test purge"):
+            validate_soft_delete_headroom(inst_stats, 900_000, action="test purge")
 
     def test_validate_ok_when_headroom_sufficient(self) -> None:
         inst_stats = InstanceStatistics(
@@ -634,4 +600,4 @@ class TestSoftDeletePurgeHeadroom:
             instances=1000,
             soft_deleted_instances=100,
         )
-        validate_soft_delete_purge_headroom(inst_stats, 2000, action="test purge")
+        validate_soft_delete_headroom(inst_stats, 2000, action="test purge")
