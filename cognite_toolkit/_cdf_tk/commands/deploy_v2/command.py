@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, cast
 
 import questionary
 from pydantic import ValidationError
@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
-    validate_no_out_of_scope_view_references,
     confirm_by_typing_project_name,
     print_soft_delete_panel,
+    validate_no_out_of_scope_view_references,
     validate_soft_delete_headroom,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
@@ -247,9 +247,9 @@ class DeployV2Command(ToolkitCommand):
                 for step in plan:
                     if step.crud_cls is not ViewIO:
                         continue
-                    crud = step.crud_cls.create_loader(client)
-                    resource_by_id = self._read_resource_files(crud, step.files, options)
-                    in_scope_view_ids.update(resource_by_id.keys())
+                    view_crud = step.crud_cls.create_loader(client)
+                    view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
+                    in_scope_view_ids.update(view_resource_by_id.keys())
                 inspect_results = client.tool.containers.inspect(container_ids)
                 validate_no_out_of_scope_view_references(
                     inspect_results, list(in_scope_view_ids), action="this operation", scope="module"
@@ -544,7 +544,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
                 continue
-            crud = step.crud_cls.create_loader(client)
+            crud = cast(ResourceContainerIO[Any, Any, Any], step.crud_cls.create_loader(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue

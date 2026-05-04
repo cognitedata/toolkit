@@ -34,7 +34,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._utils import validate_no_out_of_scope_view_references, validate_soft_delete_headroom
+from cognite_toolkit._cdf_tk.commands._utils import (
+    validate_no_out_of_scope_view_references,
+    validate_soft_delete_headroom,
+)
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -621,7 +624,9 @@ class TestPurgeSpaceCrossReferenceCheck:
             for view in inspected.inspection_results.involved_views
             if view.space == space
         ]
-        validate_no_out_of_scope_view_references(inspect_results, in_scope_view_ids, action="purging this space", scope="space")
+        validate_no_out_of_scope_view_references(
+            inspect_results, in_scope_view_ids, action="purging this space", scope="space"
+        )
 
 
 class TestSoftDeletePurgeHeadroom:

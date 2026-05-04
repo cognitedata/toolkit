@@ -92,9 +92,9 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
 from ._utils import (
-    validate_no_out_of_scope_view_references,
     confirm_by_typing_project_name,
     print_soft_delete_panel,
+    validate_no_out_of_scope_view_references,
     validate_soft_delete_headroom,
 )
 
@@ -328,7 +328,9 @@ class PurgeCommand(ToolkitCommand):
                 for view in inspected.inspection_results.involved_views
                 if view.space == selected_space
             ]
-            validate_no_out_of_scope_view_references(inspect_results, in_scope_view_ids, action="purging this space", scope="space")
+            validate_no_out_of_scope_view_references(
+                inspect_results, in_scope_view_ids, action="purging this space", scope="space"
+            )
 
         if not dry_run:
             if instance_count > 0:
@@ -573,8 +575,8 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
         if not dry_run and not auto_yes:
-            confirm = self._confirm_purge(
-                f"You are about t purge the {selected_data_set_external_id!r} dataSet", client
+            confirm = confirm_by_typing_project_name(
+                f"You are about to purge the {selected_data_set_external_id!r} dataSet", client
             )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
