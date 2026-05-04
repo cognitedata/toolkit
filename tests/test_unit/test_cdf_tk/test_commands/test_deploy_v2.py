@@ -1,11 +1,14 @@
+from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics
+from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeployOptions, DeployV2Command
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import EdgeCRUD, NodeCRUD, SpaceCRUD
 
 
 def _make_instance_statistics(soft_deleted: int = 300, limit: int = 10_000_000) -> InstanceStatistics:
@@ -125,3 +128,58 @@ class TestConfirmDropData:
 
         with pytest.raises(ToolkitValueError, match="Cannot proceed with dropping data from resources"):
             cmd._confirm_drop_data(client, [], options)
+
+
+class TestCountDmsInstancesInPlan:
+    def _make_client(self, space_stats: SpaceStatistics | None = None) -> MagicMock:
+        client = MagicMock()
+        client.data_modeling.statistics.spaces.retrieve.return_value = space_stats
+        return client
+
+    def test_returns_zero_for_empty_plan(self) -> None:
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        assert cmd._count_dms_instances_in_plan(MagicMock(), [], DeployOptions()) == 0
+
+    def test_skips_non_instance_cruds(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """ContainerCRUD steps must not contribute to the count."""
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD
+
+        monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"key": MagicMock()})
+        plan = [DeploymentStep(crud_cls=ContainerCRUD, files=[])]
+        assert cmd._count_dms_instances_in_plan(MagicMock(), plan, DeployOptions()) == 0
+
+    def test_counts_nodes_and_edges_from_space_stats(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """For SpaceCRUD, sum nodes + edges from space-level statistics."""
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        space = SpaceResponse(space="my_space", is_global=False, created_time=0, last_updated_time=0)
+        client = self._make_client(SpaceStatistics("my_space", 0, 0, 0, 40, 0, 50, 0))
+        monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"my_space": MagicMock()})
+        with patch.object(SpaceCRUD, "retrieve", return_value=[space]):
+            plan = [DeploymentStep(crud_cls=SpaceCRUD, files=[])]
+            assert cmd._count_dms_instances_in_plan(client, plan, DeployOptions()) == 90
+
+    def test_counts_len_for_node_and_edge_cruds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """For NodeCRUD and EdgeCRUD, count is simply the number of existing resources."""
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        existing = [MagicMock(), MagicMock(), MagicMock()]
+        monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"k": MagicMock()})
+        with (
+            patch.object(NodeCRUD, "retrieve", return_value=existing[:2]),
+            patch.object(EdgeCRUD, "retrieve", return_value=existing[2:]),
+        ):
+            plan = [
+                DeploymentStep(crud_cls=NodeCRUD, files=[]),
+                DeploymentStep(crud_cls=EdgeCRUD, files=[]),
+            ]
+            assert cmd._count_dms_instances_in_plan(MagicMock(), plan, DeployOptions()) == 3
+
+    def test_returns_zero_when_space_stats_is_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If space statistics are unavailable, that space contributes 0."""
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        space = SpaceResponse(space="my_space", is_global=False, created_time=0, last_updated_time=0)
+        client = self._make_client(space_stats=None)
+        monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"my_space": MagicMock()})
+        with patch.object(SpaceCRUD, "retrieve", return_value=[space]):
+            plan = [DeploymentStep(crud_cls=SpaceCRUD, files=[])]
+            assert cmd._count_dms_instances_in_plan(client, plan, DeployOptions()) == 0

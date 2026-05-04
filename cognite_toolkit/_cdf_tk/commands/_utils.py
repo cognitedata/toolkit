@@ -127,8 +127,6 @@ def validate_no_out_of_scope_view_references(
 
     Hidden views (those the caller lacks read access to) are always treated as out-of-scope.
     """
-    if not inspect_results:
-        return
     in_scope = set(in_scope_view_ids)
     blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
     for inspected in inspect_results:
