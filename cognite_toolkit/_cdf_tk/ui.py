@@ -1,8 +1,10 @@
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 import questionary
+from prompt_toolkit.styles import Style as PTStyle
+from prompt_toolkit.styles import merge_styles
 from rich import box as rich_box
 from rich.console import Console, ConsoleOptions, Group, JustifyMethod, RenderableType, RenderResult
 from rich.padding import Padding, PaddingDimensions
@@ -11,7 +13,15 @@ from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "AuraColor", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable", "hanging_indent"]
+__all__ = [
+    "QUESTIONARY_STYLE",
+    "AuraColor",
+    "ToolkitPanel",
+    "ToolkitPanelSection",
+    "ToolkitTable",
+    "apply_questionary_toolkit_defaults",
+    "hanging_indent",
+]
 
 
 # https://cognitedata.github.io/aura/primitives/colors
@@ -120,13 +130,17 @@ class ToolkitTable(Table):
         return Padding(self, (1, 0, 1, 2))
 
 
+# "reverse" keeps the active row visible when truecolor (fg:#...) is ignored or low-contrast
+# (macOS Terminal / iTerm2); see CDF-27852.
+_QUESTIONARY_POINTER_HIGHLIGHT = f"reverse bold {AuraColor.FJORD.fg}"
+
 QUESTIONARY_STYLE = questionary.Style(
     [
         ("qmark", AuraColor.FJORD.fg),  # token in front of the question
         ("question", "bold"),  # question text
         ("answer", f"{AuraColor.NORDIC.fg} bold"),  # submitted answer text behind the question
-        ("pointer", f"{AuraColor.FJORD.fg} bold"),  # pointer used in select and checkbox prompts
-        ("highlighted", f"{AuraColor.FJORD.fg} bold"),  # pointed-at choice in select and checkbox prompts
+        ("pointer", _QUESTIONARY_POINTER_HIGHLIGHT),  # pointer used in select and checkbox prompts
+        ("highlighted", _QUESTIONARY_POINTER_HIGHLIGHT),  # pointed-at choice in select and checkbox prompts
         ("selected", AuraColor.NORDIC.fg),  # style for a selected item of a checkbox
         ("separator", AuraColor.MOUNTAIN.fg),  # separator in lists
         ("instruction", ""),  # user instructions for select, rawselect, checkbox
@@ -134,3 +148,13 @@ QUESTIONARY_STYLE = questionary.Style(
         ("disabled", f"{AuraColor.MOUNTAIN.fg} italic"),  # disabled choices for select and checkbox prompts
     ]
 )
+
+
+def apply_questionary_toolkit_defaults() -> None:
+    """Merge Toolkit questionary styles into library defaults for every prompt."""
+    import questionary.constants as qc
+    import questionary.styles as qstyles
+
+    merged = cast(PTStyle, merge_styles([qc.DEFAULT_STYLE, QUESTIONARY_STYLE]))
+    qc.DEFAULT_STYLE = merged
+    qstyles.DEFAULT_STYLE = merged

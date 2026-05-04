@@ -44,10 +44,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.plugins import Plugins
+from cognite_toolkit._cdf_tk.ui import apply_questionary_toolkit_defaults
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
 )
 from cognite_toolkit._version import __version__ as current_version
+
+apply_questionary_toolkit_defaults()
 
 if USE_SENTRY:
     import sentry_sdk
