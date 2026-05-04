@@ -471,14 +471,14 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--drop",
                 "-d",
-                help="Whether to drop existing configurations, drop per resource if present.",
+                help="[Deprecated, use 'cdf clean' instead] Whether to drop existing configurations, drop per resource if present.",
             ),
         ] = False,
         drop_data: Annotated[
             bool,
             typer.Option(
                 "--drop-data",
-                help="Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+                help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces.",
             ),
         ] = False,
         include: Annotated[
