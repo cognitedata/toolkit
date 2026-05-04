@@ -231,10 +231,6 @@ class DeployV2Command(ToolkitCommand):
 
         self._display_plan(plan, options.operation, options.operation_noun, client.console)
 
-        if options.drop and options.drop_data and not options.dry_run:
-            if not self._confirm_drop_data(client, plan, options):
-                return []
-
         if options.drop:
             container_ids: list[ContainerId] = []
             for step in plan:
@@ -258,6 +254,10 @@ class DeployV2Command(ToolkitCommand):
                 validate_no_out_of_scope_view_references(
                     inspect_results, list(in_scope_view_ids), action="this operation", scope="module"
                 )
+
+        if options.drop and options.drop_data and not options.dry_run:
+            if not self._confirm_drop_data(client, plan, options):
+                return []
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
