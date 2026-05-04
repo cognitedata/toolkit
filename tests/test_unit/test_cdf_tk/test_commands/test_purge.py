@@ -519,7 +519,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         cmd = PurgeCommand(silent=True)
         with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
-            cmd.space(purge_client, space, dry_run=dry_run)
+            cmd.space(purge_client, space, tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
     @pytest.mark.parametrize("dry_run", [True, False])
@@ -570,7 +570,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         cmd = PurgeCommand(silent=True)
         with pytest.raises(ToolkitValueError, match="Cannot proceed with purging this space"):
-            cmd.space(purge_client, space, dry_run=dry_run)
+            cmd.space(purge_client, space, tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
     def test_does_not_block_when_only_same_space_views_reference_container(
