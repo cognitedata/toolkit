@@ -575,7 +575,6 @@ class TestPurgeSpaceCrossReferenceCheck:
         assert delete_route.call_count == 0
 
 
-
 class TestSoftDeletePurgeHeadroom:
     def test_validate_blocks_when_headroom_below_margin(self) -> None:
         inst_stats = InstanceStatistics(

@@ -252,7 +252,12 @@ class DeployV2Command(ToolkitCommand):
                     in_scope_view_ids.update(view_resource_by_id.keys())
                 inspect_results = client.tool.containers.inspect(container_ids)
                 validate_no_out_of_scope_view_references(
-                    inspect_results, list(in_scope_view_ids), action="this operation", scope="module"
+                    inspect_results,
+                    list(in_scope_view_ids),
+                    action="cleaning resources from the CDF project"
+                    if options.operation == "clean"
+                    else "deploying with --drop flag",
+                    scope="build directory",
                 )
 
         if options.drop and options.drop_data and not options.dry_run:
