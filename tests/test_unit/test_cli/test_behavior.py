@@ -160,7 +160,9 @@ def test_pull_dataset(
         env_vars=env_vars_with_client,
     )
 
-    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    reloaded_raw = yaml.safe_load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    reloaded_raw.update({"id": 42, "createdTime": 0, "lastUpdatedTime": 0, "writeProtected": False})
+    reloaded = DataSet.load(reloaded_raw)
     assert reloaded.description == "New description"
 
 
@@ -189,7 +191,9 @@ def test_pull_dataset_relative_path(
             env_vars=env_vars_with_client,
         )
 
-    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    reloaded_raw = yaml.safe_load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    reloaded_raw.update({"id": 42, "createdTime": 0, "lastUpdatedTime": 0, "writeProtected": False})
+    reloaded = DataSet.load(reloaded_raw)
     assert reloaded.description == "New description"
 
 

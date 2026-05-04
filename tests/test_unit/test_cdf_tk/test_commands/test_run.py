@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
-from cognite.client.data_classes.transformations import Transformation
+from cognite.client.data_classes.transformations import Transformation, TransformationDestination
 from cognite.client.data_classes.workflows import (
     WorkflowExecution,
     WorkflowVersionId,
@@ -23,9 +23,18 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 class TestRunTransformation:
     def test_run_transformation(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         transformation = Transformation(
+            id=1,
             name="Test transformation",
             external_id="test",
             query="SELECT * FROM timeseries",
+            destination=TransformationDestination.timeseries(),
+            conflict_mode="upsert",
+            is_public=False,
+            ignore_null_fields=False,
+            created_time=0,
+            last_updated_time=0,
+            owner="pytest",
+            owner_is_current_user=True,
         )
         toolkit_client_approval.append(Transformation, transformation)
 
@@ -43,6 +52,7 @@ class TestRunFunction:
     ) -> None:
         function = Function(
             id=1234567890,
+            created_time=1_700_000_000_000,
             name="test3",
             external_id="fn_test3",
             description="Returns the input data, secrets, and function info.",
@@ -50,7 +60,6 @@ class TestRunFunction:
             status="RUNNING",
             file_id=1234567890,
             function_path="./handler.py",
-            created_time=int(datetime.now().timestamp() / 1000),
             secrets={"my_secret": "***"},
         )
         toolkit_client_approval.append(Function, function)
@@ -58,6 +67,7 @@ class TestRunFunction:
             id=1234567890,
             status="RUNNING",
             start_time=int(datetime.now().timestamp() / 1000),
+            function_id=1234567890,
         )
         cmd = RunFunctionCommand()
 

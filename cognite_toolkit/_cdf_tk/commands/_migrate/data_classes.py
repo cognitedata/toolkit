@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, Literal
@@ -28,6 +29,11 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     JsonVal,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
@@ -261,6 +267,12 @@ class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogn
             "mapping": mapping,
             "resource": self.resource.dump(camel_case=camel_case),
         }
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any]) -> Self:
+        raise NotImplementedError(
+            "AssetCentricMapping is built in-memory for migrations; loading from an API dict is not supported."
+        )
 
 
 class ThreeDRevisionMigrationRequest(RequestResource):

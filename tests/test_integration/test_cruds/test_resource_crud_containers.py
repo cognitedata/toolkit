@@ -71,7 +71,7 @@ def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -
         name="Test Container",
         description="Container used for running integration test",
         used_for="node",
-        properties={"name": dm.ContainerProperty(dm.Text())},
+        properties={"name": dm.ContainerPropertyApply(dm.Text())},
     )
     return cognite_client.data_modeling.containers.apply(container)
 
@@ -84,7 +84,7 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
         name="Test Container Edge",
         description="Container used for running integration test",
         used_for="edge",
-        properties={"name": dm.ContainerProperty(dm.Text())},
+        properties={"name": dm.ContainerPropertyApply(dm.Text())},
     )
     return cognite_client.data_modeling.containers.apply(container)
 

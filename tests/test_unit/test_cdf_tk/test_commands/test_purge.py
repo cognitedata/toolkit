@@ -7,8 +7,6 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
-import requests
-import responses
 import respx
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.capabilities import (
@@ -122,13 +120,12 @@ def files_by_node_id(
 
 @pytest.fixture()
 def purge_responses(
-    rsps: responses.RequestsMock,
+    respx_mock: respx.MockRouter,
     toolkit_config: ToolkitClientConfig,
-) -> Iterator[responses.RequestsMock]:
+) -> Iterator[respx.MockRouter]:
     config = toolkit_config
-    rsps.add(
-        responses.GET,
-        f"{config.base_url}/api/v1/token/inspect",
+    respx_mock.get(f"{config.base_url}/api/v1/token/inspect").respond(
+        status_code=200,
         json={
             "subject": "123",
             "projects": [],
@@ -162,7 +159,7 @@ def purge_responses(
             ],
         },
     )
-    yield rsps
+    yield respx_mock
 
 
 @pytest.fixture
@@ -193,7 +190,7 @@ class TestPurgeInstances:
         unlink: bool,
         instance_type: str,
         purge_client: ToolkitClient,
-        purge_responses: responses.RequestsMock,
+        purge_responses: respx.MockRouter,
         project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
@@ -204,20 +201,17 @@ class TestPurgeInstances:
         tmp_path: Path,
     ) -> None:
         config = purge_client.config
-        rsps = purge_responses
         instances = cognite_timeseries_2000_list if instance_type == "timeseries" else cognite_files_2000_list
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
+            respx_mock.get(config.create_api_url("/models/statistics")).respond(
+                status_code=200,
                 json=project_statistics_response,
             )
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances/aggregate"),
+        respx_mock.post(config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
             json={
                 "items": [
                     {
@@ -309,7 +303,7 @@ class TestPurgeSpace:
         delete_datapoints: bool,
         delete_file_content: bool,
         purge_client: ToolkitClient,
-        purge_responses: responses.RequestsMock,
+        purge_responses: respx.MockRouter,
         project_statistics_response: dict[str, Any],
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
@@ -317,7 +311,6 @@ class TestPurgeSpace:
     ) -> None:
         config = purge_client.config
         space = "test_space"
-        rsps = purge_responses
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
         container_count = 10
@@ -327,9 +320,8 @@ class TestPurgeSpace:
         node_count = 50
         ts_count = 14
         file_count = 7
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/statistics/spaces/byids"),
+        respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
+            status_code=200,
             json={
                 "items": SpaceStatistics(
                     space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
@@ -337,17 +329,13 @@ class TestPurgeSpace:
             },
         )
         if not dry_run:
-            rsps.add(
-                responses.GET,
-                config.create_api_url("/models/statistics"),
+            respx_mock.get(config.create_api_url("/models/statistics")).respond(
+                status_code=200,
                 json=project_statistics_response,
             )
 
         def delete_callback(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=request.content)
-
-        def delete_space_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
-            return 200, {}, request.body
 
         gen = FakeCogniteResourceGenerator(seed=42)
         # The cross-reference safety check runs in both dry-run and real mode and lists/inspects all
@@ -464,7 +452,6 @@ class TestPurgeSpaceCrossReferenceCheck:
         self,
         dry_run: bool,
         purge_client: ToolkitClient,
-        rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
@@ -474,9 +461,8 @@ class TestPurgeSpaceCrossReferenceCheck:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
 
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/statistics/spaces/byids"),
+        respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
+            status_code=200,
             json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
         )
 
@@ -521,7 +507,6 @@ class TestPurgeSpaceCrossReferenceCheck:
         self,
         dry_run: bool,
         purge_client: ToolkitClient,
-        rsps: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
@@ -532,9 +517,8 @@ class TestPurgeSpaceCrossReferenceCheck:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(PurgeCommand, "_confirm_purge", lambda self, msg, client: True)
 
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/statistics/spaces/byids"),
+        respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
+            status_code=200,
             json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
         )
 

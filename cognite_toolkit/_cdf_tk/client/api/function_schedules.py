@@ -72,11 +72,13 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def _create_list_request_body(self, function_id: int | None) -> dict[str, Any] | None:
-        body: dict[str, Any] = {}
+    def _create_list_request_body(self, function_id: int | None, name: str | None = None) -> dict[str, Any] | None:
+        filter: dict[str, Any] = {}
         if function_id is not None:
-            body["filter"] = {"functionId": function_id}
-        return body or None
+            filter["functionId"] = function_id
+        if name is not None:
+            filter["name"] = name
+        return {"filter": filter} if filter else None
 
     def input_data(self, schedule_id: int) -> FunctionScheduleData:
         """Retrieve the input data to the associated function schedule..
@@ -130,7 +132,9 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         """
         return self._iterate(limit=limit, body=self._create_list_request_body(function_id=function_id))
 
-    def list(self, function_id: int | None = None, limit: int | None = None) -> list[FunctionScheduleResponse]:
+    def list(
+        self, function_id: int | None = None, name: str | None = None, limit: int | None = None
+    ) -> list[FunctionScheduleResponse]:
         """List all function schedules in CDF.
 
         Args:
@@ -139,4 +143,4 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         Returns:
             List of FunctionScheduleResponse objects.
         """
-        return self._list(limit=limit, body=self._create_list_request_body(function_id=function_id))
+        return self._list(limit=limit, body=self._create_list_request_body(function_id=function_id, name=name))
