@@ -7,7 +7,7 @@ from ._data_classes import (
     RequestMessage,
     SuccessResponse,
 )
-from ._exception import ToolkitAPIError
+from ._exception import ToolkitAPIError, toolkit_api_error_from_cognite
 from ._item_classes import (
     ItemsFailedRequest,
     ItemsFailedResponse,
@@ -30,4 +30,5 @@ __all__ = [
     "RequestMessage",
     "SuccessResponse",
     "ToolkitAPIError",
+    "toolkit_api_error_from_cognite",
 ]

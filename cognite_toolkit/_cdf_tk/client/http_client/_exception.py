@@ -1,4 +1,7 @@
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
+
+from cognite.client.exceptions import CogniteAPIError
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.http_client._data_classes import FailedResponse, RequestMessage
@@ -48,3 +51,28 @@ class ToolkitAPIError(Exception):
             debug_info["duplicated"] = self.duplicated
 
         return debug_info
+
+
+def _missing_or_duplicated_as_dict_list(items: Sequence[Any] | None) -> list[dict[str, Any]] | None:
+    if items is None:
+        return None
+    normalized: list[dict[str, Any]] = []
+    for item in items:
+        if isinstance(item, dict):
+            normalized.append(item)
+        else:
+            normalized.append({"identifier": item})
+    return normalized or None
+
+
+def toolkit_api_error_from_cognite(error: CogniteAPIError) -> ToolkitAPIError:
+    """Build a ``ToolkitAPIError`` from a Cognite SDK ``CogniteAPIError`` (same surface fields where possible)."""
+    return ToolkitAPIError(
+        message=error.message,
+        missing=_missing_or_duplicated_as_dict_list(error.missing),
+        duplicated=_missing_or_duplicated_as_dict_list(error.duplicated),
+        code=error.code,
+        is_auto_retryable=None,
+        request=None,
+        response=None,
+    )

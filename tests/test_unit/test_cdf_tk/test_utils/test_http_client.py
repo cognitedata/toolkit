@@ -6,6 +6,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 import respx
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -20,6 +21,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
+    ToolkitAPIError,
+    toolkit_api_error_from_cognite,
 )
 
 
@@ -466,3 +469,24 @@ class TestItemMessage:
         )
 
         assert message.tracker.max_failures_before_abort == 10
+
+
+class TestToolkitAPIErrorFromCognite:
+    def test_maps_message_code_missing_duplicated(self) -> None:
+        cognite = CogniteAPIError(
+            "nope",
+            400,
+            missing=[{"id": 1}, {"id": 2}],
+            duplicated=[{"externalId": "x"}],
+        )
+        toolkit = toolkit_api_error_from_cognite(cognite)
+        assert isinstance(toolkit, ToolkitAPIError)
+        assert toolkit.message == "nope"
+        assert toolkit.code == 400
+        assert toolkit.missing == [{"id": 1}, {"id": 2}]
+        assert toolkit.duplicated == [{"externalId": "x"}]
+
+    def test_normalizes_non_dict_missing_entries(self) -> None:
+        cognite = CogniteAPIError("missing item", 404, missing=["a", "b"])
+        toolkit = toolkit_api_error_from_cognite(cognite)
+        assert toolkit.missing == [{"identifier": "a"}, {"identifier": "b"}]

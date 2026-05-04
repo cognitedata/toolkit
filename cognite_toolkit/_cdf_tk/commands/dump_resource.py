@@ -23,7 +23,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError, toolkit_api_error_from_cognite
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     NameId,
@@ -94,6 +94,10 @@ from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 from ._base import ToolkitCommand
 
 _INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
+
+
+def _as_toolkit_api_error(error: CogniteAPIError | ToolkitAPIError) -> ToolkitAPIError:
+    return toolkit_api_error_from_cognite(error) if isinstance(error, CogniteAPIError) else error
 
 
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
@@ -663,13 +667,14 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         try:
             zip_bytes = self.client.files.download_bytes(id=function.file_id)
-        except CogniteAPIError as e:
-            if e.code == 400 and "File ids not found" in e.message:
+        except (CogniteAPIError, ToolkitAPIError) as e:
+            te = _as_toolkit_api_error(e)
+            if te.code == 400 and "File ids not found" in te.message:
                 HighSeverityWarning(
                     f"The function {function.external_id!r} does not have code to dump. It is not available in CDF."
                 ).print_warning()
                 return
-            raise
+            raise te
         try:
             top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -744,13 +749,14 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         """
         try:
             content = self.client.files.download_bytes(external_id=app.external_id)
-        except CogniteAPIError as e:
-            if e.code == 400 and e.missing:
+        except (CogniteAPIError, ToolkitAPIError) as e:
+            te = _as_toolkit_api_error(e)
+            if te.code == 400 and te.missing:
                 HighSeverityWarning(
                     f"The source code for {app.external_id!r} could not be retrieved from CDF."
                 ).print_warning(console=console)
                 return
-            raise
+            raise te
 
         try:
             json_content = json.loads(content)
@@ -919,7 +925,10 @@ class DumpResourceCommand(ToolkitCommand):
                 try:
                     resources = loader.retrieve(list(identifiers))
                 except (CogniteAPIError, ToolkitAPIError) as e:
-                    raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
+                    te = _as_toolkit_api_error(e)
+                    raise ResourceRetrievalError(
+                        f"Failed to retrieve {humanize_collection(identifiers)}: {te!s}"
+                    ) from te
                 if len(resources) == 0:
                     raise ToolkitResourceMissingError(
                         f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
