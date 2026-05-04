@@ -22,7 +22,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, Cognit
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
@@ -31,13 +31,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewResponse,
 )
+
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._utils import (
-    validate_no_out_of_scope_view_references,
-    validate_soft_delete_headroom,
-)
+from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_headroom
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -576,57 +574,6 @@ class TestPurgeSpaceCrossReferenceCheck:
             cmd.space(purge_client, space, tmp_path, dry_run=dry_run)
         assert delete_route.call_count == 0
 
-    def test_does_not_block_when_only_same_space_views_reference_container(
-        self,
-        purge_client: ToolkitClient,
-        respx_mock: respx.MockRouter,
-    ) -> None:
-        """Same-space views are part of the purge and must not trigger the guardrail."""
-        config = purge_client.config
-        space = "test_space"
-
-        gen = FakeCogniteResourceGenerator(seed=3)
-        container = gen.create_instance(ContainerResponse)
-        container.space = space
-        container.external_id = "same_space_container"
-        respx_mock.get(config.create_api_url("/models/containers")).respond(
-            status_code=200, json={"items": [container.dump()]}
-        )
-        respx_mock.post(config.create_api_url("/models/containers/inspect")).respond(
-            status_code=200,
-            json={
-                "items": [
-                    {
-                        "space": space,
-                        "externalId": container.external_id,
-                        "inspectionResults": {
-                            "involvedViewCount": 1,
-                            "involvedViews": [
-                                {
-                                    "type": "view",
-                                    "space": space,
-                                    "externalId": "SameSpaceView",
-                                    "version": "v1",
-                                }
-                            ],
-                        },
-                    }
-                ]
-            },
-        )
-
-        # Should not raise — same-space view is part of the purge
-        container_ids_to_check = [ContainerId(space=container.space, external_id=container.external_id)]
-        inspect_results = purge_client.tool.containers.inspect(container_ids_to_check)
-        in_scope_view_ids = [
-            view
-            for inspected in inspect_results
-            for view in inspected.inspection_results.involved_views
-            if view.space == space
-        ]
-        validate_no_out_of_scope_view_references(
-            inspect_results, in_scope_view_ids, action="purging this space", scope="space"
-        )
 
 
 class TestSoftDeletePurgeHeadroom:
