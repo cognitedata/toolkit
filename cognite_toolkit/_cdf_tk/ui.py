@@ -23,6 +23,7 @@ __all__ = [
     "ToolkitQuestion",
     "ToolkitTable",
     "apply_questionary_toolkit_defaults",
+    "checkbox_follow_pointer",
     "hanging_indent",
 ]
 
@@ -158,12 +159,28 @@ QUESTIONARY_STYLE = questionary.Style(
 
 
 class ToolkitQuestion:
-    """Callables that build questionary prompts with :data:`QUESTIONARY_STYLE` (CDF-27852)."""
+    """Namespace for questionary prompts using :data:`QUESTIONARY_STYLE` (CDF-27852).
+
+    - :meth:`select` — single-choice lists.
+    - :meth:`checkbox_follow_pointer` — checkbox UI where the checked row follows the highlight.
+    """
 
     @staticmethod
     def select(*args: Any, **kwargs: Any) -> questionary.Question:
         kwargs.setdefault("style", QUESTIONARY_STYLE)
         return questionary.select(*args, **kwargs)
+
+    @staticmethod
+    def checkbox_follow_pointer(*args: Any, **kwargs: Any) -> questionary.Question:
+        kwargs.setdefault("style", QUESTIONARY_STYLE)
+        from cognite_toolkit._cdf_tk.ui_checkbox_follow_pointer import _checkbox_follow_pointer
+
+        return _checkbox_follow_pointer(*args, **kwargs)
+
+
+def checkbox_follow_pointer(*args: Any, **kwargs: Any) -> questionary.Question:
+    """Checkbox prompt where the checked row follows the highlight (alias of :meth:`ToolkitQuestion.checkbox_follow_pointer`)."""
+    return ToolkitQuestion.checkbox_follow_pointer(*args, **kwargs)
 
 
 def apply_questionary_toolkit_defaults() -> None:

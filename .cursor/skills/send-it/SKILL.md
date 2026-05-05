@@ -39,9 +39,19 @@ If the user chose **Stage only**, stop here.
 - Run `git pull origin` to sync the current branch (ignore errors if the remote branch doesn't exist yet).
 - Run `git push -u origin HEAD` to push (sets upstream if needed).
 
-## 5. PR creation (if needed)
+## 5. PR creation or update (if needed)
 
-- Check if a PR exists: `gh pr view --json url --repo cognitedata/toolkit 2>/dev/null`.
+- Check if a PR exists: `gh pr view --json url,body --repo cognitedata/toolkit 2>/dev/null`.
+- **If a PR already exists**, update its description to reflect the current state of the branch:
+  - Read the existing body, compare it to `git log main..HEAD --oneline` and the staged changes.
+  - If the description is stale or incomplete, propose an updated body and apply it with:
+
+    ```bash
+    gh api repos/cognitedata/toolkit/pulls/<number> --method PATCH --field body='...'
+    ```
+
+  - Always use the GitHub API directly (`gh api`) rather than `gh pr edit` to avoid GraphQL
+    deprecation warnings causing false failures.
 - **If no PR exists**, suggest creating one:
   - Ask the user for the Jira ticket ID.
   - Propose a title: `[TICKET-ID] Description of changes`.
