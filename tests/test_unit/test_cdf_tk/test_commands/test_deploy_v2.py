@@ -120,7 +120,7 @@ class TestConfirmDropData:
         assert result is False
 
     def test_raises_when_soft_delete_limit_exceeded(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """When the headroom check fails, ToolkitValueError is raised before prompts."""
+        """When the capacity check fails, ToolkitValueError is raised before prompts."""
         cmd = DeployV2Command(print_warning=False, skip_tracking=True)
         # Nearly full soft-delete limit: 9_200_000 used of 10_000_000 → adding 900_000 fails
         client = _make_client(soft_deleted=9_200_000, limit=10_000_000)

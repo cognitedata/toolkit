@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
     print_soft_delete_panel,
     validate_no_out_of_scope_view_references,
-    validate_soft_delete_headroom,
+    validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
@@ -585,7 +585,7 @@ class DeployV2Command(ToolkitCommand):
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
         if instance_count > 0:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_headroom(
+            validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
                 instance_count,
