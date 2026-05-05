@@ -242,7 +242,7 @@ class DeployV2Command(ToolkitCommand):
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
                 self._display_results(
-                    clean_result, options.operation, options.operation_noun, client.console, options.verbose
+                    clean_result, options.operation, client.console, options.verbose
                 )
                 return clean_result
 
@@ -548,7 +548,7 @@ class DeployV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
         ]
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title=f"[bold]{operation_noun.title()} plan[/]",
                 border_style="green",
