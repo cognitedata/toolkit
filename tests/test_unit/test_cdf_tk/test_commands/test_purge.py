@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_headroom
+from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_capacity
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -577,7 +577,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 class TestSoftDeletePurgeHeadroom:
     def test_validate_blocks_when_headroom_below_margin(self) -> None:
         with pytest.raises(ToolkitValueError, match="Cannot proceed with test purge"):
-            validate_soft_delete_headroom(9_200_000, 10_000_000, 900_000, action="test purge")
+            validate_soft_delete_capacity(9_200_000, 10_000_000, 900_000, action="test purge")
 
     def test_validate_ok_when_headroom_sufficient(self) -> None:
-        validate_soft_delete_headroom(100, 10_000_000, 2000, action="test purge")
+        validate_soft_delete_capacity(100, 10_000_000, 2000, action="test purge")

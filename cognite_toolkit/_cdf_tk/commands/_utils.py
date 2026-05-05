@@ -22,7 +22,7 @@ def _print_ids_or_length(resource_ids: Sequence[T_Identifier,], limit: int = 10)
         return f"{len(resource_ids)} items"
 
 
-def validate_soft_delete_headroom(
+def validate_soft_delete_capacity(
     soft_deleted_instances: int,
     soft_deleted_instances_limit: int,
     instances_to_soft_delete: int,
@@ -43,17 +43,17 @@ def validate_soft_delete_headroom(
     limit = soft_deleted_instances_limit
     margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
     projected = used + instances_to_soft_delete
-    headroom_after = limit - projected
-    if headroom_after < margin:
-        headroom_clause = (
-            f"leaving only {headroom_after:,} instances of headroom, which is less than the required margin of {margin:,}."
-            if headroom_after >= 0
-            else f"exceeding the limit by {-headroom_after:,} instances."
+    available_capacity_after = limit - projected
+    if available_capacity_after < margin:
+        capacity_clause = (
+            f"leaving only {available_capacity_after:,} instances of available capacity, which is less than the required margin of {margin:,}."
+            if available_capacity_after >= 0
+            else f"exceeding the limit by {-available_capacity_after:,} instances."
         )
         raise ToolkitValueError(
             f"Cannot proceed with {action}, not enough soft-deleted instance capacity available. "
             f"Currently {used:,} of {limit:,} instances are soft-deleted. Performing this operation would add up to "
-            f"{instances_to_soft_delete:,} more (projected total: {projected:,}), {headroom_clause} "
+            f"{instances_to_soft_delete:,} more (projected total: {projected:,}), {capacity_clause} "
             f"Reduce what you delete, or wait for soft-deleted data to expire before retrying "
             f"(see: https://docs.cognite.com/cdf/dm/dm_concepts/dm_ingestion#soft-deletion for details)."
         )
