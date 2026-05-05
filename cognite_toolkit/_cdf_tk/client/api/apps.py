@@ -111,7 +111,7 @@ class AppsAPI:
                         description=data.get("description"),
                     )
                 )
-            elif result.status_code == 404 and ignore_unknown_ids:
+            elif result.status_code in (400, 404) and ignore_unknown_ids:
                 continue
             else:
                 result.get_success_or_raise(request)

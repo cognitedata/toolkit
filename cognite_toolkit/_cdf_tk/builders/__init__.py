@@ -3,7 +3,6 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
-from ._app import AppBuilder
 from ._base import Builder, DefaultBuilder, get_resource_crud
 from ._datamodels import DataModelBuilder
 from ._file import FileBuilder
@@ -28,7 +27,6 @@ def create_builder(
 
 _BUILDER_BY_RESOURCE_FOLDER = {_builder._resource_folder: _builder for _builder in Builder.__subclasses__()}
 __all__ = [
-    "AppBuilder",
     "Builder",
     "DataModelBuilder",
     "DefaultBuilder",

@@ -32,11 +32,10 @@ class AppRequest(AppShared, UpdatableRequestResource):
             return super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
         # Body for POST /apphosting/apps (ensure-app call)
         key = "externalId" if camel_case else "external_id"
-        return {
-            key: self.app_external_id,
-            "name": self.name,
-            "description": self.description or "",
-        }
+        body: dict[str, Any] = {key: self.app_external_id, "name": self.name}
+        if self.description:
+            body["description"] = self.description
+        return body
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         return {}

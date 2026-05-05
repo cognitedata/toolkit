@@ -1,3 +1,6 @@
+import io
+import os
+import zipfile
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
@@ -15,11 +18,27 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
 
 from .auth import GroupAllScopedCRUD
+
+_EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git"}
+
+
+def _zip_app_directory(source_dir: Path) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", strict_timestamps=False) as zf:
+        for root, dirs, files in os.walk(source_dir):
+            dirs[:] = [d for d in dirs if d not in _EXCLUDE_DIRS]
+            root_path = Path(root)
+            arc_root = root_path.relative_to(source_dir)
+            zf.write(root_path, arcname=str(arc_root))
+            for filename in files:
+                file_path = root_path / filename
+                zf.write(file_path, arcname=str(file_path.relative_to(source_dir)))
+    return buffer.getvalue()
 
 
 @final
@@ -36,7 +55,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
-        self.app_dir_by_external_id: dict[str, Path] = {}
+        self.zip_path_by_external_id: dict[str, Path] = {}
 
     @property
     def display_name(self) -> str:
@@ -78,13 +97,42 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
     def get_dependencies(cls, resource: AppsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         return []
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        app_external_id = identifier.external_id
+        source_path_str = item.get("sourcePath") or item.get("source_path")
+        if source_path_str is not None:
+            app_root = (filepath.parent / source_path_str).resolve()
+        else:
+            app_root = filepath.with_name(app_external_id)
+
+        if not app_root.is_dir():
+            yield FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"App directory not found for appExternalId {app_external_id!r}. "
+                    f"Expected {app_root.as_posix()} to exist."
+                ),
+                source_path=app_root,
+            )
+            return
+
+        source_dir = app_root / "dist" if (app_root / "dist").is_dir() else app_root
+        source_hash = calculate_directory_hash(source_dir)
+        zip_bytes = _zip_app_directory(source_dir)
+        yield SuccessExtra(
+            source_path=source_dir,
+            source_hash=source_hash,
+            suffix=".zip",
+            byte_content=zip_bytes,
+            description="app bundle",
+        )
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         if filepath.parent.name != self.folder_name:
             return []
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to deploy apps.")
 
         raw_list = super().load_resource_file(filepath, environment_variables)
         for item in raw_list:
@@ -93,7 +141,8 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
                 raise ToolkitRequiredValueError("App YAML must define appExternalId.")
             if not (item.get("versionTag") or item.get("version_tag")):
                 raise ToolkitRequiredValueError("App YAML must define versionTag.")
-            self.app_dir_by_external_id[app_external_id] = self.resource_build_path / app_external_id
+            filestem = filepath.stem.rsplit(".", 1)[0]
+            self.zip_path_by_external_id[app_external_id] = filepath.parent / f"{filestem}.zip"
 
         return raw_list
 
@@ -104,20 +153,19 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
         return resource.as_request_resource().dump(context="toolkit")
 
     def _deploy(self, item: AppRequest) -> AppResponse:
-        app_dir = self.app_dir_by_external_id.get(item.app_external_id)
-        if app_dir is None:
+        zip_path = self.zip_path_by_external_id.get(item.app_external_id)
+        if zip_path is None or not zip_path.exists():
             raise ToolkitRequiredValueError(
-                f"App directory not found for {item.app_external_id!r}. Ensure build was run first."
+                f"App zip not found for {item.app_external_id!r}. Ensure build was run first."
             )
         self.client.tool.apps.ensure_app(item)
-        with create_temporary_zip(app_dir, "app.zip") as zip_path:
-            zip_bytes = zip_path.read_bytes()
-            self.client.tool.apps.upload_version(
-                app_external_id=item.app_external_id,
-                version_tag=item.version_tag,
-                entry_path=item.entry_path,
-                zip_bytes=zip_bytes,
-            )
+        zip_bytes = zip_path.read_bytes()
+        self.client.tool.apps.upload_version(
+            app_external_id=item.app_external_id,
+            version_tag=item.version_tag,
+            entry_path=item.entry_path,
+            zip_bytes=zip_bytes,
+        )
         if item.published:
             self.client.tool.apps.publish(item.app_external_id, item.version_tag)
         return AppResponse(
@@ -132,17 +180,13 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
         )
 
     def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to deploy apps.")
         return [self._deploy(item) for item in items]
 
     def update(self, items: Sequence[AppRequest]) -> list[AppResponse]:
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to deploy apps.")
         return [self._deploy(item) for item in items]
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
-        return self.client.tool.apps.retrieve(list(ids))
+        return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
