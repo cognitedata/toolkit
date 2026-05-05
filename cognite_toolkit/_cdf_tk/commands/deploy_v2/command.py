@@ -241,9 +241,7 @@ class DeployV2Command(ToolkitCommand):
             # for drop in dry-run mode.
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
-                self._display_results(
-                    clean_result, options.operation, client.console, options.verbose
-                )
+                self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
         results = self.apply_plan(client, plan, options)
