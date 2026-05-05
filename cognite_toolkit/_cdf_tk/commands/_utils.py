@@ -193,5 +193,5 @@ def validate_no_out_of_scope_view_references(
     console.print(table)
     raise ToolkitValueError(
         f"Cannot proceed with {action}: one or more containers are referenced by views outside "
-        f"the current {scope}. Delete or move those views first, then re-run the operation."
+        f"the current {scope}. Delete those views first, then re-run the operation."
     )
