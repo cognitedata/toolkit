@@ -329,16 +329,24 @@ class PurgeCommand(ToolkitCommand):
                 if view.space == selected_space
             ]
             validate_no_out_of_scope_view_references(
-                inspect_results, in_scope_view_ids, action="purging this space", scope="space"
+                inspect_results, in_scope_view_ids, action="purging this space", scope="space", console=client.console
             )
 
         if not dry_run:
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
                 validate_soft_delete_headroom(
-                    project_instance_statistics, instance_count, action="purging this space (including its instances)"
+                    project_instance_statistics.soft_deleted_instances,
+                    project_instance_statistics.soft_deleted_instances_limit,
+                    instance_count,
+                    action="purging this space (including its instances)",
                 )
-                print_soft_delete_panel(project_instance_statistics, instance_count)
+                print_soft_delete_panel(
+                    project_instance_statistics.soft_deleted_instances,
+                    project_instance_statistics.soft_deleted_instances_limit,
+                    instance_count,
+                    client.console,
+                )
                 acknowledge_soft_delete = questionary.confirm(
                     "Do you understand the soft-delete resource limit impact and wish to continue?",
                     default=False,
@@ -745,8 +753,18 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_headroom(project_instance_statistics, total, action="purging the selected instances")
-            print_soft_delete_panel(project_instance_statistics, total)
+            validate_soft_delete_headroom(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                total,
+                action="purging the selected instances",
+            )
+            print_soft_delete_panel(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                total,
+                client.console,
+            )
             acknowledge_soft_delete = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
                 default=False,

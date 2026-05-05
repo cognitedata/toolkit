@@ -19,7 +19,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
@@ -576,28 +576,8 @@ class TestPurgeSpaceCrossReferenceCheck:
 
 class TestSoftDeletePurgeHeadroom:
     def test_validate_blocks_when_headroom_below_margin(self) -> None:
-        inst_stats = InstanceStatistics(
-            nodes=1000,
-            edges=0,
-            soft_deleted_edges=0,
-            soft_deleted_nodes=0,
-            instances_limit=10_000_000,
-            soft_deleted_instances_limit=10_000_000,
-            instances=1000,
-            soft_deleted_instances=9_200_000,
-        )
         with pytest.raises(ToolkitValueError, match="Cannot proceed with test purge"):
-            validate_soft_delete_headroom(inst_stats, 900_000, action="test purge")
+            validate_soft_delete_headroom(9_200_000, 10_000_000, 900_000, action="test purge")
 
     def test_validate_ok_when_headroom_sufficient(self) -> None:
-        inst_stats = InstanceStatistics(
-            nodes=1000,
-            edges=0,
-            soft_deleted_edges=0,
-            soft_deleted_nodes=0,
-            instances_limit=10_000_000,
-            soft_deleted_instances_limit=10_000_000,
-            instances=1000,
-            soft_deleted_instances=100,
-        )
-        validate_soft_delete_headroom(inst_stats, 2000, action="test purge")
+        validate_soft_delete_headroom(100, 10_000_000, 2000, action="test purge")

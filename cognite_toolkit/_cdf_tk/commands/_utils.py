@@ -1,8 +1,7 @@
 from collections.abc import Sequence
 
 import questionary
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics
-from rich import print
+from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
@@ -24,16 +23,24 @@ def _print_ids_or_length(resource_ids: Sequence[T_Identifier,], limit: int = 10)
 
 
 def validate_soft_delete_headroom(
-    instance_statistics: InstanceStatistics,
+    soft_deleted_instances: int,
+    soft_deleted_instances_limit: int,
     instances_to_soft_delete: int,
     *,
     action: str,
 ) -> None:
-    """Abort if the operation would exhaust the soft-delete resource limit."""
+    """Abort if the operation would exhaust the soft-delete resource limit.
+
+    Args:
+        soft_deleted_instances: Current number of soft-deleted instances in the project.
+        soft_deleted_instances_limit: Project-wide soft-delete capacity limit.
+        instances_to_soft_delete: Number of instances this operation would add to soft-delete.
+        action: Human-readable description of the operation, used in the error message.
+    """
     if instances_to_soft_delete <= 0:
         return
-    used = instance_statistics.soft_deleted_instances
-    limit = instance_statistics.soft_deleted_instances_limit
+    used = soft_deleted_instances
+    limit = soft_deleted_instances_limit
     margin = DMS_SOFT_DELETED_INSTANCE_LIMIT_MARGIN
     projected = used + instances_to_soft_delete
     headroom_after = limit - projected
@@ -53,12 +60,21 @@ def validate_soft_delete_headroom(
 
 
 def print_soft_delete_panel(
-    instance_statistics: InstanceStatistics,
+    soft_deleted_instances: int,
+    soft_deleted_instances_limit: int,
     instances_to_delete: int,
+    console: Console,
 ) -> None:
-    """Print a warning panel about soft-delete resource limit impact."""
-    used = max(0, instance_statistics.soft_deleted_instances)
-    limit = instance_statistics.soft_deleted_instances_limit
+    """Print a warning panel about soft-delete resource limit impact.
+
+    Args:
+        soft_deleted_instances: Current number of soft-deleted instances in the project.
+        soft_deleted_instances_limit: Project-wide soft-delete capacity limit.
+        instances_to_delete: Number of instances this operation would soft-delete.
+        console: Console to print to.
+    """
+    used = soft_deleted_instances
+    limit = soft_deleted_instances_limit
     projected = used + instances_to_delete
     remaining_after = max(0, limit - projected)
     bar_width = 44
@@ -82,7 +98,7 @@ def print_soft_delete_panel(
         f"[green]{remaining_after:,}[/green][dim] remaining[/dim]"
     )
 
-    print(
+    console.print(
         Panel(
             "By continuing this operation you will be deleting instances, which consumes your CDF project-wide "
             "[bold]soft-delete resource limit[/bold] for instances. If that resource limit is exhausted, you will "
@@ -104,7 +120,15 @@ def print_soft_delete_panel(
 
 
 def confirm_by_typing_project_name(message: str, client: ToolkitClient) -> bool:
-    """Prompt the user to type the CDF project name to confirm a destructive operation."""
+    """Prompt the user to type the CDF project name to confirm a destructive operation.
+
+    Args:
+        message: Description of the operation shown before the confirmation prompt.
+        client: Toolkit client; its project name and console are used for the prompt.
+
+    Returns:
+        True if the user typed the correct project name, False otherwise.
+    """
     client_project = client.config.project
     client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
     typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
@@ -122,10 +146,18 @@ def validate_no_out_of_scope_view_references(
     *,
     action: str,
     scope: str,
+    console: Console,
 ) -> None:
     """Raise ToolkitValueError if any view referencing an inspected container is out-of-scope.
 
     Hidden views (those the caller lacks read access to) are always treated as out-of-scope.
+
+    Args:
+        inspect_results: Per-container inspection results from the containers inspect endpoint.
+        in_scope_view_ids: View IDs considered in scope for this operation.
+        action: Human-readable description of the operation, used in the error message.
+        scope: Name of the scope boundary (e.g. "space" or "build directory"), used in the table title.
+        console: Console to print the blocking table to before raising.
     """
     in_scope = set(in_scope_view_ids)
     blocked: dict[ContainerId, tuple[list[ViewId], int]] = {}
@@ -158,7 +190,7 @@ def validate_no_out_of_scope_view_references(
             rows.append(("" if out_of_scope_seen else container_label, hidden_label))
         for label, view_label in rows:
             table.add_row(label, view_label)
-    print(table)
+    console.print(table)
     raise ToolkitValueError(
         f"Cannot proceed with {action}: one or more containers are referenced by views outside "
         f"the current {scope}. Delete or move those views first, then re-run the operation."
