@@ -87,7 +87,7 @@ class TestConfirmDropData:
         panel_calls: list[Any] = []
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.print_soft_delete_panel",
-            lambda stats, count: panel_calls.append(count),
+            lambda *args: panel_calls.append(args[2]),
         )
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
@@ -112,7 +112,7 @@ class TestConfirmDropData:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.deploy_v2.command.questionary", mock_questionary)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.print_soft_delete_panel",
-            lambda stats, count: None,
+            lambda soft_deleted, limit, count, console: None,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -129,7 +129,7 @@ class TestConfirmDropData:
         monkeypatch.setattr(cmd, "_count_dms_instances_in_plan", lambda c, p, o: 900_000)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.print_soft_delete_panel",
-            lambda stats, count: None,
+            lambda soft_deleted, limit, count, console: None,
         )
 
         with pytest.raises(ToolkitValueError, match="Cannot proceed with dropping data from resources"):
@@ -139,7 +139,7 @@ class TestConfirmDropData:
 class TestCountDmsInstancesInPlan:
     def _make_client(self, space_stats: SpaceStatistics | None = None) -> MagicMock:
         client = MagicMock()
-        client.data_modeling.statistics.spaces.retrieve.return_value = space_stats
+        client.data_modeling.statistics.spaces.retrieve.return_value = [space_stats] if space_stats else None
         return client
 
     def test_returns_zero_for_empty_plan(self) -> None:

@@ -531,10 +531,9 @@ class DeployV2Command(ToolkitCommand):
             if not existing:
                 continue
             if step.crud_cls is SpaceCRUD:
-                for space_resource in existing:
-                    space_stats = client.data_modeling.statistics.spaces.retrieve(space_resource.space)
-                    if space_stats is not None:
-                        total += space_stats.nodes + space_stats.edges
+                space_ids = [s.space for s in existing]
+                for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
+                    total += space_stats.nodes + space_stats.edges
             else:
                 total += len(existing)
         return total
@@ -573,6 +572,7 @@ class DeployV2Command(ToolkitCommand):
             if options.operation == "clean"
             else "deploying with --drop flag",
             scope="build directory",
+            console=client.console,
         )
 
     def _confirm_drop_data(
@@ -586,11 +586,17 @@ class DeployV2Command(ToolkitCommand):
         if instance_count > 0:
             project_instance_statistics = client.data_modeling.statistics.project().instances
             validate_soft_delete_headroom(
-                project_instance_statistics,
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
                 instance_count,
                 action="dropping data from resources",
             )
-            print_soft_delete_panel(project_instance_statistics, instance_count)
+            print_soft_delete_panel(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                instance_count,
+                client.console,
+            )
             acknowledge = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
                 default=False,
