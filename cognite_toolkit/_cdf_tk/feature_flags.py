@@ -78,6 +78,10 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
+    APPS = FlagMetadata(
+        visible=False,
+        description="Enables support for Dune App resources (App Hosting API deployment)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

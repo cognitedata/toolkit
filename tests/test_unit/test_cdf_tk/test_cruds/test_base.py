@@ -21,6 +21,7 @@ from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
@@ -126,6 +127,7 @@ class TestFormatConsistency:
             StreamlitResponse,
             CogniteFileResponse,
             FileMetadataResponse,
+            AppResponse,
         ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
@@ -170,6 +172,7 @@ class TestFormatConsistency:
             StreamlitResponse,
             CogniteFileResponse,
             FileMetadataResponse,
+            AppResponse,
         ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
@@ -228,6 +231,8 @@ def test_resource_types_is_up_to_date() -> None:
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
+    if not FeatureFlag.is_enabled(Flags.APPS):
+        extra.discard("apps")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"

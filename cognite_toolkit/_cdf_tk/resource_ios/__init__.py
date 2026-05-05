@@ -21,6 +21,7 @@ from ._base_ios import DataCRUD, Loader, ResourceContainerIO, ResourceIO
 from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_ios import (
     AgentIO,
+    AppIO,
     AssetIO,
     CogniteFileCRUD,
     ContainerCRUD,
@@ -103,6 +104,8 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
     _EXCLUDED_CRUDS.add(RuleSetIO)
     _EXCLUDED_CRUDS.add(RuleSetVersionIO)
+if not FeatureFlag.is_enabled(Flags.APPS):
+    _EXCLUDED_CRUDS.add(AppIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -151,6 +154,7 @@ del crud  # cleanup module namespace
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
+    "apps",
     "auth",
     "cdf_applications",
     "classic",
@@ -199,6 +203,7 @@ __all__ = [
     "RESOURCE_DATA_CRUD_LIST",
     "_EXCLUDED_CRUDS",
     "AgentIO",
+    "AppIO",
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",

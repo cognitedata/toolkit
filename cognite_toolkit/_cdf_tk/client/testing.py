@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
+from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from .api.charts_monitoring_job import ChartMonitoringJobsAPI
@@ -161,6 +162,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
+        self.tool.apps = MagicMock(spec=AppsAPI)
         self.tool.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
