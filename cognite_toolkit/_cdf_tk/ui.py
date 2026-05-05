@@ -20,6 +20,7 @@ __all__ = [
     "AuraColor",
     "ToolkitPanel",
     "ToolkitPanelSection",
+    "ToolkitQuestion",
     "ToolkitTable",
     "apply_questionary_toolkit_defaults",
     "hanging_indent",
@@ -154,6 +155,15 @@ QUESTIONARY_STYLE = questionary.Style(
         ("disabled", f"{AuraColor.MOUNTAIN.fg} italic"),  # disabled choices for select and checkbox prompts
     ]
 )
+
+
+class ToolkitQuestion:
+    """Callables that build questionary prompts with :data:`QUESTIONARY_STYLE` (CDF-27852)."""
+
+    @staticmethod
+    def select(*args: Any, **kwargs: Any) -> questionary.Question:
+        kwargs.setdefault("style", QUESTIONARY_STYLE)
+        return questionary.select(*args, **kwargs)
 
 
 def apply_questionary_toolkit_defaults() -> None:
