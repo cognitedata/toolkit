@@ -1,4 +1,3 @@
-import difflib
 import json
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
@@ -59,9 +58,8 @@ from cognite_toolkit._cdf_tk.ui import (
     ToolkitTable,
     hanging_indent,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -730,15 +728,16 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
-                    old_lines = yaml_safe_dump(cdf_dict).splitlines(keepends=True)
-                    new_lines = yaml_safe_dump(resource.raw_dict).splitlines(keepends=True)
+                    diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
                     for sensitive in crud.sensitive_strings(resource.request):
-                        old_lines = [line.replace(sensitive, "********") for line in old_lines]
-                        new_lines = [line.replace(sensitive, "********") for line in new_lines]
-                    diff = "".join(
-                        difflib.unified_diff(old_lines, new_lines, fromfile="CDF (current)", tofile="Local (desired)")
+                        diff_str = diff_str.replace(sensitive, "********")
+                    console.print(
+                        ToolkitPanel(
+                            diff_str,
+                            title=f"{crud.display_name}: {identifier}",
+                            expand=False,
+                        )
                     )
-                    console.print(ToolkitPanel(diff, title=f"{crud.display_name}: {identifier}"))
         return resources
 
     @classmethod
