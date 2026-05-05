@@ -11,7 +11,14 @@ from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
-__all__ = ["QUESTIONARY_STYLE", "AuraColor", "ToolkitPanel", "ToolkitPanelSection", "ToolkitTable", "hanging_indent"]
+__all__ = [
+    "QUESTIONARY_STYLE",
+    "AuraColor",
+    "ToolkitPanel",
+    "ToolkitPanelSection",
+    "ToolkitTable",
+    "hanging_indent",
+]
 
 
 # https://cognitedata.github.io/aura/primitives/colors
@@ -41,14 +48,18 @@ class ToolkitPanel(Panel):
         renderable: RenderableType,
         box: rich_box.Box = rich_box.ROUNDED,
         *,
+        title: str | Text | None = None,
         title_align: Literal["left", "center", "right"] = "left",
         subtitle_align: Literal["left", "center", "right"] = "left",
         padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (1, 2),
         **kwargs: Any,
     ) -> None:
+        if isinstance(title, str):
+            title = Text.from_markup(title, style="bold")
         super().__init__(
             renderable,
             box,
+            title=title,
             title_align=title_align,
             subtitle_align=subtitle_align,
             padding=padding,
