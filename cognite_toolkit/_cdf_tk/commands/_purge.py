@@ -95,7 +95,7 @@ from ._utils import (
     confirm_by_typing_project_name,
     print_soft_delete_panel,
     validate_no_out_of_scope_view_references,
-    validate_soft_delete_headroom,
+    validate_soft_delete_capacity,
 )
 
 
@@ -335,7 +335,7 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run:
             if instance_count > 0:
                 project_instance_statistics = client.data_modeling.statistics.project().instances
-                validate_soft_delete_headroom(
+                validate_soft_delete_capacity(
                     project_instance_statistics.soft_deleted_instances,
                     project_instance_statistics.soft_deleted_instances_limit,
                     instance_count,
@@ -753,7 +753,7 @@ class PurgeCommand(ToolkitCommand):
             return DeleteResults()
         if not dry_run:
             project_instance_statistics = client.data_modeling.statistics.project().instances
-            validate_soft_delete_headroom(
+            validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
                 total,
