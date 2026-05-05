@@ -19,6 +19,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
+from cognite_toolkit._cdf_tk.ui import ToolkitQuestion
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
@@ -455,7 +456,7 @@ class EnvironmentVariables:
 
 
 def prompt_user_environment_variables(current: EnvironmentVariables | None = None) -> EnvironmentVariables:
-    provider = questionary.select(
+    provider = ToolkitQuestion.select(
         "Choose the provider (Who authenticates you?)",
         choices=[
             Choice(title=f"{provider}: {description}", value=provider)

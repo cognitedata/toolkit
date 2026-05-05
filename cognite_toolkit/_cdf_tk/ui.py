@@ -1,8 +1,12 @@
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 import questionary
+import questionary.constants as qc
+import questionary.styles as qstyles
+from prompt_toolkit.styles import Style as PTStyle
+from prompt_toolkit.styles import merge_styles
 from rich import box as rich_box
 from rich.console import Console, ConsoleOptions, Group, JustifyMethod, RenderableType, RenderResult
 from rich.padding import Padding, PaddingDimensions
@@ -16,7 +20,10 @@ __all__ = [
     "AuraColor",
     "ToolkitPanel",
     "ToolkitPanelSection",
+    "ToolkitQuestion",
     "ToolkitTable",
+    "apply_questionary_toolkit_defaults",
+    "checkbox_follow_pointer",
     "hanging_indent",
 ]
 
@@ -131,13 +138,17 @@ class ToolkitTable(Table):
         return Padding(self, (1, 0, 1, 2))
 
 
+# "reverse" keeps the active row visible when truecolor (fg:#...) is ignored or low-contrast
+# (macOS Terminal / iTerm2); see CDF-27852.
+_QUESTIONARY_POINTER_HIGHLIGHT = f"reverse bold {AuraColor.FJORD.fg}"
+
 QUESTIONARY_STYLE = questionary.Style(
     [
         ("qmark", AuraColor.FJORD.fg),  # token in front of the question
         ("question", "bold"),  # question text
         ("answer", f"{AuraColor.NORDIC.fg} bold"),  # submitted answer text behind the question
-        ("pointer", f"{AuraColor.FJORD.fg} bold"),  # pointer used in select and checkbox prompts
-        ("highlighted", f"{AuraColor.FJORD.fg} bold"),  # pointed-at choice in select and checkbox prompts
+        ("pointer", _QUESTIONARY_POINTER_HIGHLIGHT),  # pointer used in select and checkbox prompts
+        ("highlighted", _QUESTIONARY_POINTER_HIGHLIGHT),  # pointed-at choice in select and checkbox prompts
         ("selected", AuraColor.NORDIC.fg),  # style for a selected item of a checkbox
         ("separator", AuraColor.MOUNTAIN.fg),  # separator in lists
         ("instruction", ""),  # user instructions for select, rawselect, checkbox
@@ -145,3 +156,35 @@ QUESTIONARY_STYLE = questionary.Style(
         ("disabled", f"{AuraColor.MOUNTAIN.fg} italic"),  # disabled choices for select and checkbox prompts
     ]
 )
+
+
+class ToolkitQuestion:
+    """Namespace for questionary prompts using :data:`QUESTIONARY_STYLE` (CDF-27852).
+
+    - :meth:`select` — single-choice lists.
+    - :meth:`checkbox_follow_pointer` — checkbox UI where the checked row follows the highlight.
+    """
+
+    @staticmethod
+    def select(*args: Any, **kwargs: Any) -> questionary.Question:
+        kwargs.setdefault("style", QUESTIONARY_STYLE)
+        return questionary.select(*args, **kwargs)
+
+    @staticmethod
+    def checkbox_follow_pointer(*args: Any, **kwargs: Any) -> questionary.Question:
+        kwargs.setdefault("style", QUESTIONARY_STYLE)
+        from cognite_toolkit._cdf_tk.ui_checkbox_follow_pointer import _checkbox_follow_pointer
+
+        return _checkbox_follow_pointer(*args, **kwargs)
+
+
+def checkbox_follow_pointer(*args: Any, **kwargs: Any) -> questionary.Question:
+    """Checkbox prompt where the checked row follows the highlight (alias of :meth:`ToolkitQuestion.checkbox_follow_pointer`)."""
+    return ToolkitQuestion.checkbox_follow_pointer(*args, **kwargs)
+
+
+def apply_questionary_toolkit_defaults() -> None:
+    """Merge Toolkit questionary styles into library defaults for every prompt."""
+    merged = cast(PTStyle, merge_styles([qc.DEFAULT_STYLE, QUESTIONARY_STYLE]))
+    qc.DEFAULT_STYLE = merged
+    qstyles.DEFAULT_STYLE = merged
