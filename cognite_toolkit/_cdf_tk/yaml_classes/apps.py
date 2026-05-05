@@ -23,6 +23,14 @@ class AppsYAML(ToolkitResource):
         default="index.html",
         description="Relative path to the entry HTML inside the zip.",
     )
+    source_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to the app source root, relative to this YAML file. "
+            "If the directory contains a dist/ subdirectory, that is used instead. "
+            "Defaults to a sibling directory named after appExternalId."
+        ),
+    )
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.app_external_id)

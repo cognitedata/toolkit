@@ -105,7 +105,10 @@ class AppBuilder(Builder):
                 continue
 
             app_external_id = app_config.app_external_id
-            app_root = source_file.source.path.with_name(app_external_id)
+            if app_config.source_path is not None:
+                app_root = (source_file.source.path.parent / app_config.source_path).resolve()
+            else:
+                app_root = source_file.source.path.with_name(app_external_id)
 
             if not app_root.is_dir():
                 raise ToolkitNotADirectoryError(

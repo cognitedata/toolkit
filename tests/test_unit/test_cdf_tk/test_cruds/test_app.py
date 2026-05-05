@@ -200,6 +200,42 @@ class TestAppBuilder:
         with pytest.raises(ToolkitNotADirectoryError, match="missing-app"):
             builder.copy_app_directory_to_build(source_file)
 
+    def test_copy_app_directory_uses_source_path_field(self, tmp_path: Path):
+        from cognite_toolkit._cdf_tk.builders._app import AppBuilder
+
+        # Simulate source living outside the toolkit module (e.g. ../my-dune-app)
+        external_app_dir = tmp_path / "my-dune-app"
+        dist_dir = external_app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        (dist_dir / "bundle.js").write_text("console.log('hi')")
+
+        apps_dir = tmp_path / "modules" / "my_module" / "apps"
+        apps_dir.mkdir(parents=True)
+        yaml_file = apps_dir / "my-app.App.yaml"
+        yaml_file.write_text(
+            "appExternalId: my-app\nversionTag: '1.0.0'\nname: My App\nsourcePath: '../../../my-dune-app'\n"
+        )
+
+        source_file = MagicMock()
+        source_file.loaded = {
+            "appExternalId": "my-app",
+            "versionTag": "1.0.0",
+            "name": "My App",
+            "sourcePath": "../../../my-dune-app",
+        }
+        source_file.source.path = yaml_file
+
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        builder = AppBuilder(build_dir=build_dir, warn=MagicMock())
+        builder.copy_app_directory_to_build(source_file)
+
+        copied = build_dir / "apps" / "my-app"
+        assert (copied / "index.html").exists()
+        assert (copied / "bundle.js").exists()
+        assert not (copied / "dist").exists()
+
     def test_copy_app_directory_excludes_node_modules_and_git(self, tmp_path: Path):
         from cognite_toolkit._cdf_tk.builders._app import AppBuilder
 
