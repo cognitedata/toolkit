@@ -478,7 +478,7 @@ class CoreApp(typer.Typer):
             bool,
             typer.Option(
                 "--drop-data",
-                help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces.",
+                help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
             ),
         ] = False,
         include: Annotated[
