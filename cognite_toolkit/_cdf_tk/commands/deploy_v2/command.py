@@ -6,23 +6,28 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, cast
 
 import questionary
 from pydantic import ValidationError
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.markup import escape
-from rich.panel import Panel
+from rich.padding import Padding
 from rich.progress import Progress
-from rich.table import Table
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._utils import (
+    confirm_by_typing_project_name,
+    print_soft_delete_panel,
+    validate_no_out_of_scope_view_references,
+    validate_soft_delete_capacity,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
@@ -41,9 +46,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
+    ContainerCRUD,
+    EdgeCRUD,
+    NodeCRUD,
     RawTableCRUD,
     ResourceContainerIO,
     ResourceIO,
+    SpaceCRUD,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
@@ -52,6 +62,13 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
+from cognite_toolkit._cdf_tk.ui import (
+    AuraColor,
+    ToolkitPanel,
+    ToolkitPanelSection,
+    ToolkitTable,
+    hanging_indent,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -71,10 +88,6 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
-
-    @property
-    def operation_noun(self) -> str:
-        return {"deploy": "deployment", "clean": "deletion"}[self.operation]
 
 
 @dataclass
@@ -213,12 +226,14 @@ class DeployV2Command(ToolkitCommand):
         client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
-        self._display_startup(options.operation, build_dir.path, client.config.project, client.console)
-        self._display_read_dir(build_dir, client.console, options.verbose)
+        plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
-        plan = self.create_deployment_plan(build_dir)
+        if options.drop:
+            self._validate_plan_container_references(client, plan, options)
 
-        self._display_plan(plan, options.operation, options.operation_noun, client.console)
+        if options.drop and options.drop_data and not options.dry_run:
+            if not self._confirm_drop_data(client, plan, options):
+                return []
 
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
@@ -226,6 +241,7 @@ class DeployV2Command(ToolkitCommand):
             # for drop in dry-run mode.
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
+                self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
         results = self.apply_plan(client, plan, options)
@@ -233,7 +249,7 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, options.operation_noun, client.console, options.verbose)
+        self._display_results(results, options.operation, client.console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
@@ -324,78 +340,129 @@ class DeployV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
-    def _display_startup(self, operation: str, build_dir: Path, cdf_project: str, console: Console) -> None:
-        console.print(
-            Panel(
-                f"{operation.title()}ing {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - CDF project {cdf_project!r}",
-                expand=False,
-            )
+    def _display_setup(
+        self,
+        operation: str,
+        build_dir: ReadBuildDirectory,
+        cdf_project: str,
+        console: Console,
+        verbose: bool,
+    ) -> list[DeploymentStep]:
+        startup_section = ToolkitPanelSection(
+            content=[
+                f"Target project: {cdf_project!r}",
+                f"Toolkit version: {__version__!s}",
+                f"Build path: {build_dir.path.as_posix()}/",
+            ],
         )
 
-    def _display_read_dir(self, build_dir: ReadBuildDirectory, console: Console, verbose: bool) -> None:
-        warnings = list(build_dir.create_warnings())
+        read_dir_warnings = list(build_dir.create_warnings())
         resource_dir_count = len(build_dir.resource_directories)
         skipped_dir_count = len(build_dir.skipped_directories)
         invalid_dir_count = len(build_dir.invalid_directories)
-
         resource_file_count = sum(
             len(files) for dir_ in build_dir.resource_directories for files in dir_.files_by_crud.values()
         )
         invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
+        has_issues = bool(read_dir_warnings or invalid_dir_count or invalid_yaml_file_count)
 
-        has_issues = bool(warnings or invalid_dir_count or invalid_yaml_file_count)
-
-        summary_lines = [
+        read_dir_summary = [
             f"[green]✓[/] [bold]{resource_dir_count}[/] resource directories",
             f"[green]✓[/] [bold]{resource_file_count:,}[/] resource files",
         ]
-        if warnings:
-            summary_lines.append(f"[yellow]![/] [bold]{len(warnings)}[/] warnings during reading")
+        if read_dir_warnings:
+            read_dir_summary.append(f"[yellow]![/] [bold]{len(read_dir_warnings)}[/] warnings during reading")
         if skipped_dir_count:
-            summary_lines.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
+            read_dir_summary.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
         if invalid_dir_count:
-            summary_lines.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
+            read_dir_summary.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
         if invalid_yaml_file_count:
-            summary_lines.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
+            read_dir_summary.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
 
-        console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title=f"[bold]Build directory ({build_dir.path.as_posix()})[/]",
-                border_style="yellow" if has_issues else "green",
-                expand=False,
-            )
-        )
-
-        if warnings:
-            for warning in warnings:
-                self.warn(warning, console=console)
-
-        if not verbose and (skipped_dir_count or invalid_dir_count or invalid_yaml_file_count):
-            console.print(
-                f"{HINT_LEAD_TEXT} Use --verbose flag to get more details about the skipped and invalid directories and files."
-            )
+        read_dir_subsections: list[RenderableType] = [ToolkitPanelSection(content=read_dir_summary)]
         if verbose:
             if build_dir.skipped_directories:
-                table = Table(title="Skipped Directories", expand=False, show_edge=False)
-                table.add_column("Directory", style="dim")
-                for dir_ in build_dir.skipped_directories:
-                    table.add_row(dir_.directory.as_posix())
-                console.print(table)
+                read_dir_subsections.append(
+                    ToolkitPanelSection(
+                        title="Skipped directories (excluded by --include)",
+                        content=[
+                            hanging_indent("○", dir_.directory.as_posix(), marker_style="dim")
+                            for dir_ in build_dir.skipped_directories
+                        ],
+                    )
+                )
             if build_dir.invalid_directories:
-                table = Table(title="Invalid Directories", expand=False, show_edge=False)
-                table.add_column("Directory", style="red")
-                for inv_dir in build_dir.invalid_directories:
-                    table.add_row(inv_dir.as_posix())
-                console.print(table)
+                read_dir_subsections.append(
+                    ToolkitPanelSection(
+                        title="Invalid directories (will be skipped)",
+                        content=[
+                            hanging_indent("✗", inv_dir.as_posix(), marker_style=AuraColor.RED.rich)
+                            for inv_dir in build_dir.invalid_directories
+                        ],
+                    )
+                )
             if invalid_yaml_file_count:
-                table = Table(title="Invalid YAML Files", expand=False, show_edge=False)
-                table.add_column("File", style="red")
-                for dir_ in build_dir.resource_directories:
-                    for file in dir_.invalid_files:
-                        table.add_row(file.as_posix())
-                console.print(table)
+                read_dir_subsections.append(
+                    ToolkitPanelSection(
+                        title="Invalid YAML files (will be skipped)",
+                        content=[
+                            hanging_indent("✗", file.as_posix(), marker_style=AuraColor.RED.rich)
+                            for dir_ in build_dir.resource_directories
+                            for file in dir_.invalid_files
+                        ],
+                    )
+                )
+        elif skipped_dir_count or invalid_dir_count or invalid_yaml_file_count:
+            read_dir_subsections.append(
+                ToolkitPanelSection(
+                    description=f"{HINT_LEAD_TEXT} Use --verbose to see details about skipped and invalid directories and files."
+                )
+            )
+        read_dir_section = ToolkitPanelSection(
+            title="Processed build directory",
+            content=read_dir_subsections,
+        )
+
+        try:
+            plan = self.create_deployment_plan(build_dir)
+        except Exception as e:
+            console.print(
+                ToolkitPanel(
+                    Group(
+                        Padding(startup_section, (0, 0, 1, 0)),
+                        read_dir_section,
+                        ToolkitPanelSection(
+                            description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(e))}"
+                        ),
+                    ),
+                    title=operation,
+                    border_style=AuraColor.AMBER.rich,
+                )
+            )
+            raise
+
+        if not plan:
+            plan_section = ToolkitPanelSection(description=f"[bold]No resources to {operation}.[/]")
+        else:
+            step_count = len(plan)
+            total_files = sum(len(step.files) for step in plan)
+            plan_section = ToolkitPanelSection(
+                title="Plan",
+                content=[
+                    f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+                    f"[green]✓[/] [bold]{total_files}[/] resource files to {operation}",
+                ],
+            )
+
+        border_style = AuraColor.AMBER.rich if (has_issues or not plan) else AuraColor.GREEN.rich
+        console.print(
+            ToolkitPanel(
+                Group(Padding(startup_section, (0, 0, 1, 0)), read_dir_section, plan_section),
+                title=f"Setting up {operation} operation",
+                border_style=border_style,
+            )
+        )
+        return plan
 
     def _validate_cdf_project(
         self,
@@ -479,13 +546,119 @@ class DeployV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
         ]
         console.print(
-            Panel(
+            ToolkitPanel(
                 "\n".join(summary_lines),
                 title=f"[bold]{operation_noun.title()} plan[/]",
                 border_style="green",
                 expand=False,
             )
         )
+
+    def _count_dms_instances_in_plan(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> int:
+        """Count instances that would be soft-deleted by the plan.
+
+        Only SpaceCRUD, NodeCRUD, and EdgeCRUD cause instance soft-deletion.
+        Deleting containers does not soft-delete instances.
+        """
+        total = 0
+        for step in plan:
+            if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
+                continue
+            crud = cast(ResourceContainerIO[Any, Any, Any], step.crud_cls.create_loader(client))
+            resource_by_id = self._read_resource_files(crud, step.files, options)
+            if not resource_by_id:
+                continue
+            existing = crud.retrieve(list(resource_by_id.keys()))
+            if not existing:
+                continue
+            if step.crud_cls is SpaceCRUD:
+                space_ids = [s.space for s in existing]
+                for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
+                    total += space_stats.nodes + space_stats.edges
+            else:
+                total += len(existing)
+        return total
+
+    def _validate_plan_container_references(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> None:
+        """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
+        container_ids: list[ContainerId] = []
+        for step in plan:
+            if step.crud_cls is not ContainerCRUD:
+                continue
+            crud = step.crud_cls.create_loader(client)
+            resource_by_id = self._read_resource_files(crud, step.files, options)
+            if not resource_by_id:
+                continue
+            existing = crud.retrieve(list(resource_by_id.keys()))
+            container_ids.extend(ContainerId(space=c.space, external_id=c.external_id) for c in existing)
+        if not container_ids:
+            return
+        in_scope_view_ids: set[ViewId] = set()
+        for step in plan:
+            if step.crud_cls is not ViewIO:
+                continue
+            view_crud = step.crud_cls.create_loader(client)
+            view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
+            in_scope_view_ids.update(view_resource_by_id.keys())
+        inspect_results = client.tool.containers.inspect(container_ids)
+        validate_no_out_of_scope_view_references(
+            inspect_results,
+            list(in_scope_view_ids),
+            action="cleaning resources from the CDF project"
+            if options.operation == "clean"
+            else "deploying with --drop flag",
+            scope="build directory",
+            console=client.console,
+        )
+
+    def _confirm_drop_data(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> bool:
+        """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
+        instance_count = self._count_dms_instances_in_plan(client, plan, options)
+        if instance_count > 0:
+            project_instance_statistics = client.data_modeling.statistics.project().instances
+            validate_soft_delete_capacity(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                instance_count,
+                action="dropping data from resources",
+            )
+            print_soft_delete_panel(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                instance_count,
+                client.console,
+            )
+            acknowledge = questionary.confirm(
+                "Do you understand the soft-delete resource limit impact and wish to continue?",
+                default=False,
+            ).ask()
+            if not acknowledge:
+                return False
+        client.console.print(
+            ToolkitPanel(
+                "[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
+                "Resources and their data will be permanently deleted.",
+                title="Drop data",
+                border_style="red",
+                expand=False,
+            )
+        )
+        return confirm_by_typing_project_name("You are about to delete resources and their data", client)
 
     @classmethod
     def apply_plan(
@@ -506,7 +679,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task(f"Starting {options.operation_noun}", total=total_files)
+            task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -556,7 +729,8 @@ class DeployV2Command(ToolkitCommand):
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            progress.update(task_id, description=f"Finished {options.operation}ing.")
+            finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
+            progress.update(task_id, description=finished)
         return results
 
     @classmethod
@@ -705,7 +879,7 @@ class DeployV2Command(ToolkitCommand):
                     for sensitive in crud.sensitive_strings(resource.request):
                         diff_str = diff_str.replace(sensitive, "********")
                     console.print(
-                        Panel(
+                        ToolkitPanel(
                             diff_str,
                             title=f"{crud.display_name}: {identifier}",
                             expand=False,
@@ -884,17 +1058,23 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _display_results(
-        cls, results: Sequence[DeploymentResult], operation: str, operation_noun: str, console: Console, verbose: bool
+        cls, results: Sequence[DeploymentResult], operation: str, console: Console, verbose: bool
     ) -> None:
         if not results:
-            console.print(f"No resources were {operation}ed.")
+            console.print(
+                ToolkitPanel(
+                    f"No resources were {operation}ed.",
+                    title=f"{operation.title()} summary",
+                )
+            )
             return
 
         is_dry_run = results[0].is_dry_run
-        title = f"{operation_noun.title()} Summary"
+        panel_title = f"{operation.title()} summary"
         if is_dry_run:
-            title += " (dry run)"
-        table = Table(title=title, show_lines=False)
+            panel_title += " [dim](dry run)[/]"
+
+        table = ToolkitTable()
         table.add_column("Resource", style="cyan")
         if is_dry_run:
             table.add_column("Would create", justify="right", style="green")
@@ -904,12 +1084,11 @@ class DeployV2Command(ToolkitCommand):
             table.add_column("Created", justify="right", style="green")
             table.add_column("Updated", justify="right", style="yellow")
             table.add_column("Deleted", justify="right", style="red")
-
         table.add_column("Unchanged", justify="right", style="dim")
         table.add_column("Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right", style="cyan")
         if is_dry_run:
-            table.add_column(f"Can {operation}", justify="right")
+            table.add_column(f"Able to {operation}", justify="right")
 
         total = DeploymentResult(
             "All",
@@ -932,11 +1111,7 @@ class DeployV2Command(ToolkitCommand):
                 str(result.total_count),
             ]
             if is_dry_run:
-                if result.is_missing_write_acl:
-                    row.append("[red]No[/]")
-                else:
-                    row.append("[green]Yes[/]")
-
+                row.append("[red]No[/]" if result.is_missing_write_acl else "[green]Yes[/]")
             table.add_row(*row)
             total += result
 
@@ -952,28 +1127,38 @@ class DeployV2Command(ToolkitCommand):
                 f"[bold]{total.total_count}[/]",
             ]
             if is_dry_run:
-                if total.is_missing_write_acl:
-                    last_row.append("[red]No[/]")
-                else:
-                    last_row.append("[green]Yes[/]")
-
+                last_row.append("[red]No[/]" if total.is_missing_write_acl else "[green]Yes[/]")
             table.add_row(*last_row)
 
-        console.print(table)
+        sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
 
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
-            console.print(
-                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation_noun}. "
-                f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
-                f"Use --verbose flag to get details about all skipped resources."
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation}. "
+                        f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
+                        f"Use --verbose to see all skipped resources."
+                    )
+                )
             )
-        if verbose and total.skipped:
-            skipped_str = [
-                f"{skip.id!s} in file {skip.source_file.as_posix()} | {skip.code} | {skip.reason}"
-                for skip in total.skipped
-            ]
-            console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
+        elif verbose and total.skipped:
+            sections.append(
+                ToolkitPanelSection(
+                    title="Skipped resources",
+                    content=[
+                        hanging_indent(
+                            "○",
+                            f"[bold]{skip.id}[/] {skip.source_file.as_posix()} [{skip.code}] {skip.reason}",
+                            marker_style="dim",
+                        )
+                        for skip in total.skipped
+                    ],
+                )
+            )
+
+        console.print(ToolkitPanel(Group(*sections), title=panel_title))
 
     @classmethod
     def _track_deployment_result(
@@ -1054,14 +1239,22 @@ class DeployV2Command(ToolkitCommand):
     def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
         raw_table_count = len(raw_files)
         file_count = sum(len(files) for files in raw_files.values())
+        plural_t = "" if raw_table_count == 1 else "s"
+        plural_f = "" if file_count == 1 else "s"
         console.print(
-            Panel(
-                f"[yellow]Deprecation Warning[/]\n\n"
-                f"You are deploying {raw_table_count} raw table{'' if raw_table_count == 1 else 's'} based on {file_count} file{'' if file_count == 1 else 's'}.\n\n"
-                f"Support for deploying raw tables through the deploy command will be removed in a future release. "
-                f"Please migrate your raw tables to use the new data plugin. See the documentation for more details.",
-                title="Deprecation Warning",
-                border_style="yellow",
-                expand=False,
+            ToolkitPanel(
+                Group(
+                    ToolkitPanelSection(
+                        description=f"[bold]{raw_table_count}[/] raw table{plural_t} from [bold]{file_count}[/] file{plural_f}."
+                    ),
+                    ToolkitPanelSection(
+                        description=(
+                            "Support for deploying raw tables through the deploy command will be removed in a future release. "
+                            "Please migrate your raw tables to use the new data plugin. See the documentation for more details."
+                        )
+                    ),
+                ),
+                title="Deprecation warning",
+                border_style=AuraColor.AMBER.rich,
             )
         )
