@@ -4,6 +4,7 @@ from ._data_app import DataApp
 from ._dev_app import DevApp
 from ._download_app import DownloadApp
 from ._dump_app import DumpApp
+from ._entity_matching_app import EntityMatchingApp
 from ._import_app import ImportApp
 from ._landing_app import LandingApp
 from ._migrate_app import MigrateApp
@@ -21,6 +22,7 @@ __all__ = [
     "DevApp",
     "DownloadApp",
     "DumpApp",
+    "EntityMatchingApp",
     "ImportApp",
     "LandingApp",
     "MigrateApp",

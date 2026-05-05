@@ -15,6 +15,7 @@ create = true
 extend-download = true
 extend-upload = true
 data-products = true
+entity-matching = false
 
 [plugins]
 run = true

@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._entity_matching_app import EntityMatchingApp
 from ._run import RunApp
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -23,6 +24,8 @@ class DevApp(typer.Typer):
         self.add_typer(RunApp(*args, **kwargs), name="run")
         if FeatureFlag.is_enabled(Flags.CREATE):
             self.command("create")(self.create)
+        if FeatureFlag.is_enabled(Flags.ENTITY_MATCHING):
+            self.add_typer(EntityMatchingApp(*args, **kwargs), name="entity-matching")
 
     @staticmethod
     def main(ctx: typer.Context) -> None:
