@@ -3,6 +3,8 @@ from enum import Enum
 from typing import Any, ClassVar, Literal, cast
 
 import questionary
+import questionary.constants as qc
+import questionary.styles as qstyles
 from prompt_toolkit.styles import Style as PTStyle
 from prompt_toolkit.styles import merge_styles
 from rich import box as rich_box
@@ -51,14 +53,18 @@ class ToolkitPanel(Panel):
         renderable: RenderableType,
         box: rich_box.Box = rich_box.ROUNDED,
         *,
+        title: str | Text | None = None,
         title_align: Literal["left", "center", "right"] = "left",
         subtitle_align: Literal["left", "center", "right"] = "left",
         padding: int | tuple[int] | tuple[int, int] | tuple[int, int, int, int] = (1, 2),
         **kwargs: Any,
     ) -> None:
+        if isinstance(title, str):
+            title = Text.from_markup(title, style="bold")
         super().__init__(
             renderable,
             box,
+            title=title,
             title_align=title_align,
             subtitle_align=subtitle_align,
             padding=padding,
@@ -152,9 +158,6 @@ QUESTIONARY_STYLE = questionary.Style(
 
 def apply_questionary_toolkit_defaults() -> None:
     """Merge Toolkit questionary styles into library defaults for every prompt."""
-    import questionary.constants as qc
-    import questionary.styles as qstyles
-
     merged = cast(PTStyle, merge_styles([qc.DEFAULT_STYLE, QUESTIONARY_STYLE]))
     qc.DEFAULT_STYLE = merged
     qstyles.DEFAULT_STYLE = merged
