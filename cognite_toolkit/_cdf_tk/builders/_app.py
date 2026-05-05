@@ -72,9 +72,7 @@ class AppBuilder(Builder):
         if has_config_files:
             return warnings
         config_files_misplaced = [
-            file
-            for file in module.source_paths_by_resource_folder[AppIO.folder_name]
-            if AppIO.is_supported_file(file)
+            file for file in module.source_paths_by_resource_folder[AppIO.folder_name] if AppIO.is_supported_file(file)
         ]
         if config_files_misplaced:
             for yaml_source_path in config_files_misplaced:

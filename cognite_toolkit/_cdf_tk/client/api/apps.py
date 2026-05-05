@@ -14,12 +14,7 @@ def _build_multipart(fields: dict[str, str], zip_bytes: bytes, filename: str = "
     boundary = uuid.uuid4().hex
     parts: list[bytes] = []
     for name, value in fields.items():
-        parts.append(
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="{name}"\r\n'
-            f"\r\n"
-            f"{value}\r\n".encode()
-        )
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
     parts.append(
         f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
@@ -107,7 +102,7 @@ class AppsAPI:
             )
             result = self._http_client.request_single_retries(request)
             if isinstance(result, SuccessResponse):
-                    data = json.loads(result.body)
+                data = json.loads(result.body)
                 results.append(
                     AppResponse(
                         app_external_id=data["externalId"],
