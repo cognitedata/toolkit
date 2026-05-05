@@ -20,6 +20,7 @@ def all_acls() -> Iterable:
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
+        {"appHostingAcl": {"actions": ["CREATE", "LIST", "UPDATE", "DELETE", "RUN"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
