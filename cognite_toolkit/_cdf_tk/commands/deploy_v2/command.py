@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, cast
 
 import questionary
 from pydantic import ValidationError
@@ -19,9 +19,15 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._utils import (
+    confirm_by_typing_project_name,
+    print_soft_delete_panel,
+    validate_no_out_of_scope_view_references,
+    validate_soft_delete_capacity,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
@@ -40,9 +46,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
+    ContainerCRUD,
+    EdgeCRUD,
+    NodeCRUD,
     RawTableCRUD,
     ResourceContainerIO,
     ResourceIO,
+    SpaceCRUD,
+    ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
@@ -217,12 +228,20 @@ class DeployV2Command(ToolkitCommand):
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
+        if options.drop:
+            self._validate_plan_container_references(client, plan, options)
+
+        if options.drop and options.drop_data and not options.dry_run:
+            if not self._confirm_drop_data(client, plan, options):
+                return []
+
         clean_result: Sequence[DeploymentResult] | None = None
         if options.drop and (options.operation == "clean" or not options.dry_run):
             # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
             # for drop in dry-run mode.
             clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
             if options.operation == "clean":
+                self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
         results = self.apply_plan(client, plan, options)
@@ -512,6 +531,134 @@ class DeployV2Command(ToolkitCommand):
                 DeploymentStep(crud_cls=step, files=files_by_crud[step], skipped_cruds=skipped_by_crud.get(step, set()))
             )
         return plan
+
+    @classmethod
+    def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:
+        if not plan:
+            console.print(f"[bold yellow]No resources to {operation}.[/]")
+            return
+
+        step_count = len(plan)
+        total_files = sum(len(step.files) for step in plan)
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{step_count}[/] resource types to {operation}",
+            f"[green]✓[/] [bold]{total_files}[/] resources to {operation}",
+        ]
+        console.print(
+            ToolkitPanel(
+                "\n".join(summary_lines),
+                title=f"[bold]{operation_noun.title()} plan[/]",
+                border_style="green",
+                expand=False,
+            )
+        )
+
+    def _count_dms_instances_in_plan(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> int:
+        """Count instances that would be soft-deleted by the plan.
+
+        Only SpaceCRUD, NodeCRUD, and EdgeCRUD cause instance soft-deletion.
+        Deleting containers does not soft-delete instances.
+        """
+        total = 0
+        for step in plan:
+            if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
+                continue
+            crud = cast(ResourceContainerIO[Any, Any, Any], step.crud_cls.create_loader(client))
+            resource_by_id = self._read_resource_files(crud, step.files, options)
+            if not resource_by_id:
+                continue
+            existing = crud.retrieve(list(resource_by_id.keys()))
+            if not existing:
+                continue
+            if step.crud_cls is SpaceCRUD:
+                space_ids = [s.space for s in existing]
+                for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
+                    total += space_stats.nodes + space_stats.edges
+            else:
+                total += len(existing)
+        return total
+
+    def _validate_plan_container_references(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> None:
+        """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
+        container_ids: list[ContainerId] = []
+        for step in plan:
+            if step.crud_cls is not ContainerCRUD:
+                continue
+            crud = step.crud_cls.create_loader(client)
+            resource_by_id = self._read_resource_files(crud, step.files, options)
+            if not resource_by_id:
+                continue
+            existing = crud.retrieve(list(resource_by_id.keys()))
+            container_ids.extend(ContainerId(space=c.space, external_id=c.external_id) for c in existing)
+        if not container_ids:
+            return
+        in_scope_view_ids: set[ViewId] = set()
+        for step in plan:
+            if step.crud_cls is not ViewIO:
+                continue
+            view_crud = step.crud_cls.create_loader(client)
+            view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
+            in_scope_view_ids.update(view_resource_by_id.keys())
+        inspect_results = client.tool.containers.inspect(container_ids)
+        validate_no_out_of_scope_view_references(
+            inspect_results,
+            list(in_scope_view_ids),
+            action="cleaning resources from the CDF project"
+            if options.operation == "clean"
+            else "deploying with --drop flag",
+            scope="build directory",
+            console=client.console,
+        )
+
+    def _confirm_drop_data(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+    ) -> bool:
+        """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
+        instance_count = self._count_dms_instances_in_plan(client, plan, options)
+        if instance_count > 0:
+            project_instance_statistics = client.data_modeling.statistics.project().instances
+            validate_soft_delete_capacity(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                instance_count,
+                action="dropping data from resources",
+            )
+            print_soft_delete_panel(
+                project_instance_statistics.soft_deleted_instances,
+                project_instance_statistics.soft_deleted_instances_limit,
+                instance_count,
+                client.console,
+            )
+            acknowledge = questionary.confirm(
+                "Do you understand the soft-delete resource limit impact and wish to continue?",
+                default=False,
+            ).ask()
+            if not acknowledge:
+                return False
+        client.console.print(
+            ToolkitPanel(
+                "[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
+                "Resources and their data will be permanently deleted.",
+                title="Drop data",
+                border_style="red",
+                expand=False,
+            )
+        )
+        return confirm_by_typing_project_name("You are about to delete resources and their data", client)
 
     @classmethod
     def apply_plan(

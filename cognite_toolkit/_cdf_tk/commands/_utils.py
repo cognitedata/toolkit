@@ -173,12 +173,12 @@ def validate_no_out_of_scope_view_references(
         return
 
     table = Table(
-        title=f"Container deletion blocked: referenced by views outside this {scope}",
+        title=f"Container deletion blocked: referenced by views outside the {scope}",
         title_justify="left",
         show_lines=True,
     )
-    table.add_column(f"Container (within this {scope})", no_wrap=True)
-    table.add_column(f"Referencing view (outside this {scope})", no_wrap=True)
+    table.add_column(f"Container (within the {scope})", no_wrap=True)
+    table.add_column(f"Referencing view (outside the {scope})", no_wrap=True)
     for container_id, (out_of_scope_seen, hidden_count) in blocked.items():
         container_label = f"{container_id.space}:{container_id.external_id}"
         rows: list[tuple[str, str]] = [
@@ -193,5 +193,5 @@ def validate_no_out_of_scope_view_references(
     console.print(table)
     raise ToolkitValueError(
         f"Cannot proceed with {action}: one or more containers are referenced by views outside "
-        f"the current {scope}. Delete or move those views first, then re-run the operation."
+        f"the current {scope}. Delete those views first, then re-run the operation."
     )
