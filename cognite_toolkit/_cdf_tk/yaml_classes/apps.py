@@ -35,8 +35,10 @@ class AppsYAML(ToolkitResource):
     source_path: str | None = Field(
         default=None,
         description=(
-            "Path to the app source root, relative to this YAML file. "
-            "If the directory contains a dist/ subdirectory, that is used instead. "
+            "Path to the app source, relative to this YAML file. "
+            "Can point at the build output directory directly, or at the app source root whose "
+            "dist/ subdirectory contains the build output (dist/ is preferred when it contains "
+            "the entrypoint). The entrypoint file must exist at the resolved location. "
             "Defaults to a sibling directory named after externalId."
         ),
     )

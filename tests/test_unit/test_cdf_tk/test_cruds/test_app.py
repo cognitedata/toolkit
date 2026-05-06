@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.app import AppIO
 
 
@@ -256,9 +257,39 @@ class TestAppIOGetExtraFiles:
         assert len(extras) == 1
         assert extras[0].suffix == ".zip"
 
-    def test_fails_when_app_dir_missing(self, tmp_path: Path):
-        from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
+    def test_fails_when_entrypoint_missing_from_root_and_dist(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        app_dir.mkdir()
+        # No index.html at root, no dist/, no src/+package.json
 
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
+        assert "index.html" in extras[0].error
+
+    def test_fails_with_build_hint_when_unbuilt_webapp(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        app_dir.mkdir()
+        (app_dir / "src").mkdir()
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "index.html").write_text("<html></html>")  # Vite template at root
+
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
+        assert "npm run build" in extras[0].error
+
+    def test_fails_when_app_dir_missing(self, tmp_path: Path):
         yaml_file = tmp_path / "missing-app.App.yaml"
         yaml_file.write_text("")
         item = {"externalId": "missing-app", "version": "1.0.0", "name": "Missing App"}

@@ -122,7 +122,35 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             )
             return
 
-        source_dir = app_root / "dist" if (app_root / "dist").is_dir() else app_root
+        entrypoint = item.get("entrypoint") or "index.html"
+        dist_dir = app_root / "dist"
+        if (dist_dir / entrypoint).is_file():
+            source_dir = dist_dir
+        elif (app_root / "src").is_dir() and (app_root / "package.json").is_file():
+            yield FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"App {app_external_id!r} looks like an unbuilt web project: "
+                    f"Run `npm run build` (or your project's build command) in {app_root.as_posix()} "
+                    f"before deploying with Toolkit."
+                ),
+                source_path=app_root,
+            )
+            return
+        elif (app_root / entrypoint).is_file():
+            source_dir = app_root
+        else:
+            yield FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"Could not locate entrypoint {entrypoint!r} for app {app_external_id!r}. "
+                    f"Expected {(dist_dir / entrypoint).as_posix()} or "
+                    f"{(app_root / entrypoint).as_posix()} to exist. "
+                    f"If your app has a build step, run it before deploying with Toolkit."
+                ),
+                source_path=app_root,
+            )
+            return
         source_hash = calculate_directory_hash(source_dir)
         zip_bytes = _zip_app_directory(source_dir)
         yield SuccessExtra(
