@@ -27,9 +27,6 @@ def _build_multipart(fields: dict[str, str], zip_bytes: bytes, filename: str = "
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
-_LIFECYCLE_ORDER = ["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
-
-
 class AppsAPI:
     """Client for the CDF App Hosting API (POST /apphosting/...)."""
 
