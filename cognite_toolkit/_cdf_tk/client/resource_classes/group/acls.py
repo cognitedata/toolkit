@@ -112,7 +112,7 @@ class AppHostingAcl(Acl):
     """ACL for App Hosting resources."""
 
     acl_name: Literal["appHostingAcl"] = Field("appHostingAcl", exclude=True)
-    actions: Sequence[Literal["READ", "WRITE"]]
+    actions: Sequence[Literal["READ", "WRITE", "RUN"]]
     scope: AllScope
 
 
