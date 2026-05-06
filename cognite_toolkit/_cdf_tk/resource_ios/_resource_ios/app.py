@@ -81,10 +81,10 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
                 raise ToolkitRequiredValueError("App YAML must define externalId.")
             if version is None:
                 raise ToolkitRequiredValueError("App YAML must define version.")
-            return AppVersionId(external_id=ext, version=version)
+            return AppVersionId(app_external_id=ext, version=version)
         if isinstance(item, AppRequest):
             return item.as_id()
-        return AppVersionId(external_id=item.external_id, version=item.version)
+        return AppVersionId(app_external_id=item.external_id, version=item.version)
 
     @classmethod
     def dump_id(cls, identifier: AppVersionId) -> dict[str, Any]:
@@ -104,7 +104,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: AppVersionId, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        app_external_id = identifier.external_id
+        app_external_id = identifier.app_external_id
         source_path_str = item.get("sourcePath") or item.get("source_path")
         if source_path_str is not None:
             app_root = (filepath.parent / source_path_str).resolve()
@@ -176,7 +176,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             if not version:
                 raise ToolkitRequiredValueError("App YAML must define version.")
             filestem = filepath.stem.rsplit(".", 1)[0]
-            version_id = AppVersionId(external_id=app_external_id, version=version)
+            version_id = AppVersionId(app_external_id=app_external_id, version=version)
             self.zip_path_by_version_id[version_id] = filepath.parent / f"{filestem}.zip"
 
         return raw_list
@@ -260,7 +260,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
         results: list[AppResponse] = []
         for version_id in ids:
             response = self.client.tool.apps.retrieve_version(
-                version_id.external_id, version_id.version, ignore_unknown_ids=True
+                version_id.app_external_id, version_id.version, ignore_unknown_ids=True
             )
             if response is not None:
                 results.append(response)
@@ -271,7 +271,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             return 0
         by_app: dict[str, list[AppVersionId]] = {}
         for version_id in ids:
-            by_app.setdefault(version_id.external_id, []).append(version_id)
+            by_app.setdefault(version_id.app_external_id, []).append(version_id)
         for app_external_id, version_ids in by_app.items():
             self.client.tool.apps.delete_version(app_external_id, version_ids)
         return len(ids)
