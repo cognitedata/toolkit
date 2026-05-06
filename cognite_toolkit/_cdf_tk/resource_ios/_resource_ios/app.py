@@ -75,7 +75,12 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
     @classmethod
     def get_id(cls, item: AppResponse | AppRequest | dict) -> AppVersionId:
         if isinstance(item, dict):
-            ext = item.get("externalId") or item.get("external_id")
+            ext = (
+                item.get("appExternalId")
+                or item.get("app_external_id")
+                or item.get("externalId")
+                or item.get("external_id")
+            )
             version = item.get("version")
             if ext is None:
                 raise ToolkitRequiredValueError("App YAML must define externalId.")

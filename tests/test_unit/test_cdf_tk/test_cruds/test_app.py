@@ -182,6 +182,105 @@ class TestAppIODeploy:
         client.tool.apps.delete_version.assert_called_once_with("my-app", ids)
 
 
+class TestAppIOGetId:
+    @pytest.mark.parametrize("ext_key", ["externalId", "appExternalId", "external_id", "app_external_id"])
+    def test_from_dict_all_key_variants(self, ext_key: str):
+        assert AppIO.get_id({ext_key: "my-app", "version": "1.0.0"}) == AppVersionId(
+            app_external_id="my-app", version="1.0.0"
+        )
+
+    @pytest.mark.parametrize(
+        "item, match",
+        [
+            ({"version": "1.0.0"}, "externalId"),
+            ({"externalId": "my-app"}, "version"),
+        ],
+    )
+    def test_from_dict_raises_when_field_missing(self, item: dict, match: str):
+        with pytest.raises(ToolkitRequiredValueError, match=match):
+            AppIO.get_id(item)
+
+    @pytest.mark.parametrize(
+        "item",
+        [
+            AppRequest(external_id="my-app", version="1.0.0", name="My App"),
+            AppResponse(external_id="my-app", version="1.0.0", name="My App", lifecycle_state="DRAFT"),
+        ],
+    )
+    def test_from_resource_object(self, item: AppRequest | AppResponse):
+        assert AppIO.get_id(item) == AppVersionId(app_external_id="my-app", version="1.0.0")
+
+
+class TestAppIOLoadResourceFile:
+    def test_registers_zip_path_for_valid_yaml(self, tmp_path: Path):
+        apps_dir = tmp_path / "apps"
+        apps_dir.mkdir()
+        yaml_file = apps_dir / "my-app.App.yaml"
+        yaml_file.write_text("externalId: my-app\nversion: 1.0.0\nname: My App\n")
+
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            result = loader.load_resource_file(yaml_file)
+
+        assert result == [{"externalId": "my-app", "version": "1.0.0", "name": "My App"}]
+        version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
+        assert version_id in loader.zip_path_by_version_id
+        assert loader.zip_path_by_version_id[version_id] == apps_dir / "my-app.zip"
+
+    def test_returns_empty_when_parent_not_apps(self, tmp_path: Path):
+        other_dir = tmp_path / "other"
+        other_dir.mkdir()
+        yaml_file = other_dir / "my-app.App.yaml"
+        yaml_file.write_text("externalId: my-app\nversion: 1.0.0\nname: My App\n")
+
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            result = loader.load_resource_file(yaml_file)
+
+        assert result == []
+
+
+class TestAppIORetrieveAndIterate:
+    def test_retrieve_returns_matching_responses(self, tmp_path: Path):
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            expected = _make_app_response()
+            client.tool.apps.retrieve_version.return_value = expected
+            ids = [AppVersionId(app_external_id="my-app", version="1.0.0")]
+
+            result = loader.retrieve(ids)
+
+        assert result == [expected]
+
+    def test_retrieve_skips_not_found(self, tmp_path: Path):
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            client.tool.apps.retrieve_version.return_value = None
+            ids = [AppVersionId(app_external_id="missing", version="1.0.0")]
+
+            result = loader.retrieve(ids)
+
+        assert result == []
+
+    def test_iterate_yields_all_pages(self, tmp_path: Path):
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            page = [_make_app_response()]
+            client.tool.apps.iterate.return_value = iter([page])
+
+            result = list(loader._iterate())
+
+        assert result == page
+
+    def test_delete_empty_list_returns_zero(self, tmp_path: Path):
+        with monkeypatch_toolkit_client() as client:
+            loader = AppIO.create_loader(client, tmp_path)
+            result = loader.delete([])
+
+        assert result == 0
+        client.tool.apps.delete_version.assert_not_called()
+
+
 class TestAppIODumpResource:
     def test_uses_local_name_and_description_when_immutable_drift(self):
         with monkeypatch_toolkit_client() as client:
@@ -322,6 +421,16 @@ class TestAppIOGetExtraFiles:
 
         assert len(extras) == 1
         assert extras[0].suffix == ".zip"
+
+    def test_fails_when_app_dir_missing_from_source_path(self, tmp_path: Path):
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App", "sourcePath": "does-not-exist"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
 
     def test_excludes_node_modules_and_git(self, tmp_path: Path):
         app_dir = tmp_path / "my-app"
