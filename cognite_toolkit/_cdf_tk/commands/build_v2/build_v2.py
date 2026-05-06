@@ -371,9 +371,7 @@ class BuildV2Command(ToolkitCommand):
             summary_sections.append(ToolkitPanelSection(title="Issue details", content=issue_details_section_content))
 
         border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
-        console.print(
-            ToolkitPanel(Group(*summary_sections), title="[bold]Loading modules[/]", border_style=border_style)
-        )
+        console.print(ToolkitPanel(Group(*summary_sections), title="Loading modules", border_style=border_style))
 
         if errors:
             console.print("\n")
@@ -797,7 +795,7 @@ class BuildV2Command(ToolkitCommand):
         console.print(
             ToolkitPanel(
                 Group(*validation_sections),
-                title="[bold]Planning validation[/]",
+                title="Planning validation",
                 border_style=border_style,
             )
         )
@@ -971,7 +969,7 @@ class BuildV2Command(ToolkitCommand):
         console.print(
             ToolkitPanel(
                 "\n".join(summary_lines),
-                title=f"[bold]Built to directory {build_dir_display}[/]",
+                title=f"Built to directory {build_dir_display}",
                 border_style=border_color,
             )
         )
