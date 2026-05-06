@@ -31,6 +31,8 @@ def _align_nested_dict_pair_for_yaml(cdf: Any, build: Any) -> tuple[Any, Any]:
     sort_keys=False)`` produces line-aligned text without global alphabetical sorting.
 
     Non-dict values and mismatched types are left unchanged; lists are not reordered.
+    Empty ``{}`` is used only when a dict exists on one side and the **key** is absent on the other,
+    so scalar-vs-dict mismatches are not coerced to ``{}``.
     """
     if isinstance(cdf, dict) and isinstance(build, dict):
         keys = list(dict.fromkeys(list(build.keys()) + [k for k in cdf if k not in build]))
@@ -41,9 +43,9 @@ def _align_nested_dict_pair_for_yaml(cdf: Any, build: Any) -> tuple[Any, Any]:
             bv = build.get(k)
             if isinstance(cv, dict) and isinstance(bv, dict):
                 out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml(cv, bv)
-            elif isinstance(cv, dict):
+            elif isinstance(cv, dict) and k not in build:
                 out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml(cv, {})
-            elif isinstance(bv, dict):
+            elif isinstance(bv, dict) and k not in cdf:
                 out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml({}, bv)
             else:
                 out_cdf[k] = cv

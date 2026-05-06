@@ -32,6 +32,22 @@ def test_align_nested_dict_pair_aligns_nested_dict_key_order() -> None:
     assert list(c2["top"].keys()) == ["n", "m"]
 
 
+def test_align_nested_dict_pair_dict_vs_scalar_keeps_values() -> None:
+    cdf = {"x": {"nested": 1}}
+    build = {"x": "scalar"}
+    c2, b2 = _align_nested_dict_pair_for_yaml(cdf, build)
+    assert c2["x"] == {"nested": 1}
+    assert b2["x"] == "scalar"
+
+
+def test_align_nested_dict_pair_build_dict_cdf_scalar_keeps_values() -> None:
+    cdf = {"x": "scalar"}
+    build = {"x": {"nested": 1}}
+    c2, b2 = _align_nested_dict_pair_for_yaml(cdf, build)
+    assert c2["x"] == "scalar"
+    assert b2["x"] == {"nested": 1}
+
+
 def test_render_deploy_human_diff_includes_summary_and_columns() -> None:
     panel = render_deploy_human_diff(
         resource_name="Data Sets",
