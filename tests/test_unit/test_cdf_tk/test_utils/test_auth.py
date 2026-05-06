@@ -5,12 +5,19 @@ from unittest import mock
 import pytest
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import (
+    LOGIN_FLOW_DESCRIPTION,
+    EnvironmentVariables,
+    prompt_user_environment_variables,
+)
+from tests.test_unit.utils import MockQuestionary
 
 PROJECT_AND_CLUSTER = {
     "CDF_CLUSTER": "toolkit-cluster",
     "CDF_PROJECT": "the-toolkit-project",
 }
+
+AUTH_MODULE = "cognite_toolkit._cdf_tk.utils.auth"
 
 
 class TestEnvironmentVariables:
@@ -164,3 +171,36 @@ CDF_CLIENT_TIMEOUT=30
 CDF_CLIENT_MAX_WORKERS=5
 """
         )
+
+
+class TestPromptUserEnvironmentVariables:
+    def test_device_code_is_first_login_flow(self) -> None:
+        first_flow = next(iter(LOGIN_FLOW_DESCRIPTION))
+        assert first_flow == "device_code", (
+            "device_code should be the first login flow so new users see it as the default"
+        )
+
+    def test_new_user_defaults_to_device_code_entra_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Simulate a first-time user pressing Enter on every prompt:
+        # provider=entra_id, flow=device_code, cluster=westeurope-1, project=my-project,
+        # IDP_TENANT_ID=my-tenant, optional vars unchanged
+        with MockQuestionary(
+            AUTH_MODULE,
+            monkeypatch,
+            answers=[
+                "entra_id",  # provider select
+                "device_code",  # login flow select — this is the new default
+                "westeurope-1",  # CDF cluster
+                "my-project",  # CDF project
+                "my-tenant.onmicrosoft.com",  # IDP_TENANT_ID
+                False,  # "change optional vars?"
+            ],
+        ):
+            env = prompt_user_environment_variables()
+
+        assert env.LOGIN_FLOW == "device_code"
+        assert env.PROVIDER == "entra_id"
+        assert env.CDF_CLUSTER == "westeurope-1"
+        assert env.CDF_PROJECT == "my-project"
+        assert env.IDP_TENANT_ID == "my-tenant.onmicrosoft.com"
+        assert not env.get_missing_vars()
