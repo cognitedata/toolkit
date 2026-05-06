@@ -1,9 +1,12 @@
 """Unit tests for DataProductVersionIO."""
 
+from typing import Any, ClassVar
+
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionQuality,
     DataProductVersionRequest,
     DataProductVersionResponse,
+    DataProductVersionView,
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
@@ -53,30 +56,111 @@ class TestDataProductVersionIODumpResource:
 
 
 class TestDataProductVersionRequest:
-    def test_as_update_replaces_views_in_replace_mode(self) -> None:
+    _v_cdm_3d: ClassVar[dict[str, Any]] = {
+        "space": "cdf_cdm",
+        "externalId": "Cognite3DModel",
+        "version": "v1",
+        "instanceSpaces": {"read": [], "write": []},
+    }
+
+    def test_as_update_replace_adds_only_net_new_views(self) -> None:
         request = DataProductVersionRequest.model_validate(
             {
                 "dataProductExternalId": "my-product",
                 "version": "1.0.0",
                 "views": [
-                    {
-                        "space": "cdf_cdm",
-                        "externalId": "Cognite3DModel",
-                        "version": "v1",
-                    }
+                    {"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"},
+                    {"space": "cdf_cdm", "externalId": "OtherView", "version": "v1"},
                 ],
             }
         )
+        existing = [
+            DataProductVersionView.model_validate(self._v_cdm_3d),
+        ]
 
-        update = request.as_update(mode="replace")
+        update = request.as_update(mode="replace", cdf_views=existing)
 
         assert update["update"]["views"] == {
-            "set": [
+            "add": [
                 {
                     "space": "cdf_cdm",
-                    "externalId": "Cognite3DModel",
+                    "externalId": "OtherView",
                     "version": "v1",
                     "instanceSpaces": {"read": [], "write": []},
                 }
             ]
         }
+
+    def test_as_update_replace_removes_views_no_longer_desired(self) -> None:
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "views": [{"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}],
+            }
+        )
+        existing = [
+            DataProductVersionView.model_validate(self._v_cdm_3d),
+            DataProductVersionView.model_validate(
+                {
+                    "space": "cdf_cdm",
+                    "externalId": "RemoveMe",
+                    "version": "v1",
+                    "instanceSpaces": {"read": [], "write": []},
+                }
+            ),
+        ]
+
+        update = request.as_update(mode="replace", cdf_views=existing)
+
+        assert update["update"]["views"] == {
+            "remove": [
+                {
+                    "space": "cdf_cdm",
+                    "externalId": "RemoveMe",
+                    "version": "v1",
+                    "instanceSpaces": {"read": [], "write": []},
+                }
+            ]
+        }
+
+    def test_as_update_replace_unchanged_views_omits_views(self) -> None:
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "views": [{"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}],
+            }
+        )
+        existing = [DataProductVersionView.model_validate(self._v_cdm_3d)]
+
+        update = request.as_update(mode="replace", cdf_views=existing)
+
+        assert "views" not in update["update"]
+
+    def test_as_update_replace_empty_cdf_is_all_add(self) -> None:
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "views": [{"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}],
+            }
+        )
+
+        update = request.as_update(mode="replace", cdf_views=[])
+
+        assert update["update"]["views"] == {"add": [self._v_cdm_3d]}
+
+    def test_as_update_replace_empty_desired_removes_all(self) -> None:
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "views": [],
+            }
+        )
+        existing = [DataProductVersionView.model_validate(self._v_cdm_3d)]
+
+        update = request.as_update(mode="replace", cdf_views=existing)
+
+        assert update["update"]["views"] == {"remove": [self._v_cdm_3d]}

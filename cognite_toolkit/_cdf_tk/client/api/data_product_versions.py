@@ -103,14 +103,31 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         items: Sequence[DataProductVersionRequest],
         mode: Literal["patch", "replace"] = "replace",
     ) -> list[DataProductVersionResponse]:
+        """Apply updates; in ``replace`` mode we retrieve first so ``as_update`` can diff views.
+
+        The patch API only supports ``views.add`` (no full replace). We need the live view list
+        to compute add/remove keys and avoid resending existing refs (duplicate 400).
+        """
         results: list[DataProductVersionResponse] = []
         for dp_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=dp_ext_id))
             for item in group:
+                cdf_views = None
+                if mode == "replace":
+                    current = self.retrieve(
+                        [
+                            DataProductVersionId(
+                                data_product_external_id=dp_ext_id,
+                                version=item.version,
+                            )
+                        ],
+                        ignore_unknown_ids=True,
+                    )
+                    cdf_views = current[0].views if current else []
                 request = RequestMessage(
                     endpoint_url=url,
                     method="POST",
-                    body_content={"items": [item.as_update(mode=mode)]},
+                    body_content={"items": [item.as_update(mode=mode, cdf_views=cdf_views)]},
                     api_version=self._api_version,
                 )
                 response = self._http_client.request_single_retries(request)

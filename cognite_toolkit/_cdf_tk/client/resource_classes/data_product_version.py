@@ -53,9 +53,14 @@ class DataProductVersion(BaseModelObject):
 class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset()
 
-    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        # The versions update API uses nested {set}/{setNull}/{modify}/{add} operators
-        # instead of a flat body, so we must build the payload manually.
+    def as_update(
+        self,
+        mode: Literal["patch", "replace"],
+        *,
+        cdf_views: list[DataProductVersionView] | None = None,
+    ) -> dict[str, Any]:
+        # DataProductVersionPatch only defines views.add (OpenAPI); append-only updates must not
+        # resend existing view refs (duplicate 400). Diff by view identity (space + externalId + version).
         update_item: dict[str, Any] = {"version": self.version}
         update: dict[str, Any] = {}
         exclude_unset = mode == "patch"
@@ -78,8 +83,26 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             if terms_modify:
                 update["terms"] = {"modify": terms_modify}
 
-        if dumped.get("views"):
-            update["views"] = {"add" if mode == "patch" else "set": dumped["views"]}
+        if mode == "patch":
+            if dumped.get("views"):
+                update["views"] = {"add": dumped["views"]}
+        elif "views" in dumped:
+            desired = [DataProductVersionView.model_validate(v) for v in dumped["views"]]
+            existing = list(cdf_views or [])
+            desired_map = {(v.space, v.external_id, v.version): v for v in desired}
+            existing_map = {(v.space, v.external_id, v.version): v for v in existing}
+            dk, ek = frozenset(desired_map), frozenset(existing_map)
+            views_patch: dict[str, Any] = {}
+            add_keys = dk - ek
+            remove_keys = ek - dk
+            if add_keys:
+                views_patch["add"] = [desired_map[k].model_dump(mode="json", by_alias=True) for k in sorted(add_keys)]
+            if remove_keys:
+                views_patch["remove"] = [
+                    existing_map[k].model_dump(mode="json", by_alias=True) for k in sorted(remove_keys)
+                ]
+            if views_patch:
+                update["views"] = views_patch
 
         update_item["update"] = update
         return update_item
