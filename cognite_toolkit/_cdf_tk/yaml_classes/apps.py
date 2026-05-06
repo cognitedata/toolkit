@@ -44,4 +44,4 @@ class AppsYAML(ToolkitResource):
     )
 
     def as_id(self) -> AppVersionId:
-        return AppVersionId(external_id=self.external_id, version=self.version)
+        return AppVersionId(app_external_id=self.external_id, version=self.version)

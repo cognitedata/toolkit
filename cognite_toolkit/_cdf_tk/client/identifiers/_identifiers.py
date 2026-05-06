@@ -171,16 +171,16 @@ class WorkflowVersionId(Identifier):
 
 
 class AppVersionId(Identifier):
-    external_id: str
+    app_external_id: str
     version: str
 
     def __str__(self) -> str:
-        return f"externalId='{self.external_id}', version='{self.version}'"
+        return f"appExternalId='{self.app_external_id}', version='{self.version}'"
 
     def _as_filename(self, include_type: bool = False) -> str:
         if include_type:
-            return f"externalId-{self.external_id}.version-{self.version}"
-        return f"{self.external_id}.{self.version}"
+            return f"appExternalId-{self.app_external_id}.version-{self.version}"
+        return f"{self.app_external_id}.{self.version}"
 
 
 class ThreeDModelRevisionId(Identifier):
