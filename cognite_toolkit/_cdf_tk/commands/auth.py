@@ -80,21 +80,27 @@ class VerifyAuthResult:
 
 
 class AuthCommand(ToolkitCommand):
-    def init(self) -> None:
+    def init(self, reset: bool = False) -> None:
         env_vars: EnvironmentVariables | None = None
         try:
             env_vars = EnvironmentVariables.create_from_environment()
         except ToolkitMissingValueError:
             ...
 
-        ask_user = True
-        if env_vars and not env_vars.get_missing_vars():
-            print("Auth variables are already set.")
-            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).unsafe_ask()
+        if reset:
+            env_vars = prompt_user_environment_variables(current=None)
+            self._store_dotenv(env_vars, force_overwrite=True)
+        else:
+            ask_user = True
+            if env_vars and not env_vars.get_missing_vars():
+                print("Auth variables are already set.")
+                ask_user = questionary.confirm(
+                    "Do you want to reconfigure the auth variables?", default=False
+                ).unsafe_ask()
 
-        if ask_user or not env_vars:
-            env_vars = prompt_user_environment_variables(env_vars)
-            self._store_dotenv(env_vars)
+            if ask_user or not env_vars:
+                env_vars = prompt_user_environment_variables(env_vars)
+                self._store_dotenv(env_vars)
 
         client = env_vars.get_client()
         try:
@@ -104,7 +110,7 @@ class AuthCommand(ToolkitCommand):
 
         print("[green]The credentials are valid.[/green]")
 
-    def _store_dotenv(self, env_vars: EnvironmentVariables) -> None:
+    def _store_dotenv(self, env_vars: EnvironmentVariables, force_overwrite: bool = False) -> None:
         new_env_file = env_vars.create_dotenv_file()
         if Path(".env").exists():
             existing = Path(".env").read_text(encoding="utf-8")
@@ -114,11 +120,15 @@ class AuthCommand(ToolkitCommand):
             self.warn(MediumSeverityWarning("'.env' file already exists"))
             filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
 
-            if questionary.confirm(
-                f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
-                default=False,
-            ).unsafe_ask():
+            if (
+                force_overwrite
+                or questionary.confirm(
+                    f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
+                    default=False,
+                ).unsafe_ask()
+            ):
                 shutil.move(".env", filename)
+                print(f"Existing '.env' backed up to {filename!r}.")
                 Path(".env").write_text(new_env_file, encoding="utf-8")
         elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).unsafe_ask():
             Path(".env").write_text(new_env_file, encoding="utf-8")
