@@ -37,7 +37,7 @@ PROVIDER_DESCRIPTION = {
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
     "interactive": "Login using the browser with your user credentials",
-    "device_code": "Login using the browser with your user credentials using device code flow",
+    "device_code": "Complete sign-in in a browser on any device to authorize this session (device code flow)",
     "token": "Use a Token directly to authenticate",
 }
 
