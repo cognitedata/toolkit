@@ -213,11 +213,11 @@ class TestAppIODumpResource:
             lifecycle_state="PUBLISHED",
             alias="ACTIVE",
         )
-        local = {"sourcePath": "../../../../my-dune-app"}
+        local = {"sourcePath": "../../../../my-custom-app"}
 
         dumped = loader.dump_resource(response, local=local)
 
-        assert dumped["sourcePath"] == "../../../../my-dune-app"
+        assert dumped["sourcePath"] == "../../../../my-custom-app"
 
 
 class TestAppIOGetExtraFiles:
@@ -300,7 +300,7 @@ class TestAppIOGetExtraFiles:
         assert isinstance(extras[0], FailedReadExtra)
 
     def test_uses_source_path_field(self, tmp_path: Path):
-        external_dir = tmp_path / "my-dune-app"
+        external_dir = tmp_path / "my-custom-app"
         dist_dir = external_dir / "dist"
         dist_dir.mkdir(parents=True)
         (dist_dir / "index.html").write_text("<html></html>")
@@ -313,7 +313,7 @@ class TestAppIOGetExtraFiles:
             "externalId": "my-app",
             "version": "1.0.0",
             "name": "My App",
-            "sourcePath": "../../../my-dune-app",
+            "sourcePath": "../../../my-custom-app",
         }
 
         extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))

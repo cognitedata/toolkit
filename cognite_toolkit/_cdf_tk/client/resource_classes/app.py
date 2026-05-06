@@ -17,7 +17,7 @@ class AppShared(BaseModelObject):
 
 
 class AppRequest(AppShared, UpdatableRequestResource):
-    """Local representation of a Dune app version for App Hosting deployment."""
+    """Local representation of a custom app version for App Hosting deployment."""
 
     def as_id(self) -> AppVersionId:
         return AppVersionId(external_id=self.external_id, version=self.version)

@@ -82,9 +82,9 @@ class Flags(Enum):
         visible=True,
         description="Enables the entity-matching command family under the dev plugin",
     )
-    APPS = FlagMetadata(
+    CUSTOM_APPS = FlagMetadata(
         visible=False,
-        description="Enables support for Dune App resources (App Hosting API deployment)",
+        description="Enables support for custom app resources (App Hosting API deployment)",
     )
 
     def is_enabled(self) -> bool:

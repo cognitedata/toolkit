@@ -8,7 +8,7 @@ from .base import ToolkitResource
 
 
 class AppsYAML(ToolkitResource):
-    """Dune app deployed via the CDF App Hosting API."""
+    """Custom app deployed via the CDF App Hosting API."""
 
     external_id: str = Field(
         description="Stable app identifier; must match the sibling directory name containing app sources.",

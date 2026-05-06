@@ -231,7 +231,7 @@ def test_resource_types_is_up_to_date() -> None:
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
-    if not FeatureFlag.is_enabled(Flags.APPS):
+    if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
         extra.discard("apps")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):
         extra.discard("signals")

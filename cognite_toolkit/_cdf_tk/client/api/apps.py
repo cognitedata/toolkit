@@ -1,4 +1,4 @@
-"""AppsAPI: Dune apps deployed via the CDF App Hosting API."""
+"""AppsAPI: Custom apps deployed via the CDF App Hosting API."""
 
 import json
 import uuid

@@ -104,7 +104,7 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
     _EXCLUDED_CRUDS.add(RuleSetIO)
     _EXCLUDED_CRUDS.add(RuleSetVersionIO)
-if not FeatureFlag.is_enabled(Flags.APPS):
+if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
