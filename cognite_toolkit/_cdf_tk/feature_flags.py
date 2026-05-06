@@ -78,6 +78,10 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
+    ENTITY_MATCHING = FlagMetadata(
+        visible=True,
+        description="Enables the entity-matching command family under the dev plugin",
+    )
     APPS = FlagMetadata(
         visible=False,
         description="Enables support for Dune App resources (App Hosting API deployment)",
