@@ -1,3 +1,4 @@
+from io import StringIO
 from pathlib import Path
 
 from rich.console import Console
@@ -17,14 +18,17 @@ def test_render_deploy_human_diff_includes_summary_and_columns() -> None:
         cdf_dict={"name": "a", "token": "SECRET"},
         yaml_dict={"name": "a", "token": "SECRET-other"},
         sensitive_strings=["SECRET"],
+        cdf_project="my-cdf-project",
     )
-    console = Console(record=True, width=120, legacy_windows=False, color_system=None)
+    buf = StringIO()
+    console = Console(file=buf, width=200, legacy_windows=False, color_system=None)
     console.print(panel)
-    text = console.export_text(clear=False)
+    text = buf.getvalue()
 
-    assert "Summary" in text
-    assert "CDF (API)" in text
-    assert "Build (YAML)" in text
+    assert "Summary:" in text
+    assert "Diff line by line" not in text
+    assert "CDF (my-cdf-project)" in text
+    assert "Local build" in text
     assert "my-dataset" in text
     assert "modules/foo/datasets.Dataset.yaml" in text
     assert "SECRET" not in text

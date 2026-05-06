@@ -19,6 +19,10 @@ class DeployDiffFormat(str, Enum):
     human = "human"
 
 
+# Rich Padding (top, right, bottom, left): one consistent body inset for every diff block.
+_SECTION_BODY_PADDING = (0, 0, 1, 2)
+
+
 def _sanitize(text: str, sensitive_strings: Iterable[str]) -> str:
     for sensitive in sensitive_strings:
         text = text.replace(sensitive, "********")
@@ -50,7 +54,7 @@ def _side_by_side_rows(
     equal_context: int = 3,
     equal_collapse_at: int = 12,
 ) -> Iterator[tuple[Text, Text]]:
-    """Yield (left_cell, right_cell) for side-by-side diff rows."""
+    """Yield (CDF column cell, local build column cell); the table swaps them to show build left."""
     matcher = SequenceMatcher(None, cdf_lines, yaml_lines)
     opcodes = matcher.get_opcodes()
 
@@ -95,12 +99,15 @@ def _side_by_side_rows(
                 yield (Text(l_txt, style="yellow"), Text(r_txt, style="cyan"))
 
 
-def _build_side_by_side_table(cdf_lines: list[str], yaml_lines: list[str]) -> ToolkitTable:
-    table = ToolkitTable("CDF (API)", "Build (YAML)", expand=True)
+def _build_side_by_side_table(cdf_lines: list[str], yaml_lines: list[str], *, cdf_project: str) -> ToolkitTable:
+    # Local build left, CDF (project) right — row cells are swapped from matcher order (CDF, build).
+    table = ToolkitTable("Local build", f"CDF ({cdf_project})", expand=True, padding=(0, 0))
     table.columns[0].overflow = "fold"
     table.columns[1].overflow = "fold"
-    for left, right in _side_by_side_rows(cdf_lines, yaml_lines):
-        table.add_row(left, right)
+    table.columns[0].justify = "left"
+    table.columns[1].justify = "left"
+    for cdf_cell, build_cell in _side_by_side_rows(cdf_lines, yaml_lines):
+        table.add_row(build_cell, cdf_cell)
     return table
 
 
@@ -112,6 +119,7 @@ def render_deploy_human_diff(
     cdf_dict: dict[str, Any],
     yaml_dict: dict[str, Any],
     sensitive_strings: Iterable[str],
+    cdf_project: str,
 ) -> ToolkitPanel:
     sens = list(sensitive_strings)
     cdf_yaml = _sanitize(yaml_safe_dump(cdf_dict, sort_keys=True), sens)
@@ -123,25 +131,35 @@ def render_deploy_human_diff(
     delete_lines, insert_lines, replace_blocks, equal_lines = _summarize_opcodes(matcher.get_opcodes())
 
     summary_lines = [
-        f"[bold]{resource_name}[/] - [cyan]{identifier!s}[/]",
-        f"Source file: [dim]{source_file.as_posix()}[/]",
-        f"Serialized YAML: [dim]{len(cdf_lines)}[/] line(s) from CDF vs [dim]{len(yaml_lines)}[/] line(s) from build",
-        f"[green]✓[/] {equal_lines} unchanged line(s) in aligned YAML view",
-        f"[yellow]↔[/] {replace_blocks} replaced region(s)",
-        f"[red]-[/] {delete_lines} line(s) present in CDF only",
-        f"[green]+[/] {insert_lines} line(s) present in build only",
+        f"Serialized YAML: {len(cdf_lines)} line(s) from CDF vs {len(yaml_lines)} line(s) from build",
+        f"{equal_lines} unchanged line(s)",
+        f"{replace_blocks} replaced region(s)",
+        f"{delete_lines} line(s) present in {cdf_project} only",
+        f"{insert_lines} line(s) present in build only",
     ]
 
     sections = [
-        ToolkitPanelSection(title="Summary", content=summary_lines),
         ToolkitPanelSection(
-            title="Line-by-line (API vs build YAML)", content=[_build_side_by_side_table(cdf_lines, yaml_lines)]
+            title="Resource",
+            content=[
+                f"Type: {resource_name}",
+                f"Identifier: {identifier!s}",
+                f"Source file: {source_file.as_posix()}",
+            ],
+            content_padding=_SECTION_BODY_PADDING,
+        ),
+        ToolkitPanelSection(
+            title="Summary",
+            content=summary_lines,
+            content_padding=_SECTION_BODY_PADDING,
+        ),
+        ToolkitPanelSection(
+            content=[_build_side_by_side_table(cdf_lines, yaml_lines, cdf_project=cdf_project)],
         ),
     ]
 
     return ToolkitPanel(
         Group(*sections),
-        title=f"[bold]Deploy drift[/] - {resource_name}: {identifier!s}",
+        title=f"[bold]Diff view[/] - {resource_name}: {identifier!s}",
         border_style=AuraColor.AMBER.rich,
-        expand=False,
     )

@@ -43,6 +43,22 @@ class AuraColor(str, Enum):
 
 
 class ToolkitPanel(Panel):
+    """Branded Rich :class:`~rich.panel.Panel` for toolkit CLI output (leading newline, default rounding).
+
+    Constructor arguments are forwarded to :class:`~rich.panel.Panel` after normalizing string
+    ``title`` to bold :class:`~rich.text.Text`.
+
+    The ``padding`` argument controls empty space **inside** the panel border, around the main
+    ``renderable``. It uses the same rules as Rich :class:`~rich.padding.Padding`:
+
+    - **int** — same padding on all four sides.
+    - **pair** ``(vertical, horizontal)`` — top/bottom vs left/right.
+    - **4-tuple** ``(top, right, bottom, left)`` — explicit per side, in clockwise order from the top.
+
+    Any remaining keyword arguments are passed through to :class:`~rich.panel.Panel` (e.g.
+    ``border_style``, ``expand``).
+    """
+
     def __init__(
         self,
         renderable: RenderableType,
@@ -72,6 +88,28 @@ class ToolkitPanel(Panel):
 
 
 class ToolkitPanelSection(Group):
+    """A titled group of renderables, typically nested inside a :class:`ToolkitPanel`.
+
+    Renders an optional bold ``title`` line (with trailing colon), optional ``description`` on
+    the same line, then the ``content`` items. Nested :class:`ToolkitPanelSection` instances are
+    indented with a fixed inset (:attr:`_nested_padding`).
+
+    Args:
+        title: Optional section heading. When set, shown as ``"{title}:"`` in bold markup.
+        description: Optional text joined to the header after ``title``.
+        content: Renderables listed under the header (strings are rendered as markup).
+        content_padding: Optional extra space around the **body** only (everything under the
+            header). The header line is never padded. Uses Rich :class:`~rich.padding.Padding`
+            dimensions:
+
+            - **int** — pad all sides by that many cells.
+            - **pair** ``(vertical, horizontal)`` — top/bottom vs left/right.
+            - **4-tuple** ``(top, right, bottom, left)`` — explicit per side (clockwise from top).
+
+            For example, ``(0, 0, 0, 1)`` is one cell of **left** inset; ``(0, 0, 1, 0)`` is one row
+            of **bottom** spacing (third value is bottom, fourth is left).
+    """
+
     _nested_padding: ClassVar[PaddingDimensions] = (0, 0, 1, 2)
 
     def __init__(
@@ -79,6 +117,7 @@ class ToolkitPanelSection(Group):
         title: str | Text | None = None,
         description: str | Text | None = None,
         content: Sequence[RenderableType] | None = None,
+        content_padding: PaddingDimensions | None = None,
     ) -> None:
         renderables: list[RenderableType] = []
         header = f"[bold]{title}:[/]" if title else ""
@@ -87,11 +126,17 @@ class ToolkitPanelSection(Group):
 
         if header:
             renderables.append(header)
+        body_items: list[RenderableType] = []
         for item in content or []:
             if isinstance(item, ToolkitPanelSection):
-                renderables.append(Padding(item, self._nested_padding))
+                body_items.append(Padding(item, self._nested_padding))
             else:
-                renderables.append(item)
+                body_items.append(item)
+        if body_items:
+            body: RenderableType = body_items[0] if len(body_items) == 1 else Group(*body_items)
+            if content_padding is not None:
+                body = Padding(body, content_padding)
+            renderables.append(body)
 
         super().__init__(*renderables)
 

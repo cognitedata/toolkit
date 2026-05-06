@@ -885,6 +885,7 @@ class DeployV2Command(ToolkitCommand):
                             cdf_dict=cdf_dict,
                             yaml_dict=resource.raw_dict,
                             sensitive_strings=crud.sensitive_strings(resource.request),
+                            cdf_project=crud.client.config.project,
                         )
                     )
                 elif options.verbose:
