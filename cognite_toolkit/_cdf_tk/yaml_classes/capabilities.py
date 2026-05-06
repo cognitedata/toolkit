@@ -197,6 +197,12 @@ class AppConfigAcl(Capability):
     scope: AllScope | AppConfigScope
 
 
+class AppHostingAcl(Capability):
+    _capability_name = "appHostingAcl"
+    actions: list[Literal["READ", "WRITE", "RUN"]]
+    scope: AllScope
+
+
 class AssetsAcl(Capability):
     _capability_name = "assetsAcl"
     actions: list[Literal["READ", "WRITE"]]
