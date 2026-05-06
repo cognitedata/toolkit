@@ -4,9 +4,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Respo
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 
 
-class AppShared(BaseModelObject):
-    """Fields shared between App Hosting request and response models."""
-
+class App(BaseModelObject):
     external_id: str
     version: str
     name: str
@@ -16,7 +14,7 @@ class AppShared(BaseModelObject):
     entrypoint: str = "index.html"
 
 
-class AppRequest(AppShared, UpdatableRequestResource):
+class AppRequest(App, UpdatableRequestResource):
     """Local representation of a custom app version for App Hosting deployment."""
 
     def as_id(self) -> AppVersionId:
@@ -38,7 +36,7 @@ class AppRequest(AppShared, UpdatableRequestResource):
         return {}
 
 
-class AppResponse(AppShared, ResponseResource[AppRequest]):
+class AppResponse(App, ResponseResource[AppRequest]):
     """Response from App Hosting after a successful deploy."""
 
     @classmethod
