@@ -53,9 +53,14 @@ class DataProductVersion(BaseModelObject):
 class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset()
 
-    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        # The versions update API uses nested {set}/{setNull}/{modify}/{add} operators
-        # instead of a flat body, so we must build the payload manually.
+    def as_update(
+        self,
+        mode: Literal["patch", "replace"],
+        *,
+        cdf_views: list[DataProductVersionView] | None = None,
+    ) -> dict[str, Any]:
+        # DataProductVersionPatch only defines views.add (OpenAPI); append-only updates must not
+        # resend existing view refs (duplicate 400). Diff by view identity (space + externalId + version).
         update_item: dict[str, Any] = {"version": self.version}
         update: dict[str, Any] = {}
         exclude_unset = mode == "patch"
@@ -78,8 +83,13 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             if terms_modify:
                 update["terms"] = {"modify": terms_modify}
 
-        if dumped.get("views"):
-            update["views"] = {"add" if mode == "patch" else "set": dumped["views"]}
+        if "views" in dumped:
+            # View refs are append-only per the API spec — once added they cannot be removed.
+            # Only send views.add for refs not already in CDF (avoids duplicate-400 on redeploy).
+            existing_keys = {(v.space, v.external_id, v.version) for v in (cdf_views or [])}
+            to_add = [v for v in self.views if (v.space, v.external_id, v.version) not in existing_keys]
+            if to_add:
+                update["views"] = {"add": [v.model_dump(mode="json", by_alias=True) for v in to_add]}
 
         update_item["update"] = update
         return update_item
