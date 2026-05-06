@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import FailedResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 
 
@@ -82,41 +82,6 @@ class AppsAPI:
         )
         self._http_client.request_single_retries(request).get_success_or_raise(request)
 
-    def list_app_versions(
-        self,
-        external_id: str,
-        alias: str | None = None,
-        limit: int = 25,
-    ) -> list[AppResponse]:
-        """POST /apphosting/apps/{externalId}/versions/list — list versions for one app, optionally filtered by alias."""
-        body: dict = {"limit": limit}
-        if alias is not None:
-            body["filter"] = {"alias": alias}
-        request = RequestMessage(
-            endpoint_url=self._url(f"/apphosting/apps/{external_id}/versions/list"),
-            method="POST",
-            body_content=body,
-        )
-        result = self._http_client.request_single_retries(request)
-        if not isinstance(result, SuccessResponse):
-            if isinstance(result, FailedResponse) and result.status_code in (400, 404):
-                return []
-            result.get_success_or_raise(request)
-            return []
-        data = json.loads(result.body)
-        return [
-            AppResponse(
-                external_id=item.get("appExternalId", external_id),
-                version=item["version"],
-                name="",
-                description=None,
-                lifecycle_state=item.get("lifecycleState", "DRAFT"),
-                alias=item.get("alias"),
-                entrypoint=item.get("entrypoint", "index.html"),
-            )
-            for item in data.get("items", [])
-        ]
-
     def retrieve_version(self, external_id: str, version: str, ignore_unknown_ids: bool = False) -> AppResponse | None:
         """Retrieve version metadata + app-level name/description in two calls."""
         version_request = RequestMessage(
@@ -152,31 +117,6 @@ class AppsAPI:
             alias=version_data.get("alias"),
             entrypoint=version_data.get("entrypoint", "index.html"),
         )
-
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[AppResponse]:
-        """GET /apphosting/apps/{appExternalId} for each id."""
-        results: list[AppResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._url(f"/apphosting/apps/{item.external_id}"),
-                method="GET",
-            )
-            result = self._http_client.request_single_retries(request)
-            if isinstance(result, SuccessResponse):
-                data = json.loads(result.body)
-                results.append(
-                    AppResponse(
-                        external_id=data["externalId"],
-                        version="",
-                        name=data.get("name", ""),
-                        description=data.get("description"),
-                    )
-                )
-            elif isinstance(result, FailedResponse) and result.status_code in (400, 404) and ignore_unknown_ids:
-                continue
-            else:
-                result.get_success_or_raise(request)
-        return results
 
     def iterate(self, limit: int | None = 100) -> Iterable[list[AppResponse]]:
         """POST /apphosting/versions/list — paginated list of all versions across all apps."""
@@ -229,16 +169,3 @@ class AppsAPI:
         )
         self._http_client.request_single_retries(request).get_success_or_raise(request)
 
-    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
-        """POST /apphosting/apps/delete — soft-delete apps and all their versions."""
-        if not items:
-            return
-        request = RequestMessage(
-            endpoint_url=self._url("/apphosting/apps/delete"),
-            method="POST",
-            body_content={
-                "items": [{"externalId": item.external_id} for item in items],
-                "ignoreUnknownIds": ignore_unknown_ids,
-            },
-        )
-        self._http_client.request_single_retries(request).get_success_or_raise(request)
