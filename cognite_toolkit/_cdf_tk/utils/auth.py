@@ -35,7 +35,7 @@ PROVIDER_DESCRIPTION = {
     "other": "Use other IDP to authenticate",
 }
 LOGIN_FLOW_DESCRIPTION = {
-    "device_code": "Sign in via a browser on any device — no service principal needed (recommended for first-time setup)",
+    "device_code": "Sign in via a browser on any device — no service principal needed (best for local setup)",
     "interactive": "Sign in via the browser on this machine with your user credentials",
     "client_credentials": "Use a service principal with client ID and secret (for CI/CD or automated workloads)",
     "token": "Supply a pre-existing token directly",
