@@ -103,25 +103,21 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         items: Sequence[DataProductVersionRequest],
         mode: Literal["patch", "replace"] = "replace",
     ) -> list[DataProductVersionResponse]:
-        """Apply updates; in ``replace`` mode we retrieve first so ``as_update`` can diff views.
-
-        The patch API only supports ``views.add`` (no full replace). We need the live view list
-        to compute add/remove keys and avoid resending existing refs (duplicate 400).
-        """
+        """Apply updates; in ``replace`` mode we retrieve first so ``as_update`` can diff views. The patch API only supports ``views.add`` (no full replace). We need the live view list to compute add/remove keys and avoid resending existing refs (duplicate 400)."""
         results: list[DataProductVersionResponse] = []
         for data_product_external_id, versions in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=data_product_external_id))
-            cdf_views_by_version: dict[str, list] = {}
+            views_by_version: dict[str, list] = {}
             if mode == "replace":
                 ids = [
                     DataProductVersionId(data_product_external_id=data_product_external_id, version=version.version)
                     for version in versions
                 ]
-                cdf_views_by_version = {
+                views_by_version = {
                     existing.version: existing.views for existing in self.retrieve(ids, ignore_unknown_ids=True)
                 }
             for version in versions:
-                cdf_views = cdf_views_by_version.get(version.version, []) if mode == "replace" else None
+                cdf_views = views_by_version.get(version.version, []) if mode == "replace" else None
                 request = RequestMessage(
                     endpoint_url=url,
                     method="POST",
