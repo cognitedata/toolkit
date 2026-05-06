@@ -510,13 +510,14 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
             idp_tenant_id = user_value
 
     optional_values = env_vars.get_optional_with_value()
-    print("Additional variables:")
-    for field_, value in optional_values:
-        print(f"  {field_.name}={value}")
-    if questionary.confirm("Do you want to change any of these variables?", default=False).unsafe_ask():
+    if optional_values:
+        print("Additional variables:")
         for field_, value in optional_values:
-            user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
-            setattr(env_vars, field_.name, user_value)
+            print(f"  {field_.name}={value}")
+        if questionary.confirm("Do you want to change any of these variables?", default=False).unsafe_ask():
+            for field_, value in optional_values:
+                user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
+                setattr(env_vars, field_.name, user_value)
     return env_vars
 
 
