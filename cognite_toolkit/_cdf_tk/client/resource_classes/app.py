@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 
 
@@ -14,7 +14,7 @@ class App(BaseModelObject):
     entrypoint: str = "index.html"
 
 
-class AppRequest(App, UpdatableRequestResource):
+class AppRequest(App, RequestResource):
     """Local representation of a custom app version for App Hosting deployment."""
 
     def as_id(self) -> AppVersionId:
@@ -31,9 +31,6 @@ class AppRequest(App, UpdatableRequestResource):
         if self.description:
             body["description"] = self.description
         return body
-
-    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        return {}
 
 
 class AppResponse(App, ResponseResource[AppRequest]):
