@@ -111,19 +111,12 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         results: list[DataProductVersionResponse] = []
         for dp_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=dp_ext_id))
+            cdf_views_by_version: dict[str, list] = {}
+            if mode == "replace":
+                ids = [DataProductVersionId(data_product_external_id=dp_ext_id, version=item.version) for item in group]
+                cdf_views_by_version = {v.version: v.views for v in self.retrieve(ids, ignore_unknown_ids=True)}
             for item in group:
-                cdf_views = None
-                if mode == "replace":
-                    current = self.retrieve(
-                        [
-                            DataProductVersionId(
-                                data_product_external_id=dp_ext_id,
-                                version=item.version,
-                            )
-                        ],
-                        ignore_unknown_ids=True,
-                    )
-                    cdf_views = current[0].views if current else []
+                cdf_views = cdf_views_by_version.get(item.version, []) if mode == "replace" else None
                 request = RequestMessage(
                     endpoint_url=url,
                     method="POST",
