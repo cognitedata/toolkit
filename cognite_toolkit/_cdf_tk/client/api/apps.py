@@ -168,4 +168,3 @@ class AppsAPI:
             body_content={"items": [{"version": v.version} for v in versions]},
         )
         self._http_client.request_single_retries(request).get_success_or_raise(request)
-

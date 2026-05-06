@@ -76,7 +76,9 @@ class TestAppIODeploy:
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
-            zip_bytes=loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")].read_bytes(),
+            zip_bytes=loader.zip_path_by_version_id[
+                AppVersionId(app_external_id="my-app", version="1.0.0")
+            ].read_bytes(),
         )
 
     def test_deploy_promotes_draft_to_published_with_active_alias(self, app_io_with_zip):
@@ -97,9 +99,7 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_called_once_with(
-            "my-app", "1.0.0", {"alias": {"setNull": True}}
-        )
+        client.tool.apps.update_version.assert_called_once_with("my-app", "1.0.0", {"alias": {"setNull": True}})
 
     def test_deploy_swaps_alias_to_preview(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -108,9 +108,7 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_called_once_with(
-            "my-app", "1.0.0", {"alias": {"set": "PREVIEW"}}
-        )
+        client.tool.apps.update_version.assert_called_once_with("my-app", "1.0.0", {"alias": {"set": "PREVIEW"}})
 
     def test_deploy_noop_when_lifecycle_and_alias_match(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -296,7 +294,9 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "missing-app", "version": "1.0.0", "name": "Missing App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="missing-app", version="1.0.0"), item))
+        extras = list(
+            AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="missing-app", version="1.0.0"), item)
+        )
 
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
