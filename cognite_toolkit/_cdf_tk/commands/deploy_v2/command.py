@@ -381,7 +381,7 @@ class DeployV2Command(ToolkitCommand):
         if invalid_yaml_file_count:
             read_dir_summary.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
 
-        read_dir_subsections: list[RenderableType] = [ToolkitPanelSection(content=read_dir_summary)]
+        read_dir_subsections: list[RenderableType] = [*read_dir_summary]
         if verbose:
             if build_dir.skipped_directories:
                 read_dir_subsections.append(

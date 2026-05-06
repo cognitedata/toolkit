@@ -52,6 +52,17 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 
 from .data_organization import DataSetsIO
 
+HOSTED_EXTRACTOR_SOURCE_COMPARE_NOTE = (
+    "Hosted extractor sources are compared to CDF using only their external id (the full source "
+    "configuration is not read back from the API for diff). Deploy will therefore always include an update "
+    "for each source."
+)
+HOSTED_EXTRACTOR_DESTINATION_COMPARE_NOTE = (
+    "Hosted extractor destinations are compared to CDF using only their external id (the full destination "
+    "configuration is not read back from the API for diff). Deploy will therefore always include an update "
+    "for each destination."
+)
+
 
 @final
 class HostedExtractorSourceIO(
@@ -116,9 +127,7 @@ class HostedExtractorSourceIO(
     def dump_resource(
         self, resource: HostedExtractorSourceResponseUnion, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        HighSeverityWarning(
-            "Sources will always be considered different, and thus will always be redeployed."
-        ).print_warning(console=self.client.console)
+        HighSeverityWarning(HOSTED_EXTRACTOR_SOURCE_COMPARE_NOTE).print_warning(console=self.client.console)
         return self.dump_id(self.get_id(resource))
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
@@ -243,9 +252,7 @@ class HostedExtractorDestinationIO(
     def dump_resource(
         self, resource: HostedExtractorDestinationResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
-        ).print_warning(console=self.client.console)
+        HighSeverityWarning(HOSTED_EXTRACTOR_DESTINATION_COMPARE_NOTE).print_warning(console=self.client.console)
         return self.dump_id(self.get_id(resource))
 
     @classmethod

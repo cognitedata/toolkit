@@ -1,7 +1,5 @@
 """Human-readable deploy drift views (YAML vs CDF API)."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable, Iterator, Sequence
 from difflib import SequenceMatcher
 from enum import Enum
