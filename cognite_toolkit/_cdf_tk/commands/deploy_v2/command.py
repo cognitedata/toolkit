@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.deploy_v2.diff_display import DeployDiffFormat, render_deploy_human_diff
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
@@ -88,6 +89,7 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
+    diff: DeployDiffFormat | None = None
 
 
 @dataclass
@@ -874,7 +876,18 @@ class DeployV2Command(ToolkitCommand):
                 else:
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
-                if options.verbose:
+                if options.diff == DeployDiffFormat.human:
+                    console.print(
+                        render_deploy_human_diff(
+                            resource_name=crud.display_name,
+                            identifier=identifier,
+                            source_file=resource.source_files[0],
+                            cdf_dict=cdf_dict,
+                            yaml_dict=resource.raw_dict,
+                            sensitive_strings=crud.sensitive_strings(resource.request),
+                        )
+                    )
+                elif options.verbose:
                     diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
                     for sensitive in crud.sensitive_strings(resource.request):
                         diff_str = diff_str.replace(sensitive, "********")

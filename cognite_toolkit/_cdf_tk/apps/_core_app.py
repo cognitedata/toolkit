@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     CleanCommand,
     DeployCommand,
+    DeployDiffFormat,
     DeployOptions,
     DeployV2Command,
 )
@@ -520,6 +521,14 @@ class CoreApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        diff: Annotated[
+            DeployDiffFormat | None,
+            typer.Option(
+                "--diff",
+                help="When set to 'human', show a ToolkitPanel summary and a side-by-side line comparison of "
+                "CDF (API) dump vs build YAML for each resource that would change.",
+            ),
+        ] = None,
     ) -> None:
         """Deploys the configuration files in the build directory to the CDF project."""
         if drop:
@@ -548,6 +557,7 @@ class CoreApp(typer.Typer):
                     include=include,
                     force_update=force_update,
                     verbose=verbose,
+                    diff=diff,
                     environment_variables=env_vars.dump(),
                     deployment_dir=deploy_dir,
                 ),

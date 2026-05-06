@@ -13,7 +13,7 @@ from .build_cmd import BuildCommand
 from .build_v2.build_v2 import BuildV2Command
 from .clean import CleanCommand
 from .deploy import DeployCommand
-from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
+from .deploy_v2.command import DeployDiffFormat, DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
 from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
@@ -31,6 +31,7 @@ __all__ = [
     "BuildV2Command",
     "CleanCommand",
     "DeployCommand",
+    "DeployDiffFormat",
     "DeployOptions",
     "DeployV2Command",
     "DeploymentStep",
