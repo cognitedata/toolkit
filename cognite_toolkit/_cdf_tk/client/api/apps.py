@@ -77,49 +77,12 @@ class AppsAPI:
             return
         result.get_success_or_raise(request)
 
-    def transition_lifecycle(
-        self,
-        external_id: str,
-        version: str,
-        target: Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"],
-    ) -> None:
-        """POST /apphosting/apps/{externalId}/versions/update — advance version lifecycle state (forward-only)."""
+    def update_version(self, external_id: str, version: str, update: dict) -> None:
+        """POST /apphosting/apps/{externalId}/versions/update — apply one or more field updates to a version."""
         request = RequestMessage(
             endpoint_url=self._url(f"/apphosting/apps/{external_id}/versions/update"),
             method="POST",
-            body_content={
-                "items": [
-                    {
-                        "version": version,
-                        "update": {"lifecycleState": {"set": target}},
-                    }
-                ]
-            },
-        )
-        self._http_client.request_single_retries(request).get_success_or_raise(request)
-
-    def set_alias(
-        self,
-        external_id: str,
-        version: str,
-        alias: Literal["ACTIVE", "PREVIEW"] | None,
-    ) -> None:
-        """POST /apphosting/apps/{externalId}/versions/update — set or clear the version alias."""
-        if alias is None:
-            alias_update: dict = {"setNull": True}
-        else:
-            alias_update = {"set": alias}
-        request = RequestMessage(
-            endpoint_url=self._url(f"/apphosting/apps/{external_id}/versions/update"),
-            method="POST",
-            body_content={
-                "items": [
-                    {
-                        "version": version,
-                        "update": {"alias": alias_update},
-                    }
-                ]
-            },
+            body_content={"items": [{"version": version, "update": update}]},
         )
         self._http_client.request_single_retries(request).get_success_or_raise(request)
 
