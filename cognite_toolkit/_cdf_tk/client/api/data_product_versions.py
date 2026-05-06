@@ -54,19 +54,19 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
 
     def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         results: list[DataProductVersionResponse] = []
-        for dp_ext_id, group in self._group_by_parent(items).items():
-            url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=dp_ext_id))
-            for item in group:
+        for data_product_external_id, versions in self._group_by_parent(items).items():
+            url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=data_product_external_id))
+            for version in versions:
                 request = RequestMessage(
                     endpoint_url=url,
                     method="POST",
-                    body_content={"items": [item.dump()]},
+                    body_content={"items": [version.dump()]},
                     api_version=self._api_version,
                 )
                 response = self._http_client.request_single_retries(request)
                 page = self._validate_page_response(response.get_success_or_raise(request))
-                for version in page.items:
-                    version.data_product_external_id = dp_ext_id
+                for created in page.items:
+                    created.data_product_external_id = data_product_external_id
                 results.extend(page.items)
         return results
 
@@ -109,24 +109,29 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         to compute add/remove keys and avoid resending existing refs (duplicate 400).
         """
         results: list[DataProductVersionResponse] = []
-        for dp_ext_id, group in self._group_by_parent(items).items():
-            url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=dp_ext_id))
+        for data_product_external_id, versions in self._group_by_parent(items).items():
+            url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=data_product_external_id))
             cdf_views_by_version: dict[str, list] = {}
             if mode == "replace":
-                ids = [DataProductVersionId(data_product_external_id=dp_ext_id, version=item.version) for item in group]
-                cdf_views_by_version = {v.version: v.views for v in self.retrieve(ids, ignore_unknown_ids=True)}
-            for item in group:
-                cdf_views = cdf_views_by_version.get(item.version, []) if mode == "replace" else None
+                ids = [
+                    DataProductVersionId(data_product_external_id=data_product_external_id, version=version.version)
+                    for version in versions
+                ]
+                cdf_views_by_version = {
+                    existing.version: existing.views for existing in self.retrieve(ids, ignore_unknown_ids=True)
+                }
+            for version in versions:
+                cdf_views = cdf_views_by_version.get(version.version, []) if mode == "replace" else None
                 request = RequestMessage(
                     endpoint_url=url,
                     method="POST",
-                    body_content={"items": [item.as_update(mode=mode, cdf_views=cdf_views)]},
+                    body_content={"items": [version.as_update(mode=mode, cdf_views=cdf_views)]},
                     api_version=self._api_version,
                 )
                 response = self._http_client.request_single_retries(request)
                 page = self._validate_page_response(response.get_success_or_raise(request))
-                for ver in page.items:
-                    ver.data_product_external_id = dp_ext_id
+                for updated in page.items:
+                    updated.data_product_external_id = data_product_external_id
                 results.extend(page.items)
         return results
 
@@ -134,8 +139,8 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         by_parent: defaultdict[str, list[str]] = defaultdict(list)
         for id_ in ids:
             by_parent[id_.data_product_external_id].append(id_.version)
-        for dp_ext_id, versions in by_parent.items():
-            url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=dp_ext_id))
+        for data_product_external_id, versions in by_parent.items():
+            url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=data_product_external_id))
             request = RequestMessage(
                 endpoint_url=url,
                 method="POST",
