@@ -83,26 +83,14 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             if terms_modify:
                 update["terms"] = {"modify": terms_modify}
 
-        if mode == "patch":
-            if dumped.get("views"):
-                update["views"] = {"add": dumped["views"]}
-        elif "views" in dumped:
+        if "views" in dumped:
+            # View refs are append-only per the API spec — once added they cannot be removed.
+            # Only send views.add for refs not already in CDF (avoids duplicate-400 on redeploy).
             desired = [DataProductVersionView.model_validate(v) for v in dumped["views"]]
-            existing = list(cdf_views or [])
-            desired_map = {(v.space, v.external_id, v.version): v for v in desired}
-            existing_map = {(v.space, v.external_id, v.version): v for v in existing}
-            dk, ek = frozenset(desired_map), frozenset(existing_map)
-            views_patch: dict[str, Any] = {}
-            add_keys = dk - ek
-            remove_keys = ek - dk
-            if add_keys:
-                views_patch["add"] = [desired_map[k].model_dump(mode="json", by_alias=True) for k in sorted(add_keys)]
-            if remove_keys:
-                views_patch["remove"] = [
-                    existing_map[k].model_dump(mode="json", by_alias=True) for k in sorted(remove_keys)
-                ]
-            if views_patch:
-                update["views"] = views_patch
+            existing_keys = {(v.space, v.external_id, v.version) for v in (cdf_views or [])}
+            to_add = [v for v in desired if (v.space, v.external_id, v.version) not in existing_keys]
+            if to_add:
+                update["views"] = {"add": [v.model_dump(mode="json", by_alias=True) for v in to_add]}
 
         update_item["update"] = update
         return update_item

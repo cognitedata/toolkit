@@ -1,6 +1,6 @@
 """Unit tests for DataProductVersionIO."""
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionQuality,
@@ -56,12 +56,15 @@ class TestDataProductVersionIODumpResource:
 
 
 class TestDataProductVersionRequest:
-    _v_cdm_3d: ClassVar[dict[str, Any]] = {
+    _v_cdm_3d: ClassVar[dict] = {
         "space": "cdf_cdm",
         "externalId": "Cognite3DModel",
         "version": "v1",
         "instanceSpaces": {"read": [], "write": []},
     }
+
+    def _existing(self, **overrides: str) -> list[DataProductVersionView]:
+        return [DataProductVersionView.model_validate({**self._v_cdm_3d, **overrides})]
 
     def test_as_update_replace_adds_only_net_new_views(self) -> None:
         request = DataProductVersionRequest.model_validate(
@@ -74,50 +77,14 @@ class TestDataProductVersionRequest:
                 ],
             }
         )
-        existing = [
-            DataProductVersionView.model_validate(self._v_cdm_3d),
-        ]
 
-        update = request.as_update(mode="replace", cdf_views=existing)
+        update = request.as_update(mode="replace", cdf_views=self._existing())
 
         assert update["update"]["views"] == {
             "add": [
                 {
                     "space": "cdf_cdm",
                     "externalId": "OtherView",
-                    "version": "v1",
-                    "instanceSpaces": {"read": [], "write": []},
-                }
-            ]
-        }
-
-    def test_as_update_replace_removes_views_no_longer_desired(self) -> None:
-        request = DataProductVersionRequest.model_validate(
-            {
-                "dataProductExternalId": "my-product",
-                "version": "1.0.0",
-                "views": [{"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}],
-            }
-        )
-        existing = [
-            DataProductVersionView.model_validate(self._v_cdm_3d),
-            DataProductVersionView.model_validate(
-                {
-                    "space": "cdf_cdm",
-                    "externalId": "RemoveMe",
-                    "version": "v1",
-                    "instanceSpaces": {"read": [], "write": []},
-                }
-            ),
-        ]
-
-        update = request.as_update(mode="replace", cdf_views=existing)
-
-        assert update["update"]["views"] == {
-            "remove": [
-                {
-                    "space": "cdf_cdm",
-                    "externalId": "RemoveMe",
                     "version": "v1",
                     "instanceSpaces": {"read": [], "write": []},
                 }
@@ -132,9 +99,8 @@ class TestDataProductVersionRequest:
                 "views": [{"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}],
             }
         )
-        existing = [DataProductVersionView.model_validate(self._v_cdm_3d)]
 
-        update = request.as_update(mode="replace", cdf_views=existing)
+        update = request.as_update(mode="replace", cdf_views=self._existing())
 
         assert "views" not in update["update"]
 
@@ -151,7 +117,9 @@ class TestDataProductVersionRequest:
 
         assert update["update"]["views"] == {"add": [self._v_cdm_3d]}
 
-    def test_as_update_replace_empty_desired_removes_all(self) -> None:
+    def test_as_update_replace_view_removed_locally_is_ignored(self) -> None:
+        """View refs are immutable/append-only in the API — a view present in CDF but
+        absent locally must not generate a remove operation."""
         request = DataProductVersionRequest.model_validate(
             {
                 "dataProductExternalId": "my-product",
@@ -159,8 +127,7 @@ class TestDataProductVersionRequest:
                 "views": [],
             }
         )
-        existing = [DataProductVersionView.model_validate(self._v_cdm_3d)]
 
-        update = request.as_update(mode="replace", cdf_views=existing)
+        update = request.as_update(mode="replace", cdf_views=self._existing())
 
-        assert update["update"]["views"] == {"remove": [self._v_cdm_3d]}
+        assert "views" not in update["update"]
