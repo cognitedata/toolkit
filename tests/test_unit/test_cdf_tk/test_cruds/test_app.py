@@ -60,7 +60,7 @@ class TestAppIODeploy:
             loader = AppIO.create_loader(client, tmp_path)
             zip_path = tmp_path / "1-my-app-my-app.zip"
             _write_zip(zip_path)
-            version_id = AppVersionId(external_id="my-app", version="1.0.0")
+            version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
             loader.zip_path_by_version_id[version_id] = zip_path
             yield loader, client
 
@@ -76,7 +76,7 @@ class TestAppIODeploy:
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
-            zip_bytes=loader.zip_path_by_version_id[AppVersionId(external_id="my-app", version="1.0.0")].read_bytes(),
+            zip_bytes=loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")].read_bytes(),
         )
 
     def test_deploy_promotes_draft_to_published_with_active_alias(self, app_io_with_zip):
@@ -86,8 +86,9 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.transition_lifecycle.assert_called_once_with("my-app", "1.0.0", "PUBLISHED")
-        client.tool.apps.set_alias.assert_called_once_with("my-app", "1.0.0", "ACTIVE")
+        client.tool.apps.update_version.assert_called_once_with(
+            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "ACTIVE"}}
+        )
 
     def test_deploy_clears_alias_when_local_alias_is_none(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -96,8 +97,9 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.transition_lifecycle.assert_not_called()
-        client.tool.apps.set_alias.assert_called_once_with("my-app", "1.0.0", None)
+        client.tool.apps.update_version.assert_called_once_with(
+            "my-app", "1.0.0", {"alias": {"setNull": True}}
+        )
 
     def test_deploy_swaps_alias_to_preview(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -106,8 +108,9 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.transition_lifecycle.assert_not_called()
-        client.tool.apps.set_alias.assert_called_once_with("my-app", "1.0.0", "PREVIEW")
+        client.tool.apps.update_version.assert_called_once_with(
+            "my-app", "1.0.0", {"alias": {"set": "PREVIEW"}}
+        )
 
     def test_deploy_noop_when_lifecycle_and_alias_match(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -116,8 +119,7 @@ class TestAppIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.transition_lifecycle.assert_not_called()
-        client.tool.apps.set_alias.assert_not_called()
+        client.tool.apps.update_version.assert_not_called()
 
     def test_deploy_rejects_backward_lifecycle_transition(self, app_io_with_zip):
         loader, client = app_io_with_zip
@@ -161,8 +163,8 @@ class TestAppIODeploy:
         loader, client = app_io_with_zip
         item = _make_app_request(version="2.0.0", lifecycle_state="DRAFT", alias=None)
         # Register zip for 2.0.0
-        zip_path = loader.zip_path_by_version_id[AppVersionId(external_id="my-app", version="1.0.0")]
-        loader.zip_path_by_version_id[AppVersionId(external_id="my-app", version="2.0.0")] = zip_path
+        zip_path = loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")]
+        loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="2.0.0")] = zip_path
         client.tool.apps.retrieve_version.return_value = None
 
         loader.update([item])
@@ -174,8 +176,8 @@ class TestAppIODeploy:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
             ids = [
-                AppVersionId(external_id="my-app", version="1.0.0"),
-                AppVersionId(external_id="my-app", version="2.0.0"),
+                AppVersionId(app_external_id="my-app", version="1.0.0"),
+                AppVersionId(app_external_id="my-app", version="2.0.0"),
             ]
             loader.delete(ids)
 
@@ -232,7 +234,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         extra = extras[0]
@@ -252,7 +254,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         assert extras[0].suffix == ".zip"
@@ -266,7 +268,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
@@ -283,7 +285,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
@@ -294,7 +296,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "missing-app", "version": "1.0.0", "name": "Missing App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="missing-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="missing-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
@@ -316,7 +318,7 @@ class TestAppIOGetExtraFiles:
             "sourcePath": "../../../my-custom-app",
         }
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         assert extras[0].suffix == ".zip"
@@ -334,7 +336,7 @@ class TestAppIOGetExtraFiles:
         yaml_file.write_text("")
         item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
 
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(external_id="my-app", version="1.0.0"), item))
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
 
         assert len(extras) == 1
         with zipfile.ZipFile(io.BytesIO(extras[0].byte_content)) as zf:  # type: ignore[arg-type]

@@ -216,6 +216,8 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
         current_lifecycle = current.lifecycle_state if current else "DRAFT"
         current_alias = current.alias if current else None
 
+        update: dict = {}
+
         if item.lifecycle_state != current_lifecycle:
             current_idx = _LIFECYCLE_ORDER.index(current_lifecycle) if current_lifecycle in _LIFECYCLE_ORDER else 0
             target_idx = _LIFECYCLE_ORDER.index(item.lifecycle_state) if item.lifecycle_state in _LIFECYCLE_ORDER else 0
@@ -224,7 +226,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
                     f"Cannot transition app {item.external_id!r} version {item.version!r} "
                     f"from {current_lifecycle!r} to {item.lifecycle_state!r}: lifecycle transitions are forward-only."
                 )
-            self.client.tool.apps.transition_lifecycle(item.external_id, item.version, item.lifecycle_state)
+            update["lifecycleState"] = {"set": item.lifecycle_state}
 
         alias_explicitly_set = "alias" in item.model_fields_set
         if alias_explicitly_set and item.alias != current_alias:
@@ -233,7 +235,10 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
                     f"Cannot set alias {item.alias!r} on app {item.external_id!r} version {item.version!r}: "
                     f"aliases are only valid on PUBLISHED versions (current lifecycle: {item.lifecycle_state!r})."
                 )
-            self.client.tool.apps.set_alias(item.external_id, item.version, item.alias)
+            update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
+
+        if update:
+            self.client.tool.apps.update_version(item.external_id, item.version, update)
 
         return AppResponse(
             external_id=item.external_id,
