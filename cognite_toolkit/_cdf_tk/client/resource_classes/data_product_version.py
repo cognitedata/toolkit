@@ -86,9 +86,8 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
         if "views" in dumped:
             # View refs are append-only per the API spec — once added they cannot be removed.
             # Only send views.add for refs not already in CDF (avoids duplicate-400 on redeploy).
-            desired = [DataProductVersionView.model_validate(v) for v in dumped["views"]]
             existing_keys = {(v.space, v.external_id, v.version) for v in (cdf_views or [])}
-            to_add = [v for v in desired if (v.space, v.external_id, v.version) not in existing_keys]
+            to_add = [v for v in self.views if (v.space, v.external_id, v.version) not in existing_keys]
             if to_add:
                 update["views"] = {"add": [v.model_dump(mode="json", by_alias=True) for v in to_add]}
 
