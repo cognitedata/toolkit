@@ -3,7 +3,6 @@
 import json
 import uuid
 from collections.abc import Iterable, Sequence
-from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import FailedResponse, SuccessResponse
