@@ -199,7 +199,7 @@ class AppConfigAcl(Capability):
 
 class AppHostingAcl(Capability):
     _capability_name = "appHostingAcl"
-    actions: list[Literal["CREATE", "LIST", "UPDATE", "DELETE", "RUN"]]
+    actions: list[Literal["READ", "WRITE", "RUN"]]
     scope: AllScope
 
 
