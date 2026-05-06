@@ -23,6 +23,35 @@ class DeployDiffFormat(str, Enum):
 _SECTION_BODY_PADDING = (0, 0, 1, 2)
 
 
+def _align_nested_dict_pair_for_yaml(cdf: Any, build: Any) -> tuple[Any, Any]:
+    """Return copies of ``cdf`` / ``build`` with identical dict key order for paired dumps.
+
+    Order at each dict level: keys from **build** (insertion order), then keys only in **CDF**
+    (insertion order). Nested dict values are aligned the same way so ``yaml_safe_dump(...,
+    sort_keys=False)`` produces line-aligned text without global alphabetical sorting.
+
+    Non-dict values and mismatched types are left unchanged; lists are not reordered.
+    """
+    if isinstance(cdf, dict) and isinstance(build, dict):
+        keys = list(dict.fromkeys(list(build.keys()) + [k for k in cdf if k not in build]))
+        out_cdf: dict[str, Any] = {}
+        out_build: dict[str, Any] = {}
+        for k in keys:
+            cv = cdf.get(k)
+            bv = build.get(k)
+            if isinstance(cv, dict) and isinstance(bv, dict):
+                out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml(cv, bv)
+            elif isinstance(cv, dict):
+                out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml(cv, {})
+            elif isinstance(bv, dict):
+                out_cdf[k], out_build[k] = _align_nested_dict_pair_for_yaml({}, bv)
+            else:
+                out_cdf[k] = cv
+                out_build[k] = bv
+        return out_cdf, out_build
+    return cdf, build
+
+
 def _sanitize(text: str, sensitive_strings: Iterable[str]) -> str:
     for sensitive in sensitive_strings:
         text = text.replace(sensitive, "********")
@@ -122,8 +151,9 @@ def render_deploy_human_diff(
     cdf_project: str,
 ) -> ToolkitPanel:
     sens = list(sensitive_strings)
-    cdf_yaml = _sanitize(yaml_safe_dump(cdf_dict, sort_keys=True), sens)
-    build_yaml = _sanitize(yaml_safe_dump(yaml_dict, sort_keys=True), sens)
+    cdf_aligned, build_aligned = _align_nested_dict_pair_for_yaml(cdf_dict, yaml_dict)
+    cdf_yaml = _sanitize(yaml_safe_dump(cdf_aligned, sort_keys=False, indent=2), sens)
+    build_yaml = _sanitize(yaml_safe_dump(build_aligned, sort_keys=False, indent=2), sens)
     cdf_lines = cdf_yaml.splitlines()
     yaml_lines = build_yaml.splitlines()
 
@@ -131,11 +161,11 @@ def render_deploy_human_diff(
     delete_lines, insert_lines, replace_blocks, equal_lines = _summarize_opcodes(matcher.get_opcodes())
 
     summary_lines = [
-        f"Serialized YAML: {len(cdf_lines)} line(s) from CDF vs {len(yaml_lines)} line(s) from build",
-        f"{equal_lines} unchanged line(s)",
-        f"{replace_blocks} replaced region(s)",
-        f"{delete_lines} line(s) present in {cdf_project} only",
-        f"{insert_lines} line(s) present in build only",
+        f"Serialized YAML: [dim]{len(cdf_lines)}[/] line(s) from CDF vs [dim]{len(yaml_lines)}[/] line(s) from build",
+        f"[green]✓[/] [bold]{equal_lines}[/] unchanged line(s)",
+        f"[yellow]↔[/] [bold]{replace_blocks}[/] replaced region(s)",
+        f"[red]-[/] [bold]{delete_lines}[/] line(s) only in CDF ([cyan]{cdf_project}[/])",
+        f"[green]+[/] [bold]{insert_lines}[/] line(s) only in local build",
     ]
 
     sections = [

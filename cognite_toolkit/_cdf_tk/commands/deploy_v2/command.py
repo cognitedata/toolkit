@@ -1114,7 +1114,12 @@ class DeployV2Command(ToolkitCommand):
             skipped=[],
             is_missing_write_acl=False,
         )
-        for result in results:
+        display_results = sorted(
+            results,
+            key=lambda r: (r.created_count, r.updated_count, r.deleted_count, r.unchanged_count),
+            reverse=True,
+        )
+        for result in display_results:
             row = [
                 result.resource_name,
                 str(result.created_count),

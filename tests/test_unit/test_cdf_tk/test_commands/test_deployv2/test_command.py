@@ -609,3 +609,22 @@ class TestDeployResourcesValidationError:
                 "type": "missing",
             }
         ]
+
+
+class TestDisplayDeployResultsOrder:
+    def test_deploy_summary_table_sorted_descending_create_update_delete_unchanged(self) -> None:
+        """Rows follow descending (created, updated, deleted, unchanged) so the biggest changes float up."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        console = Console(file=buf, width=160, color_system=None, legacy_windows=False)
+        results = [
+            DeploymentResult("zzz", True, 0, 0, 0, 5, False, []),
+            DeploymentResult("aaa", True, 3, 0, 0, 0, False, []),
+            DeploymentResult("bbb", True, 3, 0, 1, 0, False, []),
+        ]
+        DeployV2Command._display_results(results, "deploy", console, verbose=False)
+        text = buf.getvalue()
+        assert text.index("bbb") < text.index("aaa") < text.index("zzz")
