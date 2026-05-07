@@ -1,12 +1,19 @@
 """Unit tests for RuleSet and RuleSetVersion CRUDs."""
 
+import gzip
+import json
 import tempfile
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 import yaml
 
-from cognite_toolkit._cdf_tk.client.identifiers import RuleSetVersionId
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetVersionIO
@@ -164,3 +171,52 @@ class TestRuleSetVersionYAML:
             {"ruleSetExternalId": "my_rules", "version": "1.0.0", "rules": ["a"]}
         )
         assert yaml_obj.as_id() == RuleSetVersionId(rule_set_external_id="my_rules", version="1.0.0")
+
+
+class TestRuleSetsAPIRetrieve:
+    """CDF-27901: /rulesets/byids does not accept 'ignoreUnknownIds'."""
+
+    def test_retrieve_does_not_send_ignore_unknown_ids(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        api = RuleSetsAPI(HTTPClient(toolkit_config))
+        rule_set = {"externalId": "my_rules", "name": "My Rules", "createdTime": 1000}
+        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [rule_set]})
+        )
+
+        api.retrieve([ExternalId(external_id="my_rules")])
+
+        assert len(respx_mock.calls) == 1
+        body = json.loads(gzip.decompress(respx_mock.calls[0].request.content))
+        assert "ignoreUnknownIds" not in body
+
+    def test_ignore_unknown_ids_retries_without_missing(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        """When ignore_unknown_ids=True and the API reports missing IDs, retry with only the known IDs."""
+        api = RuleSetsAPI(HTTPClient(toolkit_config))
+        rule_set = {"externalId": "exists", "name": "Exists", "createdTime": 1000}
+        error_body = {"error": {"code": 400, "message": "IDs not found", "missing": [{"externalId": "missing_one"}]}}
+
+        call_count = 0
+
+        def side_effect(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(status_code=400, json=error_body)
+            return httpx.Response(status_code=200, json={"items": [rule_set]})
+
+        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(side_effect=side_effect)
+
+        result = api.retrieve(
+            [ExternalId(external_id="exists"), ExternalId(external_id="missing_one")],
+            ignore_unknown_ids=True,
+        )
+
+        assert call_count == 2
+        assert len(result) == 1
+        assert result[0].external_id == "exists"
+        body = json.loads(gzip.decompress(respx_mock.calls[1].request.content))
+        assert body["items"] == [{"externalId": "exists"}]
