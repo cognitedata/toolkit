@@ -60,7 +60,10 @@ runtime: py312""")
         DeployV2Command(skip_tracking=True).deploy(
             env_vars=env_vars,
             user_build_dir=tmp_path / "build",
-            options=DeployOptions(cdf_project=os.environ["CDF_PROJECT"]),
+            options=DeployOptions(
+                cdf_project=env_vars.CDF_PROJECT,
+                environment_variables=env_vars.dump(),
+            ),
         )
 
         toolkit_client.tool.functions.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
