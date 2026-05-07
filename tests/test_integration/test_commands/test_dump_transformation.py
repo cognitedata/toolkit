@@ -4,8 +4,6 @@ import pytest
 from cognite.client.data_classes import (
     Transformation,
     TransformationDestination,
-    TransformationNotification,
-    TransformationNotificationWrite,
     TransformationSchedule,
     TransformationScheduleWrite,
     TransformationWrite,
@@ -13,6 +11,11 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.transformations import NonceCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationNotificationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
+)
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import TransformationFinder
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -63,18 +66,21 @@ def deployed_transformation_schedule(toolkit_client: ToolkitClient, deployed_tra
 @pytest.fixture(scope="session")
 def deployed_transformation_notification(
     toolkit_client: ToolkitClient, deployed_transformation: Transformation
-) -> None:
-    notification = TransformationNotificationWrite(
+) -> TransformationNotificationResponse:
+    notification = TransformationNotificationRequest(
         destination="my@example.com",
         transformation_external_id=deployed_transformation.external_id,
     )
 
-    existing = toolkit_client.transformations.notifications.list(
-        transformation_external_id=deployed_transformation.external_id, destination=notification.destination, limit=1
+    existing = toolkit_client.tool.transformations.notifications.list(
+        filter=TransformationNotificationFilter(
+            transformation_external_id=deployed_transformation.external_id, destination=notification.destination
+        ),
+        limit=1,
     )
     if existing:
         return existing[0]
-    return toolkit_client.transformations.notifications.create(notification)
+    return toolkit_client.tool.transformations.notifications.create([notification])[0]
 
 
 class TestDumpTransformation:
@@ -83,7 +89,7 @@ class TestDumpTransformation:
         toolkit_client: ToolkitClient,
         deployed_transformation: Transformation,
         deployed_transformation_schedule: TransformationSchedule,
-        deployed_transformation_notification: TransformationNotification,
+        deployed_transformation_notification: TransformationNotificationResponse,
         tmp_path: Path,
     ) -> None:
         cmd = DumpResourceCommand(silent=True)

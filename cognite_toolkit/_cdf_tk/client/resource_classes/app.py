@@ -28,7 +28,7 @@ class AppRequest(App, RequestResource):
         # Body for POST /apphosting/apps (ensure-app call)
         key = "externalId" if camel_case else "external_id"
         body: dict[str, Any] = {key: self.external_id, "name": self.name}
-        if self.description:
+        if self.description is not None:
             body["description"] = self.description
         return body
 

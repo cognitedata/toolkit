@@ -116,7 +116,7 @@ class TestMigrateFile:
         nodes = client.data_modeling.instances.retrieve((space, file.external_id)).nodes
         if len(nodes) != 1:
             raise EndpointAssertionError(
-                client.data_modeling.instances._RESOURCE_PATH,
+                "data_modeling.instances.retrieve",
                 "Migrated file instance not found in data modeling after migration.",
             )
         migrated_node = nodes[0]
