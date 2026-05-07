@@ -72,6 +72,9 @@ class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionSchedu
     def request_cls(cls) -> type[FunctionScheduleRequest]:
         return FunctionScheduleRequest
 
+    def as_id(self) -> InternalId:
+        return InternalId(id=self.id)
+
 
 class FunctionScheduleData(BaseModelObject):
     id: int

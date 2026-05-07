@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
+from . import ToolkitClientConfig
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
@@ -121,6 +122,22 @@ class ToolkitClientMock(CogniteClientMock):
             return None
         super().__init__(*args, **kwargs)
         self.console = Console()
+        # spec= (not spec_set): ClientConfig fields are not plain class attributes, so spec_set
+        # blocked assigning project/timeout in tests. Defaults keep HTTPClient(...) usable.
+        self.config = MagicMock(spec=ToolkitClientConfig)
+        self.config.client_name = "toolkit-test-mock"
+        self.config.project = "pytest-project"
+        self.config.base_url = "https://bluefield.cognitedata.com"
+        self.config.cdf_cluster = "bluefield"
+        self.config.timeout = 30
+        self.config.file_transfer_timeout = None
+        self.config.api_subversion = None
+        self.config.debug = False
+        self.config.is_strict_validation = True
+        self.config.headers = None
+        _credentials = MagicMock()
+        _credentials.authorization_header.return_value = ("Authorization", "Bearer mock-token")
+        self.config.credentials = _credentials
         # Developer note:
         # - Please add your mocked APIs in chronological order
         # - For nested APIs:
