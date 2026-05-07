@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
