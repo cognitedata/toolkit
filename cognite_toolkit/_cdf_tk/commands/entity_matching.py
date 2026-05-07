@@ -84,9 +84,9 @@ class EntityMatchingCommand(ToolkitCommand):
         if not input_yaml.exists():
             raise FileNotFoundError(f"Input file not found: {input_yaml}")
 
-        module_path = ResourcesCommand(
-            skip_tracking=True, silent=True
-        )._get_or_prompt_module_path(module_name, organization_dir, verbose=False)
+        module_path = ResourcesCommand(skip_tracking=True, silent=True)._get_or_prompt_module_path(
+            module_name, organization_dir, verbose=False
+        )
 
         output_dir = module_path / "workflows"
         output_dir.mkdir(parents=True, exist_ok=True)
