@@ -1,9 +1,10 @@
+import os
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.commands import BuildV2Command, DeployV2Command
+from cognite_toolkit._cdf_tk.commands import BuildV2Command, DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -56,6 +57,10 @@ runtime: py312""")
             client=toolkit_client,
         )
         env_vars = EnvironmentVariables.create_from_environment()
-        DeployV2Command(skip_tracking=True).deploy(env_vars=env_vars, user_build_dir=tmp_path / "build")
+        DeployV2Command(skip_tracking=True).deploy(
+            env_vars=env_vars,
+            user_build_dir=tmp_path / "build",
+            options=DeployOptions(cdf_project=os.environ["CDF_PROJECT"]),
+        )
 
         toolkit_client.tool.functions.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
