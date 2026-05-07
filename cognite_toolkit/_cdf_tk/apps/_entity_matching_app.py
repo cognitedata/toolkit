@@ -36,17 +36,29 @@ class EntityMatchingApp(typer.Typer):
                 readable=True,
             ),
         ],
-        output_dir: Annotated[
-            Path | None,
+        module: Annotated[
+            str | None,
             typer.Option(
-                "--output-dir",
-                "-o",
-                help="Directory where the generated YAML files will be written. "
-                "Defaults to a 'generated/' folder next to the input file.",
+                "--module",
+                "-m",
+                help="Name of an existing module or a new module to write the workflow files into.",
             ),
         ] = None,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Path to the organization directory containing the modules/ folder.",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
     ) -> None:
-        """Generate Workflow and WorkflowVersion YAML files from an aliasing-rules input file."""
-        resolved_output_dir = output_dir or (input_yaml.parent / "generated")
+        """Generate Workflow and WorkflowVersion YAML files into a module's workflows/ folder."""
         cmd = EntityMatchingCommand()
-        cmd.run(lambda: cmd.generate_aliasing_workflow(input_yaml=input_yaml, output_dir=resolved_output_dir))
+        cmd.run(
+            lambda: cmd.generate_aliasing_workflow(
+                input_yaml=input_yaml,
+                module_name=module,
+                organization_dir=organization_dir,
+            )
+        )
