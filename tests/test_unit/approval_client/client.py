@@ -165,10 +165,11 @@ class ApprovalToolkitClient:
         credentials.client_id = "toolkit-client-id"
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
-        credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
+        credentials.scopes = ["https://pytest-field.cognitedata.com/.default"]
         project = CDF_PROJECT
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
+            cluster="pytest-field",
             project=project,
             credentials=credentials,
             is_strict_validation=False,
@@ -475,7 +476,6 @@ class ApprovalToolkitClient:
                     }
                     for c in created
                 ],
-                cognite_client=client,
             )
             return read_list
 
@@ -535,7 +535,7 @@ class ApprovalToolkitClient:
                         )
                     item["workflowDefinition"]["hash"] = "123"
 
-            return resource_list_cls.load(read_resource_objects, cognite_client=client)
+            return resource_list_cls.load(read_resource_objects)
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
@@ -685,6 +685,9 @@ class ApprovalToolkitClient:
                     **kwargs,
                 }
             )
+            kwargs["uploaded"] = True
+            kwargs["createdTime"] = 0
+            kwargs["lastUpdatedTime"] = 0
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
         def upload_file_content_path_files_api(
@@ -738,12 +741,22 @@ class ApprovalToolkitClient:
 
             created_resources[FileCRUD.__name__].append(entry)
 
-            return FileMetadata(external_id, instance_id, id=len(filehash))
+            return FileMetadata(
+                external_id=external_id,
+                instance_id=instance_id,
+                id=len(filehash),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                name=entry.get("name", "unknown"),
+            )
 
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
-            created = ThreeDModel(name=name, data_set_id=data_set_id, metadata=metadata, created_time=1)
+            created = ThreeDModel(
+                name=name, data_set_id=data_set_id, metadata=metadata, created_time=1, id=len(name) + 1
+            )
             created_resources[resource_cls.__name__].append(created)
             return created
 
@@ -848,7 +861,7 @@ class ApprovalToolkitClient:
                     )
                     for space in ids
                 ]
-                return read_list_cls(spaces, cognite_client=client)
+                return read_list_cls(spaces)
             elif resource_cls is DataSet:
                 if "external_ids" in kwargs:
                     external_ids = kwargs["external_ids"]
@@ -866,7 +879,7 @@ class ApprovalToolkitClient:
                     )
                     for external_id in external_ids
                 ]
-                return read_list_cls(datasets, cognite_client=client)
+                return read_list_cls(datasets)
             elif resource_cls is ExtractionPipeline:
                 if "external_ids" in kwargs:
                     external_ids = kwargs["external_ids"]
@@ -885,7 +898,7 @@ class ApprovalToolkitClient:
                     )
                     for external_id in external_ids
                 ]
-                return read_list_cls(pipelines, cognite_client=client)
+                return read_list_cls(pipelines)
 
             raise NotImplementedError(f"Return values not implemented for {resource_cls}")
 
@@ -893,7 +906,7 @@ class ApprovalToolkitClient:
             if self._return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
                 return _create_verification_resource(*args, **kwargs)
 
-            return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
+            return read_list_cls(existing_resources[resource_cls.__name__])
 
         def return_data_models(
             ids: DataModelIdentifier | Sequence[DataModelIdentifier], inline_views: bool = False
@@ -901,7 +914,7 @@ class ApprovalToolkitClient:
             if not existing_resources[resource_cls.__name__]:
                 return DataModelList([])
             id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else set(ids)
-            to_return = read_list_cls([], cognite_client=client)
+            to_return = read_list_cls([])
             for resource in existing_resources[resource_cls.__name__]:
                 id_ = resource.as_id()
                 if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
@@ -918,7 +931,7 @@ class ApprovalToolkitClient:
 
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
-                return read_list_cls(value, cognite_client=client)[0]
+                return read_list_cls(value)[0]
             elif self.return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
                 return _create_verification_resource(*args, **kwargs)[0]
             else:
@@ -926,15 +939,22 @@ class ApprovalToolkitClient:
 
         def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
             if id is not None:
-                return FileMetadata(id=id, uploaded=True)
+                return FileMetadata(id=id, uploaded=True, created_time=0, last_updated_time=0, name="function.zip")
             elif external_id is not None:
-                return FileMetadata(external_id=external_id, uploaded=True)
+                return FileMetadata(
+                    id=0,
+                    external_id=external_id,
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                    name="function.zip",
+                )
             else:
                 return return_value(external_id=external_id)
 
         def data_model_retrieve(ids, *args, **kwargs):
             id_set = set(ids) if isinstance(ids, Sequence) else {ids}
-            to_return = read_list_cls([], cognite_client=client)
+            to_return = read_list_cls([])
             for resource in existing_resources[resource_cls.__name__]:
                 id = resource.as_id()
                 if id in id_set or (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
@@ -1036,7 +1056,6 @@ class ApprovalToolkitClient:
                         ProjectCapability(capability=capability, project_scope=AllProjectsScope())
                         for capability in _ALL_CAPABILITIES
                     ],
-                    cognite_client=client,
                 ),
             )
 
