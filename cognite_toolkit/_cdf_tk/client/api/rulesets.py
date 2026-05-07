@@ -3,12 +3,7 @@
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import (
-    HTTPClient,
-    ItemsSuccessResponse,
-    SuccessResponse,
-    ToolkitAPIError,
-)
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
 
@@ -42,14 +37,9 @@ class RuleSetsAPI(CDFResourceAPI[RuleSetResponse]):
     def retrieve(self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RuleSetResponse]:
         if not external_ids:
             return []
-        try:
-            return self._request_item_response(external_ids, method="retrieve")
-        except ToolkitAPIError as e:
-            if ignore_unknown_ids and e.missing:
-                missing_ids = {m.get("externalId") for m in e.missing if isinstance(m, dict)}
-                known = [eid for eid in external_ids if eid.external_id not in missing_ids]
-                return self._request_item_response(known, method="retrieve") if known else []
-            raise
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(external_ids, method="retrieve")
+        return self._request_item_response(external_ids, method="retrieve")
 
     def delete(self, external_ids: Sequence[ExternalId]) -> None:
         self._request_no_response(external_ids, "delete")

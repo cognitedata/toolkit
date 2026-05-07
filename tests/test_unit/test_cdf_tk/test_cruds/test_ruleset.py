@@ -191,20 +191,23 @@ class TestRuleSetsAPIRetrieve:
         body = json.loads(gzip.decompress(respx_mock.calls[0].request.content))
         assert "ignoreUnknownIds" not in body
 
-    def test_ignore_unknown_ids_retries_without_missing(
+    def test_ignore_unknown_ids_skips_missing(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
-        """When ignore_unknown_ids=True and the API reports missing IDs, retry with only the known IDs."""
+        """When ignore_unknown_ids=True, unknown IDs are silently skipped via _request_item_split_retries.
+
+        _request_item_split_retries first tries a batch; on failure it retries each item individually,
+        yielding only the successful ones. With 2 items this produces 3 API calls total:
+        1 batch (fails) + 2 individual (one succeeds, one fails and is dropped).
+        """
         api = RuleSetsAPI(HTTPClient(toolkit_config))
         rule_set = {"externalId": "exists", "name": "Exists", "createdTime": 1000}
-        error_body = {"error": {"code": 400, "message": "IDs not found", "missing": [{"externalId": "missing_one"}]}}
-
-        call_count = 0
+        error_body = {"error": {"code": 400, "message": "IDs not found"}}
 
         def side_effect(request: httpx.Request) -> httpx.Response:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
+            body = json.loads(gzip.decompress(request.content))
+            items = body.get("items", [])
+            if any(i.get("externalId") == "missing_one" for i in items):
                 return httpx.Response(status_code=400, json=error_body)
             return httpx.Response(status_code=200, json={"items": [rule_set]})
 
@@ -215,8 +218,5 @@ class TestRuleSetsAPIRetrieve:
             ignore_unknown_ids=True,
         )
 
-        assert call_count == 2
         assert len(result) == 1
         assert result[0].external_id == "exists"
-        body = json.loads(gzip.decompress(respx_mock.calls[1].request.content))
-        assert body["items"] == [{"externalId": "exists"}]
