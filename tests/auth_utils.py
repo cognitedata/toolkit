@@ -236,7 +236,7 @@ class EnvironmentVariables:
             max_workers=self.CDF_MAX_WORKERS,
             timeout=self.CDF_TIMEOUT,
         )
-        return ToolkitClient(config, enable_set_pending_ids)
+        return ToolkitClient(config=config)
 
     def create_env_file(self) -> str:
         lines: list[str] = []

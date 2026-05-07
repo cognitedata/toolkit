@@ -35,10 +35,10 @@ PROVIDER_DESCRIPTION = {
     "other": "Use other IDP to authenticate",
 }
 LOGIN_FLOW_DESCRIPTION = {
-    "client_credentials": "Setup a service principal with client credentials",
-    "interactive": "Login using the browser with your user credentials",
-    "device_code": "Complete sign-in in a browser on any device to authorize this session (device code flow)",
-    "token": "Use a Token directly to authenticate",
+    "device_code": "Sign in via a browser on any device — no service principal needed (best for local setup)",
+    "interactive": "Sign in via the browser on this machine with your user credentials",
+    "client_credentials": "Use a service principal with client ID and secret (for CI/CD or automated workloads)",
+    "token": "Supply a pre-existing token directly",
 }
 
 
@@ -119,7 +119,7 @@ class EnvironmentVariables:
     IDP_TENANT_ID: str | None = field(
         default=None,
         metadata=EnvOptions(
-            display_name="Tenant id for MS Entra",
+            display_name="Tenant id for Microsoft Entra ID",
             example={"entra_id": "00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com"},
             required=frozenset(
                 [("entra_id", "device_code"), ("entra_id", "client_credentials"), ("entra_id", "interactive")]
@@ -285,7 +285,7 @@ class EnvironmentVariables:
                 client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
                 client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
                 token_url=self.idp_token_url,
-                scopes=None,  # type: ignore[arg-type]
+                scopes=None,
             )
         return OAuthClientCredentials(
             client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
@@ -309,7 +309,7 @@ class EnvironmentVariables:
             # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
             # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
             return OAuthDeviceCode.default_for_azure_ad(
-                tenant_id=self.IDP_TENANT_ID,  # type: ignore[arg-type]
+                tenant_id=self.IDP_TENANT_ID,
                 client_id=TOOLKIT_CLIENT_ENTRA_ID,
                 cdf_cluster=self.CDF_CLUSTER,
                 clear_cache=False,
@@ -335,7 +335,6 @@ class EnvironmentVariables:
             base_url=self.cdf_url,
             is_strict_validation=is_strict_validation,
             timeout=self.CDF_CLIENT_TIMEOUT,
-            max_workers=self.CDF_CLIENT_MAX_WORKERS,
         )
 
     def get_client(self, is_strict_validation: bool | None = None, console: Console | None = None) -> ToolkitClient:
@@ -480,11 +479,19 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
         login_flow = questionary.select(
             "Choose the login flow (How do you going to authenticate?)",
             choices=choices,
-            default=current.LOGIN_FLOW if current else "client_credentials",
+            default=current.LOGIN_FLOW if current else "device_code",
         ).unsafe_ask()
 
-    cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").unsafe_ask()
-    cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").unsafe_ask()
+    cdf_cluster = questionary.text(
+        "Enter the CDF cluster (e.g. westeurope-1)",
+        default=current.CDF_CLUSTER if current else "",
+        validate=lambda v: True if v.strip() else "CDF cluster cannot be empty",
+    ).unsafe_ask()
+    cdf_project = questionary.text(
+        "Enter the CDF project",
+        default=current.CDF_PROJECT if current else "",
+        validate=lambda v: True if v.strip() else "CDF project cannot be empty",
+    ).unsafe_ask()
     args: dict[str, Any] = (
         current.dump(include_os=False)
         if current and _is_unchanged(current, provider, login_flow, cdf_project, cdf_cluster)  # type: ignore[arg-type]
@@ -502,12 +509,14 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
             idp_tenant_id = user_value
 
     optional_values = env_vars.get_optional_with_value()
-    for field_, value in optional_values:
-        print(f"  {field_.name}={value}")
-    if questionary.confirm("Do you want to change any of these variables?", default=False).unsafe_ask():
+    if optional_values:
+        print("Additional variables:")
         for field_, value in optional_values:
-            user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
-            setattr(env_vars, field_.name, user_value)
+            print(f"  {field_.name}={value}")
+        if questionary.confirm("Do you want to change any of these variables?", default=False).unsafe_ask():
+            for field_, value in optional_values:
+                user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
+                setattr(env_vars, field_.name, user_value)
     return env_vars
 
 
@@ -516,24 +525,37 @@ def get_user_value(
 ) -> Any:
     is_secret = field_.metadata["is_secret"]
     display_name = field_.metadata["display_name"]
+    hint = ""
     if value:
         default = value
     else:
         default_example = field_.metadata["default_example"]
-        default = (
+        example = (
             field_.metadata["example"]
             .get(provider, default_example)
             .format(CDF_CLUSTER=cdf_cluster, CDF_PROJECT=cdf_project, IDP_TENANT_ID=idp_tenant_id)
         )
+        # Use the example as a pre-filled default only when it is a concrete value
+        # (i.e. all template placeholders have been resolved).  Strings that still
+        # look like documentation hints (contain "<", ">", or " or ") are shown as
+        # hint text in the question label instead, so the user cannot accidentally
+        # submit them verbatim.
+        if example and not any(marker in example for marker in ("<", ">", " or ")):
+            default = example
+        else:
+            default = ""
+            if example:
+                hint = f" (e.g. {example})"
 
     if isinstance(value, list):
         default = ",".join(value)
     elif value is not None and not isinstance(value, str):
         default = str(value)
+    prompt = f"Enter the {display_name}{hint}:"
     if is_secret:
-        user_value = questionary.password(f"Enter the {display_name}:", default=default).unsafe_ask()
+        user_value = questionary.password(prompt, default=default).unsafe_ask()
     else:
-        user_value = questionary.text(f"Enter the {display_name}:", default=default).unsafe_ask()
+        user_value = questionary.text(prompt, default=default).unsafe_ask()
     if user_value is None:
         raise typer.Exit(0)
     if field_.type is int:

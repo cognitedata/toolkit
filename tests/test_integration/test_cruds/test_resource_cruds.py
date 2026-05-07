@@ -16,7 +16,6 @@ from cognite.client.data_classes import (
     ClientCredentials,
     DataSet,
     Function,
-    FunctionSchedule,
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
@@ -46,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
     GroupRequest,
@@ -97,10 +97,10 @@ class TestFunctionScheduleLoader:
         toolkit_client: ToolkitClient,
         toolkit_client_config: ToolkitClientConfig,
         dummy_function: Function,
-        dummy_schedule: FunctionSchedule,
+        dummy_schedule: FunctionScheduleResponse,
     ) -> None:
         loader = FunctionScheduleIO(toolkit_client, None, None)
-        function_schedule = dummy_schedule.as_write()
+        function_schedule = dummy_schedule.as_request_resource()
 
         function_schedule.description = (
             "Updated description."
@@ -640,7 +640,7 @@ def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) 
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
             external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
-            properties={"name": dm.ContainerProperty(type=dm.Text())},
+            properties={"name": dm.ContainerPropertyApply(type=dm.Text())},
         )
     )
     yield a_container

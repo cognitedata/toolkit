@@ -112,7 +112,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             raise RuntimeError(
                 "NeatRules requires a client to be provided to fetch CDF snapshot and limits for validation. Please provide client credentials."
             )
-        return NeatClient(self.client._config)
+        return NeatClient(self.client.config)
 
     @cached_property
     def _cdf_limits(self) -> "SchemaLimits":
