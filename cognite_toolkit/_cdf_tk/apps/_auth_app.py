@@ -21,6 +21,15 @@ class AuthApp(typer.Typer):
 
     def init(
         self,
+        reset: Annotated[
+            bool,
+            typer.Option(
+                "--reset",
+                help="Start over from scratch, ignoring any existing environment variables. "
+                "An existing .env file will be backed up before being overwritten.",
+                hidden=True,
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -40,7 +49,7 @@ class AuthApp(typer.Typer):
         """
         # We do not pass in a client here as this is typically used to create the .env file needed for authentication.
         cmd = AuthCommand()
-        cmd.run(lambda: cmd.init())
+        cmd.run(lambda: cmd.init(reset=reset))
 
     def verify(
         self,
