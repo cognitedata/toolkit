@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 # ---------------------------------------------------------------------------
 # Static mock YAML templates
@@ -72,16 +71,26 @@ class EntityMatchingCommand(ToolkitCommand):
     def generate_aliasing_workflow(
         self,
         input_yaml: Path,
-        output_dir: Path,
+        module_name: str | None,
+        organization_dir: Path,
     ) -> None:
-        """Generate Workflow and WorkflowVersion YAMLs from an aliasing-rules input file.
+        """
+        Generate Workflow and WorkflowVersion YAMLs into a module's workflows/ folder.
 
         Currently writes static mock files. Future iterations will translate
         rules from the input YAML into the workflow task definitions.
+
+        Args:
+            input_yaml: Path to the aliasing-rules input file.
+            module_name: Name of the module to write the workflow files into.
+            organization_dir: Path to the organization directory.
         """
         if not input_yaml.exists():
             raise FileNotFoundError(f"Input file not found: {input_yaml}")
 
+        module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name)
+
+        output_dir = module_path / "workflows"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         stem = input_yaml.stem
