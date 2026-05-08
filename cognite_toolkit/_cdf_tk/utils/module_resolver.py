@@ -12,9 +12,7 @@ from cognite_toolkit._cdf_tk.utils.file import validate_safe_path
 
 class ModuleResolver:
     @staticmethod
-    def get_or_prompt_module_path(
-        organization_dir: Path, module_name: str | None, verbose: bool = False
-    ) -> Path:
+    def get_or_prompt_module_path(organization_dir: Path, module_name: str | None, verbose: bool = False) -> Path:
         """Return the path for the given module name, or prompt the user to select/create one.
 
         If module_name matches an existing module, returns its path directly.

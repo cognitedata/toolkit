@@ -1,7 +1,7 @@
 import difflib
 import subprocess
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import questionary
 import typer
@@ -24,7 +24,6 @@ _ALL_SCAFFOLDS: dict[str, list[ScaffoldDef]] = {**_fn_scaffolds()}
 
 
 class ResourcesCommand(ToolkitCommand):
-
     @staticmethod
     def _qualified_name(crud: type[ResourceIO]) -> str:
         return f"{crud.folder_name}.{crud.kind}"
