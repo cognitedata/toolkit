@@ -47,6 +47,12 @@ If the user chose **Stage only**, stop here.
   - Propose a title: `[TICKET-ID] Description of changes`.
   - Draft a body by reading `.github/pull_request_template.md` and filling it in
     using `git log main..HEAD --oneline`.
+  - **Always ask the user which bump type applies** using the AskQuestion tool:
+    > **"What bump type should this PR use?"**
+    > - **Patch** — backwards-compatible bug fix or small improvement
+    > - **Skip** — no version bump (e.g. docs, CI, test-only changes)
+  - Reflect the answer in the PR body's Bump section: check the chosen option, leave the other unchecked.
+    Both checkboxes must always be present: `- [x] Patch` / `- [ ] Skip` or `- [ ] Patch` / `- [x] Skip`.
   - Show the proposed PR title and body, and **ask for confirmation** before creating it.
   - If the user confirms, create the PR as a **draft**:
 
