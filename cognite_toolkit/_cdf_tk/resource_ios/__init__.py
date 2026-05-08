@@ -92,7 +92,6 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1IO)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
-    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
 if not FeatureFlag.is_enabled(Flags.SIGNALS):

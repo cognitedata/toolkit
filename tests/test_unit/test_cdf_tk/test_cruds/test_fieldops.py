@@ -74,7 +74,6 @@ class TestInfieldV1Loader:
 
 
 class TestInFieldCDMLocationConfigCRUD:
-    @pytest.mark.skipif(not Flags.INFIELD.is_enabled(), reason="Alpha feature is not enabled")
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"
         item = InFieldCDMLocationConfigRequest(
