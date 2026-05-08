@@ -11,11 +11,10 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
-from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 # Scaffold variants keyed by CRUD kind (casefold). Each entry is a list of
 # ScaffoldDef variants the user can choose from after the YAML is created.
@@ -25,46 +24,6 @@ _ALL_SCAFFOLDS: dict[str, list[ScaffoldDef]] = {**_fn_scaffolds()}
 
 
 class ResourcesCommand(ToolkitCommand):
-    def _get_or_prompt_module_path(self, module: str | None, organization_dir: Path, verbose: bool) -> Path:
-        """
-        Check if the module exists in the organization directory and return the module path.
-        If module is not provided, ask the user to select or create a new module.
-        """
-        present_modules = ModuleDirectories.load(organization_dir, None)
-
-        if module:
-            for mod in present_modules:
-                if mod.name.casefold() == module.casefold():
-                    return mod.dir
-
-            if questionary.confirm(f"{module} module not found. Do you want to create a new one?").unsafe_ask():
-                validate_safe_path(module)
-                return organization_dir / MODULES / module
-
-            if verbose:
-                print(f"[red]Aborting as {module} module not found...[/red]")
-            else:
-                print("[red]Aborting...[/red]")
-            raise typer.Exit()
-
-        choices = [Choice(title=mod.name, value=mod.dir) for mod in present_modules]
-        choices.append(Choice(title="<Create new module>", value="NEW"))
-
-        selected = questionary.select("Select a module:", choices=choices).unsafe_ask()
-
-        if selected == "NEW":
-            new_module_name = questionary.text("Enter name for new module:").unsafe_ask()
-            if not new_module_name:
-                print("[red]No module name provided. Aborting...[/red]")
-                raise typer.Exit()
-            validate_safe_path(new_module_name)
-            return organization_dir / MODULES / new_module_name
-
-        if not selected:
-            print("[red]No module selected. Aborting...[/red]")
-            raise typer.Exit()
-
-        return cast(Path, selected)
 
     @staticmethod
     def _qualified_name(crud: type[ResourceIO]) -> str:
@@ -288,7 +247,7 @@ class ResourcesCommand(ToolkitCommand):
             prefix: The prefix for the resource file.
             verbose: Whether to print verbose output.
         """
-        module_path = self._get_or_prompt_module_path(module_name, organization_dir, verbose)
+        module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name, verbose)
 
         for crud in self._resolve_kinds(kind):
             variants = _ALL_SCAFFOLDS.get(crud.kind.casefold())

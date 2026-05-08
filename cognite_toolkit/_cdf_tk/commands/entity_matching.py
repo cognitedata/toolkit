@@ -4,7 +4,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.resources import ResourcesCommand
+from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 # ---------------------------------------------------------------------------
 # Static mock YAML templates
@@ -82,9 +82,7 @@ class EntityMatchingCommand(ToolkitCommand):
         if not input_yaml.exists():
             raise FileNotFoundError(f"Input file not found: {input_yaml}")
 
-        module_path = ResourcesCommand(skip_tracking=True, silent=True)._get_or_prompt_module_path(
-            module_name, organization_dir, verbose=False
-        )
+        module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name)
 
         output_dir = module_path / "workflows"
         output_dir.mkdir(parents=True, exist_ok=True)
