@@ -18,6 +18,14 @@ class ModuleResolver:
         If module_name matches an existing module, returns its path directly.
         If module_name is given but not found, asks the user to confirm creating a new one.
         If module_name is None, shows an interactive list of existing modules plus a create option.
+
+        Args:
+            organization_dir: Path to the organization directory.
+            module_name: Name of the module.
+            verbose: Whether to print verbose output.
+
+        Returns:
+            The path to the module.
         """
         from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 
