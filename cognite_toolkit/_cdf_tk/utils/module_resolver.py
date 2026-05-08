@@ -2,9 +2,9 @@ from pathlib import Path
 from typing import cast
 
 import questionary
+import typer
 from questionary import Choice
 from rich import print
-import typer
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path
