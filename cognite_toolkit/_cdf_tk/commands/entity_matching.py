@@ -74,10 +74,16 @@ class EntityMatchingCommand(ToolkitCommand):
         module_name: str | None,
         organization_dir: Path,
     ) -> None:
-        """Generate Workflow and WorkflowVersion YAMLs into a module's workflows/ folder.
+        """
+        Generate Workflow and WorkflowVersion YAMLs into a module's workflows/ folder.
 
         Currently writes static mock files. Future iterations will translate
         rules from the input YAML into the workflow task definitions.
+
+        Args:
+            input_yaml: Path to the aliasing-rules input file.
+            module_name: Name of the module to write the workflow files into.
+            organization_dir: Path to the organization directory.
         """
         if not input_yaml.exists():
             raise FileNotFoundError(f"Input file not found: {input_yaml}")
