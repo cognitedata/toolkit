@@ -380,6 +380,7 @@ class TestPurgeSmoke:
         mock_questionary.confirm.return_value.ask.return_value = True
         mock_questionary.text.return_value.unsafe_ask.return_value = client.config.project
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", mock_questionary)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._utils.questionary", mock_questionary)
 
         purge = PurgeCommand(silent=True)
 
