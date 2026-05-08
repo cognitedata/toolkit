@@ -175,9 +175,15 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
 
         rule_set_id = item.get("ruleSetExternalId", item.get("rule_set_external_id", filepath.stem))
 
-        # Look for .ttl by convention: {stem}.ttl or {rule_set_external_id}.ttl
+        # Strip the kind suffix from the stem to support the build_v2 naming convention where the
+        # extra file is written as "{filestem}{suffix}" (without the resource kind in the name).
+        stem_no_kind = filepath.stem
+        if stem_no_kind.lower().endswith(cls.kind.lower()):
+            stem_no_kind = stem_no_kind[: -len(cls.kind)].removesuffix(".")
+
         ttl_candidates = [
             filepath.parent / f"{filepath.stem}.ttl",
+            filepath.parent / f"{stem_no_kind}.ttl",
             filepath.parent / f"{rule_set_id}.ttl",
         ]
         ttl_path = next((p for p in ttl_candidates if p.exists()), None)
@@ -214,9 +220,14 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
             rule_set_id = item.get("ruleSetExternalId", item.get("rule_set_external_id", filepath.stem))
             if "rules" in item:
                 continue
-            # Look for .ttl by convention: {stem}.ttl or {rule_set_external_id}.ttl
+            # Strip the kind suffix from the stem to support the build_v2 naming convention where the
+            # extra file is written as "{filestem}{suffix}" (without the resource kind in the name).
+            stem_no_kind = filepath.stem
+            if stem_no_kind.lower().endswith(self.kind.lower()):
+                stem_no_kind = stem_no_kind[: -len(self.kind)].removesuffix(".")
             ttl_candidates = [
                 filepath.parent / f"{filepath.stem}.ttl",
+                filepath.parent / f"{stem_no_kind}.ttl",
                 filepath.parent / f"{rule_set_id}.ttl",
             ]
             ttl_path = next((p for p in ttl_candidates if p.exists()), None)
