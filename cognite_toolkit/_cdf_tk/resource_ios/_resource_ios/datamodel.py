@@ -373,6 +373,11 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         for key in ["constraints", "indexes"]:
             cdf_value = dumped.get(key)
             local_value = local.get(key)
+            if isinstance(cdf_value, dict):
+                # Drop server-populated read-only "state" field on each constraint/index.
+                for cdf_item in cdf_value.values():
+                    if isinstance(cdf_item, dict):
+                        cdf_item.pop("state", None)
             if not cdf_value and not local_value:
                 # Both sides represent "no constraints/indexes". The API and
                 # the local YAML can each express this by not including the
@@ -775,6 +780,12 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                 warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
                 warning.print_warning(console=self.console)
 
+        for prop in dumped.get("properties", {}).values():
+            if isinstance(prop, dict):
+                # targetsList is a read-only field populated by the backend on reverse direct
+                # relation connection properties. Drop it from the CDF dump so it doesn't
+                # show up as a spurious diff.
+                prop.pop("targetsList", None)
         local_properties = local.get("properties", {})
         for prop_id, prop in dumped.get("properties", {}).items():
             if prop_id not in local_properties:
