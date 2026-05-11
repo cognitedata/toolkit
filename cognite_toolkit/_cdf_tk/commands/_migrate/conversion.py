@@ -915,14 +915,32 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
 
     def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
-        self._source_view_mapping = {
-            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+        # Keyed on (space, externalId) of the source view so that legacy version values like
+        # 'cdf_apm/TemplateItem/v5' still translate to the current destination view. The version
+        # segment is intentionally ignored; the destination always points at the latest registered
+        # destination view.
+        self._destination_by_versionless_source: dict[tuple[str, str], str] = {
+            (mapping.source_view.space, mapping.source_view.external_id): self._as_source_view_format(
+                mapping.destination_view
+            )
             for mapping in mappings
         }
 
     def _as_source_view_format(self, view_id: ViewId) -> str:
         """The special format used in the sourceView property of InField"""
         return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    @staticmethod
+    def _parse_versionless_view(value: str) -> tuple[str, str] | None:
+        """Parse ``"<space>/<externalId>/<version>"`` into ``(space, externalId)``, dropping
+        the version. Many ``Condition`` instances reference older view versions of e.g. ``TemplateItem``,
+        but we should be migrating all of them to the latest version in CDM, so we translate by
+        only space and external ID. Returns ``None`` for unparseable values."""
+        parts = value.split("/")
+        if len(parts) != 3:
+            return None
+        space, external_id, _version = parts
+        return space, external_id
 
     def convert(
         self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
@@ -934,10 +952,12 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
                 issues.append(
                     f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
                 )
-            elif value not in self._source_view_mapping:
-                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
             else:
-                created_properties["sourceView"] = self._source_view_mapping[value]
+                versionless_source = self._parse_versionless_view(value)
+                if versionless_source is None or versionless_source not in self._destination_by_versionless_source:
+                    issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+                else:
+                    created_properties["sourceView"] = self._destination_by_versionless_source[versionless_source]
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
