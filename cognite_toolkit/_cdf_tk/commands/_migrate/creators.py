@@ -1,5 +1,6 @@
 import uuid
 from abc import ABC, abstractmethod
+from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, LabelResult, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitMissingResourceError,
@@ -288,14 +290,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
         client: ToolkitClient,
         external_ids: Sequence[str] | None = None,
         apm_configs: Sequence[APMConfigResponse] | None = None,
-        skip_invalid: bool = False,
     ) -> None:
         super().__init__(client)
         if sum([external_ids is not None, apm_configs is not None]) != 1:
             raise ValueError("Exactly one of external_ids or apm_configs must be provided.")
         self.external_ids = external_ids
         self.apm_configs = apm_configs
-        self.skip_invalid = skip_invalid
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.external_ids is not None:
@@ -308,8 +308,13 @@ class InfieldV2ConfigCreator(MigrationCreator):
 
         all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
         all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
+        success_count = 0
+        skipped_external_ids_by_label: dict[str, list[str]] = {}
         for apm_config in apm_configs:
-            location_configs, location_filters = self._create_infield_v2_config(apm_config)
+            location_configs, location_filters = self._create_infield_v2_config(
+                apm_config, skipped_external_ids_by_label
+            )
+            success_count += len(location_configs)
             all_location_configs.extend(
                 CreatedResource(
                     resource=loc_config,
@@ -326,6 +331,9 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 )
                 for loc_filter in location_filters
             )
+
+        self._display_summary(success_count, skipped_external_ids_by_label)
+
         yield ToCreateResources(
             resources=all_location_filters,
             crud_cls=LocationFilterIO,
@@ -338,7 +346,9 @@ class InfieldV2ConfigCreator(MigrationCreator):
         )
 
     def _create_infield_v2_config(
-        self, config: APMConfigResponse
+        self,
+        config: APMConfigResponse,
+        skipped_external_ids_by_label: dict[str, list[str]],
     ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
         location_filters: list[LocationFilterRequest] = []
@@ -348,6 +358,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         data_exploration = self._create_data_exploration(config.feature_configuration)
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
+            identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"
             try:
                 location_config = self._create_location_config(
                     root_location_config,
@@ -355,12 +366,14 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     data_exploration,
                     index,
                 )
-            except (ToolkitMigrationError, ToolkitMissingResourceError) as error:
-                if not self.skip_invalid:
-                    raise type(error)(
-                        f"{error} You can rerun the migration command with `--skip-invalid` to skip this and any other invalid or "
-                        "non-migrated root location configurations."
-                    ) from error
+            except ToolkitMigrationError as error:
+                skipped_external_ids_by_label.setdefault("Missing required fields", []).append(identifier)
+                HighSeverityWarning(f"Skipping root location configuration: {error}").print_warning(
+                    console=self.client.console
+                )
+                continue
+            except ToolkitMissingResourceError as error:
+                skipped_external_ids_by_label.setdefault("Root asset not migrated", []).append(identifier)
                 HighSeverityWarning(f"Skipping root location configuration: {error}").print_warning(
                     console=self.client.console
                 )
@@ -369,6 +382,25 @@ class InfieldV2ConfigCreator(MigrationCreator):
             location_configs.append(location_config)
 
         return location_configs, location_filters
+
+    def _display_summary(self, success_count: int, skipped_external_ids_by_label: dict[str, list[str]]) -> None:
+        items: list[ItemsResult] = []
+        if success_count:
+            items.append(ItemsResult(status="success", count=success_count, severity=0))
+        skipped_total = sum(len(ids) for ids in skipped_external_ids_by_label.values())
+        if skipped_total:
+            labels = [
+                LabelResult(
+                    label=label,
+                    count=len(identifiers),
+                    attribute_counter=Counter(identifiers),
+                    attribute_name="root location external IDs",
+                )
+                for label, identifiers in skipped_external_ids_by_label.items()
+            ]
+            items.append(ItemsResult(status="failure", count=skipped_total, severity=3, labels=labels))
+        if items:
+            display_item_results(items, title="InField Location Configs", console=self.client.console)
 
     def _create_location_filter(self, config: RootLocationConfiguration) -> LocationFilterRequest:
         original_external_id = config.external_id or config.asset_external_id or str(uuid.uuid4())
