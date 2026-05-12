@@ -58,10 +58,10 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
         if "dataProductExternalId" in item:
             yield DataProductIO, ExternalId(external_id=item["dataProductExternalId"])
         for rule in (item.get("quality") or {}).get("rules", []):
-            if "ruleSetExternalId" in rule and "version" in rule:
+            if "externalId" in rule and "version" in rule:
                 yield (
                     RuleSetVersionIO,
-                    RuleSetVersionId(rule_set_external_id=rule["ruleSetExternalId"], version=rule["version"]),
+                    RuleSetVersionId(rule_set_external_id=rule["externalId"], version=rule["version"]),
                 )
 
     @classmethod

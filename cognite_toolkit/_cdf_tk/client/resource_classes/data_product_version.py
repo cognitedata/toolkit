@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, RuleSetVersionId, SemanticVersion
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
@@ -30,8 +30,15 @@ class DataProductVersionTerms(BaseModelObject):
     limitations: str | None = None
 
 
+class RuleSetVersionRef(BaseModelObject):
+    """Wire representation of a RuleSetVersionReference as defined in the API spec."""
+
+    external_id: str
+    version: SemanticVersion
+
+
 class DataProductVersionQuality(BaseModelObject):
-    rules: list[RuleSetVersionId] = Field(default_factory=list)
+    rules: list[RuleSetVersionRef] = Field(default_factory=list)
 
 
 class DataProductVersion(BaseModelObject):
