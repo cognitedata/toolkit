@@ -131,6 +131,8 @@ class MigrationCommand(ToolkitCommand):
         results_by_selector: dict[str, list[ItemsResult]] = {}
         data.logger = logger
         mapper.logger = logger
+        mapper.dry_run = dry_run
+
         for step in plan:
             if step.message:
                 console.print(step.message)
