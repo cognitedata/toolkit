@@ -119,6 +119,10 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.logger: DataLogger = NoOpLogger()
+        # Set by the migration command before running. When True, mappers should treat
+        # just-mapped target instances as if they had been uploaded, so that downstream
+        # steps' constraint checks do not falsely report them as missing in CDF.
+        self.dry_run: bool = False
 
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
@@ -1366,9 +1370,13 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
-        self._check_existence_of_required_targets(
-            mapped_instances, issue_by_source_node_id, source_id_by_target_id
-        )
+        self._check_existence_of_required_targets(mapped_instances, issue_by_source_node_id, source_id_by_target_id)
+        if self.dry_run:
+            # In a real run these would be uploaded and visible to subsequent steps' constraint
+            # checks. Pre-populate the cache so dry-run output reflects what a real run would do.
+            for instance in mapped_instances:
+                if isinstance(instance, NodeRequest):
+                    self._is_existing_by_node_id[instance.as_id()] = True
 
         if issue_by_source_node_id:
             self.logger.log(
@@ -1572,9 +1580,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 is removed.
         """
 
-        for target_node_id, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
-            mapped_instances
-        ):
+        for (
+            target_node_id,
+            direct_relation_property_ids,
+            source,
+        ) in self._iterate_constrained_direct_relation_properties(mapped_instances):
             if source.properties is None:
                 continue
             source_node_id = source_id_by_target_id.get(target_node_id, target_node_id)
