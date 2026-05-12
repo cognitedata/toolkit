@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, LabelResult, display_item_results
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, LabelResult, Severity, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitMissingResourceError,
@@ -386,7 +386,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
     def _display_summary(self, success_count: int, skipped_external_ids_by_label: dict[str, list[str]]) -> None:
         items: list[ItemsResult] = []
         if success_count:
-            items.append(ItemsResult(status="success", count=success_count, severity=0))
+            items.append(ItemsResult(status="success", count=success_count, severity=Severity.info.value))
         skipped_total = sum(len(ids) for ids in skipped_external_ids_by_label.values())
         if skipped_total:
             labels = [
@@ -398,7 +398,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 )
                 for label, identifiers in skipped_external_ids_by_label.items()
             ]
-            items.append(ItemsResult(status="failure", count=skipped_total, severity=3, labels=labels))
+            items.append(ItemsResult(status="failure", count=skipped_total, severity=Severity.failure.value, labels=labels))
         if items:
             display_item_results(items, title="InField Location Configs", console=self.client.console)
 
