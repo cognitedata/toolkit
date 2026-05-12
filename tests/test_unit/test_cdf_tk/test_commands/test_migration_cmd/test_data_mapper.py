@@ -787,6 +787,88 @@ class TestFDMtoCDMMapper:
             actual = mapper.map(instances)
             assert [item.dump() for item in actual] == [item.dump() for item in expected]
 
+    @pytest.mark.parametrize(
+        "dry_run, expected_log_calls",
+        [
+            pytest.param(True, 0, id="dry-run treats mapped nodes as existing"),
+            pytest.param(False, 1, id="real run surfaces missing target error"),
+        ],
+    )
+    def test_dry_run_treats_mapped_nodes_as_existing(self, dry_run: bool, expected_log_calls: int) -> None:
+        """In a real run, a direct relation pointing at a node mapped in a previous step is fine because that
+        node has already been uploaded. In a dry-run, nothing is uploaded, so without special handling
+        the constraint check would falsely flag the target as missing. The mapper pre-populates its
+        existing-node cache for just-mapped nodes when ``dry_run`` is True.
+        """
+        constrained_container = ContainerId(space="schema_space2", external_id="ConstrainedContainer")
+        source_view = self.SOURCE_VIEW.model_copy(deep=True)
+        source_view.properties["sourceDirect"] = ViewCorePropertyResponse(
+            constraint_state=ConstraintOrIndexState(),
+            type=DirectNodeRelation(),
+            container_property_identifier="sourceDirect",
+            container=self.SOME_CONTAINER_ID,
+        )
+        destination_view = self.DESTINATION_VIEW.model_copy(deep=True)
+        destination_view.properties["constrainedDirect"] = ViewCorePropertyResponse(
+            constraint_state=ConstraintOrIndexState(),
+            type=DirectNodeRelation(container=constrained_container),
+            container_property_identifier="constrainedDirect",
+            container=self.SOME_CONTAINER_ID,
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            # The target node referenced by the direct relation does not yet exist in CDF.
+            client.tool.instances.retrieve.return_value = []
+
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"sourceDirect": "constrainedDirect"}})
+            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
+            mapper.dry_run = dry_run
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapper.prepare(MagicMock())
+
+            # First step: map the would-be target of the direct relation.
+            mapper.map(
+                [
+                    NodeResponse(
+                        space=self.SOURCE_SPACE,
+                        external_id="first",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                        properties={self.SOURCE_VIEW_ID: {}},
+                    )
+                ]
+            )
+            logger.reset_mock()
+
+            # Second step: map a node whose direct relation points at "first".
+            mapper.map(
+                [
+                    NodeResponse(
+                        space=self.SOURCE_SPACE,
+                        external_id="second",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                        properties={
+                            self.SOURCE_VIEW_ID: {"sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}}
+                        },
+                    )
+                ]
+            )
+
+        assert logger.log.call_count == expected_log_calls
+        if expected_log_calls:
+            entries = logger.log.call_args[0][0]
+            assert len(entries) == 1
+            entry = entries[0]
+            assert isinstance(entry, MigrationEntryV2)
+            assert entry.id == f"{self.SOURCE_SPACE}:second"
+            assert "does not exist" in entry.message
+
 
 class TestInFieldLegacyToCDMScheduleMapper:
     SOURCE_SPACE = "source_space"
