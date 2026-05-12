@@ -3,6 +3,7 @@ import sys
 import time
 from collections import deque
 from collections.abc import Iterable, MutableMapping, Sequence, Set
+from pathlib import Path
 from typing import Literal, TypeVar
 
 import httpx
@@ -263,37 +264,70 @@ class HTTPClient:
         self,
         method: Literal["GET", "POST", "PUT", "DELETE"],
         url: str,
-        content: bytes | Iterable[bytes],
+        content: bytes | Iterable[bytes] | None = None,
         headers: dict[str, str] | None = None,
         max_retries: int | None = None,
+        files: dict[str, tuple[str, Path, str]] | None = None,
+        data: dict[str, str] | None = None,
+        add_auth: bool = False,
     ) -> SuccessResponse | FailedResponse:
-        """Send a raw HTTP request with retry logic but without authentication headers.
+        """Send a raw HTTP request with retry logic.
 
-        This is useful for uploading to signed URLs (e.g., GCS signed URLs) where
-        authentication is embedded in the URL and adding auth headers would cause errors.
+        By default does not add authentication headers, which makes it suitable for
+        uploading to signed URLs (e.g., GCS signed URLs) where authentication is
+        embedded in the URL. Set add_auth=True for authenticated CDF endpoints.
+
+        Pass either content (raw bytes/stream) or files+data (multipart form upload).
+        When files is provided, each file is re-opened on every retry attempt.
 
         Args:
             method: HTTP method to use.
             url: The URL to send the request to.
-            content: The content to send. Can be bytes or an iterable of bytes for streaming.
-            headers: Optional headers to include in the request.
+            content: Raw bytes or streaming content. Mutually exclusive with files.
+            headers: Optional extra headers to include in the request.
             max_retries: Maximum number of retries. Defaults to the client's max_retries setting.
+            files: Multipart file parts as {field_name: (filename, path, mime_type)}.
+            data: Multipart text fields, sent alongside files.
+            add_auth: When True, adds CDF authentication and SDK headers.
 
         Returns:
             HTTPResult: The result of the HTTP request, either SuccessResponse or FailedResponse.
         """
         retries = max_retries if max_retries is not None else self._max_retries
+        if add_auth:
+            merged_headers = dict(self._create_headers(disable_gzip=True))
+            del merged_headers["Content-Type"]  # httpx sets this for multipart/form-data
+            if headers:
+                merged_headers.update(headers)
+            request_headers: dict[str, str] | None = merged_headers
+        else:
+            request_headers = headers
         attempt = 0
         last_error_code: int = -1
         while attempt <= retries:
             try:
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    content=content,
-                    headers=headers,
-                    follow_redirects=False,
-                )
+                if files is not None:
+                    open_files = {name: (fname, path.open("rb"), mime) for name, (fname, path, mime) in files.items()}
+                    try:
+                        response = self.session.request(
+                            method=method,
+                            url=url,
+                            files=open_files,
+                            data=data,
+                            headers=request_headers,
+                            follow_redirects=False,
+                        )
+                    finally:
+                        for _name, (_fname, file_obj, _mime) in open_files.items():
+                            file_obj.close()
+                else:
+                    response = self.session.request(
+                        method=method,
+                        url=url,
+                        content=content,
+                        headers=request_headers,
+                        follow_redirects=False,
+                    )
                 if 200 <= response.status_code < 300:
                     return SuccessResponse(
                         status_code=response.status_code,
@@ -331,10 +365,10 @@ class HTTPClient:
                 return FailedResponse(
                     status_code=last_error_code,
                     body=f"Request failed after {attempt} attempts: {e!s}",
-                    error=ErrorDetails(code=last_error_code, message=f"Request failed after {attempt} attempts: {e!s}"),
+                    error=ErrorDetails(
+                        code=last_error_code, message=f"Request failed after {attempt} attempts: {e!s}"
+                    ),
                 )
-
-        # Should not reach here, but just in case
         return FailedResponse(
             status_code=last_error_code,
             body=f"Request failed after {attempt} attempts.",

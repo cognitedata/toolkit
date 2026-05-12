@@ -1,5 +1,6 @@
 import gzip
 import json
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -1228,12 +1229,14 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-    def test_apps_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+    def test_apps_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter, tmp_path: Path) -> None:
         config = toolkit_config
         api = AppsAPI(HTTPClient(config))
         app_external_id = "my-app"
         version = "1.0.0"
         app_request = AppRequest(external_id=app_external_id, version=version, name="My App")
+        zip_path = tmp_path / "app.zip"
+        zip_path.write_bytes(b"fake-zip")
         version_json = {
             "appExternalId": app_external_id,
             "version": version,
@@ -1252,11 +1255,11 @@ class TestCDFResourceAPI:
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions")).mock(
             return_value=httpx.Response(status_code=200)
         )
-        api.upload_version(app_external_id, version, "index.html", b"fake-zip")
+        api.upload_version(app_external_id, version, "index.html", zip_path)
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions")).mock(
             return_value=httpx.Response(status_code=409)
         )
-        api.upload_version(app_external_id, version, "index.html", b"fake-zip")
+        api.upload_version(app_external_id, version, "index.html", zip_path)
 
         # Test update_version
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/update")).mock(
