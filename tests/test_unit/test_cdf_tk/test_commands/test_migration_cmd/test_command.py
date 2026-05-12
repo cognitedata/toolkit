@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-import responses
 import respx
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
@@ -178,8 +177,8 @@ def resource_view_mappings(
 @pytest.fixture
 def mock_statistics(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
-) -> Iterator[responses.RequestsMock]:
+    respx_mock: respx.MockRouter,
+) -> Iterator[None]:
     config = toolkit_config
     stats_response = {
         "spaces": {
@@ -216,12 +215,11 @@ def mock_statistics(
         "concurrentWriteLimit": 20,
         "concurrentDeleteLimit": 10,
     }
-    rsps.get(
-        config.create_api_url("/models/statistics"),
+    respx_mock.get(config.create_api_url("/models/statistics")).respond(
+        status_code=200,
         json=stats_response,
-        status=200,
     )
-    yield rsps
+    yield None
 
 
 def _make_stream_response(

@@ -37,9 +37,9 @@ class RuleSetsAPI(CDFResourceAPI[RuleSetResponse]):
     def retrieve(self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RuleSetResponse]:
         if not external_ids:
             return []
-        return self._request_item_response(
-            external_ids, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(external_ids, method="retrieve")
+        return self._request_item_response(external_ids, method="retrieve")
 
     def delete(self, external_ids: Sequence[ExternalId]) -> None:
         self._request_no_response(external_ids, "delete")

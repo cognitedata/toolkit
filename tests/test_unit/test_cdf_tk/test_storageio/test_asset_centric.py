@@ -7,7 +7,6 @@ import httpx
 import pytest
 import respx
 from cognite.client.data_classes import (
-    CountAggregate,
     LabelDefinition,
     LabelDefinitionList,
 )
@@ -175,7 +174,7 @@ def asset_centric_client(
         client.tool.filemetadata.paginate.side_effect = iterate_files
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
-        client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
+        client.files.aggregate_count.return_value = RESOURCE_COUNT
         client.events.aggregate_count.return_value = RESOURCE_COUNT
         client.time_series.aggregate_count.return_value = RESOURCE_COUNT
 
@@ -197,7 +196,7 @@ def asset_centric_client(
 
         client.tool.token.verify_acls.return_value = []
         client.labels.retrieve.return_value = LabelDefinitionList(
-            [LabelDefinition(external_id="my_label", name="my_label")]
+            [LabelDefinition(external_id="my_label", name="my_label", created_time=0)]
         )
         client.config = toolkit_config
         yield client
