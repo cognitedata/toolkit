@@ -117,6 +117,20 @@ class TestDataProductVersionRequest:
 
         assert update["update"]["views"] == {"add": [self._v_cdm_3d]}
 
+    def test_as_update_quality_always_omitted(self) -> None:
+        """quality is create-only (not in DataProductVersionPatch) so it must never appear in update payloads."""
+        request = DataProductVersionRequest.model_validate(
+            {
+                "dataProductExternalId": "my-product",
+                "version": "1.0.0",
+                "quality": {"rules": [{"externalId": "my-ruleset", "version": "1.0.0"}]},
+            }
+        )
+
+        for mode in ("patch", "replace"):
+            update = request.as_update(mode=mode)  # type: ignore[arg-type]
+            assert "quality" not in update["update"], f"quality must not appear in {mode} update payload"
+
     def test_as_update_replace_view_removed_locally_is_ignored(self) -> None:
         """View refs are immutable/append-only in the API — a view present in CDF but
         absent locally must not generate a remove operation."""
