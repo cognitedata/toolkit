@@ -1338,20 +1338,23 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[NodeOrEdgeRequest | None] = []
-        issue_by_node_id: dict[NodeId, InstanceConversionIssue] = {}
+        issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
+        source_id_by_target_id: dict[NodeId, NodeId] = {}
         target_view_ids: set[ViewId] = set()
         for node in nodes:
-            node_id = node.as_id()
+            source_node_id = node.as_id()
             if node.space not in self._connection_creator.space_mapping:
-                issue_by_node_id[node_id] = InstanceConversionIssue(
-                    id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
+                issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
+                    id=str(source_node_id),
+                    errors=[f"No target space mapping for source space '{node.space}'"],
                 )
                 continue
             mapped_node, edges, issue = self._map_single_node(
-                node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
+                node, other_side_by_edge_type_and_direction_by_source[source_node_id]
             )
+            source_id_by_target_id[mapped_node.as_id()] = source_node_id
             if issue.has_issues:
-                issue_by_node_id[node_id] = issue
+                issue_by_source_node_id[source_node_id] = issue
             target_view_ids.update(
                 source_view_id
                 for source_view_id in (node.properties or {}).keys()
@@ -1363,15 +1366,17 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
-        self._check_existence_of_required_targets(mapped_instances, issue_by_node_id)
+        self._check_existence_of_required_targets(
+            mapped_instances, issue_by_source_node_id, source_id_by_target_id
+        )
 
-        if issue_by_node_id:
+        if issue_by_source_node_id:
             self.logger.log(
                 [
                     instance_conversion_issue_as_migration_entry(
                         issue, source="FDM instances", destination="CDM instances"
                     )
-                    for issue in issue_by_node_id.values()
+                    for issue in issue_by_source_node_id.values()
                 ]
             )
         return mapped_instances
@@ -1430,7 +1435,9 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
     ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
         sources: list[InstanceSource] = []
         new_edges: list[EdgeRequest] = []
-        issue = InstanceConversionIssue(id=str(new_id))
+        # Issue id must reference the source node so it matches what the downloader registered
+        # with the migration logger (the destination NodeId would not be in the registry).
+        issue = InstanceConversionIssue(id=str(node.as_id()))
         for view_or_container_id, source_properties in (node.properties or {}).items():
             if not (context := self._create_context(view_or_container_id, issue, node.as_id(), new_id)):
                 continue
@@ -1541,7 +1548,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
     def _check_existence_of_required_targets(
         self,
         mapped_instances: Sequence[NodeRequest | EdgeRequest | None],
-        issue_by_node_id: dict[NodeId, InstanceConversionIssue],
+        issue_by_source_node_id: dict[NodeId, InstanceConversionIssue],
+        source_id_by_target_id: dict[NodeId, NodeId],
     ) -> None:
         """This method removes all direct relations property values that have a container constraint
         where the target node does not exist, and adds an issue to the source node for each removed relation.
@@ -1564,19 +1572,22 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 is removed.
         """
 
-        for node_id, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
+        for target_node_id, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
             mapped_instances
         ):
             if source.properties is None:
                 continue
+            source_node_id = source_id_by_target_id.get(target_node_id, target_node_id)
             for prop_id, required_container in direct_relation_property_ids.items():
                 value = source.properties[prop_id]
                 if isinstance(value, NodeId) and not self._is_existing_by_node_id.get(value, False):
                     message = f"Cannot create direct relation to {value!s}. The node does not exist and requires to have properties in the {required_container!s} container."
-                    if node_id not in issue_by_node_id:
-                        issue_by_node_id[node_id] = InstanceConversionIssue(id=str(node_id), errors=[message])
+                    if source_node_id not in issue_by_source_node_id:
+                        issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
+                            id=str(source_node_id), errors=[message]
+                        )
                     else:
-                        issue_by_node_id[node_id].errors.append(message)
+                        issue_by_source_node_id[source_node_id].errors.append(message)
                     del source.properties[prop_id]
                 elif isinstance(value, list):
                     keep: list[NodeId | JsonValue] = []
@@ -1593,10 +1604,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                             missing_node_ids.add(target_id)
                     if missing_node_ids:
                         error = f"Cannot create direct relations to {humanize_collection(missing_node_ids)}. These nodes does not exist and requires to have properties in the {required_container!s} container."
-                        if node_id not in issue_by_node_id:
-                            issue_by_node_id[node_id] = InstanceConversionIssue(id=str(node_id), errors=[error])
+                        if source_node_id not in issue_by_source_node_id:
+                            issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
+                                id=str(source_node_id), errors=[error]
+                            )
                         else:
-                            issue_by_node_id[node_id].errors.append(error)
+                            issue_by_source_node_id[source_node_id].errors.append(error)
                     source.properties[prop_id] = keep  # type: ignore[assignment]
 
     def _iterate_constrained_direct_relation_properties(
