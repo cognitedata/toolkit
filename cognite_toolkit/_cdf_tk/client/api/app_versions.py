@@ -1,30 +1,12 @@
 """AppVersionsAPI: Version management for custom apps via the CDF App Hosting API."""
 
 import json
-import uuid
 from collections.abc import Iterable, Sequence
 
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import FailedResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
-
-
-def _build_multipart(fields: dict[str, str], zip_bytes: bytes, filename: str = "app.zip") -> tuple[bytes, str]:
-    boundary = uuid.uuid4().hex
-    parts: list[bytes] = []
-    for name, value in fields.items():
-        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
-    parts.append(
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
-        f"Content-Type: application/zip\r\n"
-        f"\r\n".encode()
-        + zip_bytes
-        + b"\r\n"
-    )
-    parts.append(f"--{boundary}--\r\n".encode())
-    return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
 class AppVersionsAPI:
@@ -43,19 +25,14 @@ class AppVersionsAPI:
         entrypoint: str,
         zip_bytes: bytes,
     ) -> None:
-        """POST /apphosting/apps/{externalId}/versions — multipart upload of the zipped app."""
-        body, content_type = _build_multipart(
-            fields={"version": version, "entryPath": entrypoint},
-            zip_bytes=zip_bytes,
+        """POST /apphosting/apps/{externalId}/versions — multipart/form-data upload of the zipped app."""
+        result = self._http_client.request_multipart_retries(
+            url=self._url(f"/apphosting/apps/{external_id}/versions"),
+            files={"file": ("app.zip", zip_bytes, "application/zip")},
+            form_fields={"version": version, "entryPath": entrypoint},
         )
-        request = RequestMessage(
-            endpoint_url=self._url(f"/apphosting/apps/{external_id}/versions"),
-            method="POST",
-            data_content=body,
-            content_type=content_type,
-            disable_gzip=True,
-        )
-        self._http_client.request_single_retries(request).get_success_or_raise(request)
+        if isinstance(result, FailedResponse):
+            raise ToolkitAPIError(message=result.body, code=result.status_code)
 
     def update(self, external_id: str, version: str, patch: dict) -> None:
         """POST /apphosting/apps/{externalId}/versions/update — apply a lifecycle/alias patch to a version."""
