@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
@@ -1232,56 +1233,69 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppsAPI(HTTPClient(config))
         app_external_id = "my-app"
+        app_request = AppRequest(external_id=app_external_id, name="My App")
+
+        app_json = {"externalId": app_external_id, "name": "My App"}
+        respx_mock.post(config.create_api_url("/apphosting/apps")).mock(
+            return_value=httpx.Response(status_code=201, json={"items": [app_json]})
+        )
+        created = api.create([app_request])
+        assert len(created) == 1
+        assert created[0].name == "My App"
+
+        # Test retrieve
+        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=app_json)
+        )
+        result = api.retrieve(app_external_id)
+        assert result is not None
+        assert result.name == "My App"
+
+        # Test retrieve with 404
+        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
+            return_value=httpx.Response(status_code=404)
+        )
+        assert api.retrieve(app_external_id) is None
+
+    def test_app_versions_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        app_external_id = "my-app"
         version = "1.0.0"
-        app_request = AppRequest(external_id=app_external_id, version=version, name="My App")
         version_json = {
             "appExternalId": app_external_id,
             "version": version,
             "lifecycleState": "DRAFT",
             "entrypoint": "index.html",
         }
-        app_json = {"externalId": app_external_id, "name": "My App"}
-
-        # Test ensure_app (200 and 409 both succeed)
-        respx_mock.post(config.create_api_url("/apphosting/apps")).mock(return_value=httpx.Response(status_code=200))
-        api.ensure_app(app_request)
-        respx_mock.post(config.create_api_url("/apphosting/apps")).mock(return_value=httpx.Response(status_code=409))
-        api.ensure_app(app_request)
-
-        # Test upload_version (200 and 409 both succeed)
+        # Test upload
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx.Response(status_code=201)
         )
-        api.upload_version(app_external_id, version, "index.html", b"fake-zip")
-        respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions")).mock(
-            return_value=httpx.Response(status_code=409)
-        )
-        api.upload_version(app_external_id, version, "index.html", b"fake-zip")
+        api.upload(app_external_id, version, "index.html", b"fake-zip")
 
-        # Test update_version
+        # Test update
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/update")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [version_json]})
         )
-        api.update_version(app_external_id, version, {"lifecycleState": {"set": "PUBLISHED"}})
+        api.update(app_external_id, version, {"lifecycleState": {"set": "PUBLISHED"}})
 
-        # Test retrieve_version (two calls merged into one response)
+        # Test retrieve
         respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/{version}")).mock(
             return_value=httpx.Response(status_code=200, json=version_json)
         )
-        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=app_json)
-        )
-        retrieved = api.retrieve_version(app_external_id, version)
-        assert retrieved is not None
-        assert retrieved.version == version
-        assert retrieved.name == "My App"
-        assert retrieved.lifecycle_state == "DRAFT"
+        version_id = AppVersionId(app_external_id=app_external_id, version=version)
+        retrieved = api.retrieve([version_id])
+        assert len(retrieved) == 1
+        assert retrieved[0].app_external_id == app_external_id
+        assert retrieved[0].version == version
+        assert retrieved[0].lifecycle_state == "DRAFT"
 
-        # Test retrieve_version with 404 and ignore_unknown_ids
+        # Test retrieve with 404 and ignore_unknown_ids
         respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/{version}")).mock(
             return_value=httpx.Response(status_code=404)
         )
-        assert api.retrieve_version(app_external_id, version, ignore_unknown_ids=True) is None
+        assert api.retrieve([version_id], ignore_unknown_ids=True) == []
 
         # Test iterate
         respx_mock.post(config.create_api_url("/apphosting/versions/list")).mock(
@@ -1291,11 +1305,11 @@ class TestCDFResourceAPI:
         assert len(batches) == 1
         assert batches[0][0].version == version
 
-        # Test delete_version
+        # Test delete
         respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/delete")).mock(
             return_value=httpx.Response(status_code=200)
         )
-        api.delete_version(app_external_id, [AppVersionId(app_external_id=app_external_id, version=version)])
+        api.delete([AppVersionId(app_external_id=app_external_id, version=version)])
         assert len(respx_mock.calls) >= 1
 
 

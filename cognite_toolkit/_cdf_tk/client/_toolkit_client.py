@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from .api.agents import AgentsAPI
 from .api.alerts import AlertsAPI
 from .api.annotations import AnnotationsAPI
+from .api.app_versions import AppVersionsAPI
 from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.canvas import IndustrialCanvasAPI
@@ -66,6 +67,7 @@ class ToolAPI:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
         self.apps = AppsAPI(http_client)
+        self.app_versions = AppVersionsAPI(http_client)
         self.annotations = AnnotationsAPI(http_client)
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)

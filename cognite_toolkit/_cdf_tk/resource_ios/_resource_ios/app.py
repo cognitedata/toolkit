@@ -10,13 +10,15 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
     AppHostingAcl,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
@@ -44,11 +46,11 @@ def _zip_app_directory(source_dir: Path) -> bytes:
 
 
 @final
-class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
+class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
     support_drop = True
     folder_name = "apps"
-    resource_cls = AppResponse
-    resource_write_cls = AppRequest
+    resource_cls = AppVersionResponse
+    resource_write_cls = AppVersionRequest
     kind = "App"
     yaml_cls = AppsYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -64,7 +66,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
         return "apps"
 
     @classmethod
-    def get_minimum_scope(cls, items: Sequence[AppRequest]) -> ScopeDefinition:
+    def get_minimum_scope(cls, items: Sequence[AppVersionRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
@@ -73,7 +75,7 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppResponse | AppRequest | dict) -> AppVersionId:
+    def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict) -> AppVersionId:
         if isinstance(item, dict):
             ext = (
                 item.get("appExternalId")
@@ -87,9 +89,9 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             if version is None:
                 raise ToolkitRequiredValueError("App YAML must define version.")
             return AppVersionId(app_external_id=ext, version=version)
-        if isinstance(item, AppRequest):
+        if isinstance(item, AppVersionRequest):
             return item.as_id()
-        return AppVersionId(app_external_id=item.external_id, version=item.version)
+        return AppVersionId(app_external_id=item.app_external_id, version=item.version)
 
     @classmethod
     def dump_id(cls, identifier: AppVersionId) -> dict[str, Any]:
@@ -186,13 +188,20 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
 
         return raw_list
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AppRequest:
-        return AppRequest.model_validate(resource)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AppVersionRequest:
+        return AppVersionRequest.model_validate(resource)
 
-    def dump_resource(self, resource: AppResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_request_resource().dump(context="toolkit")
+    def dump_resource(self, resource: AppVersionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         local = local or {}
-        # name and description are immutable in CDF post-create; always use local values to suppress stale diff.
+        dumped: dict[str, Any] = {
+            "externalId": resource.app_external_id,
+            "version": resource.version,
+            "lifecycleState": resource.lifecycle_state,
+            "entrypoint": resource.entrypoint,
+        }
+        if resource.alias is not None:
+            dumped["alias"] = resource.alias
+        # name and description are app-level and immutable post-create; always use local values to suppress stale diff.
         for immutable_key in ("name", "description"):
             if immutable_key in local:
                 dumped[immutable_key] = local[immutable_key]
@@ -201,23 +210,30 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
                 dumped[local_only_key] = local[local_only_key]
         return dumped
 
-    def _deploy(self, item: AppRequest) -> AppResponse:
+    def _deploy(self, item: AppVersionRequest) -> AppVersionResponse:
         version_id = item.as_id()
         zip_path = self.zip_path_by_version_id.get(version_id)
         if zip_path is None or not zip_path.exists():
             raise ToolkitRequiredValueError(
                 f"App zip not found for {item.external_id!r} version {item.version!r}. Ensure build was run first."
             )
-        self.client.tool.apps.ensure_app(item)
+        try:
+            self.client.tool.apps.create([AppRequest(external_id=item.external_id, name=item.name, description=item.description)])
+        except ToolkitAPIError as error:
+            if error.code != 409:
+                raise
         zip_bytes = zip_path.read_bytes()
-        self.client.tool.apps.upload_version(
+        self.client.tool.app_versions.upload(
             external_id=item.external_id,
             version=item.version,
             entrypoint=item.entrypoint,
             zip_bytes=zip_bytes,
         )
 
-        current = self.client.tool.apps.retrieve_version(item.external_id, item.version, ignore_unknown_ids=True)
+        retrieved = self.client.tool.app_versions.retrieve(
+            [AppVersionId(app_external_id=item.external_id, version=item.version)], ignore_unknown_ids=True
+        )
+        current = retrieved[0] if retrieved else None
         current_lifecycle = current.lifecycle_state if current else "DRAFT"
         current_alias = current.alias if current else None
 
@@ -243,42 +259,42 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
 
         if update:
-            self.client.tool.apps.update_version(item.external_id, item.version, update)
+            self.client.tool.app_versions.update(item.external_id, item.version, update)
 
-        return AppResponse(
-            external_id=item.external_id,
+        return AppVersionResponse(
+            app_external_id=item.external_id,
             version=item.version,
-            name=item.name,
-            description=item.description,
             lifecycle_state=item.lifecycle_state,
             alias=item.alias,
             entrypoint=item.entrypoint,
         )
 
-    def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
+    def create(self, items: Sequence[AppVersionRequest]) -> list[AppVersionResponse]:
         return [self._deploy(item) for item in items]
 
-    def update(self, items: Sequence[AppRequest]) -> list[AppResponse]:
+    def update(self, items: Sequence[AppVersionRequest]) -> list[AppVersionResponse]:
         return [self._deploy(item) for item in items]
 
-    def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppResponse]:
-        results: list[AppResponse] = []
+    def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
+        results: list[AppVersionResponse] = []
         for version_id in ids:
-            response = self.client.tool.apps.retrieve_version(
-                version_id.app_external_id, version_id.version, ignore_unknown_ids=True
-            )
-            if response is not None:
-                results.append(response)
+            version_responses = self.client.tool.app_versions.retrieve([version_id], ignore_unknown_ids=True)
+            if not version_responses:
+                continue
+            version_response = version_responses[0]
+            results.append(AppVersionResponse(
+                app_external_id=version_response.app_external_id,
+                version=version_response.version,
+                lifecycle_state=version_response.lifecycle_state,
+                alias=version_response.alias,
+                entrypoint=version_response.entrypoint,
+            ))
         return results
 
     def delete(self, ids: Sequence[AppVersionId]) -> int:
         if not ids:
             return 0
-        by_app: dict[str, list[AppVersionId]] = {}
-        for version_id in ids:
-            by_app.setdefault(version_id.app_external_id, []).append(version_id)
-        for app_external_id, version_ids in by_app.items():
-            self.client.tool.apps.delete_version(app_external_id, version_ids)
+        self.client.tool.app_versions.delete(ids)
         return len(ids)
 
     def _iterate(
@@ -286,6 +302,6 @@ class AppIO(ResourceIO[AppVersionId, AppRequest, AppResponse]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[AppResponse]:
-        for page in self.client.tool.apps.iterate():
+    ) -> Iterable[AppVersionResponse]:
+        for page in self.client.tool.app_versions.iterate():
             yield from page

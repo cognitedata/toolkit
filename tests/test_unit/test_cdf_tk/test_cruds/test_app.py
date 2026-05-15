@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
@@ -19,8 +20,8 @@ def _make_app_request(
     lifecycle_state: str = "PUBLISHED",
     alias: str | None = None,
     entrypoint: str = "index.html",
-) -> AppRequest:
-    return AppRequest(
+) -> AppVersionRequest:
+    return AppVersionRequest(
         external_id=external_id,
         version=version,
         name=name,
@@ -31,15 +32,14 @@ def _make_app_request(
 
 
 def _make_app_response(
-    external_id: str = "my-app",
+    app_external_id: str = "my-app",
     version: str = "1.0.0",
     lifecycle_state: str = "PUBLISHED",
     alias: str | None = "ACTIVE",
-) -> AppResponse:
-    return AppResponse(
-        external_id=external_id,
+) -> AppVersionResponse:
+    return AppVersionResponse(
+        app_external_id=app_external_id,
         version=version,
-        name="My App",
         lifecycle_state=lifecycle_state,
         alias=alias,
     )
@@ -64,15 +64,15 @@ class TestAppIODeploy:
             loader.zip_path_by_version_id[version_id] = zip_path
             yield loader, client
 
-    def test_create_calls_ensure_and_upload(self, app_io_with_zip):
+    def test_create_calls_create_and_upload(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="DRAFT", alias=None)
-        client.tool.apps.retrieve_version.return_value = None
+        client.tool.app_versions.retrieve.return_value = []
 
         loader.create([item])
 
-        client.tool.apps.ensure_app.assert_called_once_with(item)
-        client.tool.apps.upload_version.assert_called_once_with(
+        client.tool.apps.create.assert_called_once_with([AppRequest(external_id="my-app", name="My App")])
+        client.tool.app_versions.upload.assert_called_once_with(
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
@@ -84,45 +84,45 @@ class TestAppIODeploy:
     def test_deploy_promotes_draft_to_published_with_active_alias(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        client.tool.apps.retrieve_version.return_value = None
+        client.tool.app_versions.retrieve.return_value = []
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_called_once_with(
+        client.tool.app_versions.update.assert_called_once_with(
             "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "ACTIVE"}}
         )
 
     def test_deploy_clears_alias_when_local_alias_is_none(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias=None)
-        client.tool.apps.retrieve_version.return_value = _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_called_once_with("my-app", "1.0.0", {"alias": {"setNull": True}})
+        client.tool.app_versions.update.assert_called_once_with("my-app", "1.0.0", {"alias": {"setNull": True}})
 
     def test_deploy_swaps_alias_to_preview(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="PREVIEW")
-        client.tool.apps.retrieve_version.return_value = _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_called_once_with("my-app", "1.0.0", {"alias": {"set": "PREVIEW"}})
+        client.tool.app_versions.update.assert_called_once_with("my-app", "1.0.0", {"alias": {"set": "PREVIEW"}})
 
     def test_deploy_noop_when_lifecycle_and_alias_match(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        client.tool.apps.retrieve_version.return_value = _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
 
         loader.create([item])
 
-        client.tool.apps.update_version.assert_not_called()
+        client.tool.app_versions.update.assert_not_called()
 
     def test_deploy_rejects_backward_lifecycle_transition(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="DRAFT", alias=None)
-        client.tool.apps.retrieve_version.return_value = _make_app_response(lifecycle_state="PUBLISHED", alias=None)
+        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias=None)]
 
         with pytest.raises(ToolkitValueError, match="forward-only"):
             loader.create([item])
@@ -130,7 +130,7 @@ class TestAppIODeploy:
     def test_deploy_rejects_alias_on_non_published_version(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="DRAFT", alias="ACTIVE")
-        client.tool.apps.retrieve_version.return_value = None
+        client.tool.app_versions.retrieve.return_value = []
 
         with pytest.raises(ToolkitValueError, match="alias"):
             loader.create([item])
@@ -145,30 +145,30 @@ class TestAppIODeploy:
     def test_deploy_returns_response_with_correct_fields(self, app_io_with_zip):
         loader, _client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        _client.tool.apps.retrieve_version.return_value = None
+        _client.tool.app_versions.retrieve.return_value = []
 
         results = loader.create([item])
 
         assert len(results) == 1
         response = results[0]
-        assert isinstance(response, AppResponse)
-        assert response.external_id == "my-app"
+        assert isinstance(response, AppVersionResponse)
+        assert response.app_external_id == "my-app"
         assert response.version == "1.0.0"
         assert response.lifecycle_state == "PUBLISHED"
         assert response.alias == "ACTIVE"
 
-    def test_update_calls_ensure_and_upload(self, app_io_with_zip):
+    def test_update_calls_create_and_upload(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(version="2.0.0", lifecycle_state="DRAFT", alias=None)
         # Register zip for 2.0.0
         zip_path = loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")]
         loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="2.0.0")] = zip_path
-        client.tool.apps.retrieve_version.return_value = None
+        client.tool.app_versions.retrieve.return_value = []
 
         loader.update([item])
 
-        client.tool.apps.ensure_app.assert_called_once_with(item)
-        client.tool.apps.upload_version.assert_called_once()
+        client.tool.apps.create.assert_called_once_with([AppRequest(external_id="my-app", name="My App")])
+        client.tool.app_versions.upload.assert_called_once()
 
     def test_delete_calls_delete_version_grouped_by_app(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
@@ -179,7 +179,7 @@ class TestAppIODeploy:
             ]
             loader.delete(ids)
 
-        client.tool.apps.delete_version.assert_called_once_with("my-app", ids)
+        client.tool.app_versions.delete.assert_called_once_with(ids)
 
 
 class TestAppIOGetId:
@@ -203,11 +203,11 @@ class TestAppIOGetId:
     @pytest.mark.parametrize(
         "item",
         [
-            AppRequest(external_id="my-app", version="1.0.0", name="My App"),
-            AppResponse(external_id="my-app", version="1.0.0", name="My App", lifecycle_state="DRAFT"),
+            AppVersionRequest(external_id="my-app", version="1.0.0", name="My App"),
+            AppVersionResponse(app_external_id="my-app", version="1.0.0", lifecycle_state="DRAFT"),
         ],
     )
-    def test_from_resource_object(self, item: AppRequest | AppResponse):
+    def test_from_resource_object(self, item: AppVersionRequest | AppVersionResponse):
         assert AppIO.get_id(item) == AppVersionId(app_external_id="my-app", version="1.0.0")
 
 
@@ -244,18 +244,19 @@ class TestAppIORetrieveAndIterate:
     def test_retrieve_returns_matching_responses(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
-            expected = _make_app_response()
-            client.tool.apps.retrieve_version.return_value = expected
+            version_response = _make_app_response(app_external_id="my-app", version="1.0.0")
+            client.tool.app_versions.retrieve.return_value = [version_response]
             ids = [AppVersionId(app_external_id="my-app", version="1.0.0")]
 
             result = loader.retrieve(ids)
 
-        assert result == [expected]
+        assert len(result) == 1
+        assert result[0].app_external_id == "my-app"
 
     def test_retrieve_skips_not_found(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
-            client.tool.apps.retrieve_version.return_value = None
+            client.tool.app_versions.retrieve.return_value = []
             ids = [AppVersionId(app_external_id="missing", version="1.0.0")]
 
             result = loader.retrieve(ids)
@@ -266,7 +267,7 @@ class TestAppIORetrieveAndIterate:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
             page = [_make_app_response()]
-            client.tool.apps.iterate.return_value = iter([page])
+            client.tool.app_versions.iterate.return_value = iter([page])
 
             result = list(loader._iterate())
 
@@ -278,7 +279,7 @@ class TestAppIORetrieveAndIterate:
             result = loader.delete([])
 
         assert result == 0
-        client.tool.apps.delete_version.assert_not_called()
+        client.tool.app_versions.delete.assert_not_called()
 
 
 class TestAppIODumpResource:
@@ -286,11 +287,9 @@ class TestAppIODumpResource:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, None)
 
-        response = AppResponse(
-            external_id="my-app",
+        response = AppVersionResponse(
+            app_external_id="my-app",
             version="1.0.0",
-            name="Old name from CDF",
-            description=None,
             lifecycle_state="PUBLISHED",
             alias="ACTIVE",
         )
@@ -298,6 +297,7 @@ class TestAppIODumpResource:
 
         dumped = loader.dump_resource(response, local=local)
 
+        assert dumped["externalId"] == "my-app"
         assert dumped["name"] == "New local name"
         assert dumped["description"] == "New description"
 
@@ -305,10 +305,9 @@ class TestAppIODumpResource:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, None)
 
-        response = AppResponse(
-            external_id="my-app",
+        response = AppVersionResponse(
+            app_external_id="my-app",
             version="1.0.0",
-            name="My App",
             lifecycle_state="PUBLISHED",
             alias="ACTIVE",
         )
