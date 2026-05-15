@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import zipfile
 from collections.abc import Hashable, Iterable, Sequence
@@ -9,6 +10,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
@@ -18,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AppHostingAcl,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
@@ -31,7 +32,7 @@ _EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git"}
 _LIFECYCLE_ORDER = ["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
 
 
-def _zip_app_directory(source_dir: Path) -> bytes:
+def _zip_app_directory(source_dir: Path, extra_root_files: list[Path]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", strict_timestamps=False) as zf:
         for root, dirs, files in os.walk(source_dir):
@@ -42,6 +43,8 @@ def _zip_app_directory(source_dir: Path) -> bytes:
             for filename in files:
                 file_path = root_path / filename
                 zf.write(file_path, arcname=str(file_path.relative_to(source_dir)))
+        for extra_file in extra_root_files:
+            zf.write(extra_file, arcname=extra_file.name)
     return buffer.getvalue()
 
 
@@ -158,8 +161,52 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
                 source_path=app_root,
             )
             return
+
+        package_json = app_root / "package.json"
+        if not package_json.is_file():
+            yield FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"App {app_external_id!r} is missing package.json at {app_root.as_posix()}. "
+                    f"This file is required to deploy to the App Hosting service."
+                ),
+                source_path=package_json,
+            )
+            return
+
+        package_lock = app_root / "package-lock.json"
+        if not package_lock.is_file():
+            yield FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"App {app_external_id!r} is missing package-lock.json at {app_root.as_posix()}. "
+                    f"This file is required to deploy to the App Hosting service."
+                ),
+                source_path=package_lock,
+            )
+            return
+
+        manifest_json = app_root / "manifest.json"
+        manifest_file: Path | None = None
+        if manifest_json.is_file():
+            try:
+                json.loads(manifest_json.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as error:
+                yield FailedReadExtra(
+                    code="SYNTAX-ERROR",
+                    error=f"App {app_external_id!r} has an invalid manifest.json at {manifest_json.as_posix()}: {error}",
+                    source_path=manifest_json,
+                )
+                return
+            manifest_file = manifest_json
+
+        # Files already inside source_dir are captured by the recursive walk; only add those outside it.
+        extra_root_files = [
+            f for f in [package_json, package_lock, manifest_file] if f is not None and not f.is_relative_to(source_dir)
+        ]
+
         source_hash = calculate_directory_hash(source_dir)
-        zip_bytes = _zip_app_directory(source_dir)
+        zip_bytes = _zip_app_directory(source_dir, extra_root_files)
         yield SuccessExtra(
             source_path=source_dir,
             source_hash=source_hash,
@@ -218,7 +265,9 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
                 f"App zip not found for {item.external_id!r} version {item.version!r}. Ensure build was run first."
             )
         try:
-            self.client.tool.apps.create([AppRequest(external_id=item.external_id, name=item.name, description=item.description)])
+            self.client.tool.apps.create(
+                [AppRequest(external_id=item.external_id, name=item.name, description=item.description)]
+            )
         except ToolkitAPIError as error:
             if error.code != 409:
                 raise
@@ -282,13 +331,15 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             if not version_responses:
                 continue
             version_response = version_responses[0]
-            results.append(AppVersionResponse(
-                app_external_id=version_response.app_external_id,
-                version=version_response.version,
-                lifecycle_state=version_response.lifecycle_state,
-                alias=version_response.alias,
-                entrypoint=version_response.entrypoint,
-            ))
+            results.append(
+                AppVersionResponse(
+                    app_external_id=version_response.app_external_id,
+                    version=version_response.version,
+                    lifecycle_state=version_response.lifecycle_state,
+                    alias=version_response.alias,
+                    entrypoint=version_response.entrypoint,
+                )
+            )
         return results
 
     def delete(self, ids: Sequence[AppVersionId]) -> int:
