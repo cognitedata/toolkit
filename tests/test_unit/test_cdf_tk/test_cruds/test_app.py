@@ -95,7 +95,9 @@ class TestAppIODeploy:
     def test_deploy_clears_alias_when_local_alias_is_none(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias=None)
-        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
+        client.tool.app_versions.retrieve.return_value = [
+            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        ]
 
         loader.create([item])
 
@@ -104,7 +106,9 @@ class TestAppIODeploy:
     def test_deploy_swaps_alias_to_preview(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="PREVIEW")
-        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
+        client.tool.app_versions.retrieve.return_value = [
+            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        ]
 
         loader.create([item])
 
@@ -113,7 +117,9 @@ class TestAppIODeploy:
     def test_deploy_noop_when_lifecycle_and_alias_match(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")]
+        client.tool.app_versions.retrieve.return_value = [
+            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        ]
 
         loader.create([item])
 
