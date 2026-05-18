@@ -167,6 +167,8 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
     ) -> tuple[dict[int, int], list[int]]:
         if json_path == ("rawTables",):
             return diff_list_identifiable(local, cdf, get_identifier=lambda x: (x["dbName"], x["tableName"]))
+        if json_path == ("contacts",):
+            return diff_list_force_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
