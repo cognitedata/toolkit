@@ -1,3 +1,4 @@
+import json
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
@@ -164,7 +165,6 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             return
 
         manifest_json = app_root / "manifest.json"
-        manifest_file: Path | None = None
         if manifest_json.is_file():
             try:
                 json.loads(manifest_json.read_text(encoding="utf-8"))
@@ -175,12 +175,6 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
                     source_path=manifest_json,
                 )
                 return
-            manifest_file = manifest_json
-
-        # Files already inside source_dir are captured by the recursive walk; only add those outside it.
-        extra_root_files = [
-            f for f in [package_json, package_lock, manifest_file] if f is not None and not f.is_relative_to(source_dir)
-        ]
 
         source_hash = calculate_directory_hash(source_dir)
         zip_bytes = create_zip_in_memory(source_dir)
