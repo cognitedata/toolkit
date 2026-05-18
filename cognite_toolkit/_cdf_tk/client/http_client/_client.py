@@ -261,7 +261,7 @@ class HTTPClient:
 
     def _execute_raw_with_retries(
         self,
-        method: str,
+        method: Literal["GET", "POST", "PUT", "DELETE"],
         url: str,
         max_retries: int,
         content: bytes | Iterable[bytes] | None = None,

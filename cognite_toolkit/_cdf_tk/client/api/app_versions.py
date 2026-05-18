@@ -57,16 +57,7 @@ class AppVersionsAPI:
                     continue
                 result.get_success_or_raise(request)
                 continue
-            data = json.loads(result.body)
-            results.append(
-                AppVersionResponse(
-                    app_external_id=data.get("appExternalId", item.app_external_id),
-                    version=data.get("version", item.version),
-                    lifecycle_state=data.get("lifecycleState", "DRAFT"),
-                    alias=data.get("alias"),
-                    entrypoint=data.get("entrypoint", "index.html"),
-                )
-            )
+            results.append(AppVersionResponse.model_validate_json(result.body))
         return results
 
     def iterate(self, limit: int | None = 100) -> Iterable[list[AppVersionResponse]]:
@@ -89,16 +80,7 @@ class AppVersionsAPI:
                 break
 
             data = json.loads(result.body)
-            page_items = [
-                AppVersionResponse(
-                    app_external_id=item["appExternalId"],
-                    version=item["version"],
-                    lifecycle_state=item.get("lifecycleState", "DRAFT"),
-                    alias=item.get("alias"),
-                    entrypoint=item.get("entrypoint", "index.html"),
-                )
-                for item in data.get("items", [])
-            ]
+            page_items = [AppVersionResponse.model_validate(item) for item in data.get("items", [])]
             if page_items:
                 yield page_items
                 fetched += len(page_items)
