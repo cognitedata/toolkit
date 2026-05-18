@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -392,33 +392,6 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
-
-    @classmethod
-    def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        if vm := resource.view_mappings:
-            for key in ("asset", "operation", "notification", "maintenance_order", "activity", "file"):
-                if m := getattr(vm, key, None):
-                    yield ViewIO, ViewId(space=m.space, external_id=m.external_id, version=m.version)
-            for obs in vm.observation or []:
-                yield ViewIO, ViewId(space=obs.space, external_id=obs.external_id, version=obs.version)
-        if dec := resource.data_exploration_config:
-            for key in ("asset_properties_card", "asset_activities_card", "asset_notifications_card"):
-                if m := getattr(dec, key, None):
-                    yield ViewIO, ViewId(space=m.space, external_id=m.external_id, version=m.version)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if isinstance(vm := item.get("viewMappings"), dict):
-            for key in ("asset", "operation", "notification", "maintenanceOrder", "activity", "file"):
-                if isinstance(m := vm.get(key), dict) and in_dict(("space", "externalId", "version"), m):
-                    yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
-            for obs in vm.get("observation") or []:
-                if isinstance(obs, dict) and in_dict(("space", "externalId", "version"), obs):
-                    yield ViewIO, ViewId(space=obs["space"], external_id=obs["externalId"], version=str(obs["version"]))
-        if isinstance(dec := item.get("dataExplorationConfig"), dict):
-            for key in ("assetPropertiesCard", "assetActivitiesCard", "assetNotificationsCard"):
-                if isinstance(m := dec.get(key), dict) and in_dict(("space", "externalId", "version"), m):
-                    yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:

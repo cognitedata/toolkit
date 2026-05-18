@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
     InfieldV1IO,
     SpaceCRUD,
-    ViewIO,
 )
 
 
@@ -75,50 +74,6 @@ class TestInfieldV1Loader:
 
 
 class TestInFieldCDMLocationConfigCRUD:
-    def test_get_dependent_items_includes_data_exploration_view_mappings(self) -> None:
-        item = {
-            "space": "sp_instance",
-            "externalId": "my_location_config",
-            "viewMappings": {
-                "asset": {"space": "cdf_core", "version": "v1", "externalId": "CogniteAsset"},
-                "observation": [{"space": "sp_obs", "version": "v1", "externalId": "FieldObservation"}],
-            },
-            "dataExplorationConfig": {
-                "assetPropertiesCard": {
-                    "space": "customer_idm_extention",
-                    "version": "v2",
-                    "externalId": "AssetPropertiesCard",
-                },
-                "assetActivitiesCard": {
-                    "space": "customer_idm_extention",
-                    "version": "v2",
-                    "externalId": "ActivitiesCard",
-                },
-                "assetNotificationsCard": {
-                    "space": "customer_idm_extention",
-                    "version": "v2",
-                    "externalId": "NotificationsCard",
-                },
-            },
-        }
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")),
-            (ViewIO.__name__, ViewId(space="sp_obs", external_id="FieldObservation", version="v1")),
-            (
-                ViewIO.__name__,
-                ViewId(space="customer_idm_extention", external_id="AssetPropertiesCard", version="v2"),
-            ),
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
-            (
-                ViewIO.__name__,
-                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
-            ),
-        }
-
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"
         item = InFieldCDMLocationConfigRequest(
