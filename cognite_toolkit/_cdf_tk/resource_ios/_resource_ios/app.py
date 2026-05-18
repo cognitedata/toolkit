@@ -1,6 +1,3 @@
-import io
-import os
-import zipfile
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
@@ -21,28 +18,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
 
 from .auth import GroupAllScopedCRUD
 
-_EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git"}
-
 _LIFECYCLE_ORDER = ["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
-
-
-def _zip_app_directory(source_dir: Path) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", strict_timestamps=False) as zf:
-        for root, dirs, files in os.walk(source_dir):
-            dirs[:] = [d for d in dirs if d not in _EXCLUDE_DIRS]
-            root_path = Path(root)
-            arc_root = root_path.relative_to(source_dir)
-            zf.write(root_path, arcname=str(arc_root))
-            for filename in files:
-                file_path = root_path / filename
-                zf.write(file_path, arcname=str(file_path.relative_to(source_dir)))
-    return buffer.getvalue()
 
 
 @final
@@ -160,7 +142,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             return
 
         source_hash = calculate_directory_hash(source_dir)
-        zip_bytes = _zip_app_directory(source_dir)
+        zip_bytes = create_zip_in_memory(source_dir)
         yield SuccessExtra(
             source_path=source_dir,
             source_hash=source_hash,
