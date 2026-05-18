@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import LIFECYCLE_ORDER, AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
 
 from .auth import GroupAllScopedCRUD
 
-_LIFECYCLE_ORDER = ["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
 
 
 @final
@@ -225,8 +224,8 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         update: dict = {}
 
         if item.lifecycle_state != current_lifecycle:
-            current_idx = _LIFECYCLE_ORDER.index(current_lifecycle) if current_lifecycle in _LIFECYCLE_ORDER else 0
-            target_idx = _LIFECYCLE_ORDER.index(item.lifecycle_state) if item.lifecycle_state in _LIFECYCLE_ORDER else 0
+            current_idx = LIFECYCLE_ORDER.index(current_lifecycle) if current_lifecycle in LIFECYCLE_ORDER else 0
+            target_idx = LIFECYCLE_ORDER.index(item.lifecycle_state) if item.lifecycle_state in LIFECYCLE_ORDER else 0
             if target_idx < current_idx:
                 raise ToolkitValueError(
                     f"Cannot transition app {item.external_id!r} version {item.version!r} "

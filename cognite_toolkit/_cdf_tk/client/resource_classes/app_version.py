@@ -1,13 +1,16 @@
-from typing import Literal
+from typing import Literal, get_args
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import App
 
+LifecycleState = Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
+LIFECYCLE_ORDER: tuple[str, ...] = get_args(LifecycleState)
+
 
 class AppVersion(BaseModelObject):
     version: str
-    lifecycle_state: Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"] = "PUBLISHED"
+    lifecycle_state: LifecycleState = "PUBLISHED"
     alias: Literal["ACTIVE", "PREVIEW"] | None = None
     entrypoint: str = "index.html"
 
