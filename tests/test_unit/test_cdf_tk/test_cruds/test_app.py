@@ -325,6 +325,8 @@ class TestAppIOGetExtraFiles:
         dist_dir.mkdir(parents=True)
         (dist_dir / "index.html").write_text("<html></html>")
         (dist_dir / "bundle.js").write_text("console.log('hi')")
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
 
         yaml_file = tmp_path / "my-app.App.yaml"
         yaml_file.write_text("")
@@ -340,11 +342,15 @@ class TestAppIOGetExtraFiles:
             names = zf.namelist()
         assert any("index.html" in n for n in names)
         assert any("bundle.js" in n for n in names)
+        assert "package.json" in names
+        assert "package-lock.json" in names
 
     def test_falls_back_to_root_without_dist(self, tmp_path: Path):
         app_dir = tmp_path / "my-app"
         app_dir.mkdir()
         (app_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
 
         yaml_file = tmp_path / "my-app.App.yaml"
         yaml_file.write_text("")
@@ -375,6 +381,7 @@ class TestAppIOGetExtraFiles:
         app_dir.mkdir()
         (app_dir / "src").mkdir()
         (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
         (app_dir / "index.html").write_text("<html></html>")  # Vite template at root
 
         yaml_file = tmp_path / "my-app.App.yaml"
@@ -404,6 +411,8 @@ class TestAppIOGetExtraFiles:
         dist_dir = external_dir / "dist"
         dist_dir.mkdir(parents=True)
         (dist_dir / "index.html").write_text("<html></html>")
+        (external_dir / "package.json").write_text("{}")
+        (external_dir / "package-lock.json").write_text("{}")
 
         modules_dir = tmp_path / "modules" / "my_module" / "apps"
         modules_dir.mkdir(parents=True)
@@ -435,6 +444,8 @@ class TestAppIOGetExtraFiles:
         app_dir = tmp_path / "my-app"
         app_dir.mkdir()
         (app_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
         (app_dir / "node_modules").mkdir()
         (app_dir / "node_modules" / "pkg.js").write_text("module")
         (app_dir / ".git").mkdir()
@@ -452,3 +463,77 @@ class TestAppIOGetExtraFiles:
         assert not any("node_modules" in n for n in names)
         assert not any(".git" in n for n in names)
         assert any("index.html" in n for n in names)
+
+    def test_fails_when_package_json_missing(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        dist_dir = app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package-lock.json").write_text("{}")
+
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
+        assert "package.json" in extras[0].error
+
+    def test_fails_when_package_lock_missing(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        dist_dir = app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package.json").write_text("{}")
+
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
+        assert "package-lock.json" in extras[0].error
+
+    def test_fails_when_manifest_json_invalid(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        dist_dir = app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
+        (app_dir / "manifest.json").write_text("not valid json{")
+
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert isinstance(extras[0], FailedReadExtra)
+        assert "manifest.json" in extras[0].error
+
+    def test_includes_valid_manifest_json_in_zip(self, tmp_path: Path):
+        app_dir = tmp_path / "my-app"
+        dist_dir = app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        (app_dir / "package.json").write_text("{}")
+        (app_dir / "package-lock.json").write_text("{}")
+        (app_dir / "manifest.json").write_text('{"name": "My App"}')
+
+        yaml_file = tmp_path / "my-app.App.yaml"
+        yaml_file.write_text("")
+        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
+
+        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
+
+        assert len(extras) == 1
+        assert extras[0].byte_content is not None
+        with zipfile.ZipFile(io.BytesIO(extras[0].byte_content)) as zf:
+            names = zf.namelist()
+        assert "manifest.json" in names
