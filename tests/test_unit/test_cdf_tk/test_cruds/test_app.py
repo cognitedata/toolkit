@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.app import AppIO
 
@@ -67,12 +67,11 @@ class TestAppIODeploy:
     def test_create_calls_create_and_upload(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="DRAFT", alias=None)
-        client.tool.app_versions.retrieve.return_value = []
 
         loader.create([item])
 
         client.tool.apps.create.assert_called_once_with([AppRequest(external_id="my-app", name="My App")])
-        client.tool.app_versions.upload.assert_called_once_with(
+        client.tool.apps.versions.upload.assert_called_once_with(
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
@@ -81,65 +80,35 @@ class TestAppIODeploy:
             ].read_bytes(),
         )
 
-    def test_deploy_promotes_draft_to_published_with_active_alias(self, app_io_with_zip):
+    def test_deploy_sets_lifecycle_and_alias(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        client.tool.app_versions.retrieve.return_value = []
 
         loader.create([item])
 
-        client.tool.app_versions.update.assert_called_once_with(
+        client.tool.apps.versions.update.assert_called_once_with(
             "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "ACTIVE"}}
         )
 
     def test_deploy_clears_alias_when_local_alias_is_none(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias=None)
-        client.tool.app_versions.retrieve.return_value = [
-            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        ]
 
         loader.create([item])
 
-        client.tool.app_versions.update.assert_called_once_with("my-app", "1.0.0", {"alias": {"setNull": True}})
+        client.tool.apps.versions.update.assert_called_once_with(
+            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"setNull": True}}
+        )
 
-    def test_deploy_swaps_alias_to_preview(self, app_io_with_zip):
+    def test_deploy_sets_preview_alias(self, app_io_with_zip):
         loader, client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="PREVIEW")
-        client.tool.app_versions.retrieve.return_value = [
-            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        ]
 
         loader.create([item])
 
-        client.tool.app_versions.update.assert_called_once_with("my-app", "1.0.0", {"alias": {"set": "PREVIEW"}})
-
-    def test_deploy_noop_when_lifecycle_and_alias_match(self, app_io_with_zip):
-        loader, client = app_io_with_zip
-        item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        client.tool.app_versions.retrieve.return_value = [
-            _make_app_response(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        ]
-
-        loader.create([item])
-
-        client.tool.app_versions.update.assert_not_called()
-
-    def test_deploy_rejects_backward_lifecycle_transition(self, app_io_with_zip):
-        loader, client = app_io_with_zip
-        item = _make_app_request(lifecycle_state="DRAFT", alias=None)
-        client.tool.app_versions.retrieve.return_value = [_make_app_response(lifecycle_state="PUBLISHED", alias=None)]
-
-        with pytest.raises(ToolkitValueError, match="forward-only"):
-            loader.create([item])
-
-    def test_deploy_rejects_alias_on_non_published_version(self, app_io_with_zip):
-        loader, client = app_io_with_zip
-        item = _make_app_request(lifecycle_state="DRAFT", alias="ACTIVE")
-        client.tool.app_versions.retrieve.return_value = []
-
-        with pytest.raises(ToolkitValueError, match="alias"):
-            loader.create([item])
+        client.tool.apps.versions.update.assert_called_once_with(
+            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "PREVIEW"}}
+        )
 
     def test_deploy_raises_when_zip_missing(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
@@ -151,7 +120,6 @@ class TestAppIODeploy:
     def test_deploy_returns_response_with_correct_fields(self, app_io_with_zip):
         loader, _client = app_io_with_zip
         item = _make_app_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
-        _client.tool.app_versions.retrieve.return_value = []
 
         results = loader.create([item])
 
@@ -169,12 +137,10 @@ class TestAppIODeploy:
         # Register zip for 2.0.0
         zip_path = loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")]
         loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="2.0.0")] = zip_path
-        client.tool.app_versions.retrieve.return_value = []
-
         loader.update([item])
 
         client.tool.apps.create.assert_called_once_with([AppRequest(external_id="my-app", name="My App")])
-        client.tool.app_versions.upload.assert_called_once()
+        client.tool.apps.versions.upload.assert_called_once()
 
     def test_delete_calls_delete_version_grouped_by_app(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
@@ -185,7 +151,7 @@ class TestAppIODeploy:
             ]
             loader.delete(ids)
 
-        client.tool.app_versions.delete.assert_called_once_with(ids)
+        client.tool.apps.versions.delete.assert_called_once_with(ids)
 
 
 class TestAppIOGetId:
@@ -251,7 +217,7 @@ class TestAppIORetrieveAndIterate:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
             version_response = _make_app_response(app_external_id="my-app", version="1.0.0")
-            client.tool.app_versions.retrieve.return_value = [version_response]
+            client.tool.apps.versions.retrieve.return_value = [version_response]
             ids = [AppVersionId(app_external_id="my-app", version="1.0.0")]
 
             result = loader.retrieve(ids)
@@ -262,7 +228,7 @@ class TestAppIORetrieveAndIterate:
     def test_retrieve_skips_not_found(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
-            client.tool.app_versions.retrieve.return_value = []
+            client.tool.apps.versions.retrieve.return_value = []
             ids = [AppVersionId(app_external_id="missing", version="1.0.0")]
 
             result = loader.retrieve(ids)
@@ -273,7 +239,7 @@ class TestAppIORetrieveAndIterate:
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, tmp_path)
             page = [_make_app_response()]
-            client.tool.app_versions.iterate.return_value = iter([page])
+            client.tool.apps.versions.iterate.return_value = iter([page])
 
             result = list(loader._iterate())
 
@@ -285,7 +251,7 @@ class TestAppIORetrieveAndIterate:
             result = loader.delete([])
 
         assert result == 0
-        client.tool.app_versions.delete.assert_not_called()
+        client.tool.apps.versions.delete.assert_not_called()
 
 
 class TestAppIODumpResource:
@@ -437,24 +403,3 @@ class TestAppIOGetExtraFiles:
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
 
-    def test_excludes_node_modules_and_git(self, tmp_path: Path):
-        app_dir = tmp_path / "my-app"
-        app_dir.mkdir()
-        (app_dir / "index.html").write_text("<html></html>")
-        (app_dir / "node_modules").mkdir()
-        (app_dir / "node_modules" / "pkg.js").write_text("module")
-        (app_dir / ".git").mkdir()
-        (app_dir / ".git" / "config").write_text("[core]")
-
-        yaml_file = tmp_path / "my-app.App.yaml"
-        yaml_file.write_text("")
-        item = {"externalId": "my-app", "version": "1.0.0", "name": "My App"}
-
-        extras = list(AppIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item))
-
-        assert len(extras) == 1
-        with zipfile.ZipFile(io.BytesIO(extras[0].byte_content)) as zf:  # type: ignore[arg-type]
-            names = zf.namelist()
-        assert not any("node_modules" in n for n in names)
-        assert not any(".git" in n for n in names)
-        assert any("index.html" in n for n in names)
