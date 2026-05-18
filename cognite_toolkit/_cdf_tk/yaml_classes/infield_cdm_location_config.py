@@ -94,6 +94,8 @@ class DataExplorationConfig(BaseModelResource):
     """Data exploration configuration."""
 
     asset_properties_card: ViewMapping | None = None
+    asset_activities_card: ViewMapping | None = None
+    asset_notifications_card: ViewMapping | None = None
 
 
 class Discipline(BaseModelResource):

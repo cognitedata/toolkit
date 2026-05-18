@@ -83,3 +83,11 @@ dataExplorationConfig:
     space: customer_idm_extention
     version: v2
     externalId: AssetPropertiesCard
+  assetActivitiesCard:
+    space: customer_idm_extention
+    version: v2
+    externalId: ActivitiesCard
+  assetNotificationsCard:
+    space: customer_idm_extention
+    version: v2
+    externalId: NotificationsCard
