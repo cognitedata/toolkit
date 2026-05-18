@@ -1,0 +1,17 @@
+rules:
+  - name: "valid_rule"
+    rule_type: "character_substitution"
+    description: "Valid"
+    payload:
+      replacements:
+        "A": "B"
+  - name: "invalid_rule"
+    rule_type: "character_substitution"
+    description: "Has error"
+    payload: "invalid"
+  - name: "third_rule"
+    rule_type: "character_substitution"
+    description: "Valid"
+    payload:
+      replacements:
+        "C": "D"

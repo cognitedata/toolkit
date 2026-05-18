@@ -1,0 +1,16 @@
+rules:
+  - name: "composite_case_regexp_prefix"
+    rule_type: "composite"
+    description: "Composite rule combining case transformation, regexp substitution, and prefix"
+    payload:
+      rules:
+        - rule_type: "case_transformation"
+          payload:
+            strategy: "UPPERCASE"
+        - rule_type: "regex_substitution"
+          payload:
+            pattern: "([0-9])"
+            replacement: "[$1]"
+        - rule_type: "prefix_suffix"
+          payload:
+            prefix: "PREFIX_"

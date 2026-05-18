@@ -289,6 +289,60 @@ wheels = [
 ]
 
 [[package]]
+name = "cognite-kuiper"
+version = "0.18.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/c2/9482e95dcdb1a205bdb4860e338bdd9a7284c57d3d1241a0bd749313c222/cognite_kuiper-0.18.2-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:8217d7db99d3bec5e63b3a73225ec681a72e3f8f197605d0fdfdc84ed7cfa0cb", size = 1514649, upload-time = "2026-02-16T12:40:46.069Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/c4/fc3503f8bba40534a2b7cd31b34d90c77e36d488e374e240901ce4f167b8/cognite_kuiper-0.18.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:59de85acfc37d194269b23b9e16ca6dbbb17039d117439bff2c4bde66afb4045", size = 1430365, upload-time = "2026-02-16T12:40:47.881Z" },
+    { url = "https://files.pythonhosted.org/packages/58/7c/9bf432a3ae28dbf2bb388b830413418f85f893fe15c5b9288f7c89467471/cognite_kuiper-0.18.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cc7961b9cc5531384d40c2bee8639868cc5c128f950f25440f6bdfe045b4ee05", size = 1652778, upload-time = "2026-02-16T12:40:49.722Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/3d/0b535261b0f32b536a55d7952fe9d9640922d0e598aa67db8b3196225d90/cognite_kuiper-0.18.2-cp310-cp310-win_amd64.whl", hash = "sha256:5f6b078ecc548d07dd4947572f73c2790eeb30cd9c288882e53f28fa7f1f0905", size = 1330413, upload-time = "2026-02-16T12:40:51.063Z" },
+    { url = "https://files.pythonhosted.org/packages/24/08/602f49844f5034a8676c4726412170e038307c0ea41ef1f0c1ce2732c53d/cognite_kuiper-0.18.2-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:cd9cc8a244cf261ecbc765400ed722e6266d6e9dc2b3635353b1159a7f66e845", size = 1512612, upload-time = "2026-02-16T12:40:52.82Z" },
+    { url = "https://files.pythonhosted.org/packages/62/b8/06fd5d1bcdc34fac8c683e66cfafc0fe9381641cf8fa781b8c6063b4fcfd/cognite_kuiper-0.18.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:99ada12b701a4324f2ba3782fd276ba9062aa886154662e63a3099c984a2c32e", size = 1429294, upload-time = "2026-02-16T12:40:54.384Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/6e/3f509744c952be6364ff6aec3fc2c143520b3ea06e8a69517864c81bdb0c/cognite_kuiper-0.18.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ba678bec529943bb05ec4ca6f06d449c4b834d1654dd8ee3637dbca4b798e9da", size = 1652796, upload-time = "2026-02-16T12:40:56.427Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/40/56be2aed9c7c672ead5da0505c540cf24d84dca5a8ac6eb667be783e5f69/cognite_kuiper-0.18.2-cp311-cp311-win_amd64.whl", hash = "sha256:597469e1d70fe97b713f2fa7b80f5fbfdadff8f39792309ab41b533f2f14b4b3", size = 1331387, upload-time = "2026-02-16T12:40:57.593Z" },
+    { url = "https://files.pythonhosted.org/packages/de/12/8db3e6e4eaf7703259630a37b1bae8b24529e2d8d06dfb5e57f62f6221c2/cognite_kuiper-0.18.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:c6d7602dac8cb3e2ad260d0637688f6121ef4afab70265d8ec35d81ed3c62c6c", size = 1511732, upload-time = "2026-02-16T12:40:58.721Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/69/ac4293fc3b16454af57afbe4d2522432f04d47bcb1e378fcbd5473840a7f/cognite_kuiper-0.18.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7e9e9564fcbd720aa00796557e52114bebb1ae5c5d0c44caa4f187842b562522", size = 1428295, upload-time = "2026-02-16T12:40:59.879Z" },
+    { url = "https://files.pythonhosted.org/packages/70/ea/3f9cac1e8bf6da053033486d18fcd9ad539a2985614f51ed7c9a50e6c62e/cognite_kuiper-0.18.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f74269bad40fa6aed5aadb2b3b0c09687715e281cabc47387e5863a1ebe82190", size = 1649949, upload-time = "2026-02-16T12:41:01.292Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/f0/7f006a041600e47f0f955f0e3a851b0fb8f02267a01ccff671c17f37bf63/cognite_kuiper-0.18.2-cp312-cp312-win_amd64.whl", hash = "sha256:57513c21a3a1e331df61f9e803bd31677f50ef4e03580892bdff594ebddd1158", size = 1328730, upload-time = "2026-02-16T12:41:02.99Z" },
+    { url = "https://files.pythonhosted.org/packages/45/13/95437257c0f512c6689203c687a98efcf2fa4fc10a5f1912bfb239a9c729/cognite_kuiper-0.18.2-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:1cfb11c725f6a8b3ed1c30cc3947f70ed139c27828d64c70c1d9ad0a75b9fb41", size = 1511898, upload-time = "2026-02-16T12:41:04.948Z" },
+    { url = "https://files.pythonhosted.org/packages/43/07/9e7cbe245893cfa38393cf2841551b0dabe47a328c4e2a8f70f0cdb5fcdb/cognite_kuiper-0.18.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:64728a88627e0f88691c5b6164aa2ff2be6fae4c13401ddbcff2b6b9bb664a3e", size = 1428117, upload-time = "2026-02-16T12:41:06.318Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/f2/cd319801402ecd095265f2f8192e5bc48eaca6707edb36440199ce5c08bc/cognite_kuiper-0.18.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0ebe15eb4d787ab1e4ba57a127615a2d7c59cea27d67f2d24c158def97af3f15", size = 1649782, upload-time = "2026-02-16T12:41:07.494Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/2d/fd9d793158d5ae390889afeff235a9091734513dd5a318d2e013b1af72f8/cognite_kuiper-0.18.2-cp313-cp313-win_amd64.whl", hash = "sha256:afbf020f4134c0da8edcca4212eca20e08bb3fcf69a2a0c9e3de25a4ffb57545", size = 1328829, upload-time = "2026-02-16T12:41:08.838Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/e2/ddaafa6ec6fbd0b8a753f1c8f036d5cdf1419546fe1d6e5339d1156b38e5/cognite_kuiper-0.18.2-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:35136812e8471c01784c6ea936c5e5385edff79ccc66da384d87d0920e87e72f", size = 1511497, upload-time = "2026-02-16T12:41:10.213Z" },
+    { url = "https://files.pythonhosted.org/packages/18/f1/af7545a4ccff6293b7eaceacb3da05f3a63b53fe0a6a99ea0487402abb9a/cognite_kuiper-0.18.2-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:1c9074e03d3585411e3c49d86e964f08685542990d8da3d2fb7908105cbfa2b7", size = 1427706, upload-time = "2026-02-16T12:41:11.996Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/ca/e1ea0788774a29f8df1873d61ca94a500aeba2eb6bd2dc1194b450d344bc/cognite_kuiper-0.18.2-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e4b3816f1e1736ff39d1487886a80afc66c2f78c5a72634afac233fa6b641700", size = 1649696, upload-time = "2026-02-16T12:41:13.287Z" },
+    { url = "https://files.pythonhosted.org/packages/29/fb/06fe955cc8e8378fbdcf992749e1371c18a73e0acaddc55e55b31da81437/cognite_kuiper-0.18.2-cp314-cp314-win_amd64.whl", hash = "sha256:f9611d7629846cda23fa4a36e77baf482727f2c7b7ea15adeba5503235596940", size = 1328838, upload-time = "2026-02-16T12:41:14.539Z" },
+]
+
+[[package]]
+name = "cognite-kuiper"
+version = "0.19.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15'",
+    "python_full_version >= '3.12' and python_full_version < '3.15'",
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/25/ad6e9d4a039834789164097873cf66b6314f92f5b91cc3e8593deb0b16d0/cognite_kuiper-0.19.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:b62acbfec1aae837dd540601c4b86e652ed5da450f369e9eecca3022107267f1", size = 1618961, upload-time = "2026-03-11T11:42:16.66Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/80/f9c926c2932a5de3b0ac8ecb4f68c565083cd989919bc112bb9081927586/cognite_kuiper-0.19.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9c62cb5623d2f88dc398214c62cc780d1615efb6ee94fef7b3a755795295280c", size = 1534487, upload-time = "2026-03-11T11:42:18.932Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/0d/a291ec8c0f40867cc6c0c496dece3cc62996e26dc1548ebbab61cbdfafeb/cognite_kuiper-0.19.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c590b5d331794c21dde305cbf25c8c253372feed30741016338871ea58983887", size = 1764589, upload-time = "2026-03-11T11:42:20.876Z" },
+    { url = "https://files.pythonhosted.org/packages/13/da/6ed998faa414da83d22b5c37fcafacfcd816317fea1d773a90b1404f6a4d/cognite_kuiper-0.19.0-cp312-cp312-win_amd64.whl", hash = "sha256:9c3a6632bd818c37deccdd69d188aa0496033beaef776b7ccc5301c8bb5af691", size = 1423472, upload-time = "2026-03-11T11:42:23.117Z" },
+    { url = "https://files.pythonhosted.org/packages/74/aa/a001ad03ceed713d61cd5811ab84363223f00a984fc39c56cc272b6031d6/cognite_kuiper-0.19.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:7793eae5cc594edbbb4ab1030e046ef66a24c5e9f2843ba65bc8dbb85d6ace95", size = 1618577, upload-time = "2026-03-11T11:42:25.379Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/6a/b6412872c8ae49ca624767c1890cfb6a4bfdffefc558e4dfb2a6454297b5/cognite_kuiper-0.19.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:56716174276650cb4e06ef54fce43bc2e91f7d6d94df95e40717c9480245ca96", size = 1533325, upload-time = "2026-03-11T11:42:27.078Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/a1/bb6eb9961a45ff945b47e5d8e49fd8d0387df505dbdde8260e54076de9f7/cognite_kuiper-0.19.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c63940f790ed5e6924e9f7d3caca8ee3422786a5855257a8a94ab165472b7506", size = 1764261, upload-time = "2026-03-11T11:42:29Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/86/9486febb486320d3e06348351fa41750ae2feb32d33bad2a506a82e1bf66/cognite_kuiper-0.19.0-cp313-cp313-win_amd64.whl", hash = "sha256:e7846ee8dbc2492efd463ec71866087509a9386e86c195edf7f29d900522375c", size = 1422941, upload-time = "2026-03-11T11:42:30.657Z" },
+    { url = "https://files.pythonhosted.org/packages/92/42/d0546ea72e060bc83fd40c9f4eea58cf505056ba0cbfd21872553db53592/cognite_kuiper-0.19.0-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:dbf860c681ab9db5d010ce06b904dbbe203493640531eef92d8265a2333e8450", size = 1616696, upload-time = "2026-03-11T11:42:32.955Z" },
+    { url = "https://files.pythonhosted.org/packages/43/a3/83d905b185064caaba562611c97acd47d850cb2be45296fd08bd836796d7/cognite_kuiper-0.19.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:c808df4645dd7b52e5cab0afe35809ae955a7376646ff5c21dc26f9e55f3be30", size = 1534002, upload-time = "2026-03-11T11:42:34.58Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/93/48f5bba257ffbff56b5c5fe70bc95fcb42d141ecc52dcc5aa82fdd07edf5/cognite_kuiper-0.19.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e9646df38f4a5676d080d0af4a5e65a99f9495567840f8f2ac4521fb70a547b", size = 1766335, upload-time = "2026-03-11T11:42:36.557Z" },
+    { url = "https://files.pythonhosted.org/packages/8b/6e/cb39e70dbddf757bad6e8c4cf79592f32759f4f9fd94e0f7212e05277996/cognite_kuiper-0.19.0-cp314-cp314-win_amd64.whl", hash = "sha256:df33e08f73f7179c3fe12d1893f4b9ce887ebf9d537f721f90bc5075fdab6913", size = 1423834, upload-time = "2026-03-11T11:42:38.569Z" },
+]
+
+[[package]]
 name = "cognite-neat"
 version = "1.0.61"
 source = { registry = "https://pypi.org/simple" }
@@ -368,6 +422,8 @@ v08 = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cognite-kuiper", version = "0.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "cognite-kuiper", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "fastparquet" },
     { name = "marko" },
     { name = "mypy" },
@@ -420,6 +476,7 @@ provides-extras = ["table", "sql", "v08"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cognite-kuiper", specifier = ">=0.18.0" },
     { name = "fastparquet", specifier = ">=2024.5.0" },
     { name = "marko", specifier = ">=2.1.2" },
     { name = "mypy", specifier = ">=1.8.0" },
