@@ -53,26 +53,28 @@ class AppVersionsAPI:
             )
             result = self._http_client.request_single_retries(request)
             if not isinstance(result, SuccessResponse):
-                if isinstance(result, FailedResponse) and result.status_code in (400, 404) and ignore_unknown_ids:
+                if isinstance(result, FailedResponse) and result.status_code == 404 and ignore_unknown_ids:
                     continue
                 result.get_success_or_raise(request)
                 continue
             data = json.loads(result.body)
-            results.append(AppVersionResponse(
-                app_external_id=data.get("appExternalId", item.app_external_id),
-                version=data.get("version", item.version),
-                lifecycle_state=data.get("lifecycleState", "DRAFT"),
-                alias=data.get("alias"),
-                entrypoint=data.get("entrypoint", "index.html"),
-            ))
+            results.append(
+                AppVersionResponse(
+                    app_external_id=data.get("appExternalId", item.app_external_id),
+                    version=data.get("version", item.version),
+                    lifecycle_state=data.get("lifecycleState", "DRAFT"),
+                    alias=data.get("alias"),
+                    entrypoint=data.get("entrypoint", "index.html"),
+                )
+            )
         return results
 
     def iterate(self, limit: int | None = 100) -> Iterable[list[AppVersionResponse]]:
         """POST /apphosting/versions/list — paginated list of all versions across all apps."""
         cursor: str | None = None
-        page_limit = min(limit, 1000) if limit is not None else 1000
         fetched = 0
         while True:
+            page_limit = min(limit - fetched, 1000) if limit is not None else 1000
             body: dict = {"limit": page_limit}
             if cursor:
                 body["cursor"] = cursor
