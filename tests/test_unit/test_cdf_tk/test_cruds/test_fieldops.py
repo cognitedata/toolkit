@@ -101,7 +101,10 @@ class TestInFieldCDMLocationConfigCRUD:
                 },
             },
         }
-        actual = {(loader_cls.__name__, identifier) for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)}
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
         assert actual == {
             (ViewIO.__name__, ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")),
             (ViewIO.__name__, ViewId(space="sp_obs", external_id="FieldObservation", version="v1")),

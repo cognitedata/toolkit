@@ -414,15 +414,11 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
                     yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
             for obs in vm.get("observation") or []:
                 if isinstance(obs, dict) and in_dict(("space", "externalId", "version"), obs):
-                    yield ViewIO, ViewId(
-                        space=obs["space"], external_id=obs["externalId"], version=str(obs["version"])
-                    )
+                    yield ViewIO, ViewId(space=obs["space"], external_id=obs["externalId"], version=str(obs["version"]))
         if isinstance(dec := item.get("dataExplorationConfig"), dict):
             for key in ("assetPropertiesCard", "assetActivitiesCard", "assetNotificationsCard"):
                 if isinstance(m := dec.get(key), dict) and in_dict(("space", "externalId", "version"), m):
-                    yield ViewIO, ViewId(
-                        space=m["space"], external_id=m["externalId"], version=str(m["version"])
-                    )
+                    yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
