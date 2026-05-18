@@ -181,7 +181,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
         self.tool.apps = MagicMock(spec=AppsAPI)
-        self.tool.app_versions = MagicMock(spec=AppVersionsAPI)
+        self.tool.apps.versions = MagicMock(spec=AppVersionsAPI)
         self.tool.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)

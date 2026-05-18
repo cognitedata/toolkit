@@ -261,7 +261,7 @@ class HTTPClient:
 
     def _execute_raw_with_retries(
         self,
-        method: str,
+        method: Literal["GET", "POST", "PUT", "DELETE"],
         url: str,
         max_retries: int,
         content: bytes | Iterable[bytes] | None = None,
@@ -289,6 +289,7 @@ class HTTPClient:
                         content=response.content,
                     )
                 last_error_code = response.status_code
+                # Check if we should retry based on status code
                 if response.status_code in self._retry_status_codes:
                     retry_after = self._get_retry_after_in_header(response)
                     time.sleep(retry_after if retry_after is not None else self._backoff_time(attempt))
@@ -318,6 +319,8 @@ class HTTPClient:
                         message=f"Request failed after {attempt} attempts: {e!s}",
                     ),
                 )
+
+        # Should not reach here, but just in case
         return FailedResponse(
             status_code=last_error_code,
             body=f"Request failed after {attempt} attempts.",
@@ -363,7 +366,9 @@ class HTTPClient:
             "x-cdp-app": self.config.client_name,
             "cdf-version": api_version or self.config.api_subversion,
         }
-        return self._execute_raw_with_retries("POST", url, self._max_retries, files=files, data=form_fields, headers=headers)
+        return self._execute_raw_with_retries(
+            "POST", url, self._max_retries, files=files, data=form_fields, headers=headers
+        )
 
     def request_items(self, message: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
         """Send an HTTP request with multiple items and return the response.
