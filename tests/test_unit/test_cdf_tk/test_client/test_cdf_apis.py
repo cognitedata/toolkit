@@ -1247,15 +1247,15 @@ class TestCDFResourceAPI:
         respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
             return_value=httpx.Response(status_code=200, json=app_json)
         )
-        result = api.retrieve(app_external_id)
-        assert result is not None
-        assert result.name == "My App"
+        retrieved = api.retrieve([ExternalId(external_id=app_external_id)])
+        assert len(retrieved) == 1
+        assert retrieved[0].name == "My App"
 
-        # Test retrieve with 404
+        # Test retrieve with 404 and ignore_unknown_ids
         respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
             return_value=httpx.Response(status_code=404)
         )
-        assert api.retrieve(app_external_id) is None
+        assert api.retrieve([ExternalId(external_id=app_external_id)], ignore_unknown_ids=True) == []
 
     def test_app_versions_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config

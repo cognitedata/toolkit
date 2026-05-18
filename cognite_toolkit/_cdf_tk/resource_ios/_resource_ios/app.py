@@ -1,7 +1,3 @@
-import io
-import json
-import os
-import zipfile
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
@@ -20,32 +16,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AppHostingAcl,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
 
 from .auth import GroupAllScopedCRUD
-
-_EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git"}
-
-_LIFECYCLE_ORDER = ["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
-
-
-def _zip_app_directory(source_dir: Path, extra_root_files: list[Path]) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", strict_timestamps=False) as zf:
-        for root, dirs, files in os.walk(source_dir):
-            dirs[:] = [d for d in dirs if d not in _EXCLUDE_DIRS]
-            root_path = Path(root)
-            arc_root = root_path.relative_to(source_dir)
-            zf.write(root_path, arcname=str(arc_root))
-            for filename in files:
-                file_path = root_path / filename
-                zf.write(file_path, arcname=str(file_path.relative_to(source_dir)))
-        for extra_file in extra_root_files:
-            zf.write(extra_file, arcname=extra_file.name)
-    return buffer.getvalue()
 
 
 @final
@@ -206,7 +183,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         ]
 
         source_hash = calculate_directory_hash(source_dir)
-        zip_bytes = _zip_app_directory(source_dir, extra_root_files)
+        zip_bytes = create_zip_in_memory(source_dir)
         yield SuccessExtra(
             source_path=source_dir,
             source_hash=source_hash,
@@ -272,43 +249,20 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             if error.code != 409:
                 raise
         zip_bytes = zip_path.read_bytes()
-        self.client.tool.app_versions.upload(
-            external_id=item.external_id,
-            version=item.version,
-            entrypoint=item.entrypoint,
-            zip_bytes=zip_bytes,
-        )
-
-        retrieved = self.client.tool.app_versions.retrieve(
-            [AppVersionId(app_external_id=item.external_id, version=item.version)], ignore_unknown_ids=True
-        )
-        current = retrieved[0] if retrieved else None
-        current_lifecycle = current.lifecycle_state if current else "DRAFT"
-        current_alias = current.alias if current else None
-
-        update: dict = {}
-
-        if item.lifecycle_state != current_lifecycle:
-            current_idx = _LIFECYCLE_ORDER.index(current_lifecycle) if current_lifecycle in _LIFECYCLE_ORDER else 0
-            target_idx = _LIFECYCLE_ORDER.index(item.lifecycle_state) if item.lifecycle_state in _LIFECYCLE_ORDER else 0
-            if target_idx < current_idx:
-                raise ToolkitValueError(
-                    f"Cannot transition app {item.external_id!r} version {item.version!r} "
-                    f"from {current_lifecycle!r} to {item.lifecycle_state!r}: lifecycle transitions are forward-only."
-                )
-            update["lifecycleState"] = {"set": item.lifecycle_state}
-
-        alias_explicitly_set = "alias" in item.model_fields_set
-        if alias_explicitly_set and item.alias != current_alias:
-            if item.alias is not None and item.lifecycle_state not in ("PUBLISHED",):
-                raise ToolkitValueError(
-                    f"Cannot set alias {item.alias!r} on app {item.external_id!r} version {item.version!r}: "
-                    f"aliases are only valid on PUBLISHED versions (current lifecycle: {item.lifecycle_state!r})."
-                )
+        try:
+            self.client.tool.apps.versions.upload(
+                external_id=item.external_id,
+                version=item.version,
+                entrypoint=item.entrypoint,
+                zip_bytes=zip_bytes,
+            )
+        except ToolkitAPIError as error:
+            if error.code != 409:
+                raise
+        update: dict = {"lifecycleState": {"set": item.lifecycle_state}}
+        if "alias" in item.model_fields_set:
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
-
-        if update:
-            self.client.tool.app_versions.update(item.external_id, item.version, update)
+        self.client.tool.apps.versions.update(item.external_id, item.version, update)
 
         return AppVersionResponse(
             app_external_id=item.external_id,
@@ -325,27 +279,12 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         return [self._deploy(item) for item in items]
 
     def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
-        results: list[AppVersionResponse] = []
-        for version_id in ids:
-            version_responses = self.client.tool.app_versions.retrieve([version_id], ignore_unknown_ids=True)
-            if not version_responses:
-                continue
-            version_response = version_responses[0]
-            results.append(
-                AppVersionResponse(
-                    app_external_id=version_response.app_external_id,
-                    version=version_response.version,
-                    lifecycle_state=version_response.lifecycle_state,
-                    alias=version_response.alias,
-                    entrypoint=version_response.entrypoint,
-                )
-            )
-        return results
+        return self.client.tool.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[AppVersionId]) -> int:
         if not ids:
             return 0
-        self.client.tool.app_versions.delete(ids)
+        self.client.tool.apps.versions.delete(ids)
         return len(ids)
 
     def _iterate(
@@ -354,5 +293,5 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AppVersionResponse]:
-        for page in self.client.tool.app_versions.iterate():
+        for page in self.client.tool.apps.versions.iterate():
             yield from page

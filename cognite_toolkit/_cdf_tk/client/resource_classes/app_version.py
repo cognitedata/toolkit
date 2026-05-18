@@ -4,10 +4,12 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import App
 
+LifecycleState = Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
+
 
 class AppVersion(BaseModelObject):
     version: str
-    lifecycle_state: Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"] = "PUBLISHED"
+    lifecycle_state: LifecycleState = "PUBLISHED"
     alias: Literal["ACTIVE", "PREVIEW"] | None = None
     entrypoint: str = "index.html"
 
