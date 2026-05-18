@@ -131,6 +131,68 @@ information" and "acting on it." `build` has one such seam (validate →
 write). `deploy` has one (plan → apply). That is the only place an
 aggregated error report is appropriate.
 
+## Grounding in `ruff`
+
+`ruff` is the closest precedent for the model we're adopting, and most
+of our intended users already use it daily. Concretely:
+
+### What we take from `ruff` directly
+
+- **Run to completion, fail at the end.** `ruff check` visits every
+  file, prints every violation, then exits non-zero iff any violations
+  were found. Same shape as our build-phase boundary.
+- **Stable rule codes.** Every `ruff` rule has a short identifier
+  (`E501`, `F401`, `B008`). The code is stable across versions and
+  releases even when class internals change, and it's what users put in
+  `# noqa` and `[tool.ruff.lint] ignore`. We should adopt the same:
+  every toolkit issue type gets a code (e.g. `TK001` for
+  `UnresolvedVariable`, `TK010` for `NamingConvention`) and the
+  `cdf.toml` suppression list keys on codes, not class names. Renaming
+  a class is then non-breaking for users.
+- **Per-rule documentation.** `ruff` has one doc page per rule with a
+  bad/good example and a "why" paragraph. We should do the same — each
+  rule code links to a docs entry that explains the failure and how to
+  fix it. Drives down "what does this warning even mean?" support
+  traffic.
+- **Selection and suppression are user concerns, not author concerns.**
+  In `ruff`, the rule author doesn't decide whether a rule should be
+  shown — the user does, via `select` / `ignore` in config. This is the
+  shape we want for the planned `cdf.toml` suppression: the toolkit
+  emits everything that applies, the user opts out of what they don't
+  want.
+
+### Where we adapt rather than copy
+
+- **`ruff` has no severity dial.** Every violation is just a violation;
+  the user decides which rules to enable. We can't go that far because
+  some of our findings (e.g. `Recommendation`) are genuinely advisory
+  and not worth failing a build over. So we keep a small severity
+  enum, but we make it categorical (the three buckets above) instead of
+  a numeric dial. Closest `ruff` analogue: the distinction between
+  "rule violation" (fails the run) and "preview rule" (informational).
+- **`ruff` is read-only.** We have `ToolkitError` exceptions for
+  unrecoverable conditions because we make real CDF calls and write to
+  disk. `ruff` doesn't need that category; we do.
+- **No `--fix` (yet).** `ruff --fix` is one of its best features but
+  out of scope here. A future TDL can extend the contract to cover
+  auto-fixable issues — the rule-code model leaves room for it.
+
+### Mapping to the toolkit
+
+| `ruff` concept | Toolkit equivalent |
+| --- | --- |
+| Rule violation | `SeverityLevel.ERROR` issue, collected, fails the phase |
+| Preview rule | `WARNING` / `NOTICE` / `HINT`, collected, never fails |
+| Rule code (`E501`) | Toolkit rule code (`TK001`, etc.) |
+| `# noqa: E501` | Out of scope — files are user data, not source we own |
+| `[tool.ruff.lint] ignore = [...]` | `[tool.cdf.warnings] ignore = [...]` |
+| `ruff` exits non-zero on any violation | Toolkit exits non-zero iff `has_errors()` |
+| Crash before completion | `ToolkitError` raised |
+
+The user-facing mental model becomes: "this works like `ruff`, but for
+your CDF modules." That's a one-sentence explanation that lands with
+the engineers we ship to.
+
 ## Why
 
 - **Eliminates whack-a-mole.** Users with messy YAML get one
@@ -141,8 +203,9 @@ aggregated error report is appropriate.
 - **Keeps `ToolkitError` exceptions for what they are good at** —
   unrecoverable conditions where collecting more state is pointless or
   unsafe.
-- **Matches the model users already know** from `ruff`, `mypy`, `tsc`,
-  `eslint`. Familiar mental model, no toolkit-specific re-learning.
+- **Matches the model users already know** from `ruff` (see above for
+  details), `mypy`, `tsc`, `eslint`. Familiar mental model, no
+  toolkit-specific re-learning.
 - **Side-effect commands stay safe.** Because `deploy`'s mutation phase
   stays fail-fast, we don't introduce the failure mode "kept calling
   CDF after the first 400 to collect more 400s."
@@ -169,3 +232,8 @@ aggregated error report is appropriate.
   `tk_warnings`, the build v2 `_insights`, and the `dataio/logger`
   `Severity` all model the same concept differently. Picking one model
   and migrating is its own work item, larger than this TDL.
+- Assign a stable rule code (`TK001`, `TK002`, …) to every issue type
+  before we ship user-visible suppression. Without codes, the
+  suppression list keys on class names and breaks every time we
+  rename. This is the lesson `ruff` learned the hard way; we get it
+  for free if we adopt codes from day one.
