@@ -19,6 +19,14 @@ fail; in build v2 the class names and numbers even disagree
 (`ModelSyntaxWarning=40` outranks `ConsistencyError=30`). Reported in
 [CDF-27907](https://cognitedata.atlassian.net/browse/CDF-27907).
 
+## Why
+
+The three coexisting severity systems create unpredictable user experience: seeing `ERROR: ...` does not
+tell the user whether the command will abort or continue, and the numeric ordering in build v2 actively
+contradicts the class names. Adopting a single, well-named three-level system with clear phase-boundary
+semantics removes that ambiguity and aligns Toolkit with the mental model users already have from tools
+like `ruff`, `mypy`, and `tsc`.
+
 ## Decision
 
 1. Adopt the **collect-then-fail-at-phase-boundary** model used by
