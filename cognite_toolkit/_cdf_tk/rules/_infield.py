@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
@@ -16,17 +17,17 @@ _CARD_ATTR_TO_JSON_KEY: dict[str, str] = {
     "asset_notifications_card": "assetNotificationsCard",
 }
 
+_REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
+    "assetActivitiesCard": frozenset({"sourceId", "name", "status", "type", "mainAsset"}),
+    "assetNotificationsCard": frozenset(
+        {"sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
+    ),
+}
+
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "INFIELD-CDM-VIEW-PROPERTIES"
     DISPLAY_NAME = "InField CDM view properties"
-
-    _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
-        "assetActivitiesCard": frozenset({"sourceId", "name", "status", "type", "mainAsset"}),
-        "assetNotificationsCard": frozenset(
-            {"sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
-        ),
-    }
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -62,8 +63,9 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     )
 
     def _validate_config(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
-        if not self.client:
+        if self.client is None:
             return
+        client = self.client
 
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
@@ -75,8 +77,8 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             if mapping is None:
                 continue
             view_id = ViewId(space=mapping.space, external_id=mapping.external_id, version=mapping.version)
-            required = self._REQUIRED_PROPERTIES[card_key]
-            yield from self._validate_view_properties(resource, view_id, card_key, required)
+            required = _REQUIRED_PROPERTIES[card_key]
+            yield from self._validate_view_properties(resource, view_id, card_key, required, client)
 
     def _validate_view_properties(
         self,
@@ -84,8 +86,9 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         view_id: ViewId,
         card_key: str,
         required: frozenset[str],
+        client: ToolkitClient,
     ) -> Iterable[ConsistencyError]:
-        views = self.client.tool.views.retrieve([view_id], include_inherited_properties=True)
+        views = client.tool.views.retrieve([view_id], include_inherited_properties=True)
         if not views:
             yield ConsistencyError(
                 code=self.CODE_PREFIX,
