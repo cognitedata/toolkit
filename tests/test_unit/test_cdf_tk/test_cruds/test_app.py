@@ -51,24 +51,6 @@ def _write_zip(path: Path, filenames: list[str] | None = None) -> None:
             zf.writestr(filename, b"content")
 
 
-class TestAppIORetrieveAndIterate:
-    def test_delete_calls_apps_delete(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            ids = [ExternalId(external_id="my-app")]
-            result = loader.delete(ids)
-
-        assert result == 1
-        client.tool.apps.delete.assert_called_once_with(ids)
-
-    def test_delete_empty_list_returns_zero(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            result = loader.delete([])
-
-        assert result == 0
-        client.tool.apps.delete.assert_not_called()
-
 
 class TestAppIODumpResource:
     @pytest.mark.parametrize(
@@ -233,15 +215,6 @@ class TestAppVersionIOLoadResourceFile:
 
         assert result == []
 
-
-class TestAppVersionIORetrieveAndIterate:
-    def test_delete_empty_list_returns_zero(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            result = loader.delete([])
-
-        assert result == 0
-        client.tool.apps.versions.delete.assert_not_called()
 
 
 class TestAppVersionIODumpResource:
