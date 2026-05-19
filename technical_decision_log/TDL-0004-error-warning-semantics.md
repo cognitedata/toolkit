@@ -4,12 +4,11 @@
 
 ## What
 
-Errors, Warnings and Insights are vital in Toolkit because they guide
-users towards configuration quality, correctness and consistency.
+Errors, Warnings and Insights are vital communication elements in Toolkit because they guide users towards
+higher configuration quality and integrity.
 
-Classification helps unify the user experience and control flow so
-that the user can resolve issues faster, while reducing noise and
-warning fatigue.
+Clearer categories give users better ability to distinguish between issues and warnings, and understand the
+experience and control flow so they can resolve issues faster, while reducing noise and warning fatigue.
 
 Today the toolkit has three coexisting severity systems with
 inconsistent semantics: legacy `SeverityLevel` (`ERROR / HIGH /
@@ -22,14 +21,18 @@ fail; in build v2 the class names and numbers even disagree
 
 ## Decision
 
-Adopt the **collect-then-fail-at-phase-boundary** model used by
+1. Adopt the **collect-then-fail-at-phase-boundary** model used by
 `ruff`, `mypy`, and `tsc`. A command runs to completion, collecting
 issues, and reports them at the next phase boundary. The only
 exception is `ToolkitError`, which aborts immediately.
+2. Consolidate and adopt the three categorical severities: `ERROR`, `WARNING`, and `HINT`. Allow for
+   `ToolkitError` as exceptions raised on the call site.
+3. Separate presentation from severity: let the UI decide how to order, sort, and render the issues,
+   while the severity dictates the phase boundary behavior.
 
-### Configuration quality — three categorical severities
+### Details
 
-Findings about the user's modules:
+Configuration integrity — three categorical severities (findings about the user's modules):
 
 | Severity | Author rule | Phase behaviour |
 | --- | --- | --- |
@@ -48,7 +51,7 @@ the toolkit runs in (auth, network, file IO, internal invariant), not
 about the user's modules. Raised and caught at the CLI root; aborts
 immediately. There is nothing to collect.
 
-| | Configuration quality | `ToolkitError` |
+| | Configuration integrity | `ToolkitError` |
 | --- | --- | --- |
 | **About** | User's modules | Environment toolkit runs in |
 | **Who fixes** | User edits modules, reruns | User fixes precondition, retries |
@@ -56,15 +59,7 @@ immediately. There is nothing to collect.
 | **Examples** | unresolved variable, missing field | missing IDP secret, unreachable CDF |
 | **Stack trace** | Never | Only under `--verbose` (see [CDF-27617](https://cognitedata.atlassian.net/browse/CDF-27617)) |
 
-### Rendered prefixes (user-facing contract)
-
-- `ERROR:` — fails the phase. Fix all of them before rerunning.
-- `WARNING:` — probably wrong; command continues.
-- `HINT:` — advisory; command continues.
-- `ToolkitError` (own panel, no prefix) — toolkit couldn't proceed.
-  Fix the precondition.
-
-## Phase boundary
+### Phase boundary
 
 A **phase boundary** is the architectural seam between *gathering
 information* and *acting on it*. Issues are aggregated within a phase
@@ -77,33 +72,3 @@ effects on CDF stay fail-fast.
 | `cdf deploy` | load → plan → apply | Aggregate across load + plan. Fail before applying. Apply phase stays fail-fast (CDF side effects). |
 | `cdf clean` | load → plan → apply | Same shape as `deploy`. |
 | `cdf modules <add\|init>` | single phase | No aggregation; raise `ToolkitError` on failure. |
-
-## Why
-
-- **Eliminates whack-a-mole.** Users see all findings of a given kind
-  in one pass instead of fix-one-rerun-fix-next.
-- **Removes the `ERROR:`-but-build-passes ambiguity** flagged in
-  CDF-27907.
-- **Categorical severity removes the LOW-vs-MEDIUM bikeshed.** Author
-  rule is mechanical: "can the toolkit honour the user's intent?"
-- **Matches `ruff`'s model** that most of our users already know.
-  Suppression by rule code (planned, separate ticket) follows the
-  same pattern.
-
-## Consequences
-
-- Add `has_errors()` on the collected-issues container and consult it
-  for exit codes. Build v2's `InsightList.has_errors` is the reference.
-- Reclassify the current `HIGH`-severity warnings whose conditions
-  mean "toolkit cannot honour intent" as `ERROR`s. Tracked in
-  [CDF-27968](https://cognitedata.atlassian.net/browse/CDF-27968).
-- Rename build v2 classes so name ↔ severity agree
-  (`ModelSyntaxWarning` → `ModelSyntaxError`). Coordinate with NEAT
-  owner since the adapter at `rules/_neat.py:101` is where the rename
-  originated.
-- Long-term: converge the three severity systems
-  (`tk_warnings.SeverityLevel`, build v2 `InsightDefinition`,
-  `dataio/logger.Severity`) into one. Separate work item.
-- Assign stable rule codes (`TK001`, `TK002`, …) to every issue type
-  before shipping user-visible suppression, so renaming a class
-  doesn't break user `cdf.toml` config.
