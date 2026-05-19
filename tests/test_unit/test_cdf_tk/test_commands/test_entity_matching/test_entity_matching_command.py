@@ -17,7 +17,10 @@ def _make_module(base: Path) -> Path:
 def _make_rules_yaml(path: Path, rules: list[dict]) -> Path:
     import yaml
 
-    rules_data = {"rules": rules}
+    rules_data = {
+        "key_path": 'properties.cdf_cdm["CogniteAsset/v1"].name',
+        "rules": rules,
+    }
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(rules_data, f)
     return path
@@ -149,7 +152,8 @@ class TestEntityMatchingCommand:
         assert "aliasing_task_rule_1" in workflow_version_content
         assert "aliasing_task_rule_2" in workflow_version_content
         assert "combiner_task" in workflow_version_content
-        assert workflow_version_content.count("jsonMapping:") == 3
+        assert "key_extraction_task" in workflow_version_content
+        assert workflow_version_content.count("jsonMapping:") == 4
 
     def test_generate_aliasing_workflow_input_file_not_found(
         self,

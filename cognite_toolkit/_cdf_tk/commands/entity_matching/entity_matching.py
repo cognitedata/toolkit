@@ -7,7 +7,10 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.bootstrap.bootstrapper import (
     provide_aliasing_facade,
 )
-from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assembly import WorkflowVersionAssembly
+from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assembly import (
+    WorkflowVersionAssembly,
+    WorkflowVersionAssemblyRequest,
+)
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import YamlRulesReader
 from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
@@ -46,17 +49,24 @@ class EntityMatchingCommand(ToolkitCommand):
         workflow_version_path = output_dir / f"{stem}.WorkflowVersion.yaml"
 
         rules_reader = YamlRulesReader()
-        rules = rules_reader.read_file(str(input_yaml))
+        rules_content = rules_reader.read_file(str(input_yaml))
 
         facade = provide_aliasing_facade()
         rule_kuiper_pairs = []
-        for rule in rules:
+        for rule in rules_content.rules:
             kuiper = facade.generate([rule])
             rule_kuiper_pairs.append((rule, kuiper))
             self.console(f"Generated kuiper expression for rule '{rule.name}'")
 
         assembly = WorkflowVersionAssembly()
-        bundle = assembly.build(rule_kuiper_pairs)
+        bundle = assembly.build(
+            WorkflowVersionAssemblyRequest(
+                rule_kuiper_pairs=rule_kuiper_pairs,
+                key_path=rules_content.key_path,
+                workflow_external_id=rules_content.workflow_id,
+                workflow_description=rules_content.description,
+            )
+        )
         workflow_path.write_text(bundle.workflow_yaml, encoding="utf-8")
         self.console(f"Generated {workflow_path.as_posix()}")
 

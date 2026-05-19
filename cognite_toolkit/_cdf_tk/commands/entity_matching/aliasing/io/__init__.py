@@ -5,6 +5,16 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assem
     WorkflowBundle,
     WorkflowVersionAssembly,
 )
-from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import YamlRulesReader
+from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import (
+    RulesFileContent,
+    YamlRulesReader,
+)
 
-__all__ = ["InvalidRuleFormatError", "WorkflowBundle", "WorkflowVersionAssembly", "YamlReadError", "YamlRulesReader"]
+__all__ = [
+    "InvalidRuleFormatError",
+    "RulesFileContent",
+    "WorkflowBundle",
+    "WorkflowVersionAssembly",
+    "YamlReadError",
+    "YamlRulesReader",
+]
