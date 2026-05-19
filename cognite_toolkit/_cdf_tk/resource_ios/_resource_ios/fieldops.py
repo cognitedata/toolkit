@@ -404,7 +404,7 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
             apm_configs = self.client.infield.apm_config.list(limit=None)
         except ToolkitAPIError as e:
             if e.code == 400 and "views do not exist" in e.message:
-                # The APM_Config view isn't installed — this is a CDM-only InField project.
+                # The APM_Config view isn't setup — this is a project without legacy Infield configured.
                 return set()
             raise
         return {
