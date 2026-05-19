@@ -53,8 +53,8 @@ class AppVersionsAPI:
             )
             result = self._http_client.request_single_retries(request)
             if not isinstance(result, SuccessResponse):
-                # As of 19.05.26, the versions endpoint returns 400 (not 404) for unknown versions.
-                if isinstance(result, FailedResponse) and ignore_unknown_ids and result.status_code in (400, 404):
+                if isinstance(result, FailedResponse) and result.status_code in (400, 404) and ignore_unknown_ids:
+                    # As of 2026-05-19, the apphosting service returns 400 (not 404) for unknown versions.
                     continue
                 result.get_success_or_raise(request)
                 continue
