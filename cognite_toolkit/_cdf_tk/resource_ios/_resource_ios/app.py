@@ -141,6 +141,8 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     @classmethod
     def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
         if isinstance(item, dict):
+            if missing := tuple(k for k in {"appExternalId", "version"} if k not in item):
+                raise KeyError(*missing)
             return AppVersionId(app_external_id=item["appExternalId"], version=item["version"])
         if isinstance(item, AppVersionRequest):
             return item.as_id()
