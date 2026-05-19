@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
     DataModelInstancesAcl,
+    DataModelsAcl,
     ScopeDefinition,
     SpaceIDScope,
 )
@@ -392,10 +394,19 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        # Reading APM_Config is always required to check for legacy InField conflicts.
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+        yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
-        apm_configs = self.client.infield.apm_config.list(limit=None)
+        try:
+            apm_configs = self.client.infield.apm_config.list(limit=None)
+        except ToolkitAPIError as e:
+            if e.code == 400 and "views do not exist" in e.message:
+                # The APM_Config view isn't installed — this is a CDM-only InField project.
+                return set()
+            raise
         return {
             location.app_data_instance_space
             for config in apm_configs
