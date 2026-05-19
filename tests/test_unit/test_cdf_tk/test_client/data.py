@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
@@ -42,6 +43,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_schedules import Transfor
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -819,6 +821,10 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "parentExternalId": "root",
             "description": "Example Alert Channel",
         },
+        AppResponse: {
+            "externalId": "my-app",
+            "name": "My App",
+        },
     }
     try:
         return responses[resource_cls]
@@ -871,6 +877,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=AgentsAPI,
         ),
         id="Agent",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=AppResponse,
+            request_cls=AppRequest,
+            example_data=get_example_minimum_responses(AppResponse),
+            api_class=AppsAPI,
+        ),
+        id="App",
     )
     yield pytest.param(
         CDFResource(

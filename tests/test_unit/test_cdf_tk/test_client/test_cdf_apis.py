@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId,
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
     ChartFolderRequest,
     ChartFolderResponse,
@@ -1229,88 +1228,87 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-    def test_apps_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+    def test_apps_api_retrieve_treats_400_as_not_found(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        # The apps endpoint returns 400 (not 404) for unknown apps as of 2026-05-19.
         config = toolkit_config
         api = AppsAPI(HTTPClient(config))
-        app_external_id = "my-app"
-        app_request = AppRequest(external_id=app_external_id, name="My App")
-
-        app_json = {"externalId": app_external_id, "name": "My App"}
-        respx_mock.post(config.create_api_url("/apphosting/apps")).mock(
-            return_value=httpx.Response(status_code=201, json={"items": [app_json]})
+        respx_mock.get(config.create_api_url("/apphosting/apps/missing-app")).mock(
+            return_value=httpx.Response(status_code=400)
         )
-        created = api.create([app_request])
-        assert len(created) == 1
-        assert created[0].name == "My App"
+        assert api.retrieve([ExternalId(external_id="missing-app")], ignore_unknown_ids=True) == []
 
-        # Test retrieve
-        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=app_json)
-        )
-        retrieved = api.retrieve([ExternalId(external_id=app_external_id)])
-        assert len(retrieved) == 1
-        assert retrieved[0].name == "My App"
-
-        # Test retrieve with 404 and ignore_unknown_ids
-        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}")).mock(
-            return_value=httpx.Response(status_code=404)
-        )
-        assert api.retrieve([ExternalId(external_id=app_external_id)], ignore_unknown_ids=True) == []
-
-    def test_app_versions_api_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+    def test_app_versions_api_upload(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
-        app_external_id = "my-app"
-        version = "1.0.0"
-        version_json = {
-            "appExternalId": app_external_id,
-            "version": version,
-            "lifecycleState": "DRAFT",
-            "entrypoint": "index.html",
-        }
-        # Test upload
-        respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions")).mock(
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions")).mock(
             return_value=httpx.Response(status_code=201)
         )
-        api.upload(app_external_id, version, "index.html", b"fake-zip")
+        api.upload("my-app", "1.0.0", "index.html", b"fake-zip")
 
-        # Test update
-        respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [version_json]})
+    def test_app_versions_api_update(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": []})
         )
-        api.update(app_external_id, version, {"lifecycleState": {"set": "PUBLISHED"}})
+        api.update("my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}})
 
-        # Test retrieve
-        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/{version}")).mock(
+    def test_app_versions_api_retrieve(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        version_json = {"appExternalId": "my-app", "version": "1.0.0", "lifecycleState": "DRAFT", "entrypoint": "index.html"}
+        respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
             return_value=httpx.Response(status_code=200, json=version_json)
         )
-        version_id = AppVersionId(app_external_id=app_external_id, version=version)
-        retrieved = api.retrieve([version_id])
+        retrieved = api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")])
+
         assert len(retrieved) == 1
-        assert retrieved[0].app_external_id == app_external_id
-        assert retrieved[0].version == version
+        assert retrieved[0].app_external_id == "my-app"
+        assert retrieved[0].version == "1.0.0"
         assert retrieved[0].lifecycle_state == "DRAFT"
 
-        # Test retrieve with 404 and ignore_unknown_ids
-        respx_mock.get(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/{version}")).mock(
-            return_value=httpx.Response(status_code=404)
+    def test_app_versions_api_retrieve_treats_400_as_not_found(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        # The versions endpoint returns 400 (not 404) for unknown versions as of 2026-05-19.
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
+            return_value=httpx.Response(status_code=400)
         )
-        assert api.retrieve([version_id], ignore_unknown_ids=True) == []
+        assert api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")], ignore_unknown_ids=True) == []
 
-        # Test iterate
+    def test_app_versions_api_iterate(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        version_json = {"appExternalId": "my-app", "version": "1.0.0", "lifecycleState": "DRAFT", "entrypoint": "index.html"}
         respx_mock.post(config.create_api_url("/apphosting/versions/list")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [version_json]})
         )
         batches = list(api.iterate(limit=10))
-        assert len(batches) == 1
-        assert batches[0][0].version == version
 
-        # Test delete
-        respx_mock.post(config.create_api_url(f"/apphosting/apps/{app_external_id}/versions/delete")).mock(
+        assert len(batches) == 1
+        assert batches[0][0].version == "1.0.0"
+
+    def test_app_versions_api_delete(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/delete")).mock(
             return_value=httpx.Response(status_code=200)
         )
-        api.delete([AppVersionId(app_external_id=app_external_id, version=version)])
-        assert len(respx_mock.calls) >= 1
+        api.delete([AppVersionId(app_external_id="my-app", version="1.0.0")])
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:
