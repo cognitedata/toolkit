@@ -35,6 +35,13 @@ class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
     dependencies = frozenset({ContainerCRUD})
     _doc_url = "Streams/operation/createStream"
     support_update = False
+    drop_confirmation_message = (
+        "WARNING: Streams are soft-deleted for 6 weeks after deletion. "
+        "During this period, a stream with the same external ID cannot be recreated, "
+        "and the stream can only be recovered by contacting Cognite Support. "
+        "Any associated data in records will be permanently lost once this period ends. "
+        "Are you sure you want to proceed with deletion?"
+    )
 
     @property
     def display_name(self) -> str:

@@ -37,6 +37,12 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
     yaml_cls = AppYAML
     dependencies = frozenset({GroupAllScopedCRUD})
     _doc_url = "Apps/operation/appsCreate"
+    drop_confirmation_message = (
+        "WARNING: Apps are soft-deleted for up to 30 days after deletion. "
+        "During this period an app with the same external ID cannot be recreated, "
+        "and all its versions will also be deleted. "
+        "Are you sure you want to proceed with deletion?"
+    )
 
     @property
     def display_name(self) -> str:

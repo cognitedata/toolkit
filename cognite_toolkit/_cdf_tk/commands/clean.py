@@ -143,6 +143,10 @@ class CleanCommand(ToolkitCommand):
                 print(f"  Would have deleted {_print_ids_or_length(resource_ids)}.")
             return nr_of_deleted
 
+        if loader.drop_confirmation_message:
+            if not questionary.confirm(loader.drop_confirmation_message, default=False).ask():
+                return 0
+
         try:
             nr_of_deleted += loader.delete(resource_ids)
         except CogniteAPIError as e:
