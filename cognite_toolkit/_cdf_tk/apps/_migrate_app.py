@@ -1551,7 +1551,7 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = MigrationCommand(client=client)
-        apm_configs = []
+        apm_configs = client.infield.apm_config.list(limit=None)
         source_candidates = {
             location.app_data_instance_space
             for config in apm_configs
@@ -1560,9 +1560,13 @@ class MigrateApp(typer.Typer):
             if location.app_data_instance_space
         }
         infield_cdm_configs = client.infield.cdm_config.list(limit=None)
-        target_candidates = []
-        # if not source_candidates:
-        #     raise typer.BadParameter("No APM Configurations with app data space found. Cannot migrate Infield data.")
+        target_candidates = {
+            config.data_storage.app_instance_space
+            for config in infield_cdm_configs
+            if config.data_storage and config.data_storage.app_instance_space
+        }
+        if not source_candidates:
+            raise typer.BadParameter("No APM Configurations with app data space found. Cannot migrate Infield data.")
         if not target_candidates:
             raise typer.BadParameter(
                 "No InfieldOnCDM Configurations with app instance space found. Cannot migrate Infield data. "
