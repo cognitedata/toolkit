@@ -2,7 +2,6 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import App
 
 LifecycleState = Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"]
 
@@ -14,18 +13,13 @@ class AppVersion(BaseModelObject):
     entrypoint: str = "index.html"
 
 
-class AppVersionRequest(App, AppVersion, RequestResource):
-    """Toolkit write class — the union of App (externalId/name/description) and AppVersion
-    (version/lifecycleState/alias/entrypoint) fields, matching the single-YAML user experience.
+class AppVersionRequest(AppVersion, RequestResource):
+    """Write class for POST /apphosting/apps/{externalId}/versions."""
 
-    The App Hosting API splits these across two endpoints: POST /apphosting/apps and
-    POST /apphosting/apps/{id}/versions. AppIO._deploy splits this object into both calls.
-    AppVersionResponse uses app_external_id (not external_id) and omits name/description because
-    the versions API wire format differs from the user-facing YAML representation.
-    """
+    app_external_id: str
 
     def as_id(self) -> AppVersionId:
-        return AppVersionId(app_external_id=self.external_id, version=self.version)
+        return AppVersionId(app_external_id=self.app_external_id, version=self.version)
 
 
 class AppVersionResponse(AppVersion, ResponseResource[AppVersionRequest]):
