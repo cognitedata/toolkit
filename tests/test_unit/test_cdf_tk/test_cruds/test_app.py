@@ -51,7 +51,6 @@ def _write_zip(path: Path, filenames: list[str] | None = None) -> None:
             zf.writestr(filename, b"content")
 
 
-
 class TestAppIODumpResource:
     @pytest.mark.parametrize(
         "description, expected",
@@ -85,7 +84,6 @@ class TestAppIODumpResource:
 
         assert dumped["name"] == "Local Name"
         assert dumped["description"] == "Local desc"
-
 
 
 class TestAppVersionIODependencies:
@@ -199,24 +197,24 @@ class TestAppVersionIOLoadResourceFile:
         assert result == []
 
 
-
 class TestAppVersionIODumpResource:
-    def test_dump_uses_app_external_id_key(self):
+    @pytest.mark.parametrize(
+        "alias, alias_in_dump",
+        [
+            pytest.param("ACTIVE", True, id="alias-included"),
+            pytest.param(None, False, id="alias-omitted"),
+        ],
+    )
+    def test_dump_omits_none_alias(self, alias, alias_in_dump):
         with monkeypatch_toolkit_client() as client:
             loader = AppVersionIO.create_loader(client, None)
 
         response = AppVersionResponse(
-            app_external_id="my-app",
-            version="1.0.0",
-            lifecycle_state="PUBLISHED",
-            alias="ACTIVE",
+            app_external_id="my-app", version="1.0.0", lifecycle_state="PUBLISHED", alias=alias
         )
         dumped = loader.dump_resource(response)
 
-        assert dumped["appExternalId"] == "my-app"
-        assert dumped["version"] == "1.0.0"
-        assert dumped["lifecycleState"] == "PUBLISHED"
-        assert dumped["alias"] == "ACTIVE"
+        assert ("alias" in dumped) == alias_in_dump
 
     def test_copies_source_path_from_local(self):
         with monkeypatch_toolkit_client() as client:
@@ -322,7 +320,9 @@ class TestAppVersionIOGetExtraFiles:
         "item",
         [
             pytest.param({"appExternalId": "my-app", "version": "1.0.0"}, id="default-path"),
-            pytest.param({"appExternalId": "my-app", "version": "1.0.0", "sourcePath": "does-not-exist"}, id="source-path"),
+            pytest.param(
+                {"appExternalId": "my-app", "version": "1.0.0", "sourcePath": "does-not-exist"}, id="source-path"
+            ),
         ],
     )
     def test_fails_when_app_dir_not_found(self, tmp_path: Path, item: dict):

@@ -1239,9 +1239,7 @@ class TestCDFResourceAPI:
         )
         assert api.retrieve([ExternalId(external_id="missing-app")], ignore_unknown_ids=True) == []
 
-    def test_app_versions_api_upload(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_app_versions_api_upload(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions")).mock(
@@ -1249,9 +1247,7 @@ class TestCDFResourceAPI:
         )
         api.upload("my-app", "1.0.0", "index.html", b"fake-zip")
 
-    def test_app_versions_api_update(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_app_versions_api_update(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/update")).mock(
@@ -1259,12 +1255,15 @@ class TestCDFResourceAPI:
         )
         api.update("my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}})
 
-    def test_app_versions_api_retrieve(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_app_versions_api_retrieve(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
-        version_json = {"appExternalId": "my-app", "version": "1.0.0", "lifecycleState": "DRAFT", "entrypoint": "index.html"}
+        version_json = {
+            "appExternalId": "my-app",
+            "version": "1.0.0",
+            "lifecycleState": "DRAFT",
+            "entrypoint": "index.html",
+        }
         respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
             return_value=httpx.Response(status_code=200, json=version_json)
         )
@@ -1286,12 +1285,15 @@ class TestCDFResourceAPI:
         )
         assert api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")], ignore_unknown_ids=True) == []
 
-    def test_app_versions_api_iterate(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_app_versions_api_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
-        version_json = {"appExternalId": "my-app", "version": "1.0.0", "lifecycleState": "DRAFT", "entrypoint": "index.html"}
+        version_json = {
+            "appExternalId": "my-app",
+            "version": "1.0.0",
+            "lifecycleState": "DRAFT",
+            "entrypoint": "index.html",
+        }
         respx_mock.post(config.create_api_url("/apphosting/versions/list")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [version_json]})
         )
@@ -1300,9 +1302,7 @@ class TestCDFResourceAPI:
         assert len(batches) == 1
         assert batches[0][0].version == "1.0.0"
 
-    def test_app_versions_api_delete(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_app_versions_api_delete(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/delete")).mock(
