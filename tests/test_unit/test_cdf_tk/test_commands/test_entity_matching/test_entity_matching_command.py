@@ -148,7 +148,8 @@ class TestEntityMatchingCommand:
 
         assert "aliasing_task_rule_1" in workflow_version_content
         assert "aliasing_task_rule_2" in workflow_version_content
-        assert workflow_version_content.count("jsonMapping:") == 2
+        assert "combiner_task" in workflow_version_content
+        assert workflow_version_content.count("jsonMapping:") == 3
 
     def test_generate_aliasing_workflow_input_file_not_found(
         self,

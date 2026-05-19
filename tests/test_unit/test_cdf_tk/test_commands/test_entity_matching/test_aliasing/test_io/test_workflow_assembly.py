@@ -334,3 +334,250 @@ class TestWorkflowVersionAssembly:
         result = assembly.build([(rule, kuiper)])
 
         assert "aliasing_task_rule_with_underscores_name" in result.workflow_version_yaml
+
+    def test_when_build_called_with_single_rule_then_combiner_task_created(
+        self, assembly: WorkflowVersionAssembly, simple_rule: AliasingRule, simple_kuiper: AliasingKuiper
+    ) -> None:
+        result = assembly.build([(simple_rule, simple_kuiper)])
+
+        assert "externalId: combiner_task" not in result.workflow_version_yaml
+
+    def test_when_build_called_with_multiple_rules_then_combiner_task_created(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "externalId: combiner_task" in result.workflow_version_yaml
+        assert "type: jsonMapping" in result.workflow_version_yaml
+
+    def test_when_build_called_then_combiner_task_has_correct_name(self, assembly: WorkflowVersionAssembly) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "name: Combiner" in result.workflow_version_yaml
+
+    def test_when_build_called_then_combiner_task_has_correct_description(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "description: Combines results from all aliasing tasks" in result.workflow_version_yaml
+
+    def test_when_build_called_with_multiple_rules_then_combiner_depends_on_aliasing_tasks(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "dependsOn:" in result.workflow_version_yaml
+        assert "- externalId: aliasing_task_rule1" in result.workflow_version_yaml
+        assert "- externalId: aliasing_task_rule2" in result.workflow_version_yaml
+
+    def test_when_build_called_then_combiner_includes_kuiper_expression(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "#get_external_ids :=" in result.workflow_version_yaml
+        assert "#get_aliases_for_group :=" in result.workflow_version_yaml
+        assert "get_external_ids(input.aliasing_task_results)" in result.workflow_version_yaml
+
+    def test_when_build_called_then_combiner_has_aliasing_task_results_input(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "aliasing_task_results" in result.workflow_version_yaml
+
+    def test_when_build_called_with_multiple_rules_then_combiner_input_includes_task_outputs(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule_one",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule_two",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "${aliasing_task_rule_one.output.result}" in result.workflow_version_yaml
+        assert "${aliasing_task_rule_two.output.result}" in result.workflow_version_yaml
+
+    def test_when_build_called_then_combiner_task_placed_after_aliasing_tasks(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        aliasing_task_pos = result.workflow_version_yaml.find("externalId: aliasing_task_rule1")
+        combiner_task_pos = result.workflow_version_yaml.find("externalId: combiner_task")
+
+        assert aliasing_task_pos != -1
+        assert combiner_task_pos != -1
+        assert aliasing_task_pos < combiner_task_pos
+
+    def test_when_build_called_then_combiner_has_proper_parameters(self, assembly: WorkflowVersionAssembly) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert "retries: 0" in result.workflow_version_yaml
+        assert "onFailure: abortWorkflow" in result.workflow_version_yaml
+
+    def test_when_build_called_with_expression_containing_quotes_then_combiner_expression_escaped(
+        self, assembly: WorkflowVersionAssembly
+    ) -> None:
+        rule1 = AliasingRule(
+            name="rule1",
+            rule_type="character_substitution",
+            description="Rule 1",
+            payload={},
+        )
+        kuiper1 = AliasingKuiper(expression="expr1")
+
+        rule2 = AliasingRule(
+            name="rule2",
+            rule_type="character_substitution",
+            description="Rule 2",
+            payload={},
+        )
+        kuiper2 = AliasingKuiper(expression="expr2")
+
+        result = assembly.build([(rule1, kuiper1), (rule2, kuiper2)])
+
+        assert '\\"external_id\\"' in result.workflow_version_yaml
+        assert '\\"space\\"' in result.workflow_version_yaml
+        assert '\\"aliases\\"' in result.workflow_version_yaml
