@@ -45,8 +45,8 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
             result = self._http_client.request_single_retries(request)
             if isinstance(result, SuccessResponse):
                 results.append(AppResponse.model_validate_json(result.body))
-            elif isinstance(result, FailedResponse) and ignore_unknown_ids and result.status_code in (400, 404):
-                # As of 19.05.26, the apps endpoint returns 400 (not 404) for unknown apps.
+            elif isinstance(result, FailedResponse) and result.status_code in (400, 404) and ignore_unknown_ids:
+                # As of 2026-05-19, the apphosting service returns 400 (not 404) for unknown apps.
                 continue
             else:
                 result.get_success_or_raise(request)
