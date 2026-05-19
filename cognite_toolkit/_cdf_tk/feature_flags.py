@@ -83,7 +83,7 @@ class Flags(Enum):
         description="Enables the entity-matching command family under the dev plugin",
     )
     CUSTOM_APPS = FlagMetadata(
-        visible=False,
+        visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
     )
 
