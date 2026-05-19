@@ -1,3 +1,4 @@
+key_path: 'properties.name'
 rules:
   - name: "composite_case_regexp_prefix"
     rule_type: "composite"

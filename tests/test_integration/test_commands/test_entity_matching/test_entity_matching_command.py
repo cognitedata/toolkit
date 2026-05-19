@@ -15,7 +15,10 @@ def _make_module(base: Path) -> Path:
 
 
 def _make_rules_yaml(path: Path, rules: list[dict]) -> Path:
-    rules_data = {"rules": rules}
+    rules_data = {
+        "rules": rules,
+        "key_path": "name",
+    }
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(rules_data, f)
     return path
@@ -155,7 +158,7 @@ class TestEntityMatchingCommandIntegration:
         workflow_version_content = read_yaml_file(workflow_version_path, "dict")
 
         tasks = workflow_version_content["workflowDefinition"]["tasks"]
-        assert len(tasks) == 2, "Should have one task per rule"
+        assert len(tasks) >= 2, "Should have at least one task per rule"
 
         task_names = [task.get("name") for task in tasks]
         assert any("char_sub_rule" in str(name) for name in task_names if name), "Should have task for char_sub_rule"

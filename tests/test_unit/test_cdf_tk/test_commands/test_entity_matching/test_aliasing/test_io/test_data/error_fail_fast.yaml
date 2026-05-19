@@ -1,3 +1,4 @@
+key_path: 'properties.name'
 rules:
   - name: "first_rule"
     rule_type: "character_substitution"

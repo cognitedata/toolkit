@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import yaml
@@ -6,13 +7,29 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.errors import InvalidRuleFormatError, YamlReadError
 
 
+@dataclass(frozen=True)
+class RulesFileContent:
+    rules: list[AliasingRule]
+    key_path: str
+    workflow_id: str = "entity_matching_aliasing"
+    description: str = "Entity matching aliasing workflow"
+
+
 class YamlRulesReader:
     REQUIRED_FIELDS: ClassVar[set[str]] = {"name", "rule_type", "description", "payload"}
+    REQUIRED_ROOT_FIELDS: ClassVar[set[str]] = {"rules", "key_path"}
 
-    def read_file(self, file_path: str) -> list[AliasingRule]:
+    def read_file(self, file_path: str) -> RulesFileContent:
         raw_data = self._load_yaml_file(file_path)
-        self._validate_rules_key_exists(raw_data, file_path)
+        self._validate_root_structure(raw_data, file_path)
 
+        key_path = self._extract_and_validate_key_path(raw_data, file_path)
+        workflow_id = self._extract_and_validate_optional_string(
+            raw_data, "workflow_id", "entity_matching_aliasing", file_path
+        )
+        description = self._extract_and_validate_optional_string(
+            raw_data, "description", "Entity matching aliasing workflow", file_path
+        )
         rules_data = raw_data.get("rules")
         self._validate_rules_is_list(rules_data, file_path)
 
@@ -21,7 +38,7 @@ class YamlRulesReader:
             rule = self._validate_and_construct_rule(rule_data, index)
             rules.append(rule)
 
-        return rules
+        return RulesFileContent(rules=rules, key_path=key_path, workflow_id=workflow_id, description=description)
 
     def _load_yaml_file(self, file_path: str) -> Any:
         try:
@@ -42,6 +59,65 @@ class YamlRulesReader:
                 f"Error reading file: {e!s}",
                 file_path=file_path,
             ) from e
+
+    def _validate_root_structure(self, raw_data: Any, file_path: str) -> None:
+        if raw_data is None:
+            raise YamlReadError(
+                "YAML file is empty or contains only comments",
+                file_path=file_path,
+            )
+
+        if not isinstance(raw_data, dict):
+            raise YamlReadError(
+                f"Root of YAML must be a mapping (dictionary), found: {type(raw_data).__name__}",
+                file_path=file_path,
+            )
+
+        missing_fields = self.REQUIRED_ROOT_FIELDS - set(raw_data.keys())
+        if missing_fields:
+            raise YamlReadError(
+                f"Missing required root fields: {sorted(missing_fields)}. Found keys: {list(raw_data.keys())}",
+                file_path=file_path,
+            )
+
+    def _extract_and_validate_key_path(self, raw_data: Any, file_path: str) -> str:
+        key_path = raw_data.get("key_path")
+
+        if not isinstance(key_path, str):
+            raise YamlReadError(
+                f"'key_path' must be a string, found: {type(key_path).__name__}",
+                file_path=file_path,
+            )
+
+        if not key_path.strip():
+            raise YamlReadError(
+                "'key_path' cannot be empty or whitespace-only",
+                file_path=file_path,
+            )
+
+        return key_path
+
+    def _extract_and_validate_optional_string(
+        self, raw_data: Any, field_name: str, default_value: str, file_path: str
+    ) -> str:
+        value = raw_data.get(field_name)
+
+        if value is None:
+            return default_value
+
+        if not isinstance(value, str):
+            raise YamlReadError(
+                f"'{field_name}' must be a string, found: {type(value).__name__}",
+                file_path=file_path,
+            )
+
+        if not value.strip():
+            raise YamlReadError(
+                f"'{field_name}' cannot be empty or whitespace-only",
+                file_path=file_path,
+            )
+
+        return value
 
     def _validate_rules_key_exists(self, raw_data: Any, file_path: str) -> None:
         if raw_data is None:
