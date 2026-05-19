@@ -1,6 +1,6 @@
 """AppsAPI: Custom apps deployed via the CDF App Hosting API."""
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
@@ -20,6 +20,8 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/apphosting/apps", item_limit=1),
                 "retrieve": Endpoint(method="GET", path="/apphosting/apps/{externalId}", item_limit=1),
+                "list": Endpoint(method="POST", path="/apphosting/apps/list", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/apphosting/apps/delete", item_limit=100),
             },
         )
         self.versions = AppVersionsAPI(http_client)
@@ -48,3 +50,11 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
             else:
                 result.get_success_or_raise(request)
         return results
+
+    def delete(self, external_ids: Sequence[ExternalId]) -> None:
+        """POST /apphosting/apps/delete — delete apps (cascades to all versions)."""
+        self._request_no_response(external_ids, "delete")
+
+    def iterate(self, limit: int | None = 100) -> Iterable[list[AppResponse]]:
+        """POST /apphosting/apps/list — paginated list of all apps."""
+        return self._iterate(limit=limit)

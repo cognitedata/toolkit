@@ -8,8 +8,8 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -21,22 +21,107 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
-from cognite_toolkit._cdf_tk.yaml_classes import AppsYAML
+from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
 
 from .auth import GroupAllScopedCRUD
 
 
 @final
-class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
+class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
     support_drop = True
+    support_update = False
+    folder_name = "apps"
+    resource_cls = AppResponse
+    resource_write_cls = AppRequest
+    kind = "App"
+    yaml_cls = AppYAML
+    dependencies = frozenset({GroupAllScopedCRUD})
+    _doc_url = "Apps/operation/appsCreate"
+
+    @property
+    def display_name(self) -> str:
+        return "apps"
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[AppRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope):
+            yield AppHostingAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_id(cls, item: AppResponse | AppRequest | dict[str, Any]) -> ExternalId:
+        if isinstance(item, dict):
+            if "externalId" not in item:
+                raise ToolkitRequiredValueError("App YAML must define externalId.")
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, identifier: ExternalId) -> dict[str, Any]:
+        return identifier.dump()
+
+    @classmethod
+    def as_str(cls, identifier: ExternalId) -> str:
+        return str(identifier)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        return []
+
+    @classmethod
+    def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        return []
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AppRequest:
+        return AppRequest.model_validate(resource)
+
+    def dump_resource(self, resource: AppResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        local = local or {}
+        dumped: dict[str, Any] = {"externalId": resource.external_id, "name": resource.name}
+        if resource.description is not None:
+            dumped["description"] = resource.description
+        # name and description are app-level and immutable post-create; always use local values to suppress stale diff.
+        for immutable_key in ("name", "description"):
+            if immutable_key in local:
+                dumped[immutable_key] = local[immutable_key]
+        return dumped
+
+    def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
+        return self.client.tool.apps.create(list(items))
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
+        return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def delete(self, ids: Sequence[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.apps.delete(list(ids))
+        return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[AppResponse]:
+        for page in self.client.tool.apps.iterate():
+            yield from page
+
+
+@final
+class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
+    support_drop = True
+    support_update = True
     folder_name = "apps"
     resource_cls = AppVersionResponse
     resource_write_cls = AppVersionRequest
-    kind = "App"
-    yaml_cls = AppsYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    kind = "AppVersion"
+    yaml_cls = AppVersionYAML
+    dependencies = frozenset({AppIO, GroupAllScopedCRUD})
     _doc_url = "Apps/operation/appsCreate"
-    support_update = True
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
@@ -44,7 +129,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
 
     @property
     def display_name(self) -> str:
-        return "apps"
+        return "app versions"
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AppVersionRequest]) -> ScopeDefinition:
@@ -58,18 +143,9 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
     @classmethod
     def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
         if isinstance(item, dict):
-            ext = (
-                item.get("appExternalId")
-                or item.get("app_external_id")
-                or item.get("externalId")
-                or item.get("external_id")
-            )
-            version = item.get("version")
-            if ext is None:
-                raise ToolkitRequiredValueError("App YAML must define externalId.")
-            if version is None:
-                raise ToolkitRequiredValueError("App YAML must define version.")
-            return AppVersionId(app_external_id=ext, version=version)
+            if missing := tuple(k for k in {"appExternalId", "version"} if k not in item):
+                raise ToolkitRequiredValueError(f"AppVersion YAML must define {', '.join(missing)}.")
+            return AppVersionId(app_external_id=item["appExternalId"], version=item["version"])
         if isinstance(item, AppVersionRequest):
             return item.as_id()
         return AppVersionId(app_external_id=item.app_external_id, version=item.version)
@@ -84,11 +160,12 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        return []
+        if app_external_id := item.get("appExternalId"):
+            yield AppIO, ExternalId(external_id=app_external_id)
 
     @classmethod
-    def get_dependencies(cls, resource: AppsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        return []
+    def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield AppIO, ExternalId(external_id=resource.app_external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: AppVersionId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -103,7 +180,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             yield FailedReadExtra(
                 code="MISSING",
                 error=(
-                    f"App directory not found for externalId {app_external_id!r}. "
+                    f"App directory not found for appExternalId {app_external_id!r}. "
                     f"Expected {app_root.as_posix()} to exist."
                 ),
                 source_path=app_root,
@@ -200,12 +277,12 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
 
         raw_list = super().load_resource_file(filepath, environment_variables)
         for item in raw_list:
-            app_external_id = item.get("externalId") or item.get("external_id")
+            app_external_id = item.get("appExternalId")
             if not app_external_id:
-                raise ToolkitRequiredValueError("App YAML must define externalId.")
+                raise ToolkitRequiredValueError("AppVersion YAML must define appExternalId.")
             version = item.get("version")
             if not version:
-                raise ToolkitRequiredValueError("App YAML must define version.")
+                raise ToolkitRequiredValueError("AppVersion YAML must define version.")
             filestem = filepath.stem.rsplit(".", 1)[0]
             version_id = AppVersionId(app_external_id=app_external_id, version=version)
             self.zip_path_by_version_id[version_id] = filepath.parent / f"{filestem}.zip"
@@ -218,17 +295,13 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
     def dump_resource(self, resource: AppVersionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         local = local or {}
         dumped: dict[str, Any] = {
-            "externalId": resource.app_external_id,
+            "appExternalId": resource.app_external_id,
             "version": resource.version,
             "lifecycleState": resource.lifecycle_state,
             "entrypoint": resource.entrypoint,
         }
         if resource.alias is not None:
             dumped["alias"] = resource.alias
-        # name and description are app-level and immutable post-create; always use local values to suppress stale diff.
-        for immutable_key in ("name", "description"):
-            if immutable_key in local:
-                dumped[immutable_key] = local[immutable_key]
         for local_only_key in ("sourcePath", "source_path"):
             if local_only_key in local:
                 dumped[local_only_key] = local[local_only_key]
@@ -239,19 +312,12 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         zip_path = self.zip_path_by_version_id.get(version_id)
         if zip_path is None or not zip_path.exists():
             raise ToolkitRequiredValueError(
-                f"App zip not found for {item.external_id!r} version {item.version!r}. Ensure build was run first."
+                f"App zip not found for {item.app_external_id!r} version {item.version!r}. Ensure build was run first."
             )
-        try:
-            self.client.tool.apps.create(
-                [AppRequest(external_id=item.external_id, name=item.name, description=item.description)]
-            )
-        except ToolkitAPIError as error:
-            if error.code != 409:
-                raise
         zip_bytes = zip_path.read_bytes()
         try:
             self.client.tool.apps.versions.upload(
-                external_id=item.external_id,
+                external_id=item.app_external_id,
                 version=item.version,
                 entrypoint=item.entrypoint,
                 zip_bytes=zip_bytes,
@@ -262,10 +328,10 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         update: dict[str, Any] = {"lifecycleState": {"set": item.lifecycle_state}}
         if "alias" in item.model_fields_set:
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
-        self.client.tool.apps.versions.update(item.external_id, item.version, update)
+        self.client.tool.apps.versions.update(item.app_external_id, item.version, update)
 
         return AppVersionResponse(
-            app_external_id=item.external_id,
+            app_external_id=item.app_external_id,
             version=item.version,
             lifecycle_state=item.lifecycle_state,
             alias=item.alias,

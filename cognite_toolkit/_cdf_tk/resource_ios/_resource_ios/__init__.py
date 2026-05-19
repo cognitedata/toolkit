@@ -1,5 +1,5 @@
 from .agent import AgentIO
-from .app import AppIO
+from .app import AppIO, AppVersionIO
 from .auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
 from .classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from .configuration import SearchConfigIO
@@ -56,6 +56,7 @@ from .workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 __all__ = [
     "AgentIO",
     "AppIO",
+    "AppVersionIO",
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",

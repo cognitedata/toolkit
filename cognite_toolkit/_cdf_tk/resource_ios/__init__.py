@@ -22,6 +22,7 @@ from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_ios import (
     AgentIO,
     AppIO,
+    AppVersionIO,
     AssetIO,
     CogniteFileCRUD,
     ContainerCRUD,
@@ -105,6 +106,7 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(RuleSetVersionIO)
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
+    _EXCLUDED_CRUDS.add(AppVersionIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -203,6 +205,7 @@ __all__ = [
     "_EXCLUDED_CRUDS",
     "AgentIO",
     "AppIO",
+    "AppVersionIO",
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
