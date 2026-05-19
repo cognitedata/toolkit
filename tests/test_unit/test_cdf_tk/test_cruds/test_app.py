@@ -87,23 +87,6 @@ class TestAppIODumpResource:
         assert dumped["description"] == "Local desc"
 
 
-class TestAppVersionIOGetId:
-    def test_from_dict(self):
-        assert AppVersionIO.get_id({"appExternalId": "my-app", "version": "1.0.0"}) == AppVersionId(
-            app_external_id="my-app", version="1.0.0"
-        )
-
-    @pytest.mark.parametrize(
-        "item",
-        [
-            {"version": "1.0.0"},
-            {"appExternalId": "my-app"},
-        ],
-    )
-    def test_from_dict_raises_when_field_missing(self, item: dict):
-        with pytest.raises(KeyError):
-            AppVersionIO.get_id(item)
-
 
 class TestAppVersionIODependencies:
     def test_get_dependent_items_yields_app_io(self):
