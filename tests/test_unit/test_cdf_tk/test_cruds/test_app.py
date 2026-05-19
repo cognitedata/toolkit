@@ -314,8 +314,8 @@ class TestAppIOGetExtraFiles:
             names = zf.namelist()
         assert any("index.html" in n for n in names)
         assert any("bundle.js" in n for n in names)
-        assert "package.json" in names
-        assert "package-lock.json" in names
+        assert ".cognite/package.json" in names
+        assert ".cognite/package-lock.json" in names
 
     def test_falls_back_to_root_without_dist(self, tmp_path: Path):
         app_dir = tmp_path / "my-app"

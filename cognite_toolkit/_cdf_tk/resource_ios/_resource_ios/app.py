@@ -176,8 +176,14 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
                 )
                 return
 
+        cognite_files = [package_json, package_lock]
+        if manifest_json.is_file():
+            cognite_files.append(manifest_json)
         source_hash = calculate_directory_hash(source_dir)
-        zip_bytes = create_zip_in_memory(source_dir)
+        zip_bytes = create_zip_in_memory(
+            source_dir,
+            additional_files={f".cognite/{f.name}": f for f in cognite_files},
+        )
         yield SuccessExtra(
             source_path=source_dir,
             source_hash=source_hash,
