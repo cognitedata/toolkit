@@ -56,7 +56,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict) -> AppVersionId:
+    def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
         if isinstance(item, dict):
             ext = (
                 item.get("appExternalId")
@@ -83,7 +83,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         return str(identifier)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+    def get_dependent_items(cls, item: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         return []
 
     @classmethod
@@ -259,7 +259,7 @@ class AppIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
         except ToolkitAPIError as error:
             if error.code != 409:
                 raise
-        update: dict = {"lifecycleState": {"set": item.lifecycle_state}}
+        update: dict[str, Any] = {"lifecycleState": {"set": item.lifecycle_state}}
         if "alias" in item.model_fields_set:
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
         self.client.tool.apps.versions.update(item.external_id, item.version, update)
