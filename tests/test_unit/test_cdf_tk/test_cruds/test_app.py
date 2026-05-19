@@ -56,7 +56,7 @@ class TestAppIOGetId:
         assert AppIO.get_id({"externalId": "my-app"}) == ExternalId(external_id="my-app")
 
     def test_from_dict_raises_when_field_missing(self):
-        with pytest.raises(ToolkitRequiredValueError, match="externalId"):
+        with pytest.raises(KeyError):
             AppIO.get_id({})
 
     @pytest.mark.parametrize(
@@ -149,14 +149,14 @@ class TestAppVersionIOGetId:
         )
 
     @pytest.mark.parametrize(
-        "item, match",
+        "item",
         [
-            ({"version": "1.0.0"}, "appExternalId"),
-            ({"appExternalId": "my-app"}, "version"),
+            {"version": "1.0.0"},
+            {"appExternalId": "my-app"},
         ],
     )
-    def test_from_dict_raises_when_field_missing(self, item: dict, match: str):
-        with pytest.raises(ToolkitRequiredValueError, match=match):
+    def test_from_dict_raises_when_field_missing(self, item: dict):
+        with pytest.raises(KeyError):
             AppVersionIO.get_id(item)
 
     @pytest.mark.parametrize(
@@ -254,8 +254,10 @@ class TestAppVersionIODeploy:
     def test_deploy_raises_when_zip_missing(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
             loader = AppVersionIO.create_loader(client, tmp_path)
-            item = _make_app_version_request(app_external_id="missing-app")
-            with pytest.raises(ToolkitRequiredValueError, match="missing-app"):
+            version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
+            loader.zip_path_by_version_id[version_id] = tmp_path / "my-app.zip"  # registered but not on disk
+            item = _make_app_version_request()
+            with pytest.raises(ToolkitRequiredValueError, match="my-app"):
                 loader.create([item])
 
     def test_deploy_returns_response_with_correct_fields(self, version_io_with_zip):

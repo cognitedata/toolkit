@@ -54,8 +54,6 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
     @classmethod
     def get_id(cls, item: AppResponse | AppRequest | dict[str, Any]) -> ExternalId:
         if isinstance(item, dict):
-            if "externalId" not in item:
-                raise ToolkitRequiredValueError("App YAML must define externalId.")
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
 
@@ -143,8 +141,6 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     @classmethod
     def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"appExternalId", "version"} if k not in item):
-                raise ToolkitRequiredValueError(f"AppVersion YAML must define {', '.join(missing)}.")
             return AppVersionId(app_external_id=item["appExternalId"], version=item["version"])
         if isinstance(item, AppVersionRequest):
             return item.as_id()
@@ -211,7 +207,6 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
                     f"Could not locate entrypoint {entrypoint!r} for app {app_external_id!r}. "
                     f"Expected {(dist_dir / entrypoint).as_posix()} or "
                     f"{(app_root / entrypoint).as_posix()} to exist. "
-                    f"If your app has a build step, run it before deploying with Toolkit."
                 ),
                 source_path=app_root,
             )
@@ -277,14 +272,8 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
         raw_list = super().load_resource_file(filepath, environment_variables)
         for item in raw_list:
-            app_external_id = item.get("appExternalId")
-            if not app_external_id:
-                raise ToolkitRequiredValueError("AppVersion YAML must define appExternalId.")
-            version = item.get("version")
-            if not version:
-                raise ToolkitRequiredValueError("AppVersion YAML must define version.")
             filestem = filepath.stem.rsplit(".", 1)[0]
-            version_id = AppVersionId(app_external_id=app_external_id, version=version)
+            version_id = AppVersionId(app_external_id=item["appExternalId"], version=item["version"])
             self.zip_path_by_version_id[version_id] = filepath.parent / f"{filestem}.zip"
 
         return raw_list
@@ -309,8 +298,8 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
     def _deploy(self, item: AppVersionRequest) -> AppVersionResponse:
         version_id = item.as_id()
-        zip_path = self.zip_path_by_version_id.get(version_id)
-        if zip_path is None or not zip_path.exists():
+        zip_path = self.zip_path_by_version_id[version_id]
+        if not zip_path.exists():
             raise ToolkitRequiredValueError(
                 f"App zip not found for {item.app_external_id!r} version {item.version!r}. Ensure build was run first."
             )
