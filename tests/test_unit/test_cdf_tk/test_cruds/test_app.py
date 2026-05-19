@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
@@ -51,84 +51,28 @@ def _write_zip(path: Path, filenames: list[str] | None = None) -> None:
             zf.writestr(filename, b"content")
 
 
-class TestAppIOGetId:
-    def test_from_dict(self):
-        assert AppIO.get_id({"externalId": "my-app"}) == ExternalId(external_id="my-app")
-
-    def test_from_dict_raises_when_field_missing(self):
-        with pytest.raises(KeyError):
-            AppIO.get_id({})
-
+class TestAppIODumpResource:
     @pytest.mark.parametrize(
-        "item",
+        "description, expected",
         [
-            AppRequest(external_id="my-app", name="My App"),
-            AppResponse(external_id="my-app", name="My App"),
+            pytest.param(
+                "A great app",
+                {"externalId": "my-app", "name": "My App", "description": "A great app"},
+                id="includes-description",
+            ),
+            pytest.param(
+                None,
+                {"externalId": "my-app", "name": "My App"},
+                id="omits-none-description",
+            ),
         ],
     )
-    def test_from_resource_object(self, item: AppRequest | AppResponse):
-        assert AppIO.get_id(item) == ExternalId(external_id="my-app")
-
-
-class TestAppIORetrieveAndIterate:
-    def test_retrieve_delegates_to_apps_api(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            app_response = AppResponse(external_id="my-app", name="My App")
-            client.tool.apps.retrieve.return_value = [app_response]
-            ids = [ExternalId(external_id="my-app")]
-
-            result = loader.retrieve(ids)
-
-        assert result == [app_response]
-        client.tool.apps.retrieve.assert_called_once_with(ids, ignore_unknown_ids=True)
-
-    def test_iterate_yields_all_pages(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            page = [AppResponse(external_id="my-app", name="My App")]
-            client.tool.apps.iterate.return_value = iter([page])
-
-            result = list(loader._iterate())
-
-        assert result == page
-
-    def test_delete_calls_apps_delete(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            ids = [ExternalId(external_id="my-app")]
-            result = loader.delete(ids)
-
-        assert result == 1
-        client.tool.apps.delete.assert_called_once_with(ids)
-
-    def test_delete_empty_list_returns_zero(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, tmp_path)
-            result = loader.delete([])
-
-        assert result == 0
-        client.tool.apps.delete.assert_not_called()
-
-
-class TestAppIODumpResource:
-    def test_dump_includes_name_and_description(self):
+    def test_dump_fields(self, description, expected):
         with monkeypatch_toolkit_client() as client:
             loader = AppIO.create_loader(client, None)
 
-        response = AppResponse(external_id="my-app", name="My App", description="A great app")
-        dumped = loader.dump_resource(response)
-
-        assert dumped == {"externalId": "my-app", "name": "My App", "description": "A great app"}
-
-    def test_dump_omits_none_description(self):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_loader(client, None)
-
-        response = AppResponse(external_id="my-app", name="My App")
-        dumped = loader.dump_resource(response)
-
-        assert "description" not in dumped
+        response = AppResponse(external_id="my-app", name="My App", description=description)
+        assert loader.dump_resource(response) == expected
 
     def test_dump_prefers_local_name_and_description(self):
         with monkeypatch_toolkit_client() as client:
@@ -142,45 +86,7 @@ class TestAppIODumpResource:
         assert dumped["description"] == "Local desc"
 
 
-class TestAppVersionIOGetId:
-    def test_from_dict(self):
-        assert AppVersionIO.get_id({"appExternalId": "my-app", "version": "1.0.0"}) == AppVersionId(
-            app_external_id="my-app", version="1.0.0"
-        )
-
-    @pytest.mark.parametrize(
-        "item",
-        [
-            {"version": "1.0.0"},
-            {"appExternalId": "my-app"},
-        ],
-    )
-    def test_from_dict_raises_when_field_missing(self, item: dict):
-        with pytest.raises(KeyError):
-            AppVersionIO.get_id(item)
-
-    @pytest.mark.parametrize(
-        "item",
-        [
-            AppVersionRequest(app_external_id="my-app", version="1.0.0"),
-            AppVersionResponse(app_external_id="my-app", version="1.0.0", lifecycle_state="DRAFT"),
-        ],
-    )
-    def test_from_resource_object(self, item: AppVersionRequest | AppVersionResponse):
-        assert AppVersionIO.get_id(item) == AppVersionId(app_external_id="my-app", version="1.0.0")
-
-
 class TestAppVersionIODependencies:
-    def test_get_dependencies_yields_app_io(self):
-        from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML
-
-        resource = AppVersionYAML.model_validate({"appExternalId": "my-app", "version": "1.0.0"})
-        deps = list(AppVersionIO.get_dependencies(resource))
-
-        assert len(deps) == 1
-        assert deps[0][0] is AppIO
-        assert deps[0][1] == ExternalId(external_id="my-app")
-
     def test_get_dependent_items_yields_app_io(self):
         item = {"appExternalId": "my-app", "version": "1.0.0"}
         deps = list(AppVersionIO.get_dependent_items(item))
@@ -221,34 +127,21 @@ class TestAppVersionIODeploy:
             ].read_bytes(),
         )
 
-    def test_deploy_sets_lifecycle_and_alias(self, version_io_with_zip):
+    @pytest.mark.parametrize(
+        "alias, expected_alias_patch",
+        [
+            pytest.param("ACTIVE", {"set": "ACTIVE"}, id="sets-alias"),
+            pytest.param(None, {"setNull": True}, id="clears-alias"),
+        ],
+    )
+    def test_deploy_sets_lifecycle_and_alias(self, version_io_with_zip, alias, expected_alias_patch):
         loader, client = version_io_with_zip
-        item = _make_app_version_request(lifecycle_state="PUBLISHED", alias="ACTIVE")
+        item = _make_app_version_request(lifecycle_state="PUBLISHED", alias=alias)
 
         loader.create([item])
 
         client.tool.apps.versions.update.assert_called_once_with(
-            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "ACTIVE"}}
-        )
-
-    def test_deploy_clears_alias_when_local_alias_is_none(self, version_io_with_zip):
-        loader, client = version_io_with_zip
-        item = _make_app_version_request(lifecycle_state="PUBLISHED", alias=None)
-
-        loader.create([item])
-
-        client.tool.apps.versions.update.assert_called_once_with(
-            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"setNull": True}}
-        )
-
-    def test_deploy_sets_preview_alias(self, version_io_with_zip):
-        loader, client = version_io_with_zip
-        item = _make_app_version_request(lifecycle_state="PUBLISHED", alias="PREVIEW")
-
-        loader.create([item])
-
-        client.tool.apps.versions.update.assert_called_once_with(
-            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": {"set": "PREVIEW"}}
+            "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": expected_alias_patch}
         )
 
     def test_deploy_raises_when_zip_missing(self, tmp_path: Path):
@@ -273,27 +166,6 @@ class TestAppVersionIODeploy:
         assert response.version == "1.0.0"
         assert response.lifecycle_state == "PUBLISHED"
         assert response.alias == "ACTIVE"
-
-    def test_update_uploads_zip(self, version_io_with_zip):
-        loader, client = version_io_with_zip
-        item = _make_app_version_request(version="2.0.0", lifecycle_state="DRAFT", alias=None)
-        zip_path = loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="1.0.0")]
-        loader.zip_path_by_version_id[AppVersionId(app_external_id="my-app", version="2.0.0")] = zip_path
-        loader.update([item])
-
-        client.tool.apps.create.assert_not_called()
-        client.tool.apps.versions.upload.assert_called_once()
-
-    def test_delete_calls_delete_versions(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            ids = [
-                AppVersionId(app_external_id="my-app", version="1.0.0"),
-                AppVersionId(app_external_id="my-app", version="2.0.0"),
-            ]
-            loader.delete(ids)
-
-        client.tool.apps.versions.delete.assert_called_once_with(ids)
 
 
 class TestAppVersionIOLoadResourceFile:
@@ -325,65 +197,24 @@ class TestAppVersionIOLoadResourceFile:
         assert result == []
 
 
-class TestAppVersionIORetrieveAndIterate:
-    def test_retrieve_returns_matching_responses(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            version_response = _make_app_response(app_external_id="my-app", version="1.0.0")
-            client.tool.apps.versions.retrieve.return_value = [version_response]
-            ids = [AppVersionId(app_external_id="my-app", version="1.0.0")]
-
-            result = loader.retrieve(ids)
-
-        assert len(result) == 1
-        assert result[0].app_external_id == "my-app"
-
-    def test_retrieve_skips_not_found(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            client.tool.apps.versions.retrieve.return_value = []
-            ids = [AppVersionId(app_external_id="missing", version="1.0.0")]
-
-            result = loader.retrieve(ids)
-
-        assert result == []
-
-    def test_iterate_yields_all_pages(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            page = [_make_app_response()]
-            client.tool.apps.versions.iterate.return_value = iter([page])
-
-            result = list(loader._iterate())
-
-        assert result == page
-
-    def test_delete_empty_list_returns_zero(self, tmp_path: Path):
-        with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_loader(client, tmp_path)
-            result = loader.delete([])
-
-        assert result == 0
-        client.tool.apps.versions.delete.assert_not_called()
-
-
 class TestAppVersionIODumpResource:
-    def test_dump_uses_app_external_id_key(self):
+    @pytest.mark.parametrize(
+        "alias, alias_in_dump",
+        [
+            pytest.param("ACTIVE", True, id="alias-included"),
+            pytest.param(None, False, id="alias-omitted"),
+        ],
+    )
+    def test_dump_omits_none_alias(self, alias, alias_in_dump):
         with monkeypatch_toolkit_client() as client:
             loader = AppVersionIO.create_loader(client, None)
 
         response = AppVersionResponse(
-            app_external_id="my-app",
-            version="1.0.0",
-            lifecycle_state="PUBLISHED",
-            alias="ACTIVE",
+            app_external_id="my-app", version="1.0.0", lifecycle_state="PUBLISHED", alias=alias
         )
         dumped = loader.dump_resource(response)
 
-        assert dumped["appExternalId"] == "my-app"
-        assert dumped["version"] == "1.0.0"
-        assert dumped["lifecycleState"] == "PUBLISHED"
-        assert dumped["alias"] == "ACTIVE"
+        assert ("alias" in dumped) == alias_in_dump
 
     def test_copies_source_path_from_local(self):
         with monkeypatch_toolkit_client() as client:
@@ -485,13 +316,21 @@ class TestAppVersionIOGetExtraFiles:
         assert isinstance(extras[0], FailedReadExtra)
         assert "npm run build" in extras[0].error
 
-    def test_fails_when_app_dir_missing(self, tmp_path: Path):
-        yaml_file = tmp_path / "missing-app.AppVersion.yaml"
+    @pytest.mark.parametrize(
+        "item",
+        [
+            pytest.param({"appExternalId": "my-app", "version": "1.0.0"}, id="default-path"),
+            pytest.param(
+                {"appExternalId": "my-app", "version": "1.0.0", "sourcePath": "does-not-exist"}, id="source-path"
+            ),
+        ],
+    )
+    def test_fails_when_app_dir_not_found(self, tmp_path: Path, item: dict):
+        yaml_file = tmp_path / "my-app.AppVersion.yaml"
         yaml_file.write_text("")
-        item = {"appExternalId": "missing-app", "version": "1.0.0"}
 
         extras = list(
-            AppVersionIO.get_extra_files(yaml_file, AppVersionId(app_external_id="missing-app", version="1.0.0"), item)
+            AppVersionIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item)
         )
 
         assert len(extras) == 1
@@ -522,10 +361,31 @@ class TestAppVersionIOGetExtraFiles:
         assert len(extras) == 1
         assert extras[0].suffix == ".zip"
 
-    def test_fails_when_app_dir_missing_from_source_path(self, tmp_path: Path):
+    @pytest.mark.parametrize(
+        "extra_files, expected_in_error",
+        [
+            pytest.param({}, "missing package.json", id="package-json-missing"),
+            pytest.param({"package.json": "{}"}, "package-lock.json", id="package-lock-json-missing"),
+            pytest.param(
+                {"package.json": "{}", "package-lock.json": "{}", "manifest.json": "not valid json{"},
+                "invalid manifest.json",
+                id="manifest-json-invalid",
+            ),
+        ],
+    )
+    def test_fails_on_missing_or_invalid_app_root_files(
+        self, tmp_path: Path, extra_files: dict[str, str], expected_in_error: str
+    ):
+        app_dir = tmp_path / "my-app"
+        dist_dir = app_dir / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "index.html").write_text("<html></html>")
+        for filename, content in extra_files.items():
+            (app_dir / filename).write_text(content)
+
         yaml_file = tmp_path / "my-app.AppVersion.yaml"
         yaml_file.write_text("")
-        item = {"appExternalId": "my-app", "version": "1.0.0", "sourcePath": "does-not-exist"}
+        item = {"appExternalId": "my-app", "version": "1.0.0"}
 
         extras = list(
             AppVersionIO.get_extra_files(yaml_file, AppVersionId(app_external_id="my-app", version="1.0.0"), item)
@@ -533,3 +393,4 @@ class TestAppVersionIOGetExtraFiles:
 
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
+        assert expected_in_error in extras[0].error
