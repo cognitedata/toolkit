@@ -514,8 +514,8 @@ def create_zip_in_memory(
                 file_path = root_path / filename
                 arcname = file_path.relative_to(directory)
                 zf.write(file_path, arcname)
-        for arcname, file_path in (additional_files or {}).items():
-            zf.write(file_path, arcname=arcname)
+        for extra_arcname, extra_file_path in (additional_files or {}).items():
+            zf.write(extra_file_path, arcname=extra_arcname)
     return buffer.getvalue()
 
 
