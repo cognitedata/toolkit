@@ -38,7 +38,7 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse]):
     support_update = False
     drop_confirmation_message = (
         "WARNING: Streams are soft-deleted for 6 weeks after deletion. "
-        "During this period, a stream with the same external ID cannot be recreated, "
+        "During this period, a stream with the same external ID cannot be created, "
         "and the stream can only be recovered by contacting Cognite Support. "
         "Any associated data in records will be permanently lost once this period ends. "
         "Are you sure you want to proceed with deletion?"
