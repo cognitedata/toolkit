@@ -617,7 +617,14 @@ class BuildV2Command(ToolkitCommand):
                 identifier = toolkit_resource.as_id()
             except ValidationError as errors:
                 syntax_warning = self._create_syntax_warning(errors)
-                identifier = crud_class.get_id(parsed_yaml)
+                try:
+                    identifier = crud_class.get_id(parsed_yaml)
+                except KeyError:
+                    return SuccessfulReadYAMLFile(
+                        syntax_warning=syntax_warning,
+                        resources=[],
+                        **args,
+                    )
 
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
