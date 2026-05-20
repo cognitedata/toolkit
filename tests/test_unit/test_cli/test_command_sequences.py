@@ -201,6 +201,60 @@ TEST_CASES = [COMPLETE_ORG]
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
+# The old build/deploy pipeline does not support resource types that require build_v2
+# (e.g. AppVersionIO which needs get_extra_files to produce a zip). Only run the old
+# pipeline against complete_org (and not alpha flags) to avoid false failures.
+TEST_CASES_OLD_PIPELINE = [COMPLETE_ORG]
+
+
+@pytest.mark.parametrize(
+    "organization_dir", TEST_CASES_OLD_PIPELINE, ids=[path.name for path in TEST_CASES_OLD_PIPELINE]
+)
+def test_build_deploy_complete_org(
+    organization_dir: Path,
+    build_tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    data_regression,
+) -> None:
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=organization_dir,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name="dev",
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        drop=True,
+        drop_data=True,
+        dry_run=False,
+        force_update=False,
+        include=None,
+        verbose=False,
+    )
+
+    not_mocked = toolkit_client_approval.not_mocked_calls()
+    assert not not_mocked, (
+        f"The following APIs have been called without being mocked: {not_mocked}, "
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
+    )
+
+    dump = toolkit_client_approval.dump()
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{organization_dir.name}.yaml")
+
+    for group_calls in toolkit_client_approval.auth_create_group_calls():
+        lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
+        assert not lost_capabilities, (
+            f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
+        )
+
 
 @pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_v2_complete_orgs(
