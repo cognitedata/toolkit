@@ -637,8 +637,9 @@ class DataModelingSelect:
                     include_global=filter.include_global,
                 )
             views = datamodel.views or []
-            parents = {parent for view in views for parent in view.implements or []}
-            # We only allow the user to select child views
+            global_view_ids = {view.as_id() for view in views if view.is_global}
+            # Skip downloading parent views that belong to system (global) spaces
+            parents = {parent for view in views for parent in view.implements or [] if parent in global_view_ids}
             views = [view for view in views if view.as_id() not in parents]
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
