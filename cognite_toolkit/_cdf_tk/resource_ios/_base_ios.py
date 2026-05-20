@@ -2,7 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from rich.console import Console
@@ -173,6 +173,7 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
     # Optional to set in the subclass
     support_drop = True
     support_update = True
+    drop_confirmation_message: ClassVar[str | None] = None
     dependencies: "frozenset[type[ResourceIO]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
