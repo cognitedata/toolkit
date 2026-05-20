@@ -259,38 +259,26 @@ class HTTPClient:
 
             return FailedRequest(error=error_msg)
 
-    def request_raw_retries(
+    def _execute_raw_with_retries(
         self,
         method: Literal["GET", "POST", "PUT", "DELETE"],
         url: str,
-        content: bytes | Iterable[bytes],
+        max_retries: int,
+        content: bytes | Iterable[bytes] | None = None,
+        files: dict[str, tuple[str, bytes, str]] | None = None,
+        data: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
-        max_retries: int | None = None,
     ) -> SuccessResponse | FailedResponse:
-        """Send a raw HTTP request with retry logic but without authentication headers.
-
-        This is useful for uploading to signed URLs (e.g., GCS signed URLs) where
-        authentication is embedded in the URL and adding auth headers would cause errors.
-
-        Args:
-            method: HTTP method to use.
-            url: The URL to send the request to.
-            content: The content to send. Can be bytes or an iterable of bytes for streaming.
-            headers: Optional headers to include in the request.
-            max_retries: Maximum number of retries. Defaults to the client's max_retries setting.
-
-        Returns:
-            HTTPResult: The result of the HTTP request, either SuccessResponse or FailedResponse.
-        """
-        retries = max_retries if max_retries is not None else self._max_retries
         attempt = 0
         last_error_code: int = -1
-        while attempt <= retries:
+        while attempt <= max_retries:
             try:
                 response = self.session.request(
                     method=method,
                     url=url,
                     content=content,
+                    files=files,
+                    data=data,
                     headers=headers,
                     follow_redirects=False,
                 )
@@ -304,19 +292,14 @@ class HTTPClient:
                 # Check if we should retry based on status code
                 if response.status_code in self._retry_status_codes:
                     retry_after = self._get_retry_after_in_header(response)
-                    if retry_after is not None:
-                        time.sleep(retry_after)
-                    else:
-                        time.sleep(self._backoff_time(attempt))
+                    time.sleep(retry_after if retry_after is not None else self._backoff_time(attempt))
                     attempt += 1
                     continue
-                # Non-retryable error
                 return FailedResponse(
                     status_code=response.status_code,
                     body=response.text,
-                    error=ErrorDetails(code=response.status_code, message=response.text),
+                    error=ErrorDetails.from_response(response),
                 )
-
             except (
                 httpx.ReadTimeout,
                 httpx.TimeoutException,
@@ -325,13 +308,16 @@ class HTTPClient:
                 httpx.ConnectTimeout,
             ) as e:
                 attempt += 1
-                if attempt <= retries:
+                if attempt <= max_retries:
                     time.sleep(self._backoff_time(attempt))
                     continue
                 return FailedResponse(
                     status_code=last_error_code,
                     body=f"Request failed after {attempt} attempts: {e!s}",
-                    error=ErrorDetails(code=last_error_code, message=f"Request failed after {attempt} attempts: {e!s}"),
+                    error=ErrorDetails(
+                        code=last_error_code,
+                        message=f"Request failed after {attempt} attempts: {e!s}",
+                    ),
                 )
 
         # Should not reach here, but just in case
@@ -339,6 +325,49 @@ class HTTPClient:
             status_code=last_error_code,
             body=f"Request failed after {attempt} attempts.",
             error=ErrorDetails(code=last_error_code, message=f"Request failed after {attempt} attempts."),
+        )
+
+    def request_raw_retries(
+        self,
+        method: Literal["GET", "POST", "PUT", "DELETE"],
+        url: str,
+        content: bytes | Iterable[bytes],
+        headers: dict[str, str] | None = None,
+        max_retries: int | None = None,
+    ) -> SuccessResponse | FailedResponse:
+        """Send a raw HTTP request with retry logic but without authentication headers.
+
+        This is useful for uploading to signed URLs (e.g., GCS signed URLs) where
+        authentication is embedded in the URL and adding auth headers would cause errors.
+        """
+        retries = max_retries if max_retries is not None else self._max_retries
+        return self._execute_raw_with_retries(method, url, retries, content=content, headers=headers)
+
+    def request_multipart_retries(
+        self,
+        url: str,
+        files: dict[str, tuple[str, bytes, str]],
+        form_fields: dict[str, str],
+        api_version: str | None = None,
+    ) -> SuccessResponse | FailedResponse:
+        """POST multipart/form-data to a CDF endpoint with auth headers and retry logic.
+
+        Uses httpx's native multipart encoder — Content-Type (with boundary) and
+        Content-Length are set automatically. Unlike request_raw_retries, CDF auth
+        headers are included because this method targets CDF endpoints, not signed URLs.
+        """
+        auth_name, auth_value = self.config.credentials.authorization_header()
+        # Content-Type is intentionally absent — httpx sets it from the multipart body (including boundary).
+        headers: dict[str, str] = {
+            "User-Agent": f"httpx/{httpx.__version__} {get_user_agent()}",
+            auth_name: auth_value,
+            "accept": "application/json",
+            "x-cdp-sdk": f"CogniteToolkit:{get_current_toolkit_version()}",
+            "x-cdp-app": self.config.client_name,
+            "cdf-version": api_version or self.config.api_subversion,
+        }
+        return self._execute_raw_with_retries(
+            "POST", url, self._max_retries, files=files, data=form_fields, headers=headers
         )
 
     def request_items(self, message: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:

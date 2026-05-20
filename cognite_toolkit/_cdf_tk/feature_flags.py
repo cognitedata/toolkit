@@ -82,6 +82,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the entity-matching command family under the dev plugin",
     )
+    CUSTOM_APPS = FlagMetadata(
+        visible=False,
+        description="Enables support for custom app resources (App Hosting API deployment)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
