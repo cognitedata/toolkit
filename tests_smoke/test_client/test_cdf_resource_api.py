@@ -1211,7 +1211,7 @@ class TestCDFResourceAPI:
         if len(listed_apps) == 0:
             raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed app, got 0")
 
-        # We do not delete the app as there are limits to delete/recreate of it.
+        # We do not delete the app as they have a soft-delete period (similar to streams)
 
     def test_hosted_extractors_crudl(self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> None:
         client = toolkit_client
