@@ -3,11 +3,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import ClientCredentials, CreatedSession
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
+    WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -96,6 +98,33 @@ authentication:
         cdf_dumped = loader.dump_resource(cdf_trigger, local_dumped)
 
         assert cdf_dumped != local_dumped
+
+    def test_create_uses_client_credentials_session(self) -> None:
+        credentials = ClientCredentials(client_id="my-client-id", client_secret="my-client-secret")
+        trigger = WorkflowTriggerRequest(
+            external_id="daily-8am-utc",
+            trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
+            workflow_external_id="wf_example_repeater",
+            workflow_version="v1",
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            loader = WorkflowTriggerIO(client, None, None)
+            loader._authentication_by_id["daily-8am-utc"] = credentials
+            client.tool.workflows.triggers.create.return_value = [
+                WorkflowTriggerResponse(
+                    external_id="daily-8am-utc",
+                    trigger_rule=trigger.trigger_rule,
+                    workflow_external_id="wf_example_repeater",
+                    workflow_version="v1",
+                    created_time=0,
+                    last_updated_time=0,
+                    is_paused=False,
+                )
+            ]
+            loader.create([trigger])
+
+        client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
 
 
 class TestWorkflowVersionLoader:

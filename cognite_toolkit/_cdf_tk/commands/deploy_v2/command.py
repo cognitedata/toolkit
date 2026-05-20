@@ -722,6 +722,12 @@ class DeployV2Command(ToolkitCommand):
                     result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
                     progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
+                    if resources_to_deploy.to_delete and crud.drop_confirmation_message:
+                        progress.stop()
+                        confirmed = questionary.confirm(crud.drop_confirmation_message, default=False).ask()
+                        progress.start()
+                        if not confirmed:
+                            resources_to_deploy.to_delete.clear()
                     progress.update(task_id, description=f"{options.operation.title()}ing {resource_name} to CDF")
                     result = cls.deploy_resources(crud, resources_to_deploy, step.skipped_cruds, options.deployment_dir)
                     progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")

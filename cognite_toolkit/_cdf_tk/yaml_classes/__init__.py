@@ -8,7 +8,8 @@ This is means that we have three set of resource classes we use in Toolkit:
 """
 
 from .agent import AgentYAML
-from .apps import AppsYAML
+from .app import AppYAML
+from .app_version import AppVersionYAML
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
 from .cognitefile import CogniteFileYAML
@@ -66,7 +67,8 @@ from .workflow_version import WorkflowVersionYAML
 
 __all__ = [
     "AgentYAML",
-    "AppsYAML",
+    "AppVersionYAML",
+    "AppYAML",
     "AssetYAML",
     "BaseModelResource",
     "CogniteFileYAML",

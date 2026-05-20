@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
@@ -26,7 +26,8 @@ _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
 
 @final
-class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
+class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse]):
+    item_name = "records"
     folder_name = "streams"
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest
@@ -35,6 +36,13 @@ class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
     dependencies = frozenset({ContainerCRUD})
     _doc_url = "Streams/operation/createStream"
     support_update = False
+    drop_confirmation_message = (
+        "WARNING: Streams are soft-deleted for 6 weeks after deletion. "
+        "During this period, a stream with the same external ID cannot be created, "
+        "and the stream can only be recovered by contacting Cognite Support. "
+        "Any associated data in records will be permanently lost once this period ends. "
+        "Are you sure you want to proceed with deletion?"
+    )
 
     @property
     def display_name(self) -> str:
@@ -73,6 +81,14 @@ class StreamIO(ResourceIO[ExternalId, StreamRequest, StreamResponse]):
     def delete(self, ids: Sequence[ExternalId]) -> int:
         self.client.streams.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
+
+    def count(self, ids: Sequence[ExternalId]) -> int:
+        # The records API has no aggregation endpoint.
+        return -1
+
+    def drop_data(self, ids: Sequence[ExternalId]) -> int:
+        # Records have no bulk-delete endpoint; they are (eventually) wiped when the stream itself is deleted.
+        return -1
 
     def _iterate(
         self,

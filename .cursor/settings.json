@@ -2,6 +2,9 @@
   "plugins": {
     "continual-learning": {
       "enabled": true
+    },
+    "cognite-ai-tools/cog-content-design": {
+      "enabled": true
     }
   }
 }
