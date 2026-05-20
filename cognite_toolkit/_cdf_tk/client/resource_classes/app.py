@@ -1,40 +1,22 @@
-from typing import Any, Literal
-
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class App(BaseModelObject):
     external_id: str
-    version: str
     name: str
     description: str | None = None
-    lifecycle_state: Literal["DRAFT", "PUBLISHED", "DEPRECATED", "ARCHIVED"] = "PUBLISHED"
-    alias: Literal["ACTIVE", "PREVIEW"] | None = None
-    entrypoint: str = "index.html"
 
 
 class AppRequest(App, RequestResource):
-    """Local representation of a custom app version for App Hosting deployment."""
+    """Write resource for POST /apphosting/apps."""
 
-    def as_id(self) -> AppVersionId:
-        return AppVersionId(app_external_id=self.external_id, version=self.version)
-
-    def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
-    ) -> dict[str, Any]:
-        if context == "toolkit":
-            return super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
-        # Body for POST /apphosting/apps (ensure-app call)
-        key = "externalId" if camel_case else "external_id"
-        body: dict[str, Any] = {key: self.external_id, "name": self.name}
-        if self.description is not None:
-            body["description"] = self.description
-        return body
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class AppResponse(App, ResponseResource[AppRequest]):
-    """Response from App Hosting after a successful deploy."""
+    """Response from GET/POST /apphosting/apps."""
 
     @classmethod
     def request_cls(cls) -> type[AppRequest]:

@@ -7,6 +7,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
+from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
@@ -46,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
     ChartFolderResponse,
@@ -819,6 +821,10 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "parentExternalId": "root",
             "description": "Example Alert Channel",
         },
+        AppResponse: {
+            "externalId": "my-app",
+            "name": "My App",
+        },
     }
     try:
         return responses[resource_cls]
@@ -871,6 +877,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=AgentsAPI,
         ),
         id="Agent",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=AppResponse,
+            request_cls=AppRequest,
+            example_data=get_example_minimum_responses(AppResponse),
+            api_class=AppsAPI,
+        ),
+        id="App",
     )
     yield pytest.param(
         CDFResource(

@@ -9,7 +9,7 @@ import os
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import respx
@@ -221,6 +221,7 @@ def test_build_deploy_complete_org(
         client=env_vars_with_client.get_client(),
         on_error="raise",
     )
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.clean.questionary", MagicMock())
     DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,

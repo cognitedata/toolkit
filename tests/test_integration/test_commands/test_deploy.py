@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeploy
 from cognite_toolkit._cdf_tk.resource_ios import (
     CRUDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
+    AppIO,
     CogniteFileCRUD,
     FileMetadataCRUD,
     FunctionIO,
@@ -189,7 +190,7 @@ def get_changed_source_files(
             # Authentication that causes the diff to fail
             loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
             # External files that cannot (or not yet supported) be pulled
-            or loader_cls in {GraphQLCRUD, FunctionIO, StreamlitIO}
+            or loader_cls in {GraphQLCRUD, FunctionIO, AppIO, StreamlitIO}
             # Have authentication hashes that is different for each environment
             or loader_cls in {TransformationIO, FunctionScheduleIO, WorkflowTriggerIO}
             # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
