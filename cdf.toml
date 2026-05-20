@@ -16,6 +16,7 @@ extend-download = true
 extend-upload = true
 data-products = true
 entity-matching = false
+custom-apps = true
 
 [plugins]
 run = true
