@@ -528,10 +528,10 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
-        item.authentication = NonceCredentials(
-            nonce=self.client.iam.sessions.create(credentials, session_type="CLIENT_CREDENTIALS").nonce
-        )
         try:
+            item.authentication = NonceCredentials(
+                nonce=self.client.iam.sessions.create(credentials, session_type="CLIENT_CREDENTIALS").nonce
+            )
             result = self.client.tool.workflows.triggers.create([item])
             if not result:
                 return None
