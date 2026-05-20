@@ -487,19 +487,23 @@ def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path
         yield zip_path
 
 
-def create_zip_in_memory(directory: Path) -> bytes:
+def create_zip_in_memory(
+    directory: Path,
+    additional_files: dict[str, Path] | None = None,
+) -> bytes:
     """
     Create a zip file in memory from a directory.
 
     Args:
         directory: The directory to zip.
+        additional_files: Extra files to add at specific archive paths, as ``{arcname: path}``.
 
     Returns:
         The bytes of the zip file.
     """
     buffer = BytesIO()
     with ZipFile(buffer, "w", strict_timestamps=False) as zf:
-        for root, _, files in os.walk(directory):
+        for root, dirs, files in os.walk(directory):
             root_path = Path(root)
             arc_root = root_path.relative_to(directory)
 
@@ -510,6 +514,8 @@ def create_zip_in_memory(directory: Path) -> bytes:
                 file_path = root_path / filename
                 arcname = file_path.relative_to(directory)
                 zf.write(file_path, arcname)
+        for extra_arcname, extra_file_path in (additional_files or {}).items():
+            zf.write(extra_file_path, arcname=extra_arcname)
     return buffer.getvalue()
 
 
