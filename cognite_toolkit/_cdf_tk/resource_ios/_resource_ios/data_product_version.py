@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductIO
+from .datamodel import ViewIO
 from .rulesets import RuleSetVersionIO
 
 
@@ -22,7 +23,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO, RuleSetVersionIO})
+    dependencies = frozenset({DataProductIO, RuleSetVersionIO, ViewIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True

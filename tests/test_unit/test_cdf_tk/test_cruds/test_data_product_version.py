@@ -10,6 +10,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ViewIO
+
+
+class TestDataProductVersionIODependencies:
+    def test_view_is_in_class_dependencies(self) -> None:
+        """Regression test for CDF-28000: views must deploy before data product versions."""
+        assert ViewIO in DataProductVersionIO.dependencies
 
 
 class TestDataProductVersionIODumpResource:
