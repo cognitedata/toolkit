@@ -75,8 +75,8 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFolderRequest
