@@ -59,3 +59,7 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
     def iterate(self, limit: int | None = 100) -> Iterable[list[AppResponse]]:
         """POST /apphosting/apps/list — paginated list of all apps."""
         return self._iterate(limit=limit)
+
+    def list(self, limit: int | None = None) -> list[AppResponse]:
+        """POST /apphosting/apps/list — list all apps."""
+        return self._list(limit=limit)

@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
@@ -75,6 +76,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFolderRequest
@@ -273,6 +275,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ExtractionPipelineConfigsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
+        AppsAPI,
         # SecurityCategories can easily hit a bad state.
         SecurityCategoriesAPI,
         # Created response cannot be made into a request.
@@ -374,6 +377,7 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
     """Return an example with the only required and identifier fields for the given resource class."""
     response: dict[type[ResponseResource], list[dict[str, Any]]] = {
         AgentResponse: [{"externalId": "smoke-test-agent", "name": "Smoke Test Agent"}],
+        AppResponse: [{"externalId": "smoke-test-app", "name": "Smoke Test App"}],
         AnnotationResponse: [
             {
                 "annotatedResourceId": 1,
@@ -1179,6 +1183,35 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(stream_list_endpoint.path, "Expected at least 1 listed stream, got 0")
 
         # We do not delete the stream as there are limits to delete/recreate of it.
+
+    def test_app_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        app_example = get_examples_minimum_requests(AppResponse)[0]
+        app_request = AppRequest.model_validate(app_example)
+        app_id = app_request.as_id()
+
+        retrieved = client.tool.apps.retrieve([app_id], ignore_unknown_ids=True)
+        if len(retrieved) == 0:
+            create_endpoint = client.tool.apps._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.apps.create([app_request]), "create", create_endpoint, app_id
+            )
+            retrieved = client.tool.apps.retrieve([app_id])
+        retrieve_endpoint = client.tool.apps._method_endpoint_map["retrieve"]
+        if len(retrieved) != 1:
+            raise EndpointAssertionError(retrieve_endpoint.path, f"Expected 1 retrieved app, got {len(retrieved)}")
+        if retrieved[0].external_id != app_request.external_id:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, "Retrieved app external ID does not match requested external ID."
+            )
+
+        list_endpoint = client.tool.apps._method_endpoint_map["list"]
+        listed_apps = client.tool.apps.list()
+        if len(listed_apps) == 0:
+            raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed app, got 0")
+
+        # We do not delete the app as they have a soft-delete period (similar to streams)
 
     def test_hosted_extractors_crudl(self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> None:
         client = toolkit_client
