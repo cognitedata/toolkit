@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     InfieldLocationConfigYAML,
     InfieldV1YAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY
 
 from .auth import GroupAllScopedCRUD
 from .classic import AssetIO
@@ -396,15 +397,15 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if dec := resource.data_exploration_config:
-            for key in ("asset_activities_card", "asset_notifications_card"):
-                if m := getattr(dec, key, None):
+            for attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
+                if m := getattr(dec, attr, None):
                     yield ViewIO, ViewId(space=m.space, external_id=m.external_id, version=m.version)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if isinstance(dec := item.get("dataExplorationConfig"), dict):
-            for key in ("assetActivitiesCard", "assetNotificationsCard"):
-                if isinstance(m := dec.get(key), dict) and in_dict(("space", "externalId", "version"), m):
+            for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
+                if isinstance(m := dec.get(json_key), dict) and in_dict(("space", "externalId", "version"), m):
                     yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
 
     @cached_property
