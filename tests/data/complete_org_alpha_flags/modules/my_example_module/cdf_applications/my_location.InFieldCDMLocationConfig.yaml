@@ -86,8 +86,8 @@ dataExplorationConfig:
   assetActivitiesCard:
     space: customer_idm_extention
     version: v2
-    externalId: ActivitiesCard
+    externalId: InfieldActivitiesCardView
   assetNotificationsCard:
     space: customer_idm_extention
-    version: v2
-    externalId: NotificationsCard
+    version: v1
+    externalId: InfieldNotificationsCardView
