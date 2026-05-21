@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
-from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
@@ -79,7 +78,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMCon
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import ChartFolderRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobModel,
     ChartMonitoringJobRequest,
@@ -319,9 +317,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Requires a timeseries.
         ChartMonitoringJobsAPI,
         ChartScheduledCalculationsAPI,
-        # Folders do not support delete. For channels, we only have list, thus these cannot be
+        # For channels, we only have list, thus these cannot be
         # generically tested.
-        ChartFoldersAPI,
         AlertChannelsAPI,
     }
 )
@@ -2515,27 +2512,6 @@ class TestCDFResourceAPI:
                 client.charts.scheduled_calculations.delete([calc_id])
             except ToolkitAPIError:
                 pass
-
-    def test_chart_folder(self, toolkit_client: ToolkitClient) -> None:
-        client = toolkit_client
-        request = ChartFolderRequest(
-            folder_external_id="smoke-test-chart-folder",
-            folder_name="Smoke Test Chart Folder",
-        )
-        endpoints = client.charts.folders._method_endpoint_map
-        try:
-            all_folders = client.charts.folders.list()
-        except ToolkitAPIError as e:
-            raise EndpointAssertionError(endpoints["list"].path, f"Failed to list chart folders: {e!s}")
-
-        external_id = request.as_id()
-        is_existing = any(folder.as_id() == external_id for folder in all_folders)
-        if is_existing:
-            return
-        try:
-            client.charts.folders.create([request])
-        except ToolkitAPIError as e:
-            raise EndpointAssertionError(endpoints["create"].path, f"Failed to create chart folder: {e!s}")
 
     def test_upload_large_file(
         self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse, tmp_path: Path

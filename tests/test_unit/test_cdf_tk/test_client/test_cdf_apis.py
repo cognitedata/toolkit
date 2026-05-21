@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
-from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
@@ -40,10 +39,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId,
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
-    ChartFolderRequest,
-    ChartFolderResponse,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
@@ -1185,33 +1180,6 @@ class TestCDFResourceAPI:
         listed = api.list()
         assert len(listed) == 1
         assert listed[0].dump() == list_expected
-
-    def test_chart_folders_api_create_list_methods(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
-        resource = get_example_minimum_responses(ChartFolderResponse)
-        config = toolkit_config
-        api = ChartFoldersAPI(HTTPClient(config))
-        request_item = ChartFolderRequest(
-            folder_external_id="my_folder",
-            folder_name="My Chart Folder",
-        )
-
-        # Test create
-        respx_mock.post(config.create_app_url("/charts/monitoring/folders")).mock(
-            return_value=httpx.Response(status_code=200, json=[resource])
-        )
-        created = api.create([request_item])
-        assert len(created) == 1
-        assert created[0].dump() == resource
-
-        # Test list
-        respx_mock.get(config.create_app_url("/charts/monitoring/folders")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
-        )
-        listed = api.list()
-        assert len(listed) == 1
-        assert listed[0].dump() == resource
 
     def test_alert_channels_api_list_method(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
