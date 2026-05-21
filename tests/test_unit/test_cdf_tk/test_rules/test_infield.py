@@ -116,5 +116,5 @@ class TestInFieldCDMViewPropertiesRuleSet:
         errors = list(rule._validate_config(resource))
         assert len(errors) == 1
         assert isinstance(errors[0], ConsistencyError)
-        assert errors[0].code == "INFIELD-CDM-VIEW-PROPERTIES"
+        assert errors[0].code == InFieldCDMViewPropertiesRuleSet.CODE
         assert "mainAsset" in errors[0].message

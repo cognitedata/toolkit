@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
@@ -24,7 +25,7 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
 
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "INFIELD-CDM-VIEW-PROPERTIES"
+    CODE: ClassVar[str] = "INFIELD-CDM-VIEW-PROPERTIES"
     DISPLAY_NAME = "InField CDM view properties"
 
     def get_status(self) -> RuleSetStatus:
@@ -89,7 +90,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         views = client.tool.views.retrieve([view_id], include_inherited_properties=True)
         if not views:
             yield ConsistencyError(
-                code=self.CODE_PREFIX,
+                code=self.CODE,
                 message=(
                     f"View {view_id!s} referenced as {card_key!r} in "
                     f"{resource.source_path.name!r} was not found in CDF."
@@ -102,7 +103,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         missing = required - set(view.properties.keys())
         if missing:
             yield ConsistencyError(
-                code=self.CODE_PREFIX,
+                code=self.CODE,
                 message=(
                     f"View {view_id!s} used as {card_key!r} in {resource.source_path.name!r} "
                     f"is missing required properties: {humanize_collection(sorted(missing))}."
