@@ -396,17 +396,31 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        if dec := resource.data_exploration_config:
-            for attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
-                if m := getattr(dec, attr, None):
-                    yield ViewIO, ViewId(space=m.space, external_id=m.external_id, version=m.version)
+        if data_exploration_config := resource.data_exploration_config:
+            for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
+                if card_mapping := getattr(data_exploration_config, card_attr, None):
+                    yield ViewIO, ViewId(
+                        space=card_mapping.space,
+                        external_id=card_mapping.external_id,
+                        version=card_mapping.version,
+                    )
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if isinstance(dec := item.get("dataExplorationConfig"), dict):
-            for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
-                if isinstance(m := dec.get(json_key), dict) and in_dict(("space", "externalId", "version"), m):
-                    yield ViewIO, ViewId(space=m["space"], external_id=m["externalId"], version=str(m["version"]))
+        data_exploration_config = item.get("dataExplorationConfig")
+        if not isinstance(data_exploration_config, dict):
+            return
+        for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
+            card_mapping = data_exploration_config.get(json_key)
+            if not isinstance(card_mapping, dict):
+                continue
+            if not in_dict(("space", "externalId", "version"), card_mapping):
+                continue
+            yield ViewIO, ViewId(
+                space=card_mapping["space"],
+                external_id=card_mapping["externalId"],
+                version=str(card_mapping["version"]),
+            )
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
