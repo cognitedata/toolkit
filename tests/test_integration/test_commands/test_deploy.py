@@ -12,12 +12,17 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    DeployCommand,
+    PullCommand,
+)
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.resource_ios import (
     CRUDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
     AppIO,
+    AppVersionIO,
     CogniteFileCRUD,
     FileMetadataCRUD,
     FunctionIO,
@@ -105,9 +110,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
     # Data Products and Rule Sets APIs are not yet available on the test server.
-    # The alpha flag is turned off in cdf.toml so these are not built,
-    # but we still exclude the CRUDs to be safe.
-    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}
+    # AppVersionIO requires a zip produced by build_v2's get_extra_files; the old pipeline cannot deploy it.
+    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, AppIO, AppVersionIO}
     with (
         patch.dict(
             os.environ,
@@ -190,7 +194,7 @@ def get_changed_source_files(
             # Authentication that causes the diff to fail
             loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
             # External files that cannot (or not yet supported) be pulled
-            or loader_cls in {GraphQLCRUD, FunctionIO, AppIO, StreamlitIO}
+            or loader_cls in {GraphQLCRUD, FunctionIO, AppIO, AppVersionIO, StreamlitIO}
             # Have authentication hashes that is different for each environment
             or loader_cls in {TransformationIO, FunctionScheduleIO, WorkflowTriggerIO}
             # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
