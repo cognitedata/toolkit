@@ -4,9 +4,9 @@ from typing import ClassVar
 import yaml
 from pydantic import ValidationError
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
@@ -26,6 +26,9 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
         {"sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
     ),
 }
+
+# (resource, card_key, view_id, required properties)
+_CardViewRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
 
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
@@ -47,10 +50,14 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         )
 
     def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
+        if self.client is None:
+            return
         config_type = ResourceType(
             resource_folder=InFieldCDMLocationConfigIO.folder_name,
             kind=InFieldCDMLocationConfigIO.kind,
         )
+        card_view_refs: list[_CardViewRef] = []
+
         for module in self.modules:
             for resource in module.resources:
                 if not resource.can_verify:
@@ -58,41 +65,55 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                 if resource.type != config_type:
                     continue
                 try:
-                    yield from self._validate_config(resource)
-                except (ValidationError, ValueError, yaml.YAMLError, ToolkitAPIError, OSError) as e:
+                    card_view_refs.extend(self._collect_card_view_refs(resource))
+                except (ValidationError, ValueError, yaml.YAMLError, OSError) as e:
                     yield FailedValidation(
-                        message=(f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"),
+                        message=(
+                            f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"
+                        ),
                         source=str(resource.identifier),
                     )
 
-    def _validate_config(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
-        if self.client is None:
+        if not card_view_refs:
             return
-        client = self.client
 
+        unique_view_ids = list({ref[2] for ref in card_view_refs})
+        try:
+            retrieved = self.client.tool.views.retrieve(unique_view_ids, include_inherited_properties=True)
+        except (ToolkitAPIError, OSError) as e:
+            yield FailedValidation(message=f"Failed to retrieve card views from CDF: {e}", source="batch")
+            return
+        views_by_id: dict[ViewId, ViewResponse] = {v.as_id(): v for v in retrieved}
+
+        for resource, card_key, view_id, required in card_view_refs:
+            yield from self._check_view(resource, card_key, view_id, required, views_by_id)
+
+    def _collect_card_view_refs(self, resource: BuiltResource) -> list[_CardViewRef]:
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
         if not config.data_exploration_config:
-            return
+            return []
 
+        refs: list[_CardViewRef] = []
         for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
             mapping: ViewMapping | None = getattr(config.data_exploration_config, attr, None)
             if mapping is None:
                 continue
             view_id = ViewId(space=mapping.space, external_id=mapping.external_id, version=mapping.version)
             required = _REQUIRED_PROPERTIES[card_key]
-            yield from self._validate_view_properties(resource, view_id, card_key, required, client)
+            refs.append((resource, card_key, view_id, required))
+        return refs
 
-    def _validate_view_properties(
+    def _check_view(
         self,
         resource: BuiltResource,
-        view_id: ViewId,
         card_key: str,
+        view_id: ViewId,
         required: frozenset[str],
-        client: ToolkitClient,
+        views_by_id: dict[ViewId, ViewResponse],
     ) -> Iterable[ConsistencyError]:
-        views = client.tool.views.retrieve([view_id], include_inherited_properties=True)
-        if not views:
+        view = views_by_id.get(view_id)
+        if view is None:
             yield ConsistencyError(
                 code=self.CODE,
                 message=(
@@ -103,7 +124,6 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             )
             return
 
-        view = views[0]
         missing = required - set(view.properties.keys())
         if missing:
             yield ConsistencyError(
