@@ -151,13 +151,13 @@ InFieldCDMLocationConfigResponse:
         - gp_location_admins
       dataExplorationConfig:
         assetActivitiesCard:
-          externalId: ActivitiesCard
+          externalId: InfieldActivitiesCardView
           space: customer_idm_extention
           version: v2
         assetNotificationsCard:
-          externalId: NotificationsCard
+          externalId: InfieldNotificationsCardView
           space: customer_idm_extention
-          version: v2
+          version: v1
         assetPropertiesCard:
           externalId: AssetPropertiesCard
           space: customer_idm_extention
