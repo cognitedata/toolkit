@@ -30,10 +30,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
-from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
+from cognite_toolkit._cdf_tk.constants import CHARTS_LIST_LIMIT, MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -100,15 +100,30 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[ChartResponse]]:
-        selected_charts = self.client.charts.list(visibility=None)
-        self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
-            ...
+            selected_charts = self.client.charts.list(visibility=None)
+            self._existing_charts = {chart.external_id for chart in selected_charts}
+            if len(selected_charts) >= CHARTS_LIST_LIMIT:
+                MediumSeverityWarning(
+                    f"The Charts list endpoint returned {len(selected_charts)} items, which is the "
+                    "server-side maximum. Additional charts may exist but cannot be retrieved due to "
+                    "an API limitation."
+                ).print_warning(console=self.client.console)
         elif isinstance(selector, ChartOwnerSelector):
+            selected_charts = self.client.charts.list(visibility=None)
+            self._existing_charts = {chart.external_id for chart in selected_charts}
             selected_charts = [chart for chart in selected_charts if chart.owner_id == selector.owner_id]
         elif isinstance(selector, ChartExternalIdSelector):
-            external_id_set = set(selector.external_ids)
-            selected_charts = [chart for chart in selected_charts if chart.external_id in external_id_set]
+            selected_charts = self.client.charts.retrieve(
+                [ExternalId(external_id=eid) for eid in selector.external_ids]
+            )
+            self._existing_charts = {chart.external_id for chart in selected_charts}
+            missing_count = len(selector.external_ids) - len(selected_charts)
+            if missing_count:
+                HighSeverityWarning(
+                    f"{missing_count} of {len(selector.external_ids)} selected charts could not be "
+                    "retrieved and will be skipped."
+                ).print_warning(console=self.client.console)
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
 

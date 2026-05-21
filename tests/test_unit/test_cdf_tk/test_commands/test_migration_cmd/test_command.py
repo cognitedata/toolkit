@@ -770,9 +770,9 @@ class TestMigrationCommand:
                 ],
             }
         )
-        # Chart list
+        # Chart retrieve by IDs (used by stream_data for ChartExternalIdSelector)
         respx.post(
-            config.create_app_url("/storage/charts/charts/list"),
+            config.create_app_url("/storage/charts/charts/byids"),
         ).respond(
             status_code=200,
             json={
