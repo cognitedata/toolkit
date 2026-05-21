@@ -112,12 +112,17 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         elif isinstance(selector, ChartOwnerSelector):
             selected_charts = self.client.charts.list(visibility=None)
             self._existing_charts = {chart.external_id for chart in selected_charts}
+            if len(selected_charts) >= CHARTS_LIST_LIMIT:
+                MediumSeverityWarning(
+                    f"The Charts list endpoint returned {len(selected_charts)} items, which is the "
+                    "server-side maximum. Additional charts may exist but cannot be retrieved due to "
+                    "an API limitation."
+                ).print_warning(console=self.client.console)
             selected_charts = [chart for chart in selected_charts if chart.owner_id == selector.owner_id]
         elif isinstance(selector, ChartExternalIdSelector):
             selected_charts = self.client.charts.retrieve(
                 [ExternalId(external_id=eid) for eid in selector.external_ids]
             )
-            self._existing_charts = {chart.external_id for chart in selected_charts}
             missing_count = len(selector.external_ids) - len(selected_charts)
             if missing_count:
                 HighSeverityWarning(

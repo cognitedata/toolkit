@@ -779,6 +779,15 @@ class TestMigrationCommand:
                 "items": [chart.dump() for chart in charts],
             },
         )
+        # Chart list (used by existing_charts property during upload to determine create vs update)
+        respx.post(
+            config.create_app_url("/storage/charts/charts/list"),
+        ).respond(
+            status_code=200,
+            json={
+                "items": [chart.dump() for chart in charts],
+            },
+        )
         # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
         respx_mock.post(config.create_api_url("/models/instances/query")).mock(
             return_value=httpx.Response(
@@ -847,7 +856,7 @@ class TestMigrationCommand:
         }
 
         calls = respx_mock.calls
-        assert len(calls) == 5
+        assert len(calls) == 6
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts/my_chart")
         assert last_call.request.method == "PUT"
