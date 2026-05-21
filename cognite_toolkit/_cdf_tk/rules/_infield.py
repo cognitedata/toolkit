@@ -68,9 +68,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     card_view_refs.extend(self._collect_card_view_refs(resource))
                 except (ValidationError, ValueError, yaml.YAMLError, OSError) as e:
                     yield FailedValidation(
-                        message=(
-                            f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"
-                        ),
+                        message=(f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"),
                         source=str(resource.identifier),
                     )
 
