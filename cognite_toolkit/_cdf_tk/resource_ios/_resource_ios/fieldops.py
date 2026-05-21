@@ -399,8 +399,8 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
         if data_exploration_config := resource.data_exploration_config:
             for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
                 if card_mapping := getattr(data_exploration_config, card_attr, None):
-                    yield ( 
-                        ViewIO, 
+                    yield (
+                        ViewIO,
                         ViewId(
                             space=card_mapping.space,
                             external_id=card_mapping.external_id,
