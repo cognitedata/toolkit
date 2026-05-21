@@ -1,7 +1,11 @@
 from collections.abc import Iterable
 from typing import ClassVar
 
+import yaml
+from pydantic import ValidationError
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
@@ -55,7 +59,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     continue
                 try:
                     yield from self._validate_config(resource)
-                except Exception as e:
+                except (ValidationError, ValueError, yaml.YAMLError, ToolkitAPIError, OSError) as e:
                     yield FailedValidation(
                         message=(f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"),
                         source=str(resource.identifier),
