@@ -1,0 +1,5 @@
+appExternalId: my_app
+version: "1.0.0"
+lifecycleState: PUBLISHED
+alias: ACTIVE
+entrypoint: index.html

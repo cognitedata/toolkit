@@ -9,7 +9,7 @@ import os
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import respx
@@ -201,8 +201,15 @@ TEST_CASES = [COMPLETE_ORG]
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
+# The old build/deploy pipeline does not support resource types that require build_v2
+# (e.g. AppVersionIO which needs get_extra_files to produce a zip). Only run the old
+# pipeline against complete_org (and not alpha flags) to avoid false failures.
+TEST_CASES_OLD_PIPELINE = [COMPLETE_ORG]
 
-@pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
+
+@pytest.mark.parametrize(
+    "organization_dir", TEST_CASES_OLD_PIPELINE, ids=[path.name for path in TEST_CASES_OLD_PIPELINE]
+)
 def test_build_deploy_complete_org(
     organization_dir: Path,
     build_tmp_path: Path,
@@ -221,7 +228,6 @@ def test_build_deploy_complete_org(
         client=env_vars_with_client.get_client(),
         on_error="raise",
     )
-    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.clean.questionary", MagicMock())
     DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
