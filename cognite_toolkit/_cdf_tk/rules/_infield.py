@@ -98,14 +98,6 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[ConsistencyError]:
         view = views_by_id.get(view_id)
         if view is None:
-            yield ConsistencyError(
-                code=f"{self.CODE_PREFIX}-VIEW-NOT-FOUND",
-                message=(
-                    f"View {view_id!s} referenced as {card_key!r} in "
-                    f"{resource.source_path.name!r} was not found in CDF."
-                ),
-                fix="Ensure the view exists in CDF or update the card view mapping.",
-            )
             return
 
         missing = required - set(view.properties.keys())
