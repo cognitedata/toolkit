@@ -396,17 +396,20 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        if data_exploration_config := resource.data_exploration_config:
-            for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
-                if card_mapping := getattr(data_exploration_config, card_attr, None):
-                    yield (
-                        ViewIO,
-                        ViewId(
-                            space=card_mapping.space,
-                            external_id=card_mapping.external_id,
-                            version=card_mapping.version,
-                        ),
-                    )
+        if resource.data_exploration_config is None:
+            return
+        for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
+            card_mapping = getattr(resource.data_exploration_config, card_attr, None)
+            if card_mapping is None:
+                continue
+            yield (
+                ViewIO,
+                ViewId(
+                    space=card_mapping.space,
+                    external_id=card_mapping.external_id,
+                    version=card_mapping.version,
+                ),
+            )
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
