@@ -1,14 +1,10 @@
 from collections.abc import Iterable
 
-import yaml
-from pydantic import ValidationError
-
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -48,7 +44,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             message="Will validate required properties on InField CDM card views against CDF.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
+    def validate(self) -> Iterable[ConsistencyError]:
         if self.client is None:
             return
         config_type = ResourceType(
@@ -63,23 +59,13 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     continue
                 if resource.type != config_type:
                     continue
-                try:
-                    card_view_refs.extend(self._collect_card_view_refs(resource))
-                except (ValidationError, ValueError, yaml.YAMLError, OSError) as e:
-                    yield FailedValidation(
-                        message=(f"InField CDM view property validation failed for {resource.build_path.name!r}: {e}"),
-                        source=str(resource.identifier),
-                    )
+                card_view_refs.extend(self._collect_card_view_refs(resource))
 
         if not card_view_refs:
             return
 
         unique_view_ids = list({ref[2] for ref in card_view_refs})
-        try:
-            retrieved = self.client.tool.views.retrieve(unique_view_ids, include_inherited_properties=True)
-        except (ToolkitAPIError, OSError) as e:
-            yield FailedValidation(message=f"Failed to retrieve card views from CDF: {e}", source="batch")
-            return
+        retrieved = self.client.tool.views.retrieve(unique_view_ids, include_inherited_properties=True)
         views_by_id: dict[ViewId, ViewResponse] = {v.as_id(): v for v in retrieved}
 
         for resource, card_key, view_id, required in card_view_refs:

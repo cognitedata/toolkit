@@ -1,13 +1,14 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 import yaml
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     AbsoluteDirPath,
@@ -199,7 +200,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         call_view_ids = mock_client.tool.views.retrieve.call_args[0][0]
         assert set(call_view_ids) == {activities_id, notifications_id}
 
-    def test_retrieve_batch_failure_yields_failed_validation(self, tmp_path: Path) -> None:
+    def test_retrieve_batch_failure_propagates(self, tmp_path: Path) -> None:
         yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
         self._write_config_yaml(yaml_file, self._both_cards_config())
         resource = self._create_built_resource(yaml_file, yaml_file)
@@ -207,8 +208,5 @@ class TestInFieldCDMViewPropertiesRuleSet:
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.side_effect = ToolkitAPIError("Server error", code=500)
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
-        results = list(rule.validate())
-        assert len(results) == 1
-        assert isinstance(results[0], FailedValidation)
-        assert results[0].source == "batch"
-        assert "Failed to retrieve card views from CDF" in results[0].message
+        with pytest.raises(ToolkitAPIError, match="Server error"):
+            list(rule.validate())
