@@ -394,9 +394,11 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
-        # Reading APM_Config is always required to check for legacy InField conflicts.
-        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
-        yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+        if not isinstance(scope, AllScope):
+            # Reading APM_Config is always required to check for legacy InField conflicts.
+            # AllScope already covers any space, so these are only needed for scoped deployments.
+            yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+            yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
