@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import RuleSetVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetVersionIO
@@ -153,6 +154,28 @@ class TestRuleSetVersionCRUDSplitResource:
             list(crud.split_resource(base, resource))
             assert resource.get("rules") == [_TURTLE_CONTENT]
             assert "rulesFile" not in resource
+
+
+class TestRuleSetVersionIODumpResource:
+    def test_dump_resource_includes_rule_set_external_id_for_deploy_diff(self) -> None:
+        """Regression test for CDF-27981: deploy must not delete+recreate unchanged versions."""
+        client = ToolkitClientMock()
+        io = RuleSetVersionIO(client, None)
+
+        rules = [_TURTLE_CONTENT]
+        resource = RuleSetVersionResponse(
+            rule_set_external_id="rs_tags",
+            version="1.0.0",
+            rules=rules,
+            created_time=1000,
+        )
+        local = {
+            "ruleSetExternalId": "rs_tags",
+            "version": "1.0.0",
+            "rules": rules,
+        }
+
+        assert io.dump_resource(resource, local) == local
 
 
 class TestRuleSetVersionCRUDGetId:

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
@@ -182,3 +183,21 @@ class TestInFieldCDMLocationConfigCRUD:
             assert my_console.print.called
             message = my_console.print.call_args[0][1]
             assert message.startswith(f"Skipping creation of infield CDM location configs {item.as_id()!s}.")
+
+    def test_cdm_only_project_no_apm_config_view(self) -> None:
+        item = InFieldCDMLocationConfigRequest(
+            external_id="my_config",
+            space="my_space",
+            data_storage=DataStorage(app_instance_space="my_space"),
+        )
+        with monkeypatch_toolkit_client() as client:
+            my_console = MagicMock(spec=Console)
+            client.infield.apm_config.list.side_effect = ToolkitAPIError(
+                "One or more views do not exist: 'APM_Config:APM_Config/1'", code=400
+            )
+            io = InFieldCDMLocationConfigIO(client, None, my_console)
+
+            io.create([item])
+
+            client.infield.cdm_config.create.assert_called_once_with([item])
+            assert not my_console.print.called

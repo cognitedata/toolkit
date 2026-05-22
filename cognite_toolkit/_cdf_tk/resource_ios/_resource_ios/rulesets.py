@@ -163,6 +163,11 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
     def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield RuleSetIO, ExternalId(external_id=resource.rule_set_external_id)
 
+    def dump_resource(self, resource: RuleSetVersionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        dumped["ruleSetExternalId"] = resource.rule_set_external_id
+        return dumped
+
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: RuleSetVersionId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         """Get extra files for a RuleSetVersion resource.

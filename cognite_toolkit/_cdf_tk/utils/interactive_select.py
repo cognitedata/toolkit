@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.constants import CHARTS_LIST_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -420,6 +421,12 @@ class InteractiveChartSelect:
             )
 
         available_charts = self.client.charts.list(visibility=select_filter.visibility)
+        if len(available_charts) >= CHARTS_LIST_LIMIT:
+            questionary.print(
+                f"Warning: The Charts list endpoint returned {len(available_charts)} items, which is the "
+                "server-side maximum. There may be additional charts that could not be listed.",
+                style="fg:yellow bold",
+            )
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
 
@@ -637,8 +644,9 @@ class DataModelingSelect:
                     include_global=filter.include_global,
                 )
             views = datamodel.views or []
-            parents = {parent for view in views for parent in view.implements or []}
-            # We only allow the user to select child views
+            global_view_ids = {view.as_id() for view in views if view.is_global}
+            # Skip downloading parent views that belong to system (global) spaces
+            parents = {parent for view in views for parent in view.implements or [] if parent in global_view_ids}
             views = [view for view in views if view.as_id() not in parents]
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")

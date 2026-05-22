@@ -2,13 +2,15 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId, RuleSetVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId, RuleSetVersionId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ViewIO
+from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductIO
@@ -22,7 +24,7 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO, RuleSetVersionIO})
+    dependencies = frozenset({DataProductIO, RuleSetVersionIO, ViewIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
@@ -63,6 +65,16 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
                     RuleSetVersionIO,
                     RuleSetVersionId(rule_set_external_id=rule["externalId"], version=rule["version"]),
                 )
+        for view in item.get("views", []):
+            if in_dict(("space", "externalId", "version"), view):
+                yield (
+                    ViewIO,
+                    ViewId(
+                        space=view["space"],
+                        external_id=view["externalId"],
+                        version=str(view["version"]),
+                    ),
+                )
 
     @classmethod
     def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -70,6 +82,8 @@ class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRe
         if resource.quality:
             for rule in resource.quality.rules:
                 yield RuleSetVersionIO, rule.as_id()
+        for view in resource.views:
+            yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=str(view.version))
 
     def dump_resource(
         self, resource: DataProductVersionResponse, local: dict[str, Any] | None = None
