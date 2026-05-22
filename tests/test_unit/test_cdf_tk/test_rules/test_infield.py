@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     RelativeDirPath,
 )
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
-from cognite_toolkit._cdf_tk.rules._infield import InFieldCDMViewPropertiesRuleSet, _REQUIRED_PROPERTIES
+from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMViewPropertiesRuleSet
 
 
 @pytest.fixture
@@ -130,9 +130,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         }
 
         mock_client = MagicMock()
-        mock_client.tool.views.retrieve.side_effect = lambda ids, **_: [
-            view_map[v] for v in ids if v in view_map
-        ]
+        mock_client.tool.views.retrieve.side_effect = lambda ids, **_: [view_map[v] for v in ids if v in view_map]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         results = list(rule.validate())
         assert results == []
@@ -166,9 +164,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         activities_required = _REQUIRED_PROPERTIES["assetActivitiesCard"]
         mock_client = MagicMock()
-        mock_client.tool.views.retrieve.return_value = [
-            mock_view(activities_id, activities_required - {"mainAsset"})
-        ]
+        mock_client.tool.views.retrieve.return_value = [mock_view(activities_id, activities_required - {"mainAsset"})]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
