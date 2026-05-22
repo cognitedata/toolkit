@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -8,7 +9,6 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     AbsoluteDirPath,
@@ -16,23 +16,53 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     RelativeDirPath,
 )
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
-from cognite_toolkit._cdf_tk.rules._infield import InFieldCDMViewPropertiesRuleSet
+from cognite_toolkit._cdf_tk.rules._infield import InFieldCDMViewPropertiesRuleSet, _REQUIRED_PROPERTIES
 
 
-class TestInFieldCDMViewPropertiesRuleSet:
-    _ACTIVITIES_REQUIRED = frozenset({"sourceId", "name", "status", "type", "mainAsset"})
-    _NOTIFICATIONS_REQUIRED = frozenset(
-        {"sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
-    )
+@pytest.fixture
+def mock_view() -> Callable[[ViewId, frozenset[str]], MagicMock]:
+    def _mock_view(view_id: ViewId, property_names: frozenset[str]) -> MagicMock:
+        view = MagicMock()
+        view.properties = {name: MagicMock() for name in property_names}
+        view.as_id.return_value = view_id
+        return view
 
-    @staticmethod
-    def _write_config_yaml(filepath: Path, content: dict) -> None:
+    return _mock_view
+
+
+@pytest.fixture
+def both_cards_config() -> dict:
+    return {
+        "space": "sp_instance",
+        "externalId": "my_location_config",
+        "dataExplorationConfig": {
+            "assetActivitiesCard": {
+                "space": "customer_idm",
+                "version": "v2",
+                "externalId": "ActivitiesCard",
+            },
+            "assetNotificationsCard": {
+                "space": "customer_idm",
+                "version": "v2",
+                "externalId": "NotificationsCard",
+            },
+        },
+    }
+
+
+@pytest.fixture
+def write_config_yaml() -> Callable[[Path, dict], None]:
+    def _write(filepath: Path, content: dict) -> None:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, "w") as f:
             yaml.safe_dump(content, f)
 
-    @staticmethod
-    def _create_built_resource(source_path: Path, build_path: Path) -> BuiltResource:
+    return _write
+
+
+@pytest.fixture
+def create_built_resource() -> Callable[[Path, Path], BuiltResource]:
+    def _create(source_path: Path, build_path: Path) -> BuiltResource:
         return BuiltResource(
             identifier=NodeId(space="sp_instance", external_id="my_location_config"),
             source_hash="test-hash",
@@ -47,8 +77,12 @@ class TestInFieldCDMViewPropertiesRuleSet:
             has_syntax_error=False,
         )
 
-    @staticmethod
-    def _create_module(tmp_path: Path, resources: list[BuiltResource]) -> BuiltModule:
+    return _create
+
+
+@pytest.fixture
+def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
+    def _create(tmp_path: Path, resources: list[BuiltResource]) -> BuiltModule:
         mod_path = tmp_path / "modules" / "my"
         mod_path.mkdir(parents=True, exist_ok=True)
         return BuiltModule(
@@ -60,31 +94,10 @@ class TestInFieldCDMViewPropertiesRuleSet:
             yaml_line_count=1,
         )
 
-    @staticmethod
-    def _mock_view(view_id: ViewId, property_names: frozenset[str]) -> MagicMock:
-        view = MagicMock()
-        view.properties = {name: MagicMock() for name in property_names}
-        view.as_id.return_value = view_id
-        return view
+    return _create
 
-    def _both_cards_config(self) -> dict:
-        return {
-            "space": "sp_instance",
-            "externalId": "my_location_config",
-            "dataExplorationConfig": {
-                "assetActivitiesCard": {
-                    "space": "customer_idm",
-                    "version": "v2",
-                    "externalId": "ActivitiesCard",
-                },
-                "assetNotificationsCard": {
-                    "space": "customer_idm",
-                    "version": "v2",
-                    "externalId": "NotificationsCard",
-                },
-            },
-        }
 
+class TestInFieldCDMViewPropertiesRuleSet:
     def test_get_status_with_client(self) -> None:
         rule = InFieldCDMViewPropertiesRuleSet(modules=[], client=MagicMock())
         status = rule.get_status()
@@ -95,35 +108,46 @@ class TestInFieldCDMViewPropertiesRuleSet:
         status = rule.get_status()
         assert status.code == "reduced"
 
-    def test_valid_view_has_all_required_properties(self, tmp_path: Path) -> None:
+    def test_valid_view_has_all_required_properties(
+        self,
+        tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
+        both_cards_config: dict,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
         yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
-        self._write_config_yaml(yaml_file, self._both_cards_config())
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        module = self._create_module(tmp_path, [resource])
+        write_config_yaml(yaml_file, both_cards_config)
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
 
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
+        view_map = {
+            activities_id: mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCard"]),
+            notifications_id: mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCard"]),
+        }
 
         mock_client = MagicMock()
-
-        def retrieve(view_ids: list[ViewId], include_inherited_properties: bool = True) -> list[MagicMock]:
-            views = []
-            for view_id in view_ids:
-                if view_id == activities_id:
-                    views.append(self._mock_view(activities_id, self._ACTIVITIES_REQUIRED))
-                elif view_id == notifications_id:
-                    views.append(self._mock_view(notifications_id, self._NOTIFICATIONS_REQUIRED))
-            return views
-
-        mock_client.tool.views.retrieve.side_effect = retrieve
+        mock_client.tool.views.retrieve.side_effect = lambda ids, **_: [
+            view_map[v] for v in ids if v in view_map
+        ]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         results = list(rule.validate())
         assert results == []
         mock_client.tool.views.retrieve.assert_called_once()
 
-    def test_view_missing_required_properties(self, tmp_path: Path) -> None:
+    def test_view_missing_required_properties(
+        self,
+        tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
         yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
-        self._write_config_yaml(
+        write_config_yaml(
             yaml_file,
             {
                 "space": "sp_instance",
@@ -137,22 +161,29 @@ class TestInFieldCDMViewPropertiesRuleSet:
                 },
             },
         )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        module = self._create_module(tmp_path, [resource])
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
+        activities_required = _REQUIRED_PROPERTIES["assetActivitiesCard"]
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [
-            self._mock_view(activities_id, self._ACTIVITIES_REQUIRED - {"mainAsset"})
+            mock_view(activities_id, activities_required - {"mainAsset"})
         ]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
-        errors = [r for r in rule.validate() if isinstance(r, ConsistencyError)]
+        errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
         assert "mainAsset" in errors[0].message
 
-    def test_view_not_found_in_cdf(self, tmp_path: Path) -> None:
+    def test_view_not_found_in_cdf(
+        self,
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
         yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
-        self._write_config_yaml(
+        write_config_yaml(
             yaml_file,
             {
                 "space": "sp_instance",
@@ -166,33 +197,41 @@ class TestInFieldCDMViewPropertiesRuleSet:
                 },
             },
         )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        module = self._create_module(tmp_path, [resource])
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = []
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
-        errors = [r for r in rule.validate() if isinstance(r, ConsistencyError)]
+        errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-NOT-FOUND"
         assert "was not found in CDF" in errors[0].message
 
-    def test_retrieve_called_once_for_multiple_resources(self, tmp_path: Path) -> None:
+    def test_retrieve_called_once_for_multiple_resources(
+        self,
+        tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
+        both_cards_config: dict,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
         yaml_file_1 = tmp_path / "cdf_applications" / "loc1.InFieldCDMLocationConfig.yaml"
         yaml_file_2 = tmp_path / "cdf_applications" / "loc2.InFieldCDMLocationConfig.yaml"
-        self._write_config_yaml(yaml_file_1, self._both_cards_config())
-        self._write_config_yaml(yaml_file_2, self._both_cards_config())
+        write_config_yaml(yaml_file_1, both_cards_config)
+        write_config_yaml(yaml_file_2, both_cards_config)
         resources = [
-            self._create_built_resource(yaml_file_1, yaml_file_1),
-            self._create_built_resource(yaml_file_2, yaml_file_2),
+            create_built_resource(yaml_file_1, yaml_file_1),
+            create_built_resource(yaml_file_2, yaml_file_2),
         ]
-        module = self._create_module(tmp_path, resources)
+        module = create_module(tmp_path, resources)
 
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [
-            self._mock_view(activities_id, self._ACTIVITIES_REQUIRED),
-            self._mock_view(notifications_id, self._NOTIFICATIONS_REQUIRED),
+            mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCard"]),
+            mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCard"]),
         ]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         list(rule.validate())
@@ -200,11 +239,18 @@ class TestInFieldCDMViewPropertiesRuleSet:
         call_view_ids = mock_client.tool.views.retrieve.call_args[0][0]
         assert set(call_view_ids) == {activities_id, notifications_id}
 
-    def test_retrieve_batch_failure_propagates(self, tmp_path: Path) -> None:
+    def test_retrieve_batch_failure_propagates(
+        self,
+        tmp_path: Path,
+        both_cards_config: dict,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
         yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
-        self._write_config_yaml(yaml_file, self._both_cards_config())
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        module = self._create_module(tmp_path, [resource])
+        write_config_yaml(yaml_file, both_cards_config)
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.side_effect = ToolkitAPIError("Server error", code=500)
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
