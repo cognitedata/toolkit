@@ -85,7 +85,8 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         for resource, card_key, view_id, required in card_view_refs:
             yield from self._check_view(resource, card_key, view_id, required, views_by_id)
 
-    def _collect_card_view_refs(self, resource: BuiltResource) -> list[_CardViewRef]:
+    @staticmethod
+    def _collect_card_view_refs(resource: BuiltResource) -> list[_CardViewRef]:
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
         if not config.data_exploration_config:
