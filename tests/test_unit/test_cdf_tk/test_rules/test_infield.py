@@ -146,7 +146,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         errors = [r for r in rule.validate() if isinstance(r, ConsistencyError)]
         assert len(errors) == 1
-        assert errors[0].code == InFieldCDMViewPropertiesRuleSet.CODE
+        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
         assert "mainAsset" in errors[0].message
 
     def test_view_not_found_in_cdf(self, tmp_path: Path) -> None:
@@ -172,7 +172,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         errors = [r for r in rule.validate() if isinstance(r, ConsistencyError)]
         assert len(errors) == 1
-        assert errors[0].code == InFieldCDMViewPropertiesRuleSet.CODE
+        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-NOT-FOUND"
         assert "was not found in CDF" in errors[0].message
 
     def test_retrieve_called_once_for_multiple_resources(self, tmp_path: Path) -> None:

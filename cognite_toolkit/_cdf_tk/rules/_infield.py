@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from typing import ClassVar
 
 import yaml
 from pydantic import ValidationError
@@ -32,7 +31,7 @@ _CardViewRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
 
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
-    CODE: ClassVar[str] = "INFIELD-CDM-VIEW-PROPERTIES"
+    CODE_PREFIX = "INFIELD-CDM"
     DISPLAY_NAME = "InField CDM view properties"
 
     def get_status(self) -> RuleSetStatus:
@@ -113,7 +112,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         view = views_by_id.get(view_id)
         if view is None:
             yield ConsistencyError(
-                code=self.CODE,
+                code=f"{self.CODE_PREFIX}-VIEW-NOT-FOUND",
                 message=(
                     f"View {view_id!s} referenced as {card_key!r} in "
                     f"{resource.source_path.name!r} was not found in CDF."
@@ -125,7 +124,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         missing = required - set(view.properties.keys())
         if missing:
             yield ConsistencyError(
-                code=self.CODE,
+                code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
                 message=(
                     f"View {view_id!s} used as {card_key!r} in {resource.source_path.name!r} "
                     f"is missing required properties: {humanize_collection(sorted(missing))}."
