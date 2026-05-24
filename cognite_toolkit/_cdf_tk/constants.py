@@ -203,3 +203,6 @@ STREAM_MUTABLE_TEMPLATE_NAME = frozenset(("BasicLiveData",))
 SUBSELECTION_LIMIT_QUERY_ENDPOINT = 1_000
 
 MISSING_NONCE = "<missingNonce>"
+
+# Hard server-side cap on /storage/charts/charts/list; the endpoint rejects a limit parameter.
+CHARTS_LIST_LIMIT = 10_000

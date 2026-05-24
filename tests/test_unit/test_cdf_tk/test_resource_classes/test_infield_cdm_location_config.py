@@ -134,6 +134,66 @@ def invalid_test_cases() -> Iterable:
         {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
         id="Multiple observations in viewMappings not supported",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyActivityView",
+                    "unknownNested": "x",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetActivitiesCard unknown field: 'unknownNested'"},
+        id="Unknown field in dataExplorationConfig.assetActivitiesCard",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetActivitiesCard missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetActivitiesCard",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyNotificationView",
+                    "extraProp": 1,
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetNotificationsCard unknown field: 'extraProp'"},
+        id="Unknown field in dataExplorationConfig.assetNotificationsCard",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCard": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetNotificationsCard missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetNotificationsCard",
+    )
 
 
 class TestInfieldCDMLocationConfigYAML:
