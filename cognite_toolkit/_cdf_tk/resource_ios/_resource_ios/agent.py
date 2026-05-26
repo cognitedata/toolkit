@@ -16,7 +16,13 @@ from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import Function
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
-from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction, QueryKnowledgeGraph
+from cognite_toolkit._cdf_tk.yaml_classes.agent import (
+    AgentDataModel,
+    CallFunction,
+    ManualQueryDataModels,
+    Query,
+    QueryKnowledgeGraph,
+)
 
 
 @final
@@ -44,6 +50,55 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
+    @staticmethod
+    def _data_model_dependencies(data_models: list[dict[str, Any]]) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
+        for data_model in data_models:
+            space = data_model.get("space")
+            external_id = data_model.get("externalId")
+            version = data_model.get("version")
+            if space and external_id and version:
+                yield DataModelIO, DataModelId(space=space, external_id=external_id, version=str(version))
+
+    @staticmethod
+    def _yaml_data_model_dependencies(
+        data_models: list[AgentDataModel],
+    ) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
+        for data_model in data_models:
+            yield (
+                DataModelIO,
+                DataModelId(
+                    space=data_model.space,
+                    external_id=data_model.external_id,
+                    version=data_model.version,
+                ),
+            )
+
+    @staticmethod
+    def _call_function_dependencies(tool: CallFunction) -> Iterable[tuple[type[ResourceIO], ExternalId]]:
+        yield FunctionIO, ExternalId(external_id=tool.configuration.external_id)
+
+    @staticmethod
+    def _query_knowledge_graph_dependencies(
+        tool: QueryKnowledgeGraph,
+    ) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
+        yield from AgentIO._yaml_data_model_dependencies(tool.configuration.data_models)
+
+    @staticmethod
+    def _query_dependencies(tool: Query) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
+        dm_scope = tool.configuration.data_models
+        if dm_scope.type == "manual" and isinstance(dm_scope, ManualQueryDataModels):
+            yield from AgentIO._yaml_data_model_dependencies(dm_scope.data_models)
+
+    @classmethod
+    def _query_tool_manual_data_models(cls, configuration: dict[str, Any]) -> list[dict[str, Any]]:
+        data_models_scope = configuration.get("dataModels")
+        if not isinstance(data_models_scope, dict) or data_models_scope.get("type") != "manual":
+            return []
+        data_models = data_models_scope.get("dataModels")
+        if not isinstance(data_models, list):
+            return []
+        return data_models
+
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         for tool in item.get("tools", []):
@@ -51,28 +106,22 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
                 if ext_id := tool.get("configuration", {}).get("externalId"):
                     yield FunctionIO, ExternalId(external_id=ext_id)
             elif tool.get("type") == "queryKnowledgeGraph":
-                for data_model in tool.get("configuration", {}).get("dataModels", []):
-                    space = data_model.get("space")
-                    external_id = data_model.get("externalId")
-                    version = data_model.get("version")
-                    if space and external_id and version:
-                        yield DataModelIO, DataModelId(space=space, external_id=external_id, version=str(version))
+                yield from cls._data_model_dependencies(tool.get("configuration", {}).get("dataModels", []))
+            elif tool.get("type") == "query":
+                yield from cls._data_model_dependencies(
+                    cls._query_tool_manual_data_models(tool.get("configuration", {}))
+                )
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for tool in resource.tools or []:
-            if isinstance(tool, CallFunction):
-                yield FunctionIO, ExternalId(external_id=tool.configuration.external_id)
-            elif isinstance(tool, QueryKnowledgeGraph):
-                for data_model in tool.configuration.data_models:
-                    yield (
-                        DataModelIO,
-                        DataModelId(
-                            space=data_model.space,
-                            external_id=data_model.external_id,
-                            version=data_model.version,
-                        ),
-                    )
+            match tool.type:
+                case "callFunction":
+                    yield from cls._call_function_dependencies(tool)
+                case "queryKnowledgeGraph":
+                    yield from cls._query_knowledge_graph_dependencies(tool)
+                case "query":
+                    yield from cls._query_dependencies(tool)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:

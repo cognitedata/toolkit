@@ -125,6 +125,70 @@ class TestAgentIODependencies:
                 id="queryKnowledgeGraph with multiple data models yields multiple DataModelIO dependencies",
             ),
             pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "tools": [
+                        {
+                            "type": "query",
+                            "name": "Query",
+                            "description": "Run flexible queries against your data model and scope.",
+                            "configuration": {
+                                "dataModels": {
+                                    "type": "manual",
+                                    "dataModels": [
+                                        {
+                                            "space": "my_space",
+                                            "externalId": "my_data_model",
+                                            "version": "v1",
+                                            "viewExternalIds": ["MyView"],
+                                        }
+                                    ],
+                                },
+                                "instanceSpaces": {"type": "all"},
+                            },
+                        }
+                    ],
+                },
+                [(DataModelIO, DataModelId(space="my_space", external_id="my_data_model", version="v1"))],
+                id="query tool with manual data models yields DataModelIO dependency",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "tools": [
+                        {
+                            "type": "query",
+                            "name": "Query_Default",
+                            "description": "Run flexible queries against your data model and scope.",
+                            "configuration": {
+                                "dataModels": {"type": "providedAtRuntime"},
+                                "instanceSpaces": {"type": "providedAtRuntime"},
+                            },
+                        }
+                    ],
+                },
+                [],
+                id="query tool with providedAtRuntime yields no dependencies",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "tools": [
+                        {
+                            "type": "query",
+                            "name": "Query_manual_scope",
+                            "description": "Run flexible queries against your data model and scope.",
+                            "configuration": {
+                                "dataModels": {"type": "providedAtRuntime"},
+                                "instanceSpaces": {"type": "manual", "spaces": ["akerbp_wi"]},
+                            },
+                        }
+                    ],
+                },
+                [],
+                id="query tool with manual instance spaces yields no dependencies",
+            ),
+            pytest.param(
                 {"externalId": "my_agent", "tools": []},
                 [],
                 id="agent with no tools yields no dependencies",

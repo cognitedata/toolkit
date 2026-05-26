@@ -167,7 +167,7 @@ def invalid_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "valid_id", "name": "Valid Name", "tools": [{"type": "invalid"}]},
         {
-            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
+            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'query', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
         },
         id="invalid-tool-type-validation-errors",
     )
@@ -216,7 +216,7 @@ class TestAgentYAML:
 
     @pytest.mark.parametrize(
         "tool_type",
-        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "queryKnowledgeGraph"}),
+        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "query", "queryKnowledgeGraph"}),
     )
     def test_tool_extra_fields_roundtrip(self, tool_type: str) -> None:
         """Tools must preserve unknown fields so the API can add new properties without breaking deployments."""
@@ -243,3 +243,59 @@ class TestAgentYAML:
             f"The following AgentInstanceSpaces subclasses are "
             f"missing from the AgentInstanceSpaces union: {humanize_collection([cls.__name__ for cls in missing])}"
         )
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            pytest.param(
+                {
+                    "type": "query",
+                    "name": "Query",
+                    "description": "Run flexible queries against your data model and scope.",
+                    "configuration": {
+                        "dataModels": {
+                            "type": "manual",
+                            "dataModels": [
+                                {
+                                    "space": "cdf_cdm",
+                                    "externalId": "CogniteCore",
+                                    "version": "v1",
+                                    "viewExternalIds": ["CogniteAsset"],
+                                }
+                            ],
+                        },
+                        "instanceSpaces": {"type": "all"},
+                    },
+                },
+                id="manual-data-models-all-instance-spaces",
+            ),
+            pytest.param(
+                {
+                    "type": "query",
+                    "name": "Query_Default",
+                    "description": "Run flexible queries against your data model and scope.",
+                    "configuration": {
+                        "dataModels": {"type": "providedAtRuntime"},
+                        "instanceSpaces": {"type": "providedAtRuntime"},
+                    },
+                },
+                id="provided-at-runtime",
+            ),
+            pytest.param(
+                {
+                    "type": "query",
+                    "name": "Query_manual_scope",
+                    "description": "Run flexible queries against your data model and scope.",
+                    "configuration": {
+                        "dataModels": {"type": "providedAtRuntime"},
+                        "instanceSpaces": {"type": "manual", "spaces": ["akerbp_wi"]},
+                    },
+                },
+                id="runtime-data-models-manual-instance-spaces",
+            ),
+        ],
+    )
+    def test_query_tool_config_roundtrip(self, tool: dict) -> None:
+        data = {"externalId": "my_agent", "name": "My Agent", "tools": [tool]}
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
