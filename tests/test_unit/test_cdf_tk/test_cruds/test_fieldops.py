@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -23,7 +23,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
     InfieldV1IO,
     SpaceCRUD,
+    ViewIO,
 )
+from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 
 
 class TestInfieldV1Loader:
@@ -75,6 +77,88 @@ class TestInfieldV1Loader:
 
 
 class TestInFieldCDMLocationConfigCRUD:
+    def test_get_dependencies_includes_data_exploration_card_views(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetActivitiesCard": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "ActivitiesCard",
+                    },
+                    "assetNotificationsCard": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "NotificationsCard",
+                    },
+                },
+            }
+        )
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
+            (
+                ViewIO.__name__,
+                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+            ),
+        }
+
+    def test_get_dependencies_without_data_exploration_config(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {"space": "sp_instance", "externalId": "my_location_config"}
+        )
+        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
+
+    def test_get_dependencies_ignores_asset_properties_card(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetPropertiesCard": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "PropertiesCard",
+                    },
+                },
+            }
+        )
+        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
+
+    def test_get_dependent_items_includes_data_exploration_view_mappings(self) -> None:
+        item = {
+            "space": "sp_instance",
+            "externalId": "my_location_config",
+            "dataExplorationConfig": {
+                "assetActivitiesCard": {
+                    "space": "customer_idm_extention",
+                    "version": "v2",
+                    "externalId": "ActivitiesCard",
+                },
+                "assetNotificationsCard": {
+                    "space": "customer_idm_extention",
+                    "version": "v2",
+                    "externalId": "NotificationsCard",
+                },
+            },
+        }
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
+            (
+                ViewIO.__name__,
+                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+            ),
+        }
+
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"
         item = InFieldCDMLocationConfigRequest(
