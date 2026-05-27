@@ -279,7 +279,7 @@ def asset_centric_to_dm(
                 source=ViewId(
                     space=INSTANCE_SOURCE_VIEW_ID.space,
                     external_id=INSTANCE_SOURCE_VIEW_ID.external_id,
-                    version=view_source.view_id.version,
+                    version=INSTANCE_SOURCE_VIEW_ID.version,
                 ),
                 properties=instance_source_properties,
             )
