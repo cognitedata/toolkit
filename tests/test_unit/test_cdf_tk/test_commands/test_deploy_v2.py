@@ -7,12 +7,19 @@ import pytest
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container import (
     ContainerInspectResult,
     ContainerInspectResultItem,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
+    DeploymentStep,
+    DeployOptions,
+    DeployV2Command,
+    ResourceToDeploy,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, EdgeCRUD, NodeCRUD, SpaceCRUD, ViewIO
 
@@ -268,3 +275,25 @@ class TestCheckNoOutOfScopeViewReferences:
             raises_ctx,
         ):
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
+
+
+class TestDeployResourcesSpecialHandling:
+    def test_upserts_views_in_dependency_order(self) -> None:
+        base_view = ViewRequest(space="sp_space", external_id="Base", version="v1")
+        derived_view = ViewRequest(
+            space="sp_space",
+            external_id="Derived",
+            version="v1",
+            implements=[ViewId(space="sp_space", external_id="Base", version="v1")],
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.create.side_effect = lambda items: list(items)
+            loader = ViewIO(client, Path("build_dir"), None)
+            resources: ResourceToDeploy = ResourceToDeploy(to_create=[derived_view], to_update=[base_view])
+            result = DeployV2Command.deploy_resources(loader, resources, set())
+
+        assert result.created_count == 1
+        assert result.updated_count == 1
+        deployed_ids = [view.external_id for call in client.tool.views.create.call_args_list for view in call[0][0]]
+        assert deployed_ids.index("Base") < deployed_ids.index("Derived")
