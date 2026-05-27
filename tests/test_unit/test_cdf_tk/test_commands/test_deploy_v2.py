@@ -277,7 +277,7 @@ class TestCheckNoOutOfScopeViewReferences:
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
 
 
-class TestDeployResourcesSpecialHandling:
+class TestDeployResourcesSpecialUpsertHandling:
     def test_upserts_views_in_dependency_order(self) -> None:
         base_view = ViewRequest(space="sp_space", external_id="Base", version="v1")
         derived_view = ViewRequest(
