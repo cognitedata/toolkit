@@ -14,9 +14,10 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
@@ -57,13 +58,14 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
+    Image360AnnotationRequest,
     MigrationMapping,
     MigrationMappingList,
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
 from .issues import MigrationEntryV2
-from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
+from .selectors import AssetCentricMigrationSelector, Image360AnnotationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
 class AssetCentricMigrationIO(
@@ -787,3 +789,165 @@ class ThreeDAssetMappingMigrationIO(
         self, data_chunk: Page[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")
+
+
+class Image360AnnotationMigrationIO(
+    UploadableDataIO[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationRequest]
+):
+    """IO class for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint.
+
+    ``stream_data()`` loads Image360 nodes from the source space, resolves their face-file
+    external IDs to internal IDs, then pages through the Annotations API for those files.
+
+    ``upload_items()`` groups the mapped requests by revision (collection) node and posts one
+    ``ItemsRequest`` per group, carrying the matching ``dmsContextualizationConfig``.
+
+    Args:
+        client: ToolkitClient to use for CDF interactions.
+    """
+
+    KIND = "Image360AnnotationMigration"
+    CHUNK_SIZE = 100  # beta endpoint maximum
+    UPLOAD_ENDPOINT = "/3d/contextualization/image360"
+    _SOURCE_VIEW_ID = {
+        "space": "cdf_360_image_schema",
+        "external_id": "Image360",
+        "version": "1",
+    }
+    _FACE_PROPERTY_NAMES = (
+        "cubeMapFront",
+        "cubeMapBack",
+        "cubeMapLeft",
+        "cubeMapRight",
+        "cubeMapTop",
+        "cubeMapBottom",
+    )
+    # The annotations API supports at most 1000 IDs per filter call.
+    _ANNOTATION_FILTER_ID_CHUNK = 1000
+    _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
+
+    def stream_data(
+        self,
+        selector: Image360AnnotationSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page[AnnotationResponse]]:
+        file_internal_ids = self._load_face_file_ids(selector.source_space)
+        if not file_internal_ids:
+            return
+
+        total = 0
+        for id_batch in chunker_sequence(file_internal_ids, self._ANNOTATION_FILTER_ID_CHUNK):
+            annotation_filter = AnnotationFilter(
+                annotated_resource_type="file",
+                annotated_resource_ids=[InternalId(id=file_id) for file_id in id_batch],
+            )
+            for annotation_batch in self.client.tool.annotations.iterate(
+                filter=annotation_filter,
+                limit=limit - total if limit is not None else None,
+            ):
+                filtered = [
+                    ann for ann in annotation_batch if ann.annotation_type in self._ANNOTATION_TYPES
+                ]
+                if not filtered:
+                    continue
+                total += len(filtered)
+                yield self.emit_registered_page(
+                    Page(
+                        worker_id="main",
+                        items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
+                    )
+                )
+                if limit is not None and total >= limit:
+                    return
+
+    def _load_face_file_ids(self, source_space: str) -> list[int]:
+        """Load all Image360 nodes from source_space and return their face-file internal IDs."""
+        source_view = ViewId(
+            space=self._SOURCE_VIEW_ID["space"],
+            external_id=self._SOURCE_VIEW_ID["external_id"],
+            version=self._SOURCE_VIEW_ID["version"],
+        )
+        instance_filter = InstanceFilter(
+            instance_type="node",
+            source=source_view,
+            space=[source_space],
+        )
+        all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+
+        file_external_ids: list[str] = []
+        for node in all_nodes:
+            if not isinstance(node, NodeResponse) or node.properties is None:
+                continue
+            props = node.properties.get(source_view, {})
+            for prop_name in self._FACE_PROPERTY_NAMES:
+                file_ext_id = props.get(prop_name)
+                if file_ext_id and isinstance(file_ext_id, str):
+                    file_external_ids.append(file_ext_id)
+
+        if not file_external_ids:
+            return []
+
+        resolved = self.client.tool.filemetadata.retrieve(
+            [ExternalId(external_id=ext_id) for ext_id in file_external_ids],
+            ignore_unknown_ids=True,
+        )
+        return [f.id for f in resolved if f.id is not None]
+
+    def count(self, selector: Image360AnnotationSelector) -> int | None:
+        return None
+
+    def upload_items(
+        self,
+        data_chunk: Page[Image360AnnotationRequest],
+        http_client: HTTPClient,
+        selector: Image360AnnotationSelector | None = None,
+    ) -> ItemsResultList:
+        """Upload annotations grouped by revision (collection) node.
+
+        Each group shares one ``dmsContextualizationConfig`` in the request body.
+        """
+        if not data_chunk or selector is None:
+            return ItemsResultList()
+
+        # Group DataItem[Image360AnnotationRequest] by revision_instance_id
+        groups: dict[tuple[str, str], list[DataItem[Image360AnnotationRequest]]] = {}
+        for data_item in data_chunk.items:
+            request = data_item.item
+            key = (request.revision_instance_id.space, request.revision_instance_id.external_id)
+            groups.setdefault(key, []).append(data_item)
+
+        results = ItemsResultList()
+        for (rev_space, rev_ext_id), group_items in groups.items():
+            dms_config: dict[str, JsonVal] = {
+                "object3DSpace": selector.object3d_space,
+                "contextualizationSpace": selector.contextualization_space,
+                "revision": {
+                    "instanceId": {
+                        "space": rev_space,
+                        "externalId": rev_ext_id,
+                    }
+                },
+            }
+            for chunk in chunker_sequence(group_items, self.CHUNK_SIZE):
+                responses = http_client.request_items_retries(
+                    message=ItemsRequest(
+                        endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
+                        method="POST",
+                        items=chunk,
+                        api_version="beta",
+                        extra_body_fields=dms_config,
+                    )
+                )
+                results.extend(responses)
+        return results
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> Image360AnnotationRequest:
+        raise NotImplementedError("Deserializing Image360 Annotation Migrations from JSON is not supported.")
+
+    def data_to_json_chunk(
+        self,
+        data_chunk: Page[AnnotationResponse],
+        selector: Image360AnnotationSelector | None = None,
+    ) -> Page[dict[str, JsonVal]]:
+        raise NotImplementedError("Serializing Image360 Annotation Migrations to JSON is not supported.")

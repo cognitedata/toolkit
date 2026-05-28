@@ -1,4 +1,5 @@
 import json
+import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -56,6 +57,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
@@ -84,6 +87,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    Image360AnnotationRequest,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -112,7 +116,7 @@ from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp,
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
-from .selectors import AssetCentricMigrationSelector
+from .selectors import AssetCentricMigrationSelector, Image360AnnotationSelector
 
 
 class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
@@ -1916,3 +1920,322 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+def uv_and_face_to_spherical(face: str, u: float, v: float) -> tuple[float, float]:
+    """Convert cubemap face UV coordinates to spherical coordinates in radians.
+
+    Ports ``getNormalizedVectorFromUVAndFace`` from fusion/libs/3d and THREE.js
+    ``Spherical.setFromVector3``.
+
+    Args:
+        face: Cubemap face name: "front", "back", "left", "right", "top", or "bottom".
+        u: Horizontal coordinate in [0, 1] on the face image (x in annotation vertex).
+        v: Vertical coordinate in [0, 1] on the face image (y in annotation vertex).
+
+    Returns:
+        (phi, theta) where phi ∈ [0, π] (polar angle from y-axis) and theta ∈ [0, 2π]
+        (azimuthal angle around y-axis, measured from z-axis).
+    """
+    uc = 2.0 * u - 1.0
+    vc = 2.0 * v - 1.0
+    # Each face is a unit-distance plane; (uc, vc) are [-1, 1] image-space coords.
+    # y maps to world Y (up = -vc since image v=0 is top), and the face normal is the
+    # constant axis. Convention: Y-up, camera looks toward -Z (THREE.js Spherical theta=π).
+    if face == "front":
+        x, y, z = uc, -vc, -1.0
+    elif face == "back":
+        x, y, z = -uc, -vc, 1.0
+    elif face == "left":
+        x, y, z = -1.0, -vc, -uc
+    elif face == "right":
+        x, y, z = 1.0, -vc, uc
+    elif face == "top":
+        x, y, z = uc, 1.0, -vc
+    elif face == "bottom":
+        x, y, z = uc, -1.0, vc
+    else:
+        raise ValueError(f"Unknown cubemap face: {face!r}")
+    magnitude = math.sqrt(x**2 + y**2 + z**2)
+    x, y, z = x / magnitude, y / magnitude, z / magnitude
+    phi = math.acos(max(-1.0, min(1.0, y)))
+    theta_raw = math.atan2(x, z)
+    theta = theta_raw if theta_raw >= 0.0 else theta_raw + 2.0 * math.pi
+    return phi, theta
+
+
+_FACE_PROPERTY_NAMES: dict[str, str] = {
+    "cubeMapFront": "front",
+    "cubeMapBack": "back",
+    "cubeMapLeft": "left",
+    "cubeMapRight": "right",
+    "cubeMapTop": "top",
+    "cubeMapBottom": "bottom",
+}
+
+_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="1")
+
+
+class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationRequest]):
+    """Maps legacy 360-image annotations (images.AssetLink / images.InstanceLink) to the
+    Image360AnnotationRequest format consumed by POST /3d/contextualization/image360 (beta).
+
+    Args:
+        client: ToolkitClient instance for CDF API access.
+    """
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        # file_internal_id → (face_name, new_image360_node_id, new_collection_node_id)
+        self._face_and_nodes_by_file_id: dict[int, tuple[str, NodeId, NodeId]] = {}
+
+    def prepare(self, source_selector: Image360AnnotationSelector) -> None:
+        """Pre-load Image360 nodes and build a cache from face-file internal ID to (face, node IDs).
+
+        Args:
+            source_selector: Selector carrying source_space and target_space.
+        """
+        source_space = source_selector.source_space
+        target_space = source_selector.target_space
+
+        instance_filter = InstanceFilter(
+            instance_type="node",
+            source=_IMAGE360_SOURCE_VIEW,
+            space=[source_space],
+        )
+        all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+
+        # Map file external ID → (face_name, new_image360_node_id, new_collection_node_id)
+        file_ext_id_to_face_and_nodes: dict[str, tuple[str, NodeId, NodeId]] = {}
+
+        for node in all_nodes:
+            if not isinstance(node, NodeResponse) or node.properties is None:
+                continue
+            props = node.properties.get(_IMAGE360_SOURCE_VIEW, {})
+
+            collection_ref = props.get("collection360")
+            if not isinstance(collection_ref, dict):
+                continue
+            collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
+            if not collection_ext_id:
+                continue
+
+            new_image360_node_id = NodeId(space=target_space, external_id=node.external_id)
+            new_collection_node_id = NodeId(space=target_space, external_id=str(collection_ext_id))
+
+            for prop_name, face_name in _FACE_PROPERTY_NAMES.items():
+                file_ext_id = props.get(prop_name)
+                if file_ext_id and isinstance(file_ext_id, str):
+                    file_ext_id_to_face_and_nodes[file_ext_id] = (face_name, new_image360_node_id, new_collection_node_id)
+
+        if not file_ext_id_to_face_and_nodes:
+            return
+
+        file_items = [ExternalId(external_id=ext_id) for ext_id in file_ext_id_to_face_and_nodes]
+        resolved_files = self.client.tool.filemetadata.retrieve(file_items, ignore_unknown_ids=True)
+
+        self._face_and_nodes_by_file_id = {}
+        for file_resource in resolved_files:
+            if file_resource.external_id and file_resource.id:
+                face_and_nodes = file_ext_id_to_face_and_nodes.get(file_resource.external_id)
+                if face_and_nodes:
+                    self._face_and_nodes_by_file_id[file_resource.id] = face_and_nodes
+
+    def map(
+        self, source: Sequence[AnnotationResponse]
+    ) -> Sequence[Image360AnnotationRequest | None]:
+        """Convert a batch of AnnotationResponse objects to Image360AnnotationRequest objects.
+
+        Annotations whose file is not in the cache or whose data is malformed are skipped
+        (returned as None and logged).
+
+        Args:
+            source: Batch of AnnotationResponse objects from the Annotations API.
+
+        Returns:
+            Sequence of Image360AnnotationRequest (or None for skipped items).
+        """
+        results: list[Image360AnnotationRequest | None] = []
+        for annotation in source:
+            result = self._map_single_annotation(annotation)
+            results.append(result)
+        return results
+
+    def _map_single_annotation(self, annotation: AnnotationResponse) -> Image360AnnotationRequest | None:
+        face_and_nodes = self._face_and_nodes_by_file_id.get(annotation.annotated_resource_id)
+        if face_and_nodes is None:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message=f"File ID {annotation.annotated_resource_id} is not a 360-image face file in source space.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        face, new_image360_node_id, new_collection_node_id = face_and_nodes
+
+        annotation_data = annotation.data if isinstance(annotation.data, dict) else {}
+        object_region = annotation_data.get("objectRegion")
+        if not isinstance(object_region, dict):
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message="Annotation has no objectRegion.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        polygon = object_region.get("polygon")
+        if not isinstance(polygon, dict):
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message="Annotation objectRegion has no polygon.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        raw_vertices = polygon.get("vertices")
+        if not isinstance(raw_vertices, list) or len(raw_vertices) < 3:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message=f"Annotation polygon has fewer than 3 vertices (got {len(raw_vertices) if isinstance(raw_vertices, list) else 0}).",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        polygon_data: list[float] = [float(len(raw_vertices))]
+        for vertex in raw_vertices:
+            if not isinstance(vertex, dict):
+                polygon_data = []
+                break
+            phi, theta = uv_and_face_to_spherical(face, float(vertex["x"]), float(vertex["y"]))
+            polygon_data.extend([phi, theta])
+
+        if not polygon_data:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message="Annotation polygon vertices have unexpected format.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        asset_node_id = self._resolve_asset_node_id(annotation, annotation_data)
+        if asset_node_id is None:
+            return None
+
+        return Image360AnnotationRequest(
+            asset_instance_id=asset_node_id,
+            image360_instance_id=new_image360_node_id,
+            revision_instance_id=new_collection_node_id,
+            polygon_data=polygon_data,
+        )
+
+    def _resolve_asset_node_id(
+        self, annotation: AnnotationResponse, annotation_data: dict[str, Any]
+    ) -> NodeId | None:
+        if annotation.annotation_type == "images.AssetLink":
+            asset_ref = annotation_data.get("assetRef")
+            if not isinstance(asset_ref, dict):
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation.id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message="images.AssetLink annotation has no assetRef.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+                return None
+            asset_id = asset_ref.get("id")
+            if not isinstance(asset_id, int):
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation.id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message=f"images.AssetLink annotation assetRef has no integer id (got {type(asset_id).__name__}).",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+                return None
+            node_id = self.client.migration.lookup.assets(asset_id)
+            if node_id is None:
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation.id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message=f"Asset with internal ID {asset_id} has no corresponding DMS node.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+            return node_id
+
+        elif annotation.annotation_type == "images.InstanceLink":
+            instance_ref = annotation_data.get("instanceRef")
+            if not isinstance(instance_ref, dict):
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation.id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message="images.InstanceLink annotation has no instanceRef.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+                return None
+            space = instance_ref.get("space")
+            external_id = instance_ref.get("externalId") or instance_ref.get("external_id")
+            if not space or not external_id:
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation.id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message="images.InstanceLink annotation instanceRef is missing space or externalId.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+                return None
+            return NodeId(space=str(space), external_id=str(external_id))
+
+        else:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message=f"Unsupported annotation type: {annotation.annotation_type!r}.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None

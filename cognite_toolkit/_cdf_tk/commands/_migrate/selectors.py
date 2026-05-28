@@ -60,3 +60,16 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
             return DataSetSelector(data_set_external_id=self.data_set_external_id, kind="FileMetadata")
         else:
             return DataSetSelector(data_set_external_id=self.data_set_external_id, kind=self.kind)
+
+
+class Image360AnnotationSelector(DataSelector):
+    """Selector for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint."""
+
+    type: Literal["image360Annotation"] = "image360Annotation"
+    source_space: str
+    target_space: str
+    object3d_space: str
+    contextualization_space: str
+
+    def __str__(self) -> str:
+        return f"image360_annotations_{self.source_space}"

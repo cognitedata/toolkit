@@ -31,10 +31,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360AnnotationMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import create_image360_node_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
     create_infield_schedule_selector,
@@ -42,12 +44,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    Image360AnnotationMigrationIO,
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
@@ -103,6 +107,8 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
+        self.command("360-images")(self.image_360_nodes)
+        self.command("360-image-annotations")(self.image_360_annotations)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1682,5 +1688,163 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
+            )
+        )
+
+    @staticmethod
+    def image_360_nodes(
+        ctx: typer.Context,
+        source_space: Annotated[
+            str,
+            typer.Option(
+                "--source-space",
+                "-s",
+                help="The instance space containing the legacy Image360, Image360Collection, and Station360 nodes.",
+            ),
+        ],
+        target_space: Annotated[
+            str,
+            typer.Option(
+                "--target-space",
+                "-t",
+                help="The instance space to migrate the 360-image nodes into (must already exist).",
+            ),
+        ],
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = MigrationCommand(client=client)
+
+        space_mapping = {source_space: target_space}
+        mappings = create_image360_node_mappings()
+        selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=mapping.source_view.space,
+                    external_id=mapping.source_view.external_id,
+                    version=mapping.source_view.version,
+                ),
+                instance_spaces=(source_space,),
+                endpoint="query",
+            )
+            for mapping in mappings
+        ]
+        connection_creator = ConnectionCreator(client, space_mapping=space_mapping)
+        mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_nodes",
+            )
+        )
+
+    @staticmethod
+    def image_360_annotations(
+        ctx: typer.Context,
+        source_space: Annotated[
+            str,
+            typer.Option(
+                "--source-space",
+                "-s",
+                help="The instance space containing the legacy Image360 nodes whose face files carry annotations.",
+            ),
+        ],
+        target_space: Annotated[
+            str,
+            typer.Option(
+                "--target-space",
+                "-t",
+                help="The instance space where the new Cognite360Image and Cognite360ImageCollection nodes live.",
+            ),
+        ],
+        object3d_space: Annotated[
+            str,
+            typer.Option(
+                "--object3d-space",
+                help="CDF space used for the auto-created Object3D nodes.",
+            ),
+        ],
+        contextualization_space: Annotated[
+            str,
+            typer.Option(
+                "--contextualization-space",
+                help="CDF space used for the auto-created Cognite360ImageAnnotation edges.",
+            ),
+        ],
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = MigrationCommand(client=client)
+
+        selector = Image360AnnotationSelector(
+            source_space=source_space,
+            target_space=target_space,
+            object3d_space=object3d_space,
+            contextualization_space=contextualization_space,
+        )
+        mapper = Image360AnnotationMapper(client)
+        io = Image360AnnotationMigrationIO(client)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=[selector],
+                data=io,
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_annotations",
             )
         )

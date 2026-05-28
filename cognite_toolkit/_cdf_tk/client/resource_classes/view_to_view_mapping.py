@@ -18,7 +18,7 @@ class ViewToViewMapping(BaseModelObject):
         description="Mapping from property Ids in the source view to property Ids in the destination view."
     )
     edge_mapping: dict[EdgeTypeId, str] | None = Field(
-        None, description="Mapping from edge types to destination property Ids. "
+        default=None, description="Mapping from edge types to destination property Ids."
     )
 
     def get_destination_property(self, source_property: str) -> str | None:
