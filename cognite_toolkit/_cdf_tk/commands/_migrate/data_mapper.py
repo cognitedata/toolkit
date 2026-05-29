@@ -11,6 +11,8 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -57,8 +59,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
@@ -77,6 +77,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
+    ConversionResult,
     CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
@@ -1973,7 +1974,88 @@ _FACE_PROPERTY_NAMES: dict[str, str] = {
     "cubeMapBottom": "bottom",
 }
 
-_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="1")
+_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="v1")
+_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
+_IMAGE360_STATION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Station360", version="v1")
+
+
+class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
+    """Maps each legacy Image360Collection node to two CDM nodes in one pass:
+
+    - Cognite360ImageModel  (Cognite3DModel.type="Image360", CogniteDescribable.name)
+    - Cognite360ImageCollection  (Cognite3DRevision.model3D → model, status="Done", published=True,
+                                   CogniteDescribable.name)
+
+    Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
+    ViewToViewMapping path for Image360Collection source nodes.
+    """
+
+    def __init__(self, client: ToolkitClient, target_space: str) -> None:
+        super().__init__(client)
+        self._target_space = target_space
+
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+        results: list[NodeOrEdgeRequest | None] = []
+        for node in source:
+            if not isinstance(node, NodeResponse):
+                continue
+            ext_id = node.external_id
+            label = str(((node.properties or {}).get(_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
+            model_ext_id = f"{ext_id}_model"
+            results.append(
+                NodeRequest(
+                    space=self._target_space,
+                    external_id=model_ext_id,
+                    sources=[
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DModel"),
+                            properties={"type": "Image360"},
+                        ),
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                            properties={"name": label},
+                        ),
+                    ],
+                )
+            )
+            results.append(
+                NodeRequest(
+                    space=self._target_space,
+                    external_id=ext_id,
+                    sources=[
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                            properties={
+                                "model3D": {"space": self._target_space, "externalId": model_ext_id},
+                                "status": "Done",
+                                "published": True,
+                            },
+                        ),
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                            properties={"name": label},
+                        ),
+                    ],
+                )
+            )
+        return results
+
+
+class Station360PropertiesMapping(CustomContainerPropertiesMapping):
+    """Injects groupType='Station360' into every Station360 → Cognite360ImageStation mapped node.
+
+    The Cognite360ImageStation view filter requires hasData(Cognite3DGroup) AND
+    groupType=='Station360'; without this injection the node is invisible to Reveal/Fusion.
+    """
+
+    VIEW_IDS: ClassVar[frozenset[ViewId]] = frozenset({_IMAGE360_STATION_SOURCE_VIEW})
+
+    def convert(
+        self, source_properties: dict[str, Any], context: ConversionContext
+    ) -> ConversionResult:
+        if context.source_view_id not in self.VIEW_IDS:
+            return ConversionResult(container_properties={})
+        return ConversionResult(container_properties={"groupType": "Station360"})
 
 
 class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationRequest]):
@@ -2026,7 +2108,11 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             for prop_name, face_name in _FACE_PROPERTY_NAMES.items():
                 file_ext_id = props.get(prop_name)
                 if file_ext_id and isinstance(file_ext_id, str):
-                    file_ext_id_to_face_and_nodes[file_ext_id] = (face_name, new_image360_node_id, new_collection_node_id)
+                    file_ext_id_to_face_and_nodes[file_ext_id] = (
+                        face_name,
+                        new_image360_node_id,
+                        new_collection_node_id,
+                    )
 
         if not file_ext_id_to_face_and_nodes:
             return
@@ -2041,9 +2127,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
                 if face_and_nodes:
                     self._face_and_nodes_by_file_id[file_resource.id] = face_and_nodes
 
-    def map(
-        self, source: Sequence[AnnotationResponse]
-    ) -> Sequence[Image360AnnotationRequest | None]:
+    def map(self, source: Sequence[AnnotationResponse]) -> Sequence[Image360AnnotationRequest | None]:
         """Convert a batch of AnnotationResponse objects to Image360AnnotationRequest objects.
 
         Annotations whose file is not in the cache or whose data is malformed are skipped
@@ -2153,9 +2237,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             polygon_data=polygon_data,
         )
 
-    def _resolve_asset_node_id(
-        self, annotation: AnnotationResponse, annotation_data: dict[str, Any]
-    ) -> NodeId | None:
+    def _resolve_asset_node_id(self, annotation: AnnotationResponse, annotation_data: dict[str, Any]) -> NodeId | None:
         if annotation.annotation_type == "images.AssetLink":
             asset_ref = annotation_data.get("assetRef")
             if not isinstance(asset_ref, dict):

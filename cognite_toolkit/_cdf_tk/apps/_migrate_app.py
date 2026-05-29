@@ -26,17 +26,23 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     SourceSystemCreator,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    _IMAGE360_SOURCE_VIEW,
     AssetCentricToInstanceMapper,
     AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
     Image360AnnotationMapper,
+    Image360CollectionAndModelMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import create_image360_node_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    create_image360_node_mappings,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
     create_infield_schedule_selector,
@@ -1695,21 +1701,23 @@ class MigrateApp(typer.Typer):
     def image_360_nodes(
         ctx: typer.Context,
         source_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--source-space",
                 "-s",
-                help="The instance space containing the legacy Image360, Image360Collection, and Station360 nodes.",
+                help="The instance space containing the legacy Image360, Image360Collection, and Station360 nodes. "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         target_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--target-space",
                 "-t",
-                help="The instance space to migrate the 360-image nodes into (must already exist).",
+                help="The instance space to migrate the 360-image nodes into (must already exist). "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -1739,6 +1747,44 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationCommand(client=client)
 
+        legacy_sites = client.events.aggregate_unique_values(property=["metadata", "site_id"])
+        if legacy_sites.unique:
+            client.console.print(
+                Panel(
+                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{len(legacy_sites.unique):,}[/bold] "
+                    "site(s) of Events-based 360-image data which is deprecated and no longer supported in CDF. "
+                    "These images are stored in the Events service and will [bold]NOT[/bold] be migrated by this command.\n\n"
+                    "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
+                    "data model using a standalone custom script before they can be migrated to CDM. "
+                    "Toolkit does not support this step. Please see the documentation for this migration "
+                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    title="Unsupported Events-based 360-image data detected",
+                    expand=False,
+                    border_style="yellow",
+                )
+            )
+
+        dm_select = DataModelingSelect(client, "migrate")
+        if source_space is None and target_space is None:
+            source_space = dm_select.select_instance_space(
+                multiselect=False,
+                selected_view=_IMAGE360_SOURCE_VIEW,
+                instance_type="node",
+                message="Select the source space containing Image360, Image360Collection, and Station360 nodes:",
+            )
+            target_space = dm_select.select_instance_space(
+                multiselect=False,
+                message="Select the target space to migrate the 360-image nodes into:",
+                include_empty=True,
+            )
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        elif source_space is None or target_space is None:
+            raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
+
         space_mapping = {source_space: target_space}
         mappings = create_image360_node_mappings()
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
@@ -1753,8 +1799,27 @@ class MigrateApp(typer.Typer):
             )
             for mapping in mappings
         ]
+        selectors.append(
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=IMAGE360_COLLECTION_SOURCE_VIEW.space,
+                    external_id=IMAGE360_COLLECTION_SOURCE_VIEW.external_id,
+                    version=IMAGE360_COLLECTION_SOURCE_VIEW.version,
+                ),
+                instance_spaces=(source_space,),
+                endpoint="query",
+            )
+        )
         connection_creator = ConnectionCreator(client, space_mapping=space_mapping)
-        mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
+        mapper = FDMtoCDMMapper(
+            client,
+            mappings,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[Station360PropertiesMapping()],
+            custom_instance_mappings={
+                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionAndModelMapper(client, target_space=target_space),
+            },
+        )
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
@@ -1771,35 +1836,39 @@ class MigrateApp(typer.Typer):
     def image_360_annotations(
         ctx: typer.Context,
         source_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--source-space",
                 "-s",
-                help="The instance space containing the legacy Image360 nodes whose face files carry annotations.",
+                help="The instance space containing the legacy Image360 nodes whose face files carry annotations. "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         target_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--target-space",
                 "-t",
-                help="The instance space where the new Cognite360Image and Cognite360ImageCollection nodes live.",
+                help="The instance space where the new Cognite360Image and Cognite360ImageCollection nodes live. "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         object3d_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--object3d-space",
-                help="CDF space used for the auto-created Object3D nodes.",
+                help="CDF space used for the auto-created Object3D nodes. "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         contextualization_space: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--contextualization-space",
-                help="CDF space used for the auto-created Cognite360ImageAnnotation edges.",
+                help="CDF space used for the auto-created Cognite360ImageAnnotation edges. "
+                "If not provided, an interactive selection will be performed.",
             ),
-        ],
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -1828,6 +1897,40 @@ class MigrateApp(typer.Typer):
         """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationCommand(client=client)
+
+        dm_select = DataModelingSelect(client, "migrate")
+        if source_space is None and target_space is None and object3d_space is None and contextualization_space is None:
+            source_space = dm_select.select_instance_space(
+                multiselect=False,
+                selected_view=_IMAGE360_SOURCE_VIEW,
+                instance_type="node",
+                message="Select the source space containing Image360 nodes (annotations source):",
+            )
+            target_space = dm_select.select_instance_space(
+                multiselect=False,
+                message="Select the target space where the migrated Cognite360Image nodes live:",
+                include_empty=True,
+            )
+            object3d_space = questionary.text(
+                "Object3D space (for auto-created Object3D nodes):",
+                default=target_space,
+            ).unsafe_ask()
+            contextualization_space = questionary.text(
+                "Contextualization space (for auto-created Cognite360ImageAnnotation edges):",
+                default=target_space,
+            ).unsafe_ask()
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        elif all(s is not None for s in [source_space, target_space, object3d_space, contextualization_space]):
+            pass
+        else:
+            raise typer.BadParameter(
+                "Either all four space parameters must be provided (--source-space, --target-space, "
+                "--object3d-space, --contextualization-space) or none of them."
+            )
 
         selector = Image360AnnotationSelector(
             source_space=source_space,
