@@ -190,6 +190,10 @@ class ResourceCreationError(ToolkitError):
     pass
 
 
+class ResourceUpsertError(ToolkitError):
+    pass
+
+
 class ResourceDeleteError(ToolkitError): ...
 
 
