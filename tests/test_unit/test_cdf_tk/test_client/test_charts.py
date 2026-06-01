@@ -1,6 +1,6 @@
-from collections.abc import Iterator
 import gzip
 import json
+from collections.abc import Iterator
 
 import httpx
 import pytest
@@ -85,7 +85,9 @@ class TestChartAPI:
             ),
             owner_id="toolkit_test_user",
         )
-        page_two = page_one.model_copy(update={"external_id": "chart_page_2", "data": page_one.data.model_copy(update={"name": "Page 2"})})
+        page_two = page_one.model_copy(
+            update={"external_id": "chart_page_2", "data": page_one.data.model_copy(update={"name": "Page 2"})}
+        )
 
         respx_mock.post(url).mock(
             side_effect=[
