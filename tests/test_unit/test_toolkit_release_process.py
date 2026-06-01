@@ -178,6 +178,39 @@ using `cdf download canvas`""",
 
 
 class TestReleaseProcess:
+    def test_create_changelog_entry_rejects_test_plan_section(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        pr_body = """# Description
+
+Fix something.
+
+## Bump
+
+- [x] Patch
+- [ ] Minor
+- [ ] Skip
+
+## Changelog
+
+### Fixed
+
+- Fixed something.
+
+## Test plan
+
+- [ ] Manual check
+"""
+        last_git_message_file = MagicMock(spec=Path)
+        last_git_message_file.read_text.return_value = pr_body
+        monkeypatch.setattr(dev, "LAST_GIT_MESSAGE_FILE", last_git_message_file)
+
+        with pytest.raises(SystemExit) as exc_info:
+            dev.create_changelog_entry()
+
+        assert exc_info.value.code == 1
+        assert "must not contain a '## Test plan' section" in capsys.readouterr().out
+
     @pytest.mark.parametrize(
         "last_git_message, last_version, expected_changelog, expected_version", list(get_release_process_test_cases())
     )
