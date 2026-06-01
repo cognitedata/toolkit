@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ResourceRetrievalError,
     ResourceUpdateError,
+    ResourceUpsertError,
     ToolkitError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
@@ -171,7 +172,7 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
     def get_ids(
         self,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
-        action: Literal["create", "delete", "update"],
+        action: Literal["create", "delete", "update", "upsert"],
     ) -> list[T_Identifier]:
         if action == "create":
             return [crud.get_id(resource) for resource in self.to_create]
@@ -179,6 +180,8 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
             return self.to_delete
         elif action == "update":
             return [crud.get_id(resource) for resource in self.to_update]
+        elif action == "upsert":
+            return [crud.get_id(resource) for resource in self.to_create + self.to_update]
         else:
             return []
 
@@ -934,17 +937,28 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
-        action: Literal["create", "delete", "update"] | None = None
+        action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
                 action = "delete"
                 deleted = crud.delete(resources.to_delete)
-            if resources.to_create:
-                action = "create"
-                created = len(crud.create(resources.to_create))
-            if resources.to_update:
-                action = "update"
-                updated = len(crud.update(resources.to_update))
+            if isinstance(crud, ViewIO) and (resources.to_create and resources.to_update):
+                # Since the upsert endpoint for views validates cross-references between views, we need to
+                # to combine the create and update operations to avoid dependency errors in
+                # case a view to be updated references a view to be created and vice versa.
+                action = "upsert"
+                to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
+                to_upsert = [*resources.to_create, *resources.to_update]
+                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
+                created = sum(1 for view in upserted if crud.get_id(view) in to_create_ids)
+                updated = len(upserted) - created
+            else:
+                if resources.to_create:
+                    action = "create"
+                    created = len(crud.create(resources.to_create))
+                if resources.to_update:
+                    action = "update"
+                    updated = len(crud.update(resources.to_update))
         except ToolkitAPIError as error:
             cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir)
         except ValidationError as error:
@@ -965,7 +979,7 @@ class DeployV2Command(ToolkitCommand):
     def _handle_deploy_error(
         cls,
         error: ToolkitAPIError,
-        action: Literal["create", "delete", "update"] | None,
+        action: Literal["create", "delete", "update", "upsert"] | None,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
@@ -1003,7 +1017,7 @@ class DeployV2Command(ToolkitCommand):
     def _handle_validation_error(
         cls,
         error: ValidationError,
-        action: Literal["retrieve", "create", "delete", "update"] | None,
+        action: Literal["retrieve", "create", "delete", "update", "upsert"] | None,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: Sequence[T_RequestResource],
         deploy_dir: Path | None = None,
@@ -1027,7 +1041,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _missing_environment_variables(
-        cls, crud: ResourceIO, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
+        cls, crud: ResourceIO, resources: ResourceToDeploy, action: Literal["create", "delete", "update", "upsert"]
     ) -> str | None:
         item_ids = resources.get_ids(crud, action)
         match = set(item_ids) & set(resources.missing_env_vars_by_id)
@@ -1041,11 +1055,14 @@ class DeployV2Command(ToolkitCommand):
         return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
 
     @classmethod
-    def _get_resource_exception(cls, action: Literal["create", "retrieve", "update", "delete"]) -> type[ToolkitError]:
+    def _get_resource_exception(
+        cls, action: Literal["create", "retrieve", "update", "delete", "upsert"]
+    ) -> type[ToolkitError]:
         return {
             "update": ResourceUpdateError,
             "delete": ResourceDeleteError,
             "create": ResourceCreationError,
+            "upsert": ResourceUpsertError,
             "retrieve": ResourceRetrievalError,
         }[action]
 
