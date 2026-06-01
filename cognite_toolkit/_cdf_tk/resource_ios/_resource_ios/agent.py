@@ -115,12 +115,12 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for tool in resource.tools or []:
-            match tool.type:
-                case "callFunction":
+            match tool:
+                case CallFunction():
                     yield from cls._call_function_dependencies(tool)
-                case "queryKnowledgeGraph":
+                case QueryKnowledgeGraph():
                     yield from cls._query_knowledge_graph_dependencies(tool)
-                case "query":
+                case Query():
                     yield from cls._query_dependencies(tool)
 
     @classmethod
