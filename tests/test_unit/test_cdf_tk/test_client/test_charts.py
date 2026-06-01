@@ -1,5 +1,7 @@
+import json
 from collections.abc import Iterator
 
+import httpx
 import pytest
 import respx
 import yaml
@@ -65,6 +67,51 @@ class TestChartAPI:
         assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], ChartResponse)
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_list_pagination(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = toolkit_config.create_app_url("/storage/charts/charts/list")
+        page_one = ChartResponse(
+            external_id="chart_page_1",
+            created_time=1,
+            last_updated_time=2,
+            visibility="PUBLIC",
+            data=ChartData(
+                version=1,
+                name="Page 1",
+                date_from="2025-04-26T22:00:00.000Z",
+                date_to="2025-05-27T21:59:59.999Z",
+            ),
+            owner_id="toolkit_test_user",
+        )
+        page_two = page_one.model_copy(
+            update={"external_id": "chart_page_2", "data": page_one.data.model_copy(update={"name": "Page 2"})}
+        )
+
+        respx_mock.post(url).mock(
+            side_effect=[
+                httpx.Response(
+                    status_code=200,
+                    json={"items": [page_one.dump()], "nextCursor": "cursor_1"},
+                ),
+                httpx.Response(
+                    status_code=200,
+                    json={"items": [page_two.dump()], "nextCursor": None},
+                ),
+            ]
+        )
+
+        result = client.charts.list(visibility="PUBLIC")
+
+        assert len(result) == 2
+        assert [chart.external_id for chart in result] == ["chart_page_1", "chart_page_2"]
+        assert len(respx_mock.calls) == 2
+        first_request_body = json.loads(respx_mock.calls[0].request.content)
+        second_request_body = json.loads(respx_mock.calls[1].request.content)
+        assert first_request_body["limit"] == 1000
+        assert "cursor" not in first_request_body
+        assert second_request_body["cursor"] == "cursor_1"
 
 
 def chart_data_generator() -> Iterator[tuple]:
