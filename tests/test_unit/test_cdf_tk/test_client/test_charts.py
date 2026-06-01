@@ -1,4 +1,3 @@
-import gzip
 import json
 from collections.abc import Iterator
 
@@ -69,6 +68,7 @@ class TestChartAPI:
         assert len(result) == 1
         assert isinstance(result[0], ChartResponse)
 
+    @pytest.mark.usefixtures("disable_gzip")
     def test_list_pagination(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_app_url("/storage/charts/charts/list")
@@ -107,18 +107,11 @@ class TestChartAPI:
         assert len(result) == 2
         assert [chart.external_id for chart in result] == ["chart_page_1", "chart_page_2"]
         assert len(respx_mock.calls) == 2
-        first_request_body = json.loads(_request_json(respx_mock.calls[0].request))
-        second_request_body = json.loads(_request_json(respx_mock.calls[1].request))
+        first_request_body = json.loads(respx_mock.calls[0].request.content)
+        second_request_body = json.loads(respx_mock.calls[1].request.content)
         assert first_request_body["limit"] == 1000
         assert "cursor" not in first_request_body
         assert second_request_body["cursor"] == "cursor_1"
-
-
-def _request_json(request: httpx.Request) -> bytes:
-    raw = request.content
-    if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
-        return gzip.decompress(raw)
-    return raw
 
 
 def chart_data_generator() -> Iterator[tuple]:
