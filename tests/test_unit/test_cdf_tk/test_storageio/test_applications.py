@@ -180,7 +180,8 @@ class TestChartIO:
                             ],
                         },
                     },
-                ]
+                ],
+                "nextCursor": None,
             },
         )
         respx_mock.post(ts_url).respond(
