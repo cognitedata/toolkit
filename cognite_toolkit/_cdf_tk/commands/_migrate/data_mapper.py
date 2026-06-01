@@ -460,18 +460,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         for item in source:
             identifier = item.external_id
 
-            has_legacy_monitoring = any(
-                job.model.timeseries_id is not None or bool(job.model.timeseries_external_id)
-                for job in (item.monitoring_jobs or [])
-            )
-            has_legacy_calculations = any(
-                bool(calc.target_timeseries_external_id)
-                or any(
-                    inp.type == "ts" and isinstance(inp.value, str) for step in calc.graph.steps for inp in step.inputs
-                )
-                for calc in (item.scheduled_calculations or [])
-            )
-            if not item.data.time_series_collection and not has_legacy_monitoring and not has_legacy_calculations:
+            if not item.data.time_series_collection and not self._has_legacy_backend_refs(item):
                 self.logger.log(
                     MigrationEntryV2(
                         id=identifier,
@@ -554,6 +543,21 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         if log_entries:
             self.logger.log(log_entries)
         return output
+
+    @staticmethod
+    def _has_legacy_backend_refs(item: ChartResponse) -> bool:
+        """Return True if the chart still has legacy ACDM references outside of timeSeriesCollection."""
+        has_legacy_monitoring = any(
+            job.model.timeseries_id is not None or bool(job.model.timeseries_external_id)
+            for job in (item.monitoring_jobs or [])
+        )
+        if has_legacy_monitoring:
+            return True
+        return any(
+            bool(calc.target_timeseries_external_id)
+            or any(inp.type == "ts" and isinstance(inp.value, str) for step in calc.graph.steps for inp in step.inputs)
+            for calc in (item.scheduled_calculations or [])
+        )
 
     def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
