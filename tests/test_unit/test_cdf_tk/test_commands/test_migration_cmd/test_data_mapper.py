@@ -15,6 +15,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    AlertContext,
+    ChartMonitoringJobModel,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -458,6 +470,118 @@ class TestChartMapper:
         ] or None
 
         data_regression.check(dumped, fullpath=output_chart_path)
+
+    @pytest.mark.parametrize(
+        "legacy_ref_description, scheduled_calculations, monitoring_jobs",
+        [
+            pytest.param(
+                "scheduled calculation with legacy target timeseries external ID",
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_1",
+                        period=60_000,
+                        target_timeseries_external_id="OLD_TARGET_TS",
+                        graph=CalculationGraph(granularity="1m", steps=[]),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-target",
+            ),
+            pytest.param(
+                "scheduled calculation graph input with legacy string timeseries value",
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_2",
+                        period=60_000,
+                        graph=CalculationGraph(
+                            granularity="1m",
+                            steps=[
+                                CalculationStep(
+                                    op="PASSTHROUGH",
+                                    version=1.0,
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    raw=False,
+                                    step=0,
+                                )
+                            ],
+                        ),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-graph-input",
+            ),
+            pytest.param(
+                "monitoring job with legacy timeseries external ID",
+                None,
+                [
+                    ChartMonitoringJobResponse(
+                        external_id="job_1",
+                        name="My Job",
+                        channel_id=1,
+                        model=ChartMonitoringJobModel(timeseries_external_id="OLD_MONITORING_TS"),
+                        id=1,
+                        interval=60_000,
+                        overlap=0,
+                        alert_context=AlertContext(
+                            unsubscribe_url="https://fusion.cogniteapp.com/unsubscribe",
+                            investigate_url="https://fusion.cogniteapp.com/investigate",
+                        ),
+                    )
+                ],
+                id="legacy-monitoring-job",
+            ),
+        ],
+    )
+    def test_chart_with_no_ts_collection_but_legacy_backend_refs_is_not_skipped(
+        self,
+        legacy_ref_description: str,
+        scheduled_calculations: list[ChartScheduledCalculationResponse] | None,
+        monitoring_jobs: list[ChartMonitoringJobResponse] | None,
+    ) -> None:
+        """A chart whose timeSeriesCollection is already null/empty but still has legacy ACDM references in
+        scheduled calculation targets, calculation graph inputs, or monitoring jobs must not be skipped.
+        Without the fix, the skip guard at ChartMapper.map() would return None before reaching
+        _map_scheduled_calculations() or _map_monitoring_jobs(), leaving those legacy refs unmigrated.
+        """
+        chart = ChartResponse(
+            external_id="chart_partial_migration",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Partially migrated chart",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                # timeSeriesCollection already migrated — this is what triggers the old bug
+                time_series_collection=None,
+                core_timeseries_collection=[],
+            ),
+            scheduled_calculations=scheduled_calculations,
+            monitoring_jobs=monitoring_jobs,
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            ts_lookup = MagicMock()
+            ts_lookup.return_value = NodeId(space="my_space", external_id="migrated_ts")
+            ts_lookup.consumer_view.return_value = None
+            client.migration.lookup.time_series = ts_lookup
+
+            mapper = ChartMapper(client)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            result = mapper.map([chart])
+
+        assert result[0] is not None, (
+            f"Chart with {legacy_ref_description} must not be skipped: "
+            "legacy backend refs would remain unmigrated"
+        )
+        logger.log.assert_not_called()
 
     def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"

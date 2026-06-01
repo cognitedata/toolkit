@@ -460,7 +460,20 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         for item in source:
             identifier = item.external_id
 
-            if not item.data.time_series_collection:
+            has_legacy_monitoring = any(
+                job.model.timeseries_id is not None or bool(job.model.timeseries_external_id)
+                for job in (item.monitoring_jobs or [])
+            )
+            has_legacy_calculations = any(
+                bool(calc.target_timeseries_external_id)
+                or any(
+                    inp.type == "ts" and isinstance(inp.value, str)
+                    for step in calc.graph.steps
+                    for inp in step.inputs
+                )
+                for calc in (item.scheduled_calculations or [])
+            )
+            if not item.data.time_series_collection and not has_legacy_monitoring and not has_legacy_calculations:
                 self.logger.log(
                     MigrationEntryV2(
                         id=identifier,
