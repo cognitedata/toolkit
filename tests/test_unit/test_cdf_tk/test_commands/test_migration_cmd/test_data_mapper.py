@@ -578,8 +578,7 @@ class TestChartMapper:
             result = mapper.map([chart])
 
         assert result[0] is not None, (
-            f"Chart with {legacy_ref_description} must not be skipped: "
-            "legacy backend refs would remain unmigrated"
+            f"Chart with {legacy_ref_description} must not be skipped: legacy backend refs would remain unmigrated"
         )
         logger.log.assert_not_called()
 

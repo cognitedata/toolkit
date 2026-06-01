@@ -467,9 +467,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             has_legacy_calculations = any(
                 bool(calc.target_timeseries_external_id)
                 or any(
-                    inp.type == "ts" and isinstance(inp.value, str)
-                    for step in calc.graph.steps
-                    for inp in step.inputs
+                    inp.type == "ts" and isinstance(inp.value, str) for step in calc.graph.steps for inp in step.inputs
                 )
                 for calc in (item.scheduled_calculations or [])
             )
