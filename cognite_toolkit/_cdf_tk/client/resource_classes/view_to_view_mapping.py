@@ -20,6 +20,11 @@ class ViewToViewMapping(BaseModelObject):
     edge_mapping: dict[EdgeTypeId, str] | None = Field(
         default=None, description="Mapping from edge types to destination property Ids."
     )
+    ignore_source_properties: set[str] = Field(
+        default_factory=set,
+        description="Source property Ids that are intentionally not mapped to any destination property. "
+        "These are silently dropped during conversion instead of producing an unmapped-property warning.",
+    )
 
     def get_destination_property(self, source_property: str) -> str | None:
         dest_prop_id = self.container_mapping.get(source_property)

@@ -1086,8 +1086,9 @@ def convert_container_properties(
         if not dest_prop_id or (
             dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
         ):
-            # We do not warn about the node properties, as they are typically ignored.
-            if not source_prop_id.startswith("node."):
+            # We do not warn about the node properties, as they are typically ignored, nor about
+            # source properties that are explicitly marked as intentionally unmapped.
+            if not source_prop_id.startswith("node.") and source_prop_id not in context.mapping.ignore_source_properties:
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
         if dest_prop_id not in context.destination_properties:

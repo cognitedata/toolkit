@@ -1787,19 +1787,10 @@ class MigrateApp(typer.Typer):
 
         space_mapping = {source_space: target_space}
         mappings = create_image360_node_mappings()
+        # Collection selector first: model + collection nodes must exist before Image360 nodes
+        # reference them. Station360 precedes Image360 for the same reason (station360 property).
+        # create_image360_node_mappings() returns [Station360, Image360] in dependency order.
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
-            InstanceViewSelector(
-                view=SelectedView(
-                    space=mapping.source_view.space,
-                    external_id=mapping.source_view.external_id,
-                    version=mapping.source_view.version,
-                ),
-                instance_spaces=(source_space,),
-                endpoint="query",
-            )
-            for mapping in mappings
-        ]
-        selectors.append(
             InstanceViewSelector(
                 view=SelectedView(
                     space=IMAGE360_COLLECTION_SOURCE_VIEW.space,
@@ -1808,8 +1799,20 @@ class MigrateApp(typer.Typer):
                 ),
                 instance_spaces=(source_space,),
                 endpoint="query",
-            )
-        )
+            ),
+            *[
+                InstanceViewSelector(
+                    view=SelectedView(
+                        space=mapping.source_view.space,
+                        external_id=mapping.source_view.external_id,
+                        version=mapping.source_view.version,
+                    ),
+                    instance_spaces=(source_space,),
+                    endpoint="query",
+                )
+                for mapping in mappings
+            ],
+        ]
         connection_creator = ConnectionCreator(client, space_mapping=space_mapping)
         mapper = FDMtoCDMMapper(
             client,

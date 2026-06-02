@@ -19,6 +19,13 @@ def create_image360_node_mappings() -> list[ViewToViewMapping]:
     """
     return [
         ViewToViewMapping(
+            external_id="Station360ToCognite360ImageStationMapping",
+            source_view=ViewId(space=_SOURCE_SPACE, external_id="Station360", version="v1"),
+            destination_view=ViewId(space=_DESTINATION_SPACE, external_id="Cognite360ImageStation", version="v1"),
+            map_identical_id_properties=False,
+            container_mapping={"label": "name"},
+        ),
+        ViewToViewMapping(
             external_id="Image360ToCognite360ImageMapping",
             source_view=ViewId(space=_SOURCE_SPACE, external_id="Image360", version="v1"),
             destination_view=ViewId(space=_DESTINATION_SPACE, external_id="Cognite360Image", version="v1"),
@@ -33,12 +40,8 @@ def create_image360_node_mappings() -> list[ViewToViewMapping]:
                 "station": "station360",
                 "timeTaken": "takenAt",
             },
-        ),
-        ViewToViewMapping(
-            external_id="Station360ToCognite360ImageStationMapping",
-            source_view=ViewId(space=_SOURCE_SPACE, external_id="Station360", version="v1"),
-            destination_view=ViewId(space=_DESTINATION_SPACE, external_id="Cognite360ImageStation", version="v1"),
-            map_identical_id_properties=False,
-            container_mapping={"label": "name"},
+            # Cognite360Image has no name (no CogniteDescribable), so the legacy
+            # 'label' property has no destination to map to and is therefore intentionally dropped.
+            ignore_source_properties={"label"},
         ),
     ]

@@ -1337,7 +1337,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                return self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                if self.dry_run:
+                    for instance in custom_mapped:
+                        if isinstance(instance, NodeRequest):
+                            self._is_existing_by_node_id[instance.as_id()] = True
+                return custom_mapped
             else:
                 # This is caused by the selector used to download the instance responses not matching the expectation in
                 # the mapper.
@@ -1995,6 +2000,7 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         self._target_space = target_space
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+        print("This is run for source", [node.external_id for node in source])
         results: list[NodeOrEdgeRequest | None] = []
         for node in source:
             if not isinstance(node, NodeResponse):
@@ -2029,6 +2035,7 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                                 "model3D": {"space": self._target_space, "externalId": model_ext_id},
                                 "status": "Done",
                                 "published": True,
+                                "type": "Image360",
                             },
                         ),
                         InstanceSource(
@@ -2038,6 +2045,7 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     ],
                 )
             )
+            print("This is run for results", [result.external_id for result in results])
         return results
 
 
@@ -2050,9 +2058,7 @@ class Station360PropertiesMapping(CustomContainerPropertiesMapping):
 
     VIEW_IDS: ClassVar[frozenset[ViewId]] = frozenset({_IMAGE360_STATION_SOURCE_VIEW})
 
-    def convert(
-        self, source_properties: dict[str, Any], context: ConversionContext
-    ) -> ConversionResult:
+    def convert(self, source_properties: dict[str, Any], context: ConversionContext) -> ConversionResult:
         if context.source_view_id not in self.VIEW_IDS:
             return ConversionResult(container_properties={})
         return ConversionResult(container_properties={"groupType": "Station360"})
