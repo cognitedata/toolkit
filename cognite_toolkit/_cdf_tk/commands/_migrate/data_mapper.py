@@ -2000,7 +2000,6 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         self._target_space = target_space
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        print("This is run for source", [node.external_id for node in source])
         results: list[NodeOrEdgeRequest | None] = []
         for node in source:
             if not isinstance(node, NodeResponse):
@@ -2045,7 +2044,6 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     ],
                 )
             )
-            print("This is run for results", [result.external_id for result in results])
         return results
 
 
