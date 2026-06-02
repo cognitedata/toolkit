@@ -786,6 +786,7 @@ class TestMigrationCommand:
             status_code=200,
             json={
                 "items": [chart.dump() for chart in charts],
+                "nextCursor": None,
             },
         )
         # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
