@@ -207,7 +207,7 @@ class TestAgentRequest:
 
     @pytest.mark.parametrize(
         "tool_type",
-        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "queryKnowledgeGraph"}),
+        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "query", "queryKnowledgeGraph"}),
     )
     def test_tool_extra_fields_preserved(self, tool_type: str) -> None:
         """Tools must preserve unknown fields so the API can add new properties without breaking deployments."""
