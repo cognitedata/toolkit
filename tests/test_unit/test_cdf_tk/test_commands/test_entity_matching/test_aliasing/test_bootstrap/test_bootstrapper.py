@@ -4,7 +4,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.api.facade import AliasingFacade
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper_builder import (
-    AliasingKuiperBuilderFactory,
+    AliasingKuiperBuilder,
     AliasingRule,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.expression_composition_config import (
@@ -101,10 +101,10 @@ class TestProvideAliasingFacade:
         result = provide_aliasing_facade()
         assert isinstance(result, AliasingFacade)
 
-    def test_with_custom_factory_uses_provided_factory(self) -> None:
-        mock_factory = Mock(spec=AliasingKuiperBuilderFactory)
-        result = provide_aliasing_facade(factory=mock_factory)
-        assert result._factory is mock_factory
+    def test_with_custom_builder_provider_uses_provided_builder_provider(self) -> None:
+        mock_builder_provider = Mock(return_value=Mock(spec=AliasingKuiperBuilder))
+        result = provide_aliasing_facade(builder_provider=mock_builder_provider)
+        assert result._builder_provider is mock_builder_provider
 
     def test_default_facade_generates_expression_for_known_rule(self) -> None:
         facade = provide_aliasing_facade()

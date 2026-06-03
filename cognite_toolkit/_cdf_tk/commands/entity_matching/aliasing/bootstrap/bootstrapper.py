@@ -1,7 +1,9 @@
+from collections.abc import Callable
+
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.api.facade import AliasingFacade
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper_builder import (
-    AliasingKuiperBuilderFactory,
-    DefaultAliasingKuiperBuilderFactory,
+    AliasingKuiperBuilder,
+    DefaultAliasingKuiperBuilder,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.expression_composer import (
     DefaultExpressionComposer,
@@ -37,12 +39,12 @@ def provide_aliasing_composition_config(
 
 
 def provide_aliasing_facade(
-    factory: AliasingKuiperBuilderFactory | None = None,
+    builder_provider: Callable[[], AliasingKuiperBuilder] | None = None,
 ) -> AliasingFacade:
-    if factory is None:
+    if builder_provider is None:
         registry = LocalRuleDefinitionRegistry.bootstrap(LocalRulesDiscovery.create())
         composer = DefaultExpressionComposer(provide_aliasing_composition_config())
-        resolved_factory = DefaultAliasingKuiperBuilderFactory(registry=registry, composer=composer)
+        resolved_builder_provider = lambda: DefaultAliasingKuiperBuilder(registry=registry, composer=composer)
     else:
-        resolved_factory = factory
-    return AliasingFacade(resolved_factory)
+        resolved_builder_provider = builder_provider
+    return AliasingFacade(resolved_builder_provider)

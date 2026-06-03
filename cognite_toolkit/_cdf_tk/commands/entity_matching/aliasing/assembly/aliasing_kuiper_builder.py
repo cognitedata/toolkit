@@ -125,19 +125,3 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
             raise DuplicateRuleNameError(duplicates)
 
 
-class AliasingKuiperBuilderFactory(ABC):
-    @abstractmethod
-    def create(self) -> AliasingKuiperBuilder:
-        pass
-
-
-class DefaultAliasingKuiperBuilderFactory(AliasingKuiperBuilderFactory):
-    def __init__(self, registry: RuleDefinitionRegistry, composer: ExpressionComposer) -> None:
-        self._registry = registry
-        self._composer = composer
-
-    def create(self) -> AliasingKuiperBuilder:
-        return DefaultAliasingKuiperBuilder(
-            registry=self._registry,
-            composer=self._composer,
-        )
