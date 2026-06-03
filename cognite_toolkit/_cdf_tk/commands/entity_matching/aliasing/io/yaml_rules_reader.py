@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, ClassVar
 
 import yaml
 
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper_builder import AliasingRule
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.errors import InvalidRuleFormatError, YamlReadError
+from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 
 
 @dataclass(frozen=True)
@@ -19,19 +21,21 @@ class YamlRulesReader:
     REQUIRED_FIELDS: ClassVar[set[str]] = {"name", "rule_type", "description", "payload"}
     REQUIRED_ROOT_FIELDS: ClassVar[set[str]] = {"rules", "key_path"}
 
-    def read_file(self, file_path: str) -> RulesFileContent:
-        raw_data = self._load_yaml_file(file_path)
-        self._validate_root_structure(raw_data, file_path)
+    def read_file(self, file_path: Path | str) -> RulesFileContent:
+        resolved_path = Path(file_path) if isinstance(file_path, str) else file_path
+        file_path_str = str(resolved_path)
+        raw_data = self._load_yaml_file(resolved_path)
+        self._validate_root_structure(raw_data, file_path_str)
 
-        key_path = self._extract_and_validate_key_path(raw_data, file_path)
+        key_path = self._extract_and_validate_key_path(raw_data, file_path_str)
         workflow_id = self._extract_and_validate_optional_string(
-            raw_data, "workflow_id", "entity_matching_aliasing", file_path
+            raw_data, "workflow_id", "entity_matching_aliasing", file_path_str
         )
         description = self._extract_and_validate_optional_string(
-            raw_data, "description", "Entity matching aliasing workflow", file_path
+            raw_data, "description", "Entity matching aliasing workflow", file_path_str
         )
         rules_data = raw_data.get("rules")
-        self._validate_rules_is_list(rules_data, file_path)
+        self._validate_rules_is_list(rules_data, file_path_str)
 
         rules: list[AliasingRule] = []
         for index, rule_data in enumerate(rules_data):
@@ -40,24 +44,23 @@ class YamlRulesReader:
 
         return RulesFileContent(rules=rules, key_path=key_path, workflow_id=workflow_id, description=description)
 
-    def _load_yaml_file(self, file_path: str) -> Any:
+    def _load_yaml_file(self, file_path: Path) -> Any:
         try:
-            with open(file_path, encoding="utf-8") as f:
-                return yaml.safe_load(f)
+            return read_yaml_content(safe_read(file_path))
         except FileNotFoundError as e:
             raise YamlReadError(
                 "File not found",
-                file_path=file_path,
+                file_path=str(file_path),
             ) from e
         except yaml.YAMLError as e:
             raise YamlReadError(
                 f"Invalid YAML syntax: {e!s}",
-                file_path=file_path,
+                file_path=str(file_path),
             ) from e
         except Exception as e:
             raise YamlReadError(
                 f"Error reading file: {e!s}",
-                file_path=file_path,
+                file_path=str(file_path),
             ) from e
 
     def _validate_root_structure(self, raw_data: Any, file_path: str) -> None:

@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assem
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import YamlRulesReader
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
+from cognite_toolkit._cdf_tk.utils import safe_write
 
 
 class EntityMatchingCommand(ToolkitCommand):
@@ -50,7 +51,7 @@ class EntityMatchingCommand(ToolkitCommand):
         workflow_version_path = output_dir / f"{stem}.WorkflowVersion.yaml"
 
         rules_reader = YamlRulesReader()
-        rules_content = rules_reader.read_file(str(input_yaml))
+        rules_content = rules_reader.read_file(input_yaml)
 
         facade = provide_aliasing_facade()
         rule_kuiper_pairs = []
@@ -68,10 +69,10 @@ class EntityMatchingCommand(ToolkitCommand):
                 workflow_description=rules_content.description,
             )
         )
-        workflow_path.write_text(bundle.workflow_yaml, encoding="utf-8")
+        safe_write(workflow_path, bundle.workflow_yaml, encoding="utf-8")
         self.console(f"Generated {workflow_path.as_posix()}")
 
-        workflow_version_path.write_text(bundle.workflow_version_yaml, encoding="utf-8")
+        safe_write(workflow_version_path, bundle.workflow_version_yaml, encoding="utf-8")
         self.console(f"Generated {workflow_version_path.as_posix()}")
 
         print(Panel(f"Generated 2 files in {output_dir.as_posix()}", title="Success", style="green", expand=False))
