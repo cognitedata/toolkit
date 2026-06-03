@@ -1,4 +1,7 @@
-class YamlReadError(Exception):
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+
+
+class YamlReadError(ToolkitValueError):
     def __init__(
         self,
         message: str,
@@ -18,7 +21,7 @@ class YamlReadError(Exception):
         super().__init__(full_message)
 
 
-class InvalidRuleFormatError(Exception):
+class InvalidRuleFormatError(ToolkitValueError):
     def __init__(
         self,
         message: str,

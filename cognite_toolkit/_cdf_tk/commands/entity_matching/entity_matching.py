@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assem
     WorkflowVersionAssemblyRequest,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import YamlRulesReader
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 
@@ -36,7 +37,7 @@ class EntityMatchingCommand(ToolkitCommand):
             organization_dir: Path to the organization directory.
         """
         if not input_yaml.exists():
-            raise FileNotFoundError(f"Input file not found: {input_yaml}")
+            raise ToolkitFileNotFoundError(f"Input file not found: {input_yaml}")
 
         module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name)
 

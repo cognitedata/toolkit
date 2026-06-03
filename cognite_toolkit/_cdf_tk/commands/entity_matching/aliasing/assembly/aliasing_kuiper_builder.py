@@ -6,6 +6,7 @@ from typing import Any
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper import AliasingKuiper
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.expression_composer import ExpressionComposer
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.registry.registry import RuleDefinitionRegistry
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class AliasingKuiperBuilder(ABC):
         pass
 
 
-class BuilderConstraintError(Exception):
+class BuilderConstraintError(ToolkitValueError):
     pass
 
 
