@@ -1183,7 +1183,7 @@ class TestAssetCentricConversion:
                     external_id=ANNOTATION_ID.external_id,
                     start_node=NodeId(space="test_space", external_id="file_456_instance"),
                     end_node=NodeId(space="test_space", external_id="asset_123_instance"),
-                    type=NodeId(space="test_space", external_id="diagrams.FileLink"),
+                    type=NodeId(space="cdf_cdm", external_id="diagrams.FileLink"),
                     sources=[
                         InstanceSource(
                             source=ViewId(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),

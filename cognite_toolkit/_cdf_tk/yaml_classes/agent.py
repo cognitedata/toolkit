@@ -108,10 +108,43 @@ class ManualInstanceSpaces(AgentInstanceSpacesDefinition):
     spaces: list[str]
 
 
+class ProvidedAtRuntimeInstanceSpaces(AgentInstanceSpacesDefinition):
+    type: Literal["providedAtRuntime"] = "providedAtRuntime"
+
+
 AgentInstanceSpaces = Annotated[
-    AllInstanceSpaces | ManualInstanceSpaces,
+    AllInstanceSpaces | ManualInstanceSpaces | ProvidedAtRuntimeInstanceSpaces,
     Field(discriminator="type"),
 ]
+
+
+class ManualQueryDataModels(AgentToolModelResource):
+    type: Literal["manual"] = "manual"
+    data_models: list[AgentDataModel] = Field(
+        description="List of relevant data models.",
+        min_length=1,
+        max_length=80,
+    )
+
+
+class ProvidedAtRuntimeQueryDataModels(AgentToolModelResource):
+    type: Literal["providedAtRuntime"] = "providedAtRuntime"
+
+
+QueryDataModels = Annotated[
+    ManualQueryDataModels | ProvidedAtRuntimeQueryDataModels,
+    Field(discriminator="type"),
+]
+
+
+class QueryConfig(AgentToolModelResource):
+    data_models: QueryDataModels = Field(description="Data model scope for the Query tool.")
+    instance_spaces: AgentInstanceSpaces = Field(description="Instance space scope for the Query tool.")
+
+
+class Query(AgentToolDefinition):
+    type: Literal["query"] = "query"
+    configuration: QueryConfig = Field(description="Configuration for the Query tool.")
 
 
 class QueryKnowledgeGraphConfig(AgentToolModelResource):
@@ -163,6 +196,7 @@ KNOWN_TOOLS: frozenset[str] = frozenset(
         "callFunction",
         "callRestApi",
         "examineDataSemantically",
+        "query",
         "queryKnowledgeGraph",
         "queryTimeSeriesDatapoints",
         "runPythonCode",
@@ -179,6 +213,7 @@ AgentTool = Annotated[
     | CallFunction
     | CallRestApi
     | ExamineDataSemantically
+    | Query
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
     | RunPythonCode

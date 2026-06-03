@@ -15,6 +15,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobModel,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -458,6 +469,104 @@ class TestChartMapper:
         ] or None
 
         data_regression.check(dumped, fullpath=output_chart_path)
+
+    @pytest.mark.parametrize(
+        "scheduled_calculations, monitoring_jobs",
+        [
+            pytest.param(
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_1",
+                        period=60_000,
+                        target_timeseries_external_id="OLD_TARGET_TS",
+                        graph=CalculationGraph(granularity="1m", steps=[]),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-target",
+            ),
+            pytest.param(
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_2",
+                        period=60_000,
+                        graph=CalculationGraph(
+                            granularity="1m",
+                            steps=[
+                                CalculationStep(
+                                    op="PASSTHROUGH",
+                                    version=1.0,
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    raw=False,
+                                    step=0,
+                                )
+                            ],
+                        ),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-graph-input",
+            ),
+            pytest.param(
+                None,
+                [
+                    ChartMonitoringJobResponse(
+                        external_id="job_1",
+                        name="My Job",
+                        channel_id=1,
+                        model=ChartMonitoringJobModel(timeseries_external_id="OLD_MONITORING_TS"),
+                        id=1,
+                        interval=60_000,
+                        overlap=0,
+                    )
+                ],
+                id="legacy-monitoring-job-external-id",
+            ),
+            pytest.param(
+                None,
+                [
+                    ChartMonitoringJobResponse(
+                        external_id="job_2",
+                        name="My Job",
+                        channel_id=1,
+                        model=ChartMonitoringJobModel(timeseries_id=42),
+                        id=2,
+                        interval=60_000,
+                        overlap=0,
+                    )
+                ],
+                id="legacy-monitoring-job-internal-id",
+            ),
+        ],
+    )
+    def test_has_legacy_backend_refs_detects_unmigrated_references(
+        self,
+        scheduled_calculations: list[ChartScheduledCalculationResponse] | None,
+        monitoring_jobs: list[ChartMonitoringJobResponse] | None,
+    ) -> None:
+        chart = ChartResponse(
+            external_id="chart_partial_migration",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Partially migrated chart",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                time_series_collection=None,
+                core_timeseries_collection=[],
+            ),
+            scheduled_calculations=scheduled_calculations,
+            monitoring_jobs=monitoring_jobs,
+        )
+
+        assert ChartMapper._has_legacy_backend_refs(chart)
 
     def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"

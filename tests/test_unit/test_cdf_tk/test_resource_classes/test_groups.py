@@ -66,6 +66,20 @@ class TestTimeSeriesTK:
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
+    def test_load_group_with_attributes(self) -> None:
+        data = {
+            "name": "group-with-app-ids",
+            "sourceId": "1234567890123456789",
+            "attributes": {
+                "token": {
+                    "appIds": ["my-app-id"],
+                },
+            },
+        }
+        loaded = GroupYAML.model_validate(data)
+
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
     @pytest.mark.parametrize("content, expected_errors", list(invalid_group_test_cases()))
     def test_invalid_group_error_messages(self, content: str, expected_errors: set[str]) -> None:
         """Test the validate_resource_yaml function for GroupYAML."""
