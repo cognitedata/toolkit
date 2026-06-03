@@ -1,3 +1,4 @@
+from collections import Counter
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -117,8 +118,8 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
         if not rules:
             raise EmptyRulesError()
 
-        rule_names = [rule.name for rule in rules]
-        duplicates = {name for name in rule_names if rule_names.count(name) > 1}
+        name_counts = Counter(rule.name for rule in rules)
+        duplicates = {name for name, count in name_counts.items() if count > 1}
         if duplicates:
             raise DuplicateRuleNameError(duplicates)
 
