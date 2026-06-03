@@ -44,7 +44,11 @@ def provide_aliasing_facade(
     if builder_provider is None:
         registry = LocalRuleDefinitionRegistry.bootstrap(LocalRulesDiscovery.create())
         composer = DefaultExpressionComposer(provide_aliasing_composition_config())
-        resolved_builder_provider = lambda: DefaultAliasingKuiperBuilder(registry=registry, composer=composer)
+
+        def _create_default_builder() -> AliasingKuiperBuilder:
+            return DefaultAliasingKuiperBuilder(registry=registry, composer=composer)
+
+        resolved_builder_provider = _create_default_builder
     else:
         resolved_builder_provider = builder_provider
     return AliasingFacade(resolved_builder_provider)
