@@ -4,7 +4,6 @@ InField CDM Location Configs:
     - gp_infield_oid_checklist_admins
     templateAdmins:
     - gp_infield_oid_template_admins
-  dataExplorationConfig: null
   dataFilters:
     assets:
       instanceSpaces:
@@ -63,7 +62,7 @@ Location Filters:
     space: cdf_infield
     version: v1
   description: InField location, migrated from old location configuration
-  externalId: location_filter_WMT:VAL
+  externalId: loc_WMT:VAL
   instanceSpaces:
   - sp_infield_oid_app_data
   - sp_asset_oid_source
