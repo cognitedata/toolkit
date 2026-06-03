@@ -18,18 +18,6 @@ class CharacterSubstitutionContext:
                 raise ValueError("from_char cannot be empty")
 
 
-class CharacterSubstitutionContextBuilder:
-    def __init__(self) -> None:
-        self._replacements: dict[str, str] = {}
-
-    def add_replacement(self, from_char: str, to_char: str) -> "CharacterSubstitutionContextBuilder":
-        self._replacements[from_char] = to_char
-        return self
-
-    def build(self) -> CharacterSubstitutionContext:
-        return CharacterSubstitutionContext(self._replacements)
-
-
 class CharacterSubstitutionRuleDefinition(RuleDefinition[CharacterSubstitutionContext]):
     def type(self) -> RuleType:
         return RuleType.CHARACTER_SUBSTITUTION

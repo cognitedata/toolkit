@@ -26,18 +26,6 @@ class ValueExpansionContext:
                     raise ValueError("expansion value cannot be empty")
 
 
-class ValueExpansionContextBuilder:
-    def __init__(self) -> None:
-        self._expansions: dict[str, list[str]] = {}
-
-    def add_expansion(self, abbreviation: str, expansions: list[str]) -> "ValueExpansionContextBuilder":
-        self._expansions[abbreviation] = expansions
-        return self
-
-    def build(self) -> ValueExpansionContext:
-        return ValueExpansionContext(self._expansions)
-
-
 class ValueExpansionRuleDefinition(RuleDefinition[ValueExpansionContext]):
     def type(self) -> RuleType:
         return RuleType.VALUE_EXPANSION

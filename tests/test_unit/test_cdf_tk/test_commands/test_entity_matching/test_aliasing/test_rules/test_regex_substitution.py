@@ -5,7 +5,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.regex_substitution import (
     RegExpSubstitutionContext,
-    RegExpSubstitutionContextBuilder,
     RegExpSubstitutionRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import MacroCallSignature
@@ -42,40 +41,6 @@ class TestRegExpSubstitutionContext:
         context = RegExpSubstitutionContext(pattern=pattern, replacement=replacement)
         assert context.pattern == pattern
         assert context.replacement == replacement
-
-
-class TestRegExpSubstitutionContextBuilder:
-    def test_when_building_with_pattern_and_replacement_then_context_created(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        context = builder.with_pattern("test").with_replacement("result").build()
-        assert context.pattern == "test"
-        assert context.replacement == "result"
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        result = builder.with_pattern("test")
-        assert isinstance(result, RegExpSubstitutionContextBuilder)
-        assert result is builder
-
-    def test_when_building_without_pattern_then_raises_value_error(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        with pytest.raises(ValueError, match="pattern must be set before building"):
-            builder.with_replacement("result").build()
-
-    def test_when_building_without_replacement_then_raises_value_error(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        with pytest.raises(ValueError, match="replacement must be set before building"):
-            builder.with_pattern("test").build()
-
-    def test_when_overriding_pattern_then_latest_value_used(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        context = builder.with_pattern("first").with_pattern("second").with_replacement("result").build()
-        assert context.pattern == "second"
-
-    def test_when_overriding_replacement_then_latest_value_used(self) -> None:
-        builder = RegExpSubstitutionContextBuilder()
-        context = builder.with_pattern("test").with_replacement("first").with_replacement("second").build()
-        assert context.replacement == "second"
 
 
 class TestRegExpSubstitutionRuleDefinition:

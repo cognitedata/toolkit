@@ -3,7 +3,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.value_expansion import (
     ValueExpansionContext,
-    ValueExpansionContextBuilder,
     ValueExpansionRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import Macro, MacroCallSignature
@@ -48,43 +47,6 @@ class TestValueExpansionContext:
     def test_when_expansion_is_dict_then_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="expansion values must be lists"):
             ValueExpansionContext({"P": {"pump": 1}})  # type: ignore[dict-item]
-
-
-class TestValueExpansionContextBuilder:
-    def test_when_building_with_single_expansion_then_context_created(self) -> None:
-        builder = ValueExpansionContextBuilder()
-        context = builder.add_expansion("P", ["PUMP", "PMP"]).build()
-        assert context.expansions == {"P": ["PUMP", "PMP"]}
-
-    def test_when_building_with_multiple_expansions_then_all_added(self) -> None:
-        builder = ValueExpansionContextBuilder()
-        context = (
-            builder.add_expansion("P", ["PUMP", "PMP"])
-            .add_expansion("M", ["MOTOR", "MOT"])
-            .add_expansion("V", ["VALVE"])
-            .build()
-        )
-        assert context.expansions == {
-            "P": ["PUMP", "PMP"],
-            "M": ["MOTOR", "MOT"],
-            "V": ["VALVE"],
-        }
-
-    def test_when_overriding_expansion_then_latest_value_used(self) -> None:
-        builder = ValueExpansionContextBuilder()
-        context = builder.add_expansion("P", ["PUMP"]).add_expansion("P", ["PUMP", "PMP"]).build()
-        assert context.expansions == {"P": ["PUMP", "PMP"]}
-
-    def test_when_building_without_expansions_then_raises_value_error(self) -> None:
-        builder = ValueExpansionContextBuilder()
-        with pytest.raises(ValueError, match="expansions dictionary cannot be empty"):
-            builder.build()
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = ValueExpansionContextBuilder()
-        result = builder.add_expansion("P", ["PUMP"])
-        assert isinstance(result, ValueExpansionContextBuilder)
-        assert result is builder
 
 
 class TestValueExpansionRuleDefinition:

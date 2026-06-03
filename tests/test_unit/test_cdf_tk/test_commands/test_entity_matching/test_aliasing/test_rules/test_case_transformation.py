@@ -6,7 +6,6 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.case_transformation import (
     CaseStrategy,
     CaseTransformationContext,
-    CaseTransformationContextBuilder,
     CaseTransformationRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import MacroCallSignature
@@ -35,34 +34,6 @@ class TestCaseTransformationContext:
 
     def test_when_lowercase_strategy_then_creation_succeeds(self) -> None:
         context = CaseTransformationContext(strategy=CaseStrategy.LOWERCASE)
-        assert context.strategy == CaseStrategy.LOWERCASE
-
-
-class TestCaseTransformationContextBuilder:
-    def test_when_building_with_uppercase_then_context_created(self) -> None:
-        builder = CaseTransformationContextBuilder()
-        context = builder.with_strategy(CaseStrategy.UPPERCASE).build()
-        assert context.strategy == CaseStrategy.UPPERCASE
-
-    def test_when_building_with_lowercase_then_context_created(self) -> None:
-        builder = CaseTransformationContextBuilder()
-        context = builder.with_strategy(CaseStrategy.LOWERCASE).build()
-        assert context.strategy == CaseStrategy.LOWERCASE
-
-    def test_when_building_without_strategy_then_raises_value_error(self) -> None:
-        builder = CaseTransformationContextBuilder()
-        with pytest.raises(ValueError, match="strategy must be set before building"):
-            builder.build()
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = CaseTransformationContextBuilder()
-        result = builder.with_strategy(CaseStrategy.UPPERCASE)
-        assert isinstance(result, CaseTransformationContextBuilder)
-        assert result is builder
-
-    def test_when_overriding_strategy_then_latest_value_used(self) -> None:
-        builder = CaseTransformationContextBuilder()
-        context = builder.with_strategy(CaseStrategy.UPPERCASE).with_strategy(CaseStrategy.LOWERCASE).build()
         assert context.strategy == CaseStrategy.LOWERCASE
 
 

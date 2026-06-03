@@ -5,7 +5,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleDefinition, RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.composite import (
     CompositeRuleContext,
-    CompositeRuleContextBuilder,
     CompositeRuleDefinition,
     ResolvedRuleSpec,
 )
@@ -47,48 +46,6 @@ class TestCompositeRuleContext:
     def test_when_non_resolved_spec_item_then_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="All items in rules list must be ResolvedRuleSpec instances"):
             CompositeRuleContext(rules=[{"definition": Mock()}])  # type: ignore[list-item]
-
-
-class TestCompositeRuleContextBuilder:
-    def test_when_adding_single_rule_then_context_created(self) -> None:
-        mock_def = Mock(spec=RuleDefinition)
-        builder = CompositeRuleContextBuilder()
-        context = builder.add_rule(mock_def, {"prefix": "P"}).build()
-
-        assert len(context.rules) == 1
-        assert context.rules[0].definition is mock_def
-
-    def test_when_adding_multiple_rules_then_all_added(self) -> None:
-        mock_def1 = Mock(spec=RuleDefinition)
-        mock_def2 = Mock(spec=RuleDefinition)
-        mock_def3 = Mock(spec=RuleDefinition)
-
-        builder = CompositeRuleContextBuilder()
-        context = (
-            builder.add_rule(mock_def1, {"prefix": "P"})
-            .add_rule(mock_def2, {"case": "upper"})
-            .add_rule(mock_def3, {"expansions": {"A": ["B"]}})
-            .build()
-        )
-
-        assert len(context.rules) == 3
-        assert context.rules[0].definition is mock_def1
-        assert context.rules[1].definition is mock_def2
-        assert context.rules[2].definition is mock_def3
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        mock_def = Mock(spec=RuleDefinition)
-        builder = CompositeRuleContextBuilder()
-        result = builder.add_rule(mock_def, {"prefix": "P"})
-
-        assert isinstance(result, CompositeRuleContextBuilder)
-        assert result is builder
-
-    def test_when_building_without_rules_then_raises_value_error(self) -> None:
-        builder = CompositeRuleContextBuilder()
-
-        with pytest.raises(ValueError, match="At least one rule must be specified"):
-            builder.build()
 
 
 class TestCompositeRuleDefinition:

@@ -5,7 +5,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.character_substitution import (
     CharacterSubstitutionContext,
-    CharacterSubstitutionContextBuilder,
     CharacterSubstitutionRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import MacroCallSignature
@@ -33,34 +32,6 @@ class TestCharacterSubstitutionContext:
     def test_when_empty_from_char_then_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="from_char cannot be empty"):
             CharacterSubstitutionContext({"": "b"})
-
-
-class TestCharacterSubstitutionContextBuilder:
-    def test_when_building_with_single_replacement_then_context_created(self) -> None:
-        builder = CharacterSubstitutionContextBuilder()
-        context = builder.add_replacement("a", "b").build()
-        assert context.replacements == {"a": "b"}
-
-    def test_when_building_with_multiple_replacements_then_all_added(self) -> None:
-        builder = CharacterSubstitutionContextBuilder()
-        context = builder.add_replacement("a", "b").add_replacement("c", "d").add_replacement("e", "f").build()
-        assert context.replacements == {"a": "b", "c": "d", "e": "f"}
-
-    def test_when_overriding_replacement_then_latest_value_used(self) -> None:
-        builder = CharacterSubstitutionContextBuilder()
-        context = builder.add_replacement("a", "b").add_replacement("a", "c").build()
-        assert context.replacements == {"a": "c"}
-
-    def test_when_building_without_replacements_then_raises_value_error(self) -> None:
-        builder = CharacterSubstitutionContextBuilder()
-        with pytest.raises(ValueError, match="replacements dictionary cannot be empty"):
-            builder.build()
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = CharacterSubstitutionContextBuilder()
-        result = builder.add_replacement("a", "b")
-        assert isinstance(result, CharacterSubstitutionContextBuilder)
-        assert result is builder
 
 
 class TestCharacterSubstitutionRuleDefinition:
