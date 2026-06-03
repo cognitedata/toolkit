@@ -63,5 +63,7 @@ class CaseTransformationRuleDefinition(RuleDefinition[CaseTransformationContext]
                 expression = f"({var_name}) => {var_name}.map(value => upper(value))"
             case CaseStrategy.LOWERCASE:
                 expression = f"({var_name}) => {var_name}.map(value => lower(value))"
+            case _:
+                raise ValueError(f"Unsupported case transformation strategy: {context.strategy}")
 
         return Macro(definition=expression)
