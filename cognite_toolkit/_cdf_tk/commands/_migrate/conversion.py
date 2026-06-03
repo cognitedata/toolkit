@@ -510,7 +510,11 @@ def create_edge_properties(
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
-            value = NodeId(space=default_instance_space, external_id=str(flatten_dump[prop_json_path]))
+            edge_space = default_instance_space
+            if resource_type == "annotation" and edge_prop_id == "type":
+                # Annotation edge types (e.g. diagrams.AssetLink) belong to the CDM type space.
+                edge_space = "cdf_cdm"
+            value = NodeId(space=edge_space, external_id=str(flatten_dump[prop_json_path]))
         else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
