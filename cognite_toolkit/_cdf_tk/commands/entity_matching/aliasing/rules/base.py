@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
@@ -32,39 +31,3 @@ class RuleDefinition(ABC, Generic[RuleContext]):
     def create_kuiper_macro(self, context: RuleContext) -> Macro:
         pass
 
-
-@dataclass(frozen=True)
-class RuleName:
-    name: str
-
-    def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("Rule name cannot be empty")
-
-
-@dataclass(frozen=True)
-class RuleDescription:
-    description: str
-
-    def __post_init__(self) -> None:
-        if not self.description:
-            raise ValueError("Rule description cannot be empty")
-
-
-class Rule:
-    def __init__(self, name: RuleName, description: RuleDescription, rule_definition: RuleDefinition[Any]) -> None:
-        self.name: RuleName = name
-        self.description: RuleDescription = description
-        self.rule_definition: RuleDefinition[Any] = rule_definition
-
-    @staticmethod
-    def from_rule_definition(
-        name: RuleName, description: RuleDescription, rule_definition: RuleDefinition[Any]
-    ) -> "Rule":
-        return Rule(name, description, rule_definition)
-
-    def __repr__(self) -> str:
-        return f"Rule(name={self.name}, description={self.description}, rule_definition={self.rule_definition})"
-
-    def create_kuiper_macro(self, context: Any) -> Macro:
-        return self.rule_definition.create_kuiper_macro(context)
