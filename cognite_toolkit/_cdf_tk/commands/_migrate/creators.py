@@ -395,7 +395,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 for label, identifiers in skipped_external_ids_by_label.items()
             ]
             items.append(
-                ItemsResult(status="failure", count=skipped_total, severity=Severity.failure.value, labels=labels)
+                ItemsResult(status="skipped", count=skipped_total, severity=Severity.skipped.value, labels=labels)
             )
         if items:
             display_item_results(items, title="InField Location Configs", console=self.client.console)
