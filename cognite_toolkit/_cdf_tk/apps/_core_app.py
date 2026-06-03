@@ -27,7 +27,8 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -320,6 +321,16 @@ class CoreApp(typer.Typer):
                 help="File format for the insights file written to the build directory.",
             ),
         ] = InsightFormat.csv,
+        dependency_graph: Annotated[
+            Path | None,
+            typer.Option(
+                "--dependency-graph",
+                help="Write the instance-level resource dependency graph as YAML to the given path.",
+                file_okay=True,
+                dir_okay=False,
+                hidden=not Flags.DEPENDENCY_GRAPH.is_enabled(),
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -348,6 +359,11 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
+        if dependency_graph is not None and not Flags.DEPENDENCY_GRAPH.is_enabled():
+            raise ToolkitValueError(
+                "The --dependency-graph option requires the 'DEPENDENCY_GRAPH' alpha flag to be enabled in cdf.toml."
+            )
+
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
@@ -355,6 +371,7 @@ class CoreApp(typer.Typer):
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
+            dependency_graph=dependency_graph,
         )
 
         cmd.run(
