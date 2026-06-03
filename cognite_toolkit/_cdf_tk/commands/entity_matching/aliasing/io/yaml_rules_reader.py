@@ -119,25 +119,6 @@ class YamlRulesReader:
 
         return value
 
-    def _validate_rules_key_exists(self, raw_data: Any, file_path: str) -> None:
-        if raw_data is None:
-            raise YamlReadError(
-                "YAML file is empty or contains only comments",
-                file_path=file_path,
-            )
-
-        if not isinstance(raw_data, dict):
-            raise YamlReadError(
-                f"Root of YAML must be a mapping (dictionary), found: {type(raw_data).__name__}",
-                file_path=file_path,
-            )
-
-        if "rules" not in raw_data:
-            raise YamlReadError(
-                f"Missing required 'rules' key. Found keys: {list(raw_data.keys())}",
-                file_path=file_path,
-            )
-
     def _validate_rules_is_list(self, rules_data: Any, file_path: str) -> None:
         if not isinstance(rules_data, list):
             raise YamlReadError(
