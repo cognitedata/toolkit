@@ -5,7 +5,6 @@ from typing import Any
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper import AliasingKuiper
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.expression_composer import ExpressionComposer
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.registry.registry import RuleDefinitionRegistry
-from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.composite import ResolvedRuleSpec
 
 
 @dataclass(frozen=True)
@@ -87,7 +86,6 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
             if not rules_list:
                 raise ValueError(f"Composite rule '{rule.name}' has empty rules list")
 
-            resolved_specs = []
             expanded_sub_rules = []
 
             for idx, sub_spec in enumerate(rules_list):
@@ -100,8 +98,6 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
                     )
 
                 definition = self._registry.get_definition_or_throw(sub_spec["rule_type"])
-                resolved_spec = ResolvedRuleSpec(definition=definition, payload=sub_spec["payload"])
-                resolved_specs.append(resolved_spec)
 
                 sub_rule_name = f"{rule.name}_sub_{idx}"
                 sub_rule = AliasingRule(
