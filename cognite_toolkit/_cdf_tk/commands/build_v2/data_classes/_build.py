@@ -34,7 +34,7 @@ class BuildParameters(BaseModel):
         default="csv",
         description="Format for the insights file written to the build directory.",
     )
-    dependency_graph: Path | None = Field(
+    topology: Path | None = Field(
         default=None,
         description="If set, the instance-level resource dependency graph is written as YAML to this path.",
     )

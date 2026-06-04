@@ -70,9 +70,9 @@ class Flags(Enum):
         visible=True,
         description="Enables validation of function requirements.txt during build using pip dry-run",
     )
-    DEPENDENCY_GRAPH = FlagMetadata(
-        visible=False,
-        description="Enables the --dependency-graph option on 'cdf build' to export the resource dependency graph as YAML",
+    TOPOLOGY = FlagMetadata(
+        visible=True,
+        description="Enables the --topology option on 'cdf build' to export the resource dependency graph as YAML",
     )
     DATA_PRODUCTS = FlagMetadata(
         visible=False,

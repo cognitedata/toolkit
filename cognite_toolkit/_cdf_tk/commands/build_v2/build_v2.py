@@ -123,9 +123,9 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        if parameters.dependency_graph is not None:
-            write_dependency_graph(build_folder, parameters.dependency_graph)
-            console.print(f"Wrote dependency graph to {parameters.dependency_graph.as_posix()!r}.")
+        if parameters.topology is not None:
+            write_dependency_graph(build_folder, parameters.topology)
+            console.print(f"Wrote dependency graph to {parameters.topology.as_posix()!r}.")
 
         insights = build_folder.all_insights
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)

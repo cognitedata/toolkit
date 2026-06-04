@@ -321,14 +321,14 @@ class CoreApp(typer.Typer):
                 help="File format for the insights file written to the build directory.",
             ),
         ] = InsightFormat.csv,
-        dependency_graph: Annotated[
+        topology: Annotated[
             Path | None,
             typer.Option(
-                "--dependency-graph",
+                "--topology",
                 help="Write the instance-level resource dependency graph as YAML to the given path.",
                 file_okay=True,
                 dir_okay=False,
-                hidden=not Flags.DEPENDENCY_GRAPH.is_enabled(),
+                hidden=not Flags.TOPOLOGY.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[
@@ -359,9 +359,9 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
-        if dependency_graph is not None and not Flags.DEPENDENCY_GRAPH.is_enabled():
+        if topology is not None and not Flags.TOPOLOGY.is_enabled():
             raise ToolkitValueError(
-                "The --dependency-graph option requires the 'DEPENDENCY_GRAPH' alpha flag to be enabled in cdf.toml."
+                "The --topology option requires the 'topology' alpha flag to be enabled in cdf.toml."
             )
 
         parameter = BuildParameters(
@@ -371,7 +371,7 @@ class CoreApp(typer.Typer):
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
-            dependency_graph=dependency_graph,
+            topology=topology,
         )
 
         cmd.run(
