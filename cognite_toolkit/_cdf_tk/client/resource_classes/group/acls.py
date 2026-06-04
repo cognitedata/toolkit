@@ -84,6 +84,14 @@ class AgentsAcl(Acl):
     scope: AllScope | AgentExternalIdScope
 
 
+class AiSkillsAcl(Acl):
+    """ACL for Atlas AI Skills resources."""
+
+    acl_name: Literal["aiSkillsAcl"] = Field("aiSkillsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
 class AnalyticsAcl(Acl):
     """ACL for Analytics resources."""
 
@@ -636,6 +644,7 @@ def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
 AclType: TypeAlias = Annotated[
     (
         AgentsAcl
+        | AiSkillsAcl
         | AnalyticsAcl
         | AnnotationsAcl
         | AppConfigAcl

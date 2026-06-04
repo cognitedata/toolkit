@@ -92,6 +92,7 @@ from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
+from .api.skills import SkillsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import (
@@ -180,6 +181,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
+        self.tool.skills = MagicMock(spec=SkillsAPI)
         self.tool.apps = MagicMock(spec=AppsAPI)
         self.tool.apps.versions = MagicMock(spec=AppVersionsAPI)
         self.tool.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)

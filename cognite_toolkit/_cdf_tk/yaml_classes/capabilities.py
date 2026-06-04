@@ -179,6 +179,12 @@ class AgentsAcl(Capability):
     scope: AllScope | AgentExternalIdScope
 
 
+class AiSkillsAcl(Capability):
+    _capability_name = "aiSkillsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
 class AnalyticsAcl(Capability):
     _capability_name = "analyticsAcl"
     actions: list[Literal["READ", "EXECUTE", "LIST"]]

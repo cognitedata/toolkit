@@ -73,6 +73,7 @@ from ._resource_ios import (
     SimulatorModelRevisionIO,
     SimulatorRoutineIO,
     SimulatorRoutineRevisionIO,
+    SkillIO,
     SpaceCRUD,
     StreamIO,
     StreamlitIO,
@@ -155,6 +156,7 @@ del crud  # cleanup module namespace
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
+    "skills",
     "apps",
     "auth",
     "cdf_applications",
@@ -261,6 +263,7 @@ __all__ = [
     "SimulatorModelRevisionIO",
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
+    "SkillIO",
     "SpaceCRUD",
     "StreamIO",
     "StreamlitIO",

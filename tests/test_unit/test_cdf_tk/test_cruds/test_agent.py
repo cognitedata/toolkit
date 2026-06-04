@@ -5,7 +5,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO, SkillIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
 
 
@@ -41,6 +41,9 @@ class TestAgentIODependencies:
 
     def test_function_is_in_class_dependencies(self) -> None:
         assert FunctionIO in AgentIO.dependencies
+
+    def test_skill_is_in_class_dependencies(self) -> None:
+        assert SkillIO in AgentIO.dependencies
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -187,6 +190,17 @@ class TestAgentIODependencies:
                 },
                 [],
                 id="query tool with manual instance spaces yields no dependencies",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "skills": ["my_skill", "other_skill"],
+                },
+                [
+                    (SkillIO, ExternalId(external_id="my_skill")),
+                    (SkillIO, ExternalId(external_id="other_skill")),
+                ],
+                id="skills yield SkillIO dependencies",
             ),
             pytest.param(
                 {"externalId": "my_agent", "tools": []},
