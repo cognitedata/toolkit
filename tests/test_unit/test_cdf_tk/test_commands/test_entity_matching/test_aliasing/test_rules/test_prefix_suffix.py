@@ -5,7 +5,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.prefix_suffix import (
     PrefixSuffixContext,
-    PrefixSuffixContextBuilder,
     PrefixSuffixRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import MacroCallSignature
@@ -46,47 +45,6 @@ class TestPrefixSuffixContext:
     def test_when_prefix_none_and_suffix_empty_then_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="At least one of prefix or suffix must be provided and non-empty"):
             PrefixSuffixContext(prefix=None, suffix="")
-
-
-class TestPrefixSuffixContextBuilder:
-    def test_when_building_with_prefix_only_then_context_created(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        context = builder.with_prefix("PRE_").build()
-        assert context.prefix == "PRE_"
-        assert context.suffix is None
-
-    def test_when_building_with_suffix_only_then_context_created(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        context = builder.with_suffix("_SUF").build()
-        assert context.prefix is None
-        assert context.suffix == "_SUF"
-
-    def test_when_building_with_both_prefix_and_suffix_then_context_created(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        context = builder.with_prefix("PRE_").with_suffix("_SUF").build()
-        assert context.prefix == "PRE_"
-        assert context.suffix == "_SUF"
-
-    def test_when_building_without_prefix_or_suffix_then_raises_value_error(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        with pytest.raises(ValueError, match="At least one of prefix or suffix must be provided and non-empty"):
-            builder.build()
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        result = builder.with_prefix("PRE_")
-        assert isinstance(result, PrefixSuffixContextBuilder)
-        assert result is builder
-
-    def test_when_overriding_prefix_then_latest_value_used(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        context = builder.with_prefix("OLD_").with_prefix("NEW_").build()
-        assert context.prefix == "NEW_"
-
-    def test_when_overriding_suffix_then_latest_value_used(self) -> None:
-        builder = PrefixSuffixContextBuilder()
-        context = builder.with_suffix("_OLD").with_suffix("_NEW").build()
-        assert context.suffix == "_NEW"
 
 
 class TestPrefixSuffixRuleDefinition:

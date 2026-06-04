@@ -21,20 +21,6 @@ class CaseTransformationContext:
             raise ValueError("strategy cannot be empty")
 
 
-class CaseTransformationContextBuilder:
-    def __init__(self) -> None:
-        self._strategy: CaseStrategy | None = None
-
-    def with_strategy(self, strategy: CaseStrategy) -> "CaseTransformationContextBuilder":
-        self._strategy = strategy
-        return self
-
-    def build(self) -> CaseTransformationContext:
-        if self._strategy is None:
-            raise ValueError("strategy must be set before building")
-        return CaseTransformationContext(strategy=self._strategy)
-
-
 class CaseTransformationRuleDefinition(RuleDefinition[CaseTransformationContext]):
     def type(self) -> RuleType:
         return RuleType.CASE_TRANSFORMATION
@@ -63,5 +49,7 @@ class CaseTransformationRuleDefinition(RuleDefinition[CaseTransformationContext]
                 expression = f"({var_name}) => {var_name}.map(value => upper(value))"
             case CaseStrategy.LOWERCASE:
                 expression = f"({var_name}) => {var_name}.map(value => lower(value))"
+            case _:
+                raise ValueError(f"Unsupported case transformation strategy: {context.strategy}")
 
         return Macro(definition=expression)

@@ -3,7 +3,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleType
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.leading_zero_normalization import (
     LeadingZeroNormalizationContext,
-    LeadingZeroNormalizationContextBuilder,
     LeadingZeroNormalizationRuleDefinition,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.common.macro import Macro, MacroCallSignature
@@ -29,39 +28,6 @@ class TestLeadingZeroNormalizationContext:
     def test_when_target_length_is_none_then_raises_type_error(self) -> None:
         with pytest.raises(TypeError):
             LeadingZeroNormalizationContext(target_length=None)  # type: ignore[arg-type]
-
-
-class TestLeadingZeroNormalizationContextBuilder:
-    def test_when_building_with_target_length_then_context_created(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        context = builder.with_target_length(5).build()
-        assert context.target_length == 5
-
-    def test_when_building_with_zero_target_length_then_context_created(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        context = builder.with_target_length(0).build()
-        assert context.target_length == 0
-
-    def test_when_building_with_large_target_length_then_context_created(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        context = builder.with_target_length(50).build()
-        assert context.target_length == 50
-
-    def test_when_building_without_target_length_then_raises_value_error(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        with pytest.raises(ValueError, match="target_length must be set before building"):
-            builder.build()
-
-    def test_when_builder_returns_self_then_fluent_chaining_works(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        result = builder.with_target_length(5)
-        assert isinstance(result, LeadingZeroNormalizationContextBuilder)
-        assert result is builder
-
-    def test_when_overriding_target_length_then_latest_value_used(self) -> None:
-        builder = LeadingZeroNormalizationContextBuilder()
-        context = builder.with_target_length(3).with_target_length(7).build()
-        assert context.target_length == 7
 
 
 class TestLeadingZeroNormalizationRuleDefinition:

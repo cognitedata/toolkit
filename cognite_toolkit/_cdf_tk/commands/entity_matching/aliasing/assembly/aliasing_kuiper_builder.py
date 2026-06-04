@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.aliasing_kuiper import AliasingKuiper
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.assembly.expression_composer import ExpressionComposer
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.registry.registry import RuleDefinitionRegistry
-from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.composite import ResolvedRuleSpec
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class AliasingKuiperBuilder(ABC):
         pass
 
 
-class BuilderConstraintError(Exception):
+class BuilderConstraintError(ToolkitValueError):
     pass
 
 
@@ -87,7 +88,6 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
             if not rules_list:
                 raise ValueError(f"Composite rule '{rule.name}' has empty rules list")
 
-            resolved_specs = []
             expanded_sub_rules = []
 
             for idx, sub_spec in enumerate(rules_list):
@@ -99,9 +99,7 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
                         f"Sub-rule specification {idx} in composite '{rule.name}' must have 'rule_type' and 'payload'"
                     )
 
-                definition = self._registry.get_definition_or_throw(sub_spec["rule_type"])
-                resolved_spec = ResolvedRuleSpec(definition=definition, payload=sub_spec["payload"])
-                resolved_specs.append(resolved_spec)
+                self._registry.get_definition_or_throw(sub_spec["rule_type"])
 
                 sub_rule_name = f"{rule.name}_sub_{idx}"
                 sub_rule = AliasingRule(
@@ -121,25 +119,7 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
         if not rules:
             raise EmptyRulesError()
 
-        rule_names = [rule.name for rule in rules]
-        duplicates = {name for name in rule_names if rule_names.count(name) > 1}
+        name_counts = Counter(rule.name for rule in rules)
+        duplicates = {name for name, count in name_counts.items() if count > 1}
         if duplicates:
             raise DuplicateRuleNameError(duplicates)
-
-
-class AliasingKuiperBuilderFactory(ABC):
-    @abstractmethod
-    def create(self) -> AliasingKuiperBuilder:
-        pass
-
-
-class DefaultAliasingKuiperBuilderFactory(AliasingKuiperBuilderFactory):
-    def __init__(self, registry: RuleDefinitionRegistry, composer: ExpressionComposer) -> None:
-        self._registry = registry
-        self._composer = composer
-
-    def create(self) -> AliasingKuiperBuilder:
-        return DefaultAliasingKuiperBuilder(
-            registry=self._registry,
-            composer=self._composer,
-        )

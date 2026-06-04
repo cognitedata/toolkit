@@ -18,27 +18,6 @@ class RegExpSubstitutionContext:
             raise ValueError("replacement cannot be empty")
 
 
-class RegExpSubstitutionContextBuilder:
-    def __init__(self) -> None:
-        self._pattern: str | None = None
-        self._replacement: str | None = None
-
-    def with_pattern(self, pattern: str) -> "RegExpSubstitutionContextBuilder":
-        self._pattern = pattern
-        return self
-
-    def with_replacement(self, replacement: str) -> "RegExpSubstitutionContextBuilder":
-        self._replacement = replacement
-        return self
-
-    def build(self) -> RegExpSubstitutionContext:
-        if self._pattern is None:
-            raise ValueError("pattern must be set before building")
-        if self._replacement is None:
-            raise ValueError("replacement must be set before building")
-        return RegExpSubstitutionContext(pattern=self._pattern, replacement=self._replacement)
-
-
 class RegExpSubstitutionRuleDefinition(RuleDefinition[RegExpSubstitutionContext]):
     def type(self) -> RuleType:
         return RuleType.REGEX_SUBSTITUTION

@@ -16,23 +16,6 @@ class PrefixSuffixContext:
             raise ValueError("At least one of prefix or suffix must be provided and non-empty")
 
 
-class PrefixSuffixContextBuilder:
-    def __init__(self) -> None:
-        self._prefix: str | None = None
-        self._suffix: str | None = None
-
-    def with_prefix(self, prefix: str) -> "PrefixSuffixContextBuilder":
-        self._prefix = prefix
-        return self
-
-    def with_suffix(self, suffix: str) -> "PrefixSuffixContextBuilder":
-        self._suffix = suffix
-        return self
-
-    def build(self) -> PrefixSuffixContext:
-        return PrefixSuffixContext(prefix=self._prefix, suffix=self._suffix)
-
-
 class PrefixSuffixRuleDefinition(RuleDefinition[PrefixSuffixContext]):
     def type(self) -> RuleType:
         return RuleType.PREFIX_SUFFIX

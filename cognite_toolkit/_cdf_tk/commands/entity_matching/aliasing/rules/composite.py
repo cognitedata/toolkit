@@ -24,18 +24,6 @@ class CompositeRuleContext:
                 raise ValueError("All items in rules list must be ResolvedRuleSpec instances")
 
 
-class CompositeRuleContextBuilder:
-    def __init__(self) -> None:
-        self._rules: list[ResolvedRuleSpec] = []
-
-    def add_rule(self, definition: RuleDefinition[Any], payload: dict[str, Any]) -> "CompositeRuleContextBuilder":
-        self._rules.append(ResolvedRuleSpec(definition=definition, payload=payload))
-        return self
-
-    def build(self) -> CompositeRuleContext:
-        return CompositeRuleContext(rules=self._rules)
-
-
 class CompositeRuleDefinition(RuleDefinition[CompositeRuleContext]):
     def type(self) -> RuleType:
         return RuleType.COMPOSITE

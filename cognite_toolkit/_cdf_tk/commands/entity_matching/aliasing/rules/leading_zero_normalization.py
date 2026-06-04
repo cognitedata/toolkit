@@ -15,20 +15,6 @@ class LeadingZeroNormalizationContext:
             raise ValueError("target_length cannot be negative")
 
 
-class LeadingZeroNormalizationContextBuilder:
-    def __init__(self) -> None:
-        self._target_length: int | None = None
-
-    def with_target_length(self, length: int) -> "LeadingZeroNormalizationContextBuilder":
-        self._target_length = length
-        return self
-
-    def build(self) -> LeadingZeroNormalizationContext:
-        if self._target_length is None:
-            raise ValueError("target_length must be set before building")
-        return LeadingZeroNormalizationContext(target_length=self._target_length)
-
-
 class LeadingZeroNormalizationRuleDefinition(RuleDefinition[LeadingZeroNormalizationContext]):
     def type(self) -> RuleType:
         return RuleType.LEADING_ZERO_NORMALIZATION

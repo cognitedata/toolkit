@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.registry.rules_di
     RulesDiscovery,
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.rules.base import RuleDefinition, RuleType
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class RuleDefinitionRegistry(ABC):
@@ -14,7 +15,7 @@ class RuleDefinitionRegistry(ABC):
         pass
 
 
-class RuleDefinitionNotFoundError(Exception):
+class RuleDefinitionNotFoundError(ToolkitValueError):
     def __init__(self, rule_type: RuleType) -> None:
         self.rule_type = rule_type
         super().__init__(f"Rule type {rule_type.value} not found in registry")
