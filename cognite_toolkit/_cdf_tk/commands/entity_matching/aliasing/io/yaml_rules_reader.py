@@ -23,7 +23,7 @@ class YamlRulesReader:
 
     def read_file(self, file_path: Path | str) -> RulesFileContent:
         resolved_path = Path(file_path) if isinstance(file_path, str) else file_path
-        file_path_str = str(resolved_path)
+        file_path_str = resolved_path.as_posix()
         raw_data = self._load_yaml_file(resolved_path)
         self._validate_root_structure(raw_data, file_path_str)
 
@@ -50,17 +50,17 @@ class YamlRulesReader:
         except FileNotFoundError as e:
             raise YamlReadError(
                 "File not found",
-                file_path=str(file_path),
+                file_path=file_path.as_posix(),
             ) from e
         except yaml.YAMLError as e:
             raise YamlReadError(
                 f"Invalid YAML syntax: {e!s}",
-                file_path=str(file_path),
+                file_path=file_path.as_posix(),
             ) from e
         except Exception as e:
             raise YamlReadError(
                 f"Error reading file: {e!s}",
-                file_path=str(file_path),
+                file_path=file_path.as_posix(),
             ) from e
 
     def _validate_root_structure(self, raw_data: Any, file_path: str) -> None:
