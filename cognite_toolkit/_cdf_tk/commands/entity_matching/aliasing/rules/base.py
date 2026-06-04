@@ -30,4 +30,3 @@ class RuleDefinition(ABC, Generic[RuleContext]):
     @abstractmethod
     def create_kuiper_macro(self, context: RuleContext) -> Macro:
         pass
-

@@ -1,5 +1,5 @@
-from collections import Counter
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
@@ -99,7 +99,7 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
                         f"Sub-rule specification {idx} in composite '{rule.name}' must have 'rule_type' and 'payload'"
                     )
 
-                definition = self._registry.get_definition_or_throw(sub_spec["rule_type"])
+                self._registry.get_definition_or_throw(sub_spec["rule_type"])
 
                 sub_rule_name = f"{rule.name}_sub_{idx}"
                 sub_rule = AliasingRule(
@@ -123,5 +123,3 @@ class DefaultAliasingKuiperBuilder(AliasingKuiperBuilder):
         duplicates = {name for name, count in name_counts.items() if count > 1}
         if duplicates:
             raise DuplicateRuleNameError(duplicates)
-
-

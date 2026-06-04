@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.workflow_assem
 )
 from cognite_toolkit._cdf_tk.commands.entity_matching.aliasing.io.yaml_rules_reader import YamlRulesReader
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 from cognite_toolkit._cdf_tk.utils import safe_write
+from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 
 class EntityMatchingCommand(ToolkitCommand):
