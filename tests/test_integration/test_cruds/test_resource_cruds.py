@@ -1341,7 +1341,15 @@ class TestSkillIO:
             external_id=external_id,
             name="integration-test-skill",
             description="Updated toolkit integration test skill",
-            content=_SKILL_CONTENT.replace("integration test skill", "updated integration test skill"),
+            content="""---
+name: integration-test-skill
+description: Updated toolkit integration test skill
+---
+
+# Integration test skill
+
+Used by toolkit integration tests (updated).
+""",
         )
         try:
             created = loader.create([original])

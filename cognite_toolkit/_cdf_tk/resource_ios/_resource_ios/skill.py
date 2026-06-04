@@ -5,7 +5,7 @@ from typing import Any, Literal, final
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
-    AiSkillsAcl,
+    AgentsAcl,
     AllScope,
     ScopeDefinition,
 )
@@ -56,7 +56,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
-            yield AiSkillsAcl(actions=sorted(actions), scope=scope)
+            yield AgentsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def _skill_md_candidates(cls, filepath: Path, external_id: str) -> list[Path]:
