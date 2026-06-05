@@ -137,6 +137,10 @@ warn_unused_ignores = true
 exclude = []
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = ["cognite_toolkit._cdf_tk.utils.fileio._writers"]
+disable_error_code = ["type-var"]
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true

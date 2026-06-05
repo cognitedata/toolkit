@@ -229,6 +229,8 @@ class DatapointSubscriptionIO(
             yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+        for instance_id in item.get("instanceIds", []):
+            yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
