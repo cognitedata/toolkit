@@ -1747,11 +1747,14 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationCommand(client=client)
 
-        legacy_sites = client.events.aggregate_unique_values(property=["metadata", "site_id"])
-        if legacy_sites.unique:
+        # Use cardinalityValues (returns a plain int) instead of uniqueValues: the latter makes the SDK
+        # parse per-value buckets, and the Events aggregate API returns a count-only bucket for events
+        # missing the property, which the SDK's UniqueResult._load cannot parse (KeyError: 'values').
+        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        if legacy_site_count:
             client.console.print(
                 Panel(
-                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{len(legacy_sites.unique):,}[/bold] "
+                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{legacy_site_count:,}[/bold] "
                     "site(s) of Events-based 360-image data which is deprecated and no longer supported in CDF. "
                     "These images are stored in the Events service and will [bold]NOT[/bold] be migrated by this command.\n\n"
                     "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "

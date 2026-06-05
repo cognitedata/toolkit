@@ -93,6 +93,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDRevisionMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    cognite360_image_has_all_face_files,
+    is_image360_node,
+    missing_cubemap_face_file_external_ids,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -100,6 +105,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     InstanceConversionIssue,
     MigrationEntryV2,
     ThreeDModelMigrationIssue,
+    image360_missing_face_files_migration_entry,
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -1351,6 +1357,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
+        nodes_by_source_id = {node.as_id(): node for node in nodes}
         mapped_instances: list[NodeOrEdgeRequest | None] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
@@ -1381,6 +1388,25 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
         self._check_existence_of_required_targets(mapped_instances, issue_by_source_node_id, source_id_by_target_id)
+
+        mapped_nodes_by_target_id = {
+            instance.as_id(): instance
+            for instance in mapped_instances
+            if isinstance(instance, NodeRequest)
+        }
+        blocked_image360_target_ids = self._image360_target_ids_missing_face_files(
+            source_id_by_target_id, nodes_by_source_id, mapped_nodes_by_target_id
+        )
+        blocked_image360_source_node_ids = {
+            str(source_id_by_target_id[target_id]) for target_id in blocked_image360_target_ids
+        }
+        if blocked_image360_target_ids:
+            mapped_instances = [
+                instance
+                for instance in mapped_instances
+                if instance is None or instance.as_id() not in blocked_image360_target_ids
+            ]
+
         if self.dry_run:
             # In a real run these would be uploaded and visible to subsequent steps' constraint
             # checks. Pre-populate the cache so dry-run output reflects what a real run would do.
@@ -1389,14 +1415,33 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     self._is_existing_by_node_id[instance.as_id()] = True
 
         if issue_by_source_node_id:
-            self.logger.log(
-                [
-                    instance_conversion_issue_as_migration_entry(
-                        issue, source="FDM instances", destination="CDM instances"
+            log_entries: list[MigrationEntryV2] = []
+            for source_node_id, issue in issue_by_source_node_id.items():
+                source_id_str = str(source_node_id)
+                if source_id_str in blocked_image360_source_node_ids:
+                    source_node = nodes_by_source_id[source_node_id]
+                    target_id = next(
+                        target
+                        for target, mapped_source_id in source_id_by_target_id.items()
+                        if mapped_source_id == source_node_id
                     )
-                    for issue in issue_by_source_node_id.values()
-                ]
-            )
+                    log_entries.append(
+                        image360_missing_face_files_migration_entry(
+                            source_id_str,
+                            missing_cubemap_face_file_external_ids(
+                                source_node, mapped_nodes_by_target_id.get(target_id)
+                            ),
+                            source="FDM instances",
+                            destination="CDM instances",
+                        )
+                    )
+                else:
+                    log_entries.append(
+                        instance_conversion_issue_as_migration_entry(
+                            issue, source="FDM instances", destination="CDM instances"
+                        )
+                    )
+            self.logger.log(log_entries)
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
@@ -1631,6 +1676,23 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         else:
                             issue_by_source_node_id[source_node_id].errors.append(error)
                     source.properties[prop_id] = keep  # type: ignore[assignment]
+
+    def _image360_target_ids_missing_face_files(
+        self,
+        source_id_by_target_id: dict[NodeId, NodeId],
+        nodes_by_source_id: dict[NodeId, NodeResponse],
+        mapped_nodes_by_target_id: dict[NodeId, NodeRequest],
+    ) -> set[NodeId]:
+        """Target node IDs for Image360 instances that must not be uploaded (incomplete cubemap faces)."""
+        blocked_target_ids: set[NodeId] = set()
+        for target_id, source_node_id in source_id_by_target_id.items():
+            source_node = nodes_by_source_id.get(source_node_id)
+            if source_node is None or not is_image360_node(source_node):
+                continue
+            mapped_node = mapped_nodes_by_target_id.get(target_id)
+            if mapped_node is None or not cognite360_image_has_all_face_files(mapped_node):
+                blocked_target_ids.add(target_id)
+        return blocked_target_ids
 
     def _iterate_constrained_direct_relation_properties(
         self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
