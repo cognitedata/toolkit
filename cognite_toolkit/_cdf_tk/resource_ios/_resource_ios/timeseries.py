@@ -230,7 +230,8 @@ class DatapointSubscriptionIO(
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
         for instance_id in item.get("instanceIds", []):
-            yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
+            if isinstance(instance_id, dict) and "space" in instance_id and "externalId" in instance_id:
+                yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
