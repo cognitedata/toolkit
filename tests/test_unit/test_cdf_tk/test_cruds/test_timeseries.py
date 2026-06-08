@@ -2,14 +2,34 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
+    ExternalId,
     NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import DatapointSubscriptionIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_organization import DataSetsIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import NodeCRUD
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.timeseries import TimeSeriesCRUD
 
 
 class TestDatapointSubscriptionLoader:
+    def test_get_dependent_items_includes_instance_ids(self) -> None:
+        item = {
+            "externalId": "sub-1",
+            "dataSetExternalId": "ds-1",
+            "timeSeriesIds": ["ts-1"],
+            "instanceIds": [{"space": "my_space", "externalId": "node-1"}],
+        }
+
+        dependencies = list(DatapointSubscriptionIO.get_dependent_items(item))
+
+        assert dependencies == [
+            (DataSetsIO, ExternalId(external_id="ds-1")),
+            (TimeSeriesCRUD, ExternalId(external_id="ts-1")),
+            (NodeCRUD, NodeId(space="my_space", external_id="node-1")),
+        ]
+
     @pytest.mark.parametrize(
         "ts_count, node_count, expected_ts_count, expected_node_count, expected_updates",
         [
