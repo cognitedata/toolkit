@@ -1215,7 +1215,7 @@ class DocumentsInteractiveSelect:
             choices.append(
                 Choice(title="Search documents (full-text query)", value="search"),
             )
-        if count <= self.MAX_TERMINAL_CHOICES:
+        if 0 < count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
         suffix = ""

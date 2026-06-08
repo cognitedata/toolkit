@@ -57,7 +57,10 @@ MULTI_FILE_MAX_PART_COUNT = 250  # Maximum number of parts
 
 
 def create_download_filepath(file_directory: Path, name: str, mime_type: str | None, file_prefix: str) -> Path:
-    filename = Path(sanitize_filename(name))
+    sanitized_name = (
+        sanitize_filename(name) or "file"
+    )  # If the name is empty, we use "file" as the name to avoid exception in with_suffix
+    filename = Path(sanitized_name)
     if filename.suffix == "" and mime_type and (guessed_extension := mimetypes.guess_extension(mime_type)):
         filename = filename.with_suffix(guessed_extension)
     prefixed_filename = f"{sanitize_filename(file_prefix)}_{filename.name}"
