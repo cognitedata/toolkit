@@ -56,7 +56,7 @@ class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeri
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO, NodeCRUD})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
