@@ -193,9 +193,7 @@ class FileMetadataContentIO(
                     )
                 else:
                     file_prefix = file.external_id or str(file.id)
-                    filepath = create_download_filepath(
-                        self._file_directory, file.name, file.mime_type, file_prefix
-                    )
+                    filepath = create_download_filepath(self._file_directory, file.name, file.mime_type, file_prefix)
                     has_downloaded = self._try_download_content(file, filepath, item.display_name)
                     if has_downloaded:
                         file.filepath = filepath

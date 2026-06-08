@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
-    DownloadResponse,
     FILEPATH,
+    DownloadResponse,
     FileMetadataResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -59,9 +59,10 @@ class TestFileMetadataContentIO:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.filemetadata.retrieve.return_value = [file_one, file_two]
-            client.tool.filemetadata.get_download_url.side_effect = (
-                lambda ids: [DownloadResponse(id=identifier.id, download_url=f"https://example.com/{identifier.id}") for identifier in ids]
-            )
+            client.tool.filemetadata.get_download_url.side_effect = lambda ids: [
+                DownloadResponse(id=identifier.id, download_url=f"https://example.com/{identifier.id}")
+                for identifier in ids
+            ]
             client.tool.filemetadata.download_file.side_effect = download_file
 
             io = FileMetadataContentIO(client, config_directory=tmp_path, file_directory=file_directory)
