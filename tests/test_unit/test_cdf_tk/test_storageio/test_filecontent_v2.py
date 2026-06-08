@@ -49,7 +49,6 @@ class TestFileMetadataContentIO:
         file_two = FileMetadataResponse(
             id=2,
             name="ny.png",
-            external_id="image-2",
             created_time=1,
             last_updated_time=1,
             uploaded=True,
@@ -71,9 +70,9 @@ class TestFileMetadataContentIO:
         downloaded_files = [data_item.item for page in pages for data_item in page.items]
         assert len(downloaded_files) == 2
         first_path = file_directory / "image-1_ny.png"
-        second_path = file_directory / "image-2_ny.png"
+        second_path = file_directory / "2_ny.png"
         assert first_path.read_bytes() == b"image-1_ny.png"
-        assert second_path.read_bytes() == b"image-2_ny.png"
+        assert second_path.read_bytes() == b"2_ny.png"
         assert downloaded_files[0].filepath == first_path
         assert downloaded_files[1].filepath == second_path
 

@@ -56,11 +56,11 @@ MULTI_FILE_PART_MAX_SIZE_BYTES = 4_000 * 1024 * 1024  # Each part in a multi-par
 MULTI_FILE_MAX_PART_COUNT = 250  # Maximum number of parts
 
 
-def create_download_filepath(file_directory: Path, name: str, mime_type: str | None, external_id: str) -> Path:
+def create_download_filepath(file_directory: Path, name: str, mime_type: str | None, file_prefix: str) -> Path:
     filename = Path(sanitize_filename(name))
     if filename.suffix == "" and mime_type and (guessed_extension := mimetypes.guess_extension(mime_type)):
         filename = filename.with_suffix(guessed_extension)
-    prefixed_filename = f"{sanitize_filename(external_id)}_{filename.name}"
+    prefixed_filename = f"{sanitize_filename(file_prefix)}_{filename.name}"
     return file_directory / prefixed_filename
 
 
@@ -623,8 +623,9 @@ class CogniteFileContentIO(
                         )
                     )
                 else:
+                    file_prefix = f"{file.space}_{file.external_id}"
                     filepath = create_download_filepath(
-                        self._file_directory, file.name or item.external_id, file.mime_type, item.external_id
+                        self._file_directory, file.name or file.external_id, file.mime_type, file_prefix
                     )
                     has_downloaded = self._try_download_content(file, filepath, item.display_name)
                     if has_downloaded:
