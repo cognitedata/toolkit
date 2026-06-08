@@ -1134,11 +1134,13 @@ class DocumentSelectStatus:
 
     @property
     def current_filter(self) -> dict[str, Any] | None:
-        if not self.document_filter and not self.metadata_filter and self.data_set_id is None:
-            return None
-        leaf_filter = [*self.document_filter.values(), *self.metadata_filter.values()]
+        leaf_filter: list[dict[str, Any]] = [*self.document_filter.values(), *self.metadata_filter.values()]
         if self.data_set_id is not None:
             leaf_filter.append({"equals": {"property": ["sourceFile", "dataSetId"], "value": self.data_set_id}})
+        if self.is_cognite_file:
+            leaf_filter.append({"exists": {"property": ["instanceId", "space"]}})
+        if not leaf_filter:
+            return None
         return {"and": leaf_filter}
 
 
@@ -1175,6 +1177,8 @@ class DocumentsInteractiveSelect:
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
             elif action == "finished":
+                if count == 0:
+                    raise ToolkitValueError("No documents match the current filter. Adjust the filter or abort.")
                 break
             elif action == "filter-document-properties":
                 self._update_filter(
@@ -1211,22 +1215,21 @@ class DocumentsInteractiveSelect:
             choices.append(
                 Choice(title="Search documents (full-text query)", value="search"),
             )
-        if count <= self.MAX_TERMINAL_CHOICES:
+        if 0 < count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
         suffix = ""
-        if count <= self.max_selected:
+        if count == 0:
+            suffix = " No documents match the current filter."
+        elif count <= self.max_selected:
             choices.append(Choice(title="Finished", value="finished"))
         else:
             suffix = f" You have to filter down to below {self.max_selected} documents to continue."
         query_note = ""
         if self.status.search_query is not None:
             query_note = f' Active full-text query: "{self.status.search_query}".'
-        caveat = ""
-        if selected_file_type == "dms":
-            caveat = " (approximate)"
         return questionary.select(
-            f"{count} documents found{caveat}. How would you like to proceed?{query_note}{suffix}",
+            f"{count} documents found. How would you like to proceed?{query_note}{suffix}",
             choices=choices,
         ).unsafe_ask()
 
@@ -1240,11 +1243,12 @@ class DocumentsInteractiveSelect:
             "Which property do you want to filter by?",
             choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
         ).unsafe_ask()
+        if filter_type is None:
+            return
 
         buckets = self.client.tool.documents.unique(
             property=filter_type, filter=self.status.current_filter, query=self.status.search_query
         )
-        self.status.attempted_options.add(filter_type)
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
@@ -1259,9 +1263,12 @@ class DocumentsInteractiveSelect:
                 choices=[
                     Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
                 ],
-                validator=lambda choices: True if choices else "You must select at least one value.",
+                validate=lambda choices: True if choices else "You must select at least one value.",
             ).unsafe_ask()
+            if not selected_values:
+                return
             filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+        self.status.attempted_options.add(filter_type)
 
     def _select_dataset(self) -> None:
         buckets = self.client.tool.documents.unique(
@@ -1289,6 +1296,12 @@ class DocumentsInteractiveSelect:
 
     def _set_cognite_file(self) -> None:
         self.status.is_cognite_file = True
+        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
+        if count == 0:
+            self.client.console.print(
+                "No CogniteFiles found with the current filter. Reverting the CogniteFile filter.", style="bold red"
+            )
+            self.status.is_cognite_file = False
 
     def _prompt_search_query(self) -> None:
         answer = questionary.text(
@@ -1322,6 +1335,6 @@ class DocumentsInteractiveSelect:
         documents = questionary.checkbox(
             "Select documents:",
             choices=choices,
-            validator=lambda choices: True if choices else "You must select at least one document.",
+            validate=lambda choices: True if choices else "You must select at least one document.",
         ).unsafe_ask()
         return SelectedDocuments(documents, self.status)

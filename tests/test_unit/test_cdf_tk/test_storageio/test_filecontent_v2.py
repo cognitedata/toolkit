@@ -8,12 +8,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.dataio._file_contentv2 import (
-    CogniteFileContentIO,
-    FileMetadataContentIO,
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
+    FILEPATH,
+    DownloadResponse,
+    FileMetadataResponse,
 )
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.dataio._file_contentv2 import CogniteFileContentIO, FileMetadataContentIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     FILENAME_VARIABLE,
     CogniteFileFilesSelectorV2,
@@ -23,11 +24,59 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelectorV2,
     FileMetadataTemplateV2,
+    InternalWithNameId,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
 
 class TestFileMetadataContentIO:
+    def test_download_duplicate_names_are_not_overwritten(self, tmp_path: Path) -> None:
+        file_directory = tmp_path / "files"
+        selector = FileMetadataFilesSelectorV2(
+            ids=(
+                InternalWithNameId(id=1, name="ny.png"),
+                InternalWithNameId(id=2, name="ny.png"),
+            ),
+        )
+        file_one = FileMetadataResponse(
+            id=1,
+            name="ny.png",
+            external_id="image-1",
+            created_time=1,
+            last_updated_time=1,
+            uploaded=True,
+        )
+        file_two = FileMetadataResponse(
+            id=2,
+            name="ny.png",
+            created_time=1,
+            last_updated_time=1,
+            uploaded=True,
+        )
+
+        def download_file(download_url: str, destination: Path) -> None:
+            destination.write_bytes(destination.name.encode())
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.retrieve.return_value = [file_one, file_two]
+            client.tool.filemetadata.get_download_url.side_effect = lambda ids: [
+                DownloadResponse(id=identifier.id, download_url=f"https://example.com/{identifier.id}")
+                for identifier in ids
+            ]
+            client.tool.filemetadata.download_file.side_effect = download_file
+
+            io = FileMetadataContentIO(client, config_directory=tmp_path, file_directory=file_directory)
+            pages = list(io.stream_data(selector))
+
+        downloaded_files = [data_item.item for page in pages for data_item in page.items]
+        assert len(downloaded_files) == 2
+        first_path = file_directory / "image-1_ny.png"
+        second_path = file_directory / "2_ny.png"
+        assert first_path.read_bytes() == b"image-1_ny.png"
+        assert second_path.read_bytes() == b"2_ny.png"
+        assert downloaded_files[0].filepath == first_path
+        assert downloaded_files[1].filepath == second_path
+
     def test_upload_using_template(self, tmp_path: Path) -> None:
         file_directory = tmp_path / "target"
         file_directory.mkdir()
