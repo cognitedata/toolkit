@@ -56,7 +56,7 @@ class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeri
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO, NodeCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -198,7 +198,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD, NodeCRUD})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
