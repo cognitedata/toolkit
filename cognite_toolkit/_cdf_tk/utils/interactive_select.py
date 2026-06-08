@@ -1240,11 +1240,12 @@ class DocumentsInteractiveSelect:
             "Which property do you want to filter by?",
             choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
         ).unsafe_ask()
+        if filter_type is None:
+            return
 
         buckets = self.client.tool.documents.unique(
             property=filter_type, filter=self.status.current_filter, query=self.status.search_query
         )
-        self.status.attempted_options.add(filter_type)
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
@@ -1259,9 +1260,12 @@ class DocumentsInteractiveSelect:
                 choices=[
                     Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
                 ],
-                validator=lambda choices: True if choices else "You must select at least one value.",
+                validate=lambda choices: True if choices else "You must select at least one value.",
             ).unsafe_ask()
+            if not selected_values:
+                return
             filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+        self.status.attempted_options.add(filter_type)
 
     def _select_dataset(self) -> None:
         buckets = self.client.tool.documents.unique(
@@ -1322,6 +1326,6 @@ class DocumentsInteractiveSelect:
         documents = questionary.checkbox(
             "Select documents:",
             choices=choices,
-            validator=lambda choices: True if choices else "You must select at least one document.",
+            validate=lambda choices: True if choices else "You must select at least one document.",
         ).unsafe_ask()
         return SelectedDocuments(documents, self.status)
