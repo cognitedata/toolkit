@@ -17,7 +17,12 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest, NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    EdgeId,
+    NodeId,
+    NodeOrEdgeRequest,
+    NodeResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
@@ -65,7 +70,12 @@ from .data_classes import (
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
 from .issues import MigrationEntryV2
-from .selectors import AssetCentricMigrationSelector, Image360AnnotationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
+from .selectors import (
+    AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
+    MigrateDataSetSelector,
+    MigrationCSVFileSelector,
+)
 
 
 class AssetCentricMigrationIO(
@@ -812,7 +822,7 @@ class Image360AnnotationMigrationIO(
     _SOURCE_VIEW_ID = {
         "space": "cdf_360_image_schema",
         "external_id": "Image360",
-        "version": "1",
+        "version": "v1",
     }
     _FACE_PROPERTY_NAMES = (
         "cubeMapFront",
@@ -846,9 +856,7 @@ class Image360AnnotationMigrationIO(
                 filter=annotation_filter,
                 limit=limit - total if limit is not None else None,
             ):
-                filtered = [
-                    ann for ann in annotation_batch if ann.annotation_type in self._ANNOTATION_TYPES
-                ]
+                filtered = [ann for ann in annotation_batch if ann.annotation_type in self._ANNOTATION_TYPES]
                 if not filtered:
                     continue
                 total += len(filtered)

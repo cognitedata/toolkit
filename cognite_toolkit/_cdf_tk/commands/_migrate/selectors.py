@@ -66,6 +66,7 @@ class Image360AnnotationSelector(DataSelector):
     """Selector for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint."""
 
     type: Literal["image360Annotation"] = "image360Annotation"
+    kind: Literal["Image360Annotation"] = "Image360Annotation"
     source_space: str
     target_space: str
     object3d_space: str

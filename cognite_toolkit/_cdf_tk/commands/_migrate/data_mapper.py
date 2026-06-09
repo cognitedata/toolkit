@@ -12,7 +12,11 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationResponse,
+    ImageAssetLinkData,
+    ImageInstanceLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -2228,154 +2232,8 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
 
         face, new_image360_node_id, new_collection_node_id = face_and_nodes
 
-        annotation_data = annotation.data if isinstance(annotation.data, dict) else {}
-        object_region = annotation_data.get("objectRegion")
-        if not isinstance(object_region, dict):
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message="Annotation has no objectRegion.",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        polygon = object_region.get("polygon")
-        if not isinstance(polygon, dict):
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message="Annotation objectRegion has no polygon.",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        raw_vertices = polygon.get("vertices")
-        if not isinstance(raw_vertices, list) or len(raw_vertices) < 3:
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message=f"Annotation polygon has fewer than 3 vertices (got {len(raw_vertices) if isinstance(raw_vertices, list) else 0}).",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        polygon_data: list[float] = [float(len(raw_vertices))]
-        for vertex in raw_vertices:
-            if not isinstance(vertex, dict):
-                polygon_data = []
-                break
-            phi, theta = uv_and_face_to_spherical(face, float(vertex["x"]), float(vertex["y"]))
-            polygon_data.extend([phi, theta])
-
-        if not polygon_data:
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message="Annotation polygon vertices have unexpected format.",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        asset_node_id = self._resolve_asset_node_id(annotation, annotation_data)
-        if asset_node_id is None:
-            return None
-
-        return Image360AnnotationRequest(
-            asset_instance_id=asset_node_id,
-            image360_instance_id=new_image360_node_id,
-            revision_instance_id=new_collection_node_id,
-            polygon_data=polygon_data,
-        )
-
-    def _resolve_asset_node_id(self, annotation: AnnotationResponse, annotation_data: dict[str, Any]) -> NodeId | None:
-        if annotation.annotation_type == "images.AssetLink":
-            asset_ref = annotation_data.get("assetRef")
-            if not isinstance(asset_ref, dict):
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation.id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message="images.AssetLink annotation has no assetRef.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-                return None
-            asset_id = asset_ref.get("id")
-            if not isinstance(asset_id, int):
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation.id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message=f"images.AssetLink annotation assetRef has no integer id (got {type(asset_id).__name__}).",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-                return None
-            node_id = self.client.migration.lookup.assets(asset_id)
-            if node_id is None:
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation.id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message=f"Asset with internal ID {asset_id} has no corresponding DMS node.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-            return node_id
-
-        elif annotation.annotation_type == "images.InstanceLink":
-            instance_ref = annotation_data.get("instanceRef")
-            if not isinstance(instance_ref, dict):
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation.id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message="images.InstanceLink annotation has no instanceRef.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-                return None
-            space = instance_ref.get("space")
-            external_id = instance_ref.get("externalId") or instance_ref.get("external_id")
-            if not space or not external_id:
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation.id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message="images.InstanceLink annotation instanceRef is missing space or externalId.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-                return None
-            return NodeId(space=str(space), external_id=str(external_id))
-
-        else:
+        annotation_data = annotation.data
+        if not isinstance(annotation_data, ImageAssetLinkData | ImageInstanceLinkData):
             self.logger.log(
                 MigrationEntryV2(
                     id=str(annotation.id),
@@ -2387,3 +2245,81 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
                 )
             )
             return None
+
+        object_region = annotation_data.object_region
+        if object_region is None or object_region.polygon is None:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message="Annotation has no objectRegion polygon.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        vertices = object_region.polygon.vertices
+        if len(vertices) < 3:
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation.id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message=f"Annotation polygon has fewer than 3 vertices (got {len(vertices)}).",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
+                )
+            )
+            return None
+
+        polygon_data: list[float] = [float(len(vertices))]
+        for vertex in vertices:
+            phi, theta = uv_and_face_to_spherical(face, vertex.x, vertex.y)
+            polygon_data.extend([phi, theta])
+
+        asset_node_id = self._resolve_asset_node_id(annotation.id, annotation_data)
+        if asset_node_id is None:
+            return None
+
+        return Image360AnnotationRequest(
+            asset_instance_id=asset_node_id,
+            image360_instance_id=new_image360_node_id,
+            revision_instance_id=new_collection_node_id,
+            polygon_data=polygon_data,
+        )
+
+    def _resolve_asset_node_id(
+        self, annotation_id: int, annotation_data: ImageAssetLinkData | ImageInstanceLinkData
+    ) -> NodeId | None:
+        if isinstance(annotation_data, ImageAssetLinkData):
+            if not isinstance(annotation_data.asset_ref, InternalId):
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation_id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message="images.AssetLink annotation assetRef has no integer id.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+                return None
+            asset_id = annotation_data.asset_ref.id
+            node_id = self.client.migration.lookup.assets(asset_id)
+            if node_id is None:
+                self.logger.log(
+                    MigrationEntryV2(
+                        id=str(annotation_id),
+                        severity=Severity.skipped,
+                        label="Skipped",
+                        message=f"Asset with internal ID {asset_id} has no corresponding DMS node.",
+                        source="Image360 annotations",
+                        destination="360-image-annotations",
+                    )
+                )
+            return node_id
+
+        instance_ref = annotation_data.instance_ref
+        return NodeId(space=instance_ref.space, external_id=instance_ref.external_id)

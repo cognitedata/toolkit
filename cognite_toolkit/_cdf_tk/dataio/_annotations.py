@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationType,
     AssetLinkData,
     FileLinkData,
+    ImageAssetLinkData,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -106,7 +107,7 @@ class AnnotationIO(DataIO[AssetCentricSelector, AnnotationResponse]):
         return None
 
     @classmethod
-    def _get_asset_id(cls, data: AssetLinkData | FileLinkData | dict[str, Any]) -> int | None:
-        if isinstance(data, AssetLinkData) and isinstance(data.asset_ref, InternalId):
+    def _get_asset_id(cls, data: AssetLinkData | FileLinkData | ImageAssetLinkData | dict[str, Any]) -> int | None:
+        if isinstance(data, AssetLinkData | ImageAssetLinkData) and isinstance(data.asset_ref, InternalId):
             return data.asset_ref.id
         return None
