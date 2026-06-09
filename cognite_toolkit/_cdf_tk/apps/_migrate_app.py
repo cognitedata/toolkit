@@ -203,7 +203,9 @@ class MigrateApp(typer.Typer):
                 ExternalId.from_external_ids(data_set), ignore_unknown_ids=True
             )
             if any(
-                dataset.external_id and warn_invalid_space_name(dataset.external_id) for dataset in selected_datasets
+                warn_invalid_space_name(dataset.external_id)
+                for dataset in selected_datasets
+                if dataset.external_id is not None
             ):
                 auto_fix = questionary.confirm(
                     "Some selected data sets have characters in their external IDs that are not valid in space identifiers. "
