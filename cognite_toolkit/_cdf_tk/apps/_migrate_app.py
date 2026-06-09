@@ -207,7 +207,7 @@ class MigrateApp(typer.Typer):
             ):
                 auto_fix = questionary.confirm(
                     "Some selected data sets have characters in their external IDs that are not valid in space identifiers. "
-                    "Do you want to automatically fix this by replacing these invalid character / truncating the external ID? (Datasets with invalid characters will be skipped if No)",
+                    "Do you want to automatically fix this by replacing these invalid characters / truncating the external ID? (Datasets with invalid characters will be skipped if No)",
                     default=auto_fix,
                 ).unsafe_ask()
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
