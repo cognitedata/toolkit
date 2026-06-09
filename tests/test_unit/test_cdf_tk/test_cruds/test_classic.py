@@ -1,8 +1,33 @@
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.resource_ios import SequenceIO
+from cognite_toolkit._cdf_tk.resource_ios import AssetIO, SequenceIO
+
+
+class TestAssetLoader:
+    def test_load_resource_strips_read_only_download_fields(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = AssetIO.create_loader(client)
+
+        resource = {
+            "externalId": "my_asset",
+            "name": "My Asset",
+            "childCount": 2,
+            "depth": 1,
+            "path": ["parent_asset"],
+            "id": 123,
+            "parentId": 456,
+            "rootId": 789,
+            "createdTime": 1,
+            "lastUpdatedTime": 2,
+        }
+
+        loaded = loader.load_resource(resource.copy(), is_dry_run=False)
+
+        assert isinstance(loaded, AssetRequest)
+        assert loaded.dump(exclude_extra=True) == {"externalId": "my_asset", "name": "My Asset"}
 
 
 class TestSequenceLoader:

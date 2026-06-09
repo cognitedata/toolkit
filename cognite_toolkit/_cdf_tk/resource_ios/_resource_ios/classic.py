@@ -37,6 +37,22 @@ from .data_organization import DataSetsIO, LabelIO
 
 _DEPRECATION_WARNING_ISSUED = False
 
+# Aggregate and response-only properties included when downloading assets for upload ordering
+# or inspection. They must not be sent back to the assets API.
+_ASSET_READ_ONLY_DOWNLOAD_FIELDS = frozenset(
+    {
+        "aggregates",
+        "childCount",
+        "createdTime",
+        "depth",
+        "id",
+        "lastUpdatedTime",
+        "parentId",
+        "path",
+        "rootId",
+    }
+)
+
 
 @final
 class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
@@ -152,6 +168,8 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
 
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        for field in _ASSET_READ_ONLY_DOWNLOAD_FIELDS:
+            resource.pop(field, None)
         return AssetRequest.model_validate(resource)
 
     def dump_resource(self, resource: AssetResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -14,7 +14,7 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
@@ -55,6 +55,7 @@ def some_asset_data() -> list[AssetResponse]:
             dataSetId=DATA_SET_ID,
             createdTime=1,
             lastUpdatedTime=1,
+            aggregates=AssetAggregateItem(childCount=0, depth=0, path=[]),
             **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
         )
         for i in range(RESOURCE_COUNT)
@@ -327,6 +328,10 @@ class TestAssetIO:
             assert isinstance(items, list)
             assert len(items) == len(some_asset_data)
             assert {item["externalId"] for item in items} == {asset.external_id for asset in some_asset_data}
+            for item in items:
+                assert "childCount" not in item
+                assert "depth" not in item
+                assert "path" not in item
             return httpx.Response(status_code=200, json={"items": [asset.dump() for asset in some_asset_data]})
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
