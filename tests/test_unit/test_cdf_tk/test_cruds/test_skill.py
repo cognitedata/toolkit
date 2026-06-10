@@ -29,13 +29,14 @@ class TestSkillMarkdownParser:
         assert skill_markdown.name == "test-skill"
         assert skill_markdown.description == "Test skill description"
         assert skill_markdown.content is not None
-        assert skill_markdown.content.startswith("# Test Skill\n\nDo the thing.")
+        assert skill_markdown.content == _SKILL_CONTENT
 
     def test_invalid_frontmatter(self) -> None:
-        skill_markdown = Markdown.from_markdown("---\nInvalid YAML frontmatter\n---\nValid Markdown")
+        raw = "---\nInvalid YAML frontmatter\n---\nValid Markdown"
+        skill_markdown = Markdown.from_markdown(raw)
         assert skill_markdown.name is None
         assert skill_markdown.description is None
-        assert skill_markdown.content == "Valid Markdown"
+        assert skill_markdown.content == raw
 
     def test_invalid_skill_md_format(self) -> None:
         skill_markdown = Markdown.from_markdown("Invalid Markdown")

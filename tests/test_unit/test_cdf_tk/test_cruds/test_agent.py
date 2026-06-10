@@ -5,6 +5,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO, SkillIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
 
@@ -43,7 +44,10 @@ class TestAgentIODependencies:
         assert FunctionIO in AgentIO.dependencies
 
     def test_skill_is_in_class_dependencies(self) -> None:
-        assert SkillIO in AgentIO.dependencies
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            assert SkillIO in AgentIO.dependencies
+        else:
+            assert SkillIO not in AgentIO.dependencies
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -218,6 +222,8 @@ class TestAgentIODependencies:
         ],
     )
     def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        if "skills" in item and not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            expected = []
         actual = list(AgentIO.get_dependent_items(item))
 
         assert actual == expected
