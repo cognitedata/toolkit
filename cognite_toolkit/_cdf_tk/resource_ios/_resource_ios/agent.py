@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
@@ -33,7 +34,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    dependencies = frozenset({FunctionIO, DataModelIO, SkillIO})
+    dependencies = frozenset(
+        {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
+    )
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
@@ -112,9 +115,10 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
                 yield from cls._data_model_dependencies(
                     cls._query_tool_manual_data_models(tool.get("configuration", {}))
                 )
-        for skill_external_id in item.get("skills") or []:
-            if isinstance(skill_external_id, str):
-                yield SkillIO, ExternalId(external_id=skill_external_id)
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            for skill_external_id in item.get("skills") or []:
+                if isinstance(skill_external_id, str):
+                    yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -126,8 +130,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
                     yield from cls._query_knowledge_graph_dependencies(tool)
                 case Query():
                     yield from cls._query_dependencies(tool)
-        for skill_external_id in resource.skills or []:
-            yield SkillIO, ExternalId(external_id=skill_external_id)
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            for skill_external_id in resource.skills or []:
+                yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import yaml
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -13,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -25,7 +26,27 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.yaml_classes import SkillYAML
 from cognite_toolkit._cdf_tk.yaml_classes.skill import SKILL_MD_CONTENT_RE
 
-_SKILL_MD_SUFFIX = ".SKILL.md"
+_SKILL_MD_SUFFIX = ".Skill.md"
+
+
+class Markdown(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    content: str | None = None
+
+    @classmethod
+    def from_markdown(cls, raw: str) -> "Markdown":
+        name = None
+        description = None
+        content = None
+        match = SKILL_MD_CONTENT_RE.match(raw)
+        if match:
+            frontmatter = yaml.safe_load(match.group(1))
+            if isinstance(frontmatter, dict):
+                name = frontmatter.get("name")
+                description = frontmatter.get("description")
+            content = match.group(2)
+        return cls(name=name, description=description, content=content)
 
 
 @final
@@ -62,30 +83,28 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
             yield AgentsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def _skill_md_candidates(cls, filepath: Path, external_id: str) -> list[Path]:
-        stem_no_kind = filepath.stem
-        if stem_no_kind.lower().endswith(cls.kind.lower()):
-            stem_no_kind = stem_no_kind[: -len(cls.kind)].removesuffix(".")
+    def _get_skill_sidecar_candidates(cls, filepath: Path, external_id: str) -> list[Path]:
         return [
-            filepath.parent / f"{filepath.stem}{_SKILL_MD_SUFFIX}",
-            filepath.parent / f"{stem_no_kind}{_SKILL_MD_SUFFIX}",
-            filepath.parent / f"{external_id}{_SKILL_MD_SUFFIX}",
+            filepath.with_suffix(".md"),
+            filepath.parent / f"{external_id}.{cls.kind}.md",
         ]
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         if "content" in item:
             return
-        external_id = item.get("externalId", item.get("external_id", identifier.external_id))
-        skill_md_path = next((p for p in cls._skill_md_candidates(filepath, str(external_id)) if p.exists()), None)
+        external_id = item.get("externalId") or item.get("external_id") or identifier.external_id or filepath.stem
+
+        candidates = cls._get_skill_sidecar_candidates(filepath, str(external_id))
+        skill_md_path = next((p for p in candidates if p.exists()), None)
         if skill_md_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
                 code="MISSING",
                 error=(
                     f"Missing skill content for {external_id!r} in {filepath.as_posix()}. "
-                    f"No 'content' field found and no SKILL.md file found. Expected one of: "
-                    f"{humanize_collection(cls._skill_md_candidates(filepath, str(external_id)))}"
+                    f"No 'content' field found and no <prefix>.md file found. Expected one of: "
+                    f"{humanize_collection(candidates)}"
                 ),
             )
             return
@@ -111,50 +130,25 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
         for no, item in enumerate(raw_list):
             if "content" in item:
                 continue
-            external_id = item.get("externalId", item.get("external_id", filepath.stem))
-            skill_md_path = next((p for p in self._skill_md_candidates(filepath, str(external_id)) if p.exists()), None)
+
+            external_id = item.get("externalId") or item.get("external_id") or filepath.stem
+            candidates = self._get_skill_sidecar_candidates(filepath, str(external_id))
+            skill_md_path = next((p for p in candidates if p.exists()), None)
             if skill_md_path is None:
                 raise ToolkitFileNotFoundError(
-                    f"'content' is missing and no SKILL.md file found. Expected one of: "
-                    f"{[str(p) for p in self._skill_md_candidates(filepath, str(external_id))]}",
+                    f"'content' is missing and no <prefix>.Skill.md file found. Expected one of: "
+                    f"{[str(p) for p in candidates]}",
                     filepath,
                 )
-            try:
-                markdown_skill = self._parse_markdown(safe_read(skill_md_path, encoding=BUILD_FOLDER_ENCODING))
-                if not markdown_skill:
-                    raise ToolkitValidationError(
-                        f"{skill_md_path.as_posix()} is not a valid SKILL.md file. It should contain a YAML frontmatter with name and description and a non-empty markdown body. Frontmatter"
-                    )
-            except ToolkitValidationError as exc:
-                raise ToolkitValidationError(
-                    f"{skill_md_path.as_posix()} is not a valid SKILL.md file. It should contain a YAML frontmatter with name and description and a non-empty markdown body. Frontmatter"
-                ) from exc
 
-            if item.get("name") and item.get("name") != markdown_skill["name"]:
-                raise ToolkitValidationError(
-                    f"{skill_md_path.as_posix()} name {markdown_skill['name']!r} does not match YAML name {item['name']!r}."
-                )
-            if item.get("description") and item.get("description") != markdown_skill["description"]:
-                raise ToolkitValidationError(
-                    f"{skill_md_path.as_posix()} description {markdown_skill['description']!r} does not match YAML description {item['description']!r}."
-                )
-            raw_list[no] = markdown_skill
+            markdown = Markdown.from_markdown(safe_read(skill_md_path, encoding=BUILD_FOLDER_ENCODING))
+            item = {
+                **item,
+                **markdown.model_dump(),
+            }
+            raw_list[no] = item
+
         return raw_list
-
-    @staticmethod
-    def _parse_markdown(raw: str) -> dict[str, str | None] | None:
-        match = SKILL_MD_CONTENT_RE.match(raw)
-        if not match:
-            return None
-        frontmatter = yaml.safe_load(match.group(1))
-        if not isinstance(frontmatter, dict):
-            return None
-        body = match.group(2)
-        return {
-            "name": frontmatter.get("name") or None,
-            "description": frontmatter.get("description") or None,
-            "content": body or None,
-        }
 
     def dump_resource(self, resource: SkillResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

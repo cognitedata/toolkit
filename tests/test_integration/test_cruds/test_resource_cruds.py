@@ -1359,6 +1359,10 @@ Used by toolkit integration tests (updated).
             retrieved = loader.retrieve([original.as_id()])
             assert len(retrieved) == 1
             assert retrieved[0].description == updated.description
-            assert retrieved[0].content == updated.content
+            assert retrieved[0].content is not None
+            assert retrieved[0].content.startswith(
+                "---\nname: integration-test-skill\ndescription: Updated toolkit integration test skill\n---\n"
+            )
+            assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])

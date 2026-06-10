@@ -18,6 +18,7 @@ class SkillYAML(ToolkitResource):
         max_length=128,
         pattern=r"^[^\x00]{1,128}$",
     )
+
     name: str = Field(
         description="The name of the skill.",
         min_length=1,
