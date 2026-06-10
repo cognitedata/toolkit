@@ -115,7 +115,9 @@ class InstanceSpaceCreator(MigrationCreator):
         linage_nodes: list[NodeRequest] = []
         for dataset in self.datasets:
             data_set_external_id = cast(str, dataset.external_id)
-            space_id = space_id_by_dataset[data_set_external_id]
+            space_id = space_id_by_dataset.get(data_set_external_id)
+            if space_id is None:
+                continue
             space = SpaceRequest(
                 space=space_id,
                 name=dataset.name,
@@ -169,8 +171,9 @@ class InstanceSpaceCreator(MigrationCreator):
                 ).print_warning(console=self.client.console)
             elif warning_message:
                 HighSeverityWarning(
-                    f"{warning_message}\nRun command with `--auto-fix` to automatically make the data set external ID a valid space ID."
+                    f"{warning_message}\nSkipping dataset. Run command with `--auto-fix` to automatically make the data set external ID a valid space ID."
                 ).print_warning(console=self.client.console)
+                continue
 
             result[data_set_external_id] = space_id
             space_id_to_external_ids.setdefault(space_id, []).append(data_set_external_id)
