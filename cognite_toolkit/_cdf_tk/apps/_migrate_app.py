@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
@@ -1330,6 +1331,7 @@ class MigrateApp(typer.Typer):
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if id:
             selected_ids = id
@@ -1406,6 +1408,7 @@ class MigrateApp(typer.Typer):
         This command expects that the selected 3D model has already been migrated to data modeling.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if model_id is not None:
             selected_ids = model_id
@@ -1745,6 +1748,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
         # Use cardinalityValues (returns a plain int) instead of uniqueValues: the latter makes the SDK
@@ -1902,6 +1906,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
         dm_select = DataModelingSelect(client, "migrate")

@@ -2011,21 +2011,18 @@ def uv_and_face_to_spherical(face: str, u: float, v: float) -> tuple[float, floa
     """
     uc = 2.0 * u - 1.0
     vc = 2.0 * v - 1.0
-    # Each face is a unit-distance plane; (uc, vc) are [-1, 1] image-space coords.
-    # y maps to world Y (up = -vc since image v=0 is top), and the face normal is the
-    # constant axis. Convention: Y-up, camera looks toward -Z (THREE.js Spherical theta=π).
-    if face == "front":
-        x, y, z = uc, -vc, -1.0
-    elif face == "back":
-        x, y, z = -uc, -vc, 1.0
-    elif face == "left":
-        x, y, z = -1.0, -vc, -uc
+    if face == "left":
+        x, y, z = 1.0, -uc, -vc
     elif face == "right":
-        x, y, z = 1.0, -vc, uc
-    elif face == "top":
+        x, y, z = -1.0, uc, -vc
+    elif face == "front":
+        x, y, z = -uc, -1.0, -vc
+    elif face == "back":
         x, y, z = uc, 1.0, -vc
+    elif face == "top":
+        x, y, z = -uc, -vc, 1.0
     elif face == "bottom":
-        x, y, z = uc, -1.0, vc
+        x, y, z = -uc, vc, -1.0
     else:
         raise ValueError(f"Unknown cubemap face: {face!r}")
     magnitude = math.sqrt(x**2 + y**2 + z**2)

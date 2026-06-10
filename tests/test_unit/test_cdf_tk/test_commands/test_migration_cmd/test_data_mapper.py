@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
+import math
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
@@ -73,6 +74,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
+    uv_and_face_to_spherical,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
@@ -1288,3 +1290,26 @@ class TestAssetCentricToRecordMapper:
         assert len(record.sources) == 1
         assert record.sources[0].source == container_id
         assert record.sources[0].properties["description"] == "An event"
+
+
+class TestUvAndFaceToSpherical:
+    def test_face_centers_match_fusion_reference(self) -> None:
+        """Face centers (u=v=0.5) must match fusion getNormalizedVectorFromUVAndFace.test.ts."""
+        expected = {
+            "left": (math.pi / 2, math.pi / 2),
+            "right": (math.pi / 2, 3 * math.pi / 2),
+            "front": (math.pi, math.pi),
+            "back": (0.0, math.pi),
+            "top": (math.pi / 2, 0.0),
+            "bottom": (math.pi / 2, math.pi),
+        }
+        for face, (expected_phi, expected_theta) in expected.items():
+            phi, theta = uv_and_face_to_spherical(face, 0.5, 0.5)
+            assert phi == pytest.approx(expected_phi, abs=1e-4)
+            assert theta == pytest.approx(expected_theta, abs=1e-4)
+
+    def test_front_vertex_matches_fusion_transform_annotations(self) -> None:
+        """front (0.1, 0.2) must match fusion transformAnnotationsToVectors.test.ts."""
+        phi, theta = uv_and_face_to_spherical("front", 0.1, 0.2)
+        assert phi == pytest.approx(2.3562, abs=1e-4)
+        assert theta == pytest.approx(0.9273, abs=1e-4)
