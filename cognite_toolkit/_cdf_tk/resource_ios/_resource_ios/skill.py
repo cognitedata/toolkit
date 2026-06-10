@@ -45,7 +45,7 @@ class Markdown(BaseModel):
             if isinstance(frontmatter, dict):
                 name = frontmatter.get("name")
                 description = frontmatter.get("description")
-            content = match.group(2)
+            content = raw  # the API expects the raw markdown content, not just the body
         return cls(name=name, description=description, content=content)
 
 
