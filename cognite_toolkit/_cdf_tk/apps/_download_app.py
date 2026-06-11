@@ -865,8 +865,8 @@ class DownloadApp(typer.Typer):
                 "--instance-space",
                 "-s",
                 help="Instance space(s) to download instances from. Can be specified multiple times. "
-                "When used without --schema-space and --view, it downloads all instances in the given space(s) without any view properties. "
-                "Required when --schema-space and --view are also provided.",
+                "When used without --schema-space and --view, downloads all instances in the given space(s) without any properties from views. "
+                "When used with --schema-space and --view, limits the download to those spaces.",
             ),
         ] = None,
         schema_space: Annotated[
@@ -1021,17 +1021,15 @@ class DownloadApp(typer.Typer):
                 output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
             )
         elif schema_space is not None and view_external_ids is not None:
-            if not instance_spaces:
-                raise typer.BadParameter(
-                    "--instance-space is required when using --schema-space and --view.",
-                    param_hint="--instance-space",
+            selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
+            if selected_instance_spaces:
+                download_dir_name = (
+                    selected_instance_spaces[0]
+                    if len(selected_instance_spaces) == 1
+                    else sanitize_filename("_".join(selected_instance_spaces))
                 )
-            selected_instance_spaces = tuple(instance_spaces)
-            download_dir_name = (
-                selected_instance_spaces[0]
-                if len(selected_instance_spaces) == 1
-                else sanitize_filename("_".join(selected_instance_spaces))
-            )
+            else:
+                download_dir_name = sanitize_filename(schema_space)
             selectors = [
                 InstanceViewSelector(
                     view=SelectedView(
