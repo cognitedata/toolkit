@@ -1022,14 +1022,7 @@ class DownloadApp(typer.Typer):
             )
         elif schema_space is not None and view_external_ids is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
-            if selected_instance_spaces:
-                download_dir_name = (
-                    selected_instance_spaces[0]
-                    if len(selected_instance_spaces) == 1
-                    else sanitize_filename("_".join(selected_instance_spaces))
-                )
-            else:
-                download_dir_name = sanitize_filename(schema_space)
+            download_dir_name = sanitize_filename(schema_space)
             selectors = [
                 InstanceViewSelector(
                     view=SelectedView(
