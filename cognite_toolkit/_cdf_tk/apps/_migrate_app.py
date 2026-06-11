@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     SourceSystemCreator,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
-    _IMAGE360_SOURCE_VIEW,
+    _IMAGE360_COLLECTION_SOURCE_VIEW,
     AssetCentricToInstanceMapper,
     AssetCentricToRecordMapper,
     CanvasMapper,
@@ -1294,7 +1294,7 @@ class MigrateApp(typer.Typer):
         id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The ID of the 3D Model to migrate. If not provided, an interactive selection will be "
+                help="The IDs of the 3D Models to migrate. If not provided, an interactive selection will be "
                 "performed to select the 3D Models to migrate."
             ),
         ] = None,
@@ -1358,8 +1358,8 @@ class MigrateApp(typer.Typer):
         model_id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
-                "performed to select the."
+                help="The IDs of the 3D models to migrate asset mappings for. If not provided, an interactive selection will be "
+                "performed to select the 3D models to migrate asset mappings for."
             ),
         ] = None,
         object_3D_space: Annotated[
@@ -1751,9 +1751,6 @@ class MigrateApp(typer.Typer):
         verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        # Use cardinalityValues (returns a plain int) instead of uniqueValues: the latter makes the SDK
-        # parse per-value buckets, and the Events aggregate API returns a count-only bucket for events
-        # missing the property, which the SDK's UniqueResult._load cannot parse (KeyError: 'values').
         legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
         if legacy_site_count:
             client.console.print(
@@ -1775,14 +1772,15 @@ class MigrateApp(typer.Typer):
         if source_space is None and target_space is None:
             source_space = dm_select.select_instance_space(
                 multiselect=False,
-                selected_view=_IMAGE360_SOURCE_VIEW,
+                selected_view=_IMAGE360_COLLECTION_SOURCE_VIEW,
                 instance_type="node",
-                message="Select the source space containing Image360, Image360Collection, and Station360 nodes:",
+                message="Select the source space containing legacy 360 image models:",
             )
             target_space = dm_select.select_instance_space(
                 multiselect=False,
                 message="Select the target space to migrate the 360-image nodes into:",
                 include_empty=True,
+                exclude_spaces={source_space},
             )
             log_dir = Path(
                 questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
@@ -1791,6 +1789,8 @@ class MigrateApp(typer.Typer):
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         elif source_space is None or target_space is None:
             raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
+        elif source_space == target_space:
+            raise typer.BadParameter("--target-space must be different from --source-space.")
 
         space_mapping = {source_space: target_space}
         mappings = create_image360_node_mappings()
@@ -1863,11 +1863,11 @@ class MigrateApp(typer.Typer):
                 "If not provided, an interactive selection will be performed.",
             ),
         ] = None,
-        object3d_space: Annotated[
+        object_3D_space: Annotated[
             str | None,
             typer.Option(
-                "--object3d-space",
-                help="CDF space used for the auto-created Object3D nodes. "
+                "--object-3d-space",
+                help="The instance space used for Cognite3DObject nodes that will be created during the migration (if they don't already exist). "
                 "If not provided, an interactive selection will be performed.",
             ),
         ] = None,
@@ -1875,7 +1875,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--contextualization-space",
-                help="CDF space used for the auto-created Cognite360ImageAnnotation edges. "
+                help="The instance space used for Cognite360ImageAnnotation edges that will be created during the migration."
                 "If not provided, an interactive selection will be performed.",
             ),
         ] = None,
@@ -1910,23 +1910,30 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
 
         dm_select = DataModelingSelect(client, "migrate")
-        if source_space is None and target_space is None and object3d_space is None and contextualization_space is None:
-            source_space = dm_select.select_instance_space(
+        if (
+            source_space is None
+            and target_space is None
+            and object_3D_space is None
+            and contextualization_space is None
+        ):
+            source_space = dm_select.select_instance_space(  # this should probably not be required
                 multiselect=False,
                 selected_view=_IMAGE360_SOURCE_VIEW,
                 instance_type="node",
                 message="Select the source space containing Image360 nodes (annotations source):",
             )
-            target_space = dm_select.select_instance_space(
-                multiselect=False,
-                message="Select the target space where the migrated Cognite360Image nodes live:",
-                include_empty=True,
+            target_space = (
+                dm_select.select_instance_space(  # Probably required, but could also potentially be the same node...?
+                    multiselect=False,
+                    message="Select the target space where the migrated Cognite360Image nodes live:",
+                    include_empty=True,
+                )
             )
-            object3d_space = questionary.text(
+            object_3D_space = questionary.text(
                 "Object3D space (for auto-created Object3D nodes):",
                 default=target_space,
             ).unsafe_ask()
-            contextualization_space = questionary.text(
+            contextualization_space = questionary.text(  # should be instance-space to match annotation migrate command (irrelevant what it's called in api)
                 "Contextualization space (for auto-created Cognite360ImageAnnotation edges):",
                 default=target_space,
             ).unsafe_ask()
@@ -1935,7 +1942,7 @@ class MigrateApp(typer.Typer):
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
-        elif all(s is not None for s in [source_space, target_space, object3d_space, contextualization_space]):
+        elif all(s is not None for s in [source_space, target_space, object_3D_space, contextualization_space]):
             pass
         else:
             raise typer.BadParameter(
@@ -1946,7 +1953,7 @@ class MigrateApp(typer.Typer):
         selector = Image360AnnotationSelector(
             source_space=source_space,
             target_space=target_space,
-            object3d_space=object3d_space,
+            object3d_space=object_3D_space,
             contextualization_space=contextualization_space,
         )
         mapper = Image360AnnotationMapper(client)

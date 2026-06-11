@@ -778,6 +778,7 @@ class DataModelingSelect:
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
+        exclude_spaces: set[str] | None = None,
     ) -> str: ...
 
     @overload
@@ -788,6 +789,7 @@ class DataModelingSelect:
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
+        exclude_spaces: set[str] | None = None,
     ) -> list[str]: ...
 
     def select_instance_space(
@@ -797,6 +799,7 @@ class DataModelingSelect:
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
+        exclude_spaces: set[str] | None = None,
     ) -> str | list[str]:
         if (selected_view is not None and instance_type is None) or (
             selected_view is None and instance_type is not None
@@ -814,6 +817,11 @@ class DataModelingSelect:
                     include_empty
                     and (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
                 )
+            }
+
+        if exclude_spaces:
+            count_by_space = {
+                space: count for space, count in count_by_space.items() if space not in exclude_spaces
             }
 
         if not count_by_space:
