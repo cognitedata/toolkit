@@ -1363,6 +1363,44 @@ class TestDocumentsInteractiveSelect:
         assert isinstance(result, SelectedDocuments)
         assert result.documents == docs
 
+    def test_select_documents_is_cognite_file_applies_exists_filter(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+        answers = ["is-cognite-file", "finished"]
+        cognite_file_filter = {
+            "and": [{"exists": {"property": ["instanceId", "space"]}}],
+        }
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 5
+            client.tool.documents.list.return_value = docs
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        assert client.tool.documents.count.call_args_list[0].kwargs.get("filter") is None
+        assert client.tool.documents.count.call_args_list[-1].kwargs.get("filter") == cognite_file_filter
+        client.tool.documents.list.assert_called_once_with(filter=cognite_file_filter, limit=100)
+        assert selector.status.is_cognite_file is True
+        assert result.documents == docs
+
+    def test_select_documents_is_cognite_file_reverts_when_zero(self, monkeypatch) -> None:
+        answers = ["is-cognite-file", "abort"]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.side_effect = [3520, 0, 3520]
+
+            selector = DocumentsInteractiveSelect(client)
+            with pytest.raises(ToolkitValueError, match=r"Aborted document selection."):
+                selector.select_documents()
+
+        assert selector.status.is_cognite_file is False
+
     def test_select_documents_search_then_finished(self, monkeypatch) -> None:
         docs = self._sample_documents()
         answers = ["search", "turbine", "finished"]
