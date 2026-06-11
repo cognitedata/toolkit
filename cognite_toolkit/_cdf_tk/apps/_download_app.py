@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     DataSetSelector,
     FileMetadataFilesSelectorV2,
     InstanceSelector,
+    InstanceSpaceSelector,
     InstanceViewSelector,
     InternalWithNameId,
     NodeWithNameId,
@@ -863,8 +864,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--instance-space",
                 "-s",
-                help="Instance space(s) to download instances from. Can be specified multiple times to download instances from multiple spaces. "
-                "If --schema-space and --view are not also provided, an interactive selection will be made.",
+                help="Instance space(s) to download instances from. Can be specified multiple times. "
+                "When used without --schema-space and --view, it downloads all instances in the given space(s) without any view properties. "
+                "Required when --schema-space and --view are also provided.",
             ),
         ] = None,
         schema_space: Annotated[
@@ -872,7 +874,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--schema-space",
                 "-c",
-                help="The schema space where the views are located. Must be provided if --view is also provided.",
+                help="The schema space where the views are located. Required when --view is also provided.",
             ),
         ] = None,
         view_external_ids: Annotated[
@@ -881,7 +883,8 @@ class DownloadApp(typer.Typer):
                 "--view",
                 "-w",
                 help="View external ID(s) to read through when downloading properties for the "
-                "instances. Can be specified multiple times to download from multiple views. To specify version use a forward slash, e.g. viewExternalId/v1.",
+                "instances. Can be specified multiple times to download from multiple views. To specify version use a forward slash, e.g. viewExternalId/v1. "
+                "Required when --schema-space is also provided.",
             ),
         ] = None,
         instance_type: Annotated[
@@ -947,7 +950,16 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         selectors: list[InstanceSelector]
-        if schema_space is None and view_external_ids is None:
+        if instance_spaces and schema_space is None and view_external_ids is None:
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=space,
+                    instance_type=instance_type.value,
+                    download_dir_name=space,
+                )
+                for space in instance_spaces
+            ]
+        elif schema_space is None and view_external_ids is None:
             selector = DataModelingSelect(client, "download instances")
             data_model = selector.select_data_model(
                 inline_views=True,
@@ -963,17 +975,13 @@ class DownloadApp(typer.Typer):
                     data_model=data_model.as_id(),
                 ),
             )
-            selected_instance_spaces: tuple[str, ...] | None
-            if instance_spaces:
-                selected_instance_spaces = tuple(instance_spaces)
-            else:
-                select_instance_space = questionary.confirm(
-                    "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
-                    default=False,
-                ).unsafe_ask()
-                selected_instance_spaces = None
-                if select_instance_space:
-                    selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
+            select_instance_space = questionary.confirm(
+                "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
+                default=False,
+            ).unsafe_ask()
+            selected_instance_spaces: tuple[str, ...] | None = None
+            if select_instance_space:
+                selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
             edge_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
             if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
                 include_edges = questionary.confirm(
