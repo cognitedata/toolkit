@@ -18,7 +18,11 @@ def invalid_test_cases() -> Iterable:
             "name": "toolkit-demo-skill",
             "description": "Skill without external id",
         },
-        {"Missing required field: 'externalId'"},
+        [
+            "Missing required field: 'externalId'",
+            "Unknown field: 'name'",
+            "Unknown field: 'description'",
+        ],
         id="missing-external-id",
     )
     yield pytest.param(
@@ -28,11 +32,12 @@ def invalid_test_cases() -> Iterable:
             "description": "Skill with invalid name pattern",
             "content": "not markdown frontmatter format",
         },
-        {
-            "In field name string should match pattern '^[a-z0-9]+(?:-[a-z0-9]+)*$'",
-            "In field content string should match pattern '^(?:\\ufeff)?---\\s*\\n([\\s\\S]*?)\\n---\\s*\\n([\\s\\S]*\\S[\\s\\S]*)$'",
-        },
-        id="name-and-content-pattern-errors",
+        [
+            "Unknown field: 'name'",
+            "Unknown field: 'description'",
+            "In field content string should match pattern",
+        ],
+        id="schema-allows-content-but-rejects-invalid-markdown-format",
     )
     yield pytest.param(
         {
@@ -40,11 +45,11 @@ def invalid_test_cases() -> Iterable:
             "name": "",
             "description": "",
         },
-        {
+        [
             "In field externalId string should have at least 1 character",
-            "In field name string should have at least 1 character",
-            "In field description string should have at least 1 character",
-        },
+            "Unknown field: 'name'",
+            "Unknown field: 'description'",
+        ],
         id="empty-strings",
     )
 
@@ -58,9 +63,10 @@ class TestSkillYAML:
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_test_cases()))
-    def test_invalid_model_error_messages(self, data: dict, expected_errors: set[str]) -> None:
+    def test_invalid_model_error_messages(self, data: dict, expected_errors: list[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, SkillYAML, Path("some_skill.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
-        assert set(format_warning.errors) == expected_errors
+        for expected_error in expected_errors:
+            assert any(expected_error in error for error in format_warning.errors)

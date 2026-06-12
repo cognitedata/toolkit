@@ -572,6 +572,7 @@ class PullCommand(ToolkitCommand):
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
                 for filepath, content in extra_files.items():
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
                     with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                         f.write(content)
 
@@ -808,7 +809,14 @@ class PullCommand(ToolkitCommand):
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
                     extra_files[extra.path] = new_extra
-        return replacer.replace(loaded, loaded_with_placeholder, item_write)
+        split_resources = list(replacer._loader.split_resource(built.source.path, item_write))
+        base_to_write = item_write
+        for split_path, split_content in split_resources:
+            if split_path == built.source.path and isinstance(split_content, dict):
+                base_to_write = split_content
+            elif isinstance(split_content, str):
+                extra_files[split_path] = split_content
+        return replacer.replace(loaded, loaded_with_placeholder, base_to_write)
 
 
 class ResourceReplacer:
