@@ -74,7 +74,6 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
     ) -> list[Path]:
         candidates = [
             filepath.with_suffix(".md"),
-            filepath.parent / external_id / "SKILL.md",
             filepath.parent / f"{external_id}.{cls.kind}.md",
         ]
         if not has_explicit_external_id:
@@ -88,8 +87,8 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
         candidates = cls._get_skill_sidecar_candidates(
             filepath=filepath, external_id=external_id, has_explicit_external_id=True
         )
-        explicit_candidates = candidates[:2]
-        return next((path for path in explicit_candidates if path.exists()), filepath.parent / external_id / "SKILL.md")
+        explicit_candidate = candidates[0]
+        return explicit_candidate
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

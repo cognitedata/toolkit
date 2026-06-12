@@ -38,11 +38,6 @@ class TestSkillIO:
                 lambda tmp_path, yaml_path: tmp_path / "skill_external.Skill.md",
                 id="candidate-2-external-id-skill-md",
             ),
-            pytest.param(
-                {"externalId": "skill_external"},
-                lambda tmp_path, yaml_path: tmp_path / "skill_external" / "SKILL.md",
-                id="candidate-3-external-id-dir-skill-md",
-            ),
         ],
     )
     def test_get_extra_files_loads_each_sidecar_candidate(
@@ -100,8 +95,7 @@ class TestSkillIO:
         # Generic sibling sidecar exists but is invalid
         yaml_path.with_suffix(".md").write_text("Invalid Markdown", encoding="utf-8")
         # External-id specific sidecar exists and is valid
-        specific_sidecar = tmp_path / "my_other_skill" / "SKILL.md"
-        specific_sidecar.parent.mkdir(parents=True, exist_ok=True)
+        specific_sidecar = tmp_path / "my_other_skill.Skill.md"
         specific_sidecar.write_text(_SKILL_CONTENT, encoding="utf-8")
 
         extras = list(
@@ -129,7 +123,7 @@ class TestSkillIO:
                 },
             )
         )
-        assert split[0][0] == tmp_path / "my_other_skill" / "SKILL.md"
+        assert split[0][0] == tmp_path / "my_other_skill.Skill.md"
         assert split[0][1] == _SKILL_CONTENT
         assert split[1] == (base_yaml, {"externalId": "my_other_skill"})
 
@@ -149,7 +143,7 @@ class TestSkillIO:
                 },
             )
         )
-        assert split[0][0] == tmp_path / "my_other_skill" / "SKILL.md"
+        assert split[0][0] == tmp_path / "my_other_skill.Skill.md"
         assert split[0][1] == _SKILL_CONTENT
         assert split[1] == (base_yaml, {"externalId": "my_other_skill"})
 
@@ -169,7 +163,7 @@ class TestSkillIO:
                 },
             )
         )
-        assert split[0][0] == tmp_path / "my_other_skill" / "SKILL.md"
+        assert split[0][0] == tmp_path / "my_other_skill.Skill.md"
 
     def test_dump_resource_returns_full_request_equivalent_data(self) -> None:
         skill_io = SkillIO(ToolkitClientMock(), None)
