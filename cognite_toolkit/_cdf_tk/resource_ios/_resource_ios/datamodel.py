@@ -1451,7 +1451,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
     @classmethod
     def _get_graphql_file(cls, filepath: Path, dml: str | None = None) -> Path:
         if dml is not None:
-            return filepath.parent / dml
+            return filepath.parent / str(dml)
 
         filestem = filepath.stem
         if filestem.lower().endswith(cls.kind.lower()):
