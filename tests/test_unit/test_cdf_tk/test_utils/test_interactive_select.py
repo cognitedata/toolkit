@@ -14,7 +14,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerId,
     DataModelResponse,
+    NodeResponse,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
@@ -50,6 +51,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DocumentsInteractiveSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
@@ -1140,6 +1142,50 @@ class TestThreeDInteractiveSelect:
             result = selector.select_three_d_models()
         assert len(result) == 1
         assert result[0].name == "Model 2"
+
+
+class TestImage360CollectionInteractiveSelect:
+    @staticmethod
+    def _collection_nodes() -> list[NodeResponse]:
+        return [
+            NodeResponse(
+                space="my_space",
+                external_id=f"collection_{i}",
+                created_time=1,
+                last_updated_time=1,
+                version=1,
+                properties={Image360CollectionInteractiveSelect.SOURCE_VIEW: {"label": f"Collection {i}"}},
+            )
+            for i in range(2)
+        ]
+
+    def test_select_collections(self, monkeypatch) -> None:
+        def select(choices: list[Choice]) -> list[Any]:
+            assert len(choices) == 2
+            return [choices[0].value]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(Image360CollectionInteractiveSelect.__module__, monkeypatch, [select]),
+        ):
+            client.tool.instances.list.return_value = self._collection_nodes()
+            result = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
+
+        assert result == [NodeId(space="my_space", external_id="collection_0")]
+
+    def test_resolve_external_ids(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.list.return_value = self._collection_nodes()
+            result = Image360CollectionInteractiveSelect(client, "migrate").resolve_external_ids(["collection_1"])
+
+        assert result == [NodeId(space="my_space", external_id="collection_1")]
+
+    def test_resolve_external_ids_missing_raises(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.list.return_value = self._collection_nodes()
+            selector = Image360CollectionInteractiveSelect(client, "migrate")
+            with pytest.raises(ToolkitMissingResourceError, match="not found"):
+                selector.resolve_external_ids(["missing"])
 
 
 class TestAPMConfigInteractiveSelect:

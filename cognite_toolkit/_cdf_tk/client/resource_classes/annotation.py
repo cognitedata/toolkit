@@ -1,6 +1,6 @@
 from typing import Any, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, ValidationError, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
@@ -129,12 +129,20 @@ class Annotation(BaseModelObject):
         if not isinstance(annotation_type, str) or not isinstance(data, dict):
             return values
 
-        data_cls = _ANNOTATION_DATA_CLS_BY_TYPE.get(annotation_type)  # type: ignore[arg-type]
+        data_cls = _ANNOTATION_DATA_CLS_BY_TYPE.get(annotation_type)  # type: ignore[call-overload]
         if data_cls is None:
             return values
 
+        try:
+            parsed_data = data_cls.model_validate(data)
+        except ValidationError:
+            # The annotation has a known type, but its data does not conform to the typed model
+            # (e.g. partial or malformed payloads). Keep the raw dict so a single bad annotation
+            # does not fail the whole download; downstream consumers skip non-typed data.
+            return values
+
         parsed = dict(values)
-        parsed["data"] = data_cls.model_validate(data)
+        parsed["data"] = parsed_data
         return parsed
 
 

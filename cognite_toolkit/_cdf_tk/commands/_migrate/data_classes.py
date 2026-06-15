@@ -301,6 +301,7 @@ class Image360AnnotationRequest(RequestResource):
 
     The ``dmsContextualizationConfig`` fields (object3dSpace, contextualizationSpace, revision)
     are shared per request batch and are provided by the selector in ``upload_items()``.
+    The selector's ``instance_space`` maps to the API's ``contextualizationSpace`` field.
 
     Args:
         asset_instance_id: DMS NodeId of the asset the annotation points to.
@@ -321,7 +322,7 @@ class Image360AnnotationRequest(RequestResource):
             external_id=f"{self.image360_instance_id.space}/{self.image360_instance_id.external_id}"
         )
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Returns the per-item dict for inclusion in the 'items' array of the beta endpoint body."""
         return {
             "asset": {

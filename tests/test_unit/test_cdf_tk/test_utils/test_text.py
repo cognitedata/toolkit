@@ -5,6 +5,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import (
+    add_migration_suffix,
     fix_invalid_space_name,
     sanitize_instance_external_id,
     sanitize_spreadsheet_title,
@@ -76,6 +77,36 @@ class TestSanitizeInstanceExternalId:
     def test_sanitize_instance_external_id_raise(self, external_id: str) -> None:
         with pytest.raises(ToolkitValueError):
             sanitize_instance_external_id(external_id)
+
+
+class TestAddMigrationSuffix:
+    @pytest.mark.parametrize(
+        "external_id, expected",
+        [
+            pytest.param("image1", "image1_cdm", id="short_id"),
+            pytest.param("x" * 252, f"{'x' * 252}_cdm", id="length_252"),
+        ],
+    )
+    def test_add_migration_suffix(self, external_id: str, expected: str) -> None:
+        assert add_migration_suffix(external_id) == expected
+
+    def test_add_migration_suffix_truncates_at_length_253(self) -> None:
+        external_id = "x" * 253
+        result = add_migration_suffix(external_id)
+        assert len(result) == 256
+        assert result.endswith("_cdm")
+        assert result != f"{external_id}_cdm"
+
+    @pytest.mark.parametrize(
+        "external_id",
+        [
+            pytest.param("", id="empty_string"),
+            pytest.param("\x00", id="null_character"),
+        ],
+    )
+    def test_add_migration_suffix_raise(self, external_id: str) -> None:
+        with pytest.raises(ToolkitValueError):
+            add_migration_suffix(external_id)
 
 
 class TestFixInvalidSpaceName:

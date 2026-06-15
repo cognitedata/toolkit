@@ -1,9 +1,9 @@
 from collections.abc import Iterable
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationData,
     AnnotationResponse,
     AnnotationType,
     AssetLinkData,
@@ -101,13 +101,13 @@ class AnnotationIO(DataIO[AssetCentricSelector, AnnotationResponse]):
         return dumped
 
     @classmethod
-    def _get_file_id(cls, data: AssetLinkData | FileLinkData | dict[str, Any]) -> int | None:
+    def _get_file_id(cls, data: AnnotationData) -> int | None:
         if isinstance(data, FileLinkData) and isinstance(data.file_ref, InternalId):
             return data.file_ref.id
         return None
 
     @classmethod
-    def _get_asset_id(cls, data: AssetLinkData | FileLinkData | ImageAssetLinkData | dict[str, Any]) -> int | None:
+    def _get_asset_id(cls, data: AnnotationData) -> int | None:
         if isinstance(data, AssetLinkData | ImageAssetLinkData) and isinstance(data.asset_ref, InternalId):
             return data.asset_ref.id
         return None

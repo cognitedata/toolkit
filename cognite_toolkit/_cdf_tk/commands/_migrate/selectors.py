@@ -67,10 +67,10 @@ class Image360AnnotationSelector(DataSelector):
 
     type: Literal["image360Annotation"] = "image360Annotation"
     kind: Literal["Image360Annotation"] = "Image360Annotation"
-    source_space: str
-    target_space: str
     object3d_space: str
-    contextualization_space: str
+    instance_space: str
+    collections: tuple[str, ...] | None = None
+    """External IDs of the 360 image collections to migrate annotations for."""
 
     def __str__(self) -> str:
-        return f"image360_annotations_{self.source_space}"
+        return f"image360_annotations_{self.instance_space}"

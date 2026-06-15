@@ -54,9 +54,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
     COGNITE360_IMAGE_VIEW,
+    IMAGE360_COLLECTION_SOURCE_VIEW,
     IMAGE360_SOURCE_VIEW,
     create_image360_node_mappings,
 )
@@ -72,14 +77,17 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360AnnotationMapper,
+    Image360CollectionAndModelMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
     uv_and_face_to_spherical,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
 from tests.data import MIGRATION_DIR
 
 
@@ -787,7 +795,9 @@ class TestFDMtoCDMMapper:
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
             )
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
@@ -829,7 +839,9 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"sourceDirect": "constrainedDirect"}})
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.dry_run = dry_run
             logger = MagicMock(spec=DataLogger)
@@ -933,7 +945,7 @@ class TestFDMtoCDMMapper:
             client.tool.filemetadata.retrieve.return_value = []
             client.tool.instances.retrieve.return_value = []
 
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
@@ -951,6 +963,37 @@ class TestFDMtoCDMMapper:
         assert entry.attributes == set(face_file_ids)
         assert entry.attribute_display_name == "file external IDs"
         assert f"{self.SOURCE_SPACE}:image1" == entry.id
+
+    def test_image360_collection_and_model_mapper_uses_same_space_and_cdm_suffix(self) -> None:
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            mapper = Image360CollectionAndModelMapper(client)
+            actual = mapper.map([collection_node])
+
+        assert len(actual) == 2
+        model_request, collection_request = actual
+        assert isinstance(model_request, NodeRequest)
+        assert isinstance(collection_request, NodeRequest)
+        assert model_request.space == self.SOURCE_SPACE
+        assert collection_request.space == self.SOURCE_SPACE
+        assert model_request.external_id == add_migration_suffix("collection1_model")
+        assert collection_request.external_id == add_migration_suffix("collection1")
+        model_source = next(
+            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert model_source.properties is not None
+        assert model_source.properties["model3D"] == {
+            "space": self.SOURCE_SPACE,
+            "externalId": add_migration_suffix("collection1_model"),
+        }
 
     def test_image360_with_all_face_files_is_uploaded(self) -> None:
         face_file_ids = [f"face-{index}" for index in range(6)]
@@ -1020,7 +1063,7 @@ class TestFDMtoCDMMapper:
             client.tool.filemetadata.retrieve.return_value = file_responses
             client.tool.instances.retrieve.return_value = []
 
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
@@ -1030,6 +1073,8 @@ class TestFDMtoCDMMapper:
 
         assert len(actual) == 1
         assert isinstance(actual[0], NodeRequest)
+        assert actual[0].space == self.SOURCE_SPACE
+        assert actual[0].external_id == add_migration_suffix("image1")
         logger.log.assert_not_called()
 
 
@@ -1187,7 +1232,9 @@ class TestInFieldLegacyToCDMScheduleMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [dest_view]
 
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
             mapper.prepare(MagicMock())
 
@@ -1290,6 +1337,53 @@ class TestAssetCentricToRecordMapper:
         assert len(record.sources) == 1
         assert record.sources[0].source == container_id
         assert record.sources[0].properties["description"] == "An event"
+
+
+class TestImage360AnnotationMapper:
+    SOURCE_SPACE = "cdf_360_image_schema"
+
+    @staticmethod
+    def _image_node(external_id: str, collection_external_id: str, file_external_id: str) -> NodeResponse:
+        return NodeResponse(
+            space=TestImage360AnnotationMapper.SOURCE_SPACE,
+            external_id=external_id,
+            created_time=0,
+            last_updated_time=1,
+            version=1,
+            properties={
+                IMAGE360_SOURCE_VIEW: {
+                    "collection360": {
+                        "space": TestImage360AnnotationMapper.SOURCE_SPACE,
+                        "externalId": collection_external_id,
+                    },
+                    "cubeMapFront": file_external_id,
+                }
+            },
+        )
+
+    def test_prepare_filters_by_selected_collection(self) -> None:
+        node_in = self._image_node("image_in", "collection_in", "file_in")
+        node_out = self._image_node("image_out", "collection_out", "file_out")
+        selector = Image360AnnotationSelector(
+            object3d_space="obj_space",
+            instance_space="inst_space",
+            collections=("collection_in",),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.list.return_value = [node_in, node_out]
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=11, external_id="file_in", name="file_in", created_time=0, last_updated_time=0, uploaded=True
+                ),
+            ]
+            mapper = Image360AnnotationMapper(client)
+            mapper.prepare(selector)
+
+        # Only the face file belonging to the selected collection is resolved.
+        retrieved_external_ids = {item.external_id for item in client.tool.filemetadata.retrieve.call_args[0][0]}
+        assert retrieved_external_ids == {"file_in"}
+        assert set(mapper._face_and_nodes_by_file_id) == {11}
 
 
 class TestUvAndFaceToSpherical:

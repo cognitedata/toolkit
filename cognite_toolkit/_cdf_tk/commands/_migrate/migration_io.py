@@ -866,7 +866,7 @@ class Image360AnnotationMigrationIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AnnotationResponse]]:
-        file_internal_ids = self._load_face_file_ids(selector.source_space)
+        file_internal_ids = self._load_face_file_ids(selector.collections)
         if not file_internal_ids:
             return
 
@@ -893,8 +893,11 @@ class Image360AnnotationMigrationIO(
                 if limit is not None and total >= limit:
                     return
 
-    def _load_face_file_ids(self, source_space: str) -> list[int]:
-        """Load all Image360 nodes from source_space and return their face-file internal IDs."""
+    def _load_face_file_ids(self, collections: tuple[str, ...] | None = None) -> list[int]:
+        """Load Image360 nodes and return their face-file internal IDs.
+
+        If ``collections`` is provided, only nodes belonging to those collections are considered.
+        """
         source_view = ViewId(
             space=self._SOURCE_VIEW_ID["space"],
             external_id=self._SOURCE_VIEW_ID["external_id"],
@@ -903,15 +906,23 @@ class Image360AnnotationMigrationIO(
         instance_filter = InstanceFilter(
             instance_type="node",
             source=source_view,
-            space=[source_space],
         )
         all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+
+        selected_collections = set(collections) if collections else None
 
         file_external_ids: list[str] = []
         for node in all_nodes:
             if not isinstance(node, NodeResponse) or node.properties is None:
                 continue
             props = node.properties.get(source_view, {})
+            if selected_collections is not None:
+                collection_ref = props.get("collection360")
+                if not isinstance(collection_ref, dict):
+                    continue
+                collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
+                if collection_ext_id not in selected_collections:
+                    continue
             for prop_name in self._FACE_PROPERTY_NAMES:
                 file_ext_id = props.get(prop_name)
                 if file_ext_id and isinstance(file_ext_id, str):
@@ -953,7 +964,7 @@ class Image360AnnotationMigrationIO(
         for (rev_space, rev_ext_id), group_items in groups.items():
             dms_config: dict[str, JsonVal] = {
                 "object3DSpace": selector.object3d_space,
-                "contextualizationSpace": selector.contextualization_space,
+                "contextualizationSpace": selector.instance_space,
                 "revision": {
                     "instanceId": {
                         "space": rev_space,

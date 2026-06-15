@@ -316,6 +316,18 @@ class TestInstanceIO:
 
         assert len(respx_mock.calls) == 5
 
+    def test_build_query_filter_includes_additional_filter(self) -> None:
+        additional_filter = {"equals": {"property": ["node", "externalId"], "value": "collection_1"}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            additional_filter=additional_filter,
+        )
+
+        result = InstanceIO._build_query_filter(selector, "node")
+
+        assert "and" in result
+        assert additional_filter in result["and"]
+
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
         selector = InstanceViewSelector(

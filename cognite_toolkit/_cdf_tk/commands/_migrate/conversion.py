@@ -15,7 +15,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationData,
+    AnnotationResponse,
+    AssetLinkData,
+    FileLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
@@ -52,7 +57,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
     convert_to_primary_property_with_special_cases,
 )
-from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
+from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix, sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
@@ -175,7 +180,7 @@ class DirectRelationCache:
 
     @staticmethod
     def _extract_annotation_refs(
-        data: AssetLinkData | FileLinkData | dict[str, Any],
+        data: AnnotationData,
         asset_ids: set[int],
         asset_external_ids: set[str],
         file_ids: set[int],
@@ -545,6 +550,44 @@ class CustomConnectionMapping(ABC, Generic[T_ID]):
         raise NotImplementedError()
 
 
+class InstanceIdMapper(ABC):
+    @abstractmethod
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        raise NotImplementedError
+
+    @abstractmethod
+    def can_map(self, space: str) -> bool:
+        raise NotImplementedError
+
+
+class SpaceMappingInstanceIdMapper(InstanceIdMapper):
+    def __init__(self, space_mapping: Mapping[str, str]) -> None:
+        self._space_mapping = space_mapping
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        return NodeId(
+            space=self._space_mapping[instance_id.space],
+            external_id=instance_id.external_id,
+        )
+
+    def can_map(self, space: str) -> bool:
+        return space in self._space_mapping
+
+
+class SuffixInstanceIdMapper(InstanceIdMapper):
+    def __init__(self, suffix: str = "_cdm") -> None:
+        self._suffix = suffix
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        return NodeId(
+            space=instance_id.space,
+            external_id=add_migration_suffix(instance_id.external_id, self._suffix),
+        )
+
+    def can_map(self, space: str) -> bool:
+        return True
+
+
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
 
@@ -555,7 +598,7 @@ class ConnectionCreator:
 
     Args:
         client: ToolkitClient to use for lookups when creating connections.
-        space_mapping: Mapping from source space IDs to destination space IDs, used to map instance IDs from source to destination space when creating connections.
+        instance_id_mapper: Strategy for mapping source instance IDs to destination instance IDs.
         custom_mappings: Optional mapping for any custom cases where the mapping from source to destination instance ID cannot be handled by the space mapping or
         timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings
         from source instance IDs (either external ID or NodeId) to destination NodeIds.
@@ -565,11 +608,11 @@ class ConnectionCreator:
     def __init__(
         self,
         client: ToolkitClient,
-        space_mapping: Mapping[str, str],
+        instance_id_mapper: InstanceIdMapper,
         custom_mappings: Sequence[CustomConnectionMapping] | None = None,
     ) -> None:
         self._client = client
-        self.space_mapping = space_mapping
+        self._instance_id_mapper = instance_id_mapper
         self.view_by_id: dict[ViewId, ViewResponse] = {}
         self._custom_mappings: Sequence[CustomConnectionMapping] = custom_mappings or []
         self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
@@ -724,9 +767,16 @@ class ConnectionCreator:
         except ValueError:
             return None
 
+    def can_map_instance(self, space: str) -> bool:
+        return self._instance_id_mapper.can_map(space)
+
     def map_instance(self, node_id: NodeId | EdgeId | NodeResponse | EdgeResponse) -> NodeId:
-        """Maps a node ID form the source view's space to the corresponding node ID in the destination view's space using the space mapping."""
-        return NodeId(space=self.space_mapping[node_id.space], external_id=node_id.external_id)
+        """Maps a source instance ID to the corresponding destination instance ID."""
+        if isinstance(node_id, NodeId | EdgeId):
+            instance_id = node_id
+        else:
+            instance_id = NodeId(space=node_id.space, external_id=node_id.external_id)
+        return self._instance_id_mapper.map_instance_id(instance_id)
 
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
         """Get the edge properties for a given view ID."""

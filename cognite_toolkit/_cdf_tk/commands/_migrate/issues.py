@@ -206,17 +206,16 @@ def image360_missing_face_files_migration_entry(
     source: str,
     destination: str,
 ) -> MigrationEntryV2:
-    """Log entry for Image360 nodes blocked because cubemap files are not migrated to CogniteFile yet."""
+    """Log entry for 360 image nodes blocked because cubemap files are not migrated to CogniteFile yet."""
     message = (
         "Cannot migrate this 360 image because one or more cubemap face files have not been migrated "
-        "to CogniteFile instances yet. Migrate the files first (for example with the 360-image file "
-        "migration step), then re-run cdf migrate 360-images."
+        "to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', then re-run 'cdf migrate 360-images'."
     )
     if missing_file_external_ids:
         message += f" {len(missing_file_external_ids)} unmigrated file(s); see file external IDs in the log summary."
     return MigrationEntryV2(
         id=issue_id,
-        label="Cubemap file(s) not migrated",
+        label="Cubemap face file(s) not migrated",
         message=message,
         severity=Severity.failure,
         source=source,

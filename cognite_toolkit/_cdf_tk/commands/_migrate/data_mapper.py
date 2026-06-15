@@ -123,6 +123,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
+from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp, datetime_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -1368,10 +1369,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         target_view_ids: set[ViewId] = set()
         for node in nodes:
             source_node_id = node.as_id()
-            if node.space not in self._connection_creator.space_mapping:
+            if not self._connection_creator.can_map_instance(node.space):
                 issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
                     id=str(source_node_id),
-                    errors=[f"No target space mapping for source space '{node.space}'"],
+                    errors=[f"No instance ID mapping for source space '{node.space}'"],
                 )
                 continue
             mapped_node, edges, issue = self._map_single_node(
@@ -2058,9 +2059,8 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def __init__(self, client: ToolkitClient, target_space: str) -> None:
+    def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._target_space = target_space
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         results: list[NodeOrEdgeRequest | None] = []
@@ -2068,11 +2068,13 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             if not isinstance(node, NodeResponse):
                 continue
             ext_id = node.external_id
+            instance_space = node.space
             label = str(((node.properties or {}).get(_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
-            model_ext_id = f"{ext_id}_model"
+            model_ext_id = add_migration_suffix(f"{ext_id}_model")
+            collection_ext_id = add_migration_suffix(ext_id)
             results.append(
                 NodeRequest(
-                    space=self._target_space,
+                    space=instance_space,
                     external_id=model_ext_id,
                     sources=[
                         InstanceSource(
@@ -2088,13 +2090,13 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             )
             results.append(
                 NodeRequest(
-                    space=self._target_space,
-                    external_id=ext_id,
+                    space=instance_space,
+                    external_id=collection_ext_id,
                     sources=[
                         InstanceSource(
                             source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
                             properties={
-                                "model3D": {"space": self._target_space, "externalId": model_ext_id},
+                                "model3D": {"space": instance_space, "externalId": model_ext_id},
                                 "status": "Done",
                                 "published": True,
                                 "type": "Image360",
@@ -2142,17 +2144,15 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         """Pre-load Image360 nodes and build a cache from face-file internal ID to (face, node IDs).
 
         Args:
-            source_selector: Selector carrying source_space and target_space.
+            source_selector: Selector for the annotation migration run.
         """
-        source_space = source_selector.source_space
-        target_space = source_selector.target_space
-
         instance_filter = InstanceFilter(
             instance_type="node",
             source=_IMAGE360_SOURCE_VIEW,
-            space=[source_space],
         )
         all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+
+        selected_collections = set(source_selector.collections) if source_selector.collections else None
 
         # Map file external ID → (face_name, new_image360_node_id, new_collection_node_id)
         file_ext_id_to_face_and_nodes: dict[str, tuple[str, NodeId, NodeId]] = {}
@@ -2168,9 +2168,17 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
             if not collection_ext_id:
                 continue
+            if selected_collections is not None and collection_ext_id not in selected_collections:
+                continue
 
-            new_image360_node_id = NodeId(space=target_space, external_id=node.external_id)
-            new_collection_node_id = NodeId(space=target_space, external_id=str(collection_ext_id))
+            new_image360_node_id = NodeId(
+                space=node.space,
+                external_id=add_migration_suffix(node.external_id),
+            )
+            new_collection_node_id = NodeId(
+                space=node.space,
+                external_id=add_migration_suffix(str(collection_ext_id)),
+            )
 
             for prop_name, face_name in _FACE_PROPERTY_NAMES.items():
                 file_ext_id = props.get(prop_name)
@@ -2220,7 +2228,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
                     id=str(annotation.id),
                     severity=Severity.skipped,
                     label="Skipped",
-                    message=f"File ID {annotation.annotated_resource_id} is not a 360-image face file in source space.",
+                    message=f"File ID {annotation.annotated_resource_id} is not a 360-image face file.",
                     source="Image360 annotations",
                     destination="360-image-annotations",
                 )

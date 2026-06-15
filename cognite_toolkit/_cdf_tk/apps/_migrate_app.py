@@ -9,7 +9,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -19,6 +19,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldUserMapping,
+    SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -26,7 +28,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     SourceSystemCreator,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
-    _IMAGE360_COLLECTION_SOURCE_VIEW,
     AssetCentricToInstanceMapper,
     AssetCentricToRecordMapper,
     CanvasMapper,
@@ -41,6 +42,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
     IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_SOURCE_VIEW,
     create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
@@ -83,6 +85,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
@@ -92,6 +95,81 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
+
+
+def _resolve_migration_run_options(
+    log_dir: Path | None,
+    dry_run: bool | None,
+    verbose: bool | None,
+    default_log_dir: Path,
+) -> tuple[Path, bool, bool]:
+    resolved_log_dir = log_dir
+    if resolved_log_dir is None:
+        resolved_log_dir = Path(
+            questionary.path("Specify log directory for migration logs:", default=str(default_log_dir)).unsafe_ask()
+        )
+    resolved_dry_run = dry_run
+    if resolved_dry_run is None:
+        resolved_dry_run = questionary.confirm("Do you want to perform a dry run?", default=False).unsafe_ask()
+    resolved_verbose = verbose
+    if resolved_verbose is None:
+        resolved_verbose = questionary.confirm("Do you want verbose output?", default=False).unsafe_ask()
+    return resolved_log_dir, resolved_dry_run, resolved_verbose
+
+
+def _resolve_image360_annotation_spaces(
+    object_3D_space: str | None,
+    instance_space: str | None,
+) -> tuple[str, str]:
+    if object_3D_space is None and instance_space is None:
+        resolved_object_3D_space = questionary.text(
+            "Object3D space (for auto-created Object3D nodes):",
+        ).unsafe_ask()
+        resolved_instance_space = questionary.text(
+            "Instance space (for auto-created Cognite360ImageAnnotation edges):",
+            default=resolved_object_3D_space,
+        ).unsafe_ask()
+        return resolved_object_3D_space, resolved_instance_space
+    if object_3D_space is None or instance_space is None:
+        raise typer.BadParameter(
+            "Either both --object-3d-space and --instance-space must be provided, or neither."
+        )
+    return object_3D_space, instance_space
+
+
+def _resolve_image360_collections(
+    client: ToolkitClient, operation: str, collection: list[str] | None
+) -> list[NodeId]:
+    """Resolve the 360 image collections to migrate."""
+    selector = Image360CollectionInteractiveSelect(client, operation)
+    if collection:
+        return selector.resolve_external_ids(collection)
+    return selector.select_collections()
+
+
+def _image360_collection_node_filter(collections: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given collection nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in collections]}}
+
+
+def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting Image360 nodes whose collection360 points to one of the collections."""
+    collection360_property = [
+        IMAGE360_SOURCE_VIEW.space,
+        f"{IMAGE360_SOURCE_VIEW.external_id}/{IMAGE360_SOURCE_VIEW.version}",
+        "collection360",
+    ]
+    return {
+        "or": [
+            {
+                "equals": {
+                    "property": collection360_property,
+                    "value": {"space": node_id.space, "externalId": node_id.external_id},
+                }
+            }
+            for node_id in collections
+        ]
+    }
 
 
 class MigrateApp(typer.Typer):
@@ -1675,7 +1753,9 @@ class MigrateApp(typer.Typer):
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
-            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+            client,
+            instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
+            custom_mappings=[InFieldAssetMapping(client)],
         )
         mapper = FDMtoCDMMapper(
             client,
@@ -1703,48 +1783,39 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_nodes(
         ctx: typer.Context,
-        source_space: Annotated[
-            str | None,
+        collection: Annotated[
+            list[str] | None,
             typer.Option(
-                "--source-space",
-                "-s",
-                help="The instance space containing the legacy Image360, Image360Collection, and Station360 nodes. "
-                "If not provided, an interactive selection will be performed.",
-            ),
-        ] = None,
-        target_space: Annotated[
-            str | None,
-            typer.Option(
-                "--target-space",
-                "-t",
-                help="The instance space to migrate the 360-image nodes into (must already exist). "
-                "If not provided, an interactive selection will be performed.",
+                "--collection",
+                "-c",
+                help="External ID of an Image360 collection to migrate. Can be repeated to migrate multiple "
+                "collections. If not provided, an interactive selection will be performed.",
             ),
         ] = None,
         log_dir: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--log-dir",
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = None,
         dry_run: Annotated[
-            bool,
+            bool | None,
             typer.Option(
-                "--dry-run",
+                "--dry-run/--no-dry-run",
                 "-d",
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
-        ] = False,
+        ] = None,
         verbose: Annotated[
-            bool,
+            bool | None,
             typer.Option(
-                "--verbose",
+                "--verbose/--no-verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command.",
             ),
-        ] = False,
+        ] = None,
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1768,35 +1839,17 @@ class MigrateApp(typer.Typer):
                 )
             )
 
-        dm_select = DataModelingSelect(client, "migrate")
-        if source_space is None and target_space is None:
-            source_space = dm_select.select_instance_space(
-                multiselect=False,
-                selected_view=_IMAGE360_COLLECTION_SOURCE_VIEW,
-                instance_type="node",
-                message="Select the source space containing legacy 360 image models:",
-            )
-            target_space = dm_select.select_instance_space(
-                multiselect=False,
-                message="Select the target space to migrate the 360-image nodes into:",
-                include_empty=True,
-                exclude_spaces={source_space},
-            )
-            log_dir = Path(
-                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
-            )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
-        elif source_space is None or target_space is None:
-            raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
-        elif source_space == target_space:
-            raise typer.BadParameter("--target-space must be different from --source-space.")
+        selected_collections = _resolve_image360_collections(client, "migrate", collection)
 
-        space_mapping = {source_space: target_space}
+        default_log_dir = Path(f"migration_logs_{TODAY}")
+        log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
+
         mappings = create_image360_node_mappings()
         # Collection selector first: model + collection nodes must exist before Image360 nodes
         # reference them. Station360 precedes Image360 for the same reason (station360 property).
         # create_image360_node_mappings() returns [Station360, Image360] in dependency order.
+        collection_filter = _image360_collection_node_filter(selected_collections)
+        image360_filter = _image360_collection360_filter(selected_collections)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
             InstanceViewSelector(
                 view=SelectedView(
@@ -1804,8 +1857,8 @@ class MigrateApp(typer.Typer):
                     external_id=IMAGE360_COLLECTION_SOURCE_VIEW.external_id,
                     version=IMAGE360_COLLECTION_SOURCE_VIEW.version,
                 ),
-                instance_spaces=(source_space,),
                 endpoint="query",
+                additional_filter=collection_filter,
             ),
             *[
                 InstanceViewSelector(
@@ -1814,20 +1867,23 @@ class MigrateApp(typer.Typer):
                         external_id=mapping.source_view.external_id,
                         version=mapping.source_view.version,
                     ),
-                    instance_spaces=(source_space,),
                     endpoint="query",
+                    # Station360 nodes have no collection reference, so they are always migrated in full.
+                    additional_filter=image360_filter
+                    if mapping.source_view.external_id == IMAGE360_SOURCE_VIEW.external_id
+                    else None,
                 )
                 for mapping in mappings
             ],
         ]
-        connection_creator = ConnectionCreator(client, space_mapping=space_mapping)
+        connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = FDMtoCDMMapper(
             client,
             mappings,
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionAndModelMapper(client, target_space=target_space),
+                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionAndModelMapper(client),
             },
         )
         cmd.run(
@@ -1845,22 +1901,13 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_annotations(
         ctx: typer.Context,
-        source_space: Annotated[
-            str | None,
+        collection: Annotated[
+            list[str] | None,
             typer.Option(
-                "--source-space",
-                "-s",
-                help="The instance space containing the legacy Image360 nodes whose face files carry annotations. "
-                "If not provided, an interactive selection will be performed.",
-            ),
-        ] = None,
-        target_space: Annotated[
-            str | None,
-            typer.Option(
-                "--target-space",
-                "-t",
-                help="The instance space where the new Cognite360Image and Cognite360ImageCollection nodes live. "
-                "If not provided, an interactive selection will be performed.",
+                "--collection",
+                "-c",
+                help="External ID of an Image360 collection whose annotations should be migrated. Can be repeated "
+                "to migrate multiple collections. If not provided, an interactive selection will be performed.",
             ),
         ] = None,
         object_3D_space: Annotated[
@@ -1871,90 +1918,58 @@ class MigrateApp(typer.Typer):
                 "If not provided, an interactive selection will be performed.",
             ),
         ] = None,
-        contextualization_space: Annotated[
+        instance_space: Annotated[
             str | None,
             typer.Option(
-                "--contextualization-space",
-                help="The instance space used for Cognite360ImageAnnotation edges that will be created during the migration."
+                "--instance-space",
+                "-i",
+                help="The instance space used for Cognite360ImageAnnotation edges that will be created during the migration. "
                 "If not provided, an interactive selection will be performed.",
             ),
         ] = None,
         log_dir: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--log-dir",
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = None,
         dry_run: Annotated[
-            bool,
+            bool | None,
             typer.Option(
-                "--dry-run",
+                "--dry-run/--no-dry-run",
                 "-d",
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
-        ] = False,
+        ] = None,
         verbose: Annotated[
-            bool,
+            bool | None,
             typer.Option(
-                "--verbose",
+                "--verbose/--no-verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command.",
             ),
-        ] = False,
+        ] = None,
     ) -> None:
         """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
         client = EnvironmentVariables.create_from_environment().get_client()
         verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        dm_select = DataModelingSelect(client, "migrate")
-        if (
-            source_space is None
-            and target_space is None
-            and object_3D_space is None
-            and contextualization_space is None
-        ):
-            source_space = dm_select.select_instance_space(  # this should probably not be required
-                multiselect=False,
-                selected_view=_IMAGE360_SOURCE_VIEW,
-                instance_type="node",
-                message="Select the source space containing Image360 nodes (annotations source):",
-            )
-            target_space = (
-                dm_select.select_instance_space(  # Probably required, but could also potentially be the same node...?
-                    multiselect=False,
-                    message="Select the target space where the migrated Cognite360Image nodes live:",
-                    include_empty=True,
-                )
-            )
-            object_3D_space = questionary.text(
-                "Object3D space (for auto-created Object3D nodes):",
-                default=target_space,
-            ).unsafe_ask()
-            contextualization_space = questionary.text(  # should be instance-space to match annotation migrate command (irrelevant what it's called in api)
-                "Contextualization space (for auto-created Cognite360ImageAnnotation edges):",
-                default=target_space,
-            ).unsafe_ask()
-            log_dir = Path(
-                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
-            )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
-        elif all(s is not None for s in [source_space, target_space, object_3D_space, contextualization_space]):
-            pass
-        else:
-            raise typer.BadParameter(
-                "Either all four space parameters must be provided (--source-space, --target-space, "
-                "--object3d-space, --contextualization-space) or none of them."
-            )
+        selected_collections = _resolve_image360_collections(client, "migrate annotations for", collection)
+        collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
+
+        object_3D_space, instance_space = _resolve_image360_annotation_spaces(
+            object_3D_space, instance_space
+        )
+        default_log_dir = Path(f"migration_logs_{TODAY}")
+        log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
 
         selector = Image360AnnotationSelector(
-            source_space=source_space,
-            target_space=target_space,
             object3d_space=object_3D_space,
-            contextualization_space=contextualization_space,
+            instance_space=instance_space,
+            collections=collection_external_ids,
         )
         mapper = Image360AnnotationMapper(client)
         io = Image360AnnotationMigrationIO(client)

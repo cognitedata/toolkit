@@ -140,6 +140,8 @@ class InstanceIO(
             leaf_filters.append(
                 {"in": {"property": [instance_type, "space"], "values": list(selector.instance_spaces)}}
             )
+        if selector.additional_filter is not None:
+            leaf_filters.append(selector.additional_filter)
         if len(leaf_filters) == 1:
             return leaf_filters[0]
         return {"and": leaf_filters}
