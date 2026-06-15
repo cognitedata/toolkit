@@ -56,6 +56,17 @@ MULTI_FILE_PART_MAX_SIZE_BYTES = 4_000 * 1024 * 1024  # Each part in a multi-par
 MULTI_FILE_MAX_PART_COUNT = 250  # Maximum number of parts
 
 
+def create_download_filepath(file_directory: Path, name: str, mime_type: str | None, file_prefix: str) -> Path:
+    sanitized_name = (
+        sanitize_filename(name) or "file"
+    )  # If the name is empty, we use "file" as the name to avoid exception in with_suffix
+    filename = Path(sanitized_name)
+    if filename.suffix == "" and mime_type and (guessed_extension := mimetypes.guess_extension(mime_type)):
+        filename = filename.with_suffix(guessed_extension)
+    prefixed_filename = f"{sanitize_filename(file_prefix)}_{filename.name}"
+    return file_directory / prefixed_filename
+
+
 class FileMetadataContentIO(
     TableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse],
     TableUploadableDataIO[FileMetadataContentSelectorV2, FileMetadataResponse, FileMetadataRequest],
@@ -184,14 +195,8 @@ class FileMetadataContentIO(
                         )
                     )
                 else:
-                    filepath = self._file_directory / sanitize_filename(file.name)
-                    if (
-                        filepath.suffix == ""
-                        and file.mime_type
-                        and (guessed_extension := mimetypes.guess_extension(file.mime_type))
-                    ):
-                        # Recover file extension if missing.
-                        filepath = filepath.with_suffix(guessed_extension)
+                    file_prefix = file.external_id or str(file.id)
+                    filepath = create_download_filepath(self._file_directory, file.name, file.mime_type, file_prefix)
                     has_downloaded = self._try_download_content(file, filepath, item.display_name)
                     if has_downloaded:
                         file.filepath = filepath
@@ -619,13 +624,10 @@ class CogniteFileContentIO(
                         )
                     )
                 else:
-                    filepath = self._file_directory / sanitize_filename(file.name or item.external_id)
-                    if (
-                        filepath.suffix == ""
-                        and file.mime_type
-                        and (guessed_extension := mimetypes.guess_extension(file.mime_type))
-                    ):
-                        filepath = filepath.with_suffix(guessed_extension)
+                    file_prefix = f"{file.space}_{file.external_id}"
+                    filepath = create_download_filepath(
+                        self._file_directory, file.name or file.external_id, file.mime_type, file_prefix
+                    )
                     has_downloaded = self._try_download_content(file, filepath, item.display_name)
                     if has_downloaded:
                         file.filepath = filepath
