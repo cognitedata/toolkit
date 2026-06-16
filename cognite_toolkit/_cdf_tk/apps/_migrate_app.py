@@ -8,7 +8,6 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
@@ -175,31 +174,40 @@ def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
     }
 
 
+def _image360_direct_relation_node_id(reference: Any) -> NodeId | None:
+    """Parse a direct-relation property value to a NodeId."""
+    if isinstance(reference, NodeId):
+        return reference
+    if isinstance(reference, dict):
+        space = reference.get("space")
+        external_id = reference.get("externalId") or reference.get("external_id")
+        if isinstance(space, str) and isinstance(external_id, str):
+            return NodeId(space=space, external_id=external_id)
+    return None
+
+
 def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
     """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
-    nodes = client.tool.instances.list(
-        filter=InstanceFilter(instance_type="node", source=IMAGE360_SOURCE_VIEW), limit=None
+    image360_filter = _image360_collection360_filter(selected_collections)
+    selector = InstanceViewSelector(
+        view=SelectedView(
+            space=IMAGE360_SOURCE_VIEW.space,
+            external_id=IMAGE360_SOURCE_VIEW.external_id,
+            version=IMAGE360_SOURCE_VIEW.version,
+        ),
+        endpoint="query",
+        additional_filter=image360_filter,
     )
-    selected_external_ids = {node_id.external_id for node_id in selected_collections}
     station_ids: set[NodeId] = set()
-    for node in nodes:
-        if not isinstance(node, NodeResponse) or node.properties is None:
-            continue
-        properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
-        collection_reference = properties.get("collection360")
-        if not isinstance(collection_reference, dict):
-            continue
-        collection_external_id = collection_reference.get("externalId")
-        if not isinstance(collection_external_id, str):
-            continue
-        if collection_external_id not in selected_external_ids:
-            continue
-        station_reference = properties.get("station")
-        if isinstance(station_reference, dict):
-            space = station_reference.get("space")
-            external_id = station_reference.get("externalId")
-            if isinstance(space, str) and isinstance(external_id, str):
-                station_ids.add(NodeId(space=space, external_id=external_id))
+    for page in InstanceIO(client).stream_data(selector):
+        for data_item in page.items:
+            node = data_item.item
+            if not isinstance(node, NodeResponse) or node.properties is None:
+                continue
+            properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
+            station_id = _image360_direct_relation_node_id(properties.get("station"))
+            if station_id is not None:
+                station_ids.add(station_id)
     return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
 
 

@@ -1,10 +1,33 @@
+from unittest.mock import MagicMock
+
+import pytest
+
 from cognite_toolkit._cdf_tk.apps._migrate_app import (
+    _image360_direct_relation_node_id,
     _image360_station_node_filter,
     _resolve_image360_station_ids,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import IMAGE360_SOURCE_VIEW
+from cognite_toolkit._cdf_tk.dataio import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.progress import NoBookmark
+
+
+class TestImage360DirectRelationNodeId:
+    def test_parses_node_id(self) -> None:
+        node_id = NodeId(space="my_space", external_id="station_a")
+        assert _image360_direct_relation_node_id(node_id) == node_id
+
+    def test_parses_dict(self) -> None:
+        assert _image360_direct_relation_node_id(
+            {"space": "my_space", "externalId": "station_a"}
+        ) == NodeId(space="my_space", external_id="station_a")
+
+    def test_parses_dict_with_external_id(self) -> None:
+        assert _image360_direct_relation_node_id(
+            {"space": "my_space", "external_id": "station_a"}
+        ) == NodeId(space="my_space", external_id="station_a")
 
 
 class TestResolveImage360StationIds:
@@ -19,8 +42,7 @@ class TestResolveImage360StationIds:
                 version=1,
                 properties={
                     IMAGE360_SOURCE_VIEW: {
-                        "collection360": {"space": "my_space", "externalId": "collection_0"},
-                        "station": {"space": "my_space", "externalId": "station_a"},
+                        "station": NodeId(space="my_space", external_id="station_a"),
                     }
                 },
             ),
@@ -32,8 +54,7 @@ class TestResolveImage360StationIds:
                 version=1,
                 properties={
                     IMAGE360_SOURCE_VIEW: {
-                        "collection360": {"space": "my_space", "externalId": "collection_1"},
-                        "station": {"space": "my_space", "externalId": "station_b"},
+                        "station": NodeId(space="my_space", external_id="station_b"),
                     }
                 },
             ),
@@ -45,16 +66,30 @@ class TestResolveImage360StationIds:
                 version=1,
                 properties={
                     IMAGE360_SOURCE_VIEW: {
-                        "collection360": {"space": "my_space", "externalId": "collection_0"},
-                        "station": {"space": "my_space", "externalId": "station_c"},
+                        "station": NodeId(space="my_space", external_id="station_c"),
                     }
                 },
             ),
         ]
 
-    def test_resolve_station_ids_for_selected_collection(self) -> None:
+    def test_resolve_station_ids_for_selected_collection(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        filtered_nodes = [self._image360_nodes()[0], self._image360_nodes()[2]]
+        mock_io = MagicMock()
+        mock_io.stream_data.return_value = [
+            Page(
+                worker_id="main",
+                items=[
+                    DataItem(tracking_id=f"{node.space}:{node.external_id}", item=node) for node in filtered_nodes
+                ],
+                bookmark=NoBookmark(),
+            )
+        ]
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._migrate_app.InstanceIO",
+            lambda client: mock_io,
+        )
+
         with monkeypatch_toolkit_client() as client:
-            client.tool.instances.list.return_value = self._image360_nodes()
             result = _resolve_image360_station_ids(
                 client,
                 [NodeId(space="my_space", external_id="collection_0")],
