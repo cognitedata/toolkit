@@ -812,14 +812,18 @@ class PullCommand(ToolkitCommand):
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
                     extra_files[extra.path] = new_extra
-        split_resources = list(replacer._loader.split_resource(source_file, item_write))
-        base_to_write = item_write
-        for split_path, split_content in split_resources:
-            if split_path == source_file and isinstance(split_content, dict):
-                base_to_write = split_content
-            elif isinstance(split_content, str):
-                extra_files[split_path] = split_content
-        return replacer.replace(loaded, loaded_with_placeholder, base_to_write)
+        # Only split for resources that are sidecar-backed in build metadata, plus Skill (sidecar-first by design).
+        if built.extra_sources or replacer._loader.kind == "Skill":
+            split_resources = list(replacer._loader.split_resource(source_file, item_write))
+            base_to_write = item_write
+            for split_path, split_content in split_resources:
+                if split_path == source_file and isinstance(split_content, dict):
+                    base_to_write = split_content
+                elif isinstance(split_content, str):
+                    extra_files[split_path] = split_content
+            return replacer.replace(loaded, loaded_with_placeholder, base_to_write)
+
+        return replacer.replace(loaded, loaded_with_placeholder, item_write)
 
 
 class ResourceReplacer:
