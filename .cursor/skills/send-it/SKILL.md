@@ -47,6 +47,8 @@ If the user chose **Stage only**, stop here.
   - Propose a title: `[TICKET-ID] Description of changes`.
   - Draft a body by reading `.github/pull_request_template.md` and filling it in
     using `git log main..HEAD --oneline`.
+  - **Do not include Jira ticket IDs in the Changelog entries** — they have no public
+    interest and clutter the changelog. The ticket ID belongs only in the PR title.
   - **Always ask the user which bump type applies** using the AskQuestion tool:
     > **"What bump type should this PR use?"**
     > - **Patch** — backwards-compatible bug fix or small improvement
