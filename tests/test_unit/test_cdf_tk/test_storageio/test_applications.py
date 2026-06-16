@@ -180,7 +180,8 @@ class TestChartIO:
                             ],
                         },
                     },
-                ]
+                ],
+                "nextCursor": None,
             },
         )
         respx_mock.post(ts_url).respond(
@@ -248,6 +249,66 @@ class TestChartIO:
 
         expected = self._create_downloaded_chart(chart, monitoring_job, calculation)
         assert downloaded_chart == expected
+
+    def test_chart_response_to_request_preserves_flow_node_data(self) -> None:
+        chart = ChartResponse.model_validate(
+            {
+                "externalId": _CHART_EXTERNAL_ID,
+                "visibility": "PRIVATE",
+                "ownerId": "owner",
+                "createdTime": 1700000000000,
+                "lastUpdatedTime": 1700000000000,
+                "data": {
+                    "version": 1,
+                    "name": "Chart with calculation",
+                    "dateFrom": "2025-01-01T00:00:00.000Z",
+                    "dateTo": "2025-12-31T23:59:59.999Z",
+                    "workflowCollection": [
+                        {
+                            "id": "workflow-id",
+                            "type": "workflow",
+                            "version": "v2",
+                            "name": "Calculation",
+                            "color": "#1192e8",
+                            "enabled": True,
+                            "settings": {"autoAlign": True},
+                            "flow": {
+                                "elements": [
+                                    {
+                                        "id": "constant-node",
+                                        "type": "Constant",
+                                        "position": {"x": 1.0, "y": 2.0},
+                                        "data": {"name": "Constant", "value": 37},
+                                    },
+                                    {
+                                        "id": "function-node",
+                                        "type": "ToolboxFunction",
+                                        "position": {"x": 3.0, "y": 4.0},
+                                        "data": {
+                                            "selectedOperation": {"op": "add", "version": "1.0"},
+                                            "parameterValues": {"align_timesteps": True},
+                                        },
+                                    },
+                                ]
+                            },
+                        }
+                    ],
+                },
+            },
+            by_alias=True,
+        )
+
+        dumped = chart.as_request_resource().dump()
+        elements = dumped["data"]["workflowCollection"][0]["flow"]["elements"]
+
+        assert elements[0]["data"] == {"name": "Constant", "value": 37}
+        assert elements[1]["data"] == {
+            "selectedOperation": {"op": "add", "version": "1.0"},
+            "parameterValues": {"align_timesteps": True},
+        }
+        assert "ownerId" not in dumped
+        assert "createdTime" not in dumped
+        assert "lastUpdatedTime" not in dumped
 
     def _create_downloaded_chart(
         self,

@@ -114,12 +114,12 @@ class TestCreator:
         creator = InstanceSpaceCreator(toolkit_client_approval.client, [invalid_dataset], auto_fix=auto_fix)
         created = list(creator.create_resources())
         assert len(created) == 1
-        created_space = created[0].resources[0].resource
-        assert isinstance(created_space, SpaceRequest)
         if auto_fix:
+            created_space = created[0].resources[0].resource
+            assert isinstance(created_space, SpaceRequest)
             assert created_space.space == "invaliddatasetnamewithspaces"
         else:
-            assert created_space.space == "invalid dataset name with spaces"
+            assert created[0].resources == []
 
     def test_create_instance_spaces_duplicate_space_ids(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path

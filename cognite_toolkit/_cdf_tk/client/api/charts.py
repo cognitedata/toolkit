@@ -3,7 +3,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     ChartRequest,
@@ -86,13 +86,4 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
         body: dict[str, Any] = {}
         if filter_params:
             body["filter"] = filter_params
-        endpoint = self._method_endpoint_map["list"]
-        # Note that even though the internal docs specify that limit is supported for this endpoint,
-        # you get: "Encountered an unknown key 'limit' at offset 50 at path: $" if you pass it.
-        request = RequestMessage(
-            endpoint_url=self._make_url(endpoint.path),
-            method=endpoint.method,
-            body_content=body,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return self._validate_page_response(response).items
+        return self._list(body=body)

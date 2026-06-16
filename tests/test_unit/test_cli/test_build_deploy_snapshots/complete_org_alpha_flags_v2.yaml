@@ -153,11 +153,11 @@ InFieldCDMLocationConfigResponse:
         assetActivitiesCard:
           externalId: InfieldActivitiesCardView
           space: customer_idm_extention
-          version: v2
+          version: v4
         assetNotificationsCard:
           externalId: InfieldNotificationsCardView
           space: customer_idm_extention
-          version: v1
+          version: v2
         assetPropertiesCard:
           externalId: AssetPropertiesCard
           space: customer_idm_extention

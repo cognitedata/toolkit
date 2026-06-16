@@ -859,13 +859,14 @@ class DownloadApp(typer.Typer):
     def download_instances_cmd(
         cls,
         ctx: typer.Context,
-        instance_space: Annotated[
-            str | None,
+        instance_spaces: Annotated[
+            list[str] | None,
             typer.Option(
                 "--instance-space",
                 "-s",
-                help="The instance space to download instances from. If not provided, an interactive "
-                "selection will be made.",
+                help="Instance space(s) to download instances from. Can be specified multiple times. "
+                "When used without --schema-space and --view, downloads all instances in the given space(s) without any properties from views. "
+                "When used with --schema-space and --view, limits the download to those spaces.",
             ),
         ] = None,
         schema_space: Annotated[
@@ -873,7 +874,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--schema-space",
                 "-c",
-                help="The schema space where the views are located.",
+                help="The schema space where the views are located. Required when --view is also provided.",
             ),
         ] = None,
         view_external_ids: Annotated[
@@ -881,8 +882,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--view",
                 "-w",
-                help="List of view external IDs to download properties for the "
-                "instances. To specify version use a forward slash, e.g. viewExternalId/v1.",
+                help="View external ID(s) to read through when downloading properties for the "
+                "instances. Can be specified multiple times to download from multiple views. To specify version use a forward slash, e.g. viewExternalId/v1. "
+                "Required when --schema-space is also provided.",
             ),
         ] = None,
         instance_type: Annotated[
@@ -948,7 +950,16 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         selectors: list[InstanceSelector]
-        if instance_space is None:
+        if instance_spaces and schema_space is None and view_external_ids is None:
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=space,
+                    instance_type=instance_type.value,
+                    download_dir_name=space,
+                )
+                for space in instance_spaces
+            ]
+        elif schema_space is None and view_external_ids is None:
             selector = DataModelingSelect(client, "download instances")
             data_model = selector.select_data_model(
                 inline_views=True,
@@ -968,9 +979,9 @@ class DownloadApp(typer.Typer):
                 "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
                 default=False,
             ).unsafe_ask()
-            instance_spaces: tuple[str, ...] | None = None
+            selected_instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
-                instance_spaces = tuple(selector.select_instance_space(multiselect=True))
+                selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
             edge_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
             if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
                 include_edges = questionary.confirm(
@@ -1000,7 +1011,7 @@ class DownloadApp(typer.Typer):
                             external_id=view.external_id,
                             version=view.version,
                         ),
-                        instance_spaces=instance_spaces,
+                        instance_spaces=selected_instance_spaces,
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
                         edge_types=tuple(edge_types) if edge_types else None,
@@ -1009,25 +1020,19 @@ class DownloadApp(typer.Typer):
             output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
                 output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
             )
-        elif schema_space is None and view_external_ids is None:
-            selectors = [
-                InstanceSpaceSelector(
-                    instance_space=instance_space,
-                    instance_type=instance_type.value,
-                    download_dir_name=instance_space,
-                )
-            ]
         elif schema_space is not None and view_external_ids is not None:
+            selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
+            download_dir_name = sanitize_filename(schema_space)
             selectors = [
-                InstanceSpaceSelector(
-                    instance_space=instance_space,
+                InstanceViewSelector(
                     view=SelectedView(
                         space=schema_space,
                         external_id=view_id_str.split("/", maxsplit=1)[0],
                         version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
                     ),
+                    instance_spaces=selected_instance_spaces,
                     instance_type=instance_type.value,
-                    download_dir_name=instance_space,
+                    download_dir_name=download_dir_name,
                 )
                 for view_id_str in view_external_ids
             ]

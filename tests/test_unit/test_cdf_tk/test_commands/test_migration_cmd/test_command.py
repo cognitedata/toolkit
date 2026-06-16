@@ -657,8 +657,8 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{asset_annotation.id}",
                 start_node=(space, f"file_{asset_annotation.annotated_resource_id}"),
-                end_node=(space, f"asset_{asset_annotation.data.dump()['assetRef']['id']}"),
-                type=(space, asset_annotation.annotation_type),
+                end_node=(space, f"asset_{asset_annotation.data['assetRef']['id']}"),
+                type=("cdf_cdm", asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
                         source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
@@ -679,8 +679,8 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{file_annotation.id}",
                 start_node=(space, f"file_{file_annotation.annotated_resource_id}"),
-                end_node=(space, f"file_{file_annotation.data.dump()['fileRef']['id']}"),
-                type=(space, file_annotation.annotation_type),
+                end_node=(space, f"file_{file_annotation.data['fileRef']['id']}"),
+                type=("cdf_cdm", file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
                         source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
@@ -788,6 +788,7 @@ class TestMigrationCommand:
             status_code=200,
             json={
                 "items": [chart.dump() for chart in charts],
+                "nextCursor": None,
             },
         )
         # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
