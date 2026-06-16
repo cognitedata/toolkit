@@ -101,6 +101,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        for subagent in item.get("subagents", []):
+            if isinstance(subagent, dict) and (agent_external_id := subagent.get("agentExternalId")):
+                yield AgentIO, ExternalId(external_id=agent_external_id)
         for tool in item.get("tools", []):
             if tool.get("type") == "callFunction":
                 if ext_id := tool.get("configuration", {}).get("externalId"):
@@ -114,6 +117,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        for subagent in resource.subagents or []:
+            yield AgentIO, ExternalId(external_id=subagent.agent_external_id)
         for tool in resource.tools or []:
             match tool:
                 case CallFunction():
@@ -191,5 +196,11 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
         elif json_path == ("exampleQuestions",):
             return diff_list_identifiable(
                 local, cdf, get_identifier=lambda q: q.get("question", "") if isinstance(q, dict) else str(q)
+            )
+        elif json_path == ("subagents",):
+            return diff_list_identifiable(
+                local,
+                cdf,
+                get_identifier=lambda ref: ref.get("agentExternalId", "") if isinstance(ref, dict) else "",
             )
         return super().diff_list(local, cdf, json_path)

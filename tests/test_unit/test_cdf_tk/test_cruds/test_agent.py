@@ -34,6 +34,30 @@ class TestAgentIODumpResource:
 
         assert dumped == local
 
+    def test_dump_resource_ignores_empty_subagents_when_omitted_locally(self) -> None:
+        client = ToolkitClientMock()
+        io = AgentIO(client, None, None)
+        local = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "runtimeVersion": "1.3.0",
+        }
+        resource = AgentResponse.model_validate(
+            {
+                "externalId": "my_agent",
+                "name": "My Agent",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "1.3.0",
+                "subagents": [],
+            }
+        )
+
+        dumped = io.dump_resource(resource, local)
+
+        assert dumped == local
+
 
 class TestAgentIODependencies:
     def test_datamodel_is_in_class_dependencies(self) -> None:
@@ -192,6 +216,20 @@ class TestAgentIODependencies:
                 {"externalId": "my_agent", "tools": []},
                 [],
                 id="agent with no tools yields no dependencies",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "subagents": [
+                        {"agentExternalId": "weather-specialist"},
+                        {"agentExternalId": "rca-specialist"},
+                    ],
+                },
+                [
+                    (AgentIO, ExternalId(external_id="weather-specialist")),
+                    (AgentIO, ExternalId(external_id="rca-specialist")),
+                ],
+                id="subagents yield AgentIO dependencies",
             ),
             pytest.param(
                 {

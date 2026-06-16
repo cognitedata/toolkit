@@ -222,6 +222,10 @@ AgentTool = Annotated[
 ]
 
 
+class SubagentConfig(AgentObject):
+    agent_external_id: str = Field(min_length=1, max_length=255)
+
+
 class Agent(AgentObject):
     external_id: str
     name: str
@@ -229,6 +233,7 @@ class Agent(AgentObject):
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    subagents: list[SubagentConfig] | None = None
     labels: list[str] | None = None
 
     def as_id(self) -> ExternalId:
