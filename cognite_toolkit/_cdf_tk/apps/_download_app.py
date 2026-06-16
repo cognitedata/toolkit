@@ -692,7 +692,7 @@ class DownloadApp(typer.Typer):
         io: DataIO
         selectors: list[DataSelector]
         if include_file_contents:
-            selector = DocumentsInteractiveSelect(client, max_selected=5000)
+            selector = DocumentsInteractiveSelect(client, max_selected=100)
             file_format = questionary.select(
                 "Select format for the downloaded file metadata:",
                 choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
