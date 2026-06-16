@@ -20,7 +20,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    ContainerFilter,
+    DataModelFilter,
+    InstanceFilter,
+    ViewFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
@@ -30,6 +35,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
+    NodeId,
+    NodeResponse,
     SpaceResponse,
     ViewId,
     ViewResponse,
@@ -988,6 +995,69 @@ class ThreeDInteractiveSelect:
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")
         return selected_models
+
+
+class Image360CollectionInteractiveSelect:
+    """Interactively select one or more legacy Image360Collection nodes to migrate."""
+
+    SOURCE_VIEW: ClassVar[ViewId] = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
+
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def list_collections(self) -> list[NodeResponse]:
+        instance_filter = InstanceFilter(instance_type="node", source=self.SOURCE_VIEW)
+        nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+        return [node for node in nodes if isinstance(node, NodeResponse)]
+
+    def _collection_label(self, node: NodeResponse) -> str:
+        label = ((node.properties or {}).get(self.SOURCE_VIEW) or {}).get("label")
+        title = str(label) if label else node.external_id
+        return f"{title} ({node.space}:{node.external_id})"
+
+    def select_collections(self) -> list[NodeId]:
+        """Select 360 image collections to migrate."""
+        collections = self.list_collections()
+        if not collections:
+            raise ToolkitMissingResourceError("No 360 image collections found in this project.")
+
+        choices = [
+            Choice(title=self._collection_label(node), value=NodeId(space=node.space, external_id=node.external_id))
+            for node in collections
+        ]
+        selected = questionary.checkbox(
+            f"Select 360 image collections to {self.operation}:",
+            choices=choices,
+            validate=lambda chosen: True if chosen else "You must select at least one collection.",
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No 360 image collections selected.")
+        return [node_id for node_id in selected if isinstance(node_id, NodeId)]
+
+    def resolve_external_ids(self, external_ids: Sequence[str]) -> list[NodeId]:
+        """Resolve user-provided collection external IDs to concrete collection NodeIds.
+
+        Matches by external ID across any space.
+        """
+        collections = self.list_collections()
+        by_external_id: dict[str, list[NodeId]] = defaultdict(list)
+        for node in collections:
+            by_external_id[node.external_id].append(NodeId(space=node.space, external_id=node.external_id))
+
+        resolved: list[NodeId] = []
+        missing: list[str] = []
+        for external_id in external_ids:
+            matches = by_external_id.get(external_id)
+            if not matches:
+                missing.append(external_id)
+                continue
+            resolved.extend(matches)
+        if missing:
+            raise ToolkitMissingResourceError(
+                f"The following 360 image collections were not found: {humanize_collection(missing)}."
+            )
+        return resolved
 
 
 class APMConfigInteractiveSelect:

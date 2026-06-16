@@ -9,7 +9,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldConditionMapping,
     InFieldUserMapping,
     SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -32,9 +33,17 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360CollectionAndModelMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_SOURCE_VIEW,
+    IMAGE360_STATION_SOURCE_VIEW,
+    create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -74,6 +83,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
@@ -84,6 +94,96 @@ from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
+
+
+def _resolve_migration_run_options(
+    log_dir: Path | None,
+    dry_run: bool | None,
+    verbose: bool | None,
+    default_log_dir: Path,
+) -> tuple[Path, bool, bool]:
+    resolved_log_dir = log_dir
+    if resolved_log_dir is None:
+        resolved_log_dir = Path(
+            questionary.path("Specify log directory for migration logs:", default=str(default_log_dir)).unsafe_ask()
+        )
+    resolved_dry_run = dry_run
+    if resolved_dry_run is None:
+        resolved_dry_run = questionary.confirm("Do you want to perform a dry run?", default=False).unsafe_ask()
+    resolved_verbose = verbose
+    if resolved_verbose is None:
+        resolved_verbose = questionary.confirm("Do you want verbose output?", default=False).unsafe_ask()
+    return resolved_log_dir, resolved_dry_run, resolved_verbose
+
+
+def _resolve_image360_collections(client: ToolkitClient, operation: str, collection: list[str] | None) -> list[NodeId]:
+    """Resolve the 360 image collections to migrate."""
+    selector = Image360CollectionInteractiveSelect(client, operation)
+    if collection:
+        return selector.resolve_external_ids(collection)
+    return selector.select_collections()
+
+
+def _image360_collection_node_filter(collections: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given collection nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in collections]}}
+
+
+def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting Image360 nodes whose collection360 points to one of the collections."""
+    collection360_property = [
+        IMAGE360_SOURCE_VIEW.space,
+        f"{IMAGE360_SOURCE_VIEW.external_id}/{IMAGE360_SOURCE_VIEW.version}",
+        "collection360",
+    ]
+    return {
+        "in": {
+            "property": collection360_property,
+            "values": [{"space": node_id.space, "externalId": node_id.external_id} for node_id in collections],
+        }
+    }
+
+
+def _image360_direct_relation_node_id(reference: Any) -> NodeId | None:
+    """Parse a direct-relation property value to a NodeId."""
+    if isinstance(reference, NodeId):
+        return reference
+    if isinstance(reference, dict):
+        space = reference.get("space")
+        external_id = reference.get("externalId") or reference.get("external_id")
+        if isinstance(space, str) and isinstance(external_id, str):
+            return NodeId(space=space, external_id=external_id)
+    return None
+
+
+def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
+    """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
+    image360_filter = _image360_collection360_filter(selected_collections)
+    selector = InstanceViewSelector(
+        view=SelectedView(
+            space=IMAGE360_SOURCE_VIEW.space,
+            external_id=IMAGE360_SOURCE_VIEW.external_id,
+            version=IMAGE360_SOURCE_VIEW.version,
+        ),
+        endpoint="query",
+        additional_filter=image360_filter,
+    )
+    station_ids: set[NodeId] = set()
+    for page in InstanceIO(client).stream_data(selector):
+        for data_item in page.items:
+            node = data_item.item
+            if not isinstance(node, NodeResponse) or node.properties is None:
+                continue
+            properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
+            station_id = _image360_direct_relation_node_id(properties.get("station"))
+            if station_id is not None:
+                station_ids.add(station_id)
+    return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
+
+
+def _image360_station_node_filter(station_ids: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given Station360 nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in station_ids]}}
 
 
 class MigrateApp(typer.Typer):
@@ -106,6 +206,8 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
+        if Flags.IMAGE360_MIGRATE.is_enabled():
+            self.command("360-images")(self.image_360_nodes)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1702,5 +1804,124 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
+            )
+        )
+
+    @staticmethod
+    def image_360_nodes(
+        ctx: typer.Context,
+        collection: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--collection",
+                "-c",
+                help="External ID of an Image360 collection to migrate. Can be repeated to migrate multiple "
+                "collections. If not provided, an interactive selection will be performed.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path | None,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = None,
+        dry_run: Annotated[
+            bool | None,
+            typer.Option(
+                "--dry-run/--no-dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = None,
+        verbose: Annotated[
+            bool | None,
+            typer.Option(
+                "--verbose/--no-verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = None,
+    ) -> None:
+        """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
+        cmd = MigrationCommand(client=client)
+
+        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        if legacy_site_count:
+            client.console.print(
+                Panel(
+                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{legacy_site_count:,}[/bold] "
+                    "site(s) of Events-based 360-image data which is deprecated and no longer supported in CDF. "
+                    "These images are stored in the Events service and will [bold]NOT[/bold] be migrated by this command.\n\n"
+                    "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
+                    "data model using a standalone custom script before they can be migrated to CDM. "
+                    "Toolkit does not support this step. Please see the documentation for this migration "
+                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    title="Unsupported Events-based 360-image data detected",
+                    expand=False,
+                    border_style="yellow",
+                )
+            )
+
+        selected_collections = _resolve_image360_collections(client, "migrate", collection)
+
+        default_log_dir = Path(f"migration_logs_{TODAY}")
+        log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
+
+        mappings = create_image360_node_mappings()
+        collection_filter = _image360_collection_node_filter(selected_collections)
+        image360_filter = _image360_collection360_filter(selected_collections)
+        station_ids = _resolve_image360_station_ids(client, selected_collections)
+        station_filter = _image360_station_node_filter(station_ids) if station_ids else None
+        selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=IMAGE360_COLLECTION_SOURCE_VIEW.space,
+                    external_id=IMAGE360_COLLECTION_SOURCE_VIEW.external_id,
+                    version=IMAGE360_COLLECTION_SOURCE_VIEW.version,
+                ),
+                endpoint="query",
+                additional_filter=collection_filter,
+            ),
+        ]
+        additional_filter_by_source_view = {IMAGE360_SOURCE_VIEW: image360_filter}
+        if station_filter is not None:
+            additional_filter_by_source_view[IMAGE360_STATION_SOURCE_VIEW] = station_filter
+        for mapping in mappings:
+            if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and station_filter is None:
+                continue
+            selectors.append(
+                InstanceViewSelector(
+                    view=SelectedView(
+                        space=mapping.source_view.space,
+                        external_id=mapping.source_view.external_id,
+                        version=mapping.source_view.version,
+                    ),
+                    endpoint="query",
+                    additional_filter=additional_filter_by_source_view.get(mapping.source_view),
+                )
+            )
+        connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+        mapper = FDMtoCDMMapper(
+            client,
+            mappings,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[Station360PropertiesMapping()],
+            custom_instance_mappings={
+                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionAndModelMapper(client),
+            },
+        )
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_nodes",
             )
         )

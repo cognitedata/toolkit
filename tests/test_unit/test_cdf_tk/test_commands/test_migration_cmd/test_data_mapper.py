@@ -67,6 +67,13 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    COGNITE360_IMAGE_VIEW,
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_SOURCE_VIEW,
+    create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
@@ -80,6 +87,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360CollectionAndModelMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
@@ -87,6 +95,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
 from tests.data import MIGRATION_DIR
 
 
@@ -984,6 +993,195 @@ class TestFDMtoCDMMapper:
             assert isinstance(entry, MigrationEntryV2)
             assert entry.id == f"{self.SOURCE_SPACE}:second"
             assert "does not exist" in entry.message
+
+    def test_image360_missing_face_files_are_not_uploaded(self) -> None:
+        """Image360 nodes without all six cubemap face files must fail and not be upserted."""
+        face_file_ids = [f"face-{index}" for index in range(6)]
+        cube_map_properties = dict(
+            zip(
+                ["cubeMapFront", "cubeMapBack", "cubeMapLeft", "cubeMapRight", "cubeMapTop", "cubeMapBottom"],
+                face_file_ids,
+                strict=True,
+            )
+        )
+        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
+        source_view = ViewResponse(
+            space=IMAGE360_SOURCE_VIEW.space,
+            external_id=IMAGE360_SOURCE_VIEW.external_id,
+            version=IMAGE360_SOURCE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=FileCDFExternalIdReference(),
+                    container_property_identifier=prop_id,
+                    container=image360_container,
+                )
+                for prop_id in cube_map_properties
+            },
+        )
+        destination_view = ViewResponse(
+            space=COGNITE360_IMAGE_VIEW.space,
+            external_id=COGNITE360_IMAGE_VIEW.external_id,
+            version=COGNITE360_IMAGE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                dest_prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier=dest_prop_id,
+                    container=cognite360_container,
+                )
+                for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
+            },
+        )
+        mapping = create_image360_node_mappings()[1]
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="image1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            client.tool.filemetadata.retrieve.return_value = []
+            client.tool.instances.retrieve.return_value = []
+
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapper.prepare(MagicMock())
+
+            actual = mapper.map([node])
+
+        assert actual == []
+        logger.log.assert_called_once()
+        entry = logger.log.call_args[0][0][0]
+        assert isinstance(entry, MigrationEntryV2)
+        assert entry.severity == Severity.failure
+        assert entry.label == "Cubemap face file(s) not migrated"
+        assert "have not been migrated" in entry.message
+        assert entry.attributes == set(face_file_ids)
+        assert entry.attribute_display_name == "file external IDs"
+        assert f"{self.SOURCE_SPACE}:image1" == entry.id
+
+    def test_image360_collection_and_model_mapper_uses_same_space_and_cdm_suffix(self) -> None:
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            mapper = Image360CollectionAndModelMapper(client)
+            actual = mapper.map([collection_node])
+
+        assert len(actual) == 2
+        model_request, collection_request = actual
+        assert isinstance(model_request, NodeRequest)
+        assert isinstance(collection_request, NodeRequest)
+        assert model_request.space == self.SOURCE_SPACE
+        assert collection_request.space == self.SOURCE_SPACE
+        assert model_request.external_id == add_migration_suffix("collection1_model")
+        assert collection_request.external_id == add_migration_suffix("collection1")
+        model_source = next(
+            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert model_source.properties is not None
+        assert model_source.properties["model3D"] == {
+            "space": self.SOURCE_SPACE,
+            "externalId": add_migration_suffix("collection1_model"),
+        }
+
+    def test_image360_with_all_face_files_is_uploaded(self) -> None:
+        face_file_ids = [f"face-{index}" for index in range(6)]
+        cube_map_properties = dict(
+            zip(
+                ["cubeMapFront", "cubeMapBack", "cubeMapLeft", "cubeMapRight", "cubeMapTop", "cubeMapBottom"],
+                face_file_ids,
+                strict=True,
+            )
+        )
+        file_responses = [
+            FileMetadataResponse(
+                external_id=external_id,
+                name=external_id,
+                instance_id=NodeId(space=self.TARGET_SPACE, external_id=f"file-{external_id}"),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                id=index,
+            )
+            for index, external_id in enumerate(face_file_ids)
+        ]
+        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
+        source_view = ViewResponse(
+            space=IMAGE360_SOURCE_VIEW.space,
+            external_id=IMAGE360_SOURCE_VIEW.external_id,
+            version=IMAGE360_SOURCE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=FileCDFExternalIdReference(),
+                    container_property_identifier=prop_id,
+                    container=image360_container,
+                )
+                for prop_id in cube_map_properties
+            },
+        )
+        destination_view = ViewResponse(
+            space=COGNITE360_IMAGE_VIEW.space,
+            external_id=COGNITE360_IMAGE_VIEW.external_id,
+            version=COGNITE360_IMAGE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                dest_prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier=dest_prop_id,
+                    container=cognite360_container,
+                )
+                for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
+            },
+        )
+        mapping = create_image360_node_mappings()[1]
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="image1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            client.tool.filemetadata.retrieve.return_value = file_responses
+            client.tool.instances.retrieve.return_value = []
+
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapper.prepare(MagicMock())
+
+            actual = mapper.map([node])
+
+        assert len(actual) == 1
+        assert isinstance(actual[0], NodeRequest)
+        assert actual[0].space == self.SOURCE_SPACE
+        assert actual[0].external_id == add_migration_suffix("image1")
+        logger.log.assert_not_called()
 
 
 class TestInFieldLegacyToCDMScheduleMapper:

@@ -74,6 +74,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
+    ConversionResult,
     CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
@@ -89,6 +90,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDRevisionMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    cognite360_image_has_all_face_files,
+    is_image360_node,
+    missing_cubemap_face_file_external_ids,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -96,6 +102,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     InstanceConversionIssue,
     MigrationEntryV2,
     ThreeDModelMigrationIssue,
+    image360_missing_face_files_migration_entry,
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -109,6 +116,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
+from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp, datetime_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -1348,7 +1356,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                return self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                if self.dry_run:
+                    for instance in custom_mapped:
+                        if isinstance(instance, NodeRequest):
+                            self._is_existing_by_node_id[instance.as_id()] = True
+                return custom_mapped
             else:
                 # This is caused by the selector used to download the instance responses not matching the expectation in
                 # the mapper.
@@ -1357,6 +1370,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
+        nodes_by_source_id = {node.as_id(): node for node in nodes}
         mapped_instances: list[NodeOrEdgeRequest | None] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
@@ -1388,6 +1402,25 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
         self._check_existence_of_required_targets(mapped_instances, issue_by_source_node_id, source_id_by_target_id)
+
+        mapped_nodes_by_target_id = {
+            instance.as_id(): instance
+            for instance in mapped_instances
+            if isinstance(instance, NodeRequest)
+        }
+        blocked_image360_target_ids = self._image360_target_ids_missing_face_files(
+            source_id_by_target_id, nodes_by_source_id, mapped_nodes_by_target_id
+        )
+        blocked_image360_source_node_ids = {
+            str(source_id_by_target_id[target_id]) for target_id in blocked_image360_target_ids
+        }
+        if blocked_image360_target_ids:
+            mapped_instances = [
+                instance
+                for instance in mapped_instances
+                if instance is None or instance.as_id() not in blocked_image360_target_ids
+            ]
+
         if self.dry_run:
             # In a real run these would be uploaded and visible to subsequent steps' constraint
             # checks. Pre-populate the cache so dry-run output reflects what a real run would do.
@@ -1396,14 +1429,33 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     self._is_existing_by_node_id[instance.as_id()] = True
 
         if issue_by_source_node_id:
-            self.logger.log(
-                [
-                    instance_conversion_issue_as_migration_entry(
-                        issue, source="FDM instances", destination="CDM instances"
+            log_entries: list[MigrationEntryV2] = []
+            for source_node_id, issue in issue_by_source_node_id.items():
+                source_id_str = str(source_node_id)
+                if source_id_str in blocked_image360_source_node_ids:
+                    source_node = nodes_by_source_id[source_node_id]
+                    target_id = next(
+                        target
+                        for target, mapped_source_id in source_id_by_target_id.items()
+                        if mapped_source_id == source_node_id
                     )
-                    for issue in issue_by_source_node_id.values()
-                ]
-            )
+                    log_entries.append(
+                        image360_missing_face_files_migration_entry(
+                            source_id_str,
+                            missing_cubemap_face_file_external_ids(
+                                source_node, mapped_nodes_by_target_id.get(target_id)
+                            ),
+                            source="FDM instances",
+                            destination="CDM instances",
+                        )
+                    )
+                else:
+                    log_entries.append(
+                        instance_conversion_issue_as_migration_entry(
+                            issue, source="FDM instances", destination="CDM instances"
+                        )
+                    )
+            self.logger.log(log_entries)
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
@@ -1638,6 +1690,23 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         else:
                             issue_by_source_node_id[source_node_id].errors.append(error)
                     source.properties[prop_id] = keep  # type: ignore[assignment]
+
+    def _image360_target_ids_missing_face_files(
+        self,
+        source_id_by_target_id: dict[NodeId, NodeId],
+        nodes_by_source_id: dict[NodeId, NodeResponse],
+        mapped_nodes_by_target_id: dict[NodeId, NodeRequest],
+    ) -> set[NodeId]:
+        """Target node IDs for Image360 instances that must not be uploaded (incomplete cubemap faces)."""
+        blocked_target_ids: set[NodeId] = set()
+        for target_id, source_node_id in source_id_by_target_id.items():
+            source_node = nodes_by_source_id.get(source_node_id)
+            if source_node is None or not is_image360_node(source_node):
+                continue
+            mapped_node = mapped_nodes_by_target_id.get(target_id)
+            if mapped_node is None or not cognite360_image_has_all_face_files(mapped_node):
+                blocked_target_ids.add(target_id)
+        return blocked_target_ids
 
     def _iterate_constrained_direct_relation_properties(
         self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
@@ -1933,3 +2002,87 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="v1")
+_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
+_IMAGE360_STATION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Station360", version="v1")
+
+
+class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
+    """Maps each legacy Image360Collection node to two CDM nodes in one pass:
+
+    - Cognite360ImageModel  (Cognite3DModel.type="Image360", CogniteDescribable.name)
+    - Cognite360ImageCollection  (Cognite3DRevision.model3D → model, status="Done", published=True,
+                                   CogniteDescribable.name)
+
+    Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
+    ViewToViewMapping path for Image360Collection source nodes.
+    """
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+        results: list[NodeOrEdgeRequest | None] = []
+        for node in source:
+            if not isinstance(node, NodeResponse):
+                continue
+            ext_id = node.external_id
+            instance_space = node.space
+            label = str(((node.properties or {}).get(_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
+            model_ext_id = add_migration_suffix(f"{ext_id}_model")
+            collection_ext_id = add_migration_suffix(ext_id)
+            results.append(
+                NodeRequest(
+                    space=instance_space,
+                    external_id=model_ext_id,
+                    sources=[
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DModel"),
+                            properties={"type": "Image360"},
+                        ),
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                            properties={"name": label},
+                        ),
+                    ],
+                )
+            )
+            results.append(
+                NodeRequest(
+                    space=instance_space,
+                    external_id=collection_ext_id,
+                    sources=[
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                            properties={
+                                "model3D": {"space": instance_space, "externalId": model_ext_id},
+                                "status": "Done",
+                                "published": True,
+                                "type": "Image360",
+                            },
+                        ),
+                        InstanceSource(
+                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                            properties={"name": label},
+                        ),
+                    ],
+                )
+            )
+        return results
+
+
+class Station360PropertiesMapping(CustomContainerPropertiesMapping):
+    """Injects groupType='Station360' into every Station360 → Cognite360ImageStation mapped node.
+
+    The Cognite360ImageStation view filter requires hasData(Cognite3DGroup) AND
+    groupType=='Station360'; without this injection the node is invisible to Reveal/Fusion.
+    """
+
+    VIEW_IDS: ClassVar[frozenset[ViewId]] = frozenset({_IMAGE360_STATION_SOURCE_VIEW})
+
+    def convert(self, source_properties: dict[str, Any], context: ConversionContext) -> ConversionResult:
+        if context.source_view_id not in self.VIEW_IDS:
+            return ConversionResult(container_properties={})
+        return ConversionResult(container_properties={"groupType": "Station360"})
