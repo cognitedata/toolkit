@@ -394,6 +394,4 @@ class TestAgentYAML:
         assert len(warning_list) == 1
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
-        assert any(
-            f"list should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors
-        )
+        assert any(f"list should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors)
