@@ -354,7 +354,7 @@ class TestInstanceIO:
         respx_mock.post(query_url).respond(
             status_code=200,
             json={
-                "items": {"nodes": [_node("collection_1")]},
+                "items": {"root": [_node("collection_1")]},
                 "nextCursor": {},
             },
         )
@@ -365,7 +365,7 @@ class TestInstanceIO:
         assert len(pages) == 1
         assert {item.item.external_id for item in pages[0].items} == {"collection_1"}
         request_body = json.loads(respx_mock.calls[0].request.content)
-        node_filter = request_body["with"]["nodes"]["nodes"]["filter"]
+        node_filter = request_body["with"]["root"]["nodes"]["filter"]
         assert additional_filter in node_filter["and"]
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -393,7 +393,7 @@ class TestInstanceIO:
 
         assert InstanceIO(client).count(selector) == 1
         request_body = json.loads(respx_mock.calls[0].request.content)
-        assert additional_filter in request_body["filter"]["and"]
+        assert request_body["filter"] == additional_filter
 
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)

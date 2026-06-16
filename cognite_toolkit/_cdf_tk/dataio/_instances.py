@@ -103,6 +103,7 @@ class InstanceIO(
         source: ViewId | None = None
         space: list[str] | None = None
 
+        additional_filter: dict[str, Any] | None = None
         if isinstance(selector, InstanceViewSelector):
             source = ViewId(
                 space=selector.view.space,
@@ -111,6 +112,7 @@ class InstanceIO(
             )
             if selector.instance_spaces:
                 space = list(selector.instance_spaces)
+            additional_filter = selector.additional_filter
         elif isinstance(selector, InstanceSpaceSelector):
             space = [selector.instance_space]
             if selector.view and selector.view.version:
@@ -124,6 +126,7 @@ class InstanceIO(
             instance_type=selector.instance_type,
             source=source,
             space=space,
+            filter=additional_filter,
         )
 
     @staticmethod
@@ -279,11 +282,7 @@ class InstanceIO(
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[NodeOrEdgeResponse]]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
-        if (
-            isinstance(selector, InstanceViewSelector)
-            and selector.instance_type == "node"
-            and (selector.edge_types or selector.additional_filter is not None)
-        ):
+        if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             pages = self._instances_with_container_properties(selector, limit, init_cursor)
@@ -467,7 +466,7 @@ class InstanceIO(
                 "space": selector.get_instance_spaces(),
             }
             if isinstance(selector, InstanceViewSelector) and selector.additional_filter is not None:
-                aggregate_kwargs["filter"] = self._build_query_filter(selector, selector.instance_type)
+                aggregate_kwargs["filter"] = selector.additional_filter
             result = self.client.data_modeling.instances.aggregate(**aggregate_kwargs)
             return int(result.value or 0)
         elif isinstance(selector, InstanceSpaceSelector):
