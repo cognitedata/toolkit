@@ -546,23 +546,19 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
-_THREED_DM_MIGRATION_PROBE_ENDPOINT = "/3d/migrate/models"
-_THREED_DM_MIGRATION_NOT_ENABLED_MESSAGE = "Migration endpoint not enabled"
-_THREED_DM_MIGRATION_FEATURE_FLAG_ERROR = (
-    "You need to have the 3D migration feature flag enabled on your CDF project to proceed with this "
-    "operation. Please contact your Cognite representative to get this enabled."
-)
-
-
 def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
-    """Probe /3d/migrate/models to check the THREED_Enable_DM_Migration toggle on hybrid projects."""
+    """
+    Probe /3d/migrate/models to check if the 3D DM migration feature flag is
+    enabled on hybrid projects. If the flag is not enabled, this API will always
+    return a 400 error with the message "Migration endpoint not enabled".
+    """
     if client.project.status().this_project.data_modeling_status == "DATA_MODELING_ONLY":
         return
 
     with HTTPClient(config=client.config) as http_client:
         response = http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=client.config.create_api_url(_THREED_DM_MIGRATION_PROBE_ENDPOINT),
+                endpoint_url=client.config.create_api_url("/3d/migrate/models"),
                 method="POST",
                 body_content={"items": []},
             )
@@ -570,9 +566,12 @@ def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
     if (
         isinstance(response, FailedResponse)
         and response.status_code == 400
-        and response.error.message == _THREED_DM_MIGRATION_NOT_ENABLED_MESSAGE
+        and response.error.message == "Migration endpoint not enabled"
     ):
-        raise ToolkitMigrationError(_THREED_DM_MIGRATION_FEATURE_FLAG_ERROR)
+        raise ToolkitMigrationError(
+            "You need to have the 3D migration feature flag enabled on your CDF project to proceed with this "
+            "operation. Please contact your Cognite representative to get this enabled."
+        )
 
 
 class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
