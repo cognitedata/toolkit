@@ -552,9 +552,6 @@ def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
     enabled on hybrid projects. If the flag is not enabled, this API will always
     return a 400 error with the message "Migration endpoint not enabled".
     """
-    if client.project.status().this_project.data_modeling_status == "DATA_MODELING_ONLY":
-        return
-
     with HTTPClient(config=client.config) as http_client:
         response = http_client.request_single_retries(
             RequestMessage(
