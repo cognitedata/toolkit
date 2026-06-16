@@ -8,8 +8,9 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -43,6 +44,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
     IMAGE360_COLLECTION_SOURCE_VIEW,
     IMAGE360_SOURCE_VIEW,
+    IMAGE360_STATION_SOURCE_VIEW,
     create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
@@ -171,6 +173,52 @@ def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
             for node_id in collections
         ]
     }
+
+
+def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
+    """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
+    nodes = client.tool.instances.list(
+        filter=InstanceFilter(instance_type="node", source=IMAGE360_SOURCE_VIEW), limit=None
+    )
+    selected_external_ids = {node_id.external_id for node_id in selected_collections}
+    station_ids: set[NodeId] = set()
+    for node in nodes:
+        if not isinstance(node, NodeResponse) or node.properties is None:
+            continue
+        properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
+        collection_reference = properties.get("collection360")
+        if not isinstance(collection_reference, dict):
+            continue
+        collection_external_id = collection_reference.get("externalId")
+        if not isinstance(collection_external_id, str):
+            continue
+        if collection_external_id not in selected_external_ids:
+            continue
+        station_reference = properties.get("station")
+        if isinstance(station_reference, dict):
+            space = station_reference.get("space")
+            external_id = station_reference.get("externalId")
+            if isinstance(space, str) and isinstance(external_id, str):
+                station_ids.add(NodeId(space=space, external_id=external_id))
+    return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
+
+
+def _image360_station_node_filter(station_ids: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given Station360 nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in station_ids]}}
+
+
+def _image360_mapping_additional_filter(
+    mapping: ViewToViewMapping,
+    image360_filter: dict[str, Any],
+    station_filter: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return the additional DMS filter for a legacy 360-image view mapping, if any."""
+    if mapping.source_view == IMAGE360_SOURCE_VIEW:
+        return image360_filter
+    if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW:
+        return station_filter
+    return None
 
 
 class MigrateApp(typer.Typer):
@@ -1865,6 +1913,8 @@ class MigrateApp(typer.Typer):
         # create_image360_node_mappings() returns [Station360, Image360] in dependency order.
         collection_filter = _image360_collection_node_filter(selected_collections)
         image360_filter = _image360_collection360_filter(selected_collections)
+        station_ids = _resolve_image360_station_ids(client, selected_collections)
+        station_filter = _image360_station_node_filter(station_ids) if station_ids else None
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
             InstanceViewSelector(
                 view=SelectedView(
@@ -1875,7 +1925,11 @@ class MigrateApp(typer.Typer):
                 endpoint="query",
                 additional_filter=collection_filter,
             ),
-            *[
+        ]
+        for mapping in mappings:
+            if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and not station_ids:
+                continue
+            selectors.append(
                 InstanceViewSelector(
                     view=SelectedView(
                         space=mapping.source_view.space,
@@ -1883,14 +1937,10 @@ class MigrateApp(typer.Typer):
                         version=mapping.source_view.version,
                     ),
                     endpoint="query",
-                    # Station360 nodes have no collection reference, so they are always migrated in full.
-                    additional_filter=image360_filter
-                    if mapping.source_view.external_id == IMAGE360_SOURCE_VIEW.external_id
-                    else None,
+                    # Station360 nodes are scoped via the Image360 station direct relation.
+                    additional_filter=_image360_mapping_additional_filter(mapping, image360_filter, station_filter),
                 )
-                for mapping in mappings
-            ],
-        ]
+            )
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = FDMtoCDMMapper(
             client,

@@ -7,6 +7,7 @@ _DESTINATION_SPACE = "cdf_cdm"
 
 IMAGE360_SOURCE_VIEW = ViewId(space=_SOURCE_SPACE, external_id="Image360", version="v1")
 IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space=_SOURCE_SPACE, external_id="Image360Collection", version="v1")
+IMAGE360_STATION_SOURCE_VIEW = ViewId(space=_SOURCE_SPACE, external_id="Station360", version="v1")
 COGNITE360_IMAGE_VIEW = ViewId(space=_DESTINATION_SPACE, external_id="Cognite360Image", version="v1")
 
 COGNITE360_FACE_PROPERTIES = frozenset({"front", "back", "left", "right", "top", "bottom"})
@@ -34,7 +35,7 @@ def create_image360_node_mappings() -> list[ViewToViewMapping]:
     return [
         ViewToViewMapping(
             external_id="Station360ToCognite360ImageStationMapping",
-            source_view=ViewId(space=_SOURCE_SPACE, external_id="Station360", version="v1"),
+            source_view=IMAGE360_STATION_SOURCE_VIEW,
             destination_view=ViewId(space=_DESTINATION_SPACE, external_id="Cognite360ImageStation", version="v1"),
             map_identical_id_properties=False,
             container_mapping={"label": "name"},

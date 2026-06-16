@@ -279,7 +279,11 @@ class InstanceIO(
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[NodeOrEdgeResponse]]:
         init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
-        if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
+        if (
+            isinstance(selector, InstanceViewSelector)
+            and selector.instance_type == "node"
+            and (selector.edge_types or selector.additional_filter is not None)
+        ):
             pages = self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             pages = self._instances_with_container_properties(selector, limit, init_cursor)
@@ -454,12 +458,17 @@ class InstanceIO(
             isinstance(selector, InstanceSpaceSelector) and selector.view
         ):
             view_id = cast(SelectedView, selector.view)
-            result = self.client.data_modeling.instances.aggregate(
-                view=sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-                aggregates=Count("externalId"),
-                instance_type=selector.instance_type,
-                space=selector.get_instance_spaces(),
-            )
+            aggregate_kwargs: dict[str, Any] = {
+                "view": sdk_dm.ViewId(
+                    space=view_id.space, external_id=view_id.external_id, version=view_id.version
+                ),
+                "aggregates": Count("externalId"),
+                "instance_type": selector.instance_type,
+                "space": selector.get_instance_spaces(),
+            }
+            if isinstance(selector, InstanceViewSelector) and selector.additional_filter is not None:
+                aggregate_kwargs["filter"] = self._build_query_filter(selector, selector.instance_type)
+            result = self.client.data_modeling.instances.aggregate(**aggregate_kwargs)
             return int(result.value or 0)
         elif isinstance(selector, InstanceSpaceSelector):
             statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)
