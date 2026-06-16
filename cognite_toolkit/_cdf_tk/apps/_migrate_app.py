@@ -193,8 +193,9 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
-        self.command("360-images")(self.image_360_nodes)
-        self.command("360-image-annotations")(self.image_360_annotations)
+        if Flags.IMAGE360_MIGRATE.is_enabled():
+            self.command("360-images")(self.image_360_nodes)
+            self.command("360-image-annotations")(self.image_360_annotations)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
