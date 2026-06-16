@@ -7,13 +7,15 @@
 
 ## Troubleshooting
 
-### pyenv / dmypy: command not found
+### mypy: command not found
 
-If pre-commit fails with `dmypy: command not found` (e.g. when pyenv global is Python 3.14 and mypy
-isn't installed there), run mypy via the project venv instead:
+If pre-commit fails with `mypy: command not found`, run it explicitly via the project venv:
 
 ```bash
 uv run mypy cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
 ```
 
-To bypass the failing hook and commit: `git commit --no-verify`.
+### Never use `--no-verify` to bypass mypy
+
+Do **not** commit with `git commit --no-verify` to bypass a mypy failure. Fix the error instead.
+If the error is on a line that already has a `# type: ignore` comment that CI needs, do not remove it.

@@ -18,7 +18,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
     SingleReverseDirectRelationPropertyRequest,
     ViewCorePropertyRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
@@ -191,6 +194,40 @@ name: String}""",
         assert len(items) == 1
         resource = loader.load_resource(items[0], is_dry_run=False)
         assert resource.version == "3_0_2"
+
+    def test_dml_field_not_leaked_to_api_payload(self) -> None:
+        # Regression test for CDF-28109: when the YAML has a 'dml' key pointing to the
+        # .graphql file, it must NOT be forwarded to the GraphQlDmlVersionUpsert mutation.
+        request = GraphQLDataModelRequest.model_validate(
+            {"space": "my_space", "externalId": "my_model", "version": "v1", "dml": "my_schema.graphql"},
+            by_alias=True,
+        )
+        payload = request.model_dump(mode="json", by_alias=True, exclude_unset=False)
+        assert "dml" not in payload
+
+    def test_custom_dml_path_used_to_resolve_graphql_file(self, env_vars_with_client: EnvironmentVariables) -> None:
+        # Regression test for CDF-28109: when the YAML has 'dml: custom_name.graphql',
+        # the loader should use that path to find the graphql file.
+        schema = "type WindTurbine { name: String }"
+        custom_graphql_file = MagicMock(spec=Path)
+        custom_graphql_file.read_text.return_value = schema
+        custom_graphql_file.name = "custom_name.graphql"
+        custom_graphql_file.is_file.return_value = True
+
+        yaml_file = MagicMock(spec=Path)
+        yaml_file.read_text.return_value = (
+            "space: my_space\nexternalId: MyModel\nversion: v1\ndml: custom_name.graphql\n"
+        )
+        yaml_file.stem = "MyModel.GraphQLSchema"
+        yaml_file.parent = MagicMock(spec=Path)
+        yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
+
+        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
+        items = loader.load_resource_file(yaml_file, {})
+
+        assert len(items) == 1
+        # The loader should have resolved the graphql file via the dml field
+        yaml_file.parent.__truediv__.assert_called_with("custom_name.graphql")
 
     @staticmethod
     def _create_mock_file(model: str, space: str, external_id: str, version: int | str = "v1") -> MagicMock:
