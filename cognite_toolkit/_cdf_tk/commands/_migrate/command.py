@@ -54,6 +54,17 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING
 from .issues import MigrationEntryV2
 
 
+def _tracking_id_for_mapped_item(mapped_item: T_DataRequest) -> str:
+    as_id = getattr(mapped_item, "as_id", None)
+    if as_id is None:
+        raise ToolkitValueError(
+            "Mapper returned a different number of items than source items, "
+            f"but mapped item type {type(mapped_item).__name__!r} does not support as_id() for tracking."
+        )
+    instance_id = as_id()
+    return f"{instance_id.space}:{instance_id.external_id}"
+
+
 @dataclass
 class MigrationStep(Generic[T_Selector]):
     total_count: int | None
@@ -295,13 +306,24 @@ class MigrationCommand(ToolkitCommand):
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
             raw_items = [di.item for di in source.items]
             mapped = mapper.map(raw_items)
+            if len(mapped) == len(source.items):
+                items = [
+                    DataItem(tracking_id=item.tracking_id, item=target)
+                    for target, item in zip(mapped, source.items, strict=True)
+                    if target is not None
+                ]
+            else:
+                # Some mappers expand one source item into several targets (e.g. Image360Collection
+                # → Cognite360ImageModel + Cognite360ImageCollection). Derive tracking IDs from the
+                # mapped items themselves instead of zipping with the source page.
+                items = [
+                    DataItem(tracking_id=_tracking_id_for_mapped_item(target), item=target)
+                    for target in mapped
+                    if target is not None
+                ]
             return Page(
                 worker_id=source.worker_id,
-                items=[
-                    DataItem(tracking_id=item.tracking_id, item=target)
-                    for target, item in zip(mapped, source.items)
-                    if target is not None
-                ],
+                items=items,
                 bookmark=source.bookmark,
             )
 
@@ -501,6 +523,5 @@ class MigrationCommand(ToolkitCommand):
             self.console(
                 f"{len(to_create.resources)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
             )
-            self.console("It is recommended to add these files to a Toolkit governed module.")
 
         return results

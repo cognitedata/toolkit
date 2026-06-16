@@ -1362,10 +1362,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         target_view_ids: set[ViewId] = set()
         for node in nodes:
             source_node_id = node.as_id()
-            if node.space not in self._connection_creator.space_mapping:
+            if not self._connection_creator.can_map_instance(node.space):
                 issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
                     id=str(source_node_id),
-                    errors=[f"No target space mapping for source space '{node.space}'"],
+                    errors=[f"No instance ID mapping for source space '{node.space}'"],
                 )
                 continue
             mapped_node, edges, issue = self._map_single_node(

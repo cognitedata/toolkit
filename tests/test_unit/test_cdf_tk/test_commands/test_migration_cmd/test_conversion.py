@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
+    SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -1542,7 +1543,9 @@ class TestInstanceToInstanceConversion:
     def _create_connection_creator(self) -> ConnectionCreator:
         creator = ConnectionCreator(
             client=MagicMock(spec=ToolkitClient),
-            space_mapping={"src_space": "dst_space", "dst_space": "dst_space"},
+            instance_id_mapper=SpaceMappingInstanceIdMapper(
+                {"src_space": "dst_space", "dst_space": "dst_space"},
+            ),
         )
         source_view = ViewResponse(
             space=self.SOURCE_VIEW_ID.space,

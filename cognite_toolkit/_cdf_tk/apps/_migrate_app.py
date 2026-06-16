@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldUserMapping,
+    SpaceMappingInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -1677,7 +1678,9 @@ class MigrateApp(typer.Typer):
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
-            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+            client,
+            instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
+            custom_mappings=[InFieldAssetMapping(client)],
         )
         mapper = FDMtoCDMMapper(
             client,

@@ -183,13 +183,17 @@ class InstanceConversionIssue(MigrationIssue):
 
 
 def instance_conversion_issue_as_migration_entry(
-    issue: InstanceConversionIssue, *, source: str, destination: str
+    issue: InstanceConversionIssue,
+    *,
+    source: str,
+    destination: str,
+    severity: Severity = Severity.warning,
 ) -> MigrationEntryV2:
     return MigrationEntryV2(
         id=issue.id,
         label="Instance conversion",
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
-        severity=Severity.warning,
+        severity=severity,
         source=source,
         destination=destination,
     )
