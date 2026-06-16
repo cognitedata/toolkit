@@ -133,15 +133,11 @@ def _resolve_image360_annotation_spaces(
         ).unsafe_ask()
         return resolved_object_3D_space, resolved_instance_space
     if object_3D_space is None or instance_space is None:
-        raise typer.BadParameter(
-            "Either both --object-3d-space and --instance-space must be provided, or neither."
-        )
+        raise typer.BadParameter("Either both --object-3d-space and --instance-space must be provided, or neither.")
     return object_3D_space, instance_space
 
 
-def _resolve_image360_collections(
-    client: ToolkitClient, operation: str, collection: list[str] | None
-) -> list[NodeId]:
+def _resolve_image360_collections(client: ToolkitClient, operation: str, collection: list[str] | None) -> list[NodeId]:
     """Resolve the 360 image collections to migrate."""
     selector = Image360CollectionInteractiveSelect(client, operation)
     if collection:
@@ -162,15 +158,10 @@ def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
         "collection360",
     ]
     return {
-        "or": [
-            {
-                "equals": {
-                    "property": collection360_property,
-                    "value": {"space": node_id.space, "externalId": node_id.external_id},
-                }
-            }
-            for node_id in collections
-        ]
+        "in": {
+            "property": collection360_property,
+            "values": [{"space": node_id.space, "externalId": node_id.external_id} for node_id in collections],
+        }
     }
 
 
@@ -214,19 +205,6 @@ def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: l
 def _image360_station_node_filter(station_ids: list[NodeId]) -> dict[str, Any]:
     """Build a DMS filter selecting the given Station360 nodes by external ID."""
     return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in station_ids]}}
-
-
-def _image360_mapping_additional_filter(
-    mapping: ViewToViewMapping,
-    image360_filter: dict[str, Any],
-    station_filter: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Return the additional DMS filter for a legacy 360-image view mapping, if any."""
-    if mapping.source_view == IMAGE360_SOURCE_VIEW:
-        return image360_filter
-    if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW:
-        return station_filter
-    return None
 
 
 class MigrateApp(typer.Typer):
@@ -1934,8 +1912,13 @@ class MigrateApp(typer.Typer):
                 additional_filter=collection_filter,
             ),
         ]
+        # Station360 nodes are scoped via the Image360 station direct relation (station_filter);
+        # Image360 nodes are scoped by their collection360 direct relation (image360_filter).
+        additional_filter_by_source_view = {IMAGE360_SOURCE_VIEW: image360_filter}
+        if station_filter is not None:
+            additional_filter_by_source_view[IMAGE360_STATION_SOURCE_VIEW] = station_filter
         for mapping in mappings:
-            if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and not station_ids:
+            if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and station_filter is None:
                 continue
             selectors.append(
                 InstanceViewSelector(
@@ -1945,8 +1928,7 @@ class MigrateApp(typer.Typer):
                         version=mapping.source_view.version,
                     ),
                     endpoint="query",
-                    # Station360 nodes are scoped via the Image360 station direct relation.
-                    additional_filter=_image360_mapping_additional_filter(mapping, image360_filter, station_filter),
+                    additional_filter=additional_filter_by_source_view.get(mapping.source_view),
                 )
             )
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
@@ -2033,9 +2015,7 @@ class MigrateApp(typer.Typer):
         selected_collections = _resolve_image360_collections(client, "migrate annotations for", collection)
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
 
-        object_3D_space, instance_space = _resolve_image360_annotation_spaces(
-            object_3D_space, instance_space
-        )
+        object_3D_space, instance_space = _resolve_image360_annotation_spaces(object_3D_space, instance_space)
         default_log_dir = Path(f"migration_logs_{TODAY}")
         log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
 
