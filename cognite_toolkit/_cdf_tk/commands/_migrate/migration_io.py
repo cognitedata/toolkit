@@ -3,9 +3,9 @@ from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
     HTTPClient,
     RequestMessage,
-    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedRequest,
@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelIdSelector,
     ThreeDSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
@@ -546,6 +546,35 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
+_THREED_DM_MIGRATION_PROBE_ENDPOINT = "/3d/migrate/models"
+_THREED_DM_MIGRATION_NOT_ENABLED_MESSAGE = "Migration endpoint not enabled"
+_THREED_DM_MIGRATION_FEATURE_FLAG_ERROR = (
+    "You need to have the 3D migration feature flag enabled on your CDF project to proceed with this "
+    "operation. Please contact your Cognite representative to get this enabled."
+)
+
+
+def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
+    """Probe /3d/migrate/models to check the THREED_Enable_DM_Migration toggle on hybrid projects."""
+    if client.project.status().this_project.data_modeling_status == "DATA_MODELING_ONLY":
+        return
+
+    with HTTPClient(config=client.config) as http_client:
+        response = http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=client.config.create_api_url(_THREED_DM_MIGRATION_PROBE_ENDPOINT),
+                method="POST",
+                body_content={"items": []},
+            )
+        )
+    if (
+        isinstance(response, FailedResponse)
+        and response.status_code == 400
+        and response.error.message == _THREED_DM_MIGRATION_NOT_ENABLED_MESSAGE
+    ):
+        raise ToolkitMigrationError(_THREED_DM_MIGRATION_FEATURE_FLAG_ERROR)
+
+
 class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
     """IO class for downloading and migrating 3D models.
 
@@ -638,11 +667,6 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
                 items=data_chunk.items,
             )
         )
-        if (
-            failed_response := next((res for res in responses if isinstance(res, ItemsFailedResponse)), None)
-        ) and failed_response.status_code == 400:
-            raise ToolkitAPIError("3D model migration failed. You need to enable the 3D migration alpha feature flag.")
-
         results.extend(responses)
         success_ids = {id for res in responses if isinstance(res, ItemsSuccessResponse) for id in res.ids}
         for data in data_chunk.items:
