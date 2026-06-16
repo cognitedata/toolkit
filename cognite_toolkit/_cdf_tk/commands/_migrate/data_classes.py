@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, ExternalId, InstanceId, InternalId, NodeId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -294,3 +294,48 @@ class ThreeDMigrationRequest(RequestResource):
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.model_id)
+
+
+class Image360AnnotationRequest(RequestResource):
+    """Single item for POST /3d/contextualization/image360 (beta).
+
+    The ``dmsContextualizationConfig`` fields (object3dSpace, contextualizationSpace, revision)
+    are shared per request batch and are provided by the selector in ``upload_items()``.
+    The selector's ``instance_space`` maps to the API's ``contextualizationSpace`` field.
+
+    Args:
+        asset_instance_id: DMS NodeId of the asset the annotation points to.
+        image360_instance_id: DMS NodeId of the new Cognite360Image node.
+        revision_instance_id: DMS NodeId of the Cognite360ImageCollection node (also acts as the
+            Cognite3DRevision in the CDM). Used to group items into batches with matching configs.
+        polygon_data: Spherical polygon in v2.0.0 format: [N, phi1, theta1, ..., phiN, thetaN]
+            where N ≥ 3, phi ∈ [0, π], theta ∈ [0, 2π].
+    """
+
+    asset_instance_id: NodeId
+    image360_instance_id: NodeId
+    revision_instance_id: NodeId
+    polygon_data: list[float]
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(
+            external_id=f"{self.image360_instance_id.space}/{self.image360_instance_id.external_id}"
+        )
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        """Returns the per-item dict for inclusion in the 'items' array of the beta endpoint body."""
+        return {
+            "asset": {
+                "instanceId": {
+                    "space": self.asset_instance_id.space,
+                    "externalId": self.asset_instance_id.external_id,
+                }
+            },
+            "image360": {
+                "instanceId": {
+                    "space": self.image360_instance_id.space,
+                    "externalId": self.image360_instance_id.external_id,
+                }
+            },
+            "polygon": {"version": "2.0.0", "data": self.polygon_data},
+        }

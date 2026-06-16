@@ -1,3 +1,4 @@
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
@@ -83,11 +84,19 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360AnnotationMapper,
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
+    uv_and_face_to_spherical,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    COGNITE360_IMAGE_VIEW,
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_SOURCE_VIEW,
+    create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_3D_REVISION_VIEW,
@@ -99,7 +108,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -1602,3 +1611,73 @@ class TestAssetCentricToRecordMapper:
         assert len(record.sources) == 1
         assert record.sources[0].source == container_id
         assert record.sources[0].properties["description"] == "An event"
+
+
+class TestImage360AnnotationMapper:
+    SOURCE_SPACE = "cdf_360_image_schema"
+
+    @staticmethod
+    def _image_node(external_id: str, collection_external_id: str, file_external_id: str) -> NodeResponse:
+        return NodeResponse(
+            space=TestImage360AnnotationMapper.SOURCE_SPACE,
+            external_id=external_id,
+            created_time=0,
+            last_updated_time=1,
+            version=1,
+            properties={
+                IMAGE360_SOURCE_VIEW: {
+                    "collection360": {
+                        "space": TestImage360AnnotationMapper.SOURCE_SPACE,
+                        "externalId": collection_external_id,
+                    },
+                    "cubeMapFront": file_external_id,
+                }
+            },
+        )
+
+    def test_prepare_filters_by_selected_collection(self) -> None:
+        node_in = self._image_node("image_in", "collection_in", "file_in")
+        node_out = self._image_node("image_out", "collection_out", "file_out")
+        selector = Image360AnnotationSelector(
+            object3d_space="obj_space",
+            instance_space="inst_space",
+            collections=("collection_in",),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.list.return_value = [node_in, node_out]
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=11, external_id="file_in", name="file_in", created_time=0, last_updated_time=0, uploaded=True
+                ),
+            ]
+            mapper = Image360AnnotationMapper(client)
+            mapper.prepare(selector)
+
+        # Only the face file belonging to the selected collection is resolved.
+        retrieved_external_ids = {item.external_id for item in client.tool.filemetadata.retrieve.call_args[0][0]}
+        assert retrieved_external_ids == {"file_in"}
+        assert set(mapper._face_and_nodes_by_file_id) == {11}
+
+
+class TestUvAndFaceToSpherical:
+    def test_face_centers_match_fusion_reference(self) -> None:
+        """Face centers (u=v=0.5) must match fusion getNormalizedVectorFromUVAndFace.test.ts."""
+        expected = {
+            "left": (math.pi / 2, math.pi / 2),
+            "right": (math.pi / 2, 3 * math.pi / 2),
+            "front": (math.pi, math.pi),
+            "back": (0.0, math.pi),
+            "top": (math.pi / 2, 0.0),
+            "bottom": (math.pi / 2, math.pi),
+        }
+        for face, (expected_phi, expected_theta) in expected.items():
+            phi, theta = uv_and_face_to_spherical(face, 0.5, 0.5)
+            assert phi == pytest.approx(expected_phi, abs=1e-4)
+            assert theta == pytest.approx(expected_theta, abs=1e-4)
+
+    def test_front_vertex_matches_fusion_transform_annotations(self) -> None:
+        """front (0.1, 0.2) must match fusion transformAnnotationsToVectors.test.ts."""
+        phi, theta = uv_and_face_to_spherical("front", 0.1, 0.2)
+        assert phi == pytest.approx(2.3562, abs=1e-4)
+        assert theta == pytest.approx(0.9273, abs=1e-4)
