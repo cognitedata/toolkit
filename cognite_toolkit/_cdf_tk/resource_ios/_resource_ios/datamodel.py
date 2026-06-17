@@ -1428,7 +1428,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
         This includes a required .graphql file with the schema.
         """
-        graphql_file = cls._get_graphql_file(filepath)
+        graphql_file = cls._get_graphql_file(filepath, dml=item.get("dml"))
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
@@ -1449,7 +1449,10 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
         )
 
     @classmethod
-    def _get_graphql_file(cls, filepath: Path) -> Path:
+    def _get_graphql_file(cls, filepath: Path, dml: str | None = None) -> Path:
+        if dml is not None:
+            return filepath.parent / str(dml)
+
         filestem = filepath.stem
         if filestem.lower().endswith(cls.kind.lower()):
             filestem = filestem[: -len(cls.kind)].removesuffix(".").rstrip()
@@ -1482,8 +1485,9 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
         for item in raw_list:
             model_id = self.get_id(item)
-            # Find the GraphQL files adjacent to the DML files
-            graphql_file = self._get_graphql_file(filepath)
+            # Find the GraphQL files adjacent to the DML files.
+            # The 'dml' key in the YAML may point to a custom graphql file name.
+            graphql_file = self._get_graphql_file(filepath, dml=item.get("dml"))
             if not graphql_file.is_file():
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
