@@ -101,7 +101,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        for subagent in item.get("subagents", []):
+        for subagent in item.get("subagents") or []:
             if isinstance(subagent, dict) and (agent_external_id := subagent.get("agentExternalId")):
                 yield AgentIO, ExternalId(external_id=agent_external_id)
         for tool in item.get("tools", []):
