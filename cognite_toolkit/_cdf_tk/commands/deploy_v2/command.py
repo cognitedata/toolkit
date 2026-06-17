@@ -1249,7 +1249,8 @@ class DeployV2Command(ToolkitCommand):
                     and isinstance(resource.identifier, RawTableId)
                 ):
                     for file_type in ["csv", "parquet"]:
-                        if (data_file := resource.source_file.with_suffix(f".{file_type}")).is_file():
+                        data_file = resource.source_file.with_suffix(f".{file_type}")
+                        if data_file.is_file():
                             key_col = cls._detect_key_column(data_file)
                             selections[
                                 RawTableSelector(
@@ -1273,9 +1274,9 @@ class DeployV2Command(ToolkitCommand):
         """
         if data_file.suffix == ".csv":
             try:
-                with data_file.open(encoding="utf-8", newline="") as fh:
+                with data_file.open(encoding="utf-8-sig", newline="") as fh:
                     header = next(csv.reader(fh), [])
-                if header and header[0] == "key":
+                if header and header[0].strip() == "key":
                     return "key"
             except (OSError, csv.Error):
                 pass

@@ -633,3 +633,22 @@ class TestDetectKeyColumn:
         txt_file = tmp_path / "my_table.txt"
         txt_file.write_text("key,name\n1,foo\n", encoding="utf-8")
         assert DeployV2Command._detect_key_column(txt_file) is None
+
+    def test_csv_with_utf8_bom_returns_key(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "bom_table.csv"
+        csv_file.write_text("key,name,value\n1,foo,bar\n", encoding="utf-8-sig")
+        assert DeployV2Command._detect_key_column(csv_file) == "key"
+
+    def test_csv_with_whitespace_around_key_returns_key(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "spaced_table.csv"
+        csv_file.write_bytes(b" key ,name,value\n1,foo,bar\n")
+        assert DeployV2Command._detect_key_column(csv_file) == "key"
+
+    def test_csv_windows_excel_format_returns_key(self, tmp_path: Path) -> None:
+        """Reproduce the Windows hypothesis: Excel saves CSV with a UTF-8 BOM and
+        CRLF line endings.  Without utf-8-sig + newline='' the first column would
+        be read as '\\ufeffkey' and detection would silently return None."""
+        windows_csv = b"\xef\xbb\xbfkey,name,value\r\n4b254a48,Oslo Shipping harbor,OSH\r\n"
+        csv_file = tmp_path / "excel_export.csv"
+        csv_file.write_bytes(windows_csv)
+        assert DeployV2Command._detect_key_column(csv_file) == "key"
