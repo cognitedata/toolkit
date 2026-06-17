@@ -295,14 +295,13 @@ class MigrationCommand(ToolkitCommand):
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
             raw_items = [di.item for di in source.items]
             mapped = mapper.map(raw_items)
-            items = [
-                DataItem(tracking_id=item.tracking_id, item=target)
-                for target, item in zip(mapped, source.items, strict=True)
-                if target is not None
-            ]
             return Page(
                 worker_id=source.worker_id,
-                items=items,
+                items=[
+                    DataItem(tracking_id=item.tracking_id, item=target)
+                    for target, item in zip(mapped, source.items, strict=True)
+                    if target is not None
+                ],
                 bookmark=source.bookmark,
             )
 
