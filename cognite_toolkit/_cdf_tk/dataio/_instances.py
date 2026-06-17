@@ -458,9 +458,7 @@ class InstanceIO(
         ):
             view_id = cast(SelectedView, selector.view)
             aggregate_kwargs: dict[str, Any] = {
-                "view": sdk_dm.ViewId(
-                    space=view_id.space, external_id=view_id.external_id, version=view_id.version
-                ),
+                "view": sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 "aggregates": Count("externalId"),
                 "instance_type": selector.instance_type,
                 "space": selector.get_instance_spaces(),
