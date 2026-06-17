@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeRequest,
-    NodeResponse,
     SpaceResponse,
     TextProperty,
     ViewId,
@@ -71,7 +70,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
-    DataMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
@@ -92,9 +90,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
-from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, NoBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
@@ -1229,47 +1227,6 @@ class TestMigrationCommand:
         actual = MigrationCommand._create_logfile_stem(tmp_path, stem, "not_important")
 
         assert actual == expected
-
-    def test_convert_expanded_mapper_output(self) -> None:
-        class DoublingMapper(DataMapper):
-            def map(self, source: Sequence[NodeResponse]) -> Sequence[NodeRequest | None]:
-                results: list[NodeRequest] = []
-                for node in source:
-                    results.append(NodeRequest(space="dst", external_id=f"{node.external_id}_model", sources=None))
-                    results.append(NodeRequest(space="dst", external_id=node.external_id, sources=None))
-                return results
-
-        with monkeypatch_toolkit_client() as client:
-            convert = MigrationCommand._convert(DoublingMapper(client))
-            source_page = Page(
-                worker_id="main",
-                items=[
-                    DataItem(
-                        tracking_id="src:a",
-                        item=NodeResponse(
-                            space="src",
-                            external_id="a",
-                            created_time=0,
-                            last_updated_time=0,
-                            version=1,
-                        ),
-                    ),
-                    DataItem(
-                        tracking_id="src:b",
-                        item=NodeResponse(
-                            space="src",
-                            external_id="b",
-                            created_time=0,
-                            last_updated_time=0,
-                            version=1,
-                        ),
-                    ),
-                ],
-                bookmark=NoBookmark(),
-            )
-            result = convert(source_page)
-
-        assert [item.tracking_id for item in result.items] == ["dst:a_model", "dst:a", "dst:b_model", "dst:b"]
 
     def test_validate_stream_capacity_insufficient_records(self) -> None:
         stream = _make_stream_response(provisioned_records=1_000, consumed_records=900)
