@@ -501,5 +501,6 @@ class MigrationCommand(ToolkitCommand):
             self.console(
                 f"{len(to_create.resources)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
             )
+            self.console("It is recommended to add these files to a Toolkit governed module.")
 
         return results
