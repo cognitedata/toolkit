@@ -625,3 +625,49 @@ class TestGraphQLCRUDGetDependencies:
         deps = list(GraphQLCRUD.get_dependencies(graphql_model))
         assert len(deps) == 1
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+
+class TestDataModelBuilder:
+    """Regression tests for DataModelBuilder (build v1)."""
+
+    def test_dml_updated_to_renamed_graphql_in_build(self, tmp_path: Path) -> None:
+        # Regression test: build renames .graphql files with a long prefix, but deploy
+        # looks up the file via entry["dml"].  _copy_graphql_to_build must update "dml"
+        # so that deploy finds the renamed file instead of the original source name.
+        from cognite_toolkit._cdf_tk.builders._datamodels import DataModelBuilder
+        from cognite_toolkit._cdf_tk.data_classes._build_files import BuildSourceFile
+        from cognite_toolkit._cdf_tk.data_classes._built_resources import SourceLocationEager
+
+        source_dir = tmp_path / "source" / "data_modeling"
+        source_dir.mkdir(parents=True)
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+
+        yaml_path = source_dir / "my_model.GraphQLSchema.yaml"
+        graphql_path = source_dir / "original_schema.graphql"
+        yaml_path.write_text("space: my_space\nexternalId: MyModel\nversion: v1\ndml: original_schema.graphql\n")
+        graphql_path.write_text("type Foo { name: String }")
+
+        entry: dict = {"space": "my_space", "externalId": "MyModel", "version": "v1", "dml": "original_schema.graphql"}
+        source_file = BuildSourceFile(
+            source=SourceLocationEager(path=yaml_path, _hash="abc"),
+            content=yaml_path.read_text(),
+            loaded=entry,
+        )
+        graphql_source = BuildSourceFile(
+            source=SourceLocationEager(path=graphql_path, _hash="def"),
+            content=graphql_path.read_text(),
+            loaded=None,
+        )
+
+        builder = DataModelBuilder(build_dir=build_dir)
+        destination_path = build_dir / "data_modeling" / "1-my_model-SPP-COR.my_model.GraphQLSchema.yaml"
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        builder._copy_graphql_to_build(source_file, destination_path, {graphql_path: graphql_source})
+
+        # The "dml" field in the entry dict must be updated to the renamed build filename.
+        renamed_graphql = destination_path.with_suffix(".graphql").name
+        assert entry["dml"] == renamed_graphql, (
+            f"entry['dml'] was not updated after build rename: got {entry['dml']!r}, expected {renamed_graphql!r}"
+        )
