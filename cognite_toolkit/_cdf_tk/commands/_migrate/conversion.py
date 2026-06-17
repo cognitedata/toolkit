@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, Re
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
+from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path, humanize_collection
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
@@ -57,9 +57,14 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
 from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix, sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
+
+
+class InstanceMappingError(ToolkitError):
+    """Raised when an instance ID cannot be mapped to a destination instance ID."""
 
 
 class DirectRelationCache:
@@ -556,23 +561,24 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
-    @abstractmethod
-    def can_map(self, space: str) -> bool:
-        raise NotImplementedError
-
 
 class SpaceMappingInstanceIdMapper(InstanceIdMapper):
     def __init__(self, space_mapping: Mapping[str, str]) -> None:
         self._space_mapping = space_mapping
 
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        if instance_id.space not in self._space_mapping:
+            raise InstanceMappingError(
+                f"No source-to-destination space mapping applies to space {instance_id.space!r}. This migration is only "
+                f"configured to map instances from the following source space(s): "
+                f"{humanize_collection(self._space_mapping)}. Instances (or direct-relation/edge targets) outside these "
+                f"spaces cannot be migrated. To fix this, re-run the migration with {instance_id.space!r} included as "
+                f"a source space."
+            )
         return NodeId(
             space=self._space_mapping[instance_id.space],
             external_id=instance_id.external_id,
         )
-
-    def can_map(self, space: str) -> bool:
-        return space in self._space_mapping
 
 
 class SuffixInstanceIdMapper(InstanceIdMapper):
@@ -584,9 +590,6 @@ class SuffixInstanceIdMapper(InstanceIdMapper):
             space=instance_id.space,
             external_id=add_migration_suffix(instance_id.external_id, self._suffix),
         )
-
-    def can_map(self, space: str) -> bool:
-        return True
 
 
 class ConnectionCreator:
@@ -768,9 +771,6 @@ class ConnectionCreator:
         except ValueError:
             return None
 
-    def can_map_instance(self, space: str) -> bool:
-        return self._instance_id_mapper.can_map(space)
-
     def map_instance(self, instance_id: NodeId | EdgeId) -> NodeId:
         """Maps a source instance ID to the corresponding destination instance ID."""
         return self._instance_id_mapper.map_instance_id(instance_id)
@@ -870,8 +870,8 @@ class ConnectionCreator:
         for edge in edges:
             try:
                 target = self.map_instance(edge.other_side)
-            except KeyError as e:
-                issues.append(f"Failed to map {edge.other_side!s} to destination space: {e!s}")
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
             targets.append(target)
         result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
@@ -888,15 +888,13 @@ class ConnectionCreator:
         for edge in edges:
             try:
                 new_edge_id = self.map_instance(edge.edge_id)
-            except KeyError as e:
-                issues.append(f"Failed to map edge ID {edge.edge_id!s} to destination space: {e!s}")
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
             try:
                 other_side = self.map_instance(edge.other_side)
-            except KeyError as e:
-                issues.append(
-                    f"Failed to map other side of {source_id!s} node ID {edge.other_side!s} to destination space: {e!s}"
-                )
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
 
             start_node, end_node = source_id, other_side
@@ -1135,7 +1133,10 @@ def convert_container_properties(
         ):
             # We do not warn about the node properties, as they are typically ignored, nor about
             # source properties that are explicitly marked as intentionally unmapped.
-            if not source_prop_id.startswith("node.") and source_prop_id not in context.mapping.ignore_source_properties:
+            if (
+                not source_prop_id.startswith("node.")
+                and source_prop_id not in context.mapping.ignore_source_properties
+            ):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
         if dest_prop_id not in context.destination_properties:

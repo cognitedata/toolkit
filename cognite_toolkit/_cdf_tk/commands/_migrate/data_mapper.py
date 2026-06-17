@@ -78,6 +78,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     InFieldUserMapping,
+    InstanceMappingError,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -1362,15 +1363,16 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         target_view_ids: set[ViewId] = set()
         for node in nodes:
             source_node_id = node.as_id()
-            if not self._connection_creator.can_map_instance(node.space):
+            try:
+                mapped_node, edges, issue = self._map_single_node(
+                    node, other_side_by_edge_type_and_direction_by_source[source_node_id]
+                )
+            except InstanceMappingError as error:
                 issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
                     id=str(source_node_id),
-                    errors=[f"No instance ID mapping for source space '{node.space}'"],
+                    errors=[str(error)],
                 )
                 continue
-            mapped_node, edges, issue = self._map_single_node(
-                node, other_side_by_edge_type_and_direction_by_source[source_node_id]
-            )
             source_id_by_target_id[mapped_node.as_id()] = source_node_id
             if issue.has_issues:
                 issue_by_source_node_id[source_node_id] = issue
@@ -1441,7 +1443,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         node: NodeResponse,
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
-        new_id = self._connection_creator.map_instance(node)
+        new_id = self._connection_creator.map_instance(node.as_id())
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
         return (
@@ -1822,9 +1824,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         first = duplicated_schedules[0]
         issue = InstanceConversionIssue(id=str(first.as_id()))
         try:
-            new_id = self._connection_creator.map_instance(first)
-        except KeyError as e:
-            issue.errors.append(f"Failed to map schedule with ID {first.as_id()}: {e!s}")
+            new_id = self._connection_creator.map_instance(first.as_id())
+        except InstanceMappingError as error:
+            issue.errors.append(str(error))
             return None, issue
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(
