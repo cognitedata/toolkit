@@ -1277,7 +1277,7 @@ class DeployV2Command(ToolkitCommand):
                     header = next(csv.reader(fh), [])
                 if header and header[0] == "key":
                     return "key"
-            except Exception:
+            except (OSError, csv.Error):
                 pass
         elif data_file.suffix == ".parquet":
             try:
