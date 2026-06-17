@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
@@ -1295,7 +1296,7 @@ class MigrateApp(typer.Typer):
         id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The ID of the 3D Model to migrate. If not provided, an interactive selection will be "
+                help="The IDs of the 3D Models to migrate. If not provided, an interactive selection will be "
                 "performed to select the 3D Models to migrate."
             ),
         ] = None,
@@ -1332,6 +1333,7 @@ class MigrateApp(typer.Typer):
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if id:
             selected_ids = id
@@ -1358,8 +1360,8 @@ class MigrateApp(typer.Typer):
         model_id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
-                "performed to select the."
+                help="The IDs of the 3D models to migrate asset mappings for. If not provided, an interactive selection will be "
+                "performed to select the 3D models to migrate asset mappings for."
             ),
         ] = None,
         object_3D_space: Annotated[
@@ -1408,6 +1410,7 @@ class MigrateApp(typer.Typer):
         This command expects that the selected 3D model has already been migrated to data modeling.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if model_id is not None:
             selected_ids = model_id
