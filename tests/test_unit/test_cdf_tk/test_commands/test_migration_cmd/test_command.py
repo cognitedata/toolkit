@@ -20,8 +20,12 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationResponse,
+    AssetLinkData,
+    FileLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -650,6 +654,10 @@ class TestMigrationCommand:
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
+        assert isinstance(asset_annotation.data, AssetLinkData)
+        assert isinstance(asset_annotation.data.asset_ref, InternalId)
+        assert isinstance(file_annotation.data, FileLinkData)
+        assert isinstance(file_annotation.data.file_ref, InternalId)
         expected_instance = [
             EdgeApply(
                 space=space,

@@ -129,9 +129,9 @@ class Annotation(BaseModelObject):
         if not isinstance(annotation_type, str) or not isinstance(data, dict):
             return values
 
-        data_cls = _ANNOTATION_DATA_CLS_BY_TYPE.get(annotation_type)  # type: ignore[call-overload]
-        if data_cls is None:
+        if annotation_type not in _ANNOTATION_DATA_CLS_BY_TYPE:
             return values
+        data_cls = _ANNOTATION_DATA_CLS_BY_TYPE[annotation_type]
 
         try:
             parsed_data = data_cls.model_validate(data)
