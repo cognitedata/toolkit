@@ -299,7 +299,7 @@ class MigrationCommand(ToolkitCommand):
                 worker_id=source.worker_id,
                 items=[
                     DataItem(tracking_id=item.tracking_id, item=target)
-                    for target, item in zip(mapped, source.items, strict=True)
+                    for target, item in zip(mapped, source.items)
                     if target is not None
                 ],
                 bookmark=source.bookmark,
