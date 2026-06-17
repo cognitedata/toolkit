@@ -29,8 +29,8 @@ def create_image360_node_mappings() -> list[ViewToViewMapping]:
     - Image360 → Cognite360Image
     - Station360 → Cognite360ImageStation
 
-    Image360Collection → Cognite360ImageCollection (plus the derived Cognite360ImageModel) is
-    handled by Image360CollectionAndModelMapper registered via custom_instance_mappings.
+    Image360Collection → Cognite360ImageCollection is handled by Image360CollectionMapper registered
+    via custom_instance_mappings. The Cognite360ImageModel is created separately via POST /3d/models.
     """
     return [
         ViewToViewMapping(

@@ -87,7 +87,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
-    Image360CollectionAndModelMapper,
+    Image360CollectionMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
@@ -1070,7 +1070,7 @@ class TestFDMtoCDMMapper:
         assert entry.attribute_display_name == "file external IDs"
         assert f"{self.SOURCE_SPACE}:image1" == entry.id
 
-    def test_image360_collection_and_model_mapper_uses_same_space_and_cdm_suffix(self) -> None:
+    def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="collection1",
@@ -1079,18 +1079,17 @@ class TestFDMtoCDMMapper:
             version=1,
             properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
+        collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
+        model_external_id = "cog_3d_model_42"
 
         with monkeypatch_toolkit_client() as client:
-            mapper = Image360CollectionAndModelMapper(client)
+            mapper = Image360CollectionMapper(client, {collection_id: model_external_id})
             actual = mapper.map([collection_node])
 
-        assert len(actual) == 2
-        model_request, collection_request = actual
-        assert isinstance(model_request, NodeRequest)
+        assert len(actual) == 1
+        collection_request = actual[0]
         assert isinstance(collection_request, NodeRequest)
-        assert model_request.space == self.SOURCE_SPACE
         assert collection_request.space == self.SOURCE_SPACE
-        assert model_request.external_id == add_migration_suffix("collection1_model")
         assert collection_request.external_id == add_migration_suffix("collection1")
         model_source = next(
             source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
@@ -1098,7 +1097,7 @@ class TestFDMtoCDMMapper:
         assert model_source.properties is not None
         assert model_source.properties["model3D"] == {
             "space": self.SOURCE_SPACE,
-            "externalId": add_migration_suffix("collection1_model"),
+            "externalId": model_external_id,
         }
 
     def test_image360_with_all_face_files_is_uploaded(self) -> None:

@@ -2009,19 +2009,19 @@ _IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external
 _IMAGE360_STATION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Station360", version="v1")
 
 
-class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
-    """Maps each legacy Image360Collection node to two CDM nodes in one pass:
+class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
+    """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    - Cognite360ImageModel  (Cognite3DModel.type="Image360", CogniteDescribable.name)
-    - Cognite360ImageCollection  (Cognite3DRevision.model3D → model, status="Done", published=True,
-                                   CogniteDescribable.name)
+    The Cognite360ImageModel is created separately via POST /3d/models. This mapper sets
+    model3D on the collection revision to point at that model's external id.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, model_external_id_by_collection: dict[NodeId, str]) -> None:
         super().__init__(client)
+        self._model_external_id_by_collection = model_external_id_by_collection
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         results: list[NodeOrEdgeRequest | None] = []
@@ -2030,25 +2030,10 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 continue
             ext_id = node.external_id
             instance_space = node.space
+            collection_id = NodeId(space=instance_space, external_id=ext_id)
+            model_external_id = self._model_external_id_by_collection[collection_id]
             label = str(((node.properties or {}).get(_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
-            model_ext_id = add_migration_suffix(f"{ext_id}_model")
             collection_ext_id = add_migration_suffix(ext_id)
-            results.append(
-                NodeRequest(
-                    space=instance_space,
-                    external_id=model_ext_id,
-                    sources=[
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DModel"),
-                            properties={"type": "Image360"},
-                        ),
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                            properties={"name": label},
-                        ),
-                    ],
-                )
-            )
             results.append(
                 NodeRequest(
                     space=instance_space,
@@ -2057,7 +2042,7 @@ class Image360CollectionAndModelMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                         InstanceSource(
                             source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
                             properties={
-                                "model3D": {"space": instance_space, "externalId": model_ext_id},
+                                "model3D": {"space": instance_space, "externalId": model_external_id},
                                 "status": "Done",
                                 "published": True,
                                 "type": "Image360",

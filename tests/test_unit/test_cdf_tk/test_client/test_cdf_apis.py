@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRespon
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -850,6 +851,11 @@ class TestCDFResourceAPI:
         created = api.create([request])
         assert len(created) == 1
         assert created[0] == instance
+
+        dms_request = ThreeDModelDMSRequest(name="My 360 collection", space="my-space", type="Image360")
+        created_dms = api.create_dms([dms_request])
+        assert len(created_dms) == 1
+        assert created_dms[0] == instance
 
         # Test retrieve
         respx_mock.post(config.create_api_url(f"/3d/models/{instance.id}")).mock(

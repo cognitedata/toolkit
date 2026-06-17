@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelDMSRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -33,7 +34,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
-    Image360CollectionAndModelMapper,
+    Image360CollectionMapper,
     InFieldLegacyToCDMScheduleMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
@@ -122,6 +123,45 @@ def _resolve_image360_collections(client: ToolkitClient, operation: str, collect
     if collection:
         return selector.resolve_external_ids(collection)
     return selector.select_collections()
+
+
+def _image360_collection_label(node: NodeResponse) -> str:
+    """Return the display label for a legacy Image360Collection node."""
+    return str(
+        ((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id
+    )
+
+
+def _create_image360_model_external_ids_by_collection(
+    client: ToolkitClient,
+    collection_ids: list[NodeId],
+    *,
+    dry_run: bool,
+) -> dict[NodeId, str]:
+    """Create Image360 3D models and return their external ids keyed by collection node id."""
+    if dry_run:
+        placeholder = "cog_3d_model_<dry-run>"
+        return {collection_id: placeholder for collection_id in collection_ids}
+
+    collection_nodes = [
+        node for node in client.tool.instances.retrieve(collection_ids) if isinstance(node, NodeResponse)
+    ]
+    nodes_by_id = {node.as_id(): node for node in collection_nodes}
+    models_to_create: list[ThreeDModelDMSRequest] = []
+    collection_order: list[NodeId] = []
+    for collection_id in collection_ids:
+        node = nodes_by_id.get(collection_id)
+        label = _image360_collection_label(node) if node is not None else collection_id.external_id
+        models_to_create.append(
+            ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360")
+        )
+        collection_order.append(collection_id)
+
+    created_models = client.three_d.models_classic.create_dms(models_to_create)
+    return {
+        collection_id: f"cog_3d_model_{created_model.id}"
+        for collection_id, created_model in zip(collection_order, created_models, strict=True)
+    }
 
 
 def _image360_collection_node_filter(collections: list[NodeId]) -> dict[str, Any]:
@@ -1871,6 +1911,12 @@ class MigrateApp(typer.Typer):
         default_log_dir = Path(f"migration_logs_{TODAY}")
         log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
 
+        model_external_id_by_collection = _create_image360_model_external_ids_by_collection(
+            client,
+            selected_collections,
+            dry_run=dry_run,
+        )
+
         mappings = create_image360_node_mappings()
         collection_filter = _image360_collection_node_filter(selected_collections)
         image360_filter = _image360_collection360_filter(selected_collections)
@@ -1911,7 +1957,9 @@ class MigrateApp(typer.Typer):
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionAndModelMapper(client),
+                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
+                    client, model_external_id_by_collection
+                ),
             },
         )
         cmd.run(

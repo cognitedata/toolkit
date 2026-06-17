@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMResponse,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
 )
@@ -50,6 +51,17 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
 
         Returns:
             list[ThreeDModelClassicResponse]: The created 3D model(s).
+        """
+        return self._request_item_response(items, "create")
+
+    def create_dms(self, items: Sequence[ThreeDModelDMSRequest]) -> list[ThreeDModelClassicResponse]:
+        """Create 3D models in data modeling format.
+
+        Args:
+            items: The 3D model(s) to create with space and type set.
+
+        Returns:
+            The created 3D model(s), including the assigned integer id.
         """
         return self._request_item_response(items, "create")
 
