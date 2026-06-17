@@ -609,3 +609,27 @@ class TestDeployResourcesValidationError:
                 "type": "missing",
             }
         ]
+
+
+class TestDetectKeyColumn:
+    """Unit tests for DeployV2Command._detect_key_column."""
+
+    def test_csv_first_column_named_key_returns_key(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "my_table.csv"
+        csv_file.write_text("key,name,value\n1,foo,bar\n2,baz,qux\n", encoding="utf-8")
+        assert DeployV2Command._detect_key_column(csv_file) == "key"
+
+    def test_csv_first_column_not_named_key_returns_none(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "my_table.csv"
+        csv_file.write_text("id,name,value\n1,foo,bar\n", encoding="utf-8")
+        assert DeployV2Command._detect_key_column(csv_file) is None
+
+    def test_csv_empty_file_returns_none(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "empty.csv"
+        csv_file.write_text("", encoding="utf-8")
+        assert DeployV2Command._detect_key_column(csv_file) is None
+
+    def test_unknown_suffix_returns_none(self, tmp_path: Path) -> None:
+        txt_file = tmp_path / "my_table.txt"
+        txt_file.write_text("key,name\n1,foo\n", encoding="utf-8")
+        assert DeployV2Command._detect_key_column(txt_file) is None
