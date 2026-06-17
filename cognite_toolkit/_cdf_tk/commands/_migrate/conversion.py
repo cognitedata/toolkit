@@ -27,14 +27,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     EdgeProperty,
     EdgeRequest,
-    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceResponse,
     InstanceSource,
     JSONProperty,
     NodeId,
     NodeRequest,
-    NodeResponse,
     SingleEdgeProperty,
     TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
@@ -773,12 +771,8 @@ class ConnectionCreator:
     def can_map_instance(self, space: str) -> bool:
         return self._instance_id_mapper.can_map(space)
 
-    def map_instance(self, node_id: NodeId | EdgeId | NodeResponse | EdgeResponse) -> NodeId:
+    def map_instance(self, instance_id: NodeId | EdgeId) -> NodeId:
         """Maps a source instance ID to the corresponding destination instance ID."""
-        if isinstance(node_id, NodeId | EdgeId):
-            instance_id = node_id
-        else:
-            instance_id = NodeId(space=node_id.space, external_id=node_id.external_id)
         return self._instance_id_mapper.map_instance_id(instance_id)
 
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
