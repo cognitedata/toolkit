@@ -1,3 +1,4 @@
+import csv
 import json
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
@@ -1249,14 +1250,45 @@ class DeployV2Command(ToolkitCommand):
                 ):
                     for file_type in ["csv", "parquet"]:
                         if (data_file := resource.source_file.with_suffix(f".{file_type}")).is_file():
+                            key_col = cls._detect_key_column(data_file)
                             selections[
                                 RawTableSelector(
                                     table=SelectedTable(
                                         db_name=resource.identifier.db_name, table_name=resource.identifier.name
-                                    )
+                                    ),
+                                    key=key_col,
                                 )
                             ].append(data_file)
         return selections
+
+    @staticmethod
+    def _detect_key_column(data_file: Path) -> str | None:
+        """Return the key column name if the file follows the v1 naming convention.
+
+        Preserves v1 behaviour: if the first column is named 'key' the value from
+        that column is used as the RAW row key, matching what v1 did with
+        ``insert_dataframe`` (which treats the DataFrame index as the row key after
+        ``set_index("key")``).  Returns ``None`` when the convention is not met so
+        that the upload path falls back to generating a UUID per row.
+        """
+        if data_file.suffix == ".csv":
+            try:
+                with data_file.open(encoding="utf-8", newline="") as fh:
+                    header = next(csv.reader(fh), [])
+                if header and header[0] == "key":
+                    return "key"
+            except Exception:
+                pass
+        elif data_file.suffix == ".parquet":
+            try:
+                import pyarrow.parquet as pq
+
+                names = pq.read_schema(data_file).names
+                if names and names[0] == "key":
+                    return "key"
+            except Exception:
+                pass
+        return None
 
     @classmethod
     def _display_deprecation_warning(cls, raw_files: Mapping[RawTableSelector, list[Path]], console: Console) -> None:
