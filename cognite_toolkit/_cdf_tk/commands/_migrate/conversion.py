@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
     convert_to_primary_property_with_special_cases,
 )
-from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix, sanitize_instance_external_id
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -588,7 +588,7 @@ class SuffixInstanceIdMapper(InstanceIdMapper):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         return NodeId(
             space=instance_id.space,
-            external_id=add_migration_suffix(instance_id.external_id, self._suffix),
+            external_id=sanitize_instance_external_id(instance_id.external_id, self._suffix),
         )
 
 

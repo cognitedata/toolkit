@@ -95,11 +95,12 @@ def to_sentence_case(text: str) -> str:
     return text.casefold()
 
 
-def add_migration_suffix(external_id: str, suffix: str = "_cdm") -> str:
-    """Append a migration suffix to an instance external ID, staying within the 256-character limit.
+def sanitize_instance_external_id(external_id: str, suffix: str = "") -> str:
+    """Sanitize an instance external ID to be compatible with CDF requirements, optionally appending a suffix.
 
-    When the suffixed ID would exceed 256 characters, the original external ID is truncated and a
-    hash is inserted before the suffix to avoid collisions.
+    CDF instance external IDs must be between 1 and 256 characters. When the result would exceed that
+    limit, the original external ID is truncated and a hash is inserted before the suffix to avoid
+    collisions.
     """
     if not external_id or external_id == "\x00":
         raise ToolkitValueError("External ID cannot be empty.")
@@ -111,27 +112,6 @@ def add_migration_suffix(external_id: str, suffix: str = "_cdm") -> str:
     hash_digest = hasher.hexdigest()[:8]
     keep = 256 - len(suffix) - 1 - len(hash_digest)
     return f"{external_id[:keep]}_{hash_digest}{suffix}"
-
-
-def sanitize_instance_external_id(external_id: str) -> str:
-    """Sanitize an instance external ID to be compatible with CDF requirements.
-
-    Args:
-        external_id: The external ID to sanitize.
-
-    Returns:
-        The sanitized external ID.
-    """
-    # CDF instance external IDs must be between 1 and 256 characters,
-    if not external_id or external_id == "\x00":
-        raise ToolkitValueError("External ID cannot be empty.")
-    elif len(external_id) <= 256:
-        return external_id
-    hasher = hashlib.sha256()
-    hasher.update(external_id.encode("utf-8"))
-    hash_digest = hasher.hexdigest()[:8]
-    sanitized_external_id = f"{external_id[:247]}_{hash_digest}"
-    return sanitized_external_id
 
 
 def warn_invalid_space_name(name: str) -> str:
