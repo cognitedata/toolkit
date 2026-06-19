@@ -1,6 +1,6 @@
 from typing import Any, Literal, TypeAlias
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, ValidationError, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
@@ -53,6 +53,61 @@ class FileLinkData(BaseModelObject):
     description: str | None = None
 
 
+class AnnotationPoint(BaseModelObject):
+    x: float
+    y: float
+
+
+class AnnotationPolygon(BaseModelObject):
+    confidence: float | None = None
+    vertices: list[AnnotationPoint]
+
+
+class AnnotationPolyLine(BaseModelObject):
+    confidence: float | None = None
+    vertices: list[AnnotationPoint]
+
+
+class AnnotationGeometry(BaseModelObject):
+    bounding_box: BoundingBox | None = None
+    polygon: AnnotationPolygon | None = None
+    polyline: AnnotationPolyLine | None = None
+
+
+class AnnotationInstanceRef(BaseModelObject):
+    space: str
+    external_id: str
+    instance_type: Literal["node", "edge"]
+    sources: list[dict[str, JsonValue]]
+
+
+class ImageAssetLinkData(BaseModelObject):
+    asset_ref: InternalId | ExternalId
+    text: str
+    text_region: BoundingBox
+    object_region: AnnotationGeometry | None = None
+
+
+class ImageInstanceLinkData(BaseModelObject):
+    instance_ref: AnnotationInstanceRef
+    text: str
+    text_region: BoundingBox
+    object_region: AnnotationGeometry | None = None
+    confidence: float | None = None
+
+
+AnnotationData: TypeAlias = (
+    AssetLinkData | FileLinkData | ImageAssetLinkData | ImageInstanceLinkData | dict[str, JsonValue]
+)
+
+_ANNOTATION_DATA_CLS_BY_TYPE: dict[AnnotationType, type[BaseModelObject]] = {
+    "diagrams.AssetLink": AssetLinkData,
+    "diagrams.FileLink": FileLinkData,
+    "images.AssetLink": ImageAssetLinkData,
+    "images.InstanceLink": ImageInstanceLinkData,
+}
+
+
 class Annotation(BaseModelObject):
     annotated_resource_type: str
     annotated_resource_id: int
@@ -60,8 +115,35 @@ class Annotation(BaseModelObject):
     creating_app: str
     creating_app_version: str
     creating_user: str | None
-    data: AssetLinkData | FileLinkData | dict[str, JsonValue]
+    data: AnnotationData
     status: AnnotationStatus
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_data_by_annotation_type(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+
+        annotation_type = values.get("annotationType", values.get("annotation_type"))
+        data = values.get("data")
+        if not isinstance(annotation_type, str) or not isinstance(data, dict):
+            return values
+
+        if annotation_type not in _ANNOTATION_DATA_CLS_BY_TYPE:
+            return values
+        data_cls = _ANNOTATION_DATA_CLS_BY_TYPE[annotation_type]
+
+        try:
+            parsed_data = data_cls.model_validate(data)
+        except ValidationError:
+            # The annotation has a known type, but its data does not conform to the typed model
+            # (e.g. partial or malformed payloads). Keep the raw dict so a single bad annotation
+            # does not fail the whole download; downstream consumers skip non-typed data.
+            return values
+
+        parsed = dict(values)
+        parsed["data"] = parsed_data
+        return parsed
 
 
 class AnnotationRequest(Annotation, UpdatableRequestResource):
@@ -84,7 +166,11 @@ class AnnotationRequest(Annotation, UpdatableRequestResource):
             "id": self.id,
             "update": {
                 "annotationType": {"set": self.annotation_type},
-                "data": {"set": self.data.dump() if isinstance(self.data, AssetLinkData | FileLinkData) else self.data},
+                "data": {
+                    "set": self.data.dump()
+                    if isinstance(self.data, AssetLinkData | FileLinkData | ImageAssetLinkData | ImageInstanceLinkData)
+                    else self.data
+                },
                 "status": {"set": self.status},
             },
         }

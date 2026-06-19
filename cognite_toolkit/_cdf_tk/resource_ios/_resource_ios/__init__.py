@@ -47,6 +47,7 @@ from .simulators import (
     SimulatorRoutineIO,
     SimulatorRoutineRevisionIO,
 )
+from .skill import SkillIO
 from .streams import StreamIO
 from .three_d_model import ThreeDModelCRUD
 from .timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
@@ -107,6 +108,7 @@ __all__ = [
     "SimulatorModelRevisionIO",
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
+    "SkillIO",
     "SpaceCRUD",
     "StreamIO",
     "StreamlitIO",

@@ -86,6 +86,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
     )
+    AGENT_SKILLS = FlagMetadata(
+        visible=True,
+        description="Enables support for agent skill resources",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

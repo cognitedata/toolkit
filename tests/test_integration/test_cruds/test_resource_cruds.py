@@ -58,6 +58,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -79,6 +80,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceWorker,
     RobotCapabilityIO,
     RoboticsDataPostProcessingIO,
+    SkillIO,
     TransformationIO,
     ViewIO,
     WorkflowVersionIO,
@@ -1312,3 +1314,55 @@ createdBy: null
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+
+_SKILL_CONTENT = """---
+name: integration-test-skill
+description: Toolkit integration test skill
+---
+
+# Integration test skill
+
+Used by toolkit integration tests.
+"""
+
+
+class TestSkillIO:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        loader = SkillIO(toolkit_client, None)
+        external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
+        original = SkillRequest(
+            external_id=external_id,
+            name="integration-test-skill",
+            description="Toolkit integration test skill",
+            content=_SKILL_CONTENT,
+        )
+        updated = SkillRequest(
+            external_id=external_id,
+            name="integration-test-skill",
+            description="Updated toolkit integration test skill",
+            content="""---
+name: integration-test-skill
+description: Updated toolkit integration test skill
+---
+
+# Integration test skill
+
+Used by toolkit integration tests (updated).
+""",
+        )
+        try:
+            created = loader.create([original])
+            assert len(created) == 1
+
+            loader.update([updated])
+            retrieved = loader.retrieve([original.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].description == updated.description
+            assert retrieved[0].content is not None
+            assert retrieved[0].content.startswith(
+                "---\nname: integration-test-skill\ndescription: Updated toolkit integration test skill\n---\n"
+            )
+            assert "Used by toolkit integration tests (updated)." in retrieved[0].content
+        finally:
+            loader.delete([original.as_id()])

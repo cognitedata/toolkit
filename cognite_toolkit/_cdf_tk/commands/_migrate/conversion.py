@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationData,
     AnnotationResponse,
     AssetLinkData,
     FileLinkData,
@@ -182,7 +183,7 @@ class DirectRelationCache:
 
     @staticmethod
     def _extract_annotation_refs(
-        data: AssetLinkData | FileLinkData | dict[str, Any],
+        data: AnnotationData,
         asset_ids: set[int],
         asset_external_ids: set[str],
         file_ids: set[int],
