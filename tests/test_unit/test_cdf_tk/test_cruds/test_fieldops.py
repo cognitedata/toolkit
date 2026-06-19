@@ -83,12 +83,12 @@ class TestInFieldCDMLocationConfigCRUD:
                 "space": "sp_instance",
                 "externalId": "my_location_config",
                 "dataExplorationConfig": {
-                    "assetActivitiesCard": {
+                    "assetActivitiesCardView": {
                         "space": "customer_idm_extention",
                         "version": "v2",
                         "externalId": "ActivitiesCard",
                     },
-                    "assetNotificationsCard": {
+                    "assetNotificationsCardView": {
                         "space": "customer_idm_extention",
                         "version": "v2",
                         "externalId": "NotificationsCard",
@@ -120,7 +120,7 @@ class TestInFieldCDMLocationConfigCRUD:
                 "space": "sp_instance",
                 "externalId": "my_location_config",
                 "dataExplorationConfig": {
-                    "assetPropertiesCard": {
+                    "assetPropertiesCardView": {
                         "space": "customer_idm_extention",
                         "version": "v2",
                         "externalId": "PropertiesCard",
@@ -135,12 +135,12 @@ class TestInFieldCDMLocationConfigCRUD:
             "space": "sp_instance",
             "externalId": "my_location_config",
             "dataExplorationConfig": {
-                "assetActivitiesCard": {
+                "assetActivitiesCardView": {
                     "space": "customer_idm_extention",
                     "version": "v2",
                     "externalId": "ActivitiesCard",
                 },
-                "assetNotificationsCard": {
+                "assetNotificationsCardView": {
                     "space": "customer_idm_extention",
                     "version": "v2",
                     "externalId": "NotificationsCard",

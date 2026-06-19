@@ -45,6 +45,7 @@ from .api.sequences import SequencesAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
+from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
@@ -65,6 +66,7 @@ class ToolAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
+        self.skills = SkillsAPI(http_client)
         self.apps = AppsAPI(http_client)
         self.annotations = AnnotationsAPI(http_client)
         self.assets = AssetsAPI(http_client)

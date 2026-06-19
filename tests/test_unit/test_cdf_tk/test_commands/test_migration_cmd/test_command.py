@@ -20,8 +20,12 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationResponse,
+    AssetLinkData,
+    FileLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -650,12 +654,16 @@ class TestMigrationCommand:
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
+        assert isinstance(asset_annotation.data, AssetLinkData)
+        assert isinstance(asset_annotation.data.asset_ref, InternalId)
+        assert isinstance(file_annotation.data, FileLinkData)
+        assert isinstance(file_annotation.data.file_ref, InternalId)
         expected_instance = [
             EdgeApply(
                 space=space,
                 external_id=f"annotation_{asset_annotation.id}",
                 start_node=(space, f"file_{asset_annotation.annotated_resource_id}"),
-                end_node=(space, f"asset_{asset_annotation.data['assetRef']['id']}"),
+                end_node=(space, f"asset_{asset_annotation.data.asset_ref.id}"),
                 type=("cdf_cdm", asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
@@ -665,10 +673,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": asset_annotation.creating_user,
                             "sourceId": asset_annotation.creating_app,
                             "status": "Approved",
-                            "startNodeXMax": asset_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": asset_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": asset_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": asset_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": asset_annotation.data.dump()["textRegion"]["xMax"],
+                            "startNodeXMin": asset_annotation.data.dump()["textRegion"]["xMin"],
+                            "startNodeYMax": asset_annotation.data.dump()["textRegion"]["yMax"],
+                            "startNodeYMin": asset_annotation.data.dump()["textRegion"]["yMin"],
                         },
                     ),
                 ],
@@ -677,7 +685,7 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{file_annotation.id}",
                 start_node=(space, f"file_{file_annotation.annotated_resource_id}"),
-                end_node=(space, f"file_{file_annotation.data['fileRef']['id']}"),
+                end_node=(space, f"file_{file_annotation.data.file_ref.id}"),
                 type=("cdf_cdm", file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
@@ -687,10 +695,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": file_annotation.creating_user,
                             "sourceId": file_annotation.creating_app,
                             "status": "Approved",
-                            "startNodeXMax": file_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": file_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": file_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": file_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": file_annotation.data.dump()["textRegion"]["xMax"],
+                            "startNodeXMin": file_annotation.data.dump()["textRegion"]["xMin"],
+                            "startNodeYMax": file_annotation.data.dump()["textRegion"]["yMax"],
+                            "startNodeYMin": file_annotation.data.dump()["textRegion"]["yMin"],
                         },
                     ),
                 ],

@@ -234,6 +234,7 @@ class Agent(AgentObject):
     model: str | None = None
     tools: list[AgentTool] | None = None
     subagents: list[SubagentConfig] | None = None
+    skills: list[str] | None = None
     labels: list[str] | None = None
 
     def as_id(self) -> ExternalId:

@@ -342,6 +342,10 @@ class AgentYAML(ToolkitResource):
         None,
         description="List of agents to expose as subagents on this agent.",
         max_length=MAX_SUB_AGENTS_PER_AGENT,
+    skills: list[str] | None = Field(
+        None,
+        description="A list of skill external IDs available to the agent.",
+        max_length=30,
     )
     labels: list[str] | None = Field(None, description="Labels for the agent, e.g. 'published'.")
     runtime_version: str | None = Field(None, description="The runtime version")

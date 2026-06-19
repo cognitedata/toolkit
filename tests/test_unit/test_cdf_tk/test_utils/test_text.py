@@ -57,14 +57,23 @@ class TestSanitizeSpreadsheetTitle:
 
 class TestSanitizeInstanceExternalId:
     @pytest.mark.parametrize(
-        "external_id, expected",
+        "external_id, suffix, expected",
         [
-            pytest.param("valid_external_id", "valid_external_id", id="valid_external_id"),
-            pytest.param("x" * 257, "x" * 247 + "_15eb95a4", id="too_long"),
+            pytest.param("valid_external_id", "", "valid_external_id", id="sanitize_valid"),
+            pytest.param("x" * 257, "", "x" * 247 + "_15eb95a4", id="sanitize_too_long"),
+            pytest.param("image1", "_cdm", "image1_cdm", id="migration_suffix_short"),
+            pytest.param("x" * 252, "_cdm", f"{'x' * 252}_cdm", id="migration_suffix_length_252"),
         ],
     )
-    def test_sanitize_instance_external_id(self, external_id: str, expected: str) -> None:
-        assert sanitize_instance_external_id(external_id) == expected
+    def test_sanitize_instance_external_id(self, external_id: str, suffix: str, expected: str) -> None:
+        assert sanitize_instance_external_id(external_id, suffix) == expected
+
+    def test_sanitize_instance_external_id_truncates_suffixed_id_at_length_253(self) -> None:
+        external_id = "x" * 253
+        result = sanitize_instance_external_id(external_id, "_cdm")
+        assert len(result) == 256
+        assert result.endswith("_cdm")
+        assert result != f"{external_id}_cdm"
 
     @pytest.mark.parametrize(
         "external_id",
