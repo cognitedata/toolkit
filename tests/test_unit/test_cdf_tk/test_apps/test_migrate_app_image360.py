@@ -4,7 +4,6 @@ import pytest
 import typer
 
 from cognite_toolkit._cdf_tk.apps._migrate_app import (
-    _image360_direct_relation_node_id,
     _image360_station_node_filter,
     _resolve_image360_collections,
     _resolve_image360_station_ids,
@@ -37,22 +36,6 @@ class TestResolveImage360Collections:
         with monkeypatch_toolkit_client() as client:
             with pytest.raises(typer.BadParameter, match="must be provided together"):
                 _resolve_image360_collections(client, "migrate", None, "my_space")
-
-
-class TestImage360DirectRelationNodeId:
-    def test_parses_node_id(self) -> None:
-        node_id = NodeId(space="my_space", external_id="station_a")
-        assert _image360_direct_relation_node_id(node_id) == node_id
-
-    def test_parses_dict(self) -> None:
-        assert _image360_direct_relation_node_id({"space": "my_space", "externalId": "station_a"}) == NodeId(
-            space="my_space", external_id="station_a"
-        )
-
-    def test_parses_dict_with_external_id(self) -> None:
-        assert _image360_direct_relation_node_id({"space": "my_space", "external_id": "station_a"}) == NodeId(
-            space="my_space", external_id="station_a"
-        )
 
 
 class TestResolveImage360StationIds:

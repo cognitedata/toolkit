@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from pydantic import ValidationError
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -167,18 +168,6 @@ def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
     }
 
 
-def _image360_direct_relation_node_id(reference: Any) -> NodeId | None:
-    """Parse a direct-relation property value to a NodeId."""
-    if isinstance(reference, NodeId):
-        return reference
-    if isinstance(reference, dict):
-        space = reference.get("space")
-        external_id = reference.get("externalId") or reference.get("external_id")
-        if isinstance(space, str) and isinstance(external_id, str):
-            return NodeId(space=space, external_id=external_id)
-    return None
-
-
 def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
     """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
     image360_filter = _image360_collection360_filter(selected_collections)
@@ -198,9 +187,10 @@ def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: l
             if not isinstance(node, NodeResponse) or node.properties is None:
                 continue
             properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
-            station_id = _image360_direct_relation_node_id(properties.get("station"))
-            if station_id is not None:
-                station_ids.add(station_id)
+            try:
+                station_ids.add(NodeId.model_validate(properties.get("station")))
+            except ValidationError:
+                continue
     return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
 
 
