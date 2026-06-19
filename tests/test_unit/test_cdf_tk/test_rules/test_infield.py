@@ -36,12 +36,12 @@ def both_cards_config() -> dict:
         "space": "sp_instance",
         "externalId": "my_location_config",
         "dataExplorationConfig": {
-            "assetActivitiesCard": {
+            "assetActivitiesCardView": {
                 "space": "customer_idm",
                 "version": "v2",
                 "externalId": "ActivitiesCard",
             },
-            "assetNotificationsCard": {
+            "assetNotificationsCardView": {
                 "space": "customer_idm",
                 "version": "v2",
                 "externalId": "NotificationsCard",
@@ -125,8 +125,8 @@ class TestInFieldCDMViewPropertiesRuleSet:
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
         view_map = {
-            activities_id: mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCard"]),
-            notifications_id: mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCard"]),
+            activities_id: mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCardView"]),
+            notifications_id: mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
         }
 
         mock_client = MagicMock()
@@ -151,7 +151,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
                 "space": "sp_instance",
                 "externalId": "my_location_config",
                 "dataExplorationConfig": {
-                    "assetActivitiesCard": {
+                    "assetActivitiesCardView": {
                         "space": "customer_idm",
                         "version": "v2",
                         "externalId": "ActivitiesCard",
@@ -162,7 +162,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         resource = create_built_resource(yaml_file, yaml_file)
         module = create_module(tmp_path, [resource])
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
-        activities_required = _REQUIRED_PROPERTIES["assetActivitiesCard"]
+        activities_required = _REQUIRED_PROPERTIES["assetActivitiesCardView"]
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(activities_id, activities_required - {"mainAsset"})]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
@@ -185,7 +185,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
                 "space": "sp_instance",
                 "externalId": "my_location_config",
                 "dataExplorationConfig": {
-                    "assetActivitiesCard": {
+                    "assetActivitiesCardView": {
                         "space": "customer_idm",
                         "version": "v2",
                         "externalId": "ActivitiesCard",
@@ -223,8 +223,8 @@ class TestInFieldCDMViewPropertiesRuleSet:
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [
-            mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCard"]),
-            mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCard"]),
+            mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCardView"]),
+            mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
         ]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         list(rule.validate())
