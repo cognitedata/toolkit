@@ -352,7 +352,7 @@ def getch(timeout: float) -> str | None:
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(fd)
+            tty.setcbreak(fd)
             rlist, _, _ = select.select([fd], [], [], timeout)
             if rlist:
                 ch = sys.stdin.read(1)
