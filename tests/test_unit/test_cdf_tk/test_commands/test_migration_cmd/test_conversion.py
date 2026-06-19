@@ -51,6 +51,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
+    InstanceMappingError,
+    SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -1542,7 +1544,9 @@ class TestInstanceToInstanceConversion:
     def _create_connection_creator(self) -> ConnectionCreator:
         creator = ConnectionCreator(
             client=MagicMock(spec=ToolkitClient),
-            space_mapping={"src_space": "dst_space", "dst_space": "dst_space"},
+            instance_id_mapper=SpaceMappingInstanceIdMapper(
+                {"src_space": "dst_space", "dst_space": "dst_space"},
+            ),
         )
         source_view = ViewResponse(
             space=self.SOURCE_VIEW_ID.space,
@@ -1675,6 +1679,18 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestInstanceIdMapper:
+    def test_space_mapping_instance_id_mapper_raises_for_unmapped_space(self) -> None:
+        mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
+        with pytest.raises(InstanceMappingError, match="source-to-destination space mapping"):
+            mapper.map_instance_id(NodeId(space="other_space", external_id="node1"))
+
+    def test_space_mapping_instance_id_mapper_maps_known_space(self) -> None:
+        mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
+        result = mapper.map_instance_id(NodeId(space="source_space", external_id="node1"))
+        assert result == NodeId(space="target_space", external_id="node1")
 
 
 class TestAssetCentricToRecord:

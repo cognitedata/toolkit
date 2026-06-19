@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -68,6 +68,9 @@ class InstanceViewSelector(InstanceSelector):
     instance_spaces: tuple[str, ...] | None = None
     edge_types: tuple[EdgeTypeId, ...] | None = None
     endpoint: QueryEndpoint = "query"
+    additional_filter: dict[str, Any] | None = None
+    """An extra raw DMS filter that is combined (logical AND) with the view/space filters when
+    streaming data through the query endpoint. Intended for internal use to narrow a download."""
 
     def get_schema_spaces(self) -> list[str] | None:
         return [self.view.space]
