@@ -137,7 +137,7 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "build",
-        "--config-yaml=local",
+        "--env=local",
         "--verbose",
         "-o",
         "cognite_toolkit"
