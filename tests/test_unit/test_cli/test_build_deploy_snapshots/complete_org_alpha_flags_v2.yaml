@@ -150,18 +150,18 @@ InFieldCDMLocationConfigResponse:
         - gp_infield_template_admins
         - gp_location_admins
       dataExplorationConfig:
-        assetActivitiesCard:
+        assetActivitiesCardView:
           externalId: InfieldActivitiesCardView
           space: customer_idm_extention
-          version: v2
-        assetNotificationsCard:
+          version: v4
+        assetNotificationsCardView:
           externalId: InfieldNotificationsCardView
           space: customer_idm_extention
-          version: v1
-        assetPropertiesCard:
+          version: v2
+        assetPropertiesCardView:
           externalId: AssetPropertiesCard
           space: customer_idm_extention
-          version: v2
+          version: v3
       dataFilters:
         assets:
           instanceSpaces:

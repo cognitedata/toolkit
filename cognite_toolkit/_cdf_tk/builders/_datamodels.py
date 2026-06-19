@@ -75,8 +75,11 @@ class DataModelBuilder(Builder):
             expected_path = source_file.source.path.parent / Path(expected_filename)
 
             if expected_path in graphql_files:
-                shutil.copy(graphql_files[expected_path].source.path, destination_path.with_suffix(".graphql"))
+                dest_graphql = destination_path.with_suffix(".graphql")
+                shutil.copy(graphql_files[expected_path].source.path, dest_graphql)
                 extra_sources.append(graphql_files[expected_path].source)
+                # The build renames the .graphql file; update dml so deploy can locate it.
+                entry["dml"] = dest_graphql.name
             else:
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {source_file.source.path.as_posix()}"

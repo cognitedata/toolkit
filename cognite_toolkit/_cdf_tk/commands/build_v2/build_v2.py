@@ -729,6 +729,13 @@ class BuildV2Command(ToolkitCommand):
                 filestem = f"{index}-{source_stem}-{identifier_filename}"
                 filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
+                # The build renames extra files (e.g. .graphql) with a long prefix; update
+                # the dml field so deploy can locate the renamed file instead of the original.
+                if (
+                    any(isinstance(ef, SuccessExtra) and ef.suffix == ".graphql" for ef in resource.extra_files)
+                    and "dml" in resource.raw
+                ):
+                    resource.raw["dml"] = f"{filestem}.graphql"
                 safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
                 for extra_file in resource.extra_files:
                     if not isinstance(extra_file, SuccessExtra):

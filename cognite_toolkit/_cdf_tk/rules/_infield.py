@@ -16,9 +16,11 @@ from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
 )
 
 _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
-    "assetActivitiesCard": frozenset({"sourceId", "name", "status", "type", "mainAsset"}),
-    "assetNotificationsCard": frozenset(
-        {"sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
+    "assetActivitiesCardView": frozenset(
+        {"sourceId", "name", "status", "type", "mainAsset", "scheduledEndTime", "scheduledStartTime"}
+    ),
+    "assetNotificationsCardView": frozenset(
+        {"name", "sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
     ),
 }
 

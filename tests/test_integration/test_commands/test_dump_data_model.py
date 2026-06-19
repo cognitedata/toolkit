@@ -55,8 +55,8 @@ class TestDumpResource:
         data_model_folder = output_dir / DataModelIO.folder_name
         assert data_model_folder.exists()
         assert sum(1 for _ in data_model_folder.glob(f"*{DataModelIO.kind}.yaml")) == 1
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewIO.kind}.yaml")) == 33
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 29
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewIO.kind}.yaml")) == 34
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 30
         assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceCRUD.kind}.yaml")) == 2
 
     @pytest.mark.skip("Failing likely due to changes in the SchemaService validation.")

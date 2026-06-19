@@ -93,15 +93,15 @@ class ViewMappings(BaseModelResource):
 class DataExplorationConfig(BaseModelResource):
     """Data exploration configuration."""
 
-    asset_properties_card: ViewMapping | None = None
-    asset_activities_card: ViewMapping | None = None
-    asset_notifications_card: ViewMapping | None = None
+    asset_properties_card_view: ViewMapping | None = None
+    asset_activities_card_view: ViewMapping | None = None
+    asset_notifications_card_view: ViewMapping | None = None
 
 
 # Pydantic attribute name -> YAML/API key for card views used in build dependency and validation rules.
 INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY: dict[str, str] = {
-    "asset_activities_card": "assetActivitiesCard",
-    "asset_notifications_card": "assetNotificationsCard",
+    "asset_activities_card_view": "assetActivitiesCardView",
+    "asset_notifications_card_view": "assetNotificationsCardView",
 }
 
 

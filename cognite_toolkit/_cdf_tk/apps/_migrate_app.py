@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldUserMapping,
+    SpaceMappingInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -45,6 +46,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
@@ -78,6 +80,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     ThreeDInteractiveSelect,
     ViewSelectFilter,
 )
+from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
@@ -198,6 +201,19 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
+            selected_datasets = client.tool.datasets.retrieve(
+                ExternalId.from_external_ids(data_set), ignore_unknown_ids=True
+            )
+            if any(
+                warn_invalid_space_name(dataset.external_id)
+                for dataset in selected_datasets
+                if dataset.external_id is not None
+            ):
+                auto_fix = questionary.confirm(
+                    "Some selected data sets have characters in their external IDs that are not valid in space identifiers. "
+                    "Do you want to automatically fix this by replacing these invalid characters / truncating the external ID? (Datasets with invalid characters will be skipped if No)",
+                    default=auto_fix,
+                ).unsafe_ask()
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             output_dir = Path(
                 questionary.path(
@@ -1281,7 +1297,7 @@ class MigrateApp(typer.Typer):
         id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The ID of the 3D Model to migrate. If not provided, an interactive selection will be "
+                help="The IDs of the 3D Models to migrate. If not provided, an interactive selection will be "
                 "performed to select the 3D Models to migrate."
             ),
         ] = None,
@@ -1318,6 +1334,7 @@ class MigrateApp(typer.Typer):
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if id:
             selected_ids = id
@@ -1344,8 +1361,8 @@ class MigrateApp(typer.Typer):
         model_id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
-                "performed to select the."
+                help="The IDs of the 3D models to migrate asset mappings for. If not provided, an interactive selection will be "
+                "performed to select the 3D models to migrate asset mappings for."
             ),
         ] = None,
         object_3D_space: Annotated[
@@ -1394,6 +1411,7 @@ class MigrateApp(typer.Typer):
         This command expects that the selected 3D model has already been migrated to data modeling.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if model_id is not None:
             selected_ids = model_id
@@ -1660,7 +1678,9 @@ class MigrateApp(typer.Typer):
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
-            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+            client,
+            instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
+            custom_mappings=[InFieldAssetMapping(client)],
         )
         mapper = FDMtoCDMMapper(
             client,

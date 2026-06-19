@@ -18,7 +18,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
     SingleReverseDirectRelationPropertyRequest,
     ViewCorePropertyRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
@@ -191,6 +194,40 @@ name: String}""",
         assert len(items) == 1
         resource = loader.load_resource(items[0], is_dry_run=False)
         assert resource.version == "3_0_2"
+
+    def test_dml_field_not_leaked_to_api_payload(self) -> None:
+        # Regression test for CDF-28109: when the YAML has a 'dml' key pointing to the
+        # .graphql file, it must NOT be forwarded to the GraphQlDmlVersionUpsert mutation.
+        request = GraphQLDataModelRequest.model_validate(
+            {"space": "my_space", "externalId": "my_model", "version": "v1", "dml": "my_schema.graphql"},
+            by_alias=True,
+        )
+        payload = request.model_dump(mode="json", by_alias=True, exclude_unset=False)
+        assert "dml" not in payload
+
+    def test_custom_dml_path_used_to_resolve_graphql_file(self, env_vars_with_client: EnvironmentVariables) -> None:
+        # Regression test for CDF-28109: when the YAML has 'dml: custom_name.graphql',
+        # the loader should use that path to find the graphql file.
+        schema = "type WindTurbine { name: String }"
+        custom_graphql_file = MagicMock(spec=Path)
+        custom_graphql_file.read_text.return_value = schema
+        custom_graphql_file.name = "custom_name.graphql"
+        custom_graphql_file.is_file.return_value = True
+
+        yaml_file = MagicMock(spec=Path)
+        yaml_file.read_text.return_value = (
+            "space: my_space\nexternalId: MyModel\nversion: v1\ndml: custom_name.graphql\n"
+        )
+        yaml_file.stem = "MyModel.GraphQLSchema"
+        yaml_file.parent = MagicMock(spec=Path)
+        yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
+
+        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
+        items = loader.load_resource_file(yaml_file, {})
+
+        assert len(items) == 1
+        # The loader should have resolved the graphql file via the dml field
+        yaml_file.parent.__truediv__.assert_called_with("custom_name.graphql")
 
     @staticmethod
     def _create_mock_file(model: str, space: str, external_id: str, version: int | str = "v1") -> MagicMock:
@@ -588,3 +625,49 @@ class TestGraphQLCRUDGetDependencies:
         deps = list(GraphQLCRUD.get_dependencies(graphql_model))
         assert len(deps) == 1
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+
+class TestDataModelBuilder:
+    """Regression tests for DataModelBuilder (build v1)."""
+
+    def test_dml_updated_to_renamed_graphql_in_build(self, tmp_path: Path) -> None:
+        # Regression test: build renames .graphql files with a long prefix, but deploy
+        # looks up the file via entry["dml"].  _copy_graphql_to_build must update "dml"
+        # so that deploy finds the renamed file instead of the original source name.
+        from cognite_toolkit._cdf_tk.builders._datamodels import DataModelBuilder
+        from cognite_toolkit._cdf_tk.data_classes._build_files import BuildSourceFile
+        from cognite_toolkit._cdf_tk.data_classes._built_resources import SourceLocationEager
+
+        source_dir = tmp_path / "source" / "data_modeling"
+        source_dir.mkdir(parents=True)
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+
+        yaml_path = source_dir / "my_model.GraphQLSchema.yaml"
+        graphql_path = source_dir / "original_schema.graphql"
+        yaml_path.write_text("space: my_space\nexternalId: MyModel\nversion: v1\ndml: original_schema.graphql\n")
+        graphql_path.write_text("type Foo { name: String }")
+
+        entry: dict = {"space": "my_space", "externalId": "MyModel", "version": "v1", "dml": "original_schema.graphql"}
+        source_file = BuildSourceFile(
+            source=SourceLocationEager(path=yaml_path, _hash="abc"),
+            content=yaml_path.read_text(),
+            loaded=entry,
+        )
+        graphql_source = BuildSourceFile(
+            source=SourceLocationEager(path=graphql_path, _hash="def"),
+            content=graphql_path.read_text(),
+            loaded=None,
+        )
+
+        builder = DataModelBuilder(build_dir=build_dir)
+        destination_path = build_dir / "data_modeling" / "1-my_model-SPP-COR.my_model.GraphQLSchema.yaml"
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        builder._copy_graphql_to_build(source_file, destination_path, {graphql_path: graphql_source})
+
+        # The "dml" field in the entry dict must be updated to the renamed build filename.
+        renamed_graphql = destination_path.with_suffix(".graphql").name
+        assert entry["dml"] == renamed_graphql, (
+            f"entry['dml'] was not updated after build rename: got {entry['dml']!r}, expected {renamed_graphql!r}"
+        )

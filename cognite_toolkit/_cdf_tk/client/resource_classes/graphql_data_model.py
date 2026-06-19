@@ -31,6 +31,7 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     previous_version: str | None = None
     preserve_dml: bool | None = None
     # Used in the loading process, but not part of the API payload.
+    dml: str | None = Field(None, exclude=True)
     graphql_file: str | None = Field(None, exclude=True)
 
 
