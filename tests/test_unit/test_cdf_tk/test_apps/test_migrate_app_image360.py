@@ -45,14 +45,14 @@ class TestImage360DirectRelationNodeId:
         assert _image360_direct_relation_node_id(node_id) == node_id
 
     def test_parses_dict(self) -> None:
-        assert _image360_direct_relation_node_id(
-            {"space": "my_space", "externalId": "station_a"}
-        ) == NodeId(space="my_space", external_id="station_a")
+        assert _image360_direct_relation_node_id({"space": "my_space", "externalId": "station_a"}) == NodeId(
+            space="my_space", external_id="station_a"
+        )
 
     def test_parses_dict_with_external_id(self) -> None:
-        assert _image360_direct_relation_node_id(
-            {"space": "my_space", "external_id": "station_a"}
-        ) == NodeId(space="my_space", external_id="station_a")
+        assert _image360_direct_relation_node_id({"space": "my_space", "external_id": "station_a"}) == NodeId(
+            space="my_space", external_id="station_a"
+        )
 
 
 class TestResolveImage360StationIds:
@@ -103,9 +103,7 @@ class TestResolveImage360StationIds:
         mock_io.stream_data.return_value = [
             Page(
                 worker_id="main",
-                items=[
-                    DataItem(tracking_id=f"{node.space}:{node.external_id}", item=node) for node in filtered_nodes
-                ],
+                items=[DataItem(tracking_id=f"{node.space}:{node.external_id}", item=node) for node in filtered_nodes],
                 bookmark=NoBookmark(),
             )
         ]
