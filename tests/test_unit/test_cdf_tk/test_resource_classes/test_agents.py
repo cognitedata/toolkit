@@ -7,18 +7,27 @@ import pytest
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses, literal_string_values_from_annotation
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     KNOWN_TOOLS,
+    MAX_SUB_AGENTS_PER_AGENT,
     AgentInstanceSpaces,
     AgentInstanceSpacesDefinition,
     AgentTool,
     AgentToolDefinition,
     AgentYAML,
+    Model,
 )
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
+
+
+def _model_literal_error_message(invalid_value: object) -> str:
+    models = literal_string_values_from_annotation(Model)
+    quoted = ", ".join(f"'{model}'" for model in models[:-1])
+    options = f"{quoted} or '{models[-1]}'" if len(models) > 1 else f"'{models[0]}'"
+    return f"In field model input should be {options}. Got {invalid_value!r}."
 
 
 def invalid_test_cases() -> Iterable:
@@ -40,13 +49,7 @@ def invalid_test_cases() -> Iterable:
         {
             "In field description string should have at most 1024 characters",
             "In field externalId string should have at least 1 character",
-            "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
-            "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
-            "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
-            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
-            "'invalid-model'.",
+            _model_literal_error_message("invalid-model"),
             "In field name string should have at least 1 character",
             "In field tools list should have at most 20 items after validation, not 21",
         },
@@ -149,13 +152,7 @@ def invalid_test_cases() -> Iterable:
             "Hint: Use double quotes to force string.",
             "In field instructions input should be a valid string. Got [] of type list. "
             "Hint: Use double quotes to force string.",
-            "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
-            "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
-            "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
-            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
-            "True.",
+            _model_literal_error_message(True),
             "In field name input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
             "In field tools input should be a valid list. Got 'not_a_list'.",
@@ -299,3 +296,102 @@ class TestAgentYAML:
         data = {"externalId": "my_agent", "name": "My Agent", "tools": [tool]}
         loaded = AgentYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_subagents_roundtrip(self) -> None:
+        data = {
+            "externalId": "supervisor",
+            "name": "Supervisor",
+            "runtimeVersion": "1.3.0",
+            "subagents": [
+                {"agentExternalId": "weather-specialist"},
+                {"agentExternalId": "rca-specialist"},
+            ],
+        }
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    @pytest.mark.parametrize(
+        "data, expected_error",
+        [
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "name": "Supervisor",
+                    "runtimeVersion": "1.3.0",
+                    "subagents": [
+                        {"agentExternalId": "weather-specialist"},
+                        {"agentExternalId": "weather-specialist"},
+                    ],
+                },
+                "duplicate subagent agentExternalId(s): ['weather-specialist']. Each entry must reference a distinct agent.",
+                id="duplicate-subagents",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "name": "Supervisor",
+                    "runtimeVersion": "1.3.0",
+                    "subagents": [{"agentExternalId": ""}],
+                },
+                "In subagents[1].agentExternalId string should have at least 1 character",
+                id="empty-subagent-external-id",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "name": "Supervisor",
+                    "runtimeVersion": "1.0.0",
+                    "subagents": [{"agentExternalId": "weather-specialist"}],
+                },
+                "Runtime version '1.0.0' does not support subagents. "
+                "Use a runtime version where supports_subagents is enabled, or remove the 'subagents' field.",
+                id="unsupported-runtime-version",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "name": "Supervisor",
+                    "runtimeVersion": "1.3.0",
+                    "subagents": [{"agentExternalId": "supervisor"}],
+                },
+                "An agent cannot reference itself as a subagent.",
+                id="self-reference",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "name": "Supervisor",
+                    "runtimeVersion": "1.3.0",
+                    "tools": [
+                        {
+                            "type": "askDocument",
+                            "name": "delegate_to_subagent",
+                            "description": "A valid tool description for testing",
+                        }
+                    ],
+                    "subagents": [{"agentExternalId": "weather-specialist"}],
+                },
+                "Tool name 'delegate_to_subagent' is reserved for the system sub-agent delegate tool. Rename the tool.",
+                id="reserved-delegate-tool-name",
+            ),
+        ],
+    )
+    def test_subagents_validation_errors(self, data: dict, expected_error: str) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any(expected_error in error for error in warning.errors)
+
+    def test_subagents_max_length_validation(self) -> None:
+        data = {
+            "externalId": "supervisor",
+            "name": "Supervisor",
+            "runtimeVersion": "1.3.0",
+            "subagents": [{"agentExternalId": f"agent-{index}"} for index in range(MAX_SUB_AGENTS_PER_AGENT + 1)],
+        }
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any(f"list should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors)
