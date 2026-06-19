@@ -103,6 +103,7 @@ class InstanceIO(
         source: ViewId | None = None
         space: list[str] | None = None
 
+        additional_filter: dict[str, Any] | None = None
         if isinstance(selector, InstanceViewSelector):
             source = ViewId(
                 space=selector.view.space,
@@ -111,6 +112,7 @@ class InstanceIO(
             )
             if selector.instance_spaces:
                 space = list(selector.instance_spaces)
+            additional_filter = selector.additional_filter
         elif isinstance(selector, InstanceSpaceSelector):
             space = [selector.instance_space]
             if selector.view and selector.view.version:
@@ -124,6 +126,7 @@ class InstanceIO(
             instance_type=selector.instance_type,
             source=source,
             space=space,
+            filter=additional_filter,
         )
 
     @staticmethod
@@ -140,6 +143,8 @@ class InstanceIO(
             leaf_filters.append(
                 {"in": {"property": [instance_type, "space"], "values": list(selector.instance_spaces)}}
             )
+        if selector.additional_filter is not None:
+            leaf_filters.append(selector.additional_filter)
         if len(leaf_filters) == 1:
             return leaf_filters[0]
         return {"and": leaf_filters}
@@ -452,12 +457,15 @@ class InstanceIO(
             isinstance(selector, InstanceSpaceSelector) and selector.view
         ):
             view_id = cast(SelectedView, selector.view)
-            result = self.client.data_modeling.instances.aggregate(
-                view=sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-                aggregates=Count("externalId"),
-                instance_type=selector.instance_type,
-                space=selector.get_instance_spaces(),
-            )
+            aggregate_kwargs: dict[str, Any] = {
+                "view": sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                "aggregates": Count("externalId"),
+                "instance_type": selector.instance_type,
+                "space": selector.get_instance_spaces(),
+            }
+            if isinstance(selector, InstanceViewSelector) and selector.additional_filter is not None:
+                aggregate_kwargs["filter"] = selector.additional_filter
+            result = self.client.data_modeling.instances.aggregate(**aggregate_kwargs)
             return int(result.value or 0)
         elif isinstance(selector, InstanceSpaceSelector):
             statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)

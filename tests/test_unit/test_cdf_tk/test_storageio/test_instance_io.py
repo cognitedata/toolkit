@@ -316,6 +316,85 @@ class TestInstanceIO:
 
         assert len(respx_mock.calls) == 5
 
+    def test_build_query_filter_includes_additional_filter(self) -> None:
+        additional_filter = {"equals": {"property": ["node", "externalId"], "value": "collection_1"}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            additional_filter=additional_filter,
+        )
+
+        result = InstanceIO._build_query_filter(selector, "node")
+
+        assert "and" in result
+        assert additional_filter in result["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+
+        def _node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        respx_mock.post(query_url).respond(
+            status_code=200,
+            json={
+                "items": {"root": [_node("collection_1")]},
+                "nextCursor": {},
+            },
+        )
+
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        assert len(pages) == 1
+        assert {item.item.external_id for item in pages[0].items} == {"collection_1"}
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        node_filter = request_body["with"]["root"]["nodes"]["filter"]
+        assert additional_filter in node_filter["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_count_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "instanceType": "node",
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": 1}],
+                    }
+                ]
+            },
+        )
+
+        assert InstanceIO(client).count(selector) == 1
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        assert request_body["filter"] == additional_filter
+
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
         selector = InstanceViewSelector(

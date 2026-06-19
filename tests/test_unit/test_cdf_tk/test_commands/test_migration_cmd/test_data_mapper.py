@@ -64,7 +64,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    SpaceMappingInstanceIdMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetMapping,
@@ -889,7 +892,9 @@ class TestFDMtoCDMMapper:
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
             )
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
@@ -931,7 +936,9 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"sourceDirect": "constrainedDirect"}})
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.dry_run = dry_run
             logger = MagicMock(spec=DataLogger)
@@ -1133,7 +1140,9 @@ class TestInFieldLegacyToCDMScheduleMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [dest_view]
 
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
             mapper.prepare(MagicMock())
 
