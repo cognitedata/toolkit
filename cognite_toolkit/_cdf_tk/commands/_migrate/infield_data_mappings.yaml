@@ -57,6 +57,7 @@
     - sourceId
     - rootLocation
     - sourceCreatedTime
+    - isArchived
     - solutionTags
 - externalId: InFieldChecklistMapping
   sourceView:
