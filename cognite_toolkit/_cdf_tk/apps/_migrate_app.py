@@ -127,9 +127,7 @@ def _resolve_image360_collections(client: ToolkitClient, operation: str, collect
 
 def _image360_collection_label(node: NodeResponse) -> str:
     """Return the display label for a legacy Image360Collection node."""
-    return str(
-        ((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id
-    )
+    return str(((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id)
 
 
 def _create_image360_model_external_ids_by_collection(
@@ -152,9 +150,7 @@ def _create_image360_model_external_ids_by_collection(
     for collection_id in collection_ids:
         node = nodes_by_id.get(collection_id)
         label = _image360_collection_label(node) if node is not None else collection_id.external_id
-        models_to_create.append(
-            ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360")
-        )
+        models_to_create.append(ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360"))
         collection_order.append(collection_id)
 
     created_models = client.three_d.models_classic.create_dms(models_to_create)
@@ -1957,9 +1953,7 @@ class MigrateApp(typer.Typer):
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
-                    client, model_external_id_by_collection
-                ),
+                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client, model_external_id_by_collection),
             },
         )
         cmd.run(

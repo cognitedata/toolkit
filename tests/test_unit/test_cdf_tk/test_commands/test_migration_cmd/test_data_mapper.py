@@ -69,12 +69,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
-    COGNITE360_IMAGE_VIEW,
-    IMAGE360_COLLECTION_SOURCE_VIEW,
-    IMAGE360_SOURCE_VIEW,
-    create_image360_node_mappings,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetMapping,
@@ -90,6 +84,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360CollectionMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    COGNITE360_IMAGE_VIEW,
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_SOURCE_VIEW,
+    create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
