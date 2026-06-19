@@ -91,6 +91,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    IMAGE360_STATION_SOURCE_VIEW,
     cognite360_image_has_all_face_files,
     is_image360_node,
     missing_cubemap_face_file_external_ids,
@@ -116,7 +118,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
-from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp, datetime_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -1428,28 +1430,29 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 if isinstance(instance, NodeRequest):
                     self._is_existing_by_node_id[instance.as_id()] = True
 
-        if issue_by_source_node_id:
-            log_entries: list[MigrationEntryV2] = []
-            for source_node_id, issue in issue_by_source_node_id.items():
-                blocked_target_id = blocked_image360_target_id_by_source_id.get(source_node_id)
-                if blocked_target_id is not None:
-                    log_entries.append(
-                        image360_missing_face_files_migration_entry(
-                            str(source_node_id),
-                            missing_cubemap_face_file_external_ids(
-                                nodes_by_source_id[source_node_id],
-                                mapped_nodes_by_target_id.get(blocked_target_id),
-                            ),
-                            source="FDM instances",
-                            destination="CDM instances",
-                        )
-                    )
-                else:
-                    log_entries.append(
-                        instance_conversion_issue_as_migration_entry(
-                            issue, source="FDM instances", destination="CDM instances"
-                        )
-                    )
+        log_entries: list[MigrationEntryV2] = []
+        for source_node_id, blocked_target_id in blocked_image360_target_id_by_source_id.items():
+            log_entries.append(
+                image360_missing_face_files_migration_entry(
+                    str(source_node_id),
+                    missing_cubemap_face_file_external_ids(
+                        nodes_by_source_id[source_node_id],
+                        mapped_nodes_by_target_id.get(blocked_target_id),
+                    ),
+                    source="FDM instances",
+                    destination="CDM instances",
+                )
+            )
+        for source_node_id, issue in issue_by_source_node_id.items():
+            if source_node_id in blocked_image360_target_id_by_source_id:
+                # Already reported as a blocked Image360 above; avoid duplicate log entries.
+                continue
+            log_entries.append(
+                instance_conversion_issue_as_migration_entry(
+                    issue, source="FDM instances", destination="CDM instances"
+                )
+            )
+        if log_entries:
             self.logger.log(log_entries)
         return mapped_instances
 
@@ -1999,11 +2002,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         return None
 
 
-_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="v1")
-_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
-_IMAGE360_STATION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Station360", version="v1")
-
-
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
@@ -2027,8 +2025,8 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             instance_space = node.space
             collection_id = NodeId(space=instance_space, external_id=ext_id)
             model_external_id = self._model_external_id_by_collection[collection_id]
-            label = str(((node.properties or {}).get(_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
-            collection_ext_id = add_migration_suffix(ext_id)
+            label = str(((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
+            collection_ext_id = sanitize_instance_external_id(ext_id, "_cdm")
             results.append(
                 NodeRequest(
                     space=instance_space,
@@ -2060,7 +2058,7 @@ class Station360PropertiesMapping(CustomContainerPropertiesMapping):
     groupType=='Station360'; without this injection the node is invisible to Reveal/Fusion.
     """
 
-    VIEW_IDS: ClassVar[frozenset[ViewId]] = frozenset({_IMAGE360_STATION_SOURCE_VIEW})
+    VIEW_IDS: ClassVar[frozenset[ViewId]] = frozenset({IMAGE360_STATION_SOURCE_VIEW})
 
     def convert(self, source_properties: dict[str, Any], context: ConversionContext) -> ConversionResult:
         if context.source_view_id not in self.VIEW_IDS:

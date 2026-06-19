@@ -95,7 +95,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils.text import add_migration_suffix
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
 
 
@@ -1090,7 +1090,7 @@ class TestFDMtoCDMMapper:
         collection_request = actual[0]
         assert isinstance(collection_request, NodeRequest)
         assert collection_request.space == self.SOURCE_SPACE
-        assert collection_request.external_id == add_migration_suffix("collection1")
+        assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
         model_source = next(
             source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
         )
@@ -1179,7 +1179,7 @@ class TestFDMtoCDMMapper:
         assert len(actual) == 1
         assert isinstance(actual[0], NodeRequest)
         assert actual[0].space == self.SOURCE_SPACE
-        assert actual[0].external_id == add_migration_suffix("image1")
+        assert actual[0].external_id == sanitize_instance_external_id("image1", "_cdm")
         logger.log.assert_not_called()
 
 
