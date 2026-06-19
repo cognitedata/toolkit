@@ -403,8 +403,12 @@ class TestMigrateInfield:
             source=template_view_id,
         )
 
-        assert tag_nodes[0].properties[SOLUTION_TAG_VIEW_ID]["name"] == "Safety"
-        assert template_nodes[0].properties[template_view_id]["solutionTags"] == [tag_reference]
+        tag_properties = tag_nodes[0].properties
+        template_properties = template_nodes[0].properties
+        assert tag_properties is not None
+        assert template_properties is not None
+        assert tag_properties[SOLUTION_TAG_VIEW_ID]["name"] == "Safety"
+        assert template_properties[template_view_id]["solutionTags"] == [tag_reference]
 
 
 def load_infield_source_data(
