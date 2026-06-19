@@ -61,7 +61,7 @@ def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
             err_msg.format("Run `cdf modules upgrade` to initialize the modules again to create a correct file.")
         )
 
-    if cdf_tk_version != _version.__version__:
+    if cdf_tk_version != _version.__version__ and _version.__version__ != "0.0.0":
         raise ToolkitVersionError(
             f"The version of the modules ({cdf_tk_version}) does not match the version of the installed CLI "
             f"({_version.__version__}). Please either run `cdf modules upgrade` to upgrade the modules OR "

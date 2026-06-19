@@ -1,10 +1,11 @@
-"""Export of the instance-level resource dependency graph as YAML.
+"""Export of the instance-level resource dependency graph as YAML or JSON.
 
 The data is already materialized during build: every ``BuiltResource`` records the
 concrete resources it references in ``BuiltResource.dependencies``. This module only
 serializes that graph and computes a topological ordering of the built resources.
 """
 
+import json
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any
@@ -114,4 +115,10 @@ def write_dependency_graph(build_folder: BuildFolder, output_path: Path) -> None
     safe_write(output_path, yaml_safe_dump(graph, sort_keys=False))
 
 
-__all__ = ["build_dependency_graph", "write_dependency_graph"]
+def print_dependency_graph_json(build_folder: BuildFolder, indent: int = 2) -> None:
+    """Print the instance-level dependency graph as JSON to stdout."""
+    graph = build_dependency_graph(build_folder)
+    print(json.dumps(graph, indent=indent))
+
+
+__all__ = ["build_dependency_graph", "print_dependency_graph_json", "write_dependency_graph"]
