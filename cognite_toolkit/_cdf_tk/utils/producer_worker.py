@@ -142,7 +142,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _user_input_listener(self, producer_thread: threading.Thread) -> None:
         while not self._error_event.is_set() and not self._stop_event.is_set():
-            key = getch(timeout=0.1)
+            try:
+                key = getch(timeout=0.1)
+            except EOFError:
+                break
             if key is None and not producer_thread.is_alive():
                 break
             elif key is None:
@@ -356,6 +359,8 @@ def getch(timeout: float) -> str | None:
             rlist, _, _ = select.select([fd], [], [], timeout)
             if rlist:
                 ch = sys.stdin.read(1)
+                if not ch:
+                    raise EOFError
                 return ch
             else:
                 return None
