@@ -1035,30 +1035,6 @@ class Image360CollectionInteractiveSelect:
             raise ToolkitValueError("No 360 image collections selected.")
         return [node_id for node_id in selected if isinstance(node_id, NodeId)]
 
-    def resolve_external_ids(self, external_ids: Sequence[str]) -> list[NodeId]:
-        """Resolve user-provided collection external IDs to concrete collection NodeIds.
-
-        Matches by external ID across any space.
-        """
-        collections = self.list_collections()
-        by_external_id: dict[str, list[NodeId]] = defaultdict(list)
-        for node in collections:
-            by_external_id[node.external_id].append(NodeId(space=node.space, external_id=node.external_id))
-
-        resolved: list[NodeId] = []
-        missing: list[str] = []
-        for external_id in external_ids:
-            matches = by_external_id.get(external_id)
-            if not matches:
-                missing.append(external_id)
-                continue
-            resolved.extend(matches)
-        if missing:
-            raise ToolkitMissingResourceError(
-                f"The following 360 image collections were not found: {humanize_collection(missing)}."
-            )
-        return resolved
-
 
 class APMConfigInteractiveSelect:
     """Interactive select for APM Config (Infield V1) configurations."""

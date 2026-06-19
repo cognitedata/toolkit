@@ -117,12 +117,18 @@ def _resolve_migration_run_options(
     return resolved_log_dir, resolved_dry_run, resolved_verbose
 
 
-def _resolve_image360_collections(client: ToolkitClient, operation: str, collection: list[str] | None) -> list[NodeId]:
+def _resolve_image360_collections(
+    client: ToolkitClient,
+    operation: str,
+    collection: list[str] | None,
+    instance_space: str | None,
+) -> list[NodeId]:
     """Resolve the 360 image collections to migrate."""
-    selector = Image360CollectionInteractiveSelect(client, operation)
-    if collection:
-        return selector.resolve_external_ids(collection)
-    return selector.select_collections()
+    if collection is None and instance_space is None:
+        return Image360CollectionInteractiveSelect(client, operation).select_collections()
+    if collection is None or instance_space is None:
+        raise typer.BadParameter("Both --instance-space and --collection must be provided together")
+    return NodeId.from_str_ids(collection, space=instance_space)
 
 
 def _image360_collection_label(node: NodeResponse) -> str:
@@ -1851,8 +1857,17 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--collection",
                 "-c",
-                help="External ID of an Image360 collection to migrate. Can be repeated to migrate multiple "
-                "collections. If not provided, an interactive selection will be performed.",
+                help="External ID of an 360 image collection to migrate. Can be repeated. "
+                "Must be used together with --instance-space. If neither is provided, "
+                "an interactive selection will be performed.",
+            ),
+        ] = None,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                help="The instance space containing the 360 image collections. "
+                "Must be used together with --collection.",
             ),
         ] = None,
         log_dir: Annotated[
@@ -1902,7 +1917,7 @@ class MigrateApp(typer.Typer):
                 )
             )
 
-        selected_collections = _resolve_image360_collections(client, "migrate", collection)
+        selected_collections = _resolve_image360_collections(client, "migrate", collection, instance_space)
 
         default_log_dir = Path(f"migration_logs_{TODAY}")
         log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)

@@ -1173,20 +1173,6 @@ class TestImage360CollectionInteractiveSelect:
 
         assert result == [NodeId(space="my_space", external_id="collection_0")]
 
-    def test_resolve_external_ids(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.tool.instances.list.return_value = self._collection_nodes()
-            result = Image360CollectionInteractiveSelect(client, "migrate").resolve_external_ids(["collection_1"])
-
-        assert result == [NodeId(space="my_space", external_id="collection_1")]
-
-    def test_resolve_external_ids_missing_raises(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.tool.instances.list.return_value = self._collection_nodes()
-            selector = Image360CollectionInteractiveSelect(client, "migrate")
-            with pytest.raises(ToolkitMissingResourceError, match="not found"):
-                selector.resolve_external_ids(["missing"])
-
 
 class TestAPMConfigInteractiveSelect:
     def test_interactive_select_apm_configs(self, monkeypatch) -> None:
