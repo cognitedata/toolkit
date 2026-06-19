@@ -1833,6 +1833,14 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_nodes(
         ctx: typer.Context,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                help="The instance space containing the 360 image collections. "
+                "Must be used together with --collection.",
+            ),
+        ] = None,
         collection: Annotated[
             list[str] | None,
             typer.Option(
@@ -1841,14 +1849,6 @@ class MigrateApp(typer.Typer):
                 help="External ID of an 360 image collection to migrate. Can be repeated. "
                 "Must be used together with --instance-space. If neither is provided, "
                 "an interactive selection will be performed.",
-            ),
-        ] = None,
-        instance_space: Annotated[
-            str | None,
-            typer.Option(
-                "--instance-space",
-                help="The instance space containing the 360 image collections. "
-                "Must be used together with --collection.",
             ),
         ] = None,
         log_dir: Annotated[
