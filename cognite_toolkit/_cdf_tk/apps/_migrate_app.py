@@ -1911,9 +1911,7 @@ class MigrateApp(typer.Typer):
             if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and station_filter is None:
                 continue
             selectors.append(
-                _image360_view_selector(
-                    mapping.source_view, additional_filter_by_source_view.get(mapping.source_view)
-                )
+                _image360_view_selector(mapping.source_view, additional_filter_by_source_view.get(mapping.source_view))
             )
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = Image360FDMtoCDMMapper(
