@@ -16,13 +16,13 @@ from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, NodeId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.canvas import SOLUTION_TAG_VIEW_ID
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
     RootLocationConfiguration,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import SOLUTION_TAG_VIEW_ID
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceSource,
