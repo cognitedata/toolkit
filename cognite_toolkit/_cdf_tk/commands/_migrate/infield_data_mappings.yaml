@@ -74,8 +74,6 @@
   containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  ignoreSourceProperties:
-    - rootLocation
 - externalId: InFieldMeasurementReadingMapping
   sourceView:
     space: cdf_apm
@@ -108,8 +106,6 @@
   containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  ignoreSourceProperties:
-    - rootLocation
 - externalId: InFieldActionMapping
   sourceView:
     space: cdf_apm
