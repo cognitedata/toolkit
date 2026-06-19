@@ -153,7 +153,7 @@ def _create_image360_model_external_ids_by_collection(
         models_to_create.append(ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360"))
         collection_order.append(collection_id)
 
-    created_models = client.three_d.models_classic.create_dms(models_to_create)
+    created_models = client.tool.three_d.models_classic.create(models_to_create)
     return {
         collection_id: f"cog_3d_model_{created_model.id}"
         for collection_id, created_model in zip(collection_order, created_models, strict=True)

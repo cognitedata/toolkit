@@ -853,7 +853,7 @@ class TestCDFResourceAPI:
         assert created[0] == instance
 
         dms_request = ThreeDModelDMSRequest(name="My 360 collection", space="my-space", type="Image360")
-        created_dms = api.create_dms([dms_request])
+        created_dms = api.create([dms_request])
         assert len(created_dms) == 1
         assert created_dms[0] == instance
 
