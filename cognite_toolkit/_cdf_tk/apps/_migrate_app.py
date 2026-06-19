@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
@@ -148,9 +148,18 @@ def _create_image360_model_external_ids_by_collection(
     }
 
 
-def _image360_collection_node_filter(collections: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting the given collection nodes by external ID."""
-    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in collections]}}
+def _node_external_id_in_filter(node_ids: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in node_ids]}}
+
+
+def _image360_view_selector(view_id: ViewId, additional_filter: dict[str, Any] | None) -> InstanceViewSelector:
+    """Build an InstanceViewSelector querying the given view with an optional additional filter."""
+    return InstanceViewSelector(
+        view=SelectedView(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+        endpoint="query",
+        additional_filter=additional_filter,
+    )
 
 
 def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
@@ -170,16 +179,7 @@ def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
 
 def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
     """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
-    image360_filter = _image360_collection360_filter(selected_collections)
-    selector = InstanceViewSelector(
-        view=SelectedView(
-            space=IMAGE360_SOURCE_VIEW.space,
-            external_id=IMAGE360_SOURCE_VIEW.external_id,
-            version=IMAGE360_SOURCE_VIEW.version,
-        ),
-        endpoint="query",
-        additional_filter=image360_filter,
-    )
+    selector = _image360_view_selector(IMAGE360_SOURCE_VIEW, _image360_collection360_filter(selected_collections))
     station_ids: set[NodeId] = set()
     for page in InstanceIO(client).stream_data(selector):
         for data_item in page.items:
@@ -192,11 +192,6 @@ def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: l
             except ValidationError:
                 continue
     return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
-
-
-def _image360_station_node_filter(station_ids: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting the given Station360 nodes by external ID."""
-    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in station_ids]}}
 
 
 class MigrateApp(typer.Typer):
@@ -1904,36 +1899,20 @@ class MigrateApp(typer.Typer):
         )
 
         mappings = create_image360_node_mappings()
-        collection_filter = _image360_collection_node_filter(selected_collections)
-        image360_filter = _image360_collection360_filter(selected_collections)
         station_ids = _resolve_image360_station_ids(client, selected_collections)
-        station_filter = _image360_station_node_filter(station_ids) if station_ids else None
-        selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
-            InstanceViewSelector(
-                view=SelectedView(
-                    space=IMAGE360_COLLECTION_SOURCE_VIEW.space,
-                    external_id=IMAGE360_COLLECTION_SOURCE_VIEW.external_id,
-                    version=IMAGE360_COLLECTION_SOURCE_VIEW.version,
-                ),
-                endpoint="query",
-                additional_filter=collection_filter,
-            ),
-        ]
-        additional_filter_by_source_view = {IMAGE360_SOURCE_VIEW: image360_filter}
+        station_filter = _node_external_id_in_filter(station_ids) if station_ids else None
+        additional_filter_by_source_view = {IMAGE360_SOURCE_VIEW: _image360_collection360_filter(selected_collections)}
         if station_filter is not None:
             additional_filter_by_source_view[IMAGE360_STATION_SOURCE_VIEW] = station_filter
+        selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
+            _image360_view_selector(IMAGE360_COLLECTION_SOURCE_VIEW, _node_external_id_in_filter(selected_collections)),
+        ]
         for mapping in mappings:
             if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and station_filter is None:
                 continue
             selectors.append(
-                InstanceViewSelector(
-                    view=SelectedView(
-                        space=mapping.source_view.space,
-                        external_id=mapping.source_view.external_id,
-                        version=mapping.source_view.version,
-                    ),
-                    endpoint="query",
-                    additional_filter=additional_filter_by_source_view.get(mapping.source_view),
+                _image360_view_selector(
+                    mapping.source_view, additional_filter_by_source_view.get(mapping.source_view)
                 )
             )
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())

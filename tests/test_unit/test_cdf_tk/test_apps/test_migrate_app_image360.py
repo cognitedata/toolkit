@@ -4,7 +4,7 @@ import pytest
 import typer
 
 from cognite_toolkit._cdf_tk.apps._migrate_app import (
-    _image360_station_node_filter,
+    _node_external_id_in_filter,
     _resolve_image360_collections,
     _resolve_image360_station_ids,
 )
@@ -112,6 +112,6 @@ class TestResolveImage360StationIds:
             NodeId(space="my_space", external_id="station_c"),
         ]
 
-        assert _image360_station_node_filter(station_ids) == {
+        assert _node_external_id_in_filter(station_ids) == {
             "in": {"property": ["node", "externalId"], "values": ["station_a", "station_c"]}
         }
