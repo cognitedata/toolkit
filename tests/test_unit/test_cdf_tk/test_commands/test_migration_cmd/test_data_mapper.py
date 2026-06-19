@@ -82,6 +82,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ChartMapper,
     FDMtoCDMMapper,
     Image360CollectionMapper,
+    Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
@@ -1052,7 +1053,7 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-            mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            mapper = Image360FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
             mapper.prepare(MagicMock())
@@ -1064,10 +1065,9 @@ class TestFDMtoCDMMapper:
         entry = logger.log.call_args[0][0][0]
         assert isinstance(entry, MigrationEntryV2)
         assert entry.severity == Severity.failure
-        assert entry.label == "Cubemap face file(s) not migrated"
         assert "have not been migrated" in entry.message
-        assert entry.attributes == set(face_file_ids)
-        assert entry.attribute_display_name == "file external IDs"
+        for face_file_id in face_file_ids:
+            assert face_file_id in entry.message
         assert f"{self.SOURCE_SPACE}:image1" == entry.id
 
     def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
@@ -1169,7 +1169,7 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-            mapper = FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            mapper = Image360FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
             mapper.prepare(MagicMock())

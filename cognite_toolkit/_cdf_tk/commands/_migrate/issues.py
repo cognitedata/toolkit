@@ -175,6 +175,7 @@ class InstanceConversionIssue(MigrationIssue):
 
     type: Literal["instanceConversion"] = "instanceConversion"
     errors: list[str] = Field(default_factory=list)
+    severity: Severity = Severity.warning
 
     @property
     def has_issues(self) -> bool:
@@ -189,33 +190,7 @@ def instance_conversion_issue_as_migration_entry(
         id=issue.id,
         label="Instance conversion",
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
-        severity=Severity.warning,
+        severity=issue.severity,
         source=source,
         destination=destination,
-    )
-
-
-def image360_missing_face_files_migration_entry(
-    issue_id: str,
-    missing_file_external_ids: list[str],
-    *,
-    source: str,
-    destination: str,
-) -> MigrationEntryV2:
-    """Log entry for 360 image nodes blocked because cubemap files are not migrated to CogniteFile yet."""
-    message = (
-        "Cannot migrate this 360 image because one or more cubemap face files have not been migrated "
-        "to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', then re-run 'cdf migrate 360-images'."
-    )
-    if missing_file_external_ids:
-        message += f" {len(missing_file_external_ids)} unmigrated file(s); see file external IDs in the log summary."
-    return MigrationEntryV2(
-        id=issue_id,
-        label="Cubemap face file(s) not migrated",
-        message=message,
-        severity=Severity.failure,
-        source=source,
-        destination=destination,
-        attributes=set(missing_file_external_ids) if missing_file_external_ids else None,
-        attribute_display_name="file external IDs",
     )

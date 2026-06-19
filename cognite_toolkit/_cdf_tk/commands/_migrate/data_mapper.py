@@ -104,7 +104,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     InstanceConversionIssue,
     MigrationEntryV2,
     ThreeDModelMigrationIssue,
-    image360_missing_face_files_migration_entry,
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -1372,7 +1371,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
-        nodes_by_source_id = {node.as_id(): node for node in nodes}
         mapped_instances: list[NodeOrEdgeRequest | None] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
@@ -1387,6 +1385,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
                     id=str(source_node_id),
                     errors=[str(error)],
+                    severity=error.severity,
                 )
                 continue
             source_id_by_target_id[mapped_node.as_id()] = source_node_id
@@ -1405,24 +1404,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         self._update_existing_node_cache(mapped_instances)
         self._check_existence_of_required_targets(mapped_instances, issue_by_source_node_id, source_id_by_target_id)
 
-        mapped_nodes_by_target_id = {
-            instance.as_id(): instance
-            for instance in mapped_instances
-            if isinstance(instance, NodeRequest)
-        }
-        blocked_image360_target_ids = self._image360_target_ids_missing_face_files(
-            source_id_by_target_id, nodes_by_source_id, mapped_nodes_by_target_id
-        )
-        blocked_image360_target_id_by_source_id = {
-            source_id_by_target_id[target_id]: target_id for target_id in blocked_image360_target_ids
-        }
-        if blocked_image360_target_ids:
-            mapped_instances = [
-                instance
-                for instance in mapped_instances
-                if instance is None or instance.as_id() not in blocked_image360_target_ids
-            ]
-
         if self.dry_run:
             # In a real run these would be uploaded and visible to subsequent steps' constraint
             # checks. Pre-populate the cache so dry-run output reflects what a real run would do.
@@ -1431,22 +1412,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     self._is_existing_by_node_id[instance.as_id()] = True
 
         log_entries: list[MigrationEntryV2] = []
-        for source_node_id, blocked_target_id in blocked_image360_target_id_by_source_id.items():
-            log_entries.append(
-                image360_missing_face_files_migration_entry(
-                    str(source_node_id),
-                    missing_cubemap_face_file_external_ids(
-                        nodes_by_source_id[source_node_id],
-                        mapped_nodes_by_target_id.get(blocked_target_id),
-                    ),
-                    source="FDM instances",
-                    destination="CDM instances",
-                )
-            )
         for source_node_id, issue in issue_by_source_node_id.items():
-            if source_node_id in blocked_image360_target_id_by_source_id:
-                # Already reported as a blocked Image360 above; avoid duplicate log entries.
-                continue
             log_entries.append(
                 instance_conversion_issue_as_migration_entry(
                     issue, source="FDM instances", destination="CDM instances"
@@ -1688,23 +1654,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         else:
                             issue_by_source_node_id[source_node_id].errors.append(error)
                     source.properties[prop_id] = keep  # type: ignore[assignment]
-
-    def _image360_target_ids_missing_face_files(
-        self,
-        source_id_by_target_id: dict[NodeId, NodeId],
-        nodes_by_source_id: dict[NodeId, NodeResponse],
-        mapped_nodes_by_target_id: dict[NodeId, NodeRequest],
-    ) -> set[NodeId]:
-        """Target node IDs for Image360 instances that must not be uploaded (incomplete cubemap faces)."""
-        blocked_target_ids: set[NodeId] = set()
-        for target_id, source_node_id in source_id_by_target_id.items():
-            source_node = nodes_by_source_id.get(source_node_id)
-            if source_node is None or not is_image360_node(source_node):
-                continue
-            mapped_node = mapped_nodes_by_target_id.get(target_id)
-            if mapped_node is None or not cognite360_image_has_all_face_files(mapped_node):
-                blocked_target_ids.add(target_id)
-        return blocked_target_ids
 
     def _iterate_constrained_direct_relation_properties(
         self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
@@ -2000,6 +1949,33 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+class Image360FDMtoCDMMapper(FDMtoCDMMapper):
+    """FDM→CDM mapper for 360-image migration.
+
+    A Cognite360Image can only be created once all six cubemap face files have been migrated to
+    CogniteFile instances. Images missing one or more faces are skipped (and logged) via the
+    standard per-node InstanceMappingError path, to be retried after 'cdf migrate files'.
+    """
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
+    ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
+        mapped_node, edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
+        if is_image360_node(node) and not cognite360_image_has_all_face_files(mapped_node):
+            missing_files = missing_cubemap_face_file_external_ids(node, mapped_node)
+            message = (
+                "Cannot migrate this 360 image because one or more cubemap face files have not been "
+                "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
+                "then re-run 'cdf migrate 360-images'."
+            )
+            if missing_files:
+                message += f" Unmigrated file external IDs: {humanize_collection(missing_files)}."
+            raise InstanceMappingError(message, severity=Severity.failure)
+        return mapped_node, edges, issue
 
 
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):

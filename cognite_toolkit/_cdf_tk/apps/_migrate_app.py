@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ChartMapper,
     FDMtoCDMMapper,
     Image360CollectionMapper,
+    Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
@@ -1962,7 +1963,7 @@ class MigrateApp(typer.Typer):
                 )
             )
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-        mapper = FDMtoCDMMapper(
+        mapper = Image360FDMtoCDMMapper(
             client,
             mappings,
             connection_creator=connection_creator,

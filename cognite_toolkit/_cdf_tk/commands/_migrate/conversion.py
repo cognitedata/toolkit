@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, Re
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path, humanize_collection
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
@@ -66,6 +67,10 @@ from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 class InstanceMappingError(ToolkitError):
     """Raised when an instance ID cannot be mapped to a destination instance ID."""
+
+    def __init__(self, message: str, severity: Severity = Severity.warning) -> None:
+        super().__init__(message)
+        self.severity = severity
 
 
 class DirectRelationCache:
