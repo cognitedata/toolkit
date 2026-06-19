@@ -1403,7 +1403,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
         self._check_existence_of_required_targets(mapped_instances, issue_by_source_node_id, source_id_by_target_id)
-
         if self.dry_run:
             # In a real run these would be uploaded and visible to subsequent steps' constraint
             # checks. Pre-populate the cache so dry-run output reflects what a real run would do.
@@ -1411,15 +1410,15 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 if isinstance(instance, NodeRequest):
                     self._is_existing_by_node_id[instance.as_id()] = True
 
-        log_entries: list[MigrationEntryV2] = []
-        for source_node_id, issue in issue_by_source_node_id.items():
-            log_entries.append(
-                instance_conversion_issue_as_migration_entry(
-                    issue, source="FDM instances", destination="CDM instances"
-                )
+        if issue_by_source_node_id:
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="FDM instances", destination="CDM instances"
+                    )
+                    for issue in issue_by_source_node_id.values()
+                ]
             )
-        if log_entries:
-            self.logger.log(log_entries)
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
