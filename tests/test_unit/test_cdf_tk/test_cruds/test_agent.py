@@ -87,6 +87,7 @@ class TestAgentIODependencies:
             (AgentIO, ExternalId(external_id="weather-specialist")),
             (AgentIO, ExternalId(external_id="rca-specialist")),
         ]
+
     def test_skill_is_in_class_dependencies(self) -> None:
         if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
             assert SkillIO in AgentIO.dependencies
