@@ -98,26 +98,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 TODAY = date.today()
 
 
-def _resolve_migration_run_options(
-    log_dir: Path | None,
-    dry_run: bool | None,
-    verbose: bool | None,
-    default_log_dir: Path,
-) -> tuple[Path, bool, bool]:
-    resolved_log_dir = log_dir
-    if resolved_log_dir is None:
-        resolved_log_dir = Path(
-            questionary.path("Specify log directory for migration logs:", default=str(default_log_dir)).unsafe_ask()
-        )
-    resolved_dry_run = dry_run
-    if resolved_dry_run is None:
-        resolved_dry_run = questionary.confirm("Do you want to perform a dry run?", default=False).unsafe_ask()
-    resolved_verbose = verbose
-    if resolved_verbose is None:
-        resolved_verbose = questionary.confirm("Do you want verbose output?", default=False).unsafe_ask()
-    return resolved_log_dir, resolved_dry_run, resolved_verbose
-
-
 def _resolve_image360_collections(
     client: ToolkitClient,
     operation: str,
@@ -1872,29 +1852,29 @@ class MigrateApp(typer.Typer):
             ),
         ] = None,
         log_dir: Annotated[
-            Path | None,
+            Path,
             typer.Option(
                 "--log-dir",
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = None,
+        ] = Path(f"migration_logs_{TODAY}"),
         dry_run: Annotated[
-            bool | None,
+            bool,
             typer.Option(
-                "--dry-run/--no-dry-run",
+                "--dry-run",
                 "-d",
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
-        ] = None,
+        ] = False,
         verbose: Annotated[
-            bool | None,
+            bool,
             typer.Option(
-                "--verbose/--no-verbose",
+                "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command.",
             ),
-        ] = None,
+        ] = False,
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1920,8 +1900,12 @@ class MigrateApp(typer.Typer):
 
         selected_collections = _resolve_image360_collections(client, "migrate", collection, instance_space)
 
-        default_log_dir = Path(f"migration_logs_{TODAY}")
-        log_dir, dry_run, verbose = _resolve_migration_run_options(log_dir, dry_run, verbose, default_log_dir)
+        if collection is None and instance_space is None:
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         model_external_id_by_collection = _create_image360_model_external_ids_by_collection(
             client,
