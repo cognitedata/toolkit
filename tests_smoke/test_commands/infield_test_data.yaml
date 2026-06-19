@@ -14,6 +14,19 @@ asset:
         type: view
         version: v2
   space: {{readSpace}}
+# Solution tag used by template and checklist below.
+solutionTagSafety:
+  externalId: smoke_tag_safety
+  instanceType: node
+  sources:
+  - properties:
+      name: Safety
+    source:
+      externalId: CogniteSolutionTag
+      space: cdf_apps_shared
+      type: view
+      version: v1
+  space: {{source_space}}
 # Template Part
 templateReading:
   externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
@@ -63,7 +76,9 @@ template:
       rootLocation:
         externalId: SmokeAsset
         space: {{readSpace}}
-      solutionTags: []
+      solutionTags:
+      - externalId: smoke_tag_safety
+        space: {{source_space}}
       status: Ready
       title: '!!!!AAA Suu Template Reg Test- copy- copy'
       updatedBy:
@@ -157,7 +172,9 @@ checklist:
       rootLocation:
         externalId: SmokeAsset
         space: {{readSpace}}
-      solutionTags: []
+      solutionTags:
+      - externalId: smoke_tag_safety
+        space: {{source_space}}
       sourceCreatedTime: '2025-01-30T08:08:17.698+00:00'
       sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
       sourceUpdatedTime: '2025-02-10T13:30:07.144+00:00'
