@@ -1411,8 +1411,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         blocked_image360_target_ids = self._image360_target_ids_missing_face_files(
             source_id_by_target_id, nodes_by_source_id, mapped_nodes_by_target_id
         )
-        blocked_image360_source_node_ids = {
-            str(source_id_by_target_id[target_id]) for target_id in blocked_image360_target_ids
+        blocked_image360_target_id_by_source_id = {
+            source_id_by_target_id[target_id]: target_id for target_id in blocked_image360_target_ids
         }
         if blocked_image360_target_ids:
             mapped_instances = [
@@ -1431,19 +1431,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         if issue_by_source_node_id:
             log_entries: list[MigrationEntryV2] = []
             for source_node_id, issue in issue_by_source_node_id.items():
-                source_id_str = str(source_node_id)
-                if source_id_str in blocked_image360_source_node_ids:
-                    source_node = nodes_by_source_id[source_node_id]
-                    target_id = next(
-                        target
-                        for target, mapped_source_id in source_id_by_target_id.items()
-                        if mapped_source_id == source_node_id
-                    )
+                blocked_target_id = blocked_image360_target_id_by_source_id.get(source_node_id)
+                if blocked_target_id is not None:
                     log_entries.append(
                         image360_missing_face_files_migration_entry(
-                            source_id_str,
+                            str(source_node_id),
                             missing_cubemap_face_file_external_ids(
-                                source_node, mapped_nodes_by_target_id.get(target_id)
+                                nodes_by_source_id[source_node_id],
+                                mapped_nodes_by_target_id.get(blocked_target_id),
                             ),
                             source="FDM instances",
                             destination="CDM instances",
