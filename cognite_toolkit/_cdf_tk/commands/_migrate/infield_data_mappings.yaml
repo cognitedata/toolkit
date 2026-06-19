@@ -57,6 +57,7 @@
     - sourceId
     - rootLocation
     - sourceCreatedTime
+    - solutionTags
 - externalId: InFieldChecklistMapping
   sourceView:
     space: cdf_apm
