@@ -2,6 +2,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeResponse,
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
@@ -34,6 +35,13 @@ CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY: dict[str, str] = {
     "cubeMapTop": "top",
     "cubeMapBottom": "bottom",
 }
+
+
+def image360_collection_label(node: NodeResponse) -> str:
+    """Return the human-readable name for a legacy Image360Collection node."""
+    return str(
+        ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id
+    )
 
 
 def create_360_image_data_mappings() -> list[ViewToViewMapping]:

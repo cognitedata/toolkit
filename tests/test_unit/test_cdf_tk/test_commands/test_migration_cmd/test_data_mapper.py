@@ -87,7 +87,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Station360PropertiesMapping,
     ThreeDAssetMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_360_IMAGE_VIEW,
     LEGACY_360_IMAGE_SCHEMA_SPACE,
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,

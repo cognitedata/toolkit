@@ -41,9 +41,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     APMConfigInteractiveSelect,
     AssetCentricDestinationSelect,

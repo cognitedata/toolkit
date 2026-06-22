@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     image360_collection_label,
 )

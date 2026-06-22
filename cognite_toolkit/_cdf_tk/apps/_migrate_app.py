@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDAssetMapper,
     ThreeDMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     create_360_image_selector,
     image360_collection_label,
@@ -1847,7 +1847,9 @@ class MigrateApp(typer.Typer):
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client, model_external_id_by_collection),
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
+                    client, model_external_id_by_collection
+                ),
             },
         )
         cmd.run(

@@ -96,8 +96,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
     LEGACY_IMAGE360_SOURCE_VIEW,
     LEGACY_IMAGE360_STATION_SOURCE_VIEW,
     create_360_image_data_mappings,
-    image360_collection_label,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -1978,10 +1978,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
         )
 
     @staticmethod
-    def is_image360_node(node: NodeResponse) -> bool:
-        return LEGACY_IMAGE360_SOURCE_VIEW in (node.properties or {})
-
-    @staticmethod
     def cognite360_image_has_all_face_files(mapped_node: NodeRequest) -> bool:
         for source in mapped_node.sources or []:
             if source.source != COGNITE_360_IMAGE_VIEW or source.properties is None:
@@ -2049,7 +2045,9 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         mapped_node, edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
-        if self.is_image360_node(node) and not self.cognite360_image_has_all_face_files(mapped_node):
+        if LEGACY_IMAGE360_SOURCE_VIEW in (node.properties or {}) and not self.cognite360_image_has_all_face_files(
+            mapped_node
+        ):
             missing_files = self.missing_cubemap_face_file_external_ids(node, mapped_node)
             message = (
                 "Cannot migrate this 360 image because one or more cubemap face files have not been "
@@ -2084,7 +2082,6 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             instance_space = node.space
             collection_id = NodeId(space=instance_space, external_id=node.external_id)
             model_external_id = self._model_external_id_by_collection[collection_id]
-            label = image360_collection_label(node)
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             results.append(
                 NodeRequest(
@@ -2102,7 +2099,11 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                         ),
                         InstanceSource(
                             source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                            properties={"name": label},
+                            properties={
+                                "name": ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
+                                    "label"
+                                )
+                            },
                         ),
                     ],
                 )
