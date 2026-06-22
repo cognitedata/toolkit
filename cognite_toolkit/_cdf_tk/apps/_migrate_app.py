@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     create_360_image_selector,
-    image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -120,7 +119,11 @@ def _create_image360_model_external_ids_by_collection(
     collection_order: list[NodeId] = []
     for collection_id in collection_ids:
         node = nodes_by_id.get(collection_id)
-        label = image360_collection_label(node) if node is not None else collection_id.external_id
+        if not node:
+            continue
+        label = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
+            "label"
+        ) or collection_id.external_id
         models_to_create.append(ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360"))
         collection_order.append(collection_id)
 

@@ -1,8 +1,5 @@
-from typing import Any
-
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    NodeResponse,
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
@@ -35,13 +32,6 @@ CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY: dict[str, str] = {
     "cubeMapTop": "top",
     "cubeMapBottom": "bottom",
 }
-
-
-def image360_collection_label(node: NodeResponse) -> str:
-    """Return the human-readable name for a legacy Image360Collection node."""
-    return str(
-        ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id
-    )
 
 
 def create_360_image_data_mappings() -> list[ViewToViewMapping]:
@@ -77,19 +67,22 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
 
 def create_360_image_selector(selected_collections: list[NodeId]) -> InstanceQuerySelector:
     """Build a query selector that fetches Image360 nodes and related collections and stations."""
-    collection_filter: dict[str, Any] = {
-        "in": {
-            "property": LEGACY_IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
-            "values": [collection.dump(include_instance_type=False) for collection in selected_collections],
-        }
-    }
     return InstanceQuerySelector(
         endpoint="query",
         query=QueryRequest(
             with_={
                 "image360": QueryNodeExpression(
                     limit=10_000,
-                    nodes=QueryNodeTableExpression(filter=collection_filter),
+                    nodes=QueryNodeTableExpression(
+                        filter={
+                            "in": {
+                                "property": LEGACY_IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
+                                "values": [
+                                    collection.dump(include_instance_type=False) for collection in selected_collections
+                                ],
+                            }
+                        }
+                    ),
                     sort=[
                         QuerySortSpec(property=["node", "space"]),
                         QuerySortSpec(property=["node", "externalId"]),

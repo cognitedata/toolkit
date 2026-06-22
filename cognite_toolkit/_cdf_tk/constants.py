@@ -185,7 +185,6 @@ READONLY_CONTAINER_PROPERTIES: Mapping[tuple[str, str], set[str]] = {
     ("cdf_cdm", "CogniteFile"): {"isUploaded", "uploadedTime"},
 }
 
-
 # Data Plugin Constants
 DATA_DEFAULT_DIR = "data"
 DATA_RESOURCE_DIR = "resources"

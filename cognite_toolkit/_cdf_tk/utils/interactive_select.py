@@ -54,7 +54,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRespon
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
-    image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -1014,10 +1013,9 @@ class Image360CollectionInteractiveSelect:
         return [node for node in nodes if isinstance(node, NodeResponse)]
 
     def _collection_label(self, node: NodeResponse) -> str:
-        name = image360_collection_label(node)
-        if name == node.external_id:
-            return f"{node.space}:{node.external_id}"
-        return f"{name} ({node.space}:{node.external_id})"
+        if label := ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label"):
+            return f"{label} ({node.space}:{node.external_id})"
+        return f"{node.space}:{node.external_id}"
 
     def select_collections(self) -> list[NodeId]:
         """Select 360 image collections to migrate."""
