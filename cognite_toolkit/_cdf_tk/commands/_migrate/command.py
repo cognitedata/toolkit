@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Generic
 
 from rich.console import Console
-from rich import print as rich_print
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -489,7 +488,7 @@ class MigrationCommand(ToolkitCommand):
                     results[result.name] = result
 
                 if results.has_counts:
-                    rich_print(results.counts_table())
+                    print(results.counts_table())
 
             for item in to_create.resources:
                 if item.config_data and item.filestem:

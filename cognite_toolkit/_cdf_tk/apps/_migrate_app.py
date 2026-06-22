@@ -53,7 +53,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
-    IMAGE360_SOURCE_VIEW,
     image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
@@ -105,48 +104,6 @@ from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
-
-
-def _node_external_id_in_filter(node_ids: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting the given nodes by external ID."""
-    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in node_ids]}}
-
-
-def _image360_view_selector(view_id: ViewId, additional_filter: dict[str, Any] | None) -> InstanceViewSelector:
-    """Build an InstanceViewSelector querying the given view with an optional additional filter."""
-    return InstanceViewSelector(
-        view=SelectedView(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-        endpoint="query",
-        additional_filter=additional_filter,
-    )
-
-
-def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting Image360 nodes whose collection360 points to one of the collections."""
-    return {
-        "in": {
-            "property": IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
-            "values": [collection.dump(include_instance_type=False) for collection in collections],
-        }
-    }
-
-
-def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
-    """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
-    selector = _image360_view_selector(IMAGE360_SOURCE_VIEW, _image360_collection360_filter(selected_collections))
-    station_ids: set[NodeId] = set()
-    for page in InstanceIO(client).stream_data(selector):
-        for data_item in page.items:
-            node = data_item.item
-            if not isinstance(node, NodeResponse) or node.properties is None:
-                continue
-            properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
-            if not isinstance(properties, dict):
-                continue
-            station_reference = properties.get("station")
-            if isinstance(station_reference, NodeId):
-                station_ids.add(station_reference)
-    return sorted(station_ids, key=lambda station_id: (station_id.space, station_id.external_id))
 
 
 def _create_image360_model_external_ids_by_collection(
