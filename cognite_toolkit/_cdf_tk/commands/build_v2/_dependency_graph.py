@@ -86,13 +86,13 @@ def build_dependency_graph(build_folder: BuildFolder) -> dict[str, Any]:
         )
 
     output: dict[str, Any] = {
+        "modules": modules_output,
         "topological_order": [
             {
                 **_node_dict(crud_cls, identifier),
             }
             for crud_cls, identifier in ordered
         ],
-        "modules": modules_output,
     }
     if cycles:
         output["cycles"] = [[_node_dict(crud_cls, identifier) for crud_cls, identifier in cycle] for cycle in cycles]
