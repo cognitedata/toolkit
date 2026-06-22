@@ -1,11 +1,20 @@
+import sys
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+MAX_SUB_AGENTS_PER_AGENT = 20
+RUNTIME_VERSIONS_SUPPORTING_SUBAGENTS = frozenset({"1.3.0", "1.4.0"})
 
 
 class AgentToolModelResource(BaseModelResource, extra="allow"): ...
@@ -226,9 +235,39 @@ AgentTool = Annotated[
 # --- Agent YAML resource ---
 
 
+class SubagentConfig(BaseModelResource):
+    agent_external_id: str = Field(
+        description="External ID of the agent to use as a subagent.",
+        min_length=1,
+        max_length=255,
+    )
+
+
 Model = Literal[
+    # Legacy model names without the azure/model naming convention
+    "gpt-35-turbo",
+    "gpt-35-turbo-16k",
+    "gpt-4",
+    "gpt-4-turbo",
+    "gpt-4-32k",
+    "gpt-4-vision",
+    "gpt-4o-2024-05-13",
+    "gpt-4o-2024-08-06",
+    "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "bedrock/anthropic.claude-3-haiku-20240307-v1:0",
+    "gpt-4o-mini",
+    "gemini-1.5-pro",
+    # Azure models
+    "azure/o1",
+    "azure/o3-mini",
     "azure/o3",
     "azure/o4-mini",
+    "azure/gpt-3.5-turbo",
+    "azure/gpt-3.5-turbo-16k",
+    "azure/gpt-4",
+    "azure/gpt-4-turbo",
+    "azure/gpt-4-32k",
+    "azure/gpt-4-vision",
     "azure/gpt-4o",
     "azure/gpt-4o-mini",
     "azure/gpt-4.1",
@@ -238,14 +277,34 @@ Model = Literal[
     "azure/gpt-5-mini",
     "azure/gpt-5-nano",
     "azure/gpt-5.1",
+    "azure/gpt-5.2",
+    "azure/gpt-5.4",
+    "azure/gpt-5.4-mini",
+    "azure/gpt-5.4-nano",
+    "azure/gpt-5.5",
+    # GCP models
+    "gcp/claude-4-sonnet",
     "gcp/claude-4.5-sonnet",
     "gcp/claude-4.5-haiku",
+    "gcp/claude-4-opus",
+    "gcp/gemini-1.5-pro",
+    "gcp/gemini-1.5-flash",
+    "gcp/gemini-2.0-flash",
     "gcp/gemini-2.5-pro",
     "gcp/gemini-2.5-flash",
+    "gcp/gemini-2.5-flash-lite",
+    "gcp/gemini-3-pro-preview",
+    "gcp/gemini-3.1-pro-preview",
+    # AWS models
+    "aws/claude-4.6-sonnet",
+    "aws/claude-4.7-opus",
     "aws/claude-4.5-sonnet",
     "aws/claude-4.5-haiku",
     "aws/claude-4-sonnet",
+    "aws/claude-4-opus",
+    "aws/claude-4.1-opus",
     "aws/claude-3.5-sonnet",
+    "aws/claude-3-haiku",
 ]
 
 
@@ -279,8 +338,53 @@ class AgentYAML(ToolkitResource):
         "azure/gpt-4o-mini", description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.", max_length=20)
+    subagents: list[SubagentConfig] | None = Field(
+        None,
+        description="List of agents to expose as subagents on this agent.",
+        max_length=MAX_SUB_AGENTS_PER_AGENT,
+    )
+    skills: list[str] | None = Field(
+        None,
+        description="A list of skill external IDs available to the agent.",
+        max_length=30,
+    )
     labels: list[str] | None = Field(None, description="Labels for the agent, e.g. 'published'.")
     runtime_version: str | None = Field(None, description="The runtime version")
+
+    @field_validator("subagents")
+    @classmethod
+    def validate_subagents_unique(cls, subagents: list[SubagentConfig] | None) -> list[SubagentConfig] | None:
+        if not subagents:
+            return subagents
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for ref in subagents:
+            if ref.agent_external_id in seen:
+                duplicates.append(ref.agent_external_id)
+            seen.add(ref.agent_external_id)
+        if duplicates:
+            raise ValueError(
+                f"Duplicate subagent agentExternalId(s): {sorted(set(duplicates))}. "
+                "Each entry must reference a distinct agent."
+            )
+        return subagents
+
+    @model_validator(mode="after")
+    def validate_subagents_configuration(self) -> Self:
+        if not self.subagents:
+            return self
+        if any(ref.agent_external_id == self.external_id for ref in self.subagents):
+            raise ValueError("An agent cannot reference itself as a subagent.")
+        if self.runtime_version and self.runtime_version not in RUNTIME_VERSIONS_SUPPORTING_SUBAGENTS:
+            raise ValueError(
+                f"Runtime version '{self.runtime_version}' does not support subagents. "
+                "Use a runtime version where supports_subagents is enabled, or remove the 'subagents' field."
+            )
+        if self.tools and any(tool.name == "delegate_to_subagent" for tool in self.tools):
+            raise ValueError(
+                "Tool name 'delegate_to_subagent' is reserved for the system sub-agent delegate tool. Rename the tool."
+            )
+        return self
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

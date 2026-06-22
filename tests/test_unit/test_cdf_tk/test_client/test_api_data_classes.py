@@ -190,6 +190,19 @@ class TestRequestUpdateable:
 
 
 class TestAgentRequest:
+    def test_subagents_roundtrip(self) -> None:
+        data = {
+            "externalId": "supervisor",
+            "name": "Supervisor",
+            "runtimeVersion": "1.3.0",
+            "subagents": [
+                {"agentExternalId": "weather-specialist"},
+                {"agentExternalId": "rca-specialist"},
+            ],
+        }
+        agent_request = AgentRequest.model_validate(data)
+        assert agent_request.dump() == data
+
     def test_allow_unknown_tool(self) -> None:
         data = {
             "externalId": "agent_1",

@@ -5,8 +5,10 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO, SkillIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
+from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 
 
 class TestAgentIODumpResource:
@@ -34,6 +36,30 @@ class TestAgentIODumpResource:
 
         assert dumped == local
 
+    def test_dump_resource_ignores_empty_subagents_when_omitted_locally(self) -> None:
+        client = ToolkitClientMock()
+        io = AgentIO(client, None, None)
+        local = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "runtimeVersion": "1.3.0",
+        }
+        resource = AgentResponse.model_validate(
+            {
+                "externalId": "my_agent",
+                "name": "My Agent",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "1.3.0",
+                "subagents": [],
+            }
+        )
+
+        dumped = io.dump_resource(resource, local)
+
+        assert dumped == local
+
 
 class TestAgentIODependencies:
     def test_datamodel_is_in_class_dependencies(self) -> None:
@@ -41,6 +67,32 @@ class TestAgentIODependencies:
 
     def test_function_is_in_class_dependencies(self) -> None:
         assert FunctionIO in AgentIO.dependencies
+
+    def test_get_dependencies_yields_subagent_references(self) -> None:
+        resource = AgentYAML.model_validate(
+            {
+                "externalId": "supervisor",
+                "name": "Supervisor",
+                "runtimeVersion": "1.3.0",
+                "subagents": [
+                    {"agentExternalId": "weather-specialist"},
+                    {"agentExternalId": "rca-specialist"},
+                ],
+            }
+        )
+
+        actual = list(AgentIO.get_dependencies(resource))
+
+        assert actual == [
+            (AgentIO, ExternalId(external_id="weather-specialist")),
+            (AgentIO, ExternalId(external_id="rca-specialist")),
+        ]
+
+    def test_skill_is_in_class_dependencies(self) -> None:
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            assert SkillIO in AgentIO.dependencies
+        else:
+            assert SkillIO not in AgentIO.dependencies
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -189,9 +241,34 @@ class TestAgentIODependencies:
                 id="query tool with manual instance spaces yields no dependencies",
             ),
             pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "skills": ["my_skill", "other_skill"],
+                },
+                [
+                    (SkillIO, ExternalId(external_id="my_skill")),
+                    (SkillIO, ExternalId(external_id="other_skill")),
+                ],
+                id="skills yield SkillIO dependencies",
+            ),
+            pytest.param(
                 {"externalId": "my_agent", "tools": []},
                 [],
                 id="agent with no tools yields no dependencies",
+            ),
+            pytest.param(
+                {
+                    "externalId": "supervisor",
+                    "subagents": [
+                        {"agentExternalId": "weather-specialist"},
+                        {"agentExternalId": "rca-specialist"},
+                    ],
+                },
+                [
+                    (AgentIO, ExternalId(external_id="weather-specialist")),
+                    (AgentIO, ExternalId(external_id="rca-specialist")),
+                ],
+                id="subagents yield AgentIO dependencies",
             ),
             pytest.param(
                 {
@@ -204,6 +281,49 @@ class TestAgentIODependencies:
         ],
     )
     def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+        if "skills" in item and not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            expected = []
         actual = list(AgentIO.get_dependent_items(item))
 
         assert actual == expected
+
+
+class TestAgentIODiffList:
+    def test_diff_list_subagents_matches_by_agent_external_id(self) -> None:
+        io = AgentIO(ToolkitClientMock(), None, None)
+        local = [
+            {"agentExternalId": "weather-specialist"},
+            {"agentExternalId": "rca-specialist"},
+        ]
+        cdf = [
+            {"agentExternalId": "weather-specialist"},
+            {"agentExternalId": "rca-specialist"},
+        ]
+
+        local_by_cdf, added = io.diff_list(local, cdf, ("subagents",))
+
+        assert local_by_cdf == {0: 0, 1: 1}
+        assert added == []
+
+    def test_diff_list_subagents_reports_cdf_only_subagents(self) -> None:
+        io = AgentIO(ToolkitClientMock(), None, None)
+        local = [{"agentExternalId": "weather-specialist"}]
+        cdf = [
+            {"agentExternalId": "weather-specialist"},
+            {"agentExternalId": "rca-specialist"},
+        ]
+
+        local_by_cdf, added = io.diff_list(local, cdf, ("subagents",))
+
+        assert local_by_cdf == {0: 0}
+        assert added == [1]
+
+    def test_diff_list_subagents_reports_no_match_when_external_ids_differ(self) -> None:
+        io = AgentIO(ToolkitClientMock(), None, None)
+        local = [{"agentExternalId": "weather-specialist"}]
+        cdf = [{"agentExternalId": "rca-specialist"}]
+
+        local_by_cdf, added = io.diff_list(local, cdf, ("subagents",))
+
+        assert local_by_cdf == {}
+        assert added == [0]

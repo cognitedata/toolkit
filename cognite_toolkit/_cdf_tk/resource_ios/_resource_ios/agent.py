@@ -10,9 +10,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
@@ -32,7 +34,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    dependencies = frozenset({FunctionIO, DataModelIO})
+    dependencies = frozenset(
+        {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
+    )
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
@@ -101,6 +105,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        for subagent in item.get("subagents") or []:
+            if isinstance(subagent, dict) and (agent_external_id := subagent.get("agentExternalId")):
+                yield AgentIO, ExternalId(external_id=agent_external_id)
         for tool in item.get("tools", []):
             if tool.get("type") == "callFunction":
                 if ext_id := tool.get("configuration", {}).get("externalId"):
@@ -111,9 +118,15 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
                 yield from cls._data_model_dependencies(
                     cls._query_tool_manual_data_models(tool.get("configuration", {}))
                 )
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            for skill_external_id in item.get("skills") or []:
+                if isinstance(skill_external_id, str):
+                    yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        for subagent in resource.subagents or []:
+            yield AgentIO, ExternalId(external_id=subagent.agent_external_id)
         for tool in resource.tools or []:
             match tool:
                 case CallFunction():
@@ -122,6 +135,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
                     yield from cls._query_knowledge_graph_dependencies(tool)
                 case Query():
                     yield from cls._query_dependencies(tool)
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+            for skill_external_id in resource.skills or []:
+                yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:
@@ -186,10 +202,16 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
             return diff_list_identifiable(
                 local, cdf, get_identifier=lambda t: (t.get("name", ""), t.get("description", ""))
             )
-        elif json_path == ("labels",):
+        elif json_path in {("labels",), ("skills",)}:
             return diff_list_hashable(local, cdf)
         elif json_path == ("exampleQuestions",):
             return diff_list_identifiable(
                 local, cdf, get_identifier=lambda q: q.get("question", "") if isinstance(q, dict) else str(q)
+            )
+        elif json_path == ("subagents",):
+            return diff_list_identifiable(
+                local,
+                cdf,
+                get_identifier=lambda ref: ref.get("agentExternalId", "") if isinstance(ref, dict) else "",
             )
         return super().diff_list(local, cdf, json_path)
