@@ -1980,25 +1980,29 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             return super().map(source)
 
         custom_view_ids = set(self._custom_instance_mappings)
-        self._connection_creator.update_cache(source)
-        results: list[NodeOrEdgeRequest | None] = []
-
+        custom_items_by_view: dict[ViewId, list[NodeOrEdgeResponse]] = defaultdict(list)
+        standard_items: list[NodeOrEdgeResponse] = []
         for item in source:
+            matching_view_id: ViewId | None = None
             if isinstance(item, NodeResponse):
                 view_ids = {view_id for view_id in (item.properties or {}) if isinstance(view_id, ViewId)}
-                matching_custom_views = view_ids & custom_view_ids
-                if matching_custom_views:
-                    view_id = next(iter(matching_custom_views))
-                    custom_mapped = self._custom_instance_mappings[view_id].map([item])
-                    if self.dry_run:
-                        for instance in custom_mapped:
-                            if isinstance(instance, NodeRequest):
-                                self._is_existing_by_node_id[instance.as_id()] = True
-                    results.append(custom_mapped[0] if custom_mapped else None)
-                    continue
-            mapped_batch = super().map([item])
-            node_request = next((mapped for mapped in mapped_batch if isinstance(mapped, NodeRequest)), None)
-            results.append(node_request)
+                matching_view_id = next(iter(view_ids & custom_view_ids), None)
+            if matching_view_id is not None:
+                custom_items_by_view[matching_view_id].append(item)
+            else:
+                standard_items.append(item)
+
+        results: list[NodeOrEdgeRequest | None] = []
+        for view_id, items in custom_items_by_view.items():
+            custom_mapped = self._custom_instance_mappings[view_id].map(items)
+            if self.dry_run:
+                for instance in custom_mapped:
+                    if isinstance(instance, NodeRequest):
+                        self._is_existing_by_node_id[instance.as_id()] = True
+            results.extend(custom_mapped)
+
+        if standard_items:
+            results.extend(super().map(standard_items))
 
         return results
 
