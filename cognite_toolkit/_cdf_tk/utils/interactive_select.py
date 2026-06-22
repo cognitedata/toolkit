@@ -52,7 +52,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import IMAGE360_COLLECTION_SOURCE_VIEW
+from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+    IMAGE360_COLLECTION_SOURCE_VIEW,
+    image360_collection_label,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -1011,8 +1014,10 @@ class Image360CollectionInteractiveSelect:
         return [node for node in nodes if isinstance(node, NodeResponse)]
 
     def _collection_label(self, node: NodeResponse) -> str:
-        label = ((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
-        return f"{label} ({node.space}:{node.external_id})" if label else f"{node.space}:{node.external_id}"
+        name = image360_collection_label(node)
+        if name == node.external_id:
+            return f"{node.space}:{node.external_id}"
+        return f"{name} ({node.space}:{node.external_id})"
 
     def select_collections(self) -> list[NodeId]:
         """Select 360 image collections to migrate."""

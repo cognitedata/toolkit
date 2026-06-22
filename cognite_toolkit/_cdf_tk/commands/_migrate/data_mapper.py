@@ -90,12 +90,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDRevisionMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
-    IMAGE360_COLLECTION_SOURCE_VIEW,
+from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+    IMAGE360_SOURCE_VIEW,
     IMAGE360_STATION_SOURCE_VIEW,
-    cognite360_image_has_all_face_files,
-    is_image360_node,
-    missing_cubemap_face_file_external_ids,
+    image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
@@ -1958,14 +1956,136 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
     standard per-node InstanceMappingError path, to be retried after 'cdf migrate files'.
     """
 
+    COGNITE360_IMAGE_VIEW: ClassVar[ViewId] = ViewId(space="cdf_cdm", external_id="Cognite360Image", version="v1")
+    _FACE_PROPERTIES: ClassVar[frozenset[str]] = frozenset({"front", "back", "left", "right", "top", "bottom"})
+    _CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY: ClassVar[dict[str, str]] = {
+        "cubeMapFront": "front",
+        "cubeMapBack": "back",
+        "cubeMapLeft": "left",
+        "cubeMapRight": "right",
+        "cubeMapTop": "top",
+        "cubeMapBottom": "bottom",
+    }
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
+        | None = None,
+    ) -> None:
+        # The Image360 and Station360 view-to-view mappings are fixed for this mapper, so it owns
+        # them instead of having the caller build and pass them in.
+        super().__init__(
+            client,
+            self.create_node_mappings(),
+            connection_creator,
+            custom_properties_mappings=custom_properties_mappings,
+            custom_instance_mappings=custom_instance_mappings,
+        )
+
+    @classmethod
+    def create_node_mappings(cls) -> list[ViewToViewMapping]:
+        """ViewToViewMappings for Image360 and Station360 nodes handled by this mapper."""
+        return [
+            ViewToViewMapping(
+                external_id="Station360ToCognite360ImageStationMapping",
+                source_view=IMAGE360_STATION_SOURCE_VIEW,
+                destination_view=ViewId(space="cdf_cdm", external_id="Cognite360ImageStation", version="v1"),
+                map_identical_id_properties=False,
+                container_mapping={"label": "name"},
+            ),
+            ViewToViewMapping(
+                external_id="Image360ToCognite360ImageMapping",
+                source_view=IMAGE360_SOURCE_VIEW,
+                destination_view=cls.COGNITE360_IMAGE_VIEW,
+                map_identical_id_properties=True,
+                container_mapping={
+                    **cls._CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY,
+                    "station": "station360",
+                    "timeTaken": "takenAt",
+                },
+                # Cognite360Image has no name (no CogniteDescribable), so the legacy
+                # 'label' property has no destination to map to and is therefore intentionally dropped.
+                ignore_source_properties={"label"},
+            ),
+        ]
+
+    @staticmethod
+    def is_image360_node(node: NodeResponse) -> bool:
+        return IMAGE360_SOURCE_VIEW in (node.properties or {})
+
+    @staticmethod
+    def cognite360_image_has_all_face_files(mapped_node: NodeRequest) -> bool:
+        for source in mapped_node.sources or []:
+            if source.source != Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW or source.properties is None:
+                continue
+            return Image360FDMtoCDMMapper._FACE_PROPERTIES.issubset(source.properties.keys())
+        return False
+
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+        if not self._custom_instance_mappings:
+            return super().map(source)
+
+        custom_view_ids = set(self._custom_instance_mappings)
+        self._connection_creator.update_cache(source)
+        results: list[NodeOrEdgeRequest | None] = []
+
+        for item in source:
+            if isinstance(item, NodeResponse):
+                view_ids = {view_id for view_id in (item.properties or {}) if isinstance(view_id, ViewId)}
+                matching_custom_views = view_ids & custom_view_ids
+                if matching_custom_views:
+                    view_id = next(iter(matching_custom_views))
+                    custom_mapped = self._custom_instance_mappings[view_id].map([item])
+                    if self.dry_run:
+                        for instance in custom_mapped:
+                            if isinstance(instance, NodeRequest):
+                                self._is_existing_by_node_id[instance.as_id()] = True
+                    results.append(custom_mapped[0] if custom_mapped else None)
+                    continue
+            mapped_batch = super().map([item])
+            node_request = next((mapped for mapped in mapped_batch if isinstance(mapped, NodeRequest)), None)
+            results.append(node_request)
+
+        return results
+
+    @staticmethod
+    def missing_cubemap_face_file_external_ids(
+        source_node: NodeResponse,
+        mapped_node: NodeRequest | None,
+    ) -> list[str]:
+        source_properties = (source_node.properties or {}).get(IMAGE360_SOURCE_VIEW)
+        if not isinstance(source_properties, dict):
+            return []
+
+        mapped_face_properties: set[str] = set()
+        if mapped_node is not None:
+            for source in mapped_node.sources or []:
+                if source.source == Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW and source.properties is not None:
+                    mapped_face_properties = set(source.properties.keys())
+
+        missing_files: list[str] = []
+        for (
+            source_property,
+            destination_property,
+        ) in Image360FDMtoCDMMapper._CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY.items():
+            if destination_property in mapped_face_properties:
+                continue
+            file_external_id = source_properties.get(source_property)
+            if isinstance(file_external_id, str):
+                missing_files.append(file_external_id)
+        return missing_files
+
     def _map_single_node(
         self,
         node: NodeResponse,
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         mapped_node, edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
-        if is_image360_node(node) and not cognite360_image_has_all_face_files(mapped_node):
-            missing_files = missing_cubemap_face_file_external_ids(node, mapped_node)
+        if self.is_image360_node(node) and not self.cognite360_image_has_all_face_files(mapped_node):
+            missing_files = self.missing_cubemap_face_file_external_ids(node, mapped_node)
             message = (
                 "Cannot migrate this 360 image because one or more cubemap face files have not been "
                 "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
@@ -1996,12 +2116,11 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
         for node in source:
             if not isinstance(node, NodeResponse):
                 continue
-            ext_id = node.external_id
             instance_space = node.space
-            collection_id = NodeId(space=instance_space, external_id=ext_id)
+            collection_id = NodeId(space=instance_space, external_id=node.external_id)
             model_external_id = self._model_external_id_by_collection[collection_id]
-            label = str(((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or ext_id)
-            collection_ext_id = sanitize_instance_external_id(ext_id, "_cdm")
+            label = image360_collection_label(node)
+            collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             results.append(
                 NodeRequest(
                     space=instance_space,

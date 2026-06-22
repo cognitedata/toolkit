@@ -4,13 +4,23 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-from pydantic import ValidationError
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, NodeId, NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerId,
+    NodeId,
+    NodeResponse,
+    QueryNodeExpression,
+    QueryNodeTableExpression,
+    QueryRequest,
+    QuerySelect,
+    QuerySelectSource,
+    QuerySortSpec,
+    QueryThrough,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelDMSRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -42,11 +52,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDAssetMapper,
     ThreeDMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
-    IMAGE360_COLLECTION_SOURCE_VIEW,
+from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
     IMAGE360_SOURCE_VIEW,
-    IMAGE360_STATION_SOURCE_VIEW,
-    create_image360_node_mappings,
+    image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -99,9 +107,46 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 TODAY = date.today()
 
 
-def _image360_collection_label(node: NodeResponse) -> str:
-    """Return the display label for a legacy Image360Collection node."""
-    return str(((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id)
+def _node_external_id_in_filter(node_ids: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting the given nodes by external ID."""
+    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in node_ids]}}
+
+
+def _image360_view_selector(view_id: ViewId, additional_filter: dict[str, Any] | None) -> InstanceViewSelector:
+    """Build an InstanceViewSelector querying the given view with an optional additional filter."""
+    return InstanceViewSelector(
+        view=SelectedView(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+        endpoint="query",
+        additional_filter=additional_filter,
+    )
+
+
+def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
+    """Build a DMS filter selecting Image360 nodes whose collection360 points to one of the collections."""
+    return {
+        "in": {
+            "property": IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
+            "values": [collection.dump(include_instance_type=False) for collection in collections],
+        }
+    }
+
+
+def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
+    """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
+    selector = _image360_view_selector(IMAGE360_SOURCE_VIEW, _image360_collection360_filter(selected_collections))
+    station_ids: set[NodeId] = set()
+    for page in InstanceIO(client).stream_data(selector):
+        for data_item in page.items:
+            node = data_item.item
+            if not isinstance(node, NodeResponse) or node.properties is None:
+                continue
+            properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
+            if not isinstance(properties, dict):
+                continue
+            station_reference = properties.get("station")
+            if isinstance(station_reference, NodeId):
+                station_ids.add(station_reference)
+    return sorted(station_ids, key=lambda station_id: (station_id.space, station_id.external_id))
 
 
 def _create_image360_model_external_ids_by_collection(
@@ -123,7 +168,7 @@ def _create_image360_model_external_ids_by_collection(
     collection_order: list[NodeId] = []
     for collection_id in collection_ids:
         node = nodes_by_id.get(collection_id)
-        label = _image360_collection_label(node) if node is not None else collection_id.external_id
+        label = image360_collection_label(node) if node is not None else collection_id.external_id
         models_to_create.append(ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360"))
         collection_order.append(collection_id)
 
@@ -132,52 +177,6 @@ def _create_image360_model_external_ids_by_collection(
         collection_id: f"cog_3d_model_{created_model.id}"
         for collection_id, created_model in zip(collection_order, created_models, strict=True)
     }
-
-
-def _node_external_id_in_filter(node_ids: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting the given nodes by external ID."""
-    return {"in": {"property": ["node", "externalId"], "values": [node_id.external_id for node_id in node_ids]}}
-
-
-def _image360_view_selector(view_id: ViewId, additional_filter: dict[str, Any] | None) -> InstanceViewSelector:
-    """Build an InstanceViewSelector querying the given view with an optional additional filter."""
-    return InstanceViewSelector(
-        view=SelectedView(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-        endpoint="query",
-        additional_filter=additional_filter,
-    )
-
-
-def _image360_collection360_filter(collections: list[NodeId]) -> dict[str, Any]:
-    """Build a DMS filter selecting Image360 nodes whose collection360 points to one of the collections."""
-    collection360_property = [
-        IMAGE360_SOURCE_VIEW.space,
-        f"{IMAGE360_SOURCE_VIEW.external_id}/{IMAGE360_SOURCE_VIEW.version}",
-        "collection360",
-    ]
-    return {
-        "in": {
-            "property": collection360_property,
-            "values": [{"space": node_id.space, "externalId": node_id.external_id} for node_id in collections],
-        }
-    }
-
-
-def _resolve_image360_station_ids(client: ToolkitClient, selected_collections: list[NodeId]) -> list[NodeId]:
-    """Resolve Station360 node IDs referenced by Image360 nodes in the selected collections."""
-    selector = _image360_view_selector(IMAGE360_SOURCE_VIEW, _image360_collection360_filter(selected_collections))
-    station_ids: set[NodeId] = set()
-    for page in InstanceIO(client).stream_data(selector):
-        for data_item in page.items:
-            node = data_item.item
-            if not isinstance(node, NodeResponse) or node.properties is None:
-                continue
-            properties = node.properties.get(IMAGE360_SOURCE_VIEW, {})
-            try:
-                station_ids.add(NodeId.model_validate(properties.get("station")))
-            except ValidationError:
-                continue
-    return sorted(station_ids, key=lambda node_id: (node_id.space, node_id.external_id))
 
 
 class MigrateApp(typer.Typer):
@@ -1849,8 +1848,16 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        verify_threed_dm_migration_enabled(client)
+        if client.project.status().this_project.data_modeling_status != "DATA_MODELING_ONLY":
+            verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
+        # Legacy source views in the cdf_360_image_schema data model that the 360-image migration reads from.
+        IMAGE360_SOURCE_SPACE = "cdf_360_image_schema"
+        IMAGE360_SOURCE_VIEW = ViewId(space=IMAGE360_SOURCE_SPACE, external_id="Image360", version="v1")
+        IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(
+            space=IMAGE360_SOURCE_SPACE, external_id="Image360Collection", version="v1"
+        )
+        IMAGE360_STATION_SOURCE_VIEW = ViewId(space=IMAGE360_SOURCE_SPACE, external_id="Station360", version="v1")
 
         legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
         if legacy_site_count:
@@ -1887,25 +1894,63 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
         )
 
-        mappings = create_image360_node_mappings()
-        station_ids = _resolve_image360_station_ids(client, selected_collections)
-        station_filter = _node_external_id_in_filter(station_ids) if station_ids else None
-        additional_filter_by_source_view = {IMAGE360_SOURCE_VIEW: _image360_collection360_filter(selected_collections)}
-        if station_filter is not None:
-            additional_filter_by_source_view[IMAGE360_STATION_SOURCE_VIEW] = station_filter
-        selectors: list[InstanceViewSelector | InstanceQuerySelector] = [
-            _image360_view_selector(IMAGE360_COLLECTION_SOURCE_VIEW, _node_external_id_in_filter(selected_collections)),
-        ]
-        for mapping in mappings:
-            if mapping.source_view == IMAGE360_STATION_SOURCE_VIEW and station_filter is None:
-                continue
-            selectors.append(
-                _image360_view_selector(mapping.source_view, additional_filter_by_source_view.get(mapping.source_view))
-            )
+        selector: InstanceQuerySelector = InstanceQuerySelector(
+            endpoint="query",
+            query=QueryRequest(
+                with_={
+                    "image360": QueryNodeExpression(
+                        limit=10_000,
+                        nodes=QueryNodeTableExpression(
+                            filter={
+                                "in": {
+                                    "property": IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
+                                    "values": [
+                                        collection.dump(include_instance_type=False)
+                                        for collection in selected_collections
+                                    ],
+                                }
+                            }
+                        ),
+                        sort=[
+                            QuerySortSpec(property=["node", "space"]),
+                            QuerySortSpec(property=["node", "externalId"]),
+                        ],
+                    ),
+                    "image360collection": QueryNodeExpression(
+                        limit=10_000,
+                        nodes=QueryNodeTableExpression(
+                            from_="image360",
+                            direction="outwards",
+                            through=QueryThrough(source=IMAGE360_SOURCE_VIEW, identifier="collection360"),
+                        ),
+                    ),
+                    "image360station": QueryNodeExpression(
+                        limit=10_000,
+                        nodes=QueryNodeTableExpression(
+                            from_="image360",
+                            direction="outwards",
+                            through=QueryThrough(source=IMAGE360_SOURCE_VIEW, identifier="station"),
+                        ),
+                    ),
+                },
+                select={
+                    "image360": QuerySelect(sources=[QuerySelectSource(source=IMAGE360_SOURCE_VIEW, properties=["*"])]),
+                    "image360collection": QuerySelect(
+                        sources=[QuerySelectSource(source=IMAGE360_COLLECTION_SOURCE_VIEW, properties=["*"])]
+                    ),
+                    "image360station": QuerySelect(
+                        sources=[QuerySelectSource(source=IMAGE360_STATION_SOURCE_VIEW, properties=["*"])]
+                    ),
+                },
+                root="image360",
+            ).model_dump_json(),
+            root="image360",
+            subselections=tuple(["image360collection", "image360station"]),
+        )
+
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = Image360FDMtoCDMMapper(
             client,
-            mappings,
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
@@ -1914,7 +1959,7 @@ class MigrateApp(typer.Typer):
         )
         cmd.run(
             lambda: cmd.migrate(
-                selectors=selectors,
+                selectors=[selector],
                 data=InstanceIO(client),
                 mapper=mapper,
                 log_dir=log_dir,

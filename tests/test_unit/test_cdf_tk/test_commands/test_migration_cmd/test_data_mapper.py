@@ -84,13 +84,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
-    COGNITE360_IMAGE_VIEW,
+from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
     IMAGE360_COLLECTION_SOURCE_VIEW,
     IMAGE360_SOURCE_VIEW,
-    create_image360_node_mappings,
+    IMAGE360_STATION_SOURCE_VIEW,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
@@ -1023,9 +1023,9 @@ class TestFDMtoCDMMapper:
             },
         )
         destination_view = ViewResponse(
-            space=COGNITE360_IMAGE_VIEW.space,
-            external_id=COGNITE360_IMAGE_VIEW.external_id,
-            version=COGNITE360_IMAGE_VIEW.version,
+            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
+            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
+            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 dest_prop_id: ViewCorePropertyResponse(
@@ -1037,7 +1037,6 @@ class TestFDMtoCDMMapper:
                 for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
             },
         )
-        mapping = create_image360_node_mappings()[1]
         node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="image1",
@@ -1053,7 +1052,7 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-            mapper = Image360FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            mapper = Image360FDMtoCDMMapper(client, connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
             mapper.prepare(MagicMock())
@@ -1139,9 +1138,9 @@ class TestFDMtoCDMMapper:
             },
         )
         destination_view = ViewResponse(
-            space=COGNITE360_IMAGE_VIEW.space,
-            external_id=COGNITE360_IMAGE_VIEW.external_id,
-            version=COGNITE360_IMAGE_VIEW.version,
+            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
+            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
+            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 dest_prop_id: ViewCorePropertyResponse(
@@ -1153,7 +1152,6 @@ class TestFDMtoCDMMapper:
                 for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
             },
         )
-        mapping = create_image360_node_mappings()[1]
         node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="image1",
@@ -1169,7 +1167,7 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-            mapper = Image360FDMtoCDMMapper(client, [mapping], connection_creator=connection_creator)
+            mapper = Image360FDMtoCDMMapper(client, connection_creator=connection_creator)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
             mapper.prepare(MagicMock())
@@ -1181,6 +1179,175 @@ class TestFDMtoCDMMapper:
         assert actual[0].space == self.SOURCE_SPACE
         assert actual[0].external_id == sanitize_instance_external_id("image1", "_cdm")
         logger.log.assert_not_called()
+
+    def test_image360_mixed_batch_dispatches_each_view_to_correct_mapper(self) -> None:
+        face_file_ids = [f"face-{index}" for index in range(6)]
+        cube_map_properties = dict(
+            zip(
+                ["cubeMapFront", "cubeMapBack", "cubeMapLeft", "cubeMapRight", "cubeMapTop", "cubeMapBottom"],
+                face_file_ids,
+                strict=True,
+            )
+        )
+        file_responses = [
+            FileMetadataResponse(
+                external_id=external_id,
+                name=external_id,
+                instance_id=NodeId(space=self.TARGET_SPACE, external_id=f"file-{external_id}"),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                id=index,
+            )
+            for index, external_id in enumerate(face_file_ids)
+        ]
+        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
+        station_source_container = ContainerId(space="cdf_360_image_schema", external_id="Station360")
+        station_destination_container = ContainerId(space="cdf_cdm", external_id="Cognite360ImageStation")
+        group_container = ContainerId(space="cdf_cdm", external_id="Cognite3DGroup")
+        image_source_view = ViewResponse(
+            space=IMAGE360_SOURCE_VIEW.space,
+            external_id=IMAGE360_SOURCE_VIEW.external_id,
+            version=IMAGE360_SOURCE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=FileCDFExternalIdReference(),
+                    container_property_identifier=prop_id,
+                    container=image360_container,
+                )
+                for prop_id in cube_map_properties
+            },
+        )
+        image_destination_view = ViewResponse(
+            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
+            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
+            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                dest_prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier=dest_prop_id,
+                    container=cognite360_container,
+                )
+                for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
+            },
+        )
+        station_source_view = ViewResponse(
+            space=IMAGE360_STATION_SOURCE_VIEW.space,
+            external_id=IMAGE360_STATION_SOURCE_VIEW.external_id,
+            version=IMAGE360_STATION_SOURCE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                "label": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="label",
+                    container=station_source_container,
+                )
+            },
+        )
+        station_destination_view = ViewResponse(
+            space="cdf_cdm",
+            external_id="Cognite360ImageStation",
+            version="v1",
+            **self.DEFAULT_ARGS,
+            properties={
+                "name": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="name",
+                    container=station_destination_container,
+                ),
+                "groupType": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="groupType",
+                    container=group_container,
+                ),
+            },
+        )
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+        image_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="image1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+        )
+        station_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="station1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={IMAGE360_STATION_SOURCE_VIEW: {"label": "Station A"}},
+        )
+        collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [
+                image_source_view,
+                image_destination_view,
+                station_source_view,
+                station_destination_view,
+            ]
+            client.tool.filemetadata.retrieve.return_value = file_responses
+            client.tool.instances.retrieve.return_value = []
+
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+            mapper = Image360FDMtoCDMMapper(
+                client,
+                connection_creator=connection_creator,
+                custom_properties_mappings=[Station360PropertiesMapping()],
+                custom_instance_mappings={
+                    IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
+                        client, {collection_id: "cog_3d_model_42"}
+                    ),
+                },
+            )
+            mapper.prepare(MagicMock())
+
+            actual = mapper.map([collection_node, image_node, station_node])
+
+        assert len(actual) == 3
+        node_requests = [item for item in actual if isinstance(item, NodeRequest)]
+        assert len(node_requests) == 3
+
+        collection_request = next(
+            request
+            for request in node_requests
+            if any(source.source.external_id == "Cognite3DRevision" for source in request.sources or [])
+        )
+        image_request = next(
+            request
+            for request in node_requests
+            if any(source.source == Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW for source in request.sources or [])
+        )
+        station_request = next(
+            request
+            for request in node_requests
+            if any(source.source.external_id == "Cognite360ImageStation" for source in request.sources or [])
+        )
+
+        assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
+        assert image_request.external_id == sanitize_instance_external_id("image1", "_cdm")
+        assert station_request.external_id == sanitize_instance_external_id("station1", "_cdm")
+        station_source = next(
+            source for source in station_request.sources or [] if source.source.external_id == "Cognite360ImageStation"
+        )
+        assert station_source.properties == {"name": "Station A", "groupType": "Station360"}
 
 
 class TestInFieldLegacyToCDMScheduleMapper:
