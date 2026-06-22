@@ -54,7 +54,12 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
             destination_view=COGNITE_360_IMAGE_VIEW,
             map_identical_id_properties=True,
             container_mapping={
-                **CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY,
+                "cubeMapFront": "front",
+                "cubeMapBack": "back",
+                "cubeMapLeft": "left",
+                "cubeMapRight": "right",
+                "cubeMapTop": "top",
+                "cubeMapBottom": "bottom",
                 "station": "station360",
                 "timeTaken": "takenAt",
             },

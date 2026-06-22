@@ -90,14 +90,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDRevisionMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_360_IMAGE_VIEW,
     CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY,
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     LEGACY_IMAGE360_SOURCE_VIEW,
     LEGACY_IMAGE360_STATION_SOURCE_VIEW,
     create_360_image_data_mappings,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -1959,8 +1959,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
     standard per-node InstanceMappingError path, to be retried after 'cdf migrate files'.
     """
 
-    _FACE_PROPERTIES: ClassVar[frozenset[str]] = frozenset({"front", "back", "left", "right", "top", "bottom"})
-
     def __init__(
         self,
         client: ToolkitClient,
@@ -1976,14 +1974,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_properties_mappings=custom_properties_mappings,
             custom_instance_mappings=custom_instance_mappings,
         )
-
-    @staticmethod
-    def cognite360_image_has_all_face_files(mapped_node: NodeRequest) -> bool:
-        for source in mapped_node.sources or []:
-            if source.source != COGNITE_360_IMAGE_VIEW or source.properties is None:
-                continue
-            return Image360FDMtoCDMMapper._FACE_PROPERTIES.issubset(source.properties.keys())
-        return False
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         if not self._custom_instance_mappings:
@@ -2045,18 +2035,16 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         mapped_node, edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
-        if LEGACY_IMAGE360_SOURCE_VIEW in (node.properties or {}) and not self.cognite360_image_has_all_face_files(
-            mapped_node
-        ):
+        if LEGACY_IMAGE360_SOURCE_VIEW in (node.properties or {}):
             missing_files = self.missing_cubemap_face_file_external_ids(node, mapped_node)
-            message = (
-                "Cannot migrate this 360 image because one or more cubemap face files have not been "
-                "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
-                "then re-run 'cdf migrate 360-images'."
-            )
             if missing_files:
+                message = (
+                    "Cannot migrate this 360 image because one or more cubemap face files have not been "
+                    "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
+                    "then re-run 'cdf migrate 360-images'."
+                )
                 message += f" Unmigrated file external IDs: {humanize_collection(missing_files)}."
-            raise InstanceMappingError(message, severity=Severity.failure)
+                raise InstanceMappingError(message, severity=Severity.failure)
         return mapped_node, edges, issue
 
 
