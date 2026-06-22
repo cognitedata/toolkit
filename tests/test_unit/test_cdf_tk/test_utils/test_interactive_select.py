@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelC
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
-from cognite_toolkit._cdf_tk.commands._migrate.image360 import IMAGE360_COLLECTION_SOURCE_VIEW
+from cognite_toolkit._cdf_tk.commands._migrate.image360 import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     APMConfigInteractiveSelect,
     AssetCentricDestinationSelect,
@@ -1155,7 +1155,7 @@ class TestImage360CollectionInteractiveSelect:
                 created_time=1,
                 last_updated_time=1,
                 version=1,
-                properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": f"Collection {i}"}},
+                properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": f"Collection {i}"}},
             )
             for i in range(2)
         ]

@@ -7,19 +7,12 @@ import typer
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     NodeId,
     NodeResponse,
-    QueryNodeExpression,
-    QueryNodeTableExpression,
-    QueryRequest,
-    QuerySelect,
-    QuerySelectSource,
-    QuerySortSpec,
-    QueryThrough,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelDMSRequest
@@ -53,6 +46,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+    create_360_image_selector,
     image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
@@ -1808,13 +1803,6 @@ class MigrateApp(typer.Typer):
         if client.project.status().this_project.data_modeling_status != "DATA_MODELING_ONLY":
             verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
-        # Legacy source views in the cdf_360_image_schema data model that the 360-image migration reads from.
-        IMAGE360_SOURCE_SPACE = "cdf_360_image_schema"
-        IMAGE360_SOURCE_VIEW = ViewId(space=IMAGE360_SOURCE_SPACE, external_id="Image360", version="v1")
-        IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(
-            space=IMAGE360_SOURCE_SPACE, external_id="Image360Collection", version="v1"
-        )
-        IMAGE360_STATION_SOURCE_VIEW = ViewId(space=IMAGE360_SOURCE_SPACE, external_id="Station360", version="v1")
 
         legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
         if legacy_site_count:
@@ -1851,59 +1839,7 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
         )
 
-        selector: InstanceQuerySelector = InstanceQuerySelector(
-            endpoint="query",
-            query=QueryRequest(
-                with_={
-                    "image360": QueryNodeExpression(
-                        limit=10_000,
-                        nodes=QueryNodeTableExpression(
-                            filter={
-                                "in": {
-                                    "property": IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
-                                    "values": [
-                                        collection.dump(include_instance_type=False)
-                                        for collection in selected_collections
-                                    ],
-                                }
-                            }
-                        ),
-                        sort=[
-                            QuerySortSpec(property=["node", "space"]),
-                            QuerySortSpec(property=["node", "externalId"]),
-                        ],
-                    ),
-                    "image360collection": QueryNodeExpression(
-                        limit=10_000,
-                        nodes=QueryNodeTableExpression(
-                            from_="image360",
-                            direction="outwards",
-                            through=QueryThrough(source=IMAGE360_SOURCE_VIEW, identifier="collection360"),
-                        ),
-                    ),
-                    "image360station": QueryNodeExpression(
-                        limit=10_000,
-                        nodes=QueryNodeTableExpression(
-                            from_="image360",
-                            direction="outwards",
-                            through=QueryThrough(source=IMAGE360_SOURCE_VIEW, identifier="station"),
-                        ),
-                    ),
-                },
-                select={
-                    "image360": QuerySelect(sources=[QuerySelectSource(source=IMAGE360_SOURCE_VIEW, properties=["*"])]),
-                    "image360collection": QuerySelect(
-                        sources=[QuerySelectSource(source=IMAGE360_COLLECTION_SOURCE_VIEW, properties=["*"])]
-                    ),
-                    "image360station": QuerySelect(
-                        sources=[QuerySelectSource(source=IMAGE360_STATION_SOURCE_VIEW, properties=["*"])]
-                    ),
-                },
-                root="image360",
-            ).model_dump_json(),
-            root="image360",
-            subselections=tuple(["image360collection", "image360station"]),
-        )
+        selector = create_360_image_selector(selected_collections)
 
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = Image360FDMtoCDMMapper(
@@ -1911,7 +1847,7 @@ class MigrateApp(typer.Typer):
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client, model_external_id_by_collection),
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client, model_external_id_by_collection),
             },
         )
         cmd.run(

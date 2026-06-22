@@ -53,7 +53,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
-    IMAGE360_COLLECTION_SOURCE_VIEW,
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     image360_collection_label,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -1009,7 +1009,7 @@ class Image360CollectionInteractiveSelect:
         self.operation = operation
 
     def list_collections(self) -> list[NodeResponse]:
-        instance_filter = InstanceFilter(instance_type="node", source=IMAGE360_COLLECTION_SOURCE_VIEW)
+        instance_filter = InstanceFilter(instance_type="node", source=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW)
         nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
         return [node for node in nodes if isinstance(node, NodeResponse)]
 

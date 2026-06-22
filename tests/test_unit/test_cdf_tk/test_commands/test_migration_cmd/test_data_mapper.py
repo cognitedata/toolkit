@@ -88,9 +88,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDAssetMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image360 import (
-    IMAGE360_COLLECTION_SOURCE_VIEW,
-    IMAGE360_SOURCE_VIEW,
-    IMAGE360_STATION_SOURCE_VIEW,
+    COGNITE_360_IMAGE_VIEW,
+    LEGACY_360_IMAGE_SCHEMA_SPACE,
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+    LEGACY_IMAGE360_SOURCE_VIEW,
+    LEGACY_IMAGE360_STATION_SOURCE_VIEW,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
@@ -1005,12 +1007,12 @@ class TestFDMtoCDMMapper:
                 strict=True,
             )
         )
-        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        image360_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360")
         cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
         source_view = ViewResponse(
-            space=IMAGE360_SOURCE_VIEW.space,
-            external_id=IMAGE360_SOURCE_VIEW.external_id,
-            version=IMAGE360_SOURCE_VIEW.version,
+            space=LEGACY_IMAGE360_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_SOURCE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 prop_id: ViewCorePropertyResponse(
@@ -1023,9 +1025,9 @@ class TestFDMtoCDMMapper:
             },
         )
         destination_view = ViewResponse(
-            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
-            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
-            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
+            space=COGNITE_360_IMAGE_VIEW.space,
+            external_id=COGNITE_360_IMAGE_VIEW.external_id,
+            version=COGNITE_360_IMAGE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 dest_prop_id: ViewCorePropertyResponse(
@@ -1043,7 +1045,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+            properties={LEGACY_IMAGE360_SOURCE_VIEW: cube_map_properties},
         )
 
         with monkeypatch_toolkit_client() as client:
@@ -1076,7 +1078,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
         collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
         model_external_id = "cog_3d_model_42"
@@ -1120,12 +1122,12 @@ class TestFDMtoCDMMapper:
             )
             for index, external_id in enumerate(face_file_ids)
         ]
-        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        image360_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360")
         cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
         source_view = ViewResponse(
-            space=IMAGE360_SOURCE_VIEW.space,
-            external_id=IMAGE360_SOURCE_VIEW.external_id,
-            version=IMAGE360_SOURCE_VIEW.version,
+            space=LEGACY_IMAGE360_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_SOURCE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 prop_id: ViewCorePropertyResponse(
@@ -1138,9 +1140,9 @@ class TestFDMtoCDMMapper:
             },
         )
         destination_view = ViewResponse(
-            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
-            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
-            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
+            space=COGNITE_360_IMAGE_VIEW.space,
+            external_id=COGNITE_360_IMAGE_VIEW.external_id,
+            version=COGNITE_360_IMAGE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 dest_prop_id: ViewCorePropertyResponse(
@@ -1158,7 +1160,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+            properties={LEGACY_IMAGE360_SOURCE_VIEW: cube_map_properties},
         )
 
         with monkeypatch_toolkit_client() as client:
@@ -1201,15 +1203,15 @@ class TestFDMtoCDMMapper:
             )
             for index, external_id in enumerate(face_file_ids)
         ]
-        image360_container = ContainerId(space="cdf_360_image_schema", external_id="Image360")
+        image360_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360")
         cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
-        station_source_container = ContainerId(space="cdf_360_image_schema", external_id="Station360")
+        station_source_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Station360")
         station_destination_container = ContainerId(space="cdf_cdm", external_id="Cognite360ImageStation")
         group_container = ContainerId(space="cdf_cdm", external_id="Cognite3DGroup")
         image_source_view = ViewResponse(
-            space=IMAGE360_SOURCE_VIEW.space,
-            external_id=IMAGE360_SOURCE_VIEW.external_id,
-            version=IMAGE360_SOURCE_VIEW.version,
+            space=LEGACY_IMAGE360_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_SOURCE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 prop_id: ViewCorePropertyResponse(
@@ -1222,9 +1224,9 @@ class TestFDMtoCDMMapper:
             },
         )
         image_destination_view = ViewResponse(
-            space=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.space,
-            external_id=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.external_id,
-            version=Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW.version,
+            space=COGNITE_360_IMAGE_VIEW.space,
+            external_id=COGNITE_360_IMAGE_VIEW.external_id,
+            version=COGNITE_360_IMAGE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 dest_prop_id: ViewCorePropertyResponse(
@@ -1237,9 +1239,9 @@ class TestFDMtoCDMMapper:
             },
         )
         station_source_view = ViewResponse(
-            space=IMAGE360_STATION_SOURCE_VIEW.space,
-            external_id=IMAGE360_STATION_SOURCE_VIEW.external_id,
-            version=IMAGE360_STATION_SOURCE_VIEW.version,
+            space=LEGACY_IMAGE360_STATION_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_STATION_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_STATION_SOURCE_VIEW.version,
             **self.DEFAULT_ARGS,
             properties={
                 "label": ViewCorePropertyResponse(
@@ -1276,7 +1278,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
         image_node = NodeResponse(
             space=self.SOURCE_SPACE,
@@ -1284,7 +1286,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_SOURCE_VIEW: cube_map_properties},
+            properties={LEGACY_IMAGE360_SOURCE_VIEW: cube_map_properties},
         )
         station_node = NodeResponse(
             space=self.SOURCE_SPACE,
@@ -1292,7 +1294,7 @@ class TestFDMtoCDMMapper:
             last_updated_time=1,
             created_time=0,
             version=1,
-            properties={IMAGE360_STATION_SOURCE_VIEW: {"label": "Station A"}},
+            properties={LEGACY_IMAGE360_STATION_SOURCE_VIEW: {"label": "Station A"}},
         )
         collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
 
@@ -1312,7 +1314,7 @@ class TestFDMtoCDMMapper:
                 connection_creator=connection_creator,
                 custom_properties_mappings=[Station360PropertiesMapping()],
                 custom_instance_mappings={
-                    IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
+                    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
                         client, {collection_id: "cog_3d_model_42"}
                     ),
                 },
@@ -1333,7 +1335,7 @@ class TestFDMtoCDMMapper:
         image_request = next(
             request
             for request in node_requests
-            if any(source.source == Image360FDMtoCDMMapper.COGNITE360_IMAGE_VIEW for source in request.sources or [])
+            if any(source.source == COGNITE_360_IMAGE_VIEW for source in request.sources or [])
         )
         station_request = next(
             request
