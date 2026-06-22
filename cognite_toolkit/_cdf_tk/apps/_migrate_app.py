@@ -99,20 +99,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 TODAY = date.today()
 
 
-def _resolve_image360_collections(
-    client: ToolkitClient,
-    operation: str,
-    collection: list[str] | None,
-    instance_space: str | None,
-) -> list[NodeId]:
-    """Resolve the 360 image collections to migrate."""
-    if collection is None and instance_space is None:
-        return Image360CollectionInteractiveSelect(client, operation).select_collections()
-    if collection is None or instance_space is None:
-        raise typer.BadParameter("Both --instance-space and --collection must be provided together")
-    return NodeId.from_str_ids(collection, space=instance_space)
-
-
 def _image360_collection_label(node: NodeResponse) -> str:
     """Return the display label for a legacy Image360Collection node."""
     return str(((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label") or node.external_id)
@@ -1883,14 +1869,17 @@ class MigrateApp(typer.Typer):
                 )
             )
 
-        selected_collections = _resolve_image360_collections(client, "migrate", collection, instance_space)
-
         if collection is None and instance_space is None:
+            selected_collections = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
             log_dir = Path(
                 questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            if collection is None or instance_space is None:
+                raise typer.BadParameter("Both --instance-space and --collection must be provided together")
+            selected_collections = NodeId.from_str_ids(collection, space=instance_space)
 
         model_external_id_by_collection = _create_image360_model_external_ids_by_collection(
             client,

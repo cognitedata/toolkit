@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -1000,21 +1001,18 @@ class ThreeDInteractiveSelect:
 class Image360CollectionInteractiveSelect:
     """Interactively select one or more legacy Image360Collection nodes to migrate."""
 
-    SOURCE_VIEW: ClassVar[ViewId] = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
-
     def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
         self.operation = operation
 
     def list_collections(self) -> list[NodeResponse]:
-        instance_filter = InstanceFilter(instance_type="node", source=self.SOURCE_VIEW)
+        instance_filter = InstanceFilter(instance_type="node", source=IMAGE360_COLLECTION_SOURCE_VIEW)
         nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
         return [node for node in nodes if isinstance(node, NodeResponse)]
 
     def _collection_label(self, node: NodeResponse) -> str:
-        label = ((node.properties or {}).get(self.SOURCE_VIEW) or {}).get("label")
-        title = str(label) if label else node.external_id
-        return f"{title} ({node.space}:{node.external_id})"
+        label = ((node.properties or {}).get(IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
+        return f"{label} ({node.space}:{node.external_id})" if label else f"{node.space}:{node.external_id}"
 
     def select_collections(self) -> list[NodeId]:
         """Select 360 image collections to migrate."""
