@@ -1337,6 +1337,7 @@ def test_create_360_image_selectors_returns_collection_station_and_image_steps()
     assert isinstance(collection_selector, InstanceViewSelector)
     assert collection_selector.view.external_id == "Image360Collection"
     assert isinstance(station_selector, InstanceQuerySelector)
+    assert station_selector.root == "image360"
     assert station_selector.subselections == ("image360station",)
     assert isinstance(image_selector, InstanceViewSelector)
     assert image_selector.view.external_id == "Image360"

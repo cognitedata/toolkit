@@ -136,7 +136,7 @@ def create_360_image_selectors(
                 root="image360",
             ).model_dump_json(),
             root="image360",
-            subselections=tuple(["image360station"]),
+            subselections=("image360station",),
         ),
         InstanceViewSelector(
             view=SelectedView(

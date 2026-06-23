@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import create_360_image_selectors
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.dataio import DataItem, InstanceIO, Page
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -491,6 +492,45 @@ class TestInstanceIO:
         second_edge_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "edge"}
         assert second_node_ids == {"node_2", "node_3"}
         assert second_edge_ids == set()
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_query_root_not_in_select(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        """Root drives pagination but may be omitted from items when not selected."""
+        client = ToolkitClient(config=toolkit_config)
+        station_selector = create_360_image_selectors([NodeId(space="img_space", external_id="col1")])[1]
+        assert isinstance(station_selector, InstanceQuerySelector)
+
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+        respx_mock.post(query_url).respond(
+            status_code=200,
+            json={
+                "items": {
+                    "image360station": [
+                        {
+                            "instanceType": "node",
+                            "space": "img_space",
+                            "externalId": "station1",
+                            "version": 1,
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "properties": {
+                                "cdf_360_image_schema": {"Station360/v1": {"label": "Station A"}}
+                            },
+                        }
+                    ]
+                },
+                "nextCursor": {"image360": None},
+            },
+        )
+
+        pages = list(InstanceIO(client).stream_data(station_selector))
+
+        assert len(pages) == 1
+        assert len(pages[0].items) == 1
+        assert pages[0].items[0].tracking_id == "img_space:station1"
+        assert pages[0].items[0].item.external_id == "station1"
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",
