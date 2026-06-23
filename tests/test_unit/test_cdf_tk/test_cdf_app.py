@@ -106,6 +106,41 @@ class TestStatusCommand:
 
         assert clients == [None]
 
+    def test_status_continues_when_environment_variables_are_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.EnvironmentVariables.create_from_environment",
+            MagicMock(side_effect=RuntimeError("missing environment variables")),
+        )
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.run",
+            lambda self, execute: execute(),
+        )
+        captured: list[tuple[str, str, object | None]] = []
+
+        def capture_execute(self: object, **kwargs: object) -> None:
+            env_vars = kwargs["env_vars"]
+            captured.append((env_vars.CDF_CLUSTER, env_vars.CDF_PROJECT, kwargs["client"]))
+
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.execute",
+            capture_execute,
+        )
+
+        CoreApp().status(
+            ctx=MagicMock(),
+            organization_dir=tmp_path,
+            selected=None,
+            config_yaml=tmp_path / "config.dev.yaml",
+            build_env_name=None,
+            output_format=StatusOutputFormat.json,
+            json_output=False,
+            verbose=False,
+        )
+
+        assert captured == [("UNKNOWN", "UNKNOWN", None)]
+
 
 class TestEnsureEnabled:
     def test_noop_when_already_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:

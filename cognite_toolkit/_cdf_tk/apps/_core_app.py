@@ -62,6 +62,20 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def _is_status_json_output() -> bool:
+    args = sys.argv[1:]
+    if "status" not in args:
+        return False
+    if "--json" in args:
+        return True
+    for index, arg in enumerate(args):
+        if arg == "--format" and index + 1 < len(args):
+            return args[index + 1] == "json"
+        if arg.startswith("--format="):
+            return arg.removeprefix("--format=") == "json"
+    return False
+
+
 class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
@@ -138,9 +152,11 @@ class CoreApp(typer.Typer):
                     break
             else:
                 # Did not find .env file
+                if ctx.invoked_subcommand == "status" and _is_status_json_output():
+                    return
                 try:
                     env_vars = EnvironmentVariables.create_from_environment()
-                except (ValueError, KeyError):
+                except Exception:
                     warn = True
                 else:
                     warn = bool(env_vars.get_missing_vars())
@@ -435,10 +451,14 @@ class CoreApp(typer.Typer):
     ) -> None:
         """Show a topological status graph for the selected environment."""
         is_json_output = json_output or output_format == StatusOutputFormat.json
-        env_vars = EnvironmentVariables.create_from_environment()
         client: ToolkitClient | None = None
-        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
-            client = env_vars.get_client()
+        try:
+            env_vars = EnvironmentVariables.create_from_environment()
+        except Exception:
+            env_vars = EnvironmentVariables(CDF_CLUSTER="UNKNOWN", CDF_PROJECT="UNKNOWN")
+        else:
+            with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+                client = env_vars.get_client()
         cmd = StatusCommand(print_warning=not is_json_output, client=client)
 
         if build_env_name is not None and config_yaml is None:
