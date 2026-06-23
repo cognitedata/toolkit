@@ -515,9 +515,7 @@ class TestInstanceIO:
                             "version": 1,
                             "createdTime": 0,
                             "lastUpdatedTime": 0,
-                            "properties": {
-                                "cdf_360_image_schema": {"Station360/v1": {"label": "Station A"}}
-                            },
+                            "properties": {"cdf_360_image_schema": {"Station360/v1": {"label": "Station A"}}},
                         }
                     ]
                 },
