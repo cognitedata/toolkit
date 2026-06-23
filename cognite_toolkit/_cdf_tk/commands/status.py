@@ -147,9 +147,7 @@ class StatusCommand(ToolkitCommand):
         client.console = hidden_console
         try:
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                return BuildV2Command(print_warning=False, skip_tracking=True, client=client).build(
-                    build_parameters, client
-                )
+                return BuildV2Command(print_warning=False, skip_tracking=True).build(build_parameters, client=None)
         finally:
             client.console = original_console
 

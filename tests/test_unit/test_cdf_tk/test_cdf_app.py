@@ -1,5 +1,6 @@
 import pytest
 import typer
+import typer.main
 
 from cognite_toolkit import _cdf
 from cognite_toolkit._cdf_tk import plugins
@@ -20,6 +21,16 @@ class TestNoSuchCommandPattern:
         match = _cdf.NO_SUCH_COMMAND_PATTERN.search(traceback_text)
         assert match is not None
         assert match.group(1) == "data"
+
+
+class TestStatusCommand:
+    def test_status_accepts_json_option(self) -> None:
+        command = typer.main.get_command(_cdf._app)
+        status = command.commands["status"]
+
+        option_names = {name for param in status.params for name in param.opts}
+
+        assert "--json" in option_names
 
 
 class TestEnsureEnabled:

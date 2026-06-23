@@ -417,6 +417,13 @@ class CoreApp(typer.Typer):
                 help="Output format for the status graph.",
             ),
         ] = StatusOutputFormat.tree,
+        json_output: Annotated[
+            bool,
+            typer.Option(
+                "--json",
+                help="Output the status graph as JSON.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -445,7 +452,7 @@ class CoreApp(typer.Typer):
                 organization_dir=organization_dir,
                 config_yaml=config_yaml,
                 selected=selected,
-                output_format=output_format.value,
+                output_format="json" if json_output else output_format.value,
                 verbose=verbose,
             )
         )

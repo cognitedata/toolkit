@@ -162,8 +162,9 @@ def test_execute_hides_build_output(
     env_vars.get_client.return_value = client
 
     def noisy_build(self: Any, parameters: BuildParameters, client: Any) -> MagicMock:
+        assert client is None
         print("hidden stdout from build")
-        client.console.print("hidden console from build")
+        self.console("hidden console from build")
         return MagicMock(built_modules=[])
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.status.BuildV2Command.build", noisy_build)
