@@ -69,6 +69,7 @@ class ModulesConfig:
             and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"])
             and "--help" not in sys.argv
             and version != "0.0.0"  # debugging mode
+            and _version.__version__ != "0.0.0"  # local development mode
         ):
             raise ToolkitVersionError(
                 f"The version of the modules ({version}) does not match the version of the installed CLI "

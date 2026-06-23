@@ -1,13 +1,17 @@
+import io
 from collections.abc import Iterable, Sequence, Sized
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 from unittest.mock import MagicMock
 
+import pytest
 import yaml
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
@@ -146,3 +150,35 @@ def test_build_graph_sets_statuses_and_dependency_flags(tmp_path: Path) -> None:
     assert cdf_dependency.identifier == cdf_dependency_id
     assert cdf_dependency.in_config is False
     assert cdf_dependency.in_cdf is True
+
+
+def test_execute_hides_build_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = io.StringIO()
+    client = MagicMock()
+    client.console = Console(file=output, markup=True)
+    env_vars = MagicMock()
+    env_vars.get_client.return_value = client
+
+    def noisy_build(self: Any, parameters: BuildParameters, client: Any) -> MagicMock:
+        print("hidden stdout from build")
+        client.console.print("hidden console from build")
+        return MagicMock(built_modules=[])
+
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.status.BuildV2Command.build", noisy_build)
+
+    StatusCommand(print_warning=False, skip_tracking=True).execute(
+        env_vars=env_vars,
+        organization_dir=tmp_path,
+        config_yaml=None,
+        selected=None,
+        output_format="tree",
+        verbose=False,
+    )
+
+    captured = capsys.readouterr()
+    assert "hidden stdout from build" not in captured.out
+    assert "hidden stdout from build" not in captured.err
+    assert "hidden console from build" not in output.getvalue()
+    assert "CDF status" in output.getvalue()

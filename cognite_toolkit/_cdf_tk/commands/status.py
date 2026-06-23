@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
@@ -7,13 +9,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal, TypeAlias, cast
 
+from rich.console import Console
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeployOptions, DeployV2Command, ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -127,9 +130,7 @@ class StatusCommand(ToolkitCommand):
                 verbose=verbose,
                 insight_format="json",
             )
-            build = BuildV2Command(print_warning=self.print_warning, skip_tracking=True, client=client).build(
-                build_parameters, client
-            )
+            build = self._run_build_silently(build_parameters, client)
             graph = self.build_graph(build.built_modules, client, env_vars)
 
         if output_format == "json":
@@ -137,6 +138,20 @@ class StatusCommand(ToolkitCommand):
         else:
             client.console.print(self.render_tree(graph))
         return graph
+
+    def _run_build_silently(self, build_parameters: BuildParameters, client: ToolkitClient) -> BuildFolder:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        hidden_console = Console(file=io.StringIO(), markup=True)
+        original_console = client.console
+        client.console = hidden_console
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                return BuildV2Command(print_warning=False, skip_tracking=True, client=client).build(
+                    build_parameters, client
+                )
+        finally:
+            client.console = original_console
 
     @classmethod
     def build_graph(

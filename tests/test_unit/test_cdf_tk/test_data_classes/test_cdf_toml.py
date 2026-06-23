@@ -5,9 +5,10 @@ import pytest
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk import cdf_toml as cdf_toml_module
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, _set_plugin_enabled
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, ModulesConfig, _set_plugin_enabled
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH
-from cognite_toolkit._cdf_tk.exceptions import ToolkitTOMLFormatError
+from cognite_toolkit._cdf_tk.data_classes._base import _load_version_variable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitTOMLFormatError, ToolkitVersionError
 from tests.constants import REPO_ROOT
 
 
@@ -105,6 +106,38 @@ class TestCDFToml:
         # Verify the URL is a valid HTTPS URL pointing to cognite library
         assert library.url.startswith("https://github.com/cognitedata/library")
         assert library.url.endswith(".zip")
+
+    def test_modules_config_allows_any_module_version_when_cli_is_dev_version(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(_version, "__version__", "0.0.0")
+        monkeypatch.setattr("sys.argv", ["cdf", "build", "--env", "dev"])
+
+        config = ModulesConfig.load({"version": "0.8.105"})
+
+        assert config.version == "0.8.105"
+
+    def test_modules_config_still_rejects_mismatch_when_cli_is_released(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(_version, "__version__", "0.8.106")
+        monkeypatch.setattr("sys.argv", ["cdf", "build", "--env", "dev"])
+
+        with pytest.raises(ToolkitVersionError):
+            ModulesConfig.load({"version": "0.8.105"})
+
+    def test_system_version_allows_any_module_version_when_cli_is_dev_version(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(_version, "__version__", "0.0.0")
+
+        version = _load_version_variable({"cdf_toolkit_version": "0.8.105"}, "_system.yaml")
+
+        assert version == "0.8.105"
+
+    def test_system_version_still_rejects_mismatch_when_cli_is_released(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(_version, "__version__", "0.8.106")
+
+        with pytest.raises(ToolkitVersionError):
+            _load_version_variable({"cdf_toolkit_version": "0.8.105"}, "_system.yaml")
 
 
 class TestSetPluginEnabled:
