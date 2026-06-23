@@ -2057,8 +2057,9 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    Creates a classic Image360 3D model per collection (or reuses an existing model3D reference
-    when the collection was already migrated) and sets model3D on the collection revision as a side-effect.
+    First, as a side-effect, registers an Image360 3D model in the 3D backend per collection
+    (or reuses an existing model3D reference when the collection was already migrated previously)
+    and sets model3D on the collection revision.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
