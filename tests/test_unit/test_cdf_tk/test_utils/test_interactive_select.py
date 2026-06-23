@@ -1146,20 +1146,6 @@ class TestThreeDInteractiveSelect:
 
 
 class TestImage360CollectionInteractiveSelect:
-    @staticmethod
-    def _collection_nodes() -> list[NodeResponse]:
-        return [
-            NodeResponse(
-                space="my_space",
-                external_id=f"collection_{i}",
-                created_time=1,
-                last_updated_time=1,
-                version=1,
-                properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": f"Collection {i}"}},
-            )
-            for i in range(2)
-        ]
-
     def test_select_collections(self, monkeypatch) -> None:
         def select(choices: list[Choice]) -> list[Any]:
             assert len(choices) == 2
@@ -1169,7 +1155,17 @@ class TestImage360CollectionInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(Image360CollectionInteractiveSelect.__module__, monkeypatch, [select]),
         ):
-            client.tool.instances.list.return_value = self._collection_nodes()
+            client.tool.instances.list.return_value = [
+                NodeResponse(
+                    space="my_space",
+                    external_id=f"collection_{i}",
+                    created_time=1,
+                    last_updated_time=1,
+                    version=1,
+                    properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": f"Collection {i}"}},
+                )
+                for i in range(2)
+            ]
             result = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
 
         assert result == [NodeId(space="my_space", external_id="collection_0")]
