@@ -1,3 +1,5 @@
+from typing import Any
+
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
@@ -73,6 +75,12 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
 
 def create_360_image_selector(selected_collections: list[NodeId]) -> InstanceQuerySelector:
     """Build a query selector that fetches Image360 nodes and related collections and stations."""
+    image360_filter: dict[str, Any] = {
+        "in": {
+            "property": LEGACY_IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
+            "values": [collection.dump(include_instance_type=False) for collection in selected_collections],
+        }
+    }
     return InstanceQuerySelector(
         endpoint="query",
         query=QueryRequest(
@@ -80,14 +88,7 @@ def create_360_image_selector(selected_collections: list[NodeId]) -> InstanceQue
                 "image360": QueryNodeExpression(
                     limit=10_000,
                     nodes=QueryNodeTableExpression(
-                        filter={
-                            "in": {
-                                "property": LEGACY_IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
-                                "values": [
-                                    collection.dump(include_instance_type=False) for collection in selected_collections
-                                ],
-                            }
-                        }
+                        filter=image360_filter,
                     ),
                     sort=[
                         QuerySortSpec(property=["node", "space"]),

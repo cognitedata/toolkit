@@ -2065,7 +2065,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def map(self, source: Sequence[NodeResponse]) -> Sequence[NodeRequest | None]:
+    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
         collection_nodes = [node for node in source if isinstance(node, NodeResponse)]
         migrated_ids = [
             NodeId(space=node.space, external_id=sanitize_instance_external_id(node.external_id, "_cdm"))
