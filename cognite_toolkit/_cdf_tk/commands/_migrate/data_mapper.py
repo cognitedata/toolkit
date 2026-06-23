@@ -2066,11 +2066,15 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             NodeId(space=node.space, external_id=sanitize_instance_external_id(node.external_id, "_cdm"))
             for node in collection_nodes
         ]
-        existing_migrated_by_id = {
-            node.as_id(): node
-            for node in self.client.tool.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
-            if isinstance(node, NodeResponse)
-        }
+        existing_migrated_by_id = (
+            {
+                node.as_id(): node
+                for node in self.client.tool.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
+                if isinstance(node, NodeResponse)
+            }
+            if migrated_ids
+            else {}
+        )
 
         results: list[NodeRequest | None] = []
         for node in source:
