@@ -180,6 +180,46 @@ query: >-
         # Tags should be a YAML list, not SQL tuple
         assert loaded["tags"] == ["tag1", "tag2"]
 
+    def test_load_raw_list_of_dicts_is_hashable(self) -> None:
+        """Variables with list[dict] values (e.g. site_readiness) must be hashable.
+
+        BuildVariable is a frozen dataclass; set() comparisons in compare_modules()
+        call __hash__ on each instance. A list[dict] value wrapped in tuple() still
+        contains unhashable dicts — _to_hashable() must recurse into the dicts.
+        """
+        variables = BuildVariables.load_raw(
+            {
+                "site_readiness": [
+                    {"site_name_lower": "clov", "site_name_upper": "CLOV", "site_prefix": "CLV"},
+                    {"site_name_lower": "egina", "site_name_upper": "EGINA", "site_prefix": "EGI"},
+                ],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        assert len(variables) == 1
+        # Must not raise TypeError: unhashable type: 'dict'
+        assert len({variables[0]}) == 1
+
+    def test_load_from_cache_list_of_dicts_is_hashable(self) -> None:
+        """BuildVariable.load() (used to read build_info.*.yaml cache) must also
+        produce hashable values when the cached value is a list[dict]."""
+        from cognite_toolkit._cdf_tk.data_classes._build_variables import BuildVariable
+
+        bv = BuildVariable.load(
+            {
+                "key": "site_readiness",
+                "value": [{"site_name_lower": "clov", "site_prefix": "CLV"}],
+                "is_selected": True,
+                "location": "modules",
+            }
+        )
+
+        # Must not raise TypeError: unhashable type: 'dict'
+        assert hash(bv) is not None
+        assert len({bv}) == 1
+
     def test_get_module_variables_variable_preference_order(self) -> None:
         source_yaml = """
 modules:
