@@ -163,6 +163,7 @@ def test_execute_hides_build_output(
 
     def noisy_build(self: Any, parameters: BuildParameters, client: Any) -> MagicMock:
         assert client is None
+        assert parameters.user_selected_modules == ["modules/"]
         print("hidden stdout from build")
         self.console("hidden console from build")
         return MagicMock(built_modules=[])

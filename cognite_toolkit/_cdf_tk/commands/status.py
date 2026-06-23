@@ -126,7 +126,7 @@ class StatusCommand(ToolkitCommand):
                 organization_dir=organization_dir,
                 build_dir=Path(tmp_dir),
                 config_yaml=config_yaml,
-                user_selected_modules=selected,
+                user_selected_modules=selected or ["modules/"],
                 verbose=verbose,
                 insight_format="json",
             )
