@@ -1360,12 +1360,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
-                if self.dry_run:
-                    for instance in custom_mapped:
-                        if isinstance(instance, NodeRequest):
-                            self._is_existing_by_node_id[instance.as_id()] = True
-                return custom_mapped
+                return self._custom_instance_mappings[intersection_view_id].map(source)
             else:
                 # This is caused by the selector used to download the instance responses not matching the expectation in
                 # the mapper.
