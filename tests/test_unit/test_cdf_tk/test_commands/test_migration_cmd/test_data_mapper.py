@@ -90,13 +90,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     InFieldLegacyToCDMScheduleMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
-    uv_and_face_to_spherical,
-)
-from cognite_toolkit._cdf_tk.commands._migrate.image360_data_mappings import (
-    COGNITE360_IMAGE_VIEW,
-    IMAGE360_COLLECTION_SOURCE_VIEW,
-    IMAGE360_SOURCE_VIEW,
-    create_image360_node_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_3D_REVISION_VIEW,
@@ -1625,7 +1618,7 @@ class TestImage360AnnotationMapper:
             last_updated_time=1,
             version=1,
             properties={
-                IMAGE360_SOURCE_VIEW: {
+                LEGACY_IMAGE360_SOURCE_VIEW: {
                     "collection360": {
                         "space": TestImage360AnnotationMapper.SOURCE_SPACE,
                         "externalId": collection_external_id,
@@ -1659,8 +1652,6 @@ class TestImage360AnnotationMapper:
         assert retrieved_external_ids == {"file_in"}
         assert set(mapper._face_and_nodes_by_file_id) == {11}
 
-
-class TestUvAndFaceToSpherical:
     def test_face_centers_match_fusion_reference(self) -> None:
         """Face centers (u=v=0.5) must match fusion getNormalizedVectorFromUVAndFace.test.ts."""
         expected = {
@@ -1672,12 +1663,12 @@ class TestUvAndFaceToSpherical:
             "bottom": (math.pi / 2, math.pi),
         }
         for face, (expected_phi, expected_theta) in expected.items():
-            phi, theta = uv_and_face_to_spherical(face, 0.5, 0.5)
+            phi, theta = Image360AnnotationMapper.uv_and_face_to_spherical(face, 0.5, 0.5)
             assert phi == pytest.approx(expected_phi, abs=1e-4)
             assert theta == pytest.approx(expected_theta, abs=1e-4)
 
     def test_front_vertex_matches_fusion_transform_annotations(self) -> None:
         """front (0.1, 0.2) must match fusion transformAnnotationsToVectors.test.ts."""
-        phi, theta = uv_and_face_to_spherical("front", 0.1, 0.2)
+        phi, theta = Image360AnnotationMapper.uv_and_face_to_spherical("front", 0.1, 0.2)
         assert phi == pytest.approx(2.3562, abs=1e-4)
         assert theta == pytest.approx(0.9273, abs=1e-4)

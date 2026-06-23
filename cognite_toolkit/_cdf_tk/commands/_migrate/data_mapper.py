@@ -2031,45 +2031,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
         return mapped_node, edges, issue
 
 
-def uv_and_face_to_spherical(face: str, u: float, v: float) -> tuple[float, float]:
-    """Convert cubemap face UV coordinates to spherical coordinates in radians.
-
-    Ports ``getNormalizedVectorFromUVAndFace`` from fusion/libs/3d and THREE.js
-    ``Spherical.setFromVector3``.
-
-    Args:
-        face: Cubemap face name: "front", "back", "left", "right", "top", or "bottom".
-        u: Horizontal coordinate in [0, 1] on the face image (x in annotation vertex).
-        v: Vertical coordinate in [0, 1] on the face image (y in annotation vertex).
-
-    Returns:
-        (phi, theta) where phi ∈ [0, π] (polar angle from y-axis) and theta ∈ [0, 2π]
-        (azimuthal angle around y-axis, measured from z-axis).
-    """
-    uc = 2.0 * u - 1.0
-    vc = 2.0 * v - 1.0
-    if face == "left":
-        x, y, z = 1.0, -uc, -vc
-    elif face == "right":
-        x, y, z = -1.0, uc, -vc
-    elif face == "front":
-        x, y, z = -uc, -1.0, -vc
-    elif face == "back":
-        x, y, z = uc, 1.0, -vc
-    elif face == "top":
-        x, y, z = -uc, -vc, 1.0
-    elif face == "bottom":
-        x, y, z = -uc, vc, -1.0
-    else:
-        raise ValueError(f"Unknown cubemap face: {face!r}")
-    magnitude = math.sqrt(x**2 + y**2 + z**2)
-    x, y, z = x / magnitude, y / magnitude, z / magnitude
-    phi = math.acos(max(-1.0, min(1.0, y)))
-    theta_raw = math.atan2(x, z)
-    theta = theta_raw if theta_raw >= 0.0 else theta_raw + 2.0 * math.pi
-    return phi, theta
-
-
 _FACE_PROPERTY_NAMES: dict[str, str] = {
     "cubeMapFront": "front",
     "cubeMapBack": "back",
@@ -2078,11 +2039,6 @@ _FACE_PROPERTY_NAMES: dict[str, str] = {
     "cubeMapTop": "top",
     "cubeMapBottom": "bottom",
 }
-
-_IMAGE360_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360", version="v1")
-_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Image360Collection", version="v1")
-_IMAGE360_STATION_SOURCE_VIEW = ViewId(space="cdf_360_image_schema", external_id="Station360", version="v1")
-
 
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
@@ -2188,6 +2144,45 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         client: ToolkitClient instance for CDF API access.
     """
 
+    @staticmethod
+    def uv_and_face_to_spherical(face: str, u: float, v: float) -> tuple[float, float]:
+        """Convert cubemap face UV coordinates to spherical coordinates in radians.
+
+        Ports ``getNormalizedVectorFromUVAndFace`` from fusion/libs/3d and THREE.js
+        ``Spherical.setFromVector3``.
+
+        Args:
+            face: Cubemap face name: "front", "back", "left", "right", "top", or "bottom".
+            u: Horizontal coordinate in [0, 1] on the face image (x in annotation vertex).
+            v: Vertical coordinate in [0, 1] on the face image (y in annotation vertex).
+
+        Returns:
+            (phi, theta) where phi ∈ [0, π] (polar angle from y-axis) and theta ∈ [0, 2π]
+            (azimuthal angle around y-axis, measured from z-axis).
+        """
+        uc = 2.0 * u - 1.0
+        vc = 2.0 * v - 1.0
+        if face == "left":
+            x, y, z = 1.0, -uc, -vc
+        elif face == "right":
+            x, y, z = -1.0, uc, -vc
+        elif face == "front":
+            x, y, z = -uc, -1.0, -vc
+        elif face == "back":
+            x, y, z = uc, 1.0, -vc
+        elif face == "top":
+            x, y, z = -uc, -vc, 1.0
+        elif face == "bottom":
+            x, y, z = -uc, vc, -1.0
+        else:
+            raise ValueError(f"Unknown cubemap face: {face!r}")
+        magnitude = math.sqrt(x**2 + y**2 + z**2)
+        x, y, z = x / magnitude, y / magnitude, z / magnitude
+        phi = math.acos(max(-1.0, min(1.0, y)))
+        theta_raw = math.atan2(x, z)
+        theta = theta_raw if theta_raw >= 0.0 else theta_raw + 2.0 * math.pi
+        return phi, theta
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         # file_internal_id → (face_name, new_image360_node_id, new_collection_node_id)
@@ -2201,7 +2196,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         """
         instance_filter = InstanceFilter(
             instance_type="node",
-            source=_IMAGE360_SOURCE_VIEW,
+            source=LEGACY_IMAGE360_SOURCE_VIEW,
         )
         all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
 
@@ -2213,7 +2208,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         for node in all_nodes:
             if not isinstance(node, NodeResponse) or node.properties is None:
                 continue
-            props = node.properties.get(_IMAGE360_SOURCE_VIEW, {})
+            props = node.properties.get(LEGACY_IMAGE360_SOURCE_VIEW, {})
 
             collection_ref = props.get("collection360")
             if not isinstance(collection_ref, dict):
@@ -2226,11 +2221,11 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
 
             new_image360_node_id = NodeId(
                 space=node.space,
-                external_id=add_migration_suffix(node.external_id),
+                external_id=sanitize_instance_external_id(node.external_id, "_cdm"),
             )
             new_collection_node_id = NodeId(
                 space=node.space,
-                external_id=add_migration_suffix(str(collection_ext_id)),
+                external_id=sanitize_instance_external_id(str(collection_ext_id), "_cdm"),
             )
 
             for prop_name, face_name in _FACE_PROPERTY_NAMES.items():
@@ -2334,7 +2329,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
 
         polygon_data: list[float] = [float(len(vertices))]
         for vertex in vertices:
-            phi, theta = uv_and_face_to_spherical(face, vertex.x, vertex.y)
+            phi, theta = self.uv_and_face_to_spherical(face, vertex.x, vertex.y)
             polygon_data.extend([phi, theta])
 
         asset_node_id = self._resolve_asset_node_id(annotation.id, annotation_data)

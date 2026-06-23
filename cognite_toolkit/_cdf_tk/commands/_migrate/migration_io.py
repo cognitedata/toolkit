@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -69,6 +69,7 @@ from .data_classes import (
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
+from .image_360_mappings import CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY, LEGACY_IMAGE360_SOURCE_VIEW
 from .issues import MigrationEntryV2
 from .selectors import (
     AssetCentricMigrationSelector,
@@ -839,19 +840,6 @@ class Image360AnnotationMigrationIO(
     KIND = "Image360AnnotationMigration"
     CHUNK_SIZE = 100  # beta endpoint maximum
     UPLOAD_ENDPOINT = "/3d/contextualization/image360"
-    _SOURCE_VIEW_ID = {
-        "space": "cdf_360_image_schema",
-        "external_id": "Image360",
-        "version": "v1",
-    }
-    _FACE_PROPERTY_NAMES = (
-        "cubeMapFront",
-        "cubeMapBack",
-        "cubeMapLeft",
-        "cubeMapRight",
-        "cubeMapTop",
-        "cubeMapBottom",
-    )
     # The annotations API supports at most 1000 IDs per filter call.
     _ANNOTATION_FILTER_ID_CHUNK = 1000
     _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
@@ -894,14 +882,9 @@ class Image360AnnotationMigrationIO(
 
         If ``collections`` is provided, only nodes belonging to those collections are considered.
         """
-        source_view = ViewId(
-            space=self._SOURCE_VIEW_ID["space"],
-            external_id=self._SOURCE_VIEW_ID["external_id"],
-            version=self._SOURCE_VIEW_ID["version"],
-        )
         instance_filter = InstanceFilter(
             instance_type="node",
-            source=source_view,
+            source=LEGACY_IMAGE360_SOURCE_VIEW,
         )
         all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
 
@@ -911,7 +894,7 @@ class Image360AnnotationMigrationIO(
         for node in all_nodes:
             if not isinstance(node, NodeResponse) or node.properties is None:
                 continue
-            props = node.properties.get(source_view, {})
+            props = node.properties.get(LEGACY_IMAGE360_SOURCE_VIEW, {})
             if selected_collections is not None:
                 collection_ref = props.get("collection360")
                 if not isinstance(collection_ref, dict):
@@ -919,7 +902,7 @@ class Image360AnnotationMigrationIO(
                 collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
                 if collection_ext_id not in selected_collections:
                     continue
-            for prop_name in self._FACE_PROPERTY_NAMES:
+            for prop_name in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY:
                 file_ext_id = props.get(prop_name)
                 if file_ext_id and isinstance(file_ext_id, str):
                     file_external_ids.append(file_ext_id)
