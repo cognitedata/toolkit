@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployCommand,
     DeployOptions,
     DeployV2Command,
+    StatusCommand,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
@@ -50,6 +51,11 @@ class InsightFormat(str, Enum):
     json = "json"
 
 
+class StatusOutputFormat(str, Enum):
+    tree = "tree"
+    json = "json"
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"CDF-Toolkit version: {current_version}.")
@@ -63,6 +69,7 @@ class CoreApp(typer.Typer):
         self.command("build")(self.build_v2)
         self.command("deploy")(self.deploy_v2)
         self.command("clean")(self.clean_v2)
+        self.command("status")(self.status)
 
     def common(
         self,
@@ -361,6 +368,85 @@ class CoreApp(typer.Typer):
             lambda: cmd.build(
                 parameters=parameter,
                 client=client,
+            )
+        )
+
+    def status(
+        self,
+        ctx: typer.Context,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the configuration YAMLs files inside a /modules structure to build from. Defaults to the value of 'default_organization_dir' in cdf.toml if set, otherwise current directory.",
+                file_okay=False,
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+        selected: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--modules",
+                "-m",
+                help="Specify paths or names to the modules to build",
+            ),
+        ] = None,
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
+        build_env_name: Annotated[
+            str | None,
+            typer.Option(
+                "--env",
+                "-e",
+                help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
+            ),
+        ] = CDF_TOML.cdf.default_env,
+        output_format: Annotated[
+            StatusOutputFormat,
+            typer.Option(
+                "--format",
+                help="Output format for the status graph.",
+            ),
+        ] = StatusOutputFormat.tree,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Show a topological status graph for the selected environment."""
+        env_vars = EnvironmentVariables.create_from_environment()
+        client = env_vars.get_client()
+        cmd = StatusCommand(print_warning=True, client=client)
+
+        if build_env_name is not None and config_yaml is None:
+            ToolkitDeprecationWarning(
+                feature="the --env / -e option in cdf status or default_env in cdf.toml",
+                alternative="--config-yaml / -c or default_config_yaml in cdf.toml with the path to your config file "
+                "(for example <organization-dir>/config.<env>.yaml)",
+            ).print_warning()
+            config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
+
+        cmd.run(
+            lambda: cmd.execute(
+                env_vars=env_vars,
+                organization_dir=organization_dir,
+                config_yaml=config_yaml,
+                selected=selected,
+                output_format=output_format.value,
+                verbose=verbose,
             )
         )
 
