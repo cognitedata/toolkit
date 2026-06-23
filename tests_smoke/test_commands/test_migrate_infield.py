@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import SOLUTION_TAG_VIEW_ID
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceSource,
@@ -355,6 +356,8 @@ class TestMigrateInfield:
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
 
+        self._assert_solution_tags_migrated(toolkit_client, target_space.space)
+
         # Cleanup for next run.
         destination_node_ids = [node_id for node_ids in destination_by_view_id.values() for node_id in node_ids]
         toolkit_client.tool.instances.delete(destination_node_ids)
@@ -372,13 +375,13 @@ class TestMigrateInfield:
         for instance in infield_legacy:
             if not isinstance(instance, NodeRequest):
                 continue
-            if instance.sources and instance.sources[0].source.space == "cdf_apm":
+            if instance.sources and instance.sources[0].source.space in {"cdf_apm", "cdf_apps_shared"}:
                 expected_node_count += 1
             for source in instance.sources or []:
                 if not isinstance(source.source, ViewId):
                     continue
                 if source.source not in mapping_by_source:
-                    if source.source.space == "cdf_apm":
+                    if source.source.space in {"cdf_apm", "cdf_apps_shared"}:
                         missing_mappings.append(source.source)
                     continue
                 mapping = mapping_by_source[source.source]
@@ -386,6 +389,26 @@ class TestMigrateInfield:
                     NodeId(space=target_space.space, external_id=instance.external_id)
                 )
         return destination_by_view_id, expected_node_count, missing_mappings
+
+    def _assert_solution_tags_migrated(self, client: ToolkitClient, target_space: str) -> None:
+        tag_reference = {"space": target_space, "externalId": "smoke_tag_safety"}
+        template_view_id = ViewId(space="cdf_infield", external_id="Template", version="v1")
+
+        tag_nodes = client.tool.instances.retrieve(
+            [NodeId(space=target_space, external_id="smoke_tag_safety")],
+            source=SOLUTION_TAG_VIEW_ID,
+        )
+        template_nodes = client.tool.instances.retrieve(
+            [NodeId(space=target_space, external_id="87f1ce17-c510-4359-9bbe-2ec7477b2cfe")],
+            source=template_view_id,
+        )
+
+        tag_properties = tag_nodes[0].properties
+        template_properties = template_nodes[0].properties
+        assert tag_properties is not None
+        assert template_properties is not None
+        assert tag_properties[SOLUTION_TAG_VIEW_ID]["name"] == "Safety"
+        assert template_properties[template_view_id]["solutionTags"] == [tag_reference]
 
 
 def load_infield_source_data(

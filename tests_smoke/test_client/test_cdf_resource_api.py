@@ -185,6 +185,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -543,6 +544,22 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
                 "externalId": "smoke-test-signal-subscription",
                 "sink": {"type": "email", "externalId": "smoke-test-signal-sink"},
                 "filter": {"topic": "cognite_workflows", "resource": "smoke-test-workflow"},
+            }
+        ],
+        SkillResponse: [
+            {
+                "externalId": "smoke-test-skill",
+                "name": "smoke-test-skill",
+                "description": "Smoke test skill",
+                "content": """---
+name: smoke-test-skill
+description: Smoke test skill
+---
+
+# Smoke test skill
+
+Used by toolkit smoke tests.
+""",
             }
         ],
         SequenceResponse: [

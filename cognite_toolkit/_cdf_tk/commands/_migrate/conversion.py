@@ -1077,7 +1077,6 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
             (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
             (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
         }

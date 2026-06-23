@@ -1,5 +1,18 @@
 # The mapping definitions are topological ordered based on the container constraints of the
 # destination views. This is to ensure that data can be uploaded without violating any constraints.
+- externalId: InFieldCogniteSolutionTagMapping
+  sourceView:
+    space: cdf_apps_shared
+    externalId: CogniteSolutionTag
+    version: v1
+    type: view
+  destinationView:
+    space: cdf_apps_shared
+    externalId: CogniteSolutionTag
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  containerMapping: {}
 - externalId: InFieldConditionalActionMapping
   sourceView:
     space: cdf_apm
@@ -30,7 +43,6 @@
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
     source: source
-    sourceId: sourceId
     description: description
     title: name
     createdBy: sourceCreatedUser
@@ -41,6 +53,12 @@
     troubleshooting: troubleshooting
     priority: priority
     type: type
+  ignoreSourceProperties:
+    - sourceId
+    - rootLocation
+    - sourceCreatedTime
+    - isArchived
+    - solutionTags
 - externalId: InFieldChecklistMapping
   sourceView:
     space: cdf_apm
