@@ -434,16 +434,20 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """Show a topological status graph for the selected environment."""
+        is_json_output = json_output or output_format == StatusOutputFormat.json
         env_vars = EnvironmentVariables.create_from_environment()
-        client = env_vars.get_client()
-        cmd = StatusCommand(print_warning=True, client=client)
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            client = env_vars.get_client()
+        cmd = StatusCommand(print_warning=not is_json_output, client=client)
 
         if build_env_name is not None and config_yaml is None:
-            ToolkitDeprecationWarning(
-                feature="the --env / -e option in cdf status or default_env in cdf.toml",
-                alternative="--config-yaml / -c or default_config_yaml in cdf.toml with the path to your config file "
-                "(for example <organization-dir>/config.<env>.yaml)",
-            ).print_warning()
+            if not is_json_output:
+                ToolkitDeprecationWarning(
+                    feature="the --env / -e option in cdf status or default_env in cdf.toml",
+                    alternative="--config-yaml / -c or default_config_yaml in cdf.toml with the path to your config file "
+                    "(for example <organization-dir>/config.<env>.yaml)",
+                ).print_warning()
             config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
         cmd.run(
@@ -452,8 +456,9 @@ class CoreApp(typer.Typer):
                 organization_dir=organization_dir,
                 config_yaml=config_yaml,
                 selected=selected,
-                output_format="json" if json_output else output_format.value,
+                output_format="json" if is_json_output else output_format.value,
                 verbose=verbose,
+                client=client,
             )
         )
 

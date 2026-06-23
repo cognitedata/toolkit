@@ -1,9 +1,13 @@
+from pathlib import Path
+from unittest.mock import MagicMock
+
 import pytest
 import typer
 import typer.main
 
 from cognite_toolkit import _cdf
 from cognite_toolkit._cdf_tk import plugins
+from cognite_toolkit._cdf_tk.apps._core_app import CoreApp, StatusOutputFormat
 from cognite_toolkit._cdf_tk.plugins import Plugins
 
 
@@ -31,6 +35,76 @@ class TestStatusCommand:
         option_names = {name for param in status.params for name in param.opts}
 
         assert "--json" in option_names
+
+    def test_status_json_suppresses_deprecation_warning(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        env_vars = MagicMock()
+        env_vars.get_client.return_value = MagicMock()
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.EnvironmentVariables.create_from_environment",
+            lambda: env_vars,
+        )
+        printed_warnings: list[str] = []
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.ToolkitDeprecationWarning.print_warning",
+            lambda self: printed_warnings.append(str(self)),
+        )
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.run",
+            lambda self, execute: execute(),
+        )
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.execute",
+            lambda self, **kwargs: None,
+        )
+
+        CoreApp().status(
+            ctx=MagicMock(),
+            organization_dir=tmp_path,
+            selected=None,
+            config_yaml=None,
+            build_env_name="dev",
+            output_format=StatusOutputFormat.json,
+            json_output=False,
+            verbose=False,
+        )
+
+        assert printed_warnings == []
+
+    def test_status_continues_without_authenticated_client(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        env_vars = MagicMock()
+        env_vars.get_client.side_effect = RuntimeError("missing credentials")
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.EnvironmentVariables.create_from_environment",
+            lambda: env_vars,
+        )
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.run",
+            lambda self, execute: execute(),
+        )
+        clients: list[object | None] = []
+
+        def capture_execute(self: object, **kwargs: object) -> None:
+            clients.append(kwargs["client"])
+
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._core_app.StatusCommand.execute",
+            capture_execute,
+        )
+
+        CoreApp().status(
+            ctx=MagicMock(),
+            organization_dir=tmp_path,
+            selected=None,
+            config_yaml=tmp_path / "config.dev.yaml",
+            build_env_name=None,
+            output_format=StatusOutputFormat.json,
+            json_output=False,
+            verbose=False,
+        )
+
+        assert clients == [None]
 
 
 class TestEnsureEnabled:

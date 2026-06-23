@@ -177,6 +177,7 @@ def test_execute_hides_build_output(
         selected=None,
         output_format="tree",
         verbose=False,
+        client=client,
     )
 
     captured = capsys.readouterr()
@@ -184,3 +185,25 @@ def test_execute_hides_build_output(
     assert "hidden stdout from build" not in captured.err
     assert "hidden console from build" not in output.getvalue()
     assert "CDF status" in output.getvalue()
+
+
+def test_build_graph_marks_cdf_values_unknown_without_client(tmp_path: Path) -> None:
+    dependency_id = ExternalId(external_id="missing-local")
+    module_dir = tmp_path / "modules" / "my"
+    module_dir.mkdir(parents=True, exist_ok=True)
+    module = BuiltModule(
+        module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(module_dir.resolve())),
+        resources=[
+            _built_resource(tmp_path, _FakeCRUD, "local-resource", "value", {(_DependencyCRUD, dependency_id)}),
+        ],
+        yaml_line_count=2,
+    )
+    env_vars = MagicMock()
+    env_vars.dump.return_value = {}
+
+    graph = StatusCommand.build_graph([module], client=None, env_vars=env_vars)
+
+    resource = graph.resources[0]
+    assert resource.status == "unknown"
+    assert resource.dependencies[0].in_config is False
+    assert resource.dependencies[0].in_cdf == "unknown"

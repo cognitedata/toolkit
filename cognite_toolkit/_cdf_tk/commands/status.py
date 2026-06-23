@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 ResourceKey: TypeAlias = tuple[type[ResourceIO], Identifier]
-ResourceStatus: TypeAlias = Literal["new", "unchanged", "changed"]
+ResourceStatus: TypeAlias = Literal["new", "unchanged", "changed", "unknown"]
+CDFStatus: TypeAlias = bool | Literal["unknown"]
 StatusFormat: TypeAlias = Literal["tree", "json"]
 
 
@@ -34,7 +35,7 @@ class StatusDependency:
     crud_cls: type[ResourceIO]
     identifier: Identifier
     in_config: bool
-    in_cdf: bool
+    in_cdf: CDFStatus
 
     @property
     def key(self) -> ResourceKey:
@@ -119,8 +120,10 @@ class StatusCommand(ToolkitCommand):
         selected: list[str] | None,
         output_format: StatusFormat,
         verbose: bool,
+        client: ToolkitClient | None = None,
     ) -> StatusGraph:
-        client = env_vars.get_client()
+        client = client or self._client
+        console = client.console if client else Console(markup=True)
         with TemporaryDirectory(prefix="cdf-status-") as tmp_dir:
             build_parameters = BuildParameters(
                 organization_dir=organization_dir,
@@ -134,28 +137,30 @@ class StatusCommand(ToolkitCommand):
             graph = self.build_graph(build.built_modules, client, env_vars)
 
         if output_format == "json":
-            client.console.print(json.dumps(graph.as_dict(), indent=2))
+            console.print(json.dumps(graph.as_dict(), indent=2))
         else:
-            client.console.print(self.render_tree(graph))
+            console.print(self.render_tree(graph))
         return graph
 
-    def _run_build_silently(self, build_parameters: BuildParameters, client: ToolkitClient) -> BuildFolder:
+    def _run_build_silently(self, build_parameters: BuildParameters, client: ToolkitClient | None) -> BuildFolder:
         stdout = io.StringIO()
         stderr = io.StringIO()
         hidden_console = Console(file=io.StringIO(), markup=True)
-        original_console = client.console
-        client.console = hidden_console
+        original_console = client.console if client else None
+        if client:
+            client.console = hidden_console
         try:
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 return BuildV2Command(print_warning=False, skip_tracking=True).build(build_parameters, client=None)
         finally:
-            client.console = original_console
+            if client and original_console:
+                client.console = original_console
 
     @classmethod
     def build_graph(
         cls,
         modules: Iterable[BuiltModule],
-        client: ToolkitClient,
+        client: ToolkitClient | None,
         env_vars: EnvironmentVariables,
     ) -> StatusGraph:
         built_resources_by_key: dict[ResourceKey, BuiltResource] = {}
@@ -200,19 +205,30 @@ class StatusCommand(ToolkitCommand):
     def _get_resource_statuses(
         cls,
         resources_by_crud: Mapping[type[ResourceIO], list[BuiltResource]],
-        client: ToolkitClient,
+        client: ToolkitClient | None,
         env_vars: EnvironmentVariables,
     ) -> dict[ResourceKey, ResourceStatus]:
         statuses: dict[ResourceKey, ResourceStatus] = {}
+        if client is None:
+            return {
+                (resource.crud_cls, resource.identifier): "unknown"
+                for resources in resources_by_crud.values()
+                for resource in resources
+            }
         options = DeployOptions(dry_run=True, environment_variables=env_vars.dump())
         for crud_cls, resources in resources_by_crud.items():
-            crud = crud_cls.create_loader(client)
-            resource_by_id = DeployV2Command._read_resource_files(
-                crud, [resource.build_path for resource in resources], options
-            )
-            if not resource_by_id:
+            try:
+                crud = crud_cls.create_loader(client)
+                resource_by_id = DeployV2Command._read_resource_files(
+                    crud, [resource.build_path for resource in resources], options
+                )
+                if not resource_by_id:
+                    continue
+                cdf_by_id = cls._retrieve_by_id(crud, resource_by_id.keys())
+            except Exception:
+                for resource in resources:
+                    statuses[(resource.crud_cls, resource.identifier)] = "unknown"
                 continue
-            cdf_by_id = cls._retrieve_by_id(crud, resource_by_id.keys())
             for identifier, read_resource in resource_by_id.items():
                 statuses[(crud_cls, identifier)] = cls._classify_resource(crud, identifier, read_resource, cdf_by_id)
         return statuses
@@ -237,17 +253,29 @@ class StatusCommand(ToolkitCommand):
     def _get_dependency_cdf_presence(
         cls,
         resources: Iterable[BuiltResource],
-        client: ToolkitClient,
-    ) -> dict[ResourceKey, bool]:
+        client: ToolkitClient | None,
+    ) -> dict[ResourceKey, CDFStatus]:
         identifiers_by_crud: dict[type[ResourceIO], set[Identifier]] = defaultdict(set)
         for resource in resources:
             for crud_cls, identifier in resource.dependencies:
                 identifiers_by_crud[crud_cls].add(identifier)
 
-        exists_by_key: dict[ResourceKey, bool] = {}
+        if client is None:
+            return {
+                (crud_cls, identifier): "unknown"
+                for crud_cls, identifiers in identifiers_by_crud.items()
+                for identifier in identifiers
+            }
+
+        exists_by_key: dict[ResourceKey, CDFStatus] = {}
         for crud_cls, identifiers in identifiers_by_crud.items():
-            crud = crud_cls.create_loader(client)
-            existing = set(cls._retrieve_by_id(crud, identifiers).keys())
+            try:
+                crud = crud_cls.create_loader(client)
+                existing = set(cls._retrieve_by_id(crud, identifiers).keys())
+            except Exception:
+                for identifier in identifiers:
+                    exists_by_key[(crud_cls, identifier)] = "unknown"
+                continue
             for identifier in identifiers:
                 exists_by_key[(crud_cls, identifier)] = identifier in existing
         return exists_by_key
@@ -298,6 +326,7 @@ class StatusCommand(ToolkitCommand):
             "new": "green",
             "unchanged": "dim",
             "changed": "yellow",
+            "unknown": "magenta",
         }[resource.status]
         module_path = relative_to_if_possible(resource.module_path)
         return (
@@ -309,9 +338,9 @@ class StatusCommand(ToolkitCommand):
     @staticmethod
     def _dependency_label(dependency: StatusDependency) -> str:
         in_config = "yes" if dependency.in_config else "no"
-        in_cdf = "yes" if dependency.in_cdf else "no"
+        in_cdf = "unknown" if dependency.in_cdf == "unknown" else "yes" if dependency.in_cdf else "no"
         config_style = "green" if dependency.in_config else "red"
-        cdf_style = "green" if dependency.in_cdf else "red"
+        cdf_style = "magenta" if dependency.in_cdf == "unknown" else "green" if dependency.in_cdf else "red"
         return (
             f"[bold]{dependency.crud_cls.kind}[/] {dependency.identifier} "
             f"[{config_style}]in_config={in_config}[/] [{cdf_style}]in_cdf={in_cdf}[/]"
