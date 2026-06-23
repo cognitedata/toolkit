@@ -96,10 +96,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     LEGACY_IMAGE360_SOURCE_VIEW,
     LEGACY_IMAGE360_STATION_SOURCE_VIEW,
+    create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
@@ -1186,7 +1188,7 @@ class TestFDMtoCDMMapper:
             "externalId": existing_model_external_id,
         }
 
-    def test_image360_mixed_batch_dispatches_each_view_to_correct_mapper(self) -> None:
+    def test_image360_mapper_maps_each_view_in_isolation(self) -> None:
         face_file_ids = [f"face-{index}" for index in range(6)]
         cube_map_properties = dict(
             zip(
@@ -1297,27 +1299,20 @@ class TestFDMtoCDMMapper:
             )
             mapper.prepare(MagicMock())
 
-            actual = mapper.map([collection_node, image_node, station_node])
+            collection_results = mapper.map([collection_node])
+            station_results = mapper.map([station_node])
+            image_results = mapper.map([image_node])
 
-        assert len(actual) == 3
-        node_requests = [item for item in actual if isinstance(item, NodeRequest)]
-        assert len(node_requests) == 3
+        assert len(collection_results) == 1
+        assert len(station_results) == 1
+        assert len(image_results) == 1
 
-        collection_request = next(
-            request
-            for request in node_requests
-            if any(source.source.external_id == "Cognite3DRevision" for source in request.sources or [])
-        )
-        image_request = next(
-            request
-            for request in node_requests
-            if any(source.source == COGNITE_360_IMAGE_VIEW for source in request.sources or [])
-        )
-        station_request = next(
-            request
-            for request in node_requests
-            if any(source.source.external_id == "Cognite360ImageStation" for source in request.sources or [])
-        )
+        collection_request = collection_results[0]
+        station_request = station_results[0]
+        image_request = image_results[0]
+        assert isinstance(collection_request, NodeRequest)
+        assert isinstance(station_request, NodeRequest)
+        assert isinstance(image_request, NodeRequest)
 
         assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
         assert image_request.external_id == sanitize_instance_external_id("image1", "_cdm")
@@ -1326,6 +1321,25 @@ class TestFDMtoCDMMapper:
             source for source in station_request.sources or [] if source.source.external_id == "Cognite360ImageStation"
         )
         assert station_source.properties == {"name": "Station A", "groupType": "Station360"}
+
+
+def test_create_360_image_selectors_returns_collection_station_and_image_steps() -> None:
+    collections = [
+        NodeId(space="img_space", external_id="col1"),
+        NodeId(space="img_space", external_id="col2"),
+    ]
+    selectors = create_360_image_selectors(collections)
+
+    assert len(selectors) == 3
+    collection_selector = selectors[0]
+    station_selector = selectors[1]
+    image_selector = selectors[2]
+    assert isinstance(collection_selector, InstanceViewSelector)
+    assert collection_selector.view.external_id == "Image360Collection"
+    assert isinstance(station_selector, InstanceQuerySelector)
+    assert station_selector.subselections == ("image360station",)
+    assert isinstance(image_selector, InstanceViewSelector)
+    assert image_selector.view.external_id == "Image360"
 
 
 class TestInFieldLegacyToCDMScheduleMapper:

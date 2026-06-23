@@ -1360,7 +1360,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                return self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                if self.dry_run:
+                    for instance in custom_mapped:
+                        if isinstance(instance, NodeRequest):
+                            self._is_existing_by_node_id[instance.as_id()] = True
+                return custom_mapped
             else:
                 # This is caused by the selector used to download the instance responses not matching the expectation in
                 # the mapper.
@@ -1971,37 +1976,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_properties_mappings=custom_properties_mappings,
             custom_instance_mappings=custom_instance_mappings,
         )
-
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        if not self._custom_instance_mappings:
-            return super().map(source)
-
-        custom_view_ids = set(self._custom_instance_mappings)
-        custom_items_by_view: dict[ViewId, list[NodeOrEdgeResponse]] = defaultdict(list)
-        standard_items: list[NodeOrEdgeResponse] = []
-        for item in source:
-            matching_view_id: ViewId | None = None
-            if isinstance(item, NodeResponse):
-                view_ids = {view_id for view_id in (item.properties or {}) if isinstance(view_id, ViewId)}
-                matching_view_id = next(iter(view_ids & custom_view_ids), None)
-            if matching_view_id is not None:
-                custom_items_by_view[matching_view_id].append(item)
-            else:
-                standard_items.append(item)
-
-        results: list[NodeOrEdgeRequest | None] = []
-        for view_id, items in custom_items_by_view.items():
-            custom_mapped = self._custom_instance_mappings[view_id].map(items)
-            if self.dry_run:
-                for instance in custom_mapped:
-                    if isinstance(instance, NodeRequest):
-                        self._is_existing_by_node_id[instance.as_id()] = True
-            results.extend(custom_mapped)
-
-        if standard_items:
-            results.extend(super().map(standard_items))
-
-        return results
 
     @staticmethod
     def missing_cubemap_face_file_external_ids(

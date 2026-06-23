@@ -1,5 +1,3 @@
-from typing import Any
-
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
@@ -11,7 +9,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryThrough,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector, SelectedView
 
 LEGACY_360_IMAGE_SCHEMA_SPACE = "cdf_360_image_schema"
 
@@ -73,58 +72,79 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
     ]
 
 
-def create_360_image_selector(selected_collections: list[NodeId]) -> InstanceQuerySelector:
-    """Build a query selector that fetches Image360 nodes and related collections and stations."""
-    image360_filter: dict[str, Any] = {
+def create_360_image_selectors(
+    selected_collections: list[NodeId],
+) -> list[InstanceViewSelector | InstanceQuerySelector]:
+    """Build selectors for 360-image migration in dependency order.
+
+    Collections are migrated first, then stations referenced by the scoped images, then the images
+    themselves. Each selector returns a single view population so instance tracking stays one id
+    per downloaded row.
+    """
+    if not selected_collections:
+        raise ValueError("At least one collection must be selected for 360-image migration.")
+    image360_filter = {
         "in": {
             "property": LEGACY_IMAGE360_SOURCE_VIEW.as_property_reference("collection360"),
             "values": [collection.dump(include_instance_type=False) for collection in selected_collections],
         }
     }
-    return InstanceQuerySelector(
-        endpoint="query",
-        query=QueryRequest(
-            with_={
-                "image360": QueryNodeExpression(
-                    limit=10_000,
-                    nodes=QueryNodeTableExpression(
-                        filter=image360_filter,
-                    ),
-                    sort=[
-                        QuerySortSpec(property=["node", "space"]),
-                        QuerySortSpec(property=["node", "externalId"]),
-                    ],
-                ),
-                "image360collection": QueryNodeExpression(
-                    limit=10_000,
-                    nodes=QueryNodeTableExpression(
-                        from_="image360",
-                        direction="outwards",
-                        through=QueryThrough(source=LEGACY_IMAGE360_SOURCE_VIEW, identifier="collection360"),
-                    ),
-                ),
-                "image360station": QueryNodeExpression(
-                    limit=10_000,
-                    nodes=QueryNodeTableExpression(
-                        from_="image360",
-                        direction="outwards",
-                        through=QueryThrough(source=LEGACY_IMAGE360_SOURCE_VIEW, identifier="station"),
-                    ),
-                ),
+    return [
+        InstanceViewSelector(
+            view=SelectedView(
+                space=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW.space,
+                external_id=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW.external_id,
+                version=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW.version,
+            ),
+            additional_filter={
+                "instanceReferences": [
+                    {
+                        "space": collection.space,
+                        "externalId": collection.external_id,
+                    }
+                    for collection in selected_collections
+                ]
             },
-            select={
-                "image360": QuerySelect(
-                    sources=[QuerySelectSource(source=LEGACY_IMAGE360_SOURCE_VIEW, properties=["*"])]
-                ),
-                "image360collection": QuerySelect(
-                    sources=[QuerySelectSource(source=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW, properties=["*"])]
-                ),
-                "image360station": QuerySelect(
-                    sources=[QuerySelectSource(source=LEGACY_IMAGE360_STATION_SOURCE_VIEW, properties=["*"])]
-                ),
-            },
+            endpoint="query",
+        ),
+        InstanceQuerySelector(
+            endpoint="query",
+            query=QueryRequest(
+                with_={
+                    "image360": QueryNodeExpression(
+                        limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                        nodes=QueryNodeTableExpression(filter=image360_filter),
+                        sort=[
+                            QuerySortSpec(property=["node", "space"]),
+                            QuerySortSpec(property=["node", "externalId"]),
+                        ],
+                    ),
+                    "image360station": QueryNodeExpression(
+                        limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                        nodes=QueryNodeTableExpression(
+                            from_="image360",
+                            direction="outwards",
+                            through=QueryThrough(source=LEGACY_IMAGE360_SOURCE_VIEW, identifier="station"),
+                        ),
+                    ),
+                },
+                select={
+                    "image360station": QuerySelect(
+                        sources=[QuerySelectSource(source=LEGACY_IMAGE360_STATION_SOURCE_VIEW, properties=["*"])]
+                    ),
+                },
+                root="image360",
+            ).model_dump_json(),
             root="image360",
-        ).model_dump_json(),
-        root="image360",
-        subselections=tuple(["image360collection", "image360station"]),
-    )
+            subselections=tuple(["image360station"]),
+        ),
+        InstanceViewSelector(
+            view=SelectedView(
+                space=LEGACY_IMAGE360_SOURCE_VIEW.space,
+                external_id=LEGACY_IMAGE360_SOURCE_VIEW.external_id,
+                version=LEGACY_IMAGE360_SOURCE_VIEW.version,
+            ),
+            additional_filter=image360_filter,
+            endpoint="query",
+        ),
+    ]

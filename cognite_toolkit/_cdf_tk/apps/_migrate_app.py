@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
-    create_360_image_selector,
+    create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -1799,7 +1799,7 @@ class MigrateApp(typer.Typer):
             if collection is None or instance_space is None:
                 raise typer.BadParameter("Both --instance-space and --collection must be provided together")
             selected_collections = NodeId.from_str_ids(collection, space=instance_space)
-        selector = create_360_image_selector(selected_collections)
+        selectors = create_360_image_selectors(selected_collections)
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = Image360FDMtoCDMMapper(
             client,
@@ -1811,7 +1811,7 @@ class MigrateApp(typer.Typer):
         )
         cmd.run(
             lambda: cmd.migrate(
-                selectors=[selector],
+                selectors=selectors,
                 data=InstanceIO(client),
                 mapper=mapper,
                 log_dir=log_dir,
