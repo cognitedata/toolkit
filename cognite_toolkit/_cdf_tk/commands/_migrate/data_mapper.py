@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
     RevisionStatus,
     ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -91,6 +92,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    COGNITE_3D_REVISION_VIEW,
     COGNITE_360_IMAGE_VIEW,
     CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY,
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
@@ -2055,26 +2057,51 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    The Cognite360ImageModel is created separately via POST /3d/models. This mapper sets
-    model3D on the collection revision to point at that model's external id.
+    Creates a classic Image360 3D model per collection (or reuses an existing model3D reference
+    when the collection was already migrated) and sets model3D on the collection revision as a side-effect.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def __init__(self, client: ToolkitClient, model_external_id_by_collection: dict[NodeId, str]) -> None:
-        super().__init__(client)
-        self._model_external_id_by_collection = model_external_id_by_collection
+    def map(self, source: Sequence[NodeResponse]) -> Sequence[NodeRequest | None]:
+        collection_nodes = [node for node in source if isinstance(node, NodeResponse)]
+        migrated_ids = [
+            NodeId(space=node.space, external_id=sanitize_instance_external_id(node.external_id, "_cdm"))
+            for node in collection_nodes
+        ]
+        existing_migrated_by_id = {
+            node.as_id(): node
+            for node in self.client.tool.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
+            if isinstance(node, NodeResponse)
+        }
 
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        results: list[NodeOrEdgeRequest | None] = []
+        results: list[NodeRequest | None] = []
         for node in source:
-            if not isinstance(node, NodeResponse):
-                continue
             instance_space = node.space
-            collection_id = NodeId(space=instance_space, external_id=node.external_id)
-            model_external_id = self._model_external_id_by_collection[collection_id]
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
+            migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
+
+            model_external_id: str | None = None
+            migrated_node = existing_migrated_by_id.get(migrated_id)
+            if migrated_node is not None:
+                model_3d = ((migrated_node.properties or {}).get(COGNITE_3D_REVISION_VIEW) or {}).get("model3D")
+                if isinstance(model_3d, dict) and (existing_external_id := model_3d.get("externalId")):
+                    model_external_id = str(existing_external_id)
+
+            if model_external_id is None:
+                if self.dry_run:
+                    model_external_id = "cog_3d_model_<dry-run>"
+                else:
+                    label = str(
+                        ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
+                        or node.external_id
+                    )
+                    created_model = self.client.tool.three_d.models_classic.create(
+                        [ThreeDModelDMSRequest(name=label, space=instance_space, type="Image360")]
+                    )[0]
+                    model_external_id = f"cog_3d_model_{created_model.id}"
+
             results.append(
                 NodeRequest(
                     space=instance_space,

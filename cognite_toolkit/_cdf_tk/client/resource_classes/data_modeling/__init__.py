@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import (
     DataModelNoVersionId,
     EdgeId,
     NodeId,
+    ViewId,
     SpaceId,
     ViewDirectId,
     ViewId,

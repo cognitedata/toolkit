@@ -23,6 +23,7 @@ LEGACY_IMAGE360_STATION_SOURCE_VIEW = ViewId(
 
 COGNITE_360_IMAGE_VIEW = ViewId(space="cdf_cdm", external_id="Cognite360Image", version="v1")
 COGNITE_360_IMAGE_STATION_VIEW = ViewId(space="cdf_cdm", external_id="Cognite360ImageStation", version="v1")
+COGNITE_3D_REVISION_VIEW = ViewId(space="cdf_cdm", external_id="Cognite3DRevision", version="v1")
 
 CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY: dict[str, str] = {
     "cubeMapFront": "front",
@@ -38,7 +39,7 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
     """ViewToViewMappings for Image360 and Station360 nodes handled by FDMtoCDMMapper.
 
     Image360Collection → Cognite360ImageCollection is handled by Image360CollectionMapper registered
-    via custom_instance_mappings. The Cognite360ImageModel is created separately via POST /3d/models.
+    via custom_instance_mappings, which also creates the Image360 3D model linked to the collection.
     """
     return [
         ViewToViewMapping(

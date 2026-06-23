@@ -31,7 +31,7 @@ class ThreeDModelRequest(RequestResource):
     name: str
     # This field is part of the path request and not the body schema.
     # but is needed for identifier conversion.
-    id: int | None = Field(None, exclude=True)
+    id: int | None = Field(default=None, exclude=True)
 
     def as_id(self) -> InternalId:
         if self.id is None:

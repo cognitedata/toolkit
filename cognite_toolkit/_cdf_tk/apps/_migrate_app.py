@@ -12,10 +12,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     NodeId,
-    NodeResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelDMSRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -98,40 +96,6 @@ from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
-
-
-def _create_image360_model_external_ids_by_collection(
-    client: ToolkitClient,
-    collection_ids: list[NodeId],
-    *,
-    dry_run: bool,
-) -> dict[NodeId, str]:
-    """Create Image360 3D models and return their external ids keyed by collection node id."""
-    if dry_run:
-        placeholder = "cog_3d_model_<dry-run>"
-        return {collection_id: placeholder for collection_id in collection_ids}
-
-    collection_nodes = [
-        node for node in client.tool.instances.retrieve(collection_ids) if isinstance(node, NodeResponse)
-    ]
-    nodes_by_id = {node.as_id(): node for node in collection_nodes}
-    models_to_create: list[ThreeDModelDMSRequest] = []
-    collection_order: list[NodeId] = []
-    for collection_id in collection_ids:
-        node = nodes_by_id.get(collection_id)
-        if not node:
-            continue
-        label = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
-            "label"
-        ) or collection_id.external_id
-        models_to_create.append(ThreeDModelDMSRequest(name=label, space=collection_id.space, type="Image360"))
-        collection_order.append(collection_id)
-
-    created_models = client.tool.three_d.models_classic.create(models_to_create)
-    return {
-        collection_id: f"cog_3d_model_{created_model.id}"
-        for collection_id, created_model in zip(collection_order, created_models, strict=True)
-    }
 
 
 class MigrateApp(typer.Typer):
@@ -1835,24 +1799,14 @@ class MigrateApp(typer.Typer):
             if collection is None or instance_space is None:
                 raise typer.BadParameter("Both --instance-space and --collection must be provided together")
             selected_collections = NodeId.from_str_ids(collection, space=instance_space)
-
-        model_external_id_by_collection = _create_image360_model_external_ids_by_collection(
-            client,
-            selected_collections,
-            dry_run=dry_run,
-        )
-
         selector = create_360_image_selector(selected_collections)
-
         connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
         mapper = Image360FDMtoCDMMapper(
             client,
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
-                    client, model_external_id_by_collection
-                ),
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
             },
         )
         cmd.run(

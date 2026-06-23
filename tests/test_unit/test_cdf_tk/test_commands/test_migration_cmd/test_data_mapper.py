@@ -60,6 +60,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
+    ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -89,6 +91,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_360_IMAGE_VIEW,
+    COGNITE_3D_REVISION_VIEW,
     LEGACY_360_IMAGE_SCHEMA_SPACE,
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     LEGACY_IMAGE360_SOURCE_VIEW,
@@ -1080,13 +1083,22 @@ class TestFDMtoCDMMapper:
             version=1,
             properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
-        collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
         model_external_id = "cog_3d_model_42"
+        created_model = ThreeDModelClassicResponse(
+            id=42,
+            name="My collection",
+            created_time=0,
+        )
 
         with monkeypatch_toolkit_client() as client:
-            mapper = Image360CollectionMapper(client, {collection_id: model_external_id})
+            client.tool.instances.retrieve.return_value = []
+            client.tool.three_d.models_classic.create.return_value = [created_model]
+            mapper = Image360CollectionMapper(client)
             actual = mapper.map([collection_node])
 
+        client.tool.three_d.models_classic.create.assert_called_once_with(
+            [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
+        )
         assert len(actual) == 1
         collection_request = actual[0]
         assert isinstance(collection_request, NodeRequest)
@@ -1099,6 +1111,47 @@ class TestFDMtoCDMMapper:
         assert model_source.properties["model3D"] == {
             "space": self.SOURCE_SPACE,
             "externalId": model_external_id,
+        }
+
+    def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+        migrated_external_id = sanitize_instance_external_id("collection1", "_cdm")
+        existing_model_external_id = "cog_3d_model_99"
+        migrated_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id=migrated_external_id,
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={
+                COGNITE_3D_REVISION_VIEW: {
+                    "model3D": {"space": self.SOURCE_SPACE, "externalId": existing_model_external_id},
+                }
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.retrieve.return_value = [migrated_node]
+            mapper = Image360CollectionMapper(client)
+            actual = mapper.map([collection_node])
+
+        client.tool.three_d.models_classic.create.assert_not_called()
+        collection_request = actual[0]
+        assert isinstance(collection_request, NodeRequest)
+        model_source = next(
+            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert model_source.properties is not None
+        assert model_source.properties["model3D"] == {
+            "space": self.SOURCE_SPACE,
+            "externalId": existing_model_external_id,
         }
 
     def test_image360_with_all_face_files_is_uploaded(self) -> None:
@@ -1296,7 +1349,11 @@ class TestFDMtoCDMMapper:
             version=1,
             properties={LEGACY_IMAGE360_STATION_SOURCE_VIEW: {"label": "Station A"}},
         )
-        collection_id = NodeId(space=self.SOURCE_SPACE, external_id="collection1")
+        created_model = ThreeDModelClassicResponse(
+            id=42,
+            name="My collection",
+            created_time=0,
+        )
 
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [
@@ -1307,6 +1364,7 @@ class TestFDMtoCDMMapper:
             ]
             client.tool.filemetadata.retrieve.return_value = file_responses
             client.tool.instances.retrieve.return_value = []
+            client.tool.three_d.models_classic.create.return_value = [created_model]
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
             mapper = Image360FDMtoCDMMapper(
@@ -1314,9 +1372,7 @@ class TestFDMtoCDMMapper:
                 connection_creator=connection_creator,
                 custom_properties_mappings=[Station360PropertiesMapping()],
                 custom_instance_mappings={
-                    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(
-                        client, {collection_id: "cog_3d_model_42"}
-                    ),
+                    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
                 },
             )
             mapper.prepare(MagicMock())
