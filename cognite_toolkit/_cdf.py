@@ -9,10 +9,7 @@ from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
-from rich.markup import escape
 from rich.panel import Panel
-
-from cognite_toolkit._cdf_tk.hints import Hint
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
@@ -38,12 +35,11 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AboutCommand,
 )
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
 )
@@ -90,15 +86,11 @@ _app.add_typer(AuthApp(**default_typer_kws), name="auth")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
 
-if Plugins.run.value.is_enabled():
-    _app.add_typer(RunApp(**default_typer_kws), name="run")
-
-if Plugins.dump.value.is_enabled():
-    _app.add_typer(DumpApp(**default_typer_kws), name="dump")
-
-
-if Plugins.dev.value.is_enabled():
-    _app.add_typer(DevApp(**default_typer_kws), name="dev")
+# Plugin apps are always registered so they can intercept invocation at the command level and
+# offer to enable themselves (see `Plugins.ensure_enabled`), rather than being hidden when disabled.
+_app.add_typer(RunApp(**default_typer_kws), name="run")
+_app.add_typer(DumpApp(**default_typer_kws), name="dump")
+_app.add_typer(DevApp(**default_typer_kws), name="dev")
 
 if Flags.PROFILE.is_enabled():
     _app.add_typer(ProfileApp(**default_typer_kws), name="profile")
@@ -109,8 +101,7 @@ if Flags.MIGRATE.is_enabled():
 if Flags.IMPORT_CMD.is_enabled():
     _app.add_typer(ImportApp(**default_typer_kws), name="import")
 
-if Plugins.data.value.is_enabled():
-    _app.add_typer(DataApp(**default_typer_kws), name="data")
+_app.add_typer(DataApp(**default_typer_kws), name="data")
 
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
@@ -154,6 +145,11 @@ def _get_subcommand_map() -> dict[str, list[str]]:
     return subcommand_map
 
 
+# Click raises either `UsageError` or its `NoSuchCommand` subclass depending on the version,
+# so we match on the message text rather than the exception class name in the traceback.
+NO_SUCH_COMMAND_PATTERN = re.compile(r"No such command '(\w+)'\.")
+
+
 def _suggest_command(unknown_cmd: str) -> str | None:
     """Check if the unknown command exists as a subcommand and return a suggestion."""
     subcommand_map = _get_subcommand_map()
@@ -182,17 +178,9 @@ def app() -> NoReturn:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
     except SystemExit:
-        if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
+        if result := NO_SUCH_COMMAND_PATTERN.search(traceback.format_exc()):
             cmd = result.group(1)
-            if cmd in Plugins.list():
-                plugin = r"[plugins]"
-                print(
-                    f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
-                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
-                    f"[bold]{escape(plugin)}[/bold] section."
-                    f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
-                )
-            elif suggestion := _suggest_command(cmd):
+            if suggestion := _suggest_command(cmd):
                 print(f"{HINT_LEAD_TEXT} {suggestion}")
         raise
 

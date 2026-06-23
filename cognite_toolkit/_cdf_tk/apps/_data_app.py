@@ -3,6 +3,8 @@ from typing import Any
 import typer
 from rich import print
 
+from cognite_toolkit._cdf_tk.plugins import Plugins
+
 from ._download_app import DownloadApp
 from ._purge import PurgeApp
 from ._upload_app import UploadApp
@@ -19,6 +21,7 @@ class DataApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Plugin to work with data in CDF"""
+        Plugins.data.ensure_enabled()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf data --help[/] for more information.")
         return None

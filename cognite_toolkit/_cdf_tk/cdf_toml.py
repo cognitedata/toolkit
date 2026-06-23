@@ -183,6 +183,29 @@ class CDFToml:
         return cls.load(cwd=RESOURCES_PATH, use_singleton=False)
 
     @classmethod
+    def enable_plugin(cls, plugin_name: str, cwd: Path | None = None) -> bool:
+        """Enables the given plugin in the cdf.toml file.
+
+        This sets ``<plugin_name> = true`` in the ``[plugins]`` section, creating the section
+        if it does not exist. The file is edited line-by-line so existing comments and formatting
+        are preserved. The in-memory singleton is reset so a subsequent ``CDFToml.load()`` reflects
+        the change.
+
+        Returns ``True`` if the plugin was enabled, ``False`` if no ``cdf.toml`` file was found.
+        """
+        global _CDF_TOML
+        cwd = cwd or Path.cwd()
+        file_path = cwd / cls.file_name
+        if not file_path.exists():
+            return False
+        content = file_path.read_text(encoding="utf-8")
+        new_content = _set_plugin_enabled(content, clean_name(plugin_name))
+        if new_content != content:
+            file_path.write_text(new_content, encoding="utf-8")
+        _CDF_TOML = None
+        return True
+
+    @classmethod
     def write(cls, organization_dir: Path, env: EnvType = "dev", version: str = _version.__version__) -> None:
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
@@ -200,6 +223,49 @@ default_organization_dir = "{organization_dir.name}"''',
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
         cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
         destination.write_text(cdf_toml_content, encoding="utf-8")
+
+
+def _set_plugin_enabled(content: str, plugin_name: str) -> str:
+    """Returns ``content`` with ``<plugin_name> = true`` set in the ``[plugins]`` section.
+
+    The edit is done line-by-line to preserve existing comments and formatting:
+    - If the key already exists in ``[plugins]``, its assignment line is replaced.
+    - If the ``[plugins]`` section exists but the key does not, the key is inserted after the header.
+    - If there is no ``[plugins]`` section, one is appended to the end of the file.
+    """
+    assignment = f"{plugin_name} = true"
+    lines = content.splitlines()
+    key_pattern = re.compile(rf"^\s*{re.escape(plugin_name)}\s*=", re.IGNORECASE)
+
+    in_plugins = False
+    plugins_header_index: int | None = None
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_plugins = stripped == "[plugins]"
+            if in_plugins:
+                plugins_header_index = index
+            continue
+        if in_plugins and key_pattern.match(line):
+            lines[index] = assignment
+            return _join_lines(lines, content)
+
+    if plugins_header_index is not None:
+        lines.insert(plugins_header_index + 1, assignment)
+        return _join_lines(lines, content)
+
+    if lines and lines[-1].strip() != "":
+        lines.append("")
+    lines.append("[plugins]")
+    lines.append(assignment)
+    return _join_lines(lines, content)
+
+
+def _join_lines(lines: list[str], original: str) -> str:
+    text = "\n".join(lines)
+    if original.endswith("\n"):
+        text += "\n"
+    return text
 
 
 def _read_toml(file_path: Path) -> dict[str, Any]:

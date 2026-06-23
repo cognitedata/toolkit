@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -59,6 +60,7 @@ class DumpApp(typer.Typer):
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
+        Plugins.dump.ensure_enabled()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf dump --help[/] for more information.")
         return None

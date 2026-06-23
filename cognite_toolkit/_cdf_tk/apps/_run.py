@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
+from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -31,7 +32,10 @@ class RunApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute processes in CDF."""
+        # When nested under `cdf dev`, the `dev` plugin guards access; only the top-level
+        # `cdf run` requires the `run` plugin to be enabled.
         if ctx.parent is None or ctx.parent.info_name != "dev":
+            Plugins.run.ensure_enabled()
             RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run --help[/] for more information.")

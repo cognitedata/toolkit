@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk import cdf_toml as cdf_toml_module
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, _set_plugin_enabled
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH
 from cognite_toolkit._cdf_tk.exceptions import ToolkitTOMLFormatError
 from tests.constants import REPO_ROOT
@@ -70,14 +71,16 @@ class TestCDFToml:
             "invalid_zip",
         ],
     )
-    def test_load_invalid_toml_content(self, tmp_path: Path, invalid_toml_content: str, expected_error_message: str):
+    def test_load_invalid_toml_content(
+        self, tmp_path: Path, invalid_toml_content: str, expected_error_message: str
+    ) -> None:
         file_path = tmp_path / CDFToml.file_name
         file_path.write_text(invalid_toml_content)
 
         with pytest.raises(ToolkitTOMLFormatError, match=re.escape(expected_error_message)):
             CDFToml.load(cwd=tmp_path, use_singleton=False)
 
-    def test_load_package_url(self, tmp_path: Path):
+    def test_load_package_url(self, tmp_path: Path) -> None:
         valid_toml_content = """
         [cdf]
         [modules]
@@ -102,3 +105,68 @@ class TestCDFToml:
         # Verify the URL is a valid HTTPS URL pointing to cognite library
         assert library.url.startswith("https://github.com/cognitedata/library")
         assert library.url.endswith(".zip")
+
+
+class TestSetPluginEnabled:
+    def test_replaces_existing_false_assignment(self) -> None:
+        content = "[plugins]\ndump = false\ndev = false\n"
+
+        result = _set_plugin_enabled(content, "dump")
+
+        assert result == "[plugins]\ndump = true\ndev = false\n"
+
+    def test_preserves_comments_and_other_sections(self) -> None:
+        content = '[cdf]\ndefault_env = "dev"\n\n[plugins]\n# Toggle plugins here\ndump = false\n'
+
+        result = _set_plugin_enabled(content, "dump")
+
+        assert "# Toggle plugins here" in result
+        assert 'default_env = "dev"' in result
+        assert "dump = true" in result
+        assert "dump = false" not in result
+
+    def test_inserts_key_when_section_exists_without_key(self) -> None:
+        content = "[plugins]\ndev = false\n"
+
+        result = _set_plugin_enabled(content, "dump")
+
+        assert result == "[plugins]\ndump = true\ndev = false\n"
+
+    def test_appends_section_when_missing(self) -> None:
+        content = '[cdf]\ndefault_env = "dev"\n'
+
+        result = _set_plugin_enabled(content, "dump")
+
+        assert result.rstrip("\n").endswith("[plugins]\ndump = true")
+        assert "[cdf]" in result
+
+    def test_does_not_touch_key_outside_plugins_section(self) -> None:
+        content = "[other]\ndump = false\n\n[plugins]\ndev = false\n"
+
+        result = _set_plugin_enabled(content, "dump")
+
+        # The [other] section's dump must be left untouched; a new key added under [plugins].
+        assert "[other]\ndump = false" in result
+        assert "[plugins]\ndump = true\ndev = false" in result
+
+
+class TestEnablePlugin:
+    @pytest.mark.usefixtures("reset_cdf_toml_singleton")
+    def test_enable_plugin_updates_file_and_resets_singleton(self, tmp_path: Path) -> None:
+        file_path = tmp_path / CDFToml.file_name
+        file_path.write_text(
+            '[cdf]\ndefault_env = "dev"\n\n[modules]\nversion = "0.0.0"\n\n[plugins]\ndump = false\n',
+            encoding="utf-8",
+        )
+        # Prime the singleton so we can verify it is reset.
+        cdf_toml_module._CDF_TOML = CDFToml.load(cwd=tmp_path, use_singleton=False)
+
+        enabled = CDFToml.enable_plugin("dump", cwd=tmp_path)
+
+        assert enabled is True
+        assert cdf_toml_module._CDF_TOML is None
+        reloaded = CDFToml.load(cwd=tmp_path, use_singleton=False)
+        assert reloaded.plugins["dump"] is True
+
+    def test_enable_plugin_returns_false_when_no_file(self, tmp_path: Path) -> None:
+        assert CDFToml.enable_plugin("dump", cwd=tmp_path) is False

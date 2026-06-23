@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._entity_matching_app import EntityMatchingApp
@@ -30,6 +31,7 @@ class DevApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to work with development."""
+        Plugins.dev.ensure_enabled()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf dev --help[/] for more information.")
         return None
