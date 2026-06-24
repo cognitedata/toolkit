@@ -20,7 +20,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    ContainerFilter,
+    DataModelFilter,
+    InstanceFilter,
+    ViewFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
@@ -30,6 +35,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
+    NodeId,
+    NodeResponse,
     SpaceResponse,
     ViewId,
     ViewResponse,
@@ -45,6 +52,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -988,6 +998,43 @@ class ThreeDInteractiveSelect:
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")
         return selected_models
+
+
+class Image360CollectionInteractiveSelect:
+    """Interactively select one or more legacy Image360Collection nodes to migrate."""
+
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def list_collections(self) -> list[NodeResponse]:
+        instance_filter = InstanceFilter(instance_type="node", source=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW)
+        nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+        return [node for node in nodes if isinstance(node, NodeResponse)]
+
+    def _collection_label(self, node: NodeResponse) -> str:
+        if label := ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label"):
+            return f"{label} ({node.space}:{node.external_id})"
+        return f"{node.space}:{node.external_id}"
+
+    def select_collections(self) -> list[NodeId]:
+        """Select 360 image collections to migrate."""
+        collections = self.list_collections()
+        if not collections:
+            raise ToolkitMissingResourceError("No 360 image collections found in this project.")
+
+        choices = [
+            Choice(title=self._collection_label(node), value=NodeId(space=node.space, external_id=node.external_id))
+            for node in collections
+        ]
+        selected = questionary.checkbox(
+            f"Select 360 image collections to {self.operation}:",
+            choices=choices,
+            validate=lambda chosen: True if chosen else "You must select at least one collection.",
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No 360 image collections selected.")
+        return [node_id for node_id in selected if isinstance(node_id, NodeId)]
 
 
 class APMConfigInteractiveSelect:
