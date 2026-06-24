@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -326,7 +327,12 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 return None
 
-            responses = target.upload_items(data_chunk=page, http_client=write_client, selector=selected)
+            responses: list = []
+            for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
+                chunk_page = page.create_from(list(chunk))
+                responses.extend(
+                    target.upload_items(data_chunk=chunk_page, http_client=write_client, selector=selected)
+                )
 
             for item in responses:
                 if isinstance(item, ItemsSuccessResponse):

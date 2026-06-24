@@ -21,6 +21,7 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
+from cognite_toolkit._cdf_tk.client.http_client import ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
     AssetLinkData,
@@ -94,7 +95,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -247,6 +248,21 @@ def _make_stream_response(
             ),
         ),
     )
+
+
+class _ChunkTrackingUploadIO:
+    CHUNK_SIZE = 1000
+    KIND = "Instances"
+
+    def __init__(self) -> None:
+        self.upload_chunk_sizes: list[int] = []
+        self.logger = MagicMock()
+
+    def upload_items(
+        self, data_chunk: Page, http_client: object, selector: object | None = None
+    ) -> list:
+        self.upload_chunk_sizes.append(len(data_chunk))
+        return []
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -1128,6 +1144,26 @@ class TestMigrationCommand:
 
         has_existing_version = [item["externalId"] for item in created_instance if "existingVersion" in item]
         assert not has_existing_version, f"Expected no existingVersion field, but found in: {has_existing_version}"
+
+    def test_upload_chunks_pages_larger_than_chunk_size(self, tmp_path: Path) -> None:
+        command = MigrationCommand(silent=True)
+        target = _ChunkTrackingUploadIO()
+        page = Page(
+            worker_id="main",
+            items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(1001)],
+        )
+        upload = command._upload(
+            selected=MagicMock(),
+            write_client=MagicMock(),
+            target=target,  # type: ignore[arg-type]
+            dry_run=False,
+            log_dir=tmp_path,
+            total_item_count=1001,
+            start_item=0,
+        )
+        upload(page)
+
+        assert target.upload_chunk_sizes == [1000, 1]
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
