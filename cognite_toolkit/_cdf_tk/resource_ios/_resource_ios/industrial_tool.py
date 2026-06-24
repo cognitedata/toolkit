@@ -157,17 +157,14 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         )
         try:
             streamlit_request = StreamlitRequest.model_validate(item)
-            file_metadata_fields: dict[str, Any] = {
-                "externalId": streamlit_request.external_id,
-                "name": f"{streamlit_request.name}-source.json",
-                "directory": STREAMLIT_DIRECTORY,
-                "metadata": streamlit_request._as_metadata(),
-            }
-            if data_set_external_id := item.get("dataSetExternalId"):
-                file_metadata_fields["dataSetExternalId"] = data_set_external_id
-            file_metadata = yaml_safe_dump(
-                FileMetadataYAML.model_validate(file_metadata_fields).model_dump(by_alias=True, exclude_unset=True)
+            file_metadata_yaml = FileMetadataYAML(
+                externalId=streamlit_request.external_id,
+                name=f"{streamlit_request.name}-source.json",
+                directory=STREAMLIT_DIRECTORY,
+                metadata=streamlit_request._as_metadata(),
+                dataSetExternalId=item.get("dataSetExternalId"),
             )
+            file_metadata = yaml_safe_dump(file_metadata_yaml.model_dump(by_alias=True, exclude_unset=True))
         except ValidationError as e:
             # avoid circular import
             from cognite_toolkit._cdf_tk.validation import humanize_validation_error
