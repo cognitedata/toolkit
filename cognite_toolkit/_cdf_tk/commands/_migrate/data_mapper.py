@@ -2115,9 +2115,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
                                 properties={
-                                    "name": ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
-                                        "label"
-                                    )
+                                    "name": (
+                                        (node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}
+                                    ).get("label")
                                 },
                             ),
                         ],

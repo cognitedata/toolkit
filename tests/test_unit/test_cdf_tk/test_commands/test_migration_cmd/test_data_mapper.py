@@ -1357,7 +1357,9 @@ class TestFDMtoCDMMapper:
             )
             mapper.prepare(MagicMock())
 
-            collection_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+            collection_results = mapper.map(
+                [DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)]
+            )
             station_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:station1", item=station_node)])
             image_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=image_node)])
 
