@@ -9,7 +9,10 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerId,
+    NodeId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -20,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldConditionMapping,
     InFieldUserMapping,
     SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -32,9 +36,16 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360CollectionMapper,
+    Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+    create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -74,6 +85,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
@@ -106,6 +118,8 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
+        if Flags.IMAGE360_MIGRATE.is_enabled():
+            self.command("360-images")(self.image_360_nodes)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1702,5 +1716,107 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
+            )
+        )
+
+    @staticmethod
+    def image_360_nodes(
+        ctx: typer.Context,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                help="The instance space containing the 360 image collections. "
+                "Must be used together with --collection.",
+            ),
+        ] = None,
+        collection: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--collection",
+                "-c",
+                help="External ID of an 360 image collection to migrate. Can be repeated. "
+                "Must be used together with --instance-space. If neither is provided, "
+                "an interactive selection will be performed.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if client.project.status().this_project.data_modeling_status != "DATA_MODELING_ONLY":
+            verify_threed_dm_migration_enabled(client)
+        cmd = MigrationCommand(client=client)
+
+        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        if legacy_site_count:
+            client.console.print(
+                Panel(
+                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{legacy_site_count:,}[/bold] "
+                    "site(s) of Events-based 360-image data which is deprecated and no longer supported in CDF. "
+                    "These images are stored in the Events service and will [bold]NOT[/bold] be migrated by this command.\n\n"
+                    "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
+                    "data model using a standalone custom script before they can be migrated to CDM. "
+                    "Toolkit does not support this step. Please see the documentation for this migration "
+                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    title="Unsupported Events-based 360-image data detected",
+                    expand=False,
+                    border_style="yellow",
+                )
+            )
+
+        if collection is None and instance_space is None:
+            selected_collections = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            if collection is None or instance_space is None:
+                raise typer.BadParameter("Both --instance-space and --collection must be provided together")
+            selected_collections = NodeId.from_str_ids(collection, space=instance_space)
+        selectors = create_360_image_selectors(selected_collections)
+        connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+        mapper = Image360FDMtoCDMMapper(
+            client,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[Station360PropertiesMapping()],
+            custom_instance_mappings={
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
+            },
+        )
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_nodes",
             )
         )
