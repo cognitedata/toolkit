@@ -370,7 +370,10 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 continue
 
             success_request_count += 1
-            total += len(batch.items[query.root])
+            if query.root in batch.items:
+                total += len(batch.items[query.root])
+            else:
+                total += sum(len(batch.items[key]) for key in query.select if key in batch.items)
             next_cursor = batch.root_cursor
             yield batch
             if next_cursor is None or not batch or (limit is not None and total >= limit):
