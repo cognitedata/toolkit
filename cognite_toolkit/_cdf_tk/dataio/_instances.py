@@ -91,9 +91,9 @@ class InstanceIO(
         self._view_crud = ViewIO.create_loader(self.client)
 
     def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
-        node_ids = [item.tracking_id for item in page.items if item.item.instance_type == "node"]
-        if node_ids:
-            self.logger.register(node_ids)
+        ids = [item.tracking_id for item in page.items if not isinstance(item.item, EdgeResponse)]
+        if ids:
+            self.logger.register(ids)
         return page
 
     @staticmethod

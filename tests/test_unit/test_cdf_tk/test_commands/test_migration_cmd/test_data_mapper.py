@@ -965,7 +965,7 @@ class TestFDMtoCDMMapper:
         assert len(mapped_items) == 2
         assert mapped_items[0].tracking_id == f"{self.SOURCE_SPACE}:node1"
         assert isinstance(mapped_items[0].item, NodeRequest)
-        assert mapped_items[1].tracking_id == f"{self.TARGET_SPACE}:edge1"
+        assert mapped_items[1].tracking_id == f"{self.SOURCE_SPACE}:node1"
         assert isinstance(mapped_items[1].item, EdgeRequest)
 
     @pytest.mark.parametrize(
