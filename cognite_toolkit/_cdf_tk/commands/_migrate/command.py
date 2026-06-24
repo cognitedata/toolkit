@@ -293,7 +293,7 @@ class MigrationCommand(ToolkitCommand):
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
     ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
-            return mapper.map_page(source)
+            return source.create_from(mapper.map(source.items))
 
         return track_mapping
 

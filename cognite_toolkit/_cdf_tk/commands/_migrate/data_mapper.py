@@ -100,7 +100,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.dataio import DataItem, Page, T_DataRequest, T_DataResponse, T_Selector
+from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, NoOpLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
@@ -150,9 +150,6 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
 
         """
         raise NotImplementedError("Subclasses must implement this method.")
-
-    def map_page(self, source: Page[T_DataResponse]) -> Page[T_DataRequest]:
-        return source.create_from(self.map(source.items))
 
 
 class AssetCentricMapper(

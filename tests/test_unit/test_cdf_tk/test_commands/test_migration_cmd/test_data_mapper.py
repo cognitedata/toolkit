@@ -85,7 +85,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.data import MIGRATION_DIR
@@ -939,20 +939,17 @@ class TestFDMtoCDMMapper:
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
-            source_page = Page(
-                worker_id="main",
-                items=[
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
-                ],
-            )
-            mapped_page = mapper.map_page(source_page)
+            source_items = [
+                DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
+                DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+            ]
+            mapped_items = mapper.map(source_items)
 
-        assert len(mapped_page.items) == 2
-        assert mapped_page.items[0].tracking_id == f"{self.SOURCE_SPACE}:node1"
-        assert isinstance(mapped_page.items[0].item, NodeRequest)
-        assert mapped_page.items[1].tracking_id == f"{self.TARGET_SPACE}:edge1"
-        assert isinstance(mapped_page.items[1].item, EdgeRequest)
+        assert len(mapped_items) == 2
+        assert mapped_items[0].tracking_id == f"{self.SOURCE_SPACE}:node1"
+        assert isinstance(mapped_items[0].item, NodeRequest)
+        assert mapped_items[1].tracking_id == f"{self.TARGET_SPACE}:edge1"
+        assert isinstance(mapped_items[1].item, EdgeRequest)
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",
