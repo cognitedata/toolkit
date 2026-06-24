@@ -160,7 +160,6 @@ class MigrationCommand(ToolkitCommand):
             )
 
             executor.run(start_item=step.completed_count)
-            total = executor.downloaded_items
 
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
@@ -178,6 +177,7 @@ class MigrationCommand(ToolkitCommand):
 
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
+            total = sum(result.count for result in items_results)
             console.print(f"{action} {total:,} {selected.display_name} to {target}.")
         return results_by_selector
 
