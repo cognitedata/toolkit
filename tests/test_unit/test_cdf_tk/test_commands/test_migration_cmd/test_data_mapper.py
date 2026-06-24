@@ -162,8 +162,8 @@ class TestAssetCentricToInstanceMapper:
             mapper.prepare(selected)
 
             mapped: list[InstanceApply] = []
-            for target, item in zip(mapper.map(source), source):
-                mapped.append(target)
+            for data_item in mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(source)]):
+                mapped.append(data_item.item)
 
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
@@ -209,7 +209,7 @@ class TestAssetCentricToInstanceMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map([source])
+                mapper.map([DataItem(tracking_id="t", item=source)])
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
@@ -335,8 +335,8 @@ class TestThreeDAssetMapper:
             mapper = ThreeDAssetMapper(client)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
-            mapped = mapper.map([response])[0]
-
+            result = mapper.map([DataItem(tracking_id="t", item=response)])
+            mapped = result[0].item if result else None
             if lookup_asset is not None:
                 # One for cache population, one for actual call
                 assert client.migration.lookup.assets.call_count == 2
@@ -397,7 +397,7 @@ class TestCanvasMapper:
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
 
-            actual = mapper.map([input_canvas])[0]
+            actual = mapper.map([DataItem(tracking_id="t", item=input_canvas)])[0].item
 
         assert not actual.container_references
         assert len(actual.fdm_instance_container_references) == len(input_canvas.container_references)
@@ -461,9 +461,9 @@ class TestChartMapper:
             client.migration.lookup.events = event_lookup
 
             mapper = ChartMapper(client)
-            mapped_list = mapper.map([source])
+            mapped_list = mapper.map([DataItem(tracking_id="t", item=source)])
             assert len(mapped_list) == 1
-            mapped = mapped_list[0]
+            mapped = mapped_list[0].item
             assert isinstance(mapped, ChartRequest)
 
         dumped = mapped.dump()
@@ -588,9 +588,9 @@ class TestChartMapper:
             logger = FileWithAggregationLogger(MagicMock())
             logger.register([chart.external_id])
             mapper.logger = logger
-            result = mapper.map([chart])
+            result = mapper.map([DataItem(tracking_id="t", item=chart)])
 
-        assert result == [None]
+        assert result == []
 
         aggregations = logger.aggregations_by_ids[chart.external_id]
         assert len(aggregations) == 1
@@ -899,8 +899,8 @@ class TestFDMtoCDMMapper:
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
-            actual = mapper.map(instances)
-            assert [item.dump() for item in actual] == [item.dump() for item in expected]
+            actual = mapper.map([DataItem(tracking_id=str(i), item=inst) for i, inst in enumerate(instances)])
+            assert [data_item.item.dump() for data_item in actual] == [item.dump() for item in expected]
 
     def test_map_page_emits_all_mapped_items_with_tracking_ids(self) -> None:
         node = NodeResponse(
@@ -1001,13 +1001,16 @@ class TestFDMtoCDMMapper:
             # First step: map the would-be target of the direct relation.
             mapper.map(
                 [
-                    NodeResponse(
-                        space=self.SOURCE_SPACE,
-                        external_id="first",
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                        properties={self.SOURCE_VIEW_ID: {}},
+                    DataItem(
+                        tracking_id="t",
+                        item=NodeResponse(
+                            space=self.SOURCE_SPACE,
+                            external_id="first",
+                            last_updated_time=1,
+                            created_time=0,
+                            version=1,
+                            properties={self.SOURCE_VIEW_ID: {}},
+                        ),
                     )
                 ]
             )
@@ -1016,15 +1019,18 @@ class TestFDMtoCDMMapper:
             # Second step: map a node whose direct relation points at "first".
             mapper.map(
                 [
-                    NodeResponse(
-                        space=self.SOURCE_SPACE,
-                        external_id="second",
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                        properties={
-                            self.SOURCE_VIEW_ID: {"sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}}
-                        },
+                    DataItem(
+                        tracking_id="t",
+                        item=NodeResponse(
+                            space=self.SOURCE_SPACE,
+                            external_id="second",
+                            last_updated_time=1,
+                            created_time=0,
+                            version=1,
+                            properties={
+                                self.SOURCE_VIEW_ID: {"sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}}
+                            },
+                        ),
                     )
                 ]
             )
@@ -1199,9 +1205,9 @@ class TestInFieldLegacyToCDMScheduleMapper:
             mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
             mapper.prepare(MagicMock())
 
-            result = mapper.map(schedule_instance_data)
+            result = mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(schedule_instance_data)])
 
-        mapped_schedules = [r for r in result if r is not None]
+        mapped_schedules = [data_item.item for data_item in result]
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
@@ -1269,7 +1275,7 @@ class TestAssetCentricToRecordMapper:
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             with pytest.raises(ToolkitValueError, match="only supports Event"):
-                mapper.map([source])
+                mapper.map([DataItem(tracking_id="t", item=source)])
 
     def test_map_produces_record_request(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
@@ -1289,9 +1295,9 @@ class TestAssetCentricToRecordMapper:
             client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
-            results = mapper.map([source])
+            results = mapper.map([DataItem(tracking_id="t", item=source)])
         assert len(results) == 1
-        record = results[0]
+        record = results[0].item
         assert record is not None
         assert record.space == "my_space"
         assert record.external_id == "event_1"
