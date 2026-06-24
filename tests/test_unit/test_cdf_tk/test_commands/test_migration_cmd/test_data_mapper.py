@@ -85,6 +85,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.dataio import DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.data import MIGRATION_DIR
@@ -900,6 +901,58 @@ class TestFDMtoCDMMapper:
 
             actual = mapper.map(instances)
             assert [item.dump() for item in actual] == [item.dump() for item in expected]
+
+    def test_map_page_emits_all_mapped_items_with_tracking_ids(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        edge = EdgeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="edge1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            type=NodeId(space="schema_space1", external_id="sourceEdge1"),
+            start_node=NodeId(space=self.SOURCE_SPACE, external_id="node1"),
+            end_node=NodeId(space=self.SOURCE_SPACE, external_id="node2"),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(
+                update={
+                    "container_mapping": {"textProp": "targetInt"},
+                    "edge_mapping": {
+                        EdgeTypeId(
+                            type=NodeId(space="schema_space1", external_id="sourceEdge1"), direction="outwards"
+                        ): "targetEdge1",
+                    },
+                }
+            )
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
+            mapper.prepare(MagicMock())
+
+            source_page = Page(
+                worker_id="main",
+                items=[
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+                ],
+            )
+            mapped_page = mapper.map_page(source_page)
+
+        assert len(mapped_page.items) == 2
+        assert mapped_page.items[0].tracking_id == f"{self.SOURCE_SPACE}:node1"
+        assert isinstance(mapped_page.items[0].item, NodeRequest)
+        assert mapped_page.items[1].tracking_id == f"{self.TARGET_SPACE}:edge1"
+        assert isinstance(mapped_page.items[1].item, EdgeRequest)
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",

@@ -99,7 +99,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.dataio import T_DataRequest, T_DataResponse, T_Selector
+from cognite_toolkit._cdf_tk.dataio import DataItem, Page, T_DataRequest, T_DataResponse, T_Selector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, NoOpLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
@@ -147,6 +147,17 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
 
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def map_page(self, source: Page[T_DataResponse]) -> Page[T_DataRequest]:
+        raw_items = [data_item.item for data_item in source.items]
+        mapped = self.map(raw_items)
+        return source.create_from(
+            [
+                DataItem(tracking_id=data_item.tracking_id, item=target)
+                for target, data_item in zip(mapped, source.items)
+                if target is not None
+            ]
+        )
 
 
 class AssetCentricMapper(
@@ -1348,16 +1359,40 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                return self._custom_instance_mappings[intersection_view_id].map(source)
-            else:
-                # This is caused by the selector used to download the instance responses not matching the expectation in
-                # the mapper.
+                custom_mapper = self._custom_instance_mappings[intersection_view_id]
+                if isinstance(custom_mapper, InFieldLegacyToCDMScheduleMapper):
+                    return custom_mapper.map(source)
                 raise NotImplementedError(
-                    "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+                    f"Custom instance mapper {type(custom_mapper).__name__} does not support tracked mapping."
                 )
+            raise NotImplementedError(
+                "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+            )
+        return [data_item.item for data_item in self._map_nodes_to_data_items(source)]
+
+    def map_page(self, source: Page[NodeOrEdgeResponse]) -> Page[NodeOrEdgeRequest]:
+        raw_items = [data_item.item for data_item in source.items]
+        if self._custom_instance_mappings and (
+            intersecting_view_ids := (self._get_view_ids(raw_items) & set(self._custom_instance_mappings))
+        ):
+            if len(intersecting_view_ids) == 1:
+                intersection_view_id = next(iter(intersecting_view_ids))
+                custom_mapper = self._custom_instance_mappings[intersection_view_id]
+                if isinstance(custom_mapper, InFieldLegacyToCDMScheduleMapper):
+                    return custom_mapper.map_page(source)
+                raise NotImplementedError(
+                    f"Custom instance mapper {type(custom_mapper).__name__} does not support tracked mapping."
+                )
+            raise NotImplementedError(
+                "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+            )
+        return source.create_from(self._map_nodes_to_data_items(raw_items))
+
+    def _map_nodes_to_data_items(self, source: Sequence[NodeOrEdgeResponse]) -> list[DataItem[NodeOrEdgeRequest]]:
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
-        mapped_instances: list[NodeOrEdgeRequest | None] = []
+        mapped_items: list[DataItem[NodeOrEdgeRequest]] = []
+        mapped_instances: list[NodeOrEdgeRequest] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
         target_view_ids: set[ViewId] = set()
@@ -1381,8 +1416,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 for source_view_id in (node.properties or {}).keys()
                 if isinstance(source_view_id, ViewId)
             )
+            mapped_items.append(DataItem(tracking_id=str(node.as_id()), item=mapped_node))
             mapped_instances.append(mapped_node)
-            mapped_instances.extend(edges)
+            for edge in edges:
+                mapped_items.append(DataItem(tracking_id=str(edge.as_id()), item=edge))
+                mapped_instances.append(edge)
 
         # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
@@ -1404,7 +1442,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     for issue in issue_by_source_node_id.values()
                 ]
             )
-        return mapped_instances
+        return mapped_items
 
     def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
         return {
@@ -1730,8 +1768,15 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         self._connection_creator.update_view_cache(retrieved)
 
     def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+        return [data_item.item for data_item in self._map_schedules_to_data_items(source)]
+
+    def map_page(self, source: Page[NodeOrEdgeResponse]) -> Page[NodeOrEdgeRequest]:
+        raw_items = [data_item.item for data_item in source.items]
+        return source.create_from(self._map_schedules_to_data_items(raw_items))
+
+    def _map_schedules_to_data_items(self, source: Sequence[NodeOrEdgeResponse]) -> list[DataItem[NodeOrEdgeRequest]]:
         schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
-        output: list[NodeOrEdgeRequest | None] = []
+        mapped_items: list[DataItem[NodeOrEdgeRequest]] = []
         for duplicated_schedules in schedules.values():
             # Sort for deterministic output.
             duplicated_schedules.sort(key=lambda item: item.external_id)
@@ -1740,7 +1785,10 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 issues.append(issue)
             elif mapped_item is None:
                 issues.append(issue)
-            output.append(mapped_item)
+            if mapped_item is not None:
+                mapped_items.append(
+                    DataItem(tracking_id=str(duplicated_schedules[0].as_id()), item=mapped_item)
+                )
         if issues:
             self.logger.log(
                 [
@@ -1750,7 +1798,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     for issue in issues
                 ]
             )
-        return output
+        return mapped_items
 
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]

@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
-    DataItem,
     Page,
     T_DataRequest,
     T_DataResponse,
@@ -294,17 +293,7 @@ class MigrationCommand(ToolkitCommand):
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
     ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
-            raw_items = [di.item for di in source.items]
-            mapped = mapper.map(raw_items)
-            return Page(
-                worker_id=source.worker_id,
-                items=[
-                    DataItem(tracking_id=item.tracking_id, item=target)
-                    for target, item in zip(mapped, source.items)
-                    if target is not None
-                ],
-                bookmark=source.bookmark,
-            )
+            return mapper.map_page(source)
 
         return track_mapping
 
