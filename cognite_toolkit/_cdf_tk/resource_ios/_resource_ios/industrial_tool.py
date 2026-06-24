@@ -20,7 +20,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     FilesAcl,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import (
+    STREAMLIT_DIRECTORY,
+    StreamlitRequest,
+    StreamlitResponse,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
@@ -35,7 +39,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
-from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
+from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
@@ -152,7 +156,18 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
             description="Streamlit application code",
         )
         try:
-            file_metadata = yaml_safe_dump(StreamlitRequest.model_validate(item).dump(context="api"))
+            streamlit_request = StreamlitRequest.model_validate(item)
+            file_metadata_fields: dict[str, Any] = {
+                "externalId": streamlit_request.external_id,
+                "name": f"{streamlit_request.name}-source.json",
+                "directory": STREAMLIT_DIRECTORY,
+                "metadata": streamlit_request._as_metadata(),
+            }
+            if data_set_external_id := item.get("dataSetExternalId"):
+                file_metadata_fields["dataSetExternalId"] = data_set_external_id
+            file_metadata = yaml_safe_dump(
+                FileMetadataYAML.model_validate(file_metadata_fields).model_dump(by_alias=True, exclude_unset=True)
+            )
         except ValidationError as e:
             # avoid circular import
             from cognite_toolkit._cdf_tk.validation import humanize_validation_error
