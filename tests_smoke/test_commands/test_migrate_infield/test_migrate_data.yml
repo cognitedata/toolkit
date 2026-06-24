@@ -7,6 +7,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        isArchived: false
         item:
           externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
           space: smoke_infield_migration_target_space
@@ -14,6 +15,7 @@ instances:
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         title: any comments ?
         type: message
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: 2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: node
@@ -23,6 +25,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        isArchived: false
         item:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
@@ -38,6 +41,7 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
   instanceType: node
@@ -95,6 +99,7 @@ instances:
           test description character limitation test description character limitation
           test description character limitation test description character limitation
           test 111111111111111111111111111111111111
+        isArchived: false
         labels:
         - group:one Task group
         order: 141
@@ -106,6 +111,7 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: RhIUePwMQI0WDEQQv-xkig
   instanceType: node
@@ -131,6 +137,7 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: -3Z4iakG1YSFRAfVlazYMA
   instanceType: node
@@ -163,6 +170,7 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: -iExvo-uJ5JqMTPL2OYN-g
   instanceType: node
@@ -176,6 +184,7 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        isArchived: false
         parameters:
           message: 'item is not okay '
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
@@ -183,16 +192,19 @@ instances:
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: 1DC026YVbKG3QYAOMzJoXw
   instanceType: node
   properties:
     cdf_infield:
       ConditionalAction/v1:
+        isArchived: false
         logic: or
         parentObject:
           externalId: RhIUePwMQI0WDEQQv-xkig
           space: smoke_infield_migration_target_space
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
   instanceType: node
@@ -203,12 +215,14 @@ instances:
           externalId: 1DC026YVbKG3QYAOMzJoXw
           space: smoke_infield_migration_target_space
         field: status
+        isArchived: false
         operator: equals
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
         sourceView: cdf_infield/ChecklistItem/v1
         value: Not applicable
+        visibility: PUBLIC
   space: smoke_infield_migration_target_space
 - externalId: ae818e1b-82e7-446d-a645-05f0752d2c45
   instanceType: node
