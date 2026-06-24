@@ -14,10 +14,7 @@ def _normalize_config_variables(value: Any) -> Any:
     if isinstance(value, datetime | date):
         return str(value)
     if isinstance(value, dict):
-        return {
-            _normalize_config_variables(key): _normalize_config_variables(item)
-            for key, item in value.items()
-        }
+        return {_normalize_config_variables(key): _normalize_config_variables(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_normalize_config_variables(item) for item in value]
     return value
