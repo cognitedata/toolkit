@@ -1766,7 +1766,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
 
     def _map_schedules_to_data_items(self, source: Sequence[NodeOrEdgeResponse]) -> list[DataItem[NodeOrEdgeRequest]]:
         schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
-        mapped_items: list[DataItem[NodeOrEdgeRequest]] = []
+        output: list[DataItem[NodeOrEdgeRequest]] = []
         for duplicated_schedules in schedules.values():
             # Sort for deterministic output.
             duplicated_schedules.sort(key=lambda item: item.external_id)
@@ -1776,9 +1776,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             elif mapped_item is None:
                 issues.append(issue)
             if mapped_item is not None:
-                mapped_items.append(
-                    DataItem(tracking_id=str(duplicated_schedules[0].as_id()), item=mapped_item)
-                )
+                output.append(DataItem(tracking_id=str(mapped_item.as_id()), item=mapped_item))
         if issues:
             self.logger.log(
                 [
@@ -1788,7 +1786,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     for issue in issues
                 ]
             )
-        return mapped_items
+        return output
 
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
