@@ -1,3 +1,4 @@
+import json
 import sys
 from typing import Annotated, Any, Literal
 
@@ -14,6 +15,8 @@ else:
     from typing_extensions import Self
 
 MAX_SUB_AGENTS_PER_AGENT = 20
+EXAMPLE_QUESTIONS_MAX_LENGTH = 5
+EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE = 40960
 RUNTIME_VERSIONS_SUPPORTING_SUBAGENTS = frozenset({"1.3.0", "1.4.0"})
 
 
@@ -243,6 +246,19 @@ class SubagentConfig(BaseModelResource):
     )
 
 
+class ExampleMessage(BaseModelResource):
+    role: str = Field(description="The role of the expected message, e.g. 'function'.", min_length=1)
+    content: str = Field(description="The content of the expected message.", min_length=1)
+
+
+class ExampleQuestion(BaseModelResource):
+    question: str = Field(description="An example question for the agent.", min_length=1)
+    expected_messages: list[ExampleMessage] = Field(
+        default_factory=list,
+        description="Optional expected messages, such as tool-call hints.",
+    )
+
+
 Model = Literal[
     # Legacy model names without the azure/model naming convention
     "gpt-35-turbo",
@@ -350,6 +366,11 @@ class AgentYAML(ToolkitResource):
     )
     labels: list[str] | None = Field(None, description="Labels for the agent, e.g. 'published'.")
     runtime_version: str | None = Field(None, description="The runtime version")
+    example_questions: list[ExampleQuestion] | None = Field(
+        None,
+        description="Example questions shown to users to help them understand what the agent can do.",
+        max_length=EXAMPLE_QUESTIONS_MAX_LENGTH,
+    )
 
     @field_validator("subagents")
     @classmethod
@@ -383,6 +404,23 @@ class AgentYAML(ToolkitResource):
         if self.tools and any(tool.name == "delegate_to_subagent" for tool in self.tools):
             raise ValueError(
                 "Tool name 'delegate_to_subagent' is reserved for the system sub-agent delegate tool. Rename the tool."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_example_questions_serialized_size(self) -> Self:
+        if not self.example_questions:
+            return self
+        payload = {
+            "questions": [
+                question.model_dump(by_alias=True, exclude_unset=True) for question in self.example_questions
+            ]
+        }
+        serialized_size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        if serialized_size > EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE:
+            raise ValueError(
+                f"Serialized exampleQuestions size is {serialized_size} bytes, which exceeds the maximum of "
+                f"{EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE} bytes."
             )
         return self
 
