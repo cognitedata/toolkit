@@ -902,7 +902,7 @@ class TestFDMtoCDMMapper:
             actual = mapper.map([DataItem(tracking_id=str(i), item=inst) for i, inst in enumerate(instances)])
             assert [data_item.item.dump() for data_item in actual] == [item.dump() for item in expected]
 
-    def test_map_page_emits_all_mapped_items_with_tracking_ids(self) -> None:
+    def test_map_emits_all_mapped_items_with_tracking_ids(self) -> None:
         node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="node1",

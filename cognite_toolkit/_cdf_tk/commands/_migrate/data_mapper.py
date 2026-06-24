@@ -56,7 +56,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import NodeOrEdgeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
