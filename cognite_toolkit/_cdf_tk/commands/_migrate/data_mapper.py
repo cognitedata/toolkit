@@ -1415,7 +1415,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             output.append(DataItem(tracking_id=str(node.as_id()), item=mapped_node))
             mapped_instances.append(mapped_node)
             for edge in edges:
-                output.append(DataItem(tracking_id=str(edge.as_id()), item=edge))
+                output.append(DataItem(tracking_id=str(node.as_id()), item=edge))
                 mapped_instances.append(edge)
 
         # Post Validation - check that all direct relation with constraints exists.
