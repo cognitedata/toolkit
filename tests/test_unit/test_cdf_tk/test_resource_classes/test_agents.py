@@ -513,13 +513,17 @@ class TestAgentYAML:
         data = {
             "externalId": "my_agent",
             "name": "My Agent",
-            "exampleQuestions": [{"question": f"Question {index}"} for index in range(EXAMPLE_QUESTIONS_MAX_LENGTH + 1)],
+            "exampleQuestions": [
+                {"question": f"Question {index}"} for index in range(EXAMPLE_QUESTIONS_MAX_LENGTH + 1)
+            ],
         }
         warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
         assert len(warning_list) == 1
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
-        assert any(f"list should have at most {EXAMPLE_QUESTIONS_MAX_LENGTH} items" in error for error in warning.errors)
+        assert any(
+            f"list should have at most {EXAMPLE_QUESTIONS_MAX_LENGTH} items" in error for error in warning.errors
+        )
 
     def test_example_questions_serialized_size_validation(self) -> None:
         oversized_question = "x" * (EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE - len('{"questions":[{"question":""}]}') + 1)

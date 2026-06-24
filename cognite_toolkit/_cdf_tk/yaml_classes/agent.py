@@ -412,9 +412,7 @@ class AgentYAML(ToolkitResource):
         if not self.example_questions:
             return self
         payload = {
-            "questions": [
-                question.model_dump(by_alias=True, exclude_unset=True) for question in self.example_questions
-            ]
+            "questions": [question.model_dump(by_alias=True, exclude_unset=True) for question in self.example_questions]
         }
         serialized_size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
         if serialized_size > EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE:
