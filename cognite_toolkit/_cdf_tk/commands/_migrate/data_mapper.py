@@ -2052,8 +2052,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        collection_nodes = [node for node in source if isinstance(node, NodeResponse)]
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        collection_nodes = [node for node in raw_items if isinstance(node, NodeResponse)]
         migrated_ids = [
             NodeId(space=node.space, external_id=sanitize_instance_external_id(node.external_id, "_cdm"))
             for node in collection_nodes
@@ -2068,8 +2069,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             else {}
         )
 
-        results: list[NodeRequest | None] = []
-        for node in source:
+        results: list[DataItem[NodeOrEdgeRequest]] = []
+        for data_item in source:
+            node = data_item.item
             instance_space = node.space
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
@@ -2095,28 +2097,31 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                     model_external_id = f"cog_3d_model_{created_model.id}"
 
             results.append(
-                NodeRequest(
-                    space=instance_space,
-                    external_id=collection_ext_id,
-                    sources=[
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                            properties={
-                                "model3D": {"space": instance_space, "externalId": model_external_id},
-                                "status": "Done",
-                                "published": True,
-                                "type": "Image360",
-                            },
-                        ),
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                            properties={
-                                "name": ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
-                                    "label"
-                                )
-                            },
-                        ),
-                    ],
+                DataItem(
+                    tracking_id=data_item.tracking_id,
+                    item=NodeRequest(
+                        space=instance_space,
+                        external_id=collection_ext_id,
+                        sources=[
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                                properties={
+                                    "model3D": {"space": instance_space, "externalId": model_external_id},
+                                    "status": "Done",
+                                    "published": True,
+                                    "type": "Image360",
+                                },
+                            ),
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                                properties={
+                                    "name": ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
+                                        "label"
+                                    )
+                                },
+                            ),
+                        ],
+                    ),
                 )
             )
         return results

@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
     ItemsFailedResponse,
+    ItemsResultList,
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -316,7 +317,7 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 return None
 
-            responses: list = []
+            responses: ItemsResultList = ItemsResultList()
             for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
                 chunk_page = page.create_from(list(chunk))
                 responses.extend(

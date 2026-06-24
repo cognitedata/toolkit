@@ -1147,7 +1147,7 @@ class TestFDMtoCDMMapper:
             mapper.logger = logger
             mapper.prepare(MagicMock())
 
-            actual = mapper.map([node])
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=node)])
 
         if expect_failure:
             assert actual == []
@@ -1161,9 +1161,9 @@ class TestFDMtoCDMMapper:
             assert f"{self.SOURCE_SPACE}:image1" == entry.id
         else:
             assert len(actual) == 1
-            assert isinstance(actual[0], NodeRequest)
-            assert actual[0].space == self.SOURCE_SPACE
-            assert actual[0].external_id == sanitize_instance_external_id("image1", "_cdm")
+            assert isinstance(actual[0].item, NodeRequest)
+            assert actual[0].item.space == self.SOURCE_SPACE
+            assert actual[0].item.external_id == sanitize_instance_external_id("image1", "_cdm")
             logger.log.assert_not_called()
 
     def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
@@ -1186,13 +1186,13 @@ class TestFDMtoCDMMapper:
             client.tool.instances.retrieve.return_value = []
             client.tool.three_d.models_classic.create.return_value = [created_model]
             mapper = Image360CollectionMapper(client)
-            actual = mapper.map([collection_node])
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
         client.tool.three_d.models_classic.create.assert_called_once_with(
             [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
         )
         assert len(actual) == 1
-        collection_request = actual[0]
+        collection_request = actual[0].item
         assert isinstance(collection_request, NodeRequest)
         assert collection_request.space == self.SOURCE_SPACE
         assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
@@ -1232,10 +1232,10 @@ class TestFDMtoCDMMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.instances.retrieve.return_value = [migrated_node]
             mapper = Image360CollectionMapper(client)
-            actual = mapper.map([collection_node])
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
         client.tool.three_d.models_classic.create.assert_not_called()
-        collection_request = actual[0]
+        collection_request = actual[0].item
         assert isinstance(collection_request, NodeRequest)
         model_source = next(
             source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
@@ -1357,17 +1357,17 @@ class TestFDMtoCDMMapper:
             )
             mapper.prepare(MagicMock())
 
-            collection_results = mapper.map([collection_node])
-            station_results = mapper.map([station_node])
-            image_results = mapper.map([image_node])
+            collection_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+            station_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:station1", item=station_node)])
+            image_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=image_node)])
 
         assert len(collection_results) == 1
         assert len(station_results) == 1
         assert len(image_results) == 1
 
-        collection_request = collection_results[0]
-        station_request = station_results[0]
-        image_request = image_results[0]
+        collection_request = collection_results[0].item
+        station_request = station_results[0].item
+        image_request = image_results[0].item
         assert isinstance(collection_request, NodeRequest)
         assert isinstance(station_request, NodeRequest)
         assert isinstance(image_request, NodeRequest)
