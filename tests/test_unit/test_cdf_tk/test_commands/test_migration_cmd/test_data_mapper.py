@@ -1025,7 +1025,9 @@ class TestFDMtoCDMMapper:
                             created_time=0,
                             version=1,
                             properties={
-                                self.SOURCE_VIEW_ID: {"sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}}
+                                self.SOURCE_VIEW_ID: {
+                                    "sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}
+                                }
                             },
                         ),
                     )

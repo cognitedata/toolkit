@@ -21,7 +21,6 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
-from cognite_toolkit._cdf_tk.client.http_client import ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
     AssetLinkData,
@@ -258,9 +257,7 @@ class _ChunkTrackingUploadIO:
         self.upload_chunk_sizes: list[int] = []
         self.logger = MagicMock()
 
-    def upload_items(
-        self, data_chunk: Page, http_client: object, selector: object | None = None
-    ) -> list:
+    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
         self.upload_chunk_sizes.append(len(data_chunk))
         return []
 

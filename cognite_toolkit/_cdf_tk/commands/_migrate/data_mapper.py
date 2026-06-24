@@ -1227,7 +1227,9 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
 
 
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
-    def map(self, source: Sequence[DataItem[AssetMappingClassicResponse]]) -> Sequence[DataItem[AssetMappingDMRequestId]]:
+    def map(
+        self, source: Sequence[DataItem[AssetMappingClassicResponse]]
+    ) -> Sequence[DataItem[AssetMappingDMRequestId]]:
         output: list[DataItem[AssetMappingDMRequestId]] = []
         log_entries: list[MigrationEntryV2] = []
         raw_items = [data_item.item for data_item in source]
