@@ -1359,12 +1359,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapper = self._custom_instance_mappings[intersection_view_id]
-                if isinstance(custom_mapper, InFieldLegacyToCDMScheduleMapper):
-                    return custom_mapper.map(source)
-                raise NotImplementedError(
-                    f"Custom instance mapper {type(custom_mapper).__name__} does not support tracked mapping."
-                )
+                return self._custom_instance_mappings[intersection_view_id].map(source)
             raise NotImplementedError(
                 "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
             )
