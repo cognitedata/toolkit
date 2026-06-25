@@ -59,7 +59,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         return find_spec("cognite.neat") is not None
 
     @classmethod
-    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: "RequestSchema"):
+    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: "RequestSchema") -> None:
         """Mark all spaces in the loaded schema as governed for Neat rebuild validation.
 
         Toolkit modules define the full desired state across multiple spaces (e.g. record
