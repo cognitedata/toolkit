@@ -1,7 +1,20 @@
+import os
 import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
+
+
+def use_uv() -> bool:
+    """Return True when the toolkit is running under uv (e.g. ``uv run cdf build``)."""
+    return os.environ.get("UV") is not None
+
+
+def package_install_command(package: str) -> str:
+    """Return the preferred install command for the current Python environment manager."""
+    if use_uv():
+        return f"uv add {package}"
+    return f"pip install {package}"
 
 
 def use_poetry() -> bool:
