@@ -94,7 +94,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    Image360AnnotationRequest,
+    Image360AnnotationItem,
+    Image360Polygon,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -107,6 +108,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_SOURCE_VIEW,
     LEGACY_IMAGE360_STATION_SOURCE_VIEW,
     create_360_image_data_mappings,
+    load_image360_annotation_node_caches,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
@@ -2127,9 +2129,9 @@ class Station360PropertiesMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties={"groupType": "Station360"})
 
 
-class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationRequest]):
+class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationItem]):
     """Maps legacy 360-image annotations (images.AssetLink / images.InstanceLink) to the
-    Image360AnnotationRequest format consumed by POST /3d/contextualization/image360 (beta).
+    Image360AnnotationItem format consumed by POST /3d/contextualization/image360 (beta).
 
     Args:
         client: ToolkitClient instance for CDF API access.
@@ -2185,64 +2187,11 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         Args:
             source_selector: Selector for the annotation migration run.
         """
-        instance_filter = InstanceFilter(
-            instance_type="node",
-            source=LEGACY_IMAGE360_SOURCE_VIEW,
-        )
-        all_nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+        caches = load_image360_annotation_node_caches(self.client, source_selector.collections)
+        self._face_and_nodes_by_file_id = caches.face_and_nodes_by_file_id
 
-        selected_collections = set(source_selector.collections) if source_selector.collections else None
-
-        # Map file external ID → (face_name, new_image360_node_id, new_collection_node_id)
-        file_ext_id_to_face_and_nodes: dict[str, tuple[str, NodeId, NodeId]] = {}
-
-        for node in all_nodes:
-            if not isinstance(node, NodeResponse) or node.properties is None:
-                continue
-            props = node.properties.get(LEGACY_IMAGE360_SOURCE_VIEW, {})
-
-            collection_ref = props.get("collection360")
-            if not isinstance(collection_ref, dict):
-                continue
-            collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
-            if not collection_ext_id:
-                continue
-            if selected_collections is not None and collection_ext_id not in selected_collections:
-                continue
-
-            new_image360_node_id = NodeId(
-                space=node.space,
-                external_id=sanitize_instance_external_id(node.external_id, "_cdm"),
-            )
-            new_collection_node_id = NodeId(
-                space=node.space,
-                external_id=sanitize_instance_external_id(str(collection_ext_id), "_cdm"),
-            )
-
-            for prop_name, face_name in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY.items():
-                file_ext_id = props.get(prop_name)
-                if file_ext_id and isinstance(file_ext_id, str):
-                    file_ext_id_to_face_and_nodes[file_ext_id] = (
-                        face_name,
-                        new_image360_node_id,
-                        new_collection_node_id,
-                    )
-
-        if not file_ext_id_to_face_and_nodes:
-            return
-
-        file_items = [ExternalId(external_id=ext_id) for ext_id in file_ext_id_to_face_and_nodes]
-        resolved_files = self.client.tool.filemetadata.retrieve(file_items, ignore_unknown_ids=True)
-
-        self._face_and_nodes_by_file_id = {}
-        for file_resource in resolved_files:
-            if file_resource.external_id and file_resource.id:
-                face_and_nodes = file_ext_id_to_face_and_nodes.get(file_resource.external_id)
-                if face_and_nodes:
-                    self._face_and_nodes_by_file_id[file_resource.id] = face_and_nodes
-
-    def map(self, source: Sequence[AnnotationResponse]) -> Sequence[Image360AnnotationRequest | None]:
-        """Convert a batch of AnnotationResponse objects to Image360AnnotationRequest objects.
+    def map(self, source: Sequence[AnnotationResponse]) -> Sequence[Image360AnnotationItem | None]:
+        """Convert a batch of AnnotationResponse objects to Image360AnnotationItem objects.
 
         Annotations whose file is not in the cache or whose data is malformed are skipped
         (returned as None and logged).
@@ -2251,15 +2200,15 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             source: Batch of AnnotationResponse objects from the Annotations API.
 
         Returns:
-            Sequence of Image360AnnotationRequest (or None for skipped items).
+            Sequence of Image360AnnotationItem (or None for skipped items).
         """
-        results: list[Image360AnnotationRequest | None] = []
+        results: list[Image360AnnotationItem | None] = []
         for annotation in source:
             result = self._map_single_annotation(annotation)
             results.append(result)
         return results
 
-    def _map_single_annotation(self, annotation: AnnotationResponse) -> Image360AnnotationRequest | None:
+    def _map_single_annotation(self, annotation: AnnotationResponse) -> Image360AnnotationItem | None:
         face_and_nodes = self._face_and_nodes_by_file_id.get(annotation.annotated_resource_id)
         if face_and_nodes is None:
             self.logger.log(
@@ -2274,7 +2223,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             )
             return None
 
-        face, new_image360_node_id, new_collection_node_id = face_and_nodes
+        face, new_image360_node_id, _new_collection_node_id = face_and_nodes
 
         annotation_data = annotation.data
         if not isinstance(annotation_data, ImageAssetLinkData | ImageInstanceLinkData):
@@ -2327,11 +2276,10 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         if asset_node_id is None:
             return None
 
-        return Image360AnnotationRequest(
-            asset_instance_id=asset_node_id,
-            image360_instance_id=new_image360_node_id,
-            revision_instance_id=new_collection_node_id,
-            polygon_data=polygon_data,
+        return Image360AnnotationItem(
+            asset=InstanceId(instance_id=asset_node_id),
+            image360=InstanceId(instance_id=new_image360_node_id),
+            polygon=Image360Polygon(data=polygon_data),
         )
 
     def _resolve_asset_node_id(

@@ -1,6 +1,11 @@
+from dataclasses import dataclass
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
     QueryNodeTableExpression,
@@ -145,3 +150,82 @@ def create_360_image_selectors(
             endpoint="query",
         ),
     ]
+
+
+@dataclass
+class Image360AnnotationNodeCaches:
+    """Caches used when mapping and uploading legacy 360-image annotations."""
+
+    face_and_nodes_by_file_id: dict[int, tuple[str, NodeId, NodeId]]
+    collection_by_image360_id: dict[tuple[str, str], NodeId]
+
+
+def load_image360_annotation_node_caches(
+    client: ToolkitClient,
+    collections: tuple[str, ...] | None,
+) -> Image360AnnotationNodeCaches:
+    """Load Image360 nodes and build lookup caches for annotation migration.
+
+    Returns:
+        face_and_nodes_by_file_id: file internal ID → (face name, image360 node ID, collection node ID).
+        collection_by_image360_id: migrated image360 node key → collection node ID.
+    """
+    instance_filter = InstanceFilter(
+        instance_type="node",
+        source=LEGACY_IMAGE360_SOURCE_VIEW,
+    )
+    all_nodes = client.tool.instances.list(filter=instance_filter, limit=None)
+
+    selected_collections = set(collections) if collections else None
+    file_ext_id_to_face_and_nodes: dict[str, tuple[str, NodeId, NodeId]] = {}
+    collection_by_image360_id: dict[tuple[str, str], NodeId] = {}
+
+    for node in all_nodes:
+        if not isinstance(node, NodeResponse) or node.properties is None:
+            continue
+        props = node.properties.get(LEGACY_IMAGE360_SOURCE_VIEW, {})
+
+        collection_ref = props.get("collection360")
+        if not isinstance(collection_ref, dict):
+            continue
+        collection_ext_id = collection_ref.get("externalId") or collection_ref.get("external_id")
+        if not collection_ext_id:
+            continue
+        if selected_collections is not None and collection_ext_id not in selected_collections:
+            continue
+
+        new_image360_node_id = NodeId(
+            space=node.space,
+            external_id=sanitize_instance_external_id(node.external_id, "_cdm"),
+        )
+        new_collection_node_id = NodeId(
+            space=node.space,
+            external_id=sanitize_instance_external_id(str(collection_ext_id), "_cdm"),
+        )
+        collection_by_image360_id[(new_image360_node_id.space, new_image360_node_id.external_id)] = (
+            new_collection_node_id
+        )
+
+        for prop_name, face_name in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY.items():
+            file_ext_id = props.get(prop_name)
+            if file_ext_id and isinstance(file_ext_id, str):
+                file_ext_id_to_face_and_nodes[file_ext_id] = (
+                    face_name,
+                    new_image360_node_id,
+                    new_collection_node_id,
+                )
+
+    face_and_nodes_by_file_id: dict[int, tuple[str, NodeId, NodeId]] = {}
+    if file_ext_id_to_face_and_nodes:
+        file_items = [ExternalId(external_id=ext_id) for ext_id in file_ext_id_to_face_and_nodes]
+        resolved_files = client.tool.filemetadata.retrieve(file_items, ignore_unknown_ids=True)
+        for file_resource in resolved_files:
+            if file_resource.external_id and file_resource.id:
+                face_and_nodes = file_ext_id_to_face_and_nodes.get(file_resource.external_id)
+                if face_and_nodes:
+                    face_and_nodes_by_file_id[file_resource.id] = face_and_nodes
+
+    return Image360AnnotationNodeCaches(
+        face_and_nodes_by_file_id=face_and_nodes_by_file_id,
+        collection_by_image360_id=collection_by_image360_id,
+    )

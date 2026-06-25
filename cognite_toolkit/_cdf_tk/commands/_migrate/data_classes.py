@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, Literal
@@ -12,13 +13,12 @@ from pydantic.alias_generators import to_camel
 from rich.panel import Panel
 from rich.text import Text
 
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestItem, RequestResource
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest
 from cognite_toolkit._cdf_tk.client.identifiers import (
     EdgeUntypedId,
-    ExternalId,
     InstanceId,
     InternalId,
-    NodeId,
     NodeUntypedId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
@@ -303,44 +303,59 @@ class ThreeDMigrationRequest(RequestResource):
         return InternalId(id=self.model_id)
 
 
-class Image360AnnotationRequest(RequestResource):
-    """Single item for POST /3d/contextualization/image360 (beta).
+class Image360Polygon(BaseModelObject):
+    """Spherical polygon in v2.0.0 format: [N, phi1, theta1, ..., phiN, thetaN] where N ≥ 3."""
 
-    The ``dmsContextualizationConfig`` fields (object3dSpace, contextualizationSpace, revision)
-    are shared per request batch and are provided by the selector in ``upload_items()``.
-    The selector's ``instance_space`` maps to the API's ``contextualizationSpace`` field.
+    version: Literal["2.0.0"] = "2.0.0"
+    data: list[float]
 
-    Args:
-        asset_instance_id: DMS NodeId of the asset the annotation points to.
-        image360_instance_id: DMS NodeId of the new Cognite360Image node.
-        revision_instance_id: DMS NodeId of the Cognite360ImageCollection node (also acts as the
-            Cognite3DRevision in the CDM). Used to group items into batches with matching configs.
-        polygon_data: Spherical polygon in v2.0.0 format: [N, phi1, theta1, ..., phiN, thetaN]
-            where N ≥ 3, phi ∈ [0, π], theta ∈ [0, 2π].
-    """
 
-    asset_instance_id: NodeId
-    image360_instance_id: NodeId
-    revision_instance_id: NodeId
-    polygon_data: list[float]
+class Image360AnnotationItem(RequestItem):
+    """Single element of the ``items`` array in POST /3d/contextualization/image360 (beta)."""
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=f"{self.image360_instance_id.space}/{self.image360_instance_id.external_id}")
+    asset: InstanceId
+    image360: InstanceId
+    polygon: Image360Polygon
+
+    def __str__(self) -> str:
+        return str(self.image360.instance_id)
+
+
+class DmsContextualizationConfig(BaseModelObject):
+    """The ``dmsContextualizationConfig`` object in POST /3d/contextualization/image360 (beta)."""
+
+    object3d_space: str
+    contextualization_space: str
+    revision: InstanceId
+
+
+class Image360ContextualizationRequest(BaseModelObject):
+    """Request body for POST /3d/contextualization/image360 (beta)."""
+
+    items: list[Image360AnnotationItem]
+    dms_contextualization_config: DmsContextualizationConfig
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
-        """Returns the per-item dict for inclusion in the 'items' array of the beta endpoint body."""
         return {
-            "asset": {
-                "instanceId": {
-                    "space": self.asset_instance_id.space,
-                    "externalId": self.asset_instance_id.external_id,
-                }
-            },
-            "image360": {
-                "instanceId": {
-                    "space": self.image360_instance_id.space,
-                    "externalId": self.image360_instance_id.external_id,
-                }
-            },
-            "polygon": {"version": "2.0.0", "data": self.polygon_data},
+            "items": [item.dump(camel_case=camel_case, exclude_extra=exclude_extra) for item in self.items],
+            "dmsContextualizationConfig": self.dms_contextualization_config.dump(
+                camel_case=camel_case, exclude_extra=exclude_extra
+            ),
         }
+
+    def as_items_request(
+        self,
+        endpoint_url: str,
+        tracked_items: Sequence[RequestItem],
+        api_version: str | None = "beta",
+    ) -> ItemsRequest:
+        """Build an ``ItemsRequest`` for the HTTP client, preserving per-item tracking wrappers."""
+        return ItemsRequest(
+            endpoint_url=endpoint_url,
+            method="POST",
+            items=tracked_items,
+            api_version=api_version,
+            extra_body_fields={
+                "dmsContextualizationConfig": self.dms_contextualization_config.dump(camel_case=True)
+            },
+        )
