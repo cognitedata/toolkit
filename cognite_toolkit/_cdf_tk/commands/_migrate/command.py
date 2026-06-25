@@ -177,6 +177,10 @@ class MigrationCommand(ToolkitCommand):
 
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
+            # Here we use logger totals instead of the actual number of downladed items. For some selectors,
+            # download pages can include auxiliary edges that are, for example, converted to direct relations
+            # on a node after being migrated, alongside the nodes to migrate themselves. It would be confusing
+            # to a user if those edges were counted and displayed, since the initial estimate only counts the nodes to migrate.
             total = sum(result.count for result in items_results)
             console.print(f"{action} {total:,} {selected.display_name} to {target}.")
         return results_by_selector
