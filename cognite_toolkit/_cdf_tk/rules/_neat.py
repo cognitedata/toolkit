@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
 
 if TYPE_CHECKING:
-    from cognite.neat._data_model.models.dms._schema import RequestSchema
     from cognite.neat._toolkit_adapter import NeatClient, NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
@@ -59,7 +58,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         return find_spec("cognite.neat") is not None
 
     @classmethod
-    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: "RequestSchema") -> None:
+    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: Any) -> None:
         """Mark all spaces in the loaded schema as governed for Neat rebuild validation.
 
         Toolkit modules define the full desired state across multiple spaces (e.g. record
