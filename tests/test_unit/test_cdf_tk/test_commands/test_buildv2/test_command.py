@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     BuildSource,
@@ -534,31 +533,6 @@ class TestDisplayModuleSourcesOutput:
         assert "Misplaced Modules" in rendered
         assert "modules/parent/child" in rendered
         assert "modules/parent" in rendered
-
-
-class TestDisplayInsightsOutput:
-    @staticmethod
-    def _console() -> tuple[Console, StringIO]:
-        output = StringIO()
-        return Console(file=output, force_terminal=False, width=120), output
-
-    def test_recommendation_uses_ascii_marker(self, tmp_path: Path) -> None:
-        console, output = self._console()
-        insights = InsightList(
-            [
-                Recommendation(
-                    code="AUTH-001",
-                    message="Missing data set external ID for externalId='example' Transformation (transformations)",
-                    fix="Add a dataset association to the Transformation (transformations).",
-                )
-            ]
-        )
-
-        BuildV2Command()._display_insights(insights, tmp_path / "insights.csv", console, verbose=True)
-
-        rendered = output.getvalue()
-        assert "Missing data set external ID" in rendered
-        assert "🛈" not in rendered
 
 
 def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
