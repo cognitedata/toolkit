@@ -307,7 +307,7 @@ FileMetadataResponse:
     cognite-toolkit-hash: zipfil-hash-not-supported
   mimeType: application/zip
   name: first_example_function.zip
-- dataSetId: null
+- dataSetId: 7982613576047462211
   directory: /streamlit-apps/
   externalId: myapp
   metadata:
