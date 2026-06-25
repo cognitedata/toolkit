@@ -1,11 +1,23 @@
 import os
+from datetime import date, datetime
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, field_validator
 
 from ._base import YAMLFile
 from ._types import ValidationType
+
+
+def _normalize_config_variables(value: Any) -> Any:
+    """Coerce YAML-parsed date/datetime values to strings for JSON-compatible config variables."""
+    if isinstance(value, datetime | date):
+        return str(value)
+    if isinstance(value, dict):
+        return {_normalize_config_variables(key): _normalize_config_variables(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_normalize_config_variables(item) for item in value]
+    return value
 
 
 class Environment(BaseModel):
@@ -20,6 +32,13 @@ class ConfigYAML(YAMLFile):
 
     environment: Environment = Field(default_factory=Environment)
     variables: dict[str, JsonValue] | None = None
+
+    @field_validator("variables", mode="before")
+    @classmethod
+    def _normalize_variables(cls, value: Any) -> Any:
+        if value is None:
+            return value
+        return _normalize_config_variables(value)
 
     @classmethod
     def get_filename(cls, name: str) -> str:

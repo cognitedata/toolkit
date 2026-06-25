@@ -2031,15 +2031,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
         return mapped_node, edges, issue
 
 
-_FACE_PROPERTY_NAMES: dict[str, str] = {
-    "cubeMapFront": "front",
-    "cubeMapBack": "back",
-    "cubeMapLeft": "left",
-    "cubeMapRight": "right",
-    "cubeMapTop": "top",
-    "cubeMapBottom": "bottom",
-}
-
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
