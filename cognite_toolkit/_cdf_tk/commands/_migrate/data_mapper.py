@@ -2219,7 +2219,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
                 external_id=sanitize_instance_external_id(str(collection_ext_id), "_cdm"),
             )
 
-            for prop_name, face_name in _FACE_PROPERTY_NAMES.items():
+            for prop_name, face_name in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY.items():
                 file_ext_id = props.get(prop_name)
                 if file_ext_id and isinstance(file_ext_id, str):
                     file_ext_id_to_face_and_nodes[file_ext_id] = (
