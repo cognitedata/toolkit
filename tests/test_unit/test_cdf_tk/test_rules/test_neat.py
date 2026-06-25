@@ -14,12 +14,12 @@ class TestApplyToolkitGovernedSpaces:
         from cognite.neat._data_model.models.dms._views import ViewRequest
 
         schema = RequestSchema(
-            data_model=DataModelRequest(space="dm_space", external_id="MyModel", version="1"),
+            dataModel=DataModelRequest(space="dm_space", externalId="MyModel", version="1"),
             containers=[
-                ContainerRequest(space="records_space", external_id="Record", properties={}),
+                ContainerRequest(space="records_space", externalId="Record", properties={}),
             ],
             views=[
-                ViewRequest(space="view_space", external_id="MyView", version="1", properties={}),
+                ViewRequest(space="view_space", externalId="MyView", version="1", properties={}),
             ],
         )
         NeatRuleSet._apply_all_schema_spaces_as_governed_spaces(schema)
