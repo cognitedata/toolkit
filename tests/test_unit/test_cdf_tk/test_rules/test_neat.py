@@ -1,35 +1,30 @@
+from unittest.mock import patch
+
 import pytest
 
 from cognite_toolkit._cdf_tk.rules import NeatRuleSet
 
-pytest.importorskip("cognite.neat")
-
-from unittest.mock import patch
-
-import pytest
-from cognite.neat._data_model.models.dms._container import ContainerRequest
-from cognite.neat._data_model.models.dms._data_model import DataModelRequest
-from cognite.neat._data_model.models.dms._schema import RequestSchema
-from cognite.neat._data_model.models.dms._views import ViewRequest
-
-from cognite_toolkit._cdf_tk.rules._neat import NeatRuleSet
-
 
 class TestApplyToolkitGovernedSpaces:
     def test_collects_spaces_from_schema_resources(self) -> None:
+        pytest.importorskip("cognite.neat")
+        from cognite.neat._data_model.models.dms._container import ContainerRequest
+        from cognite.neat._data_model.models.dms._data_model import DataModelRequest
+        from cognite.neat._data_model.models.dms._schema import RequestSchema
+        from cognite.neat._data_model.models.dms._views import ViewRequest
+
         schema = RequestSchema(
-            dataModel=DataModelRequest(space="dm_space", externalId="MyModel", version="1"),
+            data_model=DataModelRequest(space="dm_space", external_id="MyModel", version="1"),
             containers=[
-                ContainerRequest(space="records_space", externalId="Record", properties={}),
+                ContainerRequest(space="records_space", external_id="Record", properties={}),
             ],
             views=[
-                ViewRequest(space="view_space", externalId="MyView", version="1", properties={}),
+                ViewRequest(space="view_space", external_id="MyView", version="1", properties={}),
             ],
         )
-
         NeatRuleSet._apply_all_schema_spaces_as_governed_spaces(schema)
-
         assert schema.governed_space_set() == {"dm_space", "records_space", "view_space"}
+
 
 class TestNeatRuleSetStatus:
     @patch.object(NeatRuleSet, "installed", return_value=False)
