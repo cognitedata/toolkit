@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import InternalValidatorError, RuleSetStatus, ToolkitGlobalRuleSet
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
@@ -21,7 +21,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             message = "Will validate dependencies against CDF."
         return RuleSetStatus(code="ready", message=message)
 
-    def validate(self) -> Iterable[Insight | FailedValidation]:
+    def validate(self) -> Iterable[Insight | InternalValidatorError]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceIO], Identifier]] = {
             (resource.crud_cls, resource.identifier) for module in self.modules for resource in module.resources

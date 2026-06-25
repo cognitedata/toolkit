@@ -840,7 +840,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
-            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "InternalValidatorError": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "🛈"),
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
@@ -867,7 +867,7 @@ class BuildV2Command(ToolkitCommand):
                     content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
                 insight_subsections.append(
                     ToolkitPanelSection(
-                        title=self._humanize_insight_code(insight.code),
+                        title=self._humanize_insight_code(insight.code) if insight.code else None,
                         content=content,
                     )
                 )
@@ -905,9 +905,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @staticmethod
-    def _humanize_insight_code(code: str | None) -> str:
-        if code is None:
-            return "Undefined"
+    def _humanize_insight_code(code: str) -> str:
         return code.replace("-", " ").replace("_", " ").capitalize()
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
@@ -916,9 +914,11 @@ class BuildV2Command(ToolkitCommand):
         remaining_insights: list[Insight] = []
 
         for insight in insights:
-            code = insight.code or "UNDEFINED"
-            if code not in insights_by_code:
-                insights_by_code[code] = insight
+            if insight.code is None:
+                remaining_insights.append(insight)
+                continue
+            if insight.code not in insights_by_code:
+                insights_by_code[insight.code] = insight
             else:
                 remaining_insights.append(insight)
 

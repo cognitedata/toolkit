@@ -4,7 +4,7 @@ from functools import cached_property
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, InternalValidatorError
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
@@ -32,7 +32,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
             message="Will validate function limits and requirement txt.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
+    def validate(self) -> Iterable[ConsistencyError | InternalValidatorError]:
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -43,9 +43,10 @@ class FunctionRules(ToolkitGlobalRuleSet):
                     try:
                         yield from self._validate_function(resource)
                     except Exception as e:
-                        yield FailedValidation(
+                        yield InternalValidatorError(
                             message=f"Function limits validation failed for function definition {resource.build_path.name!r}: {e}",
                             source=str(resource.identifier),
+                            code=f"{self.CODE_PREFIX}-INTERNAL",
                         )
 
     def _validate_function(self, resource: BuiltResource) -> Iterable[ConsistencyError]:

@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import InternalValidatorError, RuleSetStatus, ToolkitGlobalRuleSet
 
 if TYPE_CHECKING:
     from cognite.neat._toolkit_adapter import NeatClient, NeatIssueList, SchemaLimits, SchemaSnapshot
@@ -38,7 +38,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         message = "Neat is unavailable. " + " ".join(missing)
         return RuleSetStatus(code="unavailable", message=message)
 
-    def validate(self) -> Iterable[Insight | FailedValidation]:
+    def validate(self) -> Iterable[Insight | InternalValidatorError]:
         data_model_type = ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -47,9 +47,10 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                     try:
                         yield from self._validate_model(data_model_file.parent, data_model_file)
                     except Exception as e:
-                        yield FailedValidation(
+                        yield InternalValidatorError(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
                             source=str(resource.identifier),
+                            code=f"{self.CODE_PREFIX}-INTERNAL",
                         )
 
     @classmethod

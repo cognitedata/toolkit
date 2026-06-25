@@ -38,7 +38,7 @@ class ConsistencyError(InsightDefinition):
     severity = 30
 
 
-class FailedValidation(InsightDefinition):
+class InternalValidatorError(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
     This should never happen in normal operation — it indicates a bug in the validator itself.
@@ -60,7 +60,7 @@ class Recommendation(InsightDefinition):
 
 
 Insight: TypeAlias = (
-    ModelSyntaxWarning | ConsistencyError | FailedValidation | Recommendation | FileReadError | IgnoredFileWarning
+    ModelSyntaxWarning | ConsistencyError | InternalValidatorError | Recommendation | FileReadError | IgnoredFileWarning
 )
 
 
@@ -101,7 +101,7 @@ class InsightList(UserList[Insight]):
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
         return any(
-            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, FailedValidation)) for insight in self.data
+            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, InternalValidatorError)) for insight in self.data
         )
 
     @property
