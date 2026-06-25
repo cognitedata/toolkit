@@ -60,6 +60,30 @@ class TestAgentIODumpResource:
 
         assert dumped == local
 
+    def test_dump_resource_ignores_empty_example_questions_when_omitted_locally(self) -> None:
+        client = ToolkitClientMock()
+        io = AgentIO(client, None, None)
+        local = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "runtimeVersion": "0.9.9",
+        }
+        resource = AgentResponse.model_validate(
+            {
+                "externalId": "my_agent",
+                "name": "My Agent",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "0.9.9",
+                "exampleQuestions": [],
+            }
+        )
+
+        dumped = io.dump_resource(resource, local)
+
+        assert dumped == local
+
 
 class TestAgentIODependencies:
     def test_datamodel_is_in_class_dependencies(self) -> None:
@@ -327,3 +351,38 @@ class TestAgentIODiffList:
 
         assert local_by_cdf == {}
         assert added == [0]
+
+    def test_diff_list_example_questions_matches_by_question(self) -> None:
+        io = AgentIO(ToolkitClientMock(), None, None)
+        local = [
+            {"question": "What can you do?"},
+            {
+                "question": "Can you show me all work orders concerning valves?",
+                "expectedMessages": [{"role": "function", "content": "Finding maintenance orders..."}],
+            },
+        ]
+        cdf = [
+            {"question": "What can you do?"},
+            {
+                "question": "Can you show me all work orders concerning valves?",
+                "expectedMessages": [{"role": "function", "content": "Finding maintenance orders..."}],
+            },
+        ]
+
+        local_by_cdf, added = io.diff_list(local, cdf, ("exampleQuestions",))
+
+        assert local_by_cdf == {0: 0, 1: 1}
+        assert added == []
+
+    def test_diff_list_example_questions_reports_cdf_only_questions(self) -> None:
+        io = AgentIO(ToolkitClientMock(), None, None)
+        local = [{"question": "What can you do?"}]
+        cdf = [
+            {"question": "What can you do?"},
+            {"question": "Give a summary of the last shift and action points"},
+        ]
+
+        local_by_cdf, added = io.diff_list(local, cdf, ("exampleQuestions",))
+
+        assert local_by_cdf == {0: 0}
+        assert added == [1]

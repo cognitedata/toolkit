@@ -226,6 +226,16 @@ class SubagentConfig(AgentObject):
     agent_external_id: str = Field(min_length=1, max_length=255)
 
 
+class ExampleMessage(AgentObject):
+    role: str
+    content: str
+
+
+class ExampleQuestion(AgentObject):
+    question: str
+    expected_messages: list[ExampleMessage] = Field(default_factory=list)
+
+
 class Agent(AgentObject):
     external_id: str
     name: str
@@ -236,6 +246,7 @@ class Agent(AgentObject):
     subagents: list[SubagentConfig] | None = None
     skills: list[str] | None = None
     labels: list[str] | None = None
+    example_questions: list[ExampleQuestion] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
