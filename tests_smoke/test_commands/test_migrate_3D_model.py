@@ -232,12 +232,10 @@ class TestMigrate3D:
         mapper = ThreeDMapper(client)
 
         # Map the classic 3D model to data modeling format
-        mapped = mapper.map([model])
+        mapped = mapper.map([DataItem(tracking_id=str(model.id), item=model)])
         if len(mapped) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map classic 3D to data modeling format.")
-        migration_request = mapped[0]
-        if migration_request is None:
-            raise AssertionError(f"{self.ERROR_HEADING}Mapped migration request is None.")
+        migration_request = mapped[0].item
         io = ThreeDMigrationIO(client)
 
         # Call migration endpoint for 3D model and revision
@@ -297,12 +295,12 @@ class TestMigrate3D:
         mappings = list(mapping_io.stream_data(selector=selector))
         if not mappings:
             raise AssertionError(f"{self.ERROR_HEADING}No asset mappings found for migration.")
-        asset_mappings_dm = ThreeDAssetMapper(client).map([di.item for page in mappings for di in page.items])
+        asset_mappings_dm = ThreeDAssetMapper(client).map(
+            [DataItem(tracking_id=str(di.tracking_id), item=di.item) for page in mappings for di in page.items]
+        )
         if len(asset_mappings_dm) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map asset mappings for migration.")
-        asset_mapping = asset_mappings_dm[0]
-        if asset_mapping is None:
-            raise AssertionError(f"{self.ERROR_HEADING}Mapped asset mapping is None.")
+        asset_mapping = asset_mappings_dm[0].item
 
         with HTTPClient(config=client.config) as http_client:
             mapping_results = mapping_io.upload_items(

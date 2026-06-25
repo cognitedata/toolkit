@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
     ItemsFailedResponse,
+    ItemsResultList,
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -26,7 +27,6 @@ from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
-    DataItem,
     Page,
     T_DataRequest,
     T_DataResponse,
@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -159,7 +160,6 @@ class MigrationCommand(ToolkitCommand):
             )
 
             executor.run(start_item=step.completed_count)
-            total = executor.downloaded_items
 
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
@@ -177,6 +177,11 @@ class MigrationCommand(ToolkitCommand):
 
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
+            # Here we use logger totals instead of the actual number of downladed items. For some selectors,
+            # download pages can include auxiliary edges that are, for example, converted to direct relations
+            # on a node after being migrated, alongside the nodes to migrate themselves. It would be confusing
+            # to a user if those edges were counted and displayed, since the initial estimate only counts the nodes to migrate.
+            total = sum(result.count for result in items_results)
             console.print(f"{action} {total:,} {selected.display_name} to {target}.")
         return results_by_selector
 
@@ -293,17 +298,7 @@ class MigrationCommand(ToolkitCommand):
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
     ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
-            raw_items = [di.item for di in source.items]
-            mapped = mapper.map(raw_items)
-            return Page(
-                worker_id=source.worker_id,
-                items=[
-                    DataItem(tracking_id=item.tracking_id, item=target)
-                    for target, item in zip(mapped, source.items)
-                    if target is not None
-                ],
-                bookmark=source.bookmark,
-            )
+            return source.create_from(mapper.map(source.items))
 
         return track_mapping
 
@@ -326,7 +321,12 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 return None
 
-            responses = target.upload_items(data_chunk=page, http_client=write_client, selector=selected)
+            responses: ItemsResultList = ItemsResultList()
+            for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
+                chunk_page = page.create_from(list(chunk))
+                responses.extend(
+                    target.upload_items(data_chunk=chunk_page, http_client=write_client, selector=selected)
+                )
 
             for item in responses:
                 if isinstance(item, ItemsSuccessResponse):
