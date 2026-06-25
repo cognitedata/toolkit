@@ -1844,7 +1844,7 @@ class MigrateApp(typer.Typer):
                 "--collection",
                 "-c",
                 help="External ID of a 360 image collection whose annotations should be migrated. Can be repeated. "
-                "Must be used together with --instance-space. If neither is provided, "
+                "Must be used together with --collection-instance-space. If neither is provided, "
                 "an interactive selection will be performed.",
             ),
         ] = None,
@@ -1854,18 +1854,17 @@ class MigrateApp(typer.Typer):
                 "--object-3d-space",
                 "-o",
                 help="The instance space used for Cognite3DObject nodes that will be created during the migration "
-                "(if they don't already exist). Must be used together with --contextualization-space. "
-                "If neither is provided, an interactive selection will be performed.",
+                "(if they don't already exist). Must be used together with --contextualization-space when "
+                "using --collection and --collection-instance-space.",
             ),
         ] = None,
         contextualization_space: Annotated[
             str | None,
             typer.Option(
                 "--contextualization-space",
-                "-c",
+                "-s",
                 help="The instance space used for Cognite360ImageAnnotation edges that will be created during the "
-                "migration. Must be used together with --object-3d-space. If neither is provided, "
-                "an interactive selection will be performed.",
+                "migration. Must be used together with --object-3d-space when using --collection and --collection-instance-space.",
             ),
         ] = None,
         log_dir: Annotated[
@@ -1898,12 +1897,21 @@ class MigrateApp(typer.Typer):
         verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        if collection is None and collection_instance_space is None:
+        is_interactive = collection is None and collection_instance_space is None
+        if is_interactive:
             selected_collections = Image360CollectionInteractiveSelect(
                 client, "migrate annotations for"
             ).select_collections()
-            log_dir = Path(
-                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            space_selector = DataModelingSelect(client, "migrate")
+            object_3D_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the 3D Object nodes?",
+                include_empty=True,
+            )
+            contextualization_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the Cognite360ImageAnnotation edges?",
+                include_empty=True,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
@@ -1911,21 +1919,13 @@ class MigrateApp(typer.Typer):
             if collection is None or collection_instance_space is None:
                 raise typer.BadParameter("Both --collection-instance-space and --collection must be provided together")
             selected_collections = NodeId.from_str_ids(collection, space=collection_instance_space)
+            if object_3D_space is None or contextualization_space is None:
+                raise typer.BadParameter(
+                    "Both --object-3d-space and --contextualization-space are required when "
+                    "using --collection and --collection-instance-space."
+                )
 
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
-
-        if object_3D_space is None and contextualization_space is None:
-            object_3D_space = questionary.text(
-                "Object3D space (for auto-created Object3D nodes):",
-            ).unsafe_ask()
-            contextualization_space = questionary.text(
-                "Contextualization space (for auto-created Cognite360ImageAnnotation edges):",
-                default=object_3D_space,
-            ).unsafe_ask()
-        elif object_3D_space is None or contextualization_space is None:
-            raise typer.BadParameter(
-                "Either both --object-3d-space and --contextualization-space must be provided, or neither."
-            )
 
         selector = Image360AnnotationSelector(
             object3d_space=object_3D_space,
