@@ -5,10 +5,14 @@ import pytest
 from cognite.client import _version as CogniteSDKVersion
 from packaging.requirements import Requirement
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.file import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.industrial_tool import StreamlitIO
 from cognite_toolkit._cdf_tk.tk_warnings import StreamlitRequirementsWarning
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 
 class TestStreamlitLoader:
@@ -96,3 +100,31 @@ class TestStreamlitUpdateWithFileio:
             loader._update_with_fileio([item])
 
         assert mock_client.tool.filemetadata.upload_file.called == expect_upload
+
+
+class TestStreamlitIOGetExtraFiles:
+    def test_file_metadata_includes_data_set_external_id(self, tmp_path: Path) -> None:
+        external_id = "my-streamlit-app"
+        app_dir = tmp_path / external_id
+        app_dir.mkdir()
+        (app_dir / "app.py").write_text("import streamlit as st\nst.title('Hello')\n")
+
+        yaml_file = tmp_path / "my-app.Streamlit.yaml"
+        item = {
+            "externalId": external_id,
+            "name": "My App",
+            "creator": "tester",
+            "entrypoint": "app.py",
+            "dataSetExternalId": "my_dataset",
+        }
+
+        extras = list(StreamlitIO.get_extra_files(yaml_file, ExternalId(external_id=external_id), item))
+
+        file_metadata_extra = next(
+            extra
+            for extra in extras
+            if isinstance(extra, SuccessExtra) and extra.suffix == f".{FileMetadataCRUD.kind}.yaml"
+        )
+        file_metadata = read_yaml_content(file_metadata_extra.content)
+        assert file_metadata["dataSetExternalId"] == "my_dataset"
+        assert "dataSetId" not in file_metadata
