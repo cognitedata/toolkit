@@ -1730,6 +1730,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--instance-space",
+                "-i",
                 help="The instance space containing the 360 image collections. "
                 "Must be used together with --collection.",
             ),
@@ -1828,10 +1829,11 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_annotations(
         ctx: typer.Context,
-        instance_space: Annotated[
+        collection_instance_space: Annotated[
             str | None,
             typer.Option(
-                "--instance-space",
+                "--collection-instance-space",
+                "-i",
                 help="The instance space containing the 360 image collections. "
                 "Must be used together with --collection.",
             ),
@@ -1850,6 +1852,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--object-3d-space",
+                "-o",
                 help="The instance space used for Cognite3DObject nodes that will be created during the migration "
                 "(if they don't already exist). Must be used together with --contextualization-space. "
                 "If neither is provided, an interactive selection will be performed.",
@@ -1859,6 +1862,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--contextualization-space",
+                "-c",
                 help="The instance space used for Cognite360ImageAnnotation edges that will be created during the "
                 "migration. Must be used together with --object-3d-space. If neither is provided, "
                 "an interactive selection will be performed.",
@@ -1894,7 +1898,7 @@ class MigrateApp(typer.Typer):
         verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        if collection is None and instance_space is None:
+        if collection is None and collection_instance_space is None:
             selected_collections = Image360CollectionInteractiveSelect(
                 client, "migrate annotations for"
             ).select_collections()
@@ -1904,9 +1908,9 @@ class MigrateApp(typer.Typer):
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         else:
-            if collection is None or instance_space is None:
-                raise typer.BadParameter("Both --instance-space and --collection must be provided together")
-            selected_collections = NodeId.from_str_ids(collection, space=instance_space)
+            if collection is None or collection_instance_space is None:
+                raise typer.BadParameter("Both --collection-instance-space and --collection must be provided together")
+            selected_collections = NodeId.from_str_ids(collection, space=collection_instance_space)
 
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
 
