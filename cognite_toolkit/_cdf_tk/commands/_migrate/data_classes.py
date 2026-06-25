@@ -13,7 +13,14 @@ from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, ExternalId, InstanceId, InternalId, NodeId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    EdgeUntypedId,
+    ExternalId,
+    InstanceId,
+    InternalId,
+    NodeId,
+    NodeUntypedId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -318,9 +325,7 @@ class Image360AnnotationRequest(RequestResource):
     polygon_data: list[float]
 
     def as_id(self) -> ExternalId:
-        return ExternalId(
-            external_id=f"{self.image360_instance_id.space}/{self.image360_instance_id.external_id}"
-        )
+        return ExternalId(external_id=f"{self.image360_instance_id.space}/{self.image360_instance_id.external_id}")
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Returns the per-item dict for inclusion in the 'items' array of the beta endpoint body."""
