@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses, literal_string_values_from_annotation
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
+    EXAMPLE_QUESTIONS_MAX_LENGTH,
+    EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE,
     KNOWN_TOOLS,
     MAX_SUB_AGENTS_PER_AGENT,
     AgentInstanceSpaces,
@@ -395,3 +397,145 @@ class TestAgentYAML:
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
         assert any(f"list should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors)
+
+    def test_example_questions_roundtrip_question_only(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "exampleQuestions": [
+                {"question": "What can you do?"},
+                {"question": "Give a summary of the last shift and action points"},
+            ],
+        }
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_example_questions_roundtrip_with_expected_messages(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "exampleQuestions": [
+                {
+                    "question": "Can you show me all work orders concerning valves?",
+                    "expectedMessages": [
+                        {"role": "function", "content": "Finding maintenance orders..."},
+                    ],
+                },
+                {
+                    "question": "List all raw databases",
+                    "expectedMessages": [
+                        {"role": "function", "content": "Calling Rest Api..."},
+                        {"role": "function", "content": "Fetching results..."},
+                    ],
+                },
+            ],
+        }
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_example_questions_empty_list_roundtrip(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "exampleQuestions": [],
+        }
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    @pytest.mark.parametrize(
+        "data, expected_error",
+        [
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "name": "My Agent",
+                    "exampleQuestions": ["What can you do?"],
+                },
+                "In exampleQuestions[1] input must be an object of type ExampleQuestion",
+                id="bare-string-shorthand",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "name": "My Agent",
+                    "exampleQuestions": [{}],
+                },
+                "In exampleQuestions[1] missing required field: 'question'",
+                id="missing-question",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "name": "My Agent",
+                    "exampleQuestions": [{"question": ""}],
+                },
+                "In exampleQuestions[1].question string should have at least 1 character",
+                id="empty-question",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "name": "My Agent",
+                    "exampleQuestions": [
+                        {
+                            "question": "Can you show me all work orders concerning valves?",
+                            "expectedMessages": [{"role": "function"}],
+                        }
+                    ],
+                },
+                "In exampleQuestions[1].expectedMessages[1] missing required field: 'content'",
+                id="expected-message-missing-content",
+            ),
+            pytest.param(
+                {
+                    "externalId": "my_agent",
+                    "name": "My Agent",
+                    "exampleQuestions": [
+                        {
+                            "question": "Can you show me all work orders concerning valves?",
+                            "expectedMessages": [{"content": "Finding maintenance orders..."}],
+                        }
+                    ],
+                },
+                "In exampleQuestions[1].expectedMessages[1] missing required field: 'role'",
+                id="expected-message-missing-role",
+            ),
+        ],
+    )
+    def test_example_questions_validation_errors(self, data: dict, expected_error: str) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any(expected_error in error for error in warning.errors)
+
+    def test_example_questions_max_length_validation(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "exampleQuestions": [
+                {"question": f"Question {index}"} for index in range(EXAMPLE_QUESTIONS_MAX_LENGTH + 1)
+            ],
+        }
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any(
+            f"list should have at most {EXAMPLE_QUESTIONS_MAX_LENGTH} items" in error for error in warning.errors
+        )
+
+    def test_example_questions_serialized_size_validation(self) -> None:
+        oversized_question = "x" * (EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE - len('{"questions":[{"question":""}]}') + 1)
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "exampleQuestions": [{"question": oversized_question}],
+        }
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any(
+            f"exceeds the maximum of {EXAMPLE_QUESTIONS_MAX_SERIALIZED_SIZE} bytes" in error for error in warning.errors
+        )

@@ -4,6 +4,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from cognite_toolkit._cdf_tk.commands._cli_commands import package_install_command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
@@ -32,7 +33,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             )
         missing: list[str] = []
         if not is_installed:
-            missing.append("Neat is not installed. Install with `pip install cognite-neat`.")
+            missing.append(f"Neat is not installed. Install with `{package_install_command('cognite-neat')}`.")
         if not self.client:
             missing.append("Neat requires a client. Provide client credentials to use Neat for validation.")
         message = "Neat is unavailable. " + " ".join(missing)

@@ -842,7 +842,7 @@ class BuildV2Command(ToolkitCommand):
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
             "FailedValidation": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
-            "Recommendation": (AuraColor.SKY.rich, "🛈"),
+            "Recommendation": (AuraColor.SKY.rich, "*"),
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
