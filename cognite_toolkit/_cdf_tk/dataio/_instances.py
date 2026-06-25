@@ -90,6 +90,12 @@ class InstanceIO(
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewIO.create_loader(self.client)
 
+    def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
+        ids = [item.tracking_id for item in page.items if not isinstance(item.item, EdgeResponse)]
+        if ids:
+            self.logger.register(ids)
+        return page
+
     @staticmethod
     def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
         """Build an InstanceFilter from a selector.

@@ -110,7 +110,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.dataio import T_DataRequest, T_DataResponse, T_Selector
+from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, NoOpLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasSelector,
@@ -148,14 +148,16 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         pass
 
     @abstractmethod
-    def map(self, source: Sequence[T_DataResponse]) -> Sequence[T_DataRequest | None]:
+    def map(self, source: Sequence[DataItem[T_DataResponse]]) -> Sequence[DataItem[T_DataRequest]]:
         """Map a chunk of source data to the target format.
 
         Args:
-            source: The source data chunk to be mapped.
+            source: The source data items to be mapped. Each DataItem carries a tracking_id
+                that should be propagated (or replaced) in the returned DataItems.
 
         Returns:
-            A sequence of mapped target data.
+            A sequence of mapped target DataItems. Items that cannot be mapped are omitted
+            (rather than returning None), so the output length may differ from the input.
 
         """
         raise NotImplementedError("Subclasses must implement this method.")
@@ -300,17 +302,18 @@ class AssetCentricMapper(
         return entries
 
     def map(
-        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
-    ) -> Sequence[T_DataRequest | None]:
-        self._direct_relation_cache.update(item.resource for item in source)
-        output: list[T_DataRequest | None] = []
+        self, source: Sequence[DataItem[AssetCentricMapping[T_AssetCentricResourceExtended]]]
+    ) -> Sequence[DataItem[T_DataRequest]]:
+        self._direct_relation_cache.update(data_item.item.resource for data_item in source)
+        output: list[DataItem[T_DataRequest]] = []
         log_entries: list[MigrationEntryV2] = []
-        for item in source:
-            result, conversion_issue = self._map_single_item(item)
+        for data_item in source:
+            result, conversion_issue = self._map_single_item(data_item.item)
             log_entries.extend(
-                self._migration_entries_for_conversion(item, conversion_issue, result is None),
+                self._migration_entries_for_conversion(data_item.item, conversion_issue, result is None),
             )
-            output.append(result)
+            if result is not None:
+                output.append(DataItem(tracking_id=data_item.tracking_id, item=result))
         if log_entries:
             self.logger.log(log_entries)
         return output
@@ -464,13 +467,15 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         ):
             raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
 
-    def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
-        event_ids_by_chart_external_id = self._populate_cache(source)
-        output: list[ChartRequest | None] = []
+    def map(self, source: Sequence[DataItem[ChartResponse]]) -> Sequence[DataItem[ChartRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        event_ids_by_chart_external_id = self._populate_cache(raw_items)
+        output: list[DataItem[ChartRequest]] = []
         log_entries: list[MigrationEntryV2] = []
         chart_src = "Charts"
         chart_dest = "Charts (data modeling)"
-        for item in source:
+        for data_item in source:
+            item = data_item.item
             identifier = item.external_id
 
             if not item.data.time_series_collection and not self._has_legacy_backend_refs(item):
@@ -484,7 +489,6 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                         destination=chart_dest,
                     )
                 )
-                output.append(None)
                 continue
             mapped_item, issue = self._map_single_item(
                 item, event_ids_by_chart_external_id.get(item.external_id, set())
@@ -552,7 +556,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                         destination=chart_dest,
                     )
                 )
-            output.append(mapped_item)
+            if mapped_item is not None:
+                output.append(DataItem(tracking_id=data_item.tracking_id, item=mapped_item))
         if log_entries:
             self.logger.log(log_entries)
         return output
@@ -941,14 +946,16 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         self.dry_run = dry_run
         self.skip_on_missing_ref = skip_on_missing_ref
 
-    def map(self, source: Sequence[IndustrialCanvasResponse]) -> Sequence[IndustrialCanvasRequest | None]:
-        file_node_ids = self._populate_cache(source)
+    def map(self, source: Sequence[DataItem[IndustrialCanvasResponse]]) -> Sequence[DataItem[IndustrialCanvasRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        file_node_ids = self._populate_cache(raw_items)
         cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
-        output: list[IndustrialCanvasRequest | None] = []
+        output: list[DataItem[IndustrialCanvasRequest]] = []
         log_entries: list[MigrationEntryV2] = []
         canvas_src = "Industrial Canvas"
         canvas_dest = "Industrial Canvas (data modeling)"
-        for item in source:
+        for data_item in source:
+            item = data_item.item
             mapped_item, issue = self._map_single_item(item, cognite_file_by_id)
             identifier = item.external_id
 
@@ -990,8 +997,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
                         destination=canvas_dest,
                     )
                 )
-
-            output.append(mapped_item)
+            else:
+                output.append(DataItem(tracking_id=data_item.tracking_id, item=mapped_item))
         if log_entries:
             self.logger.log(log_entries)
         return output
@@ -1124,13 +1131,15 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
 
 
 class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
-    def map(self, source: Sequence[ThreeDModelClassicResponse]) -> Sequence[ThreeDMigrationRequest | None]:
-        self._populate_cache(source)
-        output: list[ThreeDMigrationRequest | None] = []
+    def map(self, source: Sequence[DataItem[ThreeDModelClassicResponse]]) -> Sequence[DataItem[ThreeDMigrationRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        self._populate_cache(raw_items)
+        output: list[DataItem[ThreeDMigrationRequest]] = []
         log_entries: list[MigrationEntryV2] = []
         src_3d = "3D models"
         dest_3d = "3D models (data modeling)"
-        for item in source:
+        for data_item in source:
+            item = data_item.item
             mapped_item, issue = self._map_single_item(item)
             identifier = item.name
             if mapped_item is None:
@@ -1157,7 +1166,8 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                         destination=dest_3d,
                     )
                 )
-            output.append(mapped_item)
+            if mapped_item is not None:
+                output.append(DataItem(tracking_id=data_item.tracking_id, item=mapped_item))
         if log_entries:
             self.logger.log(log_entries)
         return output
@@ -1228,13 +1238,17 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
 
 
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
-    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequestId | None]:
-        output: list[AssetMappingDMRequestId | None] = []
+    def map(
+        self, source: Sequence[DataItem[AssetMappingClassicResponse]]
+    ) -> Sequence[DataItem[AssetMappingDMRequestId]]:
+        output: list[DataItem[AssetMappingDMRequestId]] = []
         log_entries: list[MigrationEntryV2] = []
-        self._populate_cache(source)
+        raw_items = [data_item.item for data_item in source]
+        self._populate_cache(raw_items)
         src_map = "3D asset mappings"
         dest_map = "3D asset mappings (data modeling)"
-        for item in source:
+        for data_item in source:
+            item = data_item.item
             mapped_item, issue = self._map_single_item(item)
             identifier = f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
             if mapped_item is None:
@@ -1261,8 +1275,8 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
                         destination=dest_map,
                     )
                 )
-
-            output.append(mapped_item)
+            if mapped_item is not None:
+                output.append(DataItem(tracking_id=data_item.tracking_id, item=mapped_item))
         if log_entries:
             self.logger.log(log_entries)
         return output
@@ -1354,27 +1368,26 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         views = self.client.tool.views.retrieve(list(view_ids))
         self._connection_creator.update_view_cache(views)
 
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        raw_items = [data_item.item for data_item in source]
         if self._custom_instance_mappings and (
-            intersecting_view_ids := (self._get_view_ids(source) & set(self._custom_instance_mappings))
+            intersecting_view_ids := (self._get_view_ids(raw_items) & set(self._custom_instance_mappings))
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
                 custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
                 if self.dry_run:
-                    for instance in custom_mapped:
-                        if isinstance(instance, NodeRequest):
-                            self._is_existing_by_node_id[instance.as_id()] = True
+                    for data_item in custom_mapped:
+                        if isinstance(data_item.item, NodeRequest):
+                            self._is_existing_by_node_id[data_item.item.as_id()] = True
                 return custom_mapped
-            else:
-                # This is caused by the selector used to download the instance responses not matching the expectation in
-                # the mapper.
-                raise NotImplementedError(
-                    "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
-                )
-        self._connection_creator.update_cache(source)
-        nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
-        mapped_instances: list[NodeOrEdgeRequest | None] = []
+            raise NotImplementedError(
+                "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+            )
+        self._connection_creator.update_cache(raw_items)
+        nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(raw_items)
+        output: list[DataItem[NodeOrEdgeRequest]] = []
+        mapped_instances: list[NodeOrEdgeRequest] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
         target_view_ids: set[ViewId] = set()
@@ -1399,8 +1412,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 for source_view_id in (node.properties or {}).keys()
                 if isinstance(source_view_id, ViewId)
             )
+            output.append(DataItem(tracking_id=str(node.as_id()), item=mapped_node))
             mapped_instances.append(mapped_node)
-            mapped_instances.extend(edges)
+            for edge in edges:
+                output.append(DataItem(tracking_id=str(node.as_id()), item=edge))
+                mapped_instances.append(edge)
 
         # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
@@ -1422,7 +1438,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     for issue in issue_by_source_node_id.values()
                 ]
             )
-        return mapped_instances
+        return output
 
     def _get_view_ids(self, source: Sequence[NodeOrEdgeResponse]) -> set[ViewId]:
         return {
@@ -1747,9 +1763,10 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         retrieved = self.client.tool.views.retrieve([self._mapping.destination_view])
         self._connection_creator.update_view_cache(retrieved)
 
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
-        output: list[NodeOrEdgeRequest | None] = []
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(raw_items)
+        output: list[DataItem[NodeOrEdgeRequest]] = []
         for duplicated_schedules in schedules.values():
             # Sort for deterministic output.
             duplicated_schedules.sort(key=lambda item: item.external_id)
@@ -1758,7 +1775,8 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 issues.append(issue)
             elif mapped_item is None:
                 issues.append(issue)
-            output.append(mapped_item)
+            if mapped_item is not None:
+                output.append(DataItem(tracking_id=str(mapped_item.as_id()), item=mapped_item))
         if issues:
             self.logger.log(
                 [
@@ -2034,8 +2052,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    def map(self, source: Sequence[NodeOrEdgeResponse]) -> Sequence[NodeOrEdgeRequest | None]:
-        collection_nodes = [node for node in source if isinstance(node, NodeResponse)]
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        raw_items = [data_item.item for data_item in source]
+        collection_nodes = [node for node in raw_items if isinstance(node, NodeResponse)]
         migrated_ids = [
             NodeId(space=node.space, external_id=sanitize_instance_external_id(node.external_id, "_cdm"))
             for node in collection_nodes
@@ -2050,8 +2069,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             else {}
         )
 
-        results: list[NodeRequest | None] = []
-        for node in source:
+        results: list[DataItem[NodeOrEdgeRequest]] = []
+        for data_item in source:
+            node = data_item.item
             instance_space = node.space
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
@@ -2077,28 +2097,31 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                     model_external_id = f"cog_3d_model_{created_model.id}"
 
             results.append(
-                NodeRequest(
-                    space=instance_space,
-                    external_id=collection_ext_id,
-                    sources=[
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                            properties={
-                                "model3D": {"space": instance_space, "externalId": model_external_id},
-                                "status": "Done",
-                                "published": True,
-                                "type": "Image360",
-                            },
-                        ),
-                        InstanceSource(
-                            source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                            properties={
-                                "name": ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get(
-                                    "label"
-                                )
-                            },
-                        ),
-                    ],
+                DataItem(
+                    tracking_id=data_item.tracking_id,
+                    item=NodeRequest(
+                        space=instance_space,
+                        external_id=collection_ext_id,
+                        sources=[
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                                properties={
+                                    "model3D": {"space": instance_space, "externalId": model_external_id},
+                                    "status": "Done",
+                                    "published": True,
+                                    "type": "Image360",
+                                },
+                            ),
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                                properties={
+                                    "name": (
+                                        (node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}
+                                    ).get("label")
+                                },
+                            ),
+                        ],
+                    ),
                 )
             )
         return results
