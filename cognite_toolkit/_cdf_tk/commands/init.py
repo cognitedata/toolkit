@@ -186,7 +186,7 @@ class InitCommand(ToolkitCommand):
 
     def _init_toml(self, dry_run: bool = False) -> None:
         if self.organization_dir is None:
-            self.organization_dir = ModulesCommand._prompt_organization_dir()
+            self.organization_dir = self._resolve_organization_dir()
         if dry_run:
             print("Would initialize cdf.toml configuration file")
             return
@@ -201,13 +201,23 @@ class InitCommand(ToolkitCommand):
     def _init_modules(self, dry_run: bool = False) -> None:
         with ModulesCommand() as modules_command:
             if self.organization_dir is None:
-                self.organization_dir = ModulesCommand._prompt_organization_dir()
+                self.organization_dir = self._resolve_organization_dir()
             if dry_run:
                 organization_dir = Path(tempfile.mkdtemp(prefix="init_modules_", suffix=".tmp", dir=Path.cwd()))
                 modules_command.run(lambda: modules_command.init(organization_dir=organization_dir))
                 shutil.rmtree(organization_dir)
             else:
                 modules_command.run(lambda: modules_command.init(organization_dir=self.organization_dir))
+
+    def _resolve_organization_dir(self) -> Path:
+        if self.organization_dir is not None:
+            return self.organization_dir
+
+        cdf_toml = CDFToml.load(use_singleton=False)
+        if cdf_toml.is_loaded_from_file and cdf_toml.cdf.has_user_set_default_org:
+            return cdf_toml.cdf.default_organization_dir
+
+        return ModulesCommand._prompt_organization_dir()
 
     def _init_repo(self, dry_run: bool = False) -> None:
         repo_command = RepoCommand()
