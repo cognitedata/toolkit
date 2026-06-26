@@ -747,14 +747,17 @@ class ConnectionCreator:
             for item in value:
                 try:
                     targets.append(self._create_target(item, source_prop_id, source_view_id))
+                except ValueError as error:
+                    issues.append(
+                        f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
+                    )
                 except KeyError:
-                    issues.append(f"Failed to create target for value {item!s}")
+                    issues.append(
+                        f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
+                        "no migrated instance found for reference"
+                    )
             return targets, issues
-        else:
-            try:
-                return [self._create_target(value, source_prop_id, source_view_id)], []
-            except KeyError:
-                return [], [f"Failed to create target for value {value!s}"]
+        return [self._create_target(value, source_prop_id, source_view_id)], []
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
@@ -763,8 +766,14 @@ class ConnectionCreator:
             node_id = self._as_node_id(value)
             return custom_case_cache[node_id] if node_id else custom_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._timeseries_reference_cache:
+                raise ValueError(
+                    f"No migrated CogniteTimeSeries instance found for classic timeseries external ID {value!r}"
+                )
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._file_reference_cache:
+                raise ValueError(f"No migrated CogniteFile instance found for classic file external ID {value!r}")
             return self._file_reference_cache[value]
         elif (
             self._is_direct_relation(source_view_id, source_prop_id)

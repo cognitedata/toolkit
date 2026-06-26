@@ -1323,6 +1323,12 @@ class TestInstanceToInstanceConversion:
             type=FileCDFExternalIdReference(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=FileCDFExternalIdReference(list=True),
+            **DEFAULT_ARGS,
+        ),
         "epoch": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="epoch",
@@ -1394,6 +1400,12 @@ class TestInstanceToInstanceConversion:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=DirectNodeRelation(list=True),
+            **DEFAULT_ARGS,
+        ),
         "timestamp": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="timestamp",
@@ -1454,6 +1466,7 @@ class TestInstanceToInstanceConversion:
         container_mapping={
             "epoch": "timestamp",
             "jsonVal": "jsonDestination",
+            "files": "files",
         },
         edge_mapping={
             EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): "relatedAsset",
@@ -1494,6 +1507,16 @@ class TestInstanceToInstanceConversion:
                     " Cannot convert not-a-number to int64.",
                 ],
                 id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
+            pytest.param(
+                {"files": ["2c2a5867-a7f8-4eb2-9bd4-724776b4be9d"]},
+                {"files": []},
+                [
+                    "Failed to create direct relation for property 'files' with value "
+                    "'2c2a5867-a7f8-4eb2-9bd4-724776b4be9d': No migrated CogniteFile instance found for classic "
+                    "file external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
+                ],
+                id="Missing classic file reference in list direct relation",
             ),
             pytest.param(
                 {"epoch": 1700000000000},
