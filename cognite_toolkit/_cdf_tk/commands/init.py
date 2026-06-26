@@ -214,7 +214,7 @@ class InitCommand(ToolkitCommand):
             return self.organization_dir
 
         cdf_toml = CDFToml.load(use_singleton=False)
-        if cdf_toml.is_loaded_from_file and cdf_toml.cdf.has_user_set_default_org:
+        if cdf_toml.is_loaded_from_file:
             return cdf_toml.cdf.default_organization_dir
 
         return ModulesCommand._prompt_organization_dir()
