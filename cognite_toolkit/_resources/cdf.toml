@@ -12,6 +12,7 @@ dump = false
 dev = false
 data = false
 functions = false
+agent = false
 
 
 [library.cognite]
