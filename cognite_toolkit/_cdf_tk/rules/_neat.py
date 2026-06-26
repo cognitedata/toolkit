@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cognite_toolkit._cdf_tk.commands._cli_commands import package_install_command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
@@ -58,6 +58,24 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         """Check if neat is installed"""
         return find_spec("cognite.neat") is not None
 
+    @classmethod
+    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: Any) -> None:
+        """Mark all spaces in the loaded schema as governed for Neat rebuild validation.
+
+        Toolkit modules define the full desired state across multiple spaces (e.g. record
+        containers in companion spaces). In rebuild mode, Neat only checks governed spaces.
+        """
+        from cognite.neat._data_model.models.dms._space import SpaceRequest
+
+        spaces = {
+            schema.data_model.space,
+            *[container.space for container in schema.containers],
+            *[view.space for view in schema.views],
+            *[space.space for space in schema.spaces],
+            *[node_type.space for node_type in schema.node_types],
+        }
+        schema.extra.governed_spaces = [SpaceRequest(space=space) for space in sorted(spaces)]
+
     def _validate_model(self, data_model_dir: Path, data_model_file: Path) -> Iterable[Insight]:
         """Validates a data model using Neat and returns a list of insights.
 
@@ -73,13 +91,18 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             defined in Toolkit modules.
         """
 
+        from cognite.neat._config import AlphaFlagConfig
         from cognite.neat._toolkit_adapter import DMSAPIImporter, DmsDataModelRulesOrchestrator
 
         importer = DMSAPIImporter.from_yaml(yaml_file=data_model_dir, data_model_file=data_model_file)
         schema = importer.to_data_model()
+        self._apply_all_schema_spaces_as_governed_spaces(schema)
 
         orchestrator = DmsDataModelRulesOrchestrator(
-            cdf_snapshot=self._cdf_snapshot, limits=self._cdf_limits, modus_operandi="rebuild"
+            cdf_snapshot=self._cdf_snapshot,
+            limits=self._cdf_limits,
+            modus_operandi="rebuild",
+            alpha_flags=AlphaFlagConfig(enable_governed_spaces=True),
         )
         orchestrator.run(schema)
 
