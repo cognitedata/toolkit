@@ -741,33 +741,22 @@ class ConnectionCreator:
     def _create_targets(
         self, value: Any, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[list[NodeId], list[str]]:
-        if isinstance(value, list):
-            targets: list[NodeId] = []
-            issues: list[str] = []
-            for item in value:
-                try:
-                    targets.append(self._create_target(item, source_prop_id, source_view_id))
-                except ValueError as error:
-                    issues.append(
-                        f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
-                    )
-                except KeyError:
-                    issues.append(
-                        f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
-                        "no migrated instance found for reference"
-                    )
-            return targets, issues
-        try:
-            return [self._create_target(value, source_prop_id, source_view_id)], []
-        except ValueError as error:
-            return [], [
-                f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {error}"
-            ]
-        except KeyError:
-            return [], [
-                f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: "
-                "no migrated instance found for reference"
-            ]
+        items = value if isinstance(value, list) else [value]
+        targets: list[NodeId] = []
+        issues: list[str] = []
+        for item in items:
+            try:
+                targets.append(self._create_target(item, source_prop_id, source_view_id))
+            except ValueError as error:
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
+                )
+            except KeyError:
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
+                    "no migrated instance found for reference"
+                )
+        return targets, issues
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
