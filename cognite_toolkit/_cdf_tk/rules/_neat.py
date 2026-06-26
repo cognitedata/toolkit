@@ -31,12 +31,19 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                 code="ready",
                 message="Neat is installed and will be used to validate data models. This validation may take a while since it needs to fetch the entire CDF snapshot.",
             )
-        missing: list[str] = []
-        if not is_installed:
-            missing.append(f"Neat is not installed. Install with `{package_install_command('cognite-neat')}`.")
+        if is_installed and not self.client:
+            return RuleSetStatus(
+                code="unavailable",
+                message=(
+                    "Neat is installed, but the Toolkit client isn't authenticated. "
+                    "Run `cdf auth init` to set up credentials."
+                ),
+            )
+        message = (
+            f"Neat is unavailable. Neat is not installed. Install with `{package_install_command('cognite-neat')}`."
+        )
         if not self.client:
-            missing.append("Neat requires a client. Provide client credentials to use Neat for validation.")
-        message = "Neat is unavailable. " + " ".join(missing)
+            message += " Neat requires a client. Provide client credentials to use Neat for validation."
         return RuleSetStatus(code="unavailable", message=message)
 
     def validate(self) -> Iterable[Insight | FailedValidation]:
