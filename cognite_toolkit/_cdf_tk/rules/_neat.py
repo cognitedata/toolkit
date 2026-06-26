@@ -25,18 +25,21 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
     DISPLAY_NAME = "Neat (data modeling)"
 
     def get_status(self) -> RuleSetStatus:
-        is_installed = self.installed()
-        if is_installed and self.client:
+        if self.installed():
+            if self.client:
+                return RuleSetStatus(
+                    code="ready",
+                    message="Neat is installed and will validate data models. Fetching the full CDF snapshot may take a while.",
+                )
             return RuleSetStatus(
-                code="ready",
-                message="Neat is installed and will be used to validate data models. This validation may take a while since it needs to fetch the entire CDF snapshot.",
+                code="unavailable",
+                message="Neat is installed, but the Toolkit client is not authenticated. Run `cdf auth init` to authenticate.",
             )
-        missing: list[str] = []
-        if not is_installed:
-            missing.append(f"Neat is not installed. Install with `{package_install_command('cognite-neat')}`.")
+
+        install_command = package_install_command("cognite-neat")
+        message = f"Neat is not installed. Install with `{install_command}`."
         if not self.client:
-            missing.append("Neat requires a client. Provide client credentials to use Neat for validation.")
-        message = "Neat is unavailable. " + " ".join(missing)
+            message += " Then run `cdf auth init` to authenticate the Toolkit client."
         return RuleSetStatus(code="unavailable", message=message)
 
     def validate(self) -> Iterable[Insight | FailedValidation]:
