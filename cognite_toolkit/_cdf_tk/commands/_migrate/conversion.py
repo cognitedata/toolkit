@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -544,6 +544,9 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
+DirectRelationEdgeTiebreaker = Callable[[list[EdgeOtherSide]], list[EdgeOtherSide]]
+
+
 class CustomConnectionMapping(ABC, Generic[T_ID]):
     """
     This class is used for special mapping cases in the instance to instance conversion.
@@ -620,6 +623,7 @@ class ConnectionCreator:
         client: ToolkitClient,
         instance_id_mapper: InstanceIdMapper,
         custom_mappings: Sequence[CustomConnectionMapping] | None = None,
+        direct_relation_edge_tiebreakers: Mapping[str, DirectRelationEdgeTiebreaker] | None = None,
     ) -> None:
         self._client = client
         self._instance_id_mapper = instance_id_mapper
@@ -628,6 +632,7 @@ class ConnectionCreator:
         self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
+        self._direct_relation_edge_tiebreakers = direct_relation_edge_tiebreakers or {}
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
@@ -868,9 +873,25 @@ class ConnectionCreator:
             )
             return targets[0], errors
 
+    def _tiebreak_direct_relation_edges(
+        self, edges: list[EdgeOtherSide], source_edge_type: EdgeTypeId
+    ) -> list[EdgeOtherSide]:
+        """
+        Tiebreaker function for when the target is a non-list direct relation and we need a method
+        to reduce a set of potentially N edges connected to a node to 1.
+        """
+        if len(edges) < 2:
+            return edges
+        tiebreaker = self._direct_relation_edge_tiebreakers.get(source_edge_type.type.external_id)
+        if tiebreaker is None:
+            return edges
+        return tiebreaker(edges)
+
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
+        if not dm_prop.list:
+            edges = self._tiebreak_direct_relation_edges(edges, source_edge_type)
         targets: list[NodeId] = []
         issues: list[str] = []
         for edge in edges:

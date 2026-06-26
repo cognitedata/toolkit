@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
     create_properties,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import DIRECT_RELATION_EDGE_TIEBREAKERS
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
@@ -1679,6 +1680,32 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestDirectRelationEdgeTiebreakers:
+    def test_reference_checklist_items_prefers_relation_suffix(self) -> None:
+        stale_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a:b"),
+            other_side=NodeId(space="src", external_id="checklist_a"),
+        )
+        native_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a_b_relation"),
+            other_side=NodeId(space="src", external_id="checklist_b"),
+        )
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker([stale_edge, native_edge]) == [native_edge]
+
+    def test_reference_checklist_items_returns_input_when_no_suffix_match(self) -> None:
+        edges = [
+            EdgeOtherSide(
+                edge_id=EdgeId(space="src", external_id="a:b"),
+                other_side=NodeId(space="src", external_id="checklist_a"),
+            )
+        ]
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker(edges) == edges
 
 
 class TestInstanceIdMapper:

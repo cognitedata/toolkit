@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
+    DIRECT_RELATION_EDGE_TIEBREAKERS,
     create_infield_data_mappings,
     create_infield_schedule_selector,
 )
@@ -1695,6 +1696,7 @@ class MigrateApp(typer.Typer):
             client,
             instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
             custom_mappings=[InFieldAssetMapping(client)],
+            direct_relation_edge_tiebreakers=DIRECT_RELATION_EDGE_TIEBREAKERS,
         )
         mapper = FDMtoCDMMapper(
             client,
