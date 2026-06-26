@@ -757,7 +757,17 @@ class ConnectionCreator:
                         "no migrated instance found for reference"
                     )
             return targets, issues
-        return [self._create_target(value, source_prop_id, source_view_id)], []
+        try:
+            return [self._create_target(value, source_prop_id, source_view_id)], []
+        except ValueError as error:
+            return [], [
+                f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {error}"
+            ]
+        except KeyError:
+            return [], [
+                f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: "
+                "no migrated instance found for reference"
+            ]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
