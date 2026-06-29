@@ -2,8 +2,9 @@ from collections.abc import Iterable
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from cognite_toolkit._cdf_tk.commands._cli_commands import package_install_command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
@@ -24,18 +25,21 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
     DISPLAY_NAME = "Neat (data modeling)"
 
     def get_status(self) -> RuleSetStatus:
-        is_installed = self.installed()
-        if is_installed and self.client:
+        if self.installed():
+            if self.client:
+                return RuleSetStatus(
+                    code="ready",
+                    message="Neat is installed and will validate data models. Fetching the full CDF snapshot may take a while.",
+                )
             return RuleSetStatus(
-                code="ready",
-                message="Neat is installed and will be used to validate data models. This validation may take a while since it needs to fetch the entire CDF snapshot.",
+                code="unavailable",
+                message="Neat is installed, but the Toolkit client is not authenticated. Run `cdf auth init` to authenticate.",
             )
-        missing: list[str] = []
-        if not is_installed:
-            missing.append("Neat is not installed. Install with `pip install cognite-neat`.")
+
+        install_command = package_install_command("cognite-neat")
+        message = f"Neat is not installed. Install with `{install_command}`."
         if not self.client:
-            missing.append("Neat requires a client. Provide client credentials to use Neat for validation.")
-        message = "Neat is unavailable. " + " ".join(missing)
+            message += " Then run `cdf auth init` to authenticate the Toolkit client."
         return RuleSetStatus(code="unavailable", message=message)
 
     def validate(self) -> Iterable[Insight | FailedValidation]:
@@ -57,6 +61,24 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         """Check if neat is installed"""
         return find_spec("cognite.neat") is not None
 
+    @classmethod
+    def _apply_all_schema_spaces_as_governed_spaces(cls, schema: Any) -> None:
+        """Mark all spaces in the loaded schema as governed for Neat rebuild validation.
+
+        Toolkit modules define the full desired state across multiple spaces (e.g. record
+        containers in companion spaces). In rebuild mode, Neat only checks governed spaces.
+        """
+        from cognite.neat._data_model.models.dms._space import SpaceRequest
+
+        spaces = {
+            schema.data_model.space,
+            *[container.space for container in schema.containers],
+            *[view.space for view in schema.views],
+            *[space.space for space in schema.spaces],
+            *[node_type.space for node_type in schema.node_types],
+        }
+        schema.extra.governed_spaces = [SpaceRequest(space=space) for space in sorted(spaces)]
+
     def _validate_model(self, data_model_dir: Path, data_model_file: Path) -> Iterable[Insight]:
         """Validates a data model using Neat and returns a list of insights.
 
@@ -72,13 +94,18 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             defined in Toolkit modules.
         """
 
+        from cognite.neat._config import AlphaFlagConfig
         from cognite.neat._toolkit_adapter import DMSAPIImporter, DmsDataModelRulesOrchestrator
 
         importer = DMSAPIImporter.from_yaml(yaml_file=data_model_dir, data_model_file=data_model_file)
         schema = importer.to_data_model()
+        self._apply_all_schema_spaces_as_governed_spaces(schema)
 
         orchestrator = DmsDataModelRulesOrchestrator(
-            cdf_snapshot=self._cdf_snapshot, limits=self._cdf_limits, modus_operandi="rebuild"
+            cdf_snapshot=self._cdf_snapshot,
+            limits=self._cdf_limits,
+            modus_operandi="rebuild",
+            alpha_flags=AlphaFlagConfig(enable_governed_spaces=True),
         )
         orchestrator.run(schema)
 

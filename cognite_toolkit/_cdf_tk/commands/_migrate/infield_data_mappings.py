@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +17,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import EdgeOtherSide
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, safe_read
+
+DIRECT_RELATION_EDGE_TIEBREAKERS: dict[str, Callable[[list[EdgeOtherSide]], list[EdgeOtherSide]]] = {
+    # This was observed as a potential artifact from previous Infield migrations.
+    "referenceChecklistItems": lambda edges: (
+        [edge for edge in edges if edge.edge_id.external_id.endswith("_relation")][:1] or edges
+    ),
+}
 
 
 def create_infield_data_mappings(extra: ExtraValues | None = None) -> list[ViewToViewMapping]:

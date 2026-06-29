@@ -12,6 +12,7 @@ from ._item_classes import (
     ItemsFailedRequest,
     ItemsFailedResponse,
     ItemsRequest,
+    ItemsResultList,
     ItemsResultMessage,
     ItemsSuccessResponse,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "ItemsFailedRequest",
     "ItemsFailedResponse",
     "ItemsRequest",
+    "ItemsResultList",
     "ItemsResultMessage",
     "ItemsSuccessResponse",
     "RequestMessage",
