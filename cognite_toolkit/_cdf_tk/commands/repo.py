@@ -22,7 +22,7 @@ REPOSITORY_HOSTING = [
 
 
 class RepoCommand(ToolkitCommand):
-    _GITIGNORE_MERGE_HEADER = "# Added by cdf repo init (missing entries)"
+    _GITIGNORE_MERGE_HEADER: str = "# Added by cdf repo init (missing entries)"
 
     def __init__(
         self,
