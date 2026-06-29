@@ -14,14 +14,13 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, SpaceId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, InstanceFilter
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     NodeId,
     NodeOrEdgeRequest,
-    NodeResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
@@ -69,9 +68,9 @@ from .data_classes import (
     MigrationMapping,
     MigrationMappingList,
 )
+from .data_mapper import load_image360_annotation_node_caches
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
-from .image_360_mappings import load_image360_annotation_node_caches
 from .issues import MigrationEntryV2
 from .selectors import (
     AssetCentricMigrationSelector,
@@ -884,11 +883,8 @@ class Image360AnnotationMigrationIO(
                 if limit is not None and total >= limit:
                     return
 
-    def _load_face_file_ids(self, collections: tuple[str, ...] | None = None) -> list[int]:
-        """Load Image360 nodes and return their face-file internal IDs.
-
-        If ``collections`` is provided, only nodes belonging to those collections are considered.
-        """
+    def _load_face_file_ids(self, collections: tuple[str, ...]) -> list[int]:
+        """Load Image360 nodes and return their face-file internal IDs."""
         caches = load_image360_annotation_node_caches(self.client, collections)
         self._collection_by_image360_id = caches.collection_by_image360_id
         return list(caches.face_and_nodes_by_file_id.keys())
@@ -941,9 +937,7 @@ class Image360AnnotationMigrationIO(
                 dms_contextualization_config=DmsContextualizationConfig(
                     object3d_space=selector.object3d_space,
                     contextualization_space=selector.instance_space,
-                    revision=InstanceId(
-                        instance_id=NodeId(space=revision_space, external_id=revision_external_id)
-                    ),
+                    revision=InstanceId(instance_id=NodeId(space=revision_space, external_id=revision_external_id)),
                 ),
             )
             for chunk in chunker_sequence(group_items, self.CHUNK_SIZE):
