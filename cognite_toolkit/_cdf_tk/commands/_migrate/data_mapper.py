@@ -11,7 +11,6 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
     ImageAssetLinkData,
@@ -2306,7 +2305,7 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
                         id=str(annotation_id),
                         severity=Severity.skipped,
                         label="Skipped",
-                        message=f"Asset with internal ID {asset_id} has no corresponding DMS node.",
+                        message=f"The asset with internal ID {asset_id} has not been migrated.",
                         source="Image360 annotations",
                         destination="360-image-annotations",
                     )
