@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -544,6 +544,9 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
+DirectRelationEdgeTiebreaker = Callable[[list[EdgeOtherSide]], list[EdgeOtherSide]]
+
+
 class CustomConnectionMapping(ABC, Generic[T_ID]):
     """
     This class is used for special mapping cases in the instance to instance conversion.
@@ -620,6 +623,7 @@ class ConnectionCreator:
         client: ToolkitClient,
         instance_id_mapper: InstanceIdMapper,
         custom_mappings: Sequence[CustomConnectionMapping] | None = None,
+        direct_relation_edge_tiebreakers: Mapping[str, DirectRelationEdgeTiebreaker] | None = None,
     ) -> None:
         self._client = client
         self._instance_id_mapper = instance_id_mapper
@@ -628,6 +632,7 @@ class ConnectionCreator:
         self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
+        self._direct_relation_edge_tiebreakers = direct_relation_edge_tiebreakers or {}
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
@@ -736,20 +741,22 @@ class ConnectionCreator:
     def _create_targets(
         self, value: Any, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[list[NodeId], list[str]]:
-        if isinstance(value, list):
-            targets: list[NodeId] = []
-            issues: list[str] = []
-            for item in value:
-                try:
-                    targets.append(self._create_target(item, source_prop_id, source_view_id))
-                except KeyError:
-                    issues.append(f"Failed to create target for value {item!s}")
-            return targets, issues
-        else:
+        items = value if isinstance(value, list) else [value]
+        targets: list[NodeId] = []
+        issues: list[str] = []
+        for item in items:
             try:
-                return [self._create_target(value, source_prop_id, source_view_id)], []
+                targets.append(self._create_target(item, source_prop_id, source_view_id))
+            except ValueError as error:
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
+                )
             except KeyError:
-                return [], [f"Failed to create target for value {value!s}"]
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
+                    "no migrated instance found for reference"
+                )
+        return targets, issues
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
@@ -758,8 +765,14 @@ class ConnectionCreator:
             node_id = self._as_node_id(value)
             return custom_case_cache[node_id] if node_id else custom_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._timeseries_reference_cache:
+                raise ValueError(
+                    f"No migrated CogniteTimeSeries instance found for classic timeseries external ID {value!r}"
+                )
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._file_reference_cache:
+                raise ValueError(f"No migrated CogniteFile instance found for classic file external ID {value!r}")
             return self._file_reference_cache[value]
         elif (
             self._is_direct_relation(source_view_id, source_prop_id)
@@ -868,9 +881,25 @@ class ConnectionCreator:
             )
             return targets[0], errors
 
+    def _tiebreak_direct_relation_edges(
+        self, edges: list[EdgeOtherSide], source_edge_type: EdgeTypeId
+    ) -> list[EdgeOtherSide]:
+        """
+        Tiebreaker function for when the target is a non-list direct relation and we need a method
+        to reduce a set of potentially N edges connected to a node to 1.
+        """
+        if len(edges) < 2:
+            return edges
+        tiebreaker = self._direct_relation_edge_tiebreakers.get(source_edge_type.type.external_id)
+        if tiebreaker is None:
+            return edges
+        return tiebreaker(edges)
+
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
+        if not dm_prop.list:
+            edges = self._tiebreak_direct_relation_edges(edges, source_edge_type)
         targets: list[NodeId] = []
         issues: list[str] = []
         for edge in edges:

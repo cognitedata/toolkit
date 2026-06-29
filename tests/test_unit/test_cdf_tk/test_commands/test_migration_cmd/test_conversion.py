@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
     create_properties,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import DIRECT_RELATION_EDGE_TIEBREAKERS
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
@@ -1322,6 +1323,12 @@ class TestInstanceToInstanceConversion:
             type=FileCDFExternalIdReference(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=FileCDFExternalIdReference(list=True),
+            **DEFAULT_ARGS,
+        ),
         "epoch": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="epoch",
@@ -1393,6 +1400,12 @@ class TestInstanceToInstanceConversion:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=DirectNodeRelation(list=True),
+            **DEFAULT_ARGS,
+        ),
         "timestamp": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="timestamp",
@@ -1453,6 +1466,7 @@ class TestInstanceToInstanceConversion:
         container_mapping={
             "epoch": "timestamp",
             "jsonVal": "jsonDestination",
+            "files": "files",
         },
         edge_mapping={
             EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): "relatedAsset",
@@ -1493,6 +1507,16 @@ class TestInstanceToInstanceConversion:
                     " Cannot convert not-a-number to int64.",
                 ],
                 id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
+            pytest.param(
+                {"files": ["2c2a5867-a7f8-4eb2-9bd4-724776b4be9d"]},
+                {"files": []},
+                [
+                    "Failed to create direct relation for property 'files' with value "
+                    "'2c2a5867-a7f8-4eb2-9bd4-724776b4be9d': No migrated CogniteFile instance found for classic "
+                    "file external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
+                ],
+                id="Missing classic file reference in list direct relation",
             ),
             pytest.param(
                 {"epoch": 1700000000000},
@@ -1679,6 +1703,32 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestDirectRelationEdgeTiebreakers:
+    def test_reference_checklist_items_prefers_relation_suffix(self) -> None:
+        stale_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a:b"),
+            other_side=NodeId(space="src", external_id="checklist_a"),
+        )
+        native_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a_b_relation"),
+            other_side=NodeId(space="src", external_id="checklist_b"),
+        )
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker([stale_edge, native_edge]) == [native_edge]
+
+    def test_reference_checklist_items_returns_input_when_no_suffix_match(self) -> None:
+        edges = [
+            EdgeOtherSide(
+                edge_id=EdgeId(space="src", external_id="a:b"),
+                other_side=NodeId(space="src", external_id="checklist_a"),
+            )
+        ]
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker(edges) == edges
 
 
 class TestInstanceIdMapper:
