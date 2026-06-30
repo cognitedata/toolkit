@@ -18,6 +18,21 @@ else:
     from typing_extensions import Self
 
 
+def _to_hashable(v: Any) -> Any:
+    """Recursively convert lists and dicts to hashable nested tuples.
+
+    BuildVariable is a frozen dataclass so its value must be hashable for set()
+    comparisons in compare_modules(). Simple lists of scalars are already handled
+    by the existing tuple() conversion, but list[dict] values (e.g. site_readiness)
+    would still contain unhashable dicts inside the tuple.
+    """
+    if isinstance(v, list):
+        return tuple(_to_hashable(i) for i in v)
+    if isinstance(v, dict):
+        return tuple(sorted((k, _to_hashable(val)) for k, val in v.items()))
+    return v
+
+
 @dataclass(frozen=True)
 class BuildVariable:
     """This is an internal representation of a  build variable in a config.[env].file
@@ -55,11 +70,7 @@ class BuildVariable:
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> Self:
-        if isinstance(data["value"], list):
-            # Convert the list to a tuple to make it hashable
-            value = tuple(data["value"])
-        else:
-            value = data["value"]
+        value = _to_hashable(data["value"])
         return cls(data["key"], value, data["is_selected"], Path(data["location"]))
 
 
@@ -110,7 +121,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     # Remove this check to support variables with dictionary values.
                     continue
                 else:
-                    hashable_values = tuple(value) if isinstance(value, list) else value
+                    hashable_values = _to_hashable(value)
                     is_selected = selected_modules is None or path in selected_modules
                     variables.append(BuildVariable(key, hashable_values, is_selected, path, iteration))
 
