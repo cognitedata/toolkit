@@ -20,6 +20,7 @@ from rich.progress import Progress
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.build_v2._dependency_graph import write_dependency_graph
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
@@ -121,6 +122,10 @@ class BuildV2Command(ToolkitCommand):
             started_at=build_start_time,
             finished_at=datetime.now(timezone.utc),
         )
+
+        if parameters.topology is not None:
+            write_dependency_graph(build_folder, parameters.topology)
+            console.print(f"Wrote dependency graph to {parameters.topology.as_posix()!r}.")
 
         insights = build_folder.all_insights
         self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
