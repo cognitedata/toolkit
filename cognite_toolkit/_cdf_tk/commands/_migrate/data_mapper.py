@@ -2272,20 +2272,20 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
 
     def _map_single_annotation(self, annotation: AnnotationResponse) -> Image360AnnotationItem | None:
         file_ext_id = self.client.lookup.files.external_id(annotation.annotated_resource_id)
-        face_and_nodes = self._face_and_nodes_by_file_ext_id.get(file_ext_id) if file_ext_id is not None else None
-        if face_and_nodes is None:
+        if file_ext_id is None:
             self.logger.log(
                 MigrationEntryV2(
                     id=str(annotation.id),
                     severity=Severity.skipped,
                     label="Skipped",
-                    message=f"No Image360 face mapping found for file with internal ID {annotation.annotated_resource_id}.",
+                    message=f"Could not resolve external ID for file with internal ID {annotation.annotated_resource_id}. The file may have been deleted.",
                     source="Image360 annotations",
                     destination="360-image-annotations",
                 )
             )
             return None
-        face, new_image360_node_id, _new_collection_node_id = face_and_nodes
+        face_and_nodes = self._face_and_nodes_by_file_ext_id[file_ext_id]
+        face, new_image360_node_id, _ = face_and_nodes
 
         annotation_data = annotation.data
         if not isinstance(annotation_data, ImageAssetLinkData | ImageInstanceLinkData):
