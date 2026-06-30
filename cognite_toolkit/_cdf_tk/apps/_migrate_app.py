@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
+    load_image360_annotation_node_caches,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
@@ -1928,14 +1929,15 @@ class MigrateApp(typer.Typer):
                 )
 
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
+        face_and_nodes = load_image360_annotation_node_caches(client, collection_external_ids)
 
         selector = Image360AnnotationSelector(
             object3d_space=object_3D_space,
             instance_space=contextualization_space,
             collections=collection_external_ids,
         )
-        mapper = Image360AnnotationMapper(client)
-        io = Image360AnnotationMigrationIO(client)
+        mapper = Image360AnnotationMapper(client, face_and_nodes)
+        io = Image360AnnotationMigrationIO(client, face_and_nodes)
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selector],

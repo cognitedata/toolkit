@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -68,7 +68,6 @@ from .data_classes import (
     MigrationMapping,
     MigrationMappingList,
 )
-from .data_mapper import load_image360_annotation_node_caches
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
 from .issues import MigrationEntryV2
@@ -828,14 +827,15 @@ class Image360AnnotationMigrationIO(
 ):
     """IO class for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint.
 
-    ``stream_data()`` loads Image360 nodes from the source space, resolves their face-file
-    external IDs to internal IDs, then pages through the Annotations API for those files.
+    ``stream_data()`` pages through the Annotations API filtered by the face-file external IDs
+    from the pre-built caches.
 
     ``upload_items()`` groups the mapped items by collection and posts one
     ``Image360ContextualizationRequest`` per group.
 
     Args:
         client: ToolkitClient to use for CDF interactions.
+        caches: Pre-built node caches shared with the mapper.
     """
 
     KIND = "Image360AnnotationMigration"
@@ -844,11 +844,13 @@ class Image360AnnotationMigrationIO(
     # The annotations API supports at most 1000 IDs per filter call.
     _ANNOTATION_FILTER_ID_CHUNK = 1000
     _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
-    _collection_by_image360_id: dict[tuple[str, str], NodeId]
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, face_and_nodes: dict[str, tuple[str, NodeId, NodeId]]) -> None:
         super().__init__(client)
-        self._collection_by_image360_id = {}
+        self._face_file_ext_ids = list(face_and_nodes.keys())
+        self._collection_by_image360_id = {
+            (img_node.space, img_node.external_id): col_node for (_, img_node, col_node) in face_and_nodes.values()
+        }
 
     def stream_data(
         self,
@@ -856,15 +858,14 @@ class Image360AnnotationMigrationIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AnnotationResponse]]:
-        file_internal_ids = self._load_face_file_ids(selector.collections)
-        if not file_internal_ids:
+        if not self._face_file_ext_ids:
             return
 
         total = 0
-        for id_batch in chunker_sequence(file_internal_ids, self._ANNOTATION_FILTER_ID_CHUNK):
+        for id_batch in chunker_sequence(self._face_file_ext_ids, self._ANNOTATION_FILTER_ID_CHUNK):
             annotation_filter = AnnotationFilter(
                 annotated_resource_type="file",
-                annotated_resource_ids=[InternalId(id=file_id) for file_id in id_batch],
+                annotated_resource_ids=[ExternalId(external_id=ext_id) for ext_id in id_batch],
             )
             for annotation_batch in self.client.tool.annotations.iterate(
                 filter=annotation_filter,
@@ -882,12 +883,6 @@ class Image360AnnotationMigrationIO(
                 )
                 if limit is not None and total >= limit:
                     return
-
-    def _load_face_file_ids(self, collections: tuple[str, ...]) -> list[int]:
-        """Load Image360 nodes and return their face-file internal IDs."""
-        caches = load_image360_annotation_node_caches(self.client, collections)
-        self._collection_by_image360_id = caches.collection_by_image360_id
-        return list(caches.face_and_nodes_by_file_id.keys())
 
     def count(self, selector: Image360AnnotationSelector) -> int | None:
         return None
