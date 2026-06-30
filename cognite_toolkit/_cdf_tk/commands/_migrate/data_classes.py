@@ -355,7 +355,5 @@ class Image360ContextualizationRequest(BaseModelObject):
             method="POST",
             items=tracked_items,
             api_version=api_version,
-            extra_body_fields={
-                "dmsContextualizationConfig": self.dms_contextualization_config.dump(camel_case=True)
-            },
+            extra_body_fields={"dmsContextualizationConfig": self.dms_contextualization_config.dump(camel_case=True)},
         )
