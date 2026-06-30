@@ -1699,18 +1699,11 @@ class TestImage360AnnotationMapper:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.instances.list.return_value = [node_in, node_out]
-            client.tool.filemetadata.retrieve.return_value = [
-                FileMetadataResponse(
-                    id=11, external_id="file_in", name="file_in", created_time=0, last_updated_time=0, uploaded=True
-                ),
-            ]
             mapper = Image360AnnotationMapper(client)
             mapper.prepare(selector)
 
-        # Only the face file belonging to the selected collection is resolved.
-        retrieved_external_ids = {item.external_id for item in client.tool.filemetadata.retrieve.call_args[0][0]}
-        assert retrieved_external_ids == {"file_in"}
-        assert set(mapper._face_and_nodes_by_file_id) == {11}
+        # Only the face file belonging to the selected collection is loaded.
+        assert set(mapper._face_by_file_ext_id) == {"file_in"}
 
     def test_face_centers_match_fusion_reference(self) -> None:
         """Face centers (u=v=0.5) must match fusion getNormalizedVectorFromUVAndFace.test.ts."""

@@ -70,6 +70,7 @@ from .data_classes import (
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
+from .image_360_mappings import load_image360_annotation_node_data
 from .issues import MigrationEntryV2
 from .selectors import (
     AssetCentricMigrationSelector,
@@ -845,12 +846,10 @@ class Image360AnnotationMigrationIO(
     _ANNOTATION_FILTER_ID_CHUNK = 1000
     _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
 
-    def __init__(self, client: ToolkitClient, face_and_nodes: dict[str, tuple[str, NodeId, NodeId]]) -> None:
+    def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._face_file_ext_ids = list(face_and_nodes.keys())
-        self._collection_by_image360_id = {
-            (img_node.space, img_node.external_id): col_node for (_, img_node, col_node) in face_and_nodes.values()
-        }
+        self._face_file_ext_ids: list[str] | None = None
+        self._collection_by_image360_id: dict[tuple[str, str], NodeId] = {}
 
     def stream_data(
         self,
@@ -858,6 +857,12 @@ class Image360AnnotationMigrationIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AnnotationResponse]]:
+        if self._face_file_ext_ids is None:
+            node_data = load_image360_annotation_node_data(self.client, selector.collections or ())
+            self._face_file_ext_ids = list(node_data.keys())
+            self._collection_by_image360_id = {
+                (img_node.space, img_node.external_id): col_node for (_, img_node, col_node) in node_data.values()
+            }
         if not self._face_file_ext_ids:
             return
 
