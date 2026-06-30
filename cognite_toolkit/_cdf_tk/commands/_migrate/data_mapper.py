@@ -2044,7 +2044,15 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
                     "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
                     "then re-run 'cdf migrate 360-images'."
                 )
-                message += f" Unmigrated file external IDs: {humanize_collection(missing_files)}."
+                self.client.lookup.files.id(missing_files)
+                file_descriptions = []
+                for ext_id in missing_files:
+                    internal_id = self.client.lookup.files.id(ext_id)
+                    if internal_id is not None:
+                        file_descriptions.append(f"{ext_id} (internalId={internal_id:<16})")
+                    else:
+                        file_descriptions.append(ext_id)
+                message += f" Unmigrated file external IDs: {humanize_collection(file_descriptions)}."
                 raise InstanceMappingError(message, severity=Severity.failure)
         return mapped_node, edges, issue
 
@@ -2251,22 +2259,23 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         # file_external_id → (face_name, new_image360_node_id, new_collection_node_id)
         self._face_and_nodes_by_file_ext_id = face_and_nodes
 
-    def map(self, source: Sequence[AnnotationResponse]) -> Sequence[Image360AnnotationItem | None]:
+    def map(self, source: Sequence[DataItem[AnnotationResponse]]) -> Sequence[DataItem[Image360AnnotationItem]]:
         """Convert a batch of AnnotationResponse objects to Image360AnnotationItem objects.
 
         Annotations whose file is not in the cache or whose data is malformed are skipped
-        (returned as None and logged).
+        (logged and excluded from the output).
 
         Args:
-            source: Batch of AnnotationResponse objects from the Annotations API.
+            source: Batch of DataItem-wrapped AnnotationResponse objects from the Annotations API.
 
         Returns:
-            Sequence of Image360AnnotationItem (or None for skipped items).
+            Sequence of DataItem-wrapped Image360AnnotationItem (skipped items are excluded).
         """
-        results: list[Image360AnnotationItem | None] = []
-        for annotation in source:
-            result = self._map_single_annotation(annotation)
-            results.append(result)
+        results: list[DataItem[Image360AnnotationItem]] = []
+        for data_item in source:
+            result = self._map_single_annotation(data_item.item)
+            if result is not None:
+                results.append(DataItem(tracking_id=data_item.tracking_id, item=result))
         return results
 
     def _map_single_annotation(self, annotation: AnnotationResponse) -> Image360AnnotationItem | None:
