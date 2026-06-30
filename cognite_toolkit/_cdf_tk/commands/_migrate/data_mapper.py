@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
     ImageAssetLinkData,
-    ImageInstanceLinkData,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
@@ -2288,13 +2287,13 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         face, new_image360_node_id, _ = face_and_nodes
 
         annotation_data = annotation.data
-        if not isinstance(annotation_data, ImageAssetLinkData | ImageInstanceLinkData):
+        if not isinstance(annotation_data, ImageAssetLinkData):
             self.logger.log(
                 MigrationEntryV2(
                     id=str(annotation.id),
                     severity=Severity.skipped,
                     label="Skipped",
-                    message=f"Unsupported annotation type: {annotation.annotation_type!r}.",
+                    message=f"Unsupported annotation type: {annotation.annotation_type!r}. Only 'images.AssetLink' is supported for 360 images in CDM.",
                     source="Image360 annotations",
                     destination="360-image-annotations",
                 )
@@ -2344,36 +2343,27 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             polygon=Image360Polygon(data=polygon_data),
         )
 
-    def _resolve_asset_node_id(
-        self, annotation_id: int, annotation_data: ImageAssetLinkData | ImageInstanceLinkData
-    ) -> NodeId | None:
-        if isinstance(annotation_data, ImageAssetLinkData):
-            if not isinstance(annotation_data.asset_ref, InternalId):
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation_id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message="images.AssetLink annotation assetRef has no integer id.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
-                )
-                return None
+    def _resolve_asset_node_id(self, annotation_id: int, annotation_data: ImageAssetLinkData) -> NodeId | None:
+        if isinstance(annotation_data.asset_ref, InternalId):
             asset_id = annotation_data.asset_ref.id
             node_id = self.client.migration.lookup.assets(asset_id)
-            if node_id is None:
-                self.logger.log(
-                    MigrationEntryV2(
-                        id=str(annotation_id),
-                        severity=Severity.skipped,
-                        label="Skipped",
-                        message=f"The asset with internal ID {asset_id} has not been migrated.",
-                        source="Image360 annotations",
-                        destination="360-image-annotations",
-                    )
+        else:
+            asset_external_id = annotation_data.asset_ref.external_id
+            node_id = self.client.migration.lookup.assets(external_id=asset_external_id)
+        if node_id is None:
+            ref_desc = (
+                f"internal ID {annotation_data.asset_ref.id}"
+                if isinstance(annotation_data.asset_ref, InternalId)
+                else f"external ID '{annotation_data.asset_ref.external_id}'"
+            )
+            self.logger.log(
+                MigrationEntryV2(
+                    id=str(annotation_id),
+                    severity=Severity.skipped,
+                    label="Skipped",
+                    message=f"The asset with {ref_desc} has not been migrated.",
+                    source="Image360 annotations",
+                    destination="360-image-annotations",
                 )
-            return node_id
-
-        instance_ref = annotation_data.instance_ref
-        return NodeId(space=instance_ref.space, external_id=instance_ref.external_id)
+            )
+        return node_id
