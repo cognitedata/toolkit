@@ -7,7 +7,10 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
+    AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
+)
 from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
     CanvasIO,
@@ -405,7 +408,7 @@ class TestDataSelectors:
     def test_all_selectors_in_union(self, all_selectors: list[type[DataSelector]]) -> None:
         # The migration selectors are not part of the Selector union, they
         # are only used for migration commands.
-        migration_selectors = get_concrete_subclasses(AssetCentricMigrationSelector)
+        migration_selectors = {*get_concrete_subclasses(AssetCentricMigrationSelector), Image360AnnotationSelector}
         all_union_selectors = get_args(Selector.__args__[0])
         missing = set(all_selectors) - set(all_union_selectors) - set(migration_selectors)
         assert not missing, (
@@ -419,7 +422,7 @@ class TestDataSelectors:
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
 
     def test_example_data_is_complete(self) -> None:
-        migration_selectors = get_concrete_subclasses(AssetCentricMigrationSelector)
+        migration_selectors = {*get_concrete_subclasses(AssetCentricMigrationSelector), Image360AnnotationSelector}
         # Migration selectors are not part of the Selector union, and are not
         # required to have example data here.
         all_selectors = [cls for cls in get_concrete_subclasses(DataSelector) if cls not in migration_selectors]

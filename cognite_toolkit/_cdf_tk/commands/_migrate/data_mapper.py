@@ -2049,7 +2049,7 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
                 for ext_id in missing_files:
                     internal_id = self.client.lookup.files.id(ext_id)
                     if internal_id is not None:
-                        file_descriptions.append(f"{ext_id} (internalId={internal_id:<16})")
+                        file_descriptions.append(f"{ext_id} (internalId={internal_id})")
                     else:
                         file_descriptions.append(ext_id)
                 message += f" Unmigrated file external IDs: {humanize_collection(file_descriptions)}."
