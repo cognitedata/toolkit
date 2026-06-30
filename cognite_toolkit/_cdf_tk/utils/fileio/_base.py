@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, ClassVar, Protocol, TypeAlias, TypeVar
+from typing import IO, ClassVar, TypeAlias, TypeVar
 
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
@@ -10,11 +10,7 @@ CellValue: TypeAlias = PrimaryCellValue | list[PrimaryCellValue]
 Chunk: TypeAlias = dict[str, CellValue]
 
 
-class SupportsClose(Protocol):
-    def close(self) -> Any: ...
-
-
-T_IO = TypeVar("T_IO", bound=SupportsClose)
+T_IO = TypeVar("T_IO", bound=IO)
 
 
 class FileIO(ABC):

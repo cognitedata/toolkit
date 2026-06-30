@@ -117,14 +117,12 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
-        flush = getattr(writer, "flush", None)
-        if callable(flush):
-            try:
-                flush()
-            except ValueError:
-                # Some writers might not support flush when already closed.
-                # We can ignore this and proceed to check the file size on disk.
-                pass
+        try:
+            writer.flush()
+        except (AttributeError, ValueError):
+            # Some writers might not support flush (e.g. already closed).
+            # We can ignore this and proceed to check the file size on disk.
+            pass
         return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     @abstractmethod
