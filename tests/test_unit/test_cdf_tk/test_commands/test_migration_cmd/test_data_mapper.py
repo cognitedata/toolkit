@@ -10,7 +10,15 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InternalId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationGeometry,
+    AnnotationPoint,
+    AnnotationPolygon,
+    AnnotationResponse,
+    BoundingBox,
+    ImageAssetLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
@@ -1706,7 +1714,7 @@ class TestImage360AnnotationMapper:
         assert set(mapper._face_by_file_ext_id) == {"file_in"}
 
     def test_face_centers_match_fusion_reference(self) -> None:
-        """Face centers (u=v=0.5) must match fusion getNormalizedVectorFromUVAndFace.test.ts."""
+        """Face centers (u=v=0.5) must match fusion's getNormalizedVectorFromUVAndFace.test.ts."""
         expected = {
             "left": (math.pi / 2, math.pi / 2),
             "right": (math.pi / 2, 3 * math.pi / 2),
@@ -1721,7 +1729,57 @@ class TestImage360AnnotationMapper:
             assert theta == pytest.approx(expected_theta, abs=1e-4)
 
     def test_front_vertex_matches_fusion_transform_annotations(self) -> None:
-        """front (0.1, 0.2) must match fusion transformAnnotationsToVectors.test.ts."""
+        """front (0.1, 0.2) must match fusion's transformAnnotationsToVectors.test.ts."""
         phi, theta = Image360AnnotationMapper.uv_and_face_to_spherical("front", 0.1, 0.2)
         assert phi == pytest.approx(2.3562, abs=1e-4)
         assert theta == pytest.approx(0.9273, abs=1e-4)
+
+    def test_map_produces_image360_annotation_item(self) -> None:
+        """End-to-end map call: AnnotationResponse → Image360AnnotationItem with spherical polygon."""
+        annotation = AnnotationResponse(
+            id=42,
+            annotation_type="images.AssetLink",
+            annotated_resource_type="file",
+            annotated_resource_id=111,
+            data=ImageAssetLinkData(
+                asset_ref=InternalId(id=222),
+                text="pump",
+                text_region=BoundingBox(x_min=0.0, x_max=0.1, y_min=0.0, y_max=0.1),
+                object_region=AnnotationGeometry(
+                    polygon=AnnotationPolygon(
+                        vertices=[
+                            AnnotationPoint(x=0.1, y=0.2),
+                            AnnotationPoint(x=0.3, y=0.4),
+                            AnnotationPoint(x=0.5, y=0.6),
+                        ]
+                    )
+                ),
+            ),
+            status="approved",
+            creating_app="unit_test",
+            creating_app_version="1.0.0",
+            creating_user="tester",
+            created_time=0,
+            last_updated_time=1,
+        )
+        new_image360_node_id = NodeId(space=self.SOURCE_SPACE, external_id="image_in_cdm")
+        asset_node_id = NodeId(space="asset_space", external_id="pump_1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.files.external_id.return_value = "file_in"
+            client.migration.lookup.assets.return_value = asset_node_id
+            mapper = Image360AnnotationMapper(client)
+            mapper._face_by_file_ext_id = {"file_in": ("front", new_image360_node_id)}
+
+            result = mapper.map([DataItem(tracking_id="42", item=annotation)])
+
+        assert len(result) == 1
+        item = result[0].item
+        assert item.asset.instance_id == asset_node_id
+        assert item.image360.instance_id == new_image360_node_id
+        # polygon.data: [N, phi1, theta1, ..., phiN, thetaN] for N=3 vertices → 7 floats
+        assert len(item.polygon.data) == 7
+        assert item.polygon.data[0] == 3.0
+        # First vertex (front face, 0.1, 0.2) matches the fusion reference values.
+        assert item.polygon.data[1] == pytest.approx(2.3562, abs=1e-4)
+        assert item.polygon.data[2] == pytest.approx(0.9273, abs=1e-4)
