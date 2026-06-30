@@ -89,7 +89,7 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """
-        Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
+        Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library\n
         Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
         """
         ctx.obj = Common(override_env=override_env)
