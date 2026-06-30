@@ -2219,8 +2219,9 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
     def uv_and_face_to_spherical(face: str, u: float, v: float) -> tuple[float, float]:
         """Convert cubemap face UV coordinates to spherical coordinates in radians.
 
-        Ports ``getNormalizedVectorFromUVAndFace`` from fusion/libs/3d and THREE.js
-        ``Spherical.setFromVector3``.
+        Ports ``getNormalizedVectorFromUVAndFace`` from fusion/libs/3d, as well as the
+        ``Vector3D.normalize`` and  ``Spherical.setFromVector3`` functions from THREE.js.
+        Ref: https://github.com/cognitedata/fusion/blob/3b3b1dd/libs/3d/src/utils/360/getNormalizedVectorFromUVAndFace.ts#L7
 
         Args:
             face: Cubemap face name: "front", "back", "left", "right", "top", or "bottom".
@@ -2229,8 +2230,10 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
 
         Returns:
             (phi, theta) where phi ∈ [0, π] (polar angle from y-axis) and theta ∈ [0, 2π]
-            (azimuthal angle around y-axis, measured from z-axis).
+            (azimuthal angle around y-axis, measured from z-axis). The 3D API
+            validates theta ∈ [0, 2π], so ``atan2`` output is normalised from [-π, π].
         """
+        # getNormalizedVectorFromUVAndFace: map UV → face-local 3D direction
         uc = 2.0 * u - 1.0
         vc = 2.0 * v - 1.0
         if face == "left":
@@ -2247,10 +2250,13 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             x, y, z = -uc, vc, -1.0
         else:
             raise ValueError(f"Unknown cubemap face: {face!r}")
+        # From THREE.js Vector3.normalize:
         magnitude = math.sqrt(x**2 + y**2 + z**2)
         x, y, z = x / magnitude, y / magnitude, z / magnitude
+        # From THREE.js Spherical.setFromCartesianCoords
         phi = math.acos(max(-1.0, min(1.0, y)))
         theta_raw = math.atan2(x, z)
+        # THREE.js returns theta in [-π, π]; normalise to [0, 2π] as required by the 3D API
         theta = theta_raw if theta_raw >= 0.0 else theta_raw + 2.0 * math.pi
         return phi, theta
 
