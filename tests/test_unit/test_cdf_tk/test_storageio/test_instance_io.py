@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedResponse,
     ItemsSuccessResponse,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -49,6 +50,24 @@ class TestInstanceIO:
 
         assert captured, "Expected the query endpoint to be called."
         assert captured[0].get("debug") == {"profile": True}
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_408_error_includes_request_id(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/query")).respond(
+            status_code=408,
+            json={"error": {"code": 408, "message": "Graph query timed out."}},
+            headers={"x-request-id": "req-timeout-789"},
+        )
+
+        with pytest.raises(ToolkitAPIError) as exc_info:
+            # limit=1 makes the reduce-load loop reach page size 1 and re-raise on the first 408.
+            client.tool.instances.paginate(limit=1)
+
+        assert "req-timeout-789" in str(exc_info.value)
+        assert exc_info.value.request_id == "req-timeout-789"
 
     def test_download_instance_ids(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)

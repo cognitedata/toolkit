@@ -6,6 +6,7 @@ from itertools import zip_longest
 from typing import Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
@@ -76,6 +77,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             /instances/query and /instances/sync endpoints.
 
     """
+
+    # Lazily created stderr console used for --debug diagnostics when the HTTP client has no console.
+    _debug_console: "Console | None" = None
 
     def __init__(self, http_client: HTTPClient, consecutive_success_count_increase: int = 100) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
@@ -491,9 +495,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     f"(page size {query.with_[query.root].limit}, x-request-id: "
                     f"{response.error.request_id or 'unknown'})."
                 )
+            # Always surface the x-request-id so the timeout can be traced against server-side logs,
+            # even when the download is not run with --debug.
+            request_id_suffix = f" (x-request-id: {response.error.request_id})" if response.error.request_id else ""
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
-                    f"Request failed with status code {response.status_code}: {response.error.message}",
+                    f"Request failed with status code {response.status_code}: {response.error.message}{request_id_suffix}",
                     missing=response.error.missing,  # type: ignore[arg-type]
                     duplicated=response.error.duplicated,  # type: ignore[arg-type]
                     code=response.error.code,
@@ -527,9 +534,17 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         return f"{cursor[:12]}…" if len(cursor) > 12 else cursor
 
     def _debug_log(self, message: str) -> None:
-        console = self._http_client._console
-        if console is not None:
-            console.print(f"[dim cyan]\\[instances debug][/dim cyan] {message}")
+        # Prefer the HTTP client console when available. In the CLI download path the client is
+        # created without a console, so fall back to a stderr console. Using stderr keeps the
+        # diagnostics visible even while a rich progress display owns stdout.
+        console = self._http_client._console or self._get_debug_console()
+        console.print(f"[dim cyan]\\[instances debug][/dim cyan] {message}")
+
+    @classmethod
+    def _get_debug_console(cls) -> Console:
+        if cls._debug_console is None:
+            cls._debug_console = Console(stderr=True)
+        return cls._debug_console
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
         if endpoint == "query":
