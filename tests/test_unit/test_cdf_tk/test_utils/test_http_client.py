@@ -79,6 +79,28 @@ class TestHTTPClient2:
         assert response.status_code == 400
         assert response.error.message == "bad request"
 
+    def test_failed_request_captures_request_id(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
+        rsps.get("https://example.com/api/resource").respond(
+            json={"error": {"message": "bad request", "code": 400}},
+            status_code=400,
+            headers={"x-request-id": "req-abc-123"},
+        )
+        response = http_client.request_single(
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
+        )
+        assert isinstance(response, FailedResponse)
+        assert response.error.request_id == "req-abc-123"
+
+    def test_success_request_captures_request_id(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
+        rsps.get("https://example.com/api/resource").respond(
+            json={"key": "value"}, status_code=200, headers={"x-request-id": "req-ok-456"}
+        )
+        response = http_client.request_single(
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
+        )
+        assert isinstance(response, SuccessResponse)
+        assert response.request_id == "req-ok-456"
+
     @pytest.mark.usefixtures("disable_gzip")
     def test_retry_then_success(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
         url = "https://example.com/api/resource"
