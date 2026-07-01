@@ -671,3 +671,62 @@ class TestDataModelBuilder:
         assert entry["dml"] == renamed_graphql, (
             f"entry['dml'] was not updated after build rename: got {entry['dml']!r}, expected {renamed_graphql!r}"
         )
+
+
+class TestGraphQLDataModelsAPI:
+    """Regression tests for GraphQLDataModelsAPI error surfacing."""
+
+    @staticmethod
+    def _make_api(response_body: str):  # type: ignore[return]
+        from unittest.mock import MagicMock
+
+        from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+
+        mock_success = MagicMock()
+        mock_success.body = response_body
+        mock_result = MagicMock()
+        mock_result.get_success_or_raise.return_value = mock_success
+        mock_http = MagicMock()
+        mock_http.request_single_retries.return_value = mock_result
+
+        api = GraphQLDataModelsAPI(http_client=mock_http)
+        api._make_url = MagicMock(return_value="https://api.cognitedata.com/dml/graphql")  # type: ignore[method-assign]
+        return api
+
+    def test_top_level_graphql_error_surfaced_not_swallowed(self) -> None:
+        # Regression: when the API returns {"data": {"upsertGraphQlDmlVersion": null}, "errors": [...]}
+        # the client was crashing with a cryptic Pydantic validation error instead of the real message.
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        api_response = json.dumps(
+            {
+                "data": {"upsertGraphQlDmlVersion": None},
+                "errors": [{"message": "Unknown argument 'dml' on field 'upsertGraphQlDmlVersion'"}],
+            }
+        )
+        api = self._make_api(api_response)
+
+        with pytest.raises(ToolkitAPIError, match="Unknown argument 'dml'"):
+            api._post_graphql({"query": "...", "variables": {}})
+
+    def test_dml_validation_errors_surfaced(self) -> None:
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        api_response = json.dumps(
+            {
+                "data": {
+                    "upsertGraphQlDmlVersion": {
+                        "errors": [{"kind": "SYNTAX", "message": "Invalid type 'Foo'", "hint": None}],
+                        "result": None,
+                    }
+                },
+            }
+        )
+        api = self._make_api(api_response)
+
+        with pytest.raises(ToolkitAPIError, match="Invalid type 'Foo'"):
+            api._post_graphql({"query": "...", "variables": {}})
