@@ -1,3 +1,5 @@
+import json
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
@@ -28,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryDebugParameters,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -131,6 +134,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         limit: int = 100,
         cursor: str | None = None,
         endpoint: QueryEndpoint = "query",
+        debug: bool = False,
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
@@ -139,12 +143,16 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
             endpoint: Which endpoint to use
+            debug: If True, request server-side query profiling and log per-page diagnostics
+                (page size, cursor, elapsed time, x-request-id) to the client console.
 
         Returns:
             PagedResponse of InstanceResponse objects.
         """
         request = self._create_query(filter, limit, cursor)
-        response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
+        response = self.query(
+            request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, debug=debug
+        )
         return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
 
     def _create_query(
@@ -202,6 +210,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         limit: int | None = 100,
         endpoint: QueryEndpoint = "query",
         init_cursor: str | None = None,
+        debug: bool = False,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
@@ -210,6 +219,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             limit: Maximum number of items to return per page.
             endpoint: Which endpoint to use
             init_cursor: Which cursor to use
+            debug: If True, request server-side query profiling and log per-page diagnostics
+                (page size, cursor, elapsed time, x-request-id) to the client console.
 
         Returns:
             Iterable of lists of InstanceResponse objects.
@@ -218,7 +229,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
         query = self._create_query(filter, chunk_limit, init_cursor)
         for response in self.query_iterate(
-            query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
+            query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit, debug=debug
         ):
             yield response.items[response.root]
 
@@ -239,6 +250,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: Literal[True] = True,
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug: bool = False,
     ) -> QueryResponseTyped: ...
 
     @overload
@@ -248,6 +260,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: Literal[False],
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug: bool = False,
     ) -> QueryResponseUntyped: ...
 
     def query(
@@ -256,6 +269,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: bool = True,
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug: bool = False,
     ) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
@@ -282,6 +296,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             endpoint,
             exhaust_sub_selections,
             limit,
+            debug,
         ):
             results.append(batch)
         if not results:
@@ -310,6 +325,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug: bool = False,
     ) -> Iterable[QueryResponseTyped]: ...
 
     @overload
@@ -320,6 +336,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug: bool = False,
     ) -> Iterable[QueryResponseUntyped]: ...
 
     def query_iterate(
@@ -329,6 +346,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug: bool = False,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         """Iterate over the results of a query against the instances query/sync endpoint."""
         yield from self._query_iterate(
@@ -338,6 +356,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             endpoint,
             exhaust_sub_selections,
             limit,
+            debug,
         )
 
     def _query_iterate(
@@ -347,9 +366,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug: bool = False,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         endpoint_prop = self._get_endpoint(endpoint)
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+
+        # Profiling is only supported by the query endpoint, not sync.
+        if debug and endpoint == "query" and query.debug is None:
+            query.debug = QueryDebugParameters(profile=True)
 
         max_chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
         current_chunk_size = max_chunk_size
@@ -358,13 +382,22 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         total = 0
         while True:
             try:
-                batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+                batch = self._query(
+                    query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint, debug=debug
+                )
             except ReduceLoadException as e:
                 if current_chunk_size <= 1:
                     raise e.source_exception
                 min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
                 success_request_count = 0
-                current_chunk_size = current_chunk_size // 2
+                new_chunk_size = current_chunk_size // 2
+                if debug:
+                    request_id = getattr(e.source_exception, "request_id", None)
+                    self._debug_log(
+                        f"Graph query timed out (408) at page size {current_chunk_size} "
+                        f"(x-request-id: {request_id or 'unknown'}). Reducing page size to {new_chunk_size}."
+                    )
+                current_chunk_size = new_chunk_size
                 page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
                 query.with_[query.root].limit = page_limit
                 continue
@@ -400,10 +433,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: Endpoint,
         exhaust_sub_selections: bool,
         endpoint_name: QueryEndpoint,
+        debug: bool = False,
     ) -> _T_QueryResponse:
         first: _T_QueryResponse | None = None
         while True:
-            response = self._make_query(endpoint, query, response_cls, endpoint_name)
+            response = self._make_query(endpoint, query, response_cls, endpoint_name, debug=debug)
             if first is None:
                 first = response
             else:
@@ -437,6 +471,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         query: QueryRequest,
         response_cls: type[_T_QueryResponse],
         endpoint_name: QueryEndpoint,
+        debug: bool = False,
     ) -> _T_QueryResponse:
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
@@ -445,9 +480,17 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             # We do not retry 408 as that is an indication we should reduce load.
             retry_status_codes={429, 502, 503, 504},
         )
+        start = time.perf_counter()
         response = self._http_client.request_single_retries(request)
+        elapsed = time.perf_counter() - start
         if isinstance(response, FailedResponse) and response.status_code == 408:
             # Graph query timed out. Reduce load or contention, or optimise your query.
+            if debug:
+                self._debug_log(
+                    f"{endpoint_name} page failed with 408 after {elapsed:.1f}s "
+                    f"(page size {query.with_[query.root].limit}, x-request-id: "
+                    f"{response.error.request_id or 'unknown'})."
+                )
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
                     f"Request failed with status code {response.status_code}: {response.error.message}",
@@ -455,6 +498,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     duplicated=response.error.duplicated,  # type: ignore[arg-type]
                     code=response.error.code,
                     request=request,
+                    request_id=response.error.request_id,
                 )
             )
 
@@ -464,7 +508,28 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
         # We persist the root from the query. This is for convenience.
         query_response.root = query.root
+        if debug:
+            cursor = (query.cursors or {}).get(query.root)
+            self._debug_log(
+                f"{endpoint_name} page OK in {elapsed:.1f}s "
+                f"(page size {query.with_[query.root].limit}, "
+                f"cursor {self._truncate_cursor(cursor)}, "
+                f"x-request-id: {success.request_id or 'unknown'})."
+            )
+            if query_response.debug:
+                self._debug_log(f"Query profile: {json.dumps(query_response.debug, default=str)}")
         return query_response
+
+    @staticmethod
+    def _truncate_cursor(cursor: str | None) -> str:
+        if not cursor:
+            return "<start>"
+        return f"{cursor[:12]}…" if len(cursor) > 12 else cursor
+
+    def _debug_log(self, message: str) -> None:
+        console = self._http_client._console
+        if console is not None:
+            console.print(f"[dim cyan]\\[instances debug][/dim cyan] {message}")
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
         if endpoint == "query":

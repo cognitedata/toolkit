@@ -944,6 +944,14 @@ class DownloadApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        debug: Annotated[
+            bool,
+            typer.Option(
+                "--debug",
+                help="Turn on query debugging: requests server-side query profiling and logs per-page "
+                "diagnostics (page size, cursor, elapsed time, x-request-id) to help investigate 408 timeouts.",
+            ),
+        ] = False,
     ) -> None:
         """This command will download Instances from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1045,7 +1053,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=InstanceIO(client, api_format=api_format.value),
+                io=InstanceIO(client, api_format=api_format.value, debug=debug),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

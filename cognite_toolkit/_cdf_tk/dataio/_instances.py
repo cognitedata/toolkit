@@ -83,9 +83,11 @@ class InstanceIO(
         client: ToolkitClient,
         remove_existing_version: bool = True,
         api_format: Literal["request", "response"] = "request",
+        debug: bool = False,
     ) -> None:
         super().__init__(client, api_format=api_format)
         self._remove_existing_version = remove_existing_version
+        self._debug = debug
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewIO.create_loader(self.client)
@@ -391,6 +393,7 @@ class InstanceIO(
             exhaust_sub_selections=True,
             limit=limit,
             endpoint=endpoint,
+            debug=self._debug,
         ):
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
@@ -418,7 +421,7 @@ class InstanceIO(
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             page = self.client.tool.instances.paginate(
-                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint
+                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint, debug=self._debug
             )
             total += len(page.items)
             if page:

@@ -201,6 +201,7 @@ class HTTPClient:
                 status_code=response.status_code,
                 body=response.text,
                 content=response.content,
+                request_id=response.headers.get("x-request-id"),
             )
         error_details = ErrorDetails.from_response(response)
         if retry_request := self._retry_request(response, request, error_details):

@@ -32,6 +32,24 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestInstanceIO:
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_paginate_debug_requests_profiling(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        captured: list[dict] = []
+
+        def query_callback(request: httpx.Request) -> httpx.Response:
+            captured.append(json.loads(request.content))
+            return httpx.Response(status_code=200, json={"items": {"root": []}, "nextCursor": {"root": None}})
+
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/query")).mock(side_effect=query_callback)
+
+        client.tool.instances.paginate(limit=10, debug=True)
+
+        assert captured, "Expected the query endpoint to be called."
+        assert captured[0].get("debug") == {"profile": True}
+
     def test_download_instance_ids(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/query")
