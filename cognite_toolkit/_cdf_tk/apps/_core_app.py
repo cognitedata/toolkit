@@ -89,8 +89,8 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """
-        Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
-        Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
+        Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/usage\n
+        Resource reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library
         """
         ctx.obj = Common(override_env=override_env)
         if ctx.invoked_subcommand is None:
