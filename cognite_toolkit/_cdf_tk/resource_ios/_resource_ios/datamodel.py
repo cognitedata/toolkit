@@ -418,7 +418,60 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        return self.client.tool.containers.create(items)
+        try:
+            return self.client.tool.containers.create(items)
+        except ToolkitAPIError as error:
+            if not self._is_requires_constraint_missing_error(error):
+                raise
+            return self._create_in_two_phases(items)
+
+    @staticmethod
+    def _is_requires_constraint_missing_error(error: ToolkitAPIError) -> bool:
+        return error.code == 400 and error.message.rstrip().endswith("does not exist.")
+
+    def _create_in_two_phases(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        """Retry container upsert in two phases when a requires constraint targets a container
+        that does not exist yet: first upsert all containers without any requires constraints,
+        then upsert the containers that have requires constraints, applying only those.
+        """
+        items_without_requires = [self._strip_requires_constraints(item) for item in items]
+        created = self.client.tool.containers.create(items_without_requires)
+        items_with_only_requires = [
+            stripped for item in items if (stripped := self._only_requires_constraints(item)) is not None
+        ]
+        if items_with_only_requires:
+            second_phase = self.client.tool.containers.create(items_with_only_requires)
+            created_by_id = {item.as_id(): item for item in created}
+            for item in second_phase:
+                created_by_id[item.as_id()] = item
+            created = list(created_by_id.values())
+        return created
+
+    @staticmethod
+    def _strip_requires_constraints(item: ContainerRequest) -> ContainerRequest:
+        if not item.constraints:
+            return item
+        remaining = {
+            name: constraint
+            for name, constraint in item.constraints.items()
+            if not isinstance(constraint, ClientRequiresConstraintDefinition)
+        }
+        if len(remaining) == len(item.constraints):
+            return item
+        return item.model_copy(update={"constraints": remaining or None})
+
+    @staticmethod
+    def _only_requires_constraints(item: ContainerRequest) -> ContainerRequest | None:
+        if not item.constraints:
+            return None
+        only_requires = {
+            name: constraint
+            for name, constraint in item.constraints.items()
+            if isinstance(constraint, ClientRequiresConstraintDefinition)
+        }
+        if not only_requires:
+            return None
+        return item.model_copy(update={"constraints": only_requires})
 
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
         return self.client.tool.containers.retrieve(list(ids))
