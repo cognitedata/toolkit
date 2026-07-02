@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
-    QueryDebugParameters,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -157,25 +156,40 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # Sort by (space, externalId) to get a stable, index-driven order on /query.
-        # /sync silently ignores client-provided sort and uses its own txn-ordered cursor,
-        # so emitting the sort unconditionally is safe and keeps the code simple.
-        node_sort: list[QuerySortSpec] = [
-            QuerySortSpec(property=["node", "space"]),
-            QuerySortSpec(property=["node", "externalId"]),
-        ]
-        edge_sort: list[QuerySortSpec] = [
-            QuerySortSpec(property=["edge", "space"]),
-            QuerySortSpec(property=["edge", "externalId"]),
-        ]
-        # For /sync we use twoPhase mode with a (space, externalId) backfill sort so that
-        # the backfill stage of the sync uses the built-in cursorable index instead of
-        # scanning the full node/edge table. This matches the guidance in the DMS sync docs
-        # for syncs that use a hasData filter (or any filter beyond a single-space filter).
-        # On /query these fields are stripped in QueryRequest.dump().
+        # Default: omit sort so the server uses its internal-node-id order. This
+        # matches the container's cursorable (space, node_id) btree and lets the
+        # planner lead with the container (hasData) scan instead of scanning the
+        # full node table by (space, externalId) and probing the container per row.
+        # A (space, externalId) sort risks the node_project_id_space_external_id_idx
+        # plan, which on wide+sparse single-space views blows the 5s server budget
+        # because the matching rows sit alphabetically after millions of non-matching
+        # nodes in the space. Internal-id order is still cursorable — /list uses it
+        # by default.
+        #
+        # Exception: when the filter selects multiple spaces via `space IN [...]`,
+        # the default node_id order forces the server to materialise all matching
+        # rows and top-N heapsort them (the union of 26 sub-ranges from the
+        # (project_id, space, node_id) btree is not node_id-ordered, and Postgres
+        # will not MergeAppend here). That blows the budget once row counts get
+        # into the hundreds of thousands. Requesting a (space, externalId) sort in
+        # that case lets the ScalarArrayOp scan on the (project_id, space,
+        # externalId) btree stream results in index order — no Sort node, LIMIT
+        # pushes down.
+        multi_space = filter is not None and filter.space is not None and len(filter.space) >= 2
+        space_ext_id_sort: list[QuerySortSpec] | None = None
+        if multi_space:
+            instance_type = filter.instance_type or "node"  # type: ignore[union-attr]
+            space_ext_id_sort = [
+                QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
+                QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
+            ]
+        node_sort: list[QuerySortSpec] | None = space_ext_id_sort
+        edge_sort: list[QuerySortSpec] | None = space_ext_id_sort
+        # /sync still needs twoPhase; the backfill must use the same sort as the
+        # forward stream so the cursor is consistent across phases.
         sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
-        node_backfill_sort = node_sort if endpoint == "sync" else None
-        edge_backfill_sort = edge_sort if endpoint == "sync" else None
+        node_backfill_sort: list[QuerySortSpec] | None = space_ext_id_sort
+        edge_backfill_sort: list[QuerySortSpec] | None = space_ext_id_sort
 
         if filter is None:
             query = QueryRequest(
@@ -462,18 +476,18 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
         # TODO: Remove temporary debug parameters
-        query = query.model_copy(
-            update={
-                "debug": QueryDebugParameters(
-                    emit_results=False,
-                    include_plan=True,
-                    include_translated_query=True,
-                    include_llm_prompt=True,
-                    profile=True,
-                    timeout=30000,
-                )
-            }
-        )
+        # query = query.model_copy(
+        #     update={
+        #         "debug": QueryDebugParameters(
+        #             emit_results=False,
+        #             include_plan=True,
+        #             include_translated_query=True,
+        #             include_llm_prompt=True,
+        #             profile=True,
+        #             timeout=60000,
+        #         )
+        #     }
+        # )
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,

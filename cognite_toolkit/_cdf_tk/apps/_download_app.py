@@ -168,15 +168,13 @@ def _discover_instance_spaces_for_view(
             instance_type=instance_type,
             limit=1000,
         )
-    except CogniteAPIError as exc:
-        print(f"[DEBUG] aggregate space discovery failed for {view.external_id}/{view.version}: {exc}")
+    except CogniteAPIError:
         return None
     spaces: list[str] = []
     for item in result:
         space_value = item.group.get("space")
         if isinstance(space_value, str):
             spaces.append(space_value)
-    print(f"[DEBUG] aggregate space discovery for {view.external_id}/{view.version}: {spaces or 'no spaces'}")
     return tuple(spaces) if spaces else None
 
 
@@ -1057,7 +1055,7 @@ class DownloadApp(typer.Typer):
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
                         edge_types=tuple(edge_types) if edge_types else None,
-                        endpoint="query" if view_instance_spaces else "sync",
+                        endpoint="sync",
                     )
                 )
             output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
@@ -1084,7 +1082,7 @@ class DownloadApp(typer.Typer):
                         instance_spaces=view_instance_spaces,
                         instance_type=instance_type.value,
                         download_dir_name=download_dir_name,
-                        endpoint="query" if view_instance_spaces else "sync",
+                        endpoint="sync",
                     )
                 )
         else:
