@@ -155,6 +155,21 @@ class TestLocationYAML:
         location = LocationYAML.model_validate(test_input)
         assert location.model_dump(by_alias=True, exclude_unset=True) == test_input
 
+    def test_asset_subtree_ids_alias_is_accepted(self) -> None:
+        payload = {
+            "externalId": "loc-010",
+            "name": "Location alias check",
+            "assetCentric": {
+                "assets": {
+                    "assetSubtreeIds": [{"externalId": "asset-001"}],
+                }
+            },
+        }
+
+        location = LocationYAML.model_validate(payload)
+        dumped = location.model_dump(by_alias=True, exclude_unset=True)
+        assert dumped["assetCentric"]["assets"]["assetSubtreeExternalIds"] == [{"externalId": "asset-001"}]
+
     @pytest.mark.parametrize("data, expected_errors", list(invalid_location_filters_test_cases()))
     def test_invalid_location_filters_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, LocationYAML, Path("some_file.yaml"))
