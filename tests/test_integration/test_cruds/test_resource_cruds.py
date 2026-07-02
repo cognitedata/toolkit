@@ -1316,14 +1316,15 @@ createdBy: null
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
-_SKILL_CONTENT = """---
-name: integration-test-skill
-description: Toolkit integration test skill
+def _skill_content(*, name: str, description: str, body_suffix: str = "") -> str:
+    return f"""---
+name: {name}
+description: {description}
 ---
 
 # Integration test skill
 
-Used by toolkit integration tests.
+Used by toolkit integration tests{body_suffix}.
 """
 
 
@@ -1331,25 +1332,23 @@ class TestSkillIO:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = SkillIO(toolkit_client, None)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
+        # Skill names must be unique in CDF; with pytest-xdist each worker gets its own RUN_UNIQUE_ID.
+        skill_name = f"integration-test-skill-{RUN_UNIQUE_ID}".replace("_", "-")
         original = SkillRequest(
             external_id=external_id,
-            name="integration-test-skill",
+            name=skill_name,
             description="Toolkit integration test skill",
-            content=_SKILL_CONTENT,
+            content=_skill_content(name=skill_name, description="Toolkit integration test skill"),
         )
         updated = SkillRequest(
             external_id=external_id,
-            name="integration-test-skill",
+            name=skill_name,
             description="Updated toolkit integration test skill",
-            content="""---
-name: integration-test-skill
-description: Updated toolkit integration test skill
----
-
-# Integration test skill
-
-Used by toolkit integration tests (updated).
-""",
+            content=_skill_content(
+                name=skill_name,
+                description="Updated toolkit integration test skill",
+                body_suffix=" (updated)",
+            ),
         )
         try:
             created = loader.create([original])
@@ -1361,7 +1360,7 @@ Used by toolkit integration tests (updated).
             assert retrieved[0].description == updated.description
             assert retrieved[0].content is not None
             assert retrieved[0].content.startswith(
-                "---\nname: integration-test-skill\ndescription: Updated toolkit integration test skill\n---\n"
+                f"---\nname: {skill_name}\ndescription: Updated toolkit integration test skill\n---\n"
             )
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
