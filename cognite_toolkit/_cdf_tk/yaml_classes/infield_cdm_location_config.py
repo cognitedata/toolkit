@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
@@ -64,15 +62,6 @@ class DataStorage(BaseModelResource):
     app_instance_space: str | None = Field(None, min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
 
 
-class ViewMapping(BaseModelResource):
-    """View mapping configuration."""
-
-    space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
-    version: str
-    external_id: str
-    type: Literal["view"] = "view"
-
-
 class ObservationViewWriteBack(BaseModelResource):
     """Write-back configuration for an observation view."""
 
@@ -90,16 +79,16 @@ class ObservationViewConfig(BaseModelResource):
 class ViewMappings(BaseModelResource):
     """View mappings configuration."""
 
-    asset: ViewMapping | None = None
-    operation: ViewMapping | None = None
-    notification: ViewMapping | None = None
+    asset: ViewReference | None = None
+    operation: ViewReference | None = None
+    notification: ViewReference | None = None
     # As of 26/04-26, activity is supported,
     # but InField will likely rename it ot maintenance_order, thus we keep
     # both for now to avoid complaining to the user of either.
-    maintenance_order: ViewMapping | None = None
-    activity: ViewMapping | None = None
+    maintenance_order: ViewReference | None = None
+    activity: ViewReference | None = None
 
-    file: ViewMapping | None = None
+    file: ViewReference | None = None
     # As of 27/04-26, observation only supported for one view,
     # but we keep the list for future flexibility.
     observation: list[ObservationViewConfig] | None = Field(None, min_length=1, max_length=1)
@@ -108,9 +97,9 @@ class ViewMappings(BaseModelResource):
 class DataExplorationConfig(BaseModelResource):
     """Data exploration configuration."""
 
-    asset_properties_card_view: ViewMapping | None = None
-    asset_activities_card_view: ViewMapping | None = None
-    asset_notifications_card_view: ViewMapping | None = None
+    asset_properties_card_view: ViewReference | None = None
+    asset_activities_card_view: ViewReference | None = None
+    asset_notifications_card_view: ViewReference | None = None
 
 
 # Pydantic attribute name -> YAML/API key for card views used in build dependency and validation rules.

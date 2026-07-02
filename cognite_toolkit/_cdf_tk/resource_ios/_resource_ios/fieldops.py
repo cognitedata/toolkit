@@ -408,14 +408,7 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
                 card_mapping = getattr(resource.data_exploration_config, card_attr, None)
                 if card_mapping is None:
                     continue
-                yield (
-                    ViewIO,
-                    ViewId(
-                        space=card_mapping.space,
-                        external_id=card_mapping.external_id,
-                        version=card_mapping.version,
-                    ),
-                )
+                yield (ViewIO, card_mapping.as_id())
         if resource.view_mappings and resource.view_mappings.observation:
             for obs_config in resource.view_mappings.observation:
                 yield (ViewIO, obs_config.view.as_id())

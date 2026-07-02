@@ -12,8 +12,8 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
     INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY,
-    ViewMapping,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
 _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
     "assetActivitiesCardView": frozenset(
@@ -82,10 +82,10 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
 
         refs: list[_CardViewRef] = []
         for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
-            mapping: ViewMapping | None = getattr(config.data_exploration_config, attr, None)
+            mapping: ViewReference | None = getattr(config.data_exploration_config, attr, None)
             if mapping is None:
                 continue
-            view_id = ViewId(space=mapping.space, external_id=mapping.external_id, version=mapping.version)
+            view_id = mapping.as_id()
             required = _REQUIRED_PROPERTIES[card_key]
             refs.append((resource, card_key, view_id, required))
         return refs
