@@ -98,6 +98,13 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         return id.external_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
+        def _normalize_asset_subtree_ids(asset_filter: dict[str, Any]) -> None:
+            subtree_external_ids = asset_filter.pop("assetSubtreeExternalIds", None)
+            if subtree_external_ids is None:
+                return
+            if "assetSubtreeIds" not in asset_filter:
+                asset_filter["assetSubtreeIds"] = subtree_external_ids
+
         if parent_external_id := resource.pop("parentExternalId", None):
             # This is a workaround: when the parentExternalId cannot be resolved because the parent
             # hasn't been created yet, we save it so that we can try again "later"
@@ -115,6 +122,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(
                 data_set_external_ids, is_dry_run, allow_empty=True
             )
+        _normalize_asset_subtree_ids(asset_centric)
         for subfilter_name in self.subfilter_names:
             subfilter = asset_centric.get(subfilter_name, {})
             if data_set_external_ids := subfilter.pop("dataSetExternalIds", []):
@@ -123,6 +131,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
                     is_dry_run,
                     allow_empty=True,
                 )
+            _normalize_asset_subtree_ids(subfilter)
 
         return LocationFilterRequest.model_validate(resource)
 
@@ -232,14 +241,14 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             asset_centric = item["assetCentric"]
             for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
                 yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-            for asset in asset_centric.get("assetSubtreeIds", []):
+            for asset in [*asset_centric.get("assetSubtreeIds", []), *asset_centric.get("assetSubtreeExternalIds", [])]:
                 if "externalId" in asset:
                     yield AssetIO, ExternalId(external_id=asset["externalId"])
             for subfilter_name in cls.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 for data_set_external_id in subfilter.get("dataSetExternalIds", []):
                     yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-                for asset in subfilter.get("assetSubtreeIds", []):
+                for asset in [*subfilter.get("assetSubtreeIds", []), *subfilter.get("assetSubtreeExternalIds", [])]:
                     if "externalId" in asset:
                         yield AssetIO, ExternalId(external_id=asset["externalId"])
         for view in item.get("views", []):
