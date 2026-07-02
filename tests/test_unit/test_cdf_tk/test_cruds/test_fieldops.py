@@ -108,6 +108,66 @@ class TestInFieldCDMLocationConfigCRUD:
             ),
         }
 
+    def test_get_dependencies_includes_observation_view(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "viewMappings": {
+                    "observation": [
+                        {
+                            "view": {
+                                "space": "customer_idm_extention",
+                                "version": "v2",
+                                "externalId": "ObservationView",
+                            },
+                        },
+                    ],
+                },
+            }
+        )
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
+        }
+
+    def test_get_dependencies_includes_card_views_and_observation_view(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetActivitiesCardView": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "ActivitiesCard",
+                    },
+                },
+                "viewMappings": {
+                    "observation": [
+                        {
+                            "view": {
+                                "space": "customer_idm_extention",
+                                "version": "v2",
+                                "externalId": "ObservationView",
+                            },
+                        },
+                    ],
+                },
+            }
+        )
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
+        }
+
     def test_get_dependencies_without_data_exploration_config(self) -> None:
         config = InFieldCDMLocationConfigYAML.model_validate(
             {"space": "sp_instance", "externalId": "my_location_config"}
@@ -157,6 +217,30 @@ class TestInFieldCDMLocationConfigCRUD:
                 ViewIO.__name__,
                 ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
             ),
+        }
+
+    def test_get_dependent_items_includes_observation_view(self) -> None:
+        item = {
+            "space": "sp_instance",
+            "externalId": "my_location_config",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "ObservationView",
+                        },
+                    },
+                ],
+            },
+        }
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
         }
 
     def test_skip_illegal_configuration(self) -> None:

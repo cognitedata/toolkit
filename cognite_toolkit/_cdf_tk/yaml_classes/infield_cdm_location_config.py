@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
+from .view_field_definitions import ViewReference
 
 
 class FeatureToggles(BaseModelResource):
@@ -72,6 +73,20 @@ class ViewMapping(BaseModelResource):
     type: Literal["view"] = "view"
 
 
+class ObservationViewWriteBack(BaseModelResource):
+    """Write-back configuration for an observation view."""
+
+    notifications_endpoint_external_id: str = Field(min_length=1)
+    attachments_endpoint_external_id: str | None = Field(None, min_length=1)
+
+
+class ObservationViewConfig(BaseModelResource):
+    """Observation view configuration."""
+
+    view: ViewReference
+    write_back: ObservationViewWriteBack | None = None
+
+
 class ViewMappings(BaseModelResource):
     """View mappings configuration."""
 
@@ -87,7 +102,7 @@ class ViewMappings(BaseModelResource):
     file: ViewMapping | None = None
     # As of 27/04-26, observation only supported for one view,
     # but we keep the list for future flexibility.
-    observation: list[ViewMapping] | None = Field(None, min_length=1, max_length=1)
+    observation: list[ObservationViewConfig] | None = Field(None, min_length=1, max_length=1)
 
 
 class DataExplorationConfig(BaseModelResource):
