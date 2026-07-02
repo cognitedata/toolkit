@@ -12,8 +12,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
+from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
-from cognite_toolkit._cdf_tk.client.api.charts_folders import ChartFoldersAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
@@ -34,14 +35,10 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
-    ChartFolderRequest,
-    ChartFolderResponse,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
     ChartMonitoringJobRequest,
     ChartMonitoringJobResponse,
@@ -1184,33 +1181,6 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == list_expected
 
-    def test_chart_folders_api_create_list_methods(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
-        resource = get_example_minimum_responses(ChartFolderResponse)
-        config = toolkit_config
-        api = ChartFoldersAPI(HTTPClient(config))
-        request_item = ChartFolderRequest(
-            folder_external_id="my_folder",
-            folder_name="My Chart Folder",
-        )
-
-        # Test create
-        respx_mock.post(config.create_app_url("/charts/monitoring/folders")).mock(
-            return_value=httpx.Response(status_code=200, json=[resource])
-        )
-        created = api.create([request_item])
-        assert len(created) == 1
-        assert created[0].dump() == resource
-
-        # Test list
-        respx_mock.get(config.create_app_url("/charts/monitoring/folders")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
-        )
-        listed = api.list()
-        assert len(listed) == 1
-        assert listed[0].dump() == resource
-
     def test_alert_channels_api_list_method(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
@@ -1225,6 +1195,88 @@ class TestCDFResourceAPI:
         listed = api.list()
         assert len(listed) == 1
         assert listed[0].dump() == resource
+
+    def test_apps_api_retrieve_treats_400_as_not_found(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        # The apps endpoint returns 400 (not 404) for unknown apps as of 2026-05-19.
+        config = toolkit_config
+        api = AppsAPI(HTTPClient(config))
+        respx_mock.get(config.create_api_url("/apphosting/apps/missing-app")).mock(
+            return_value=httpx.Response(status_code=400)
+        )
+        assert api.retrieve([ExternalId(external_id="missing-app")], ignore_unknown_ids=True) == []
+
+    def test_app_versions_api_upload(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions")).mock(
+            return_value=httpx.Response(status_code=201)
+        )
+        api.upload("my-app", "1.0.0", "index.html", b"fake-zip")
+
+    def test_app_versions_api_update(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": []})
+        )
+        api.update("my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}})
+
+    def test_app_versions_api_retrieve(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        version_json = {
+            "appExternalId": "my-app",
+            "version": "1.0.0",
+            "lifecycleState": "DRAFT",
+            "entrypoint": "index.html",
+        }
+        respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
+            return_value=httpx.Response(status_code=200, json=version_json)
+        )
+        retrieved = api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")])
+
+        assert len(retrieved) == 1
+        assert retrieved[0].app_external_id == "my-app"
+        assert retrieved[0].version == "1.0.0"
+        assert retrieved[0].lifecycle_state == "DRAFT"
+
+    def test_app_versions_api_retrieve_treats_400_as_not_found(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        # The versions endpoint returns 400 (not 404) for unknown versions as of 2026-05-19.
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
+            return_value=httpx.Response(status_code=400)
+        )
+        assert api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")], ignore_unknown_ids=True) == []
+
+    def test_app_versions_api_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        version_json = {
+            "appExternalId": "my-app",
+            "version": "1.0.0",
+            "lifecycleState": "DRAFT",
+            "entrypoint": "index.html",
+        }
+        respx_mock.post(config.create_api_url("/apphosting/versions/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [version_json]})
+        )
+        batches = list(api.iterate(limit=10))
+
+        assert len(batches) == 1
+        assert batches[0][0].version == "1.0.0"
+
+    def test_app_versions_api_delete(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = AppVersionsAPI(HTTPClient(config))
+        respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([AppVersionId(app_external_id="my-app", version="1.0.0")])
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:

@@ -100,15 +100,23 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[ChartResponse]]:
-        selected_charts = self.client.charts.list(visibility=None)
-        self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
-            ...
+            selected_charts = self.client.charts.list(visibility=None)
+            self._existing_charts = {chart.external_id for chart in selected_charts}
         elif isinstance(selector, ChartOwnerSelector):
+            selected_charts = self.client.charts.list(visibility=None)
+            self._existing_charts = {chart.external_id for chart in selected_charts}
             selected_charts = [chart for chart in selected_charts if chart.owner_id == selector.owner_id]
         elif isinstance(selector, ChartExternalIdSelector):
-            external_id_set = set(selector.external_ids)
-            selected_charts = [chart for chart in selected_charts if chart.external_id in external_id_set]
+            selected_charts = self.client.charts.retrieve(
+                [ExternalId(external_id=eid) for eid in selector.external_ids]
+            )
+            missing_count = len(selector.external_ids) - len(selected_charts)
+            if missing_count:
+                HighSeverityWarning(
+                    f"{missing_count} of {len(selector.external_ids)} selected charts could not be "
+                    "retrieved and will be skipped."
+                ).print_warning(console=self.client.console)
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
 

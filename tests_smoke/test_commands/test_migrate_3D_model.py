@@ -92,7 +92,7 @@ def migrated_asset(
     migrated_nodes = client.data_modeling.instances.retrieve((smoke_space.space, asset_external_id)).nodes
     if not migrated_nodes:
         raise EndpointAssertionError(
-            client.data_modeling.instances._RESOURCE_PATH,
+            "data_modeling.instances.retrieve",
             "Failed to retrieve migrated asset instance from data modeling.",
         )
     yield tmp_classic_asset, migrated_nodes[0]
@@ -125,16 +125,14 @@ def tmp_3D_model_with_asset_mapping(
         model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)
     )
     if not isinstance(revision, ThreeDModelRevision):
-        raise EndpointAssertionError(
-            client.three_d.revisions._RESOURCE_PATH, "Failed to create 3D model revision for migration test."
-        )
+        raise EndpointAssertionError("three_d.revisions", "Failed to create 3D model revision for migration test.")
 
     max_time = time.time() + 300  # 5 minutes timeout
     while revision.status in {"Processing", "Queued"}:
         revision_status = client.three_d.revisions.retrieve(model.id, revision.id)
         if revision_status is None:
             raise EndpointAssertionError(
-                client.three_d.revisions._RESOURCE_PATH,
+                "three_d.revisions",
                 "Failed to retrieve 3D model revision status for migration test.",
             )
         revision = revision_status
@@ -155,7 +153,7 @@ def tmp_3D_model_with_asset_mapping(
     )
     if not three_d_nodes:
         raise EndpointAssertionError(
-            client.three_d.revisions._RESOURCE_PATH,
+            "three_d.revisions",
             "Failed to verify 3D model revision has nodes for migration test.",
         )
     three_d_node = three_d_nodes[0]
@@ -234,12 +232,10 @@ class TestMigrate3D:
         mapper = ThreeDMapper(client)
 
         # Map the classic 3D model to data modeling format
-        mapped = mapper.map([model])
+        mapped = mapper.map([DataItem(tracking_id=str(model.id), item=model)])
         if len(mapped) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map classic 3D to data modeling format.")
-        migration_request = mapped[0]
-        if migration_request is None:
-            raise AssertionError(f"{self.ERROR_HEADING}Mapped migration request is None.")
+        migration_request = mapped[0].item
         io = ThreeDMigrationIO(client)
 
         # Call migration endpoint for 3D model and revision
@@ -266,7 +262,7 @@ class TestMigrate3D:
         )
         if len(nodes) != 1:
             raise EndpointAssertionError(
-                client.data_modeling.instances._RESOURCE_PATH,
+                "data_modeling.instances.retrieve",
                 f"{self.ERROR_HEADING}. 3D model instance not found in data modeling after migration.",
             )
 
@@ -286,7 +282,7 @@ class TestMigrate3D:
         )
         if len(revisions) != 1:
             raise EndpointAssertionError(
-                client.data_modeling.instances._RESOURCE_PATH,
+                "data_modeling.instances.retrieve",
                 f"{self.ERROR_HEADING}3D revision instance not found in data modeling after migration.",
             )
         migrated_revision = revisions[0]
@@ -299,12 +295,12 @@ class TestMigrate3D:
         mappings = list(mapping_io.stream_data(selector=selector))
         if not mappings:
             raise AssertionError(f"{self.ERROR_HEADING}No asset mappings found for migration.")
-        asset_mappings_dm = ThreeDAssetMapper(client).map([di.item for page in mappings for di in page.items])
+        asset_mappings_dm = ThreeDAssetMapper(client).map(
+            [DataItem(tracking_id=str(di.tracking_id), item=di.item) for page in mappings for di in page.items]
+        )
         if len(asset_mappings_dm) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map asset mappings for migration.")
-        asset_mapping = asset_mappings_dm[0]
-        if asset_mapping is None:
-            raise AssertionError(f"{self.ERROR_HEADING}Mapped asset mapping is None.")
+        asset_mapping = asset_mappings_dm[0].item
 
         with HTTPClient(config=client.config) as http_client:
             mapping_results = mapping_io.upload_items(
@@ -321,7 +317,7 @@ class TestMigrate3D:
         cognite_asset = client.data_modeling.instances.retrieve_nodes(asset_node.as_id(), node_cls=CogniteAsset)
         if not cognite_asset:
             raise EndpointAssertionError(
-                client.data_modeling.instances._RESOURCE_PATH,
+                "data_modeling.instances.retrieve",
                 f"{self.ERROR_HEADING}CogniteAsset instance not found in data modeling after migration.",
             )
         if cognite_asset.object_3d is None:
@@ -339,6 +335,6 @@ class TestMigrate3D:
         )
         if len(cad_node) != 1:
             raise EndpointAssertionError(
-                client.data_modeling.instances._RESOURCE_PATH,
+                "data_modeling.instances.retrieve",
                 f"{self.ERROR_HEADING}CAD node instance not found in data modeling after migration.",
             )

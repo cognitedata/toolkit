@@ -19,6 +19,7 @@ from .hashing import (
     calculate_hash,
     calculate_secure_hash,
 )
+from .module_resolver import ModuleResolver
 from .modules import (
     find_directory_with_subdirectories,
     iterate_modules,
@@ -31,6 +32,7 @@ from .sentry_utils import sentry_exception_filter
 
 __all__ = [
     "GraphQLParser",
+    "ModuleResolver",
     "PipValidationResult",
     "YAMLComment",
     "YAMLWithComments",

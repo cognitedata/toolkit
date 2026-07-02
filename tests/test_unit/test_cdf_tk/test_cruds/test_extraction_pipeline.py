@@ -122,6 +122,19 @@ class TestExtractionPipelineLoader:
 
         assert list(actual) == expected
 
+    def test_diff_list_contacts_does_not_raise(self, monkeypatch: MonkeyPatch) -> None:
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+        local = [{"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True}]
+        cdf = [
+            {"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True},
+            {"name": "Bob", "email": "bob@example.com", "role": "viewer", "sendNotification": False},
+        ]
+
+        local_by_cdf, added = loader.diff_list(local, cdf, ("contacts",))
+
+        assert local_by_cdf == {0: 0}
+        assert added == [1]
+
     @patch.dict(
         os.environ,
         {

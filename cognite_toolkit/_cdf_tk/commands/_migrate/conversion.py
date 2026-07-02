@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -15,7 +15,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationData,
+    AnnotationResponse,
+    AssetLinkData,
+    FileLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
@@ -23,14 +28,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     EdgeProperty,
     EdgeRequest,
-    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceResponse,
     InstanceSource,
     JSONProperty,
     NodeId,
     NodeRequest,
-    NodeResponse,
     SingleEdgeProperty,
     TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
@@ -46,7 +49,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, Re
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
+from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path, humanize_collection
 from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
@@ -58,6 +63,14 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExte
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
+
+
+class InstanceMappingError(ToolkitError):
+    """Raised when an instance ID cannot be mapped to a destination instance ID."""
+
+    def __init__(self, message: str, severity: Severity = Severity.warning) -> None:
+        super().__init__(message)
+        self.severity = severity
 
 
 class DirectRelationCache:
@@ -175,7 +188,7 @@ class DirectRelationCache:
 
     @staticmethod
     def _extract_annotation_refs(
-        data: AssetLinkData | FileLinkData | dict[str, Any],
+        data: AnnotationData,
         asset_ids: set[int],
         asset_external_ids: set[str],
         file_ids: set[int],
@@ -279,7 +292,7 @@ def asset_centric_to_dm(
                 source=ViewId(
                     space=INSTANCE_SOURCE_VIEW_ID.space,
                     external_id=INSTANCE_SOURCE_VIEW_ID.external_id,
-                    version=view_source.view_id.version,
+                    version=INSTANCE_SOURCE_VIEW_ID.version,
                 ),
                 properties=instance_source_properties,
             )
@@ -510,7 +523,11 @@ def create_edge_properties(
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
-            value = NodeId(space=default_instance_space, external_id=str(flatten_dump[prop_json_path]))
+            edge_space = default_instance_space
+            if resource_type == "annotation" and edge_prop_id == "type":
+                # Annotation edge types (e.g. diagrams.AssetLink) belong to the CDM type space.
+                edge_space = "cdf_cdm"
+            value = NodeId(space=edge_space, external_id=str(flatten_dump[prop_json_path]))
         else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
@@ -525,6 +542,9 @@ def create_edge_properties(
 class EdgeOtherSide:
     edge_id: EdgeId
     other_side: NodeId
+
+
+DirectRelationEdgeTiebreaker = Callable[[list[EdgeOtherSide]], list[EdgeOtherSide]]
 
 
 class CustomConnectionMapping(ABC, Generic[T_ID]):
@@ -545,6 +565,42 @@ class CustomConnectionMapping(ABC, Generic[T_ID]):
         raise NotImplementedError()
 
 
+class InstanceIdMapper(ABC):
+    @abstractmethod
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        raise NotImplementedError
+
+
+class SpaceMappingInstanceIdMapper(InstanceIdMapper):
+    def __init__(self, space_mapping: Mapping[str, str]) -> None:
+        self._space_mapping = space_mapping
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        if instance_id.space not in self._space_mapping:
+            raise InstanceMappingError(
+                f"No source-to-destination space mapping applies to space {instance_id.space!r}. This migration is only "
+                f"configured to map instances from the following source space(s): "
+                f"{humanize_collection(self._space_mapping)}. Instances (or direct-relation/edge targets) outside these "
+                f"spaces cannot be migrated. To fix this, re-run the migration with {instance_id.space!r} included as "
+                f"a source space."
+            )
+        return NodeId(
+            space=self._space_mapping[instance_id.space],
+            external_id=instance_id.external_id,
+        )
+
+
+class SuffixInstanceIdMapper(InstanceIdMapper):
+    def __init__(self, suffix: str = "_cdm") -> None:
+        self._suffix = suffix
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        return NodeId(
+            space=instance_id.space,
+            external_id=sanitize_instance_external_id(instance_id.external_id, self._suffix),
+        )
+
+
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
 
@@ -555,7 +611,7 @@ class ConnectionCreator:
 
     Args:
         client: ToolkitClient to use for lookups when creating connections.
-        space_mapping: Mapping from source space IDs to destination space IDs, used to map instance IDs from source to destination space when creating connections.
+        instance_id_mapper: Strategy for mapping source instance IDs to destination instance IDs.
         custom_mappings: Optional mapping for any custom cases where the mapping from source to destination instance ID cannot be handled by the space mapping or
         timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings
         from source instance IDs (either external ID or NodeId) to destination NodeIds.
@@ -565,16 +621,18 @@ class ConnectionCreator:
     def __init__(
         self,
         client: ToolkitClient,
-        space_mapping: Mapping[str, str],
+        instance_id_mapper: InstanceIdMapper,
         custom_mappings: Sequence[CustomConnectionMapping] | None = None,
+        direct_relation_edge_tiebreakers: Mapping[str, DirectRelationEdgeTiebreaker] | None = None,
     ) -> None:
         self._client = client
-        self.space_mapping = space_mapping
+        self._instance_id_mapper = instance_id_mapper
         self.view_by_id: dict[ViewId, ViewResponse] = {}
         self._custom_mappings: Sequence[CustomConnectionMapping] = custom_mappings or []
         self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
+        self._direct_relation_edge_tiebreakers = direct_relation_edge_tiebreakers or {}
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
@@ -683,20 +741,22 @@ class ConnectionCreator:
     def _create_targets(
         self, value: Any, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[list[NodeId], list[str]]:
-        if isinstance(value, list):
-            targets: list[NodeId] = []
-            issues: list[str] = []
-            for item in value:
-                try:
-                    targets.append(self._create_target(item, source_prop_id, source_view_id))
-                except KeyError:
-                    issues.append(f"Failed to create target for value {item!s}")
-            return targets, issues
-        else:
+        items = value if isinstance(value, list) else [value]
+        targets: list[NodeId] = []
+        issues: list[str] = []
+        for item in items:
             try:
-                return [self._create_target(value, source_prop_id, source_view_id)], []
+                targets.append(self._create_target(item, source_prop_id, source_view_id))
+            except ValueError as error:
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
+                )
             except KeyError:
-                return [], [f"Failed to create target for value {value!s}"]
+                issues.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
+                    "no migrated instance found for reference"
+                )
+        return targets, issues
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
@@ -705,8 +765,14 @@ class ConnectionCreator:
             node_id = self._as_node_id(value)
             return custom_case_cache[node_id] if node_id else custom_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._timeseries_reference_cache:
+                raise ValueError(
+                    f"No migrated CogniteTimeSeries instance found for classic timeseries external ID {value!r}"
+                )
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            if value not in self._file_reference_cache:
+                raise ValueError(f"No migrated CogniteFile instance found for classic file external ID {value!r}")
             return self._file_reference_cache[value]
         elif (
             self._is_direct_relation(source_view_id, source_prop_id)
@@ -724,9 +790,9 @@ class ConnectionCreator:
         except ValueError:
             return None
 
-    def map_instance(self, node_id: NodeId | EdgeId | NodeResponse | EdgeResponse) -> NodeId:
-        """Maps a node ID form the source view's space to the corresponding node ID in the destination view's space using the space mapping."""
-        return NodeId(space=self.space_mapping[node_id.space], external_id=node_id.external_id)
+    def map_instance(self, instance_id: NodeId | EdgeId) -> NodeId:
+        """Maps a source instance ID to the corresponding destination instance ID."""
+        return self._instance_id_mapper.map_instance_id(instance_id)
 
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
         """Get the edge properties for a given view ID."""
@@ -815,16 +881,32 @@ class ConnectionCreator:
             )
             return targets[0], errors
 
+    def _tiebreak_direct_relation_edges(
+        self, edges: list[EdgeOtherSide], source_edge_type: EdgeTypeId
+    ) -> list[EdgeOtherSide]:
+        """
+        Tiebreaker function for when the target is a non-list direct relation and we need a method
+        to reduce a set of potentially N edges connected to a node to 1.
+        """
+        if len(edges) < 2:
+            return edges
+        tiebreaker = self._direct_relation_edge_tiebreakers.get(source_edge_type.type.external_id)
+        if tiebreaker is None:
+            return edges
+        return tiebreaker(edges)
+
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
+        if not dm_prop.list:
+            edges = self._tiebreak_direct_relation_edges(edges, source_edge_type)
         targets: list[NodeId] = []
         issues: list[str] = []
         for edge in edges:
             try:
                 target = self.map_instance(edge.other_side)
-            except KeyError as e:
-                issues.append(f"Failed to map {edge.other_side!s} to destination space: {e!s}")
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
             targets.append(target)
         result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
@@ -841,15 +923,13 @@ class ConnectionCreator:
         for edge in edges:
             try:
                 new_edge_id = self.map_instance(edge.edge_id)
-            except KeyError as e:
-                issues.append(f"Failed to map edge ID {edge.edge_id!s} to destination space: {e!s}")
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
             try:
                 other_side = self.map_instance(edge.other_side)
-            except KeyError as e:
-                issues.append(
-                    f"Failed to map other side of {source_id!s} node ID {edge.other_side!s} to destination space: {e!s}"
-                )
+            except InstanceMappingError as error:
+                issues.append(str(error))
                 continue
 
             start_node, end_node = source_id, other_side
@@ -915,14 +995,32 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
 
     def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
-        self._source_view_mapping = {
-            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+        # Keyed on (space, externalId) of the source view so that legacy version values like
+        # 'cdf_apm/TemplateItem/v5' still translate to the current destination view. The version
+        # segment is intentionally ignored; the destination always points at the latest registered
+        # destination view.
+        self._destination_by_versionless_source: dict[tuple[str, str], str] = {
+            (mapping.source_view.space, mapping.source_view.external_id): self._as_source_view_format(
+                mapping.destination_view
+            )
             for mapping in mappings
         }
 
     def _as_source_view_format(self, view_id: ViewId) -> str:
         """The special format used in the sourceView property of InField"""
         return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    @staticmethod
+    def _parse_versionless_view(value: str) -> tuple[str, str] | None:
+        """Parse ``"<space>/<externalId>/<version>"`` into ``(space, externalId)``, dropping
+        the version. Many ``Condition`` instances reference older view versions of e.g. ``TemplateItem``,
+        but we should be migrating all of them to the latest version in CDM, so we translate by
+        only space and external ID. Returns ``None`` for unparseable values."""
+        parts = value.split("/")
+        if len(parts) != 3:
+            return None
+        space, external_id, _version = parts
+        return space, external_id
 
     def convert(
         self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
@@ -934,10 +1032,12 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
                 issues.append(
                     f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
                 )
-            elif value not in self._source_view_mapping:
-                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
             else:
-                created_properties["sourceView"] = self._source_view_mapping[value]
+                versionless_source = self._parse_versionless_view(value)
+                if versionless_source is None or versionless_source not in self._destination_by_versionless_source:
+                    issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+                else:
+                    created_properties["sourceView"] = self._destination_by_versionless_source[versionless_source]
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
@@ -1006,7 +1106,6 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
             (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
             (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
         }
@@ -1066,8 +1165,12 @@ def convert_container_properties(
         if not dest_prop_id or (
             dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
         ):
-            # We do not warn about the node properties, as they are typically ignored.
-            if not source_prop_id.startswith("node."):
+            # We do not warn about the node properties, as they are typically ignored, nor about
+            # source properties that are explicitly marked as intentionally unmapped.
+            if (
+                not source_prop_id.startswith("node.")
+                and source_prop_id not in context.mapping.ignore_source_properties
+            ):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
         if dest_prop_id not in context.destination_properties:

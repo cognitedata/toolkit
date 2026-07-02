@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from .api.agents import AgentsAPI
 from .api.alerts import AlertsAPI
 from .api.annotations import AnnotationsAPI
+from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.canvas import IndustrialCanvasAPI
 from .api.cognite_files import CogniteFilesAPI
@@ -44,6 +45,7 @@ from .api.sequences import SequencesAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
+from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
@@ -64,6 +66,8 @@ class ToolAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
+        self.skills = SkillsAPI(http_client)
+        self.apps = AppsAPI(http_client)
         self.annotations = AnnotationsAPI(http_client)
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)
@@ -106,17 +110,17 @@ class ToolAPI:
 class ToolkitClient(CogniteClient):
     def __init__(
         self,
-        config: ToolkitClientConfig | None = None,
+        config: ToolkitClientConfig,
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
-        http_client = HTTPClient(self.config, console=console)
+        http_client = HTTPClient(config, console=console)
         self.http_client = http_client
         self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
-        self.verify = VerifyAPI(self._config, self._API_VERSION, self)
-        self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
+        self.verify = VerifyAPI(config, self)
+        self.lookup = LookUpGroup(config, self, self.console)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
         self.token = TokenAPI(self)
@@ -136,4 +140,5 @@ class ToolkitClient(CogniteClient):
         Returns:
             ToolkitClientConfig: The configuration object.
         """
-        return cast(ToolkitClientConfig, self._config)
+
+        return cast(ToolkitClientConfig, super().config)

@@ -50,6 +50,10 @@ class Flags(Enum):
         visible=False,
         description="Enables the 'events-to-records' migration command",
     )
+    IMAGE360_MIGRATE = FlagMetadata(
+        visible=False,
+        description="Enables the '360-images' and '360-image-annotations' migration commands",
+    )
     CREATE = FlagMetadata(
         visible=True,
         description="Enables support for the resources create command under dev plugin",
@@ -77,6 +81,18 @@ class Flags(Enum):
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",
+    )
+    ENTITY_MATCHING = FlagMetadata(
+        visible=True,
+        description="Enables the entity-matching command family under the dev plugin",
+    )
+    CUSTOM_APPS = FlagMetadata(
+        visible=True,
+        description="Enables support for custom app resources (App Hosting API deployment)",
+    )
+    AGENT_SKILLS = FlagMetadata(
+        visible=True,
+        description="Enables support for agent skill resources",
     )
 
     def is_enabled(self) -> bool:

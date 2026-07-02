@@ -198,7 +198,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD, NodeCRUD})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -229,6 +229,9 @@ class DatapointSubscriptionIO(
             yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+        for instance_id in item.get("instanceIds", []):
+            if isinstance(instance_id, dict) and "space" in instance_id and "externalId" in instance_id:
+                yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

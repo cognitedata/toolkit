@@ -50,7 +50,17 @@ class ChartResponse(Chart, ResponseResource[ChartRequest], extra="allow"):
         return ChartRequest
 
     def as_request_resource(self, include: Set[BackendService] = BACKEND_SERVICES) -> ChartRequest:
-        chart_request = super().as_request_resource()
+        dumped = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude={
+                "created_time",
+                "last_updated_time",
+                "owner_id",
+            },
+        )
+        chart_request = ChartRequest.model_validate(dumped, extra="allow", by_alias=True)
         if self.monitoring_jobs is not None and "monitoring_jobs" in include:
             chart_request.monitoring_jobs = [job.as_request_resource() for job in self.monitoring_jobs]
         if self.scheduled_calculations is not None and "scheduled_calculations" in include:

@@ -16,7 +16,6 @@ from cognite.client.data_classes import (
     ClientCredentials,
     DataSet,
     Function,
-    FunctionSchedule,
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
@@ -46,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
     GroupRequest,
@@ -58,6 +58,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -79,6 +80,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceWorker,
     RobotCapabilityIO,
     RoboticsDataPostProcessingIO,
+    SkillIO,
     TransformationIO,
     ViewIO,
     WorkflowVersionIO,
@@ -97,10 +99,10 @@ class TestFunctionScheduleLoader:
         toolkit_client: ToolkitClient,
         toolkit_client_config: ToolkitClientConfig,
         dummy_function: Function,
-        dummy_schedule: FunctionSchedule,
+        dummy_schedule: FunctionScheduleResponse,
     ) -> None:
         loader = FunctionScheduleIO(toolkit_client, None, None)
-        function_schedule = dummy_schedule.as_write()
+        function_schedule = dummy_schedule.as_request_resource()
 
         function_schedule.description = (
             "Updated description."
@@ -640,7 +642,7 @@ def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) 
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
             external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
-            properties={"name": dm.ContainerProperty(type=dm.Text())},
+            properties={"name": dm.ContainerPropertyApply(type=dm.Text())},
         )
     )
     yield a_container
@@ -1312,3 +1314,55 @@ createdBy: null
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+
+_SKILL_CONTENT = """---
+name: integration-test-skill
+description: Toolkit integration test skill
+---
+
+# Integration test skill
+
+Used by toolkit integration tests.
+"""
+
+
+class TestSkillIO:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        loader = SkillIO(toolkit_client, None)
+        external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
+        original = SkillRequest(
+            external_id=external_id,
+            name="integration-test-skill",
+            description="Toolkit integration test skill",
+            content=_SKILL_CONTENT,
+        )
+        updated = SkillRequest(
+            external_id=external_id,
+            name="integration-test-skill",
+            description="Updated toolkit integration test skill",
+            content="""---
+name: integration-test-skill
+description: Updated toolkit integration test skill
+---
+
+# Integration test skill
+
+Used by toolkit integration tests (updated).
+""",
+        )
+        try:
+            created = loader.create([original])
+            assert len(created) == 1
+
+            loader.update([updated])
+            retrieved = loader.retrieve([original.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].description == updated.description
+            assert retrieved[0].content is not None
+            assert retrieved[0].content.startswith(
+                "---\nname: integration-test-skill\ndescription: Updated toolkit integration test skill\n---\n"
+            )
+            assert "Used by toolkit integration tests (updated)." in retrieved[0].content
+        finally:
+            loader.delete([original.as_id()])

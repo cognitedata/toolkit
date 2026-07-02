@@ -175,6 +175,7 @@ class InstanceConversionIssue(MigrationIssue):
 
     type: Literal["instanceConversion"] = "instanceConversion"
     errors: list[str] = Field(default_factory=list)
+    severity: Severity = Severity.warning
 
     @property
     def has_issues(self) -> bool:
@@ -189,7 +190,7 @@ def instance_conversion_issue_as_migration_entry(
         id=issue.id,
         label="Instance conversion",
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
-        severity=Severity.warning,
+        severity=issue.severity,
         source=source,
         destination=destination,
     )

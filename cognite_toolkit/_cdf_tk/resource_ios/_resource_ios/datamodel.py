@@ -373,6 +373,11 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         for key in ["constraints", "indexes"]:
             cdf_value = dumped.get(key)
             local_value = local.get(key)
+            if isinstance(cdf_value, dict):
+                # Drop server-populated read-only "state" field on each constraint/index.
+                for cdf_item in cdf_value.values():
+                    if isinstance(cdf_item, dict):
+                        cdf_item.pop("state", None)
             if not cdf_value and not local_value:
                 # Both sides represent "no constraints/indexes". The API and
                 # the local YAML can each express this by not including the
@@ -775,6 +780,12 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                 warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
                 warning.print_warning(console=self.console)
 
+        for prop in dumped.get("properties", {}).values():
+            if isinstance(prop, dict):
+                # targetsList is a read-only field populated by the backend on reverse direct
+                # relation connection properties. Drop it from the CDF dump so it doesn't
+                # show up as a spurious diff.
+                prop.pop("targetsList", None)
         local_properties = local.get("properties", {})
         for prop_id, prop in dumped.get("properties", {}).items():
             if prop_id not in local_properties:
@@ -1417,7 +1428,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
         This includes a required .graphql file with the schema.
         """
-        graphql_file = cls._get_graphql_file(filepath)
+        graphql_file = cls._get_graphql_file(filepath, dml=item.get("dml"))
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
@@ -1438,7 +1449,10 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
         )
 
     @classmethod
-    def _get_graphql_file(cls, filepath: Path) -> Path:
+    def _get_graphql_file(cls, filepath: Path, dml: str | None = None) -> Path:
+        if dml is not None:
+            return filepath.parent / str(dml)
+
         filestem = filepath.stem
         if filestem.lower().endswith(cls.kind.lower()):
             filestem = filestem[: -len(cls.kind)].removesuffix(".").rstrip()
@@ -1471,8 +1485,9 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
         for item in raw_list:
             model_id = self.get_id(item)
-            # Find the GraphQL files adjacent to the DML files
-            graphql_file = self._get_graphql_file(filepath)
+            # Find the GraphQL files adjacent to the DML files.
+            # The 'dml' key in the YAML may point to a custom graphql file name.
+            graphql_file = self._get_graphql_file(filepath, dml=item.get("dml"))
             if not graphql_file.is_file():
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"

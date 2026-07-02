@@ -140,7 +140,7 @@ def file_ts_nodes(
     )
     classic_ts = TimeSeriesWrite(
         external_id=ts.external_id,
-        name=ts.name,
+        name="Test TS for Purge with Unlink",
         is_step=ts.is_step,
         is_string=ts.time_series_type == "string",
     )
@@ -249,7 +249,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
     sequence = SequenceWrite(
         external_id=f"test_sequence_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
-        columns=[SequenceColumnWrite(external_id="col1", value_type="String")],
+        columns=[SequenceColumnWrite(external_id="col1", value_type="STRING")],
     )
     created_sequence = client.sequences.create(sequence)
 
@@ -380,6 +380,7 @@ class TestPurgeSmoke:
         mock_questionary.confirm.return_value.ask.return_value = True
         mock_questionary.text.return_value.unsafe_ask.return_value = client.config.project
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", mock_questionary)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._utils.questionary", mock_questionary)
 
         purge = PurgeCommand(silent=True)
 

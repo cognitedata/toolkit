@@ -5,6 +5,8 @@ import httpx
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.resource_ios import (
     CRUD_LIST,
+    AppIO,
+    AppVersionIO,
     DataProductIO,
     DataProductVersionIO,
     Loader,
@@ -15,8 +17,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RoboticsDataPostProcessingIO,
 )
 
-# These are unofficial APIs that do not have public documentation,
-# only accessible for Cognite employees. We exclude them from the doc_url test.
+# APIs excluded from the doc_url test: either unofficial/internal APIs not publicly documented,
+# or APIs whose public documentation is not yet available.
 INTERNAL_DOCS = {
     RoboticMapIO,
     RoboticFrameIO,
@@ -25,6 +27,8 @@ INTERNAL_DOCS = {
     RoboticsDataPostProcessingIO,
     DataProductIO,
     DataProductVersionIO,
+    AppIO,
+    AppVersionIO,
 }
 
 

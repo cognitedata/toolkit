@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-import responses
 import respx
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
@@ -21,8 +20,12 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
-from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationResponse,
+    AssetLinkData,
+    FileLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -91,7 +94,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -178,8 +181,8 @@ def resource_view_mappings(
 @pytest.fixture
 def mock_statistics(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
-) -> Iterator[responses.RequestsMock]:
+    respx_mock: respx.MockRouter,
+) -> Iterator[None]:
     config = toolkit_config
     stats_response = {
         "spaces": {
@@ -216,12 +219,11 @@ def mock_statistics(
         "concurrentWriteLimit": 20,
         "concurrentDeleteLimit": 10,
     }
-    rsps.get(
-        config.create_api_url("/models/statistics"),
+    respx_mock.get(config.create_api_url("/models/statistics")).respond(
+        status_code=200,
         json=stats_response,
-        status=200,
     )
-    yield rsps
+    yield None
 
 
 def _make_stream_response(
@@ -245,6 +247,19 @@ def _make_stream_response(
             ),
         ),
     )
+
+
+class _ChunkTrackingUploadIO:
+    CHUNK_SIZE = 1000
+    KIND = "Instances"
+
+    def __init__(self) -> None:
+        self.upload_chunk_sizes: list[int] = []
+        self.logger = MagicMock()
+
+    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
+        self.upload_chunk_sizes.append(len(data_chunk))
+        return []
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -652,13 +667,17 @@ class TestMigrationCommand:
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
+        assert isinstance(asset_annotation.data, AssetLinkData)
+        assert isinstance(asset_annotation.data.asset_ref, InternalId)
+        assert isinstance(file_annotation.data, FileLinkData)
+        assert isinstance(file_annotation.data.file_ref, InternalId)
         expected_instance = [
             EdgeApply(
                 space=space,
                 external_id=f"annotation_{asset_annotation.id}",
                 start_node=(space, f"file_{asset_annotation.annotated_resource_id}"),
-                end_node=(space, f"asset_{asset_annotation.data['assetRef']['id']}"),
-                type=(space, asset_annotation.annotation_type),
+                end_node=(space, f"asset_{asset_annotation.data.asset_ref.id}"),
+                type=("cdf_cdm", asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
                         source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
@@ -667,10 +686,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": asset_annotation.creating_user,
                             "sourceId": asset_annotation.creating_app,
                             "status": "Approved",
-                            "startNodeXMax": asset_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": asset_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": asset_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": asset_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": asset_annotation.data.dump()["textRegion"]["xMax"],
+                            "startNodeXMin": asset_annotation.data.dump()["textRegion"]["xMin"],
+                            "startNodeYMax": asset_annotation.data.dump()["textRegion"]["yMax"],
+                            "startNodeYMin": asset_annotation.data.dump()["textRegion"]["yMin"],
                         },
                     ),
                 ],
@@ -679,8 +698,8 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{file_annotation.id}",
                 start_node=(space, f"file_{file_annotation.annotated_resource_id}"),
-                end_node=(space, f"file_{file_annotation.data['fileRef']['id']}"),
-                type=(space, file_annotation.annotation_type),
+                end_node=(space, f"file_{file_annotation.data.file_ref.id}"),
+                type=("cdf_cdm", file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
                         source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
@@ -689,10 +708,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": file_annotation.creating_user,
                             "sourceId": file_annotation.creating_app,
                             "status": "Approved",
-                            "startNodeXMax": file_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": file_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": file_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": file_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": file_annotation.data.dump()["textRegion"]["xMax"],
+                            "startNodeXMin": file_annotation.data.dump()["textRegion"]["xMin"],
+                            "startNodeYMax": file_annotation.data.dump()["textRegion"]["yMax"],
+                            "startNodeYMin": file_annotation.data.dump()["textRegion"]["yMin"],
                         },
                     ),
                 ],
@@ -772,13 +791,23 @@ class TestMigrationCommand:
                 ],
             }
         )
-        # Chart list
+        # Chart retrieve by IDs (used by stream_data for ChartExternalIdSelector)
+        respx.post(
+            config.create_app_url("/storage/charts/charts/byids"),
+        ).respond(
+            status_code=200,
+            json={
+                "items": [chart.dump() for chart in charts],
+            },
+        )
+        # Chart list (used by existing_charts property during upload to determine create vs update)
         respx.post(
             config.create_app_url("/storage/charts/charts/list"),
         ).respond(
             status_code=200,
             json={
                 "items": [chart.dump() for chart in charts],
+                "nextCursor": None,
             },
         )
         # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
@@ -849,7 +878,7 @@ class TestMigrationCommand:
         }
 
         calls = respx_mock.calls
-        assert len(calls) == 5
+        assert len(calls) == 6
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts/my_chart")
         assert last_call.request.method == "PUT"
@@ -1112,6 +1141,26 @@ class TestMigrationCommand:
 
         has_existing_version = [item["externalId"] for item in created_instance if "existingVersion" in item]
         assert not has_existing_version, f"Expected no existingVersion field, but found in: {has_existing_version}"
+
+    def test_upload_chunks_pages_larger_than_chunk_size(self, tmp_path: Path) -> None:
+        command = MigrationCommand(silent=True)
+        target = _ChunkTrackingUploadIO()
+        page = Page(
+            worker_id="main",
+            items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(1001)],
+        )
+        upload = command._upload(
+            selected=MagicMock(),
+            write_client=MagicMock(),
+            target=target,  # type: ignore[arg-type]
+            dry_run=False,
+            log_dir=tmp_path,
+            total_item_count=1001,
+            start_item=0,
+        )
+        upload(page)
+
+        assert target.upload_chunk_sizes == [1000, 1]
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

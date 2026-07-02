@@ -6,7 +6,7 @@ import yaml
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse, RootLocationConfiguration
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     NodeId,
@@ -114,12 +114,12 @@ class TestCreator:
         creator = InstanceSpaceCreator(toolkit_client_approval.client, [invalid_dataset], auto_fix=auto_fix)
         created = list(creator.create_resources())
         assert len(created) == 1
-        created_space = created[0].resources[0].resource
-        assert isinstance(created_space, SpaceRequest)
         if auto_fix:
+            created_space = created[0].resources[0].resource
+            assert isinstance(created_space, SpaceRequest)
             assert created_space.space == "invaliddatasetnamewithspaces"
         else:
-            assert created_space.space == "invalid dataset name with spaces"
+            assert created[0].resources == []
 
     def test_create_instance_spaces_duplicate_space_ids(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
@@ -212,3 +212,27 @@ class TestCreator:
                     to_create.crud_cls.yaml_cls.model_validate(resource.config_data)
 
         data_regression.check(output)
+
+    def test_create_infield_config_skips_invalid_root_location(self) -> None:
+        apm_config_path = MIGRATION_DIR / "infield_config" / "default_infield_config_minimal.yaml"
+        apm_config = APMConfigResponse.model_validate(yaml.safe_load(apm_config_path.read_text()))
+        valid_root_location = apm_config.feature_configuration.root_location_configurations[0]
+        apm_config.feature_configuration.root_location_configurations.append(
+            RootLocationConfiguration(
+                external_id="missing_required_fields",
+                asset_external_id="WMT:OTHER",
+                source_data_instance_space="sp_asset_oid_source",
+            )
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.assets.return_value = NodeId(
+                space="migrated", external_id=valid_root_location.asset_external_id
+            )
+            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            resources_by_kind = {
+                to_create.display_name: to_create.resources for to_create in creator.create_resources()
+            }
+
+        assert len(resources_by_kind["InField CDM Location Configs"]) == 1
+        assert len(resources_by_kind["Location Filters"]) == 1

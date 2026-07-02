@@ -4,18 +4,20 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
     DataModelInstancesAcl,
+    DataModelsAcl,
     ScopeDefinition,
     SpaceIDScope,
 )
@@ -28,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -36,6 +38,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     InfieldLocationConfigYAML,
     InfieldV1YAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY
 
 from .auth import GroupAllScopedCRUD
 from .classic import AssetIO
@@ -392,10 +395,58 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        if not isinstance(scope, AllScope):
+            # Reading APM_Config is always required to check for legacy InField conflicts.
+            # AllScope already covers any space, so these are only needed for scoped deployments.
+            yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+            yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+
+    @classmethod
+    def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.data_exploration_config is None:
+            return
+        for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
+            card_mapping = getattr(resource.data_exploration_config, card_attr, None)
+            if card_mapping is None:
+                continue
+            yield (
+                ViewIO,
+                ViewId(
+                    space=card_mapping.space,
+                    external_id=card_mapping.external_id,
+                    version=card_mapping.version,
+                ),
+            )
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        data_exploration_config = item.get("dataExplorationConfig")
+        if not isinstance(data_exploration_config, dict):
+            return
+        for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
+            card_mapping = data_exploration_config.get(json_key)
+            if not isinstance(card_mapping, dict):
+                continue
+            if not in_dict(("space", "externalId", "version"), card_mapping):
+                continue
+            yield (
+                ViewIO,
+                ViewId(
+                    space=card_mapping["space"],
+                    external_id=card_mapping["externalId"],
+                    version=str(card_mapping["version"]),
+                ),
+            )
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
-        apm_configs = self.client.infield.apm_config.list(limit=None)
+        try:
+            apm_configs = self.client.infield.apm_config.list(limit=None)
+        except ToolkitAPIError as e:
+            if e.code == 400 and "views do not exist" in e.message:
+                # The APM_Config view isn't setup — this is a project without legacy Infield configured.
+                return set()
+            raise
         return {
             location.app_data_instance_space
             for config in apm_configs

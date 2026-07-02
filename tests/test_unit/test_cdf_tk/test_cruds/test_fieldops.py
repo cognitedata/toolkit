@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
@@ -11,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -22,7 +23,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
     InfieldV1IO,
     SpaceCRUD,
+    ViewIO,
 )
+from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 
 
 class TestInfieldV1Loader:
@@ -74,7 +77,88 @@ class TestInfieldV1Loader:
 
 
 class TestInFieldCDMLocationConfigCRUD:
-    @pytest.mark.skipif(not Flags.INFIELD.is_enabled(), reason="Alpha feature is not enabled")
+    def test_get_dependencies_includes_data_exploration_card_views(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetActivitiesCardView": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "ActivitiesCard",
+                    },
+                    "assetNotificationsCardView": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "NotificationsCard",
+                    },
+                },
+            }
+        )
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
+            (
+                ViewIO.__name__,
+                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+            ),
+        }
+
+    def test_get_dependencies_without_data_exploration_config(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {"space": "sp_instance", "externalId": "my_location_config"}
+        )
+        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
+
+    def test_get_dependencies_ignores_asset_properties_card(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetPropertiesCardView": {
+                        "space": "customer_idm_extention",
+                        "version": "v2",
+                        "externalId": "PropertiesCard",
+                    },
+                },
+            }
+        )
+        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
+
+    def test_get_dependent_items_includes_data_exploration_view_mappings(self) -> None:
+        item = {
+            "space": "sp_instance",
+            "externalId": "my_location_config",
+            "dataExplorationConfig": {
+                "assetActivitiesCardView": {
+                    "space": "customer_idm_extention",
+                    "version": "v2",
+                    "externalId": "ActivitiesCard",
+                },
+                "assetNotificationsCardView": {
+                    "space": "customer_idm_extention",
+                    "version": "v2",
+                    "externalId": "NotificationsCard",
+                },
+            },
+        }
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
+            (
+                ViewIO.__name__,
+                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+            ),
+        }
+
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"
         item = InFieldCDMLocationConfigRequest(
@@ -99,3 +183,21 @@ class TestInFieldCDMLocationConfigCRUD:
             assert my_console.print.called
             message = my_console.print.call_args[0][1]
             assert message.startswith(f"Skipping creation of infield CDM location configs {item.as_id()!s}.")
+
+    def test_cdm_only_project_no_apm_config_view(self) -> None:
+        item = InFieldCDMLocationConfigRequest(
+            external_id="my_config",
+            space="my_space",
+            data_storage=DataStorage(app_instance_space="my_space"),
+        )
+        with monkeypatch_toolkit_client() as client:
+            my_console = MagicMock(spec=Console)
+            client.infield.apm_config.list.side_effect = ToolkitAPIError(
+                "One or more views do not exist: 'APM_Config:APM_Config/1'", code=400
+            )
+            io = InFieldCDMLocationConfigIO(client, None, my_console)
+
+            io.create([item])
+
+            client.infield.cdm_config.create.assert_called_once_with([item])
+            assert not my_console.print.called

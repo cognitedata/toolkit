@@ -99,15 +99,15 @@ def invalid_test_cases() -> Iterable:
             "externalId": "my_config",
             "space": "my_space",
             "dataExplorationConfig": {
-                "assetPropertiesCard": {
+                "assetPropertiesCardView": {
                     "space": "my_space",
                     "version": "v1",
                     # Missing externalId
                 },
             },
         },
-        {"In dataExplorationConfig.assetPropertiesCard missing required field: 'externalId'"},
-        id="Missing required field in dataExplorationConfig.assetPropertiesCard",
+        {"In dataExplorationConfig.assetPropertiesCardView missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetPropertiesCardView",
     )
     yield pytest.param(
         {
@@ -133,6 +133,66 @@ def invalid_test_cases() -> Iterable:
         },
         {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
         id="Multiple observations in viewMappings not supported",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyActivityView",
+                    "unknownNested": "x",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetActivitiesCardView unknown field: 'unknownNested'"},
+        id="Unknown field in dataExplorationConfig.assetActivitiesCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetActivitiesCardView missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetActivitiesCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyNotificationView",
+                    "extraProp": 1,
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetNotificationsCardView unknown field: 'extraProp'"},
+        id="Unknown field in dataExplorationConfig.assetNotificationsCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetNotificationsCardView missing required field: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetNotificationsCardView",
     )
 
 

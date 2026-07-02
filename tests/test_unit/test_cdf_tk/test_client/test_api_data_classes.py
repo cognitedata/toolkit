@@ -190,6 +190,19 @@ class TestRequestUpdateable:
 
 
 class TestAgentRequest:
+    def test_subagents_roundtrip(self) -> None:
+        data = {
+            "externalId": "supervisor",
+            "name": "Supervisor",
+            "runtimeVersion": "1.3.0",
+            "subagents": [
+                {"agentExternalId": "weather-specialist"},
+                {"agentExternalId": "rca-specialist"},
+            ],
+        }
+        agent_request = AgentRequest.model_validate(data)
+        assert agent_request.dump() == data
+
     def test_allow_unknown_tool(self) -> None:
         data = {
             "externalId": "agent_1",
@@ -207,7 +220,7 @@ class TestAgentRequest:
 
     @pytest.mark.parametrize(
         "tool_type",
-        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "queryKnowledgeGraph"}),
+        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "query", "queryKnowledgeGraph"}),
     )
     def test_tool_extra_fields_preserved(self, tool_type: str) -> None:
         """Tools must preserve unknown fields so the API can add new properties without breaking deployments."""

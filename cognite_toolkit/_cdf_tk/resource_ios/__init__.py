@@ -21,6 +21,8 @@ from ._base_ios import DataCRUD, Loader, ResourceContainerIO, ResourceIO
 from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_ios import (
     AgentIO,
+    AppIO,
+    AppVersionIO,
     AssetIO,
     CogniteFileCRUD,
     ContainerCRUD,
@@ -71,6 +73,7 @@ from ._resource_ios import (
     SimulatorModelRevisionIO,
     SimulatorRoutineIO,
     SimulatorRoutineRevisionIO,
+    SkillIO,
     SpaceCRUD,
     StreamIO,
     StreamlitIO,
@@ -92,7 +95,6 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1IO)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
-    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
 if not FeatureFlag.is_enabled(Flags.SIGNALS):
@@ -103,6 +105,11 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
     _EXCLUDED_CRUDS.add(RuleSetIO)
     _EXCLUDED_CRUDS.add(RuleSetVersionIO)
+if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
+    _EXCLUDED_CRUDS.add(AppIO)
+    _EXCLUDED_CRUDS.add(AppVersionIO)
+if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+    _EXCLUDED_CRUDS.add(SkillIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -151,6 +158,8 @@ del crud  # cleanup module namespace
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
+    "skills",
+    "apps",
     "auth",
     "cdf_applications",
     "classic",
@@ -199,6 +208,8 @@ __all__ = [
     "RESOURCE_DATA_CRUD_LIST",
     "_EXCLUDED_CRUDS",
     "AgentIO",
+    "AppIO",
+    "AppVersionIO",
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
@@ -254,6 +265,7 @@ __all__ = [
     "SimulatorModelRevisionIO",
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
+    "SkillIO",
     "SpaceCRUD",
     "StreamIO",
     "StreamlitIO",

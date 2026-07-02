@@ -38,11 +38,11 @@ class DataProductVersionTerms(BaseModelResource):
 
 
 class DataProductVersionQualityRule(BaseModelResource):
-    rule_set_external_id: str = Field(description="External ID of the referenced rule set.")
+    external_id: str = Field(description="External ID of the referenced rule set.")
     version: SemanticVersion = Field(description="Version of the referenced rule set.")
 
     def as_id(self) -> RuleSetVersionId:
-        return RuleSetVersionId(rule_set_external_id=self.rule_set_external_id, version=self.version)
+        return RuleSetVersionId(rule_set_external_id=self.external_id, version=self.version)
 
 
 class DataProductVersionQuality(BaseModelResource):

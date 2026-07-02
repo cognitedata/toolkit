@@ -3,7 +3,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-import responses
 import respx
 from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
 
@@ -20,16 +19,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import create_360_image_selectors
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.dataio import DataItem, InstanceIO, Page
-from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.dataio.selectors import (
+    InstanceQuerySelector,
+    InstanceSpaceSelector,
+    InstanceViewSelector,
+    SelectedView,
+)
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestInstanceIO:
-    def test_download_instance_ids(
-        self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
-    ) -> None:
+    def test_download_instance_ids(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/query")
         selector = InstanceViewSelector(
@@ -38,10 +41,8 @@ class TestInstanceIO:
             instance_spaces=("my_insta_space",),
         )
         N = 2500
-        rsps.add(
-            responses.POST,
-            toolkit_config.create_api_url("/models/instances/aggregate"),
-            status=200,
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
             json={
                 "items": [
                     {
@@ -62,29 +63,31 @@ class TestInstanceIO:
                 "version": 1,
             }
 
-        respx_mock.post(url).side_effect = [
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(1000)]},
-                    "nextCursor": {"root": "cursor_1"},
-                },
-            ),
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
-                    "nextCursor": {"root": "cursor_2"},
-                },
-            ),
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {"root": [_node_dict(i) for i in range(2000, N)]},
-                    "nextCursor": {"root": None},
-                },
-            ),
-        ]
+        respx_mock.post(url).mock(
+            side_effect=[
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000)]},
+                        "nextCursor": {"root": "cursor_1"},
+                    },
+                ),
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                        "nextCursor": {"root": "cursor_2"},
+                    },
+                ),
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                        "nextCursor": {"root": None},
+                    },
+                ),
+            ]
+        )
         io = InstanceIO(client)
         ids = list(io.download_ids(selector))
         count = io.count(selector)
@@ -162,7 +165,6 @@ class TestInstanceIO:
         tmp_path: Path,
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
-        rsps: responses.RequestsMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = toolkit_config
@@ -193,8 +195,8 @@ class TestInstanceIO:
             return httpx.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
 
         # Download count
-        rsps.post(
-            config.create_api_url("/models/instances/aggregate"),
+        respx_mock.post(config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
             json={
                 "items": [
                     {
@@ -203,7 +205,6 @@ class TestInstanceIO:
                     }
                 ]
             },
-            status=200,
         )
         # Download data
         respx_mock.post(config.create_api_url("/models/instances/query")).respond(
@@ -319,7 +320,86 @@ class TestInstanceIO:
             kind=InstanceIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 4
+        assert len(respx_mock.calls) == 5
+
+    def test_build_query_filter_includes_additional_filter(self) -> None:
+        additional_filter = {"equals": {"property": ["node", "externalId"], "value": "collection_1"}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            additional_filter=additional_filter,
+        )
+
+        result = InstanceIO._build_query_filter(selector, "node")
+
+        assert "and" in result
+        assert additional_filter in result["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+
+        def _node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        respx_mock.post(query_url).respond(
+            status_code=200,
+            json={
+                "items": {"root": [_node("collection_1")]},
+                "nextCursor": {},
+            },
+        )
+
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        assert len(pages) == 1
+        assert {item.item.external_id for item in pages[0].items} == {"collection_1"}
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        node_filter = request_body["with"]["root"]["nodes"]["filter"]
+        assert additional_filter in node_filter["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_count_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "instanceType": "node",
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": 1}],
+                    }
+                ]
+            },
+        )
+
+        assert InstanceIO(client).count(selector) == 1
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        assert request_body["filter"] == additional_filter
 
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
@@ -355,43 +435,45 @@ class TestInstanceIO:
                 "endNode": {"space": "my_space", "externalId": end},
             }
 
-        respx_mock.post(query_url).side_effect = [
-            # Call 1: first node batch + first edge batch (edge cursor present)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [_node("node_0"), _node("node_1")],
-                        "edge_1": [
-                            _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
-                        ],
+        respx_mock.post(query_url).mock(
+            side_effect=[
+                # Call 1: first node batch + first edge batch (edge cursor present)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_0"), _node("node_1")],
+                            "edge_1": [
+                                _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
+                            ],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
                     },
-                    "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
-                },
-            ),
-            # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [],
-                        "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
+                ),
+                # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [],
+                            "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1"},
                     },
-                    "nextCursor": {"nodes": "node_cursor_1"},
-                },
-            ),
-            # Call 3: second node batch (no more cursors → done)
-            httpx.Response(
-                status_code=200,
-                json={
-                    "items": {
-                        "nodes": [_node("node_2"), _node("node_3")],
-                        "edge_1": [],
+                ),
+                # Call 3: second node batch (no more cursors → done)
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_2"), _node("node_3")],
+                            "edge_1": [],
+                        },
+                        "nextCursor": {},
                     },
-                    "nextCursor": {},
-                },
-            ),
-        ]
+                ),
+            ]
+        )
 
         io = InstanceIO(client)
         pages = list(io.stream_data(selector))
@@ -410,6 +492,43 @@ class TestInstanceIO:
         second_edge_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "edge"}
         assert second_node_ids == {"node_2", "node_3"}
         assert second_edge_ids == set()
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_query_root_not_in_select(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        """Root drives pagination but may be omitted from items when not selected."""
+        client = ToolkitClient(config=toolkit_config)
+        station_selector = create_360_image_selectors([NodeId(space="img_space", external_id="col1")])[1]
+        assert isinstance(station_selector, InstanceQuerySelector)
+
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+        respx_mock.post(query_url).respond(
+            status_code=200,
+            json={
+                "items": {
+                    "image360station": [
+                        {
+                            "instanceType": "node",
+                            "space": "img_space",
+                            "externalId": "station1",
+                            "version": 1,
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "properties": {"cdf_360_image_schema": {"Station360/v1": {"label": "Station A"}}},
+                        }
+                    ]
+                },
+                "nextCursor": {"image360": None},
+            },
+        )
+
+        pages = list(InstanceIO(client).stream_data(station_selector))
+
+        assert len(pages) == 1
+        assert len(pages[0].items) == 1
+        assert pages[0].items[0].tracking_id == "img_space:station1"
+        assert pages[0].items[0].item.external_id == "station1"
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",

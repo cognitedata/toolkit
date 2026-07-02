@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import (
     Asset,
-    CountAggregate,
     UserProfile,
     UserProfileList,
 )
@@ -15,7 +14,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
@@ -24,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerId,
     DataModelResponse,
+    NodeResponse,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -51,6 +52,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DocumentsInteractiveSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
@@ -79,7 +81,10 @@ class TestInteractiveSelect:
             MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = AssetInteractiveSelect(client, "test_operation")
-            client.assets.list.return_value = [Asset(id=1, external_id="Root1"), Asset(id=2, external_id="Root2")]
+            client.assets.list.return_value = [
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root2", external_id="Root2"),
+            ]
             aggregator = MagicMock(spec=AssetCentricAggregator)
             aggregator.count.return_value = 1000
             aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
@@ -115,10 +120,10 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.files.aggregate.return_value = [CountAggregate(100)]
+            client.files.aggregate_count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -141,7 +146,7 @@ class TestInteractiveSelect:
         ):
             client.tool.datasets.list.return_value = []
             client.assets.list.return_value = []
-            client.files.aggregate.return_value = [CountAggregate(100)]
+            client.files.aggregate_count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             with pytest.raises(ToolkitValueError) as exc_info:
                 _ = selector.select_hierarchies_and_data_sets()
@@ -168,8 +173,8 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
             client.time_series.aggregate_count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
@@ -198,8 +203,8 @@ class TestInteractiveSelect:
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
-                Asset(id=1, external_id="Root1", name="Root 1"),
-                Asset(id=2, external_id="Root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
             client.events.aggregate_count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
@@ -316,8 +321,8 @@ class TestInteractiveSelect:
             selector._aggregator = aggregator
 
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
 
             result = selector.select_hierarchy()
@@ -341,8 +346,8 @@ class TestInteractiveSelect:
             selector._aggregator = aggregator
 
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
 
             result = selector.select_hierarchy(allow_empty=True)
@@ -363,8 +368,8 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
             client.assets.list.return_value = [
-                Asset(id=1, external_id="root1", name="Root 1"),
-                Asset(id=2, external_id="root2", name="Root 2"),
+                Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
+                Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
             result = selector.select_hierarchies()
         assert result == ["root2"]
@@ -1140,6 +1145,32 @@ class TestThreeDInteractiveSelect:
         assert result[0].name == "Model 2"
 
 
+class TestImage360CollectionInteractiveSelect:
+    def test_select_collections(self, monkeypatch) -> None:
+        def select(choices: list[Choice]) -> list[Any]:
+            assert len(choices) == 2
+            return [choices[0].value]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(Image360CollectionInteractiveSelect.__module__, monkeypatch, [select]),
+        ):
+            client.tool.instances.list.return_value = [
+                NodeResponse(
+                    space="my_space",
+                    external_id=f"collection_{i}",
+                    created_time=1,
+                    last_updated_time=1,
+                    version=1,
+                    properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": f"Collection {i}"}},
+                )
+                for i in range(2)
+            ]
+            result = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
+
+        assert result == [NodeId(space="my_space", external_id="collection_0")]
+
+
 class TestAPMConfigInteractiveSelect:
     def test_interactive_select_apm_configs(self, monkeypatch) -> None:
         def select_apm_configs(choices: list[Choice]) -> list[APMConfigResponse]:
@@ -1360,6 +1391,44 @@ class TestDocumentsInteractiveSelect:
         client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
         assert isinstance(result, SelectedDocuments)
         assert result.documents == docs
+
+    def test_select_documents_is_cognite_file_applies_exists_filter(self, monkeypatch) -> None:
+        docs = self._sample_documents()
+        answers = ["is-cognite-file", "finished"]
+        cognite_file_filter = {
+            "and": [{"exists": {"property": ["instanceId", "space"]}}],
+        }
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.return_value = 5
+            client.tool.documents.list.return_value = docs
+
+            selector = DocumentsInteractiveSelect(client)
+            result = selector.select_documents()
+
+        assert client.tool.documents.count.call_args_list[0].kwargs.get("filter") is None
+        assert client.tool.documents.count.call_args_list[-1].kwargs.get("filter") == cognite_file_filter
+        client.tool.documents.list.assert_called_once_with(filter=cognite_file_filter, limit=100)
+        assert selector.status.is_cognite_file is True
+        assert result.documents == docs
+
+    def test_select_documents_is_cognite_file_reverts_when_zero(self, monkeypatch) -> None:
+        answers = ["is-cognite-file", "abort"]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.documents.unique.return_value = []
+            client.tool.documents.count.side_effect = [3520, 0, 3520]
+
+            selector = DocumentsInteractiveSelect(client)
+            with pytest.raises(ToolkitValueError, match=r"Aborted document selection."):
+                selector.select_documents()
+
+        assert selector.status.is_cognite_file is False
 
     def test_select_documents_search_then_finished(self, monkeypatch) -> None:
         docs = self._sample_documents()

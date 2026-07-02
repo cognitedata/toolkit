@@ -79,7 +79,15 @@ disciplines:
 - name: Civil
   externalId: discipline_civil
 dataExplorationConfig:
-  assetPropertiesCard:
+  assetPropertiesCardView:
+    space: customer_idm_extention
+    version: v3
+    externalId: AssetPropertiesCard
+  assetActivitiesCardView:
+    space: customer_idm_extention
+    version: v4
+    externalId: InfieldActivitiesCardView
+  assetNotificationsCardView:
     space: customer_idm_extention
     version: v2
-    externalId: AssetPropertiesCard
+    externalId: InfieldNotificationsCardView

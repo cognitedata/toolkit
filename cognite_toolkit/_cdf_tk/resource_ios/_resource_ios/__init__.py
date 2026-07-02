@@ -1,4 +1,5 @@
 from .agent import AgentIO
+from .app import AppIO, AppVersionIO
 from .auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
 from .classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from .configuration import SearchConfigIO
@@ -46,6 +47,7 @@ from .simulators import (
     SimulatorRoutineIO,
     SimulatorRoutineRevisionIO,
 )
+from .skill import SkillIO
 from .streams import StreamIO
 from .three_d_model import ThreeDModelCRUD
 from .timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
@@ -54,6 +56,8 @@ from .workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
 __all__ = [
     "AgentIO",
+    "AppIO",
+    "AppVersionIO",
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
@@ -104,6 +108,7 @@ __all__ = [
     "SimulatorModelRevisionIO",
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
+    "SkillIO",
     "SpaceCRUD",
     "StreamIO",
     "StreamlitIO",

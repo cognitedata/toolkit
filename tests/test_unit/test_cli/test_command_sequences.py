@@ -201,8 +201,15 @@ TEST_CASES = [COMPLETE_ORG]
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
+# The old build/deploy pipeline does not support resource types that require build_v2
+# (e.g. AppVersionIO which needs get_extra_files to produce a zip). Only run the old
+# pipeline against complete_org (and not alpha flags) to avoid false failures.
+TEST_CASES_OLD_PIPELINE = [COMPLETE_ORG]
 
-@pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
+
+@pytest.mark.parametrize(
+    "organization_dir", TEST_CASES_OLD_PIPELINE, ids=[path.name for path in TEST_CASES_OLD_PIPELINE]
+)
 def test_build_deploy_complete_org(
     organization_dir: Path,
     build_tmp_path: Path,

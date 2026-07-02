@@ -15,6 +15,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
+    ChartMonitoringJobModel,
+    ChartMonitoringJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation import (
+    CalculationGraph,
+    CalculationInput,
+    CalculationStep,
+    ChartScheduledCalculationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -49,11 +60,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
+    ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetMapping,
@@ -66,13 +83,28 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360CollectionMapper,
+    Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    COGNITE_3D_REVISION_VIEW,
+    COGNITE_360_IMAGE_VIEW,
+    LEGACY_360_IMAGE_SCHEMA_SPACE,
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+    LEGACY_IMAGE360_SOURCE_VIEW,
+    LEGACY_IMAGE360_STATION_SOURCE_VIEW,
+    create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
 
 
@@ -147,8 +179,8 @@ class TestAssetCentricToInstanceMapper:
             mapper.prepare(selected)
 
             mapped: list[InstanceApply] = []
-            for target, item in zip(mapper.map(source), source):
-                mapped.append(target)
+            for data_item in mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(source)]):
+                mapped.append(data_item.item)
 
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
@@ -194,7 +226,7 @@ class TestAssetCentricToInstanceMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map([source])
+                mapper.map([DataItem(tracking_id="t", item=source)])
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
@@ -320,8 +352,8 @@ class TestThreeDAssetMapper:
             mapper = ThreeDAssetMapper(client)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
-            mapped = mapper.map([response])[0]
-
+            result = mapper.map([DataItem(tracking_id="t", item=response)])
+            mapped = result[0].item if result else None
             if lookup_asset is not None:
                 # One for cache population, one for actual call
                 assert client.migration.lookup.assets.call_count == 2
@@ -382,7 +414,7 @@ class TestCanvasMapper:
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
 
-            actual = mapper.map([input_canvas])[0]
+            actual = mapper.map([DataItem(tracking_id="t", item=input_canvas)])[0].item
 
         assert not actual.container_references
         assert len(actual.fdm_instance_container_references) == len(input_canvas.container_references)
@@ -446,9 +478,9 @@ class TestChartMapper:
             client.migration.lookup.events = event_lookup
 
             mapper = ChartMapper(client)
-            mapped_list = mapper.map([source])
+            mapped_list = mapper.map([DataItem(tracking_id="t", item=source)])
             assert len(mapped_list) == 1
-            mapped = mapped_list[0]
+            mapped = mapped_list[0].item
             assert isinstance(mapped, ChartRequest)
 
         dumped = mapped.dump()
@@ -458,6 +490,104 @@ class TestChartMapper:
         ] or None
 
         data_regression.check(dumped, fullpath=output_chart_path)
+
+    @pytest.mark.parametrize(
+        "scheduled_calculations, monitoring_jobs",
+        [
+            pytest.param(
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_1",
+                        period=60_000,
+                        target_timeseries_external_id="OLD_TARGET_TS",
+                        graph=CalculationGraph(granularity="1m", steps=[]),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-target",
+            ),
+            pytest.param(
+                [
+                    ChartScheduledCalculationResponse(
+                        external_id="calc_2",
+                        period=60_000,
+                        graph=CalculationGraph(
+                            granularity="1m",
+                            steps=[
+                                CalculationStep(
+                                    op="PASSTHROUGH",
+                                    version=1.0,
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    raw=False,
+                                    step=0,
+                                )
+                            ],
+                        ),
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ],
+                None,
+                id="legacy-calc-graph-input",
+            ),
+            pytest.param(
+                None,
+                [
+                    ChartMonitoringJobResponse(
+                        external_id="job_1",
+                        name="My Job",
+                        channel_id=1,
+                        model=ChartMonitoringJobModel(timeseries_external_id="OLD_MONITORING_TS"),
+                        id=1,
+                        interval=60_000,
+                        overlap=0,
+                    )
+                ],
+                id="legacy-monitoring-job-external-id",
+            ),
+            pytest.param(
+                None,
+                [
+                    ChartMonitoringJobResponse(
+                        external_id="job_2",
+                        name="My Job",
+                        channel_id=1,
+                        model=ChartMonitoringJobModel(timeseries_id=42),
+                        id=2,
+                        interval=60_000,
+                        overlap=0,
+                    )
+                ],
+                id="legacy-monitoring-job-internal-id",
+            ),
+        ],
+    )
+    def test_has_legacy_backend_refs_detects_unmigrated_references(
+        self,
+        scheduled_calculations: list[ChartScheduledCalculationResponse] | None,
+        monitoring_jobs: list[ChartMonitoringJobResponse] | None,
+    ) -> None:
+        chart = ChartResponse(
+            external_id="chart_partial_migration",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Partially migrated chart",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                time_series_collection=None,
+                core_timeseries_collection=[],
+            ),
+            scheduled_calculations=scheduled_calculations,
+            monitoring_jobs=monitoring_jobs,
+        )
+
+        assert ChartMapper._has_legacy_backend_refs(chart)
 
     def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
@@ -475,9 +605,9 @@ class TestChartMapper:
             logger = FileWithAggregationLogger(MagicMock())
             logger.register([chart.external_id])
             mapper.logger = logger
-            result = mapper.map([chart])
+            result = mapper.map([DataItem(tracking_id="t", item=chart)])
 
-        assert result == [None]
+        assert result == []
 
         aggregations = logger.aggregations_by_ids[chart.external_id]
         assert len(aggregations) == 1
@@ -780,12 +910,497 @@ class TestFDMtoCDMMapper:
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
             )
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
-            actual = mapper.map(instances)
-            assert [item.dump() for item in actual] == [item.dump() for item in expected]
+            actual = mapper.map([DataItem(tracking_id=str(i), item=inst) for i, inst in enumerate(instances)])
+            assert [data_item.item.dump() for data_item in actual] == [item.dump() for item in expected]
+
+    def test_map_emits_all_mapped_items_with_tracking_ids(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        edge = EdgeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="edge1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            type=NodeId(space="schema_space1", external_id="sourceEdge1"),
+            start_node=NodeId(space=self.SOURCE_SPACE, external_id="node1"),
+            end_node=NodeId(space=self.SOURCE_SPACE, external_id="node2"),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(
+                update={
+                    "container_mapping": {"textProp": "targetInt"},
+                    "edge_mapping": {
+                        EdgeTypeId(
+                            type=NodeId(space="schema_space1", external_id="sourceEdge1"), direction="outwards"
+                        ): "targetEdge1",
+                    },
+                }
+            )
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
+            mapper.prepare(MagicMock())
+
+            source_items = [
+                DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
+                DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+            ]
+            mapped_items = mapper.map(source_items)
+
+        assert len(mapped_items) == 2
+        assert mapped_items[0].tracking_id == f"{self.SOURCE_SPACE}:node1"
+        assert isinstance(mapped_items[0].item, NodeRequest)
+        assert mapped_items[1].tracking_id == f"{self.SOURCE_SPACE}:node1"
+        assert isinstance(mapped_items[1].item, EdgeRequest)
+
+    @pytest.mark.parametrize(
+        "dry_run, expected_log_calls",
+        [
+            pytest.param(True, 0, id="dry-run treats mapped nodes as existing"),
+            pytest.param(False, 1, id="real run surfaces missing target error"),
+        ],
+    )
+    def test_dry_run_treats_mapped_nodes_as_existing(self, dry_run: bool, expected_log_calls: int) -> None:
+        """In a real run, a direct relation pointing at a node mapped in a previous step is fine because that
+        node has already been uploaded. In a dry-run, nothing is uploaded, so without special handling
+        the constraint check would falsely flag the target as missing. The mapper pre-populates its
+        existing-node cache for just-mapped nodes when ``dry_run`` is True.
+        """
+        constrained_container = ContainerId(space="schema_space2", external_id="ConstrainedContainer")
+        source_view = self.SOURCE_VIEW.model_copy(deep=True)
+        source_view.properties["sourceDirect"] = ViewCorePropertyResponse(
+            constraint_state=ConstraintOrIndexState(),
+            type=DirectNodeRelation(),
+            container_property_identifier="sourceDirect",
+            container=self.SOME_CONTAINER_ID,
+        )
+        destination_view = self.DESTINATION_VIEW.model_copy(deep=True)
+        destination_view.properties["constrainedDirect"] = ViewCorePropertyResponse(
+            constraint_state=ConstraintOrIndexState(),
+            type=DirectNodeRelation(container=constrained_container),
+            container_property_identifier="constrainedDirect",
+            container=self.SOME_CONTAINER_ID,
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            # The target node referenced by the direct relation does not yet exist in CDF.
+            client.tool.instances.retrieve.return_value = []
+
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"sourceDirect": "constrainedDirect"}})
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
+            mapper.dry_run = dry_run
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapper.prepare(MagicMock())
+
+            # First step: map the would-be target of the direct relation.
+            mapper.map(
+                [
+                    DataItem(
+                        tracking_id="t",
+                        item=NodeResponse(
+                            space=self.SOURCE_SPACE,
+                            external_id="first",
+                            last_updated_time=1,
+                            created_time=0,
+                            version=1,
+                            properties={self.SOURCE_VIEW_ID: {}},
+                        ),
+                    )
+                ]
+            )
+            logger.reset_mock()
+
+            # Second step: map a node whose direct relation points at "first".
+            mapper.map(
+                [
+                    DataItem(
+                        tracking_id="t",
+                        item=NodeResponse(
+                            space=self.SOURCE_SPACE,
+                            external_id="second",
+                            last_updated_time=1,
+                            created_time=0,
+                            version=1,
+                            properties={
+                                self.SOURCE_VIEW_ID: {
+                                    "sourceDirect": {"space": self.SOURCE_SPACE, "externalId": "first"}
+                                }
+                            },
+                        ),
+                    )
+                ]
+            )
+
+        assert logger.log.call_count == expected_log_calls
+        if expected_log_calls:
+            entries = logger.log.call_args[0][0]
+            assert len(entries) == 1
+            entry = entries[0]
+            assert isinstance(entry, MigrationEntryV2)
+            assert entry.id == f"{self.SOURCE_SPACE}:second"
+            assert "does not exist" in entry.message
+
+    @classmethod
+    def _make_image360_views(cls, cube_map_properties: dict[str, str]) -> tuple[ViewResponse, ViewResponse]:
+        image360_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360")
+        cognite360_container = ContainerId(space="cdf_cdm", external_id="Cognite360Image")
+        source_view = ViewResponse(
+            space=LEGACY_IMAGE360_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_SOURCE_VIEW.version,
+            **cls.DEFAULT_ARGS,
+            properties={
+                prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=FileCDFExternalIdReference(),
+                    container_property_identifier=prop_id,
+                    container=image360_container,
+                )
+                for prop_id in cube_map_properties
+            },
+        )
+        destination_view = ViewResponse(
+            space=COGNITE_360_IMAGE_VIEW.space,
+            external_id=COGNITE_360_IMAGE_VIEW.external_id,
+            version=COGNITE_360_IMAGE_VIEW.version,
+            **cls.DEFAULT_ARGS,
+            properties={
+                dest_prop_id: ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier=dest_prop_id,
+                    container=cognite360_container,
+                )
+                for dest_prop_id in ("front", "back", "left", "right", "top", "bottom")
+            },
+        )
+        return source_view, destination_view
+
+    @pytest.mark.parametrize(
+        "available_file_count,expect_failure",
+        [
+            pytest.param(0, True, id="no_files_migrated"),
+            pytest.param(4, True, id="partial_files_migrated"),
+            pytest.param(6, False, id="all_files_migrated"),
+        ],
+    )
+    def test_image360_cubemap_guard(self, available_file_count: int, expect_failure: bool) -> None:
+        """Image360 nodes missing any cubemap face file must be rejected entirely, including partial migration."""
+        face_file_ids = [f"face-{index}" for index in range(6)]
+        cube_map_properties = dict(
+            zip(
+                ["cubeMapFront", "cubeMapBack", "cubeMapLeft", "cubeMapRight", "cubeMapTop", "cubeMapBottom"],
+                face_file_ids,
+                strict=True,
+            )
+        )
+        all_file_responses = [
+            FileMetadataResponse(
+                external_id=external_id,
+                name=external_id,
+                instance_id=NodeId(space=self.TARGET_SPACE, external_id=f"file-{external_id}"),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                id=index,
+            )
+            for index, external_id in enumerate(face_file_ids)
+        ]
+        source_view, destination_view = self._make_image360_views(cube_map_properties)
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="image1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_SOURCE_VIEW: cube_map_properties},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            client.tool.filemetadata.retrieve.return_value = all_file_responses[:available_file_count]
+            client.tool.instances.retrieve.return_value = []
+
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+            mapper = Image360FDMtoCDMMapper(client, connection_creator=connection_creator)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapper.prepare(MagicMock())
+
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=node)])
+
+        if expect_failure:
+            assert actual == []
+            logger.log.assert_called_once()
+            entry = logger.log.call_args[0][0][0]
+            assert isinstance(entry, MigrationEntryV2)
+            assert entry.severity == Severity.failure
+            assert "have not been migrated" in entry.message
+            for face_file_id in face_file_ids[available_file_count:]:
+                assert face_file_id in entry.message
+            assert f"{self.SOURCE_SPACE}:image1" == entry.id
+        else:
+            assert len(actual) == 1
+            assert isinstance(actual[0].item, NodeRequest)
+            assert actual[0].item.space == self.SOURCE_SPACE
+            assert actual[0].item.external_id == sanitize_instance_external_id("image1", "_cdm")
+            logger.log.assert_not_called()
+
+    def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+        created_model = ThreeDModelClassicResponse(
+            id=42,
+            name="My collection",
+            created_time=0,
+        )
+        model_external_id = f"cog_3d_model_{created_model.id}"
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.retrieve.return_value = []
+            client.tool.three_d.models_classic.create.return_value = [created_model]
+            mapper = Image360CollectionMapper(client)
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+
+        client.tool.three_d.models_classic.create.assert_called_once_with(
+            [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
+        )
+        assert len(actual) == 1
+        collection_request = actual[0].item
+        assert isinstance(collection_request, NodeRequest)
+        assert collection_request.space == self.SOURCE_SPACE
+        assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
+        model_source = next(
+            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert model_source.properties is not None
+        assert model_source.properties["model3D"] == {
+            "space": self.SOURCE_SPACE,
+            "externalId": model_external_id,
+        }
+
+    def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+        migrated_external_id = sanitize_instance_external_id("collection1", "_cdm")
+        existing_model_external_id = "cog_3d_model_99"
+        migrated_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id=migrated_external_id,
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={
+                COGNITE_3D_REVISION_VIEW: {
+                    "model3D": {"space": self.SOURCE_SPACE, "externalId": existing_model_external_id},
+                }
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.retrieve.return_value = [migrated_node]
+            mapper = Image360CollectionMapper(client)
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+
+        client.tool.three_d.models_classic.create.assert_not_called()
+        collection_request = actual[0].item
+        assert isinstance(collection_request, NodeRequest)
+        model_source = next(
+            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert model_source.properties is not None
+        assert model_source.properties["model3D"] == {
+            "space": self.SOURCE_SPACE,
+            "externalId": existing_model_external_id,
+        }
+
+    def test_image360_mapper_maps_each_view_in_isolation(self) -> None:
+        face_file_ids = [f"face-{index}" for index in range(6)]
+        cube_map_properties = dict(
+            zip(
+                ["cubeMapFront", "cubeMapBack", "cubeMapLeft", "cubeMapRight", "cubeMapTop", "cubeMapBottom"],
+                face_file_ids,
+                strict=True,
+            )
+        )
+        file_responses = [
+            FileMetadataResponse(
+                external_id=external_id,
+                name=external_id,
+                instance_id=NodeId(space=self.TARGET_SPACE, external_id=f"file-{external_id}"),
+                created_time=0,
+                last_updated_time=0,
+                uploaded=True,
+                id=index,
+            )
+            for index, external_id in enumerate(face_file_ids)
+        ]
+        image_source_view, image_destination_view = self._make_image360_views(cube_map_properties)
+        station_source_container = ContainerId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Station360")
+        station_destination_container = ContainerId(space="cdf_cdm", external_id="Cognite360ImageStation")
+        group_container = ContainerId(space="cdf_cdm", external_id="Cognite3DGroup")
+        station_source_view = ViewResponse(
+            space=LEGACY_IMAGE360_STATION_SOURCE_VIEW.space,
+            external_id=LEGACY_IMAGE360_STATION_SOURCE_VIEW.external_id,
+            version=LEGACY_IMAGE360_STATION_SOURCE_VIEW.version,
+            **self.DEFAULT_ARGS,
+            properties={
+                "label": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="label",
+                    container=station_source_container,
+                )
+            },
+        )
+        station_destination_view = ViewResponse(
+            space="cdf_cdm",
+            external_id="Cognite360ImageStation",
+            version="v1",
+            **self.DEFAULT_ARGS,
+            properties={
+                "name": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="name",
+                    container=station_destination_container,
+                ),
+                "groupType": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=TextProperty(),
+                    container_property_identifier="groupType",
+                    container=group_container,
+                ),
+            },
+        )
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+        image_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="image1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_SOURCE_VIEW: cube_map_properties},
+        )
+        station_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="station1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_STATION_SOURCE_VIEW: {"label": "Station A"}},
+        )
+        created_model = ThreeDModelClassicResponse(
+            id=42,
+            name="My collection",
+            created_time=0,
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [
+                image_source_view,
+                image_destination_view,
+                station_source_view,
+                station_destination_view,
+            ]
+            client.tool.filemetadata.retrieve.return_value = file_responses
+            client.tool.instances.retrieve.return_value = []
+            client.tool.three_d.models_classic.create.return_value = [created_model]
+
+            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+            mapper = Image360FDMtoCDMMapper(
+                client,
+                connection_creator=connection_creator,
+                custom_properties_mappings=[Station360PropertiesMapping()],
+                custom_instance_mappings={
+                    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
+                },
+            )
+            mapper.prepare(MagicMock())
+
+            collection_results = mapper.map(
+                [DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)]
+            )
+            station_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:station1", item=station_node)])
+            image_results = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=image_node)])
+
+        assert len(collection_results) == 1
+        assert len(station_results) == 1
+        assert len(image_results) == 1
+
+        collection_request = collection_results[0].item
+        station_request = station_results[0].item
+        image_request = image_results[0].item
+        assert isinstance(collection_request, NodeRequest)
+        assert isinstance(station_request, NodeRequest)
+        assert isinstance(image_request, NodeRequest)
+
+        assert collection_request.external_id == sanitize_instance_external_id("collection1", "_cdm")
+        assert image_request.external_id == sanitize_instance_external_id("image1", "_cdm")
+        assert station_request.external_id == sanitize_instance_external_id("station1", "_cdm")
+        station_source = next(
+            source for source in station_request.sources or [] if source.source.external_id == "Cognite360ImageStation"
+        )
+        assert station_source.properties == {"name": "Station A", "groupType": "Station360"}
+
+
+def test_create_360_image_selectors_returns_collection_station_and_image_steps() -> None:
+    collections = [
+        NodeId(space="img_space", external_id="col1"),
+        NodeId(space="img_space", external_id="col2"),
+    ]
+    selectors = create_360_image_selectors(collections)
+
+    assert len(selectors) == 3
+    collection_selector = selectors[0]
+    station_selector = selectors[1]
+    image_selector = selectors[2]
+    assert isinstance(collection_selector, InstanceViewSelector)
+    assert collection_selector.view.external_id == "Image360Collection"
+    assert isinstance(station_selector, InstanceQuerySelector)
+    assert station_selector.root == "image360"
+    assert station_selector.subselections == ("image360station",)
+    assert isinstance(image_selector, InstanceViewSelector)
+    assert image_selector.view.external_id == "Image360"
 
 
 class TestInFieldLegacyToCDMScheduleMapper:
@@ -942,13 +1557,15 @@ class TestInFieldLegacyToCDMScheduleMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [dest_view]
 
-            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
             mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
             mapper.prepare(MagicMock())
 
-            result = mapper.map(schedule_instance_data)
+            result = mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(schedule_instance_data)])
 
-        mapped_schedules = [r for r in result if r is not None]
+        mapped_schedules = [data_item.item for data_item in result]
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
@@ -1016,7 +1633,7 @@ class TestAssetCentricToRecordMapper:
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             with pytest.raises(ToolkitValueError, match="only supports Event"):
-                mapper.map([source])
+                mapper.map([DataItem(tracking_id="t", item=source)])
 
     def test_map_produces_record_request(self) -> None:
         container_id = ContainerId(space="my_space", external_id="EventContainer")
@@ -1036,9 +1653,9 @@ class TestAssetCentricToRecordMapper:
             client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
-            results = mapper.map([source])
+            results = mapper.map([DataItem(tracking_id="t", item=source)])
         assert len(results) == 1
-        record = results[0]
+        record = results[0].item
         assert record is not None
         assert record.space == "my_space"
         assert record.external_id == "event_1"

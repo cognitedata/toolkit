@@ -342,7 +342,7 @@ class CoreApp(typer.Typer):
         if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
                 feature="the --env / -e option in cdf build or default_env in cdf.toml",
-                alternative="--config-yaml / -c or config_yaml in cdf.toml with the path to your config file "
+                alternative="--config-yaml / -c or default_config_yaml in cdf.toml with the path to your config file "
                 "(for example <organization-dir>/config.<env>.yaml)",
             ).print_warning()
             if config_yaml is None:
@@ -471,14 +471,14 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--drop",
                 "-d",
-                help="Whether to drop existing configurations, drop per resource if present.",
+                help="[Deprecated, use 'cdf clean' instead] Whether to drop existing configurations, drop per resource if present.",
             ),
         ] = False,
         drop_data: Annotated[
             bool,
             typer.Option(
                 "--drop-data",
-                help="Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+                help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
             ),
         ] = False,
         include: Annotated[
@@ -522,6 +522,18 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """Deploys the configuration files in the build directory to the CDF project."""
+        if drop:
+            ToolkitDeprecationWarning(
+                feature="--drop flag in cdf deploy",
+                alternative="cdf clean",
+                removal_version="0.9",
+            ).print_warning()
+        if drop_data:
+            ToolkitDeprecationWarning(
+                feature="--drop-data flag in cdf deploy",
+                alternative="cdf clean --drop-data",
+                removal_version="0.9",
+            ).print_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(

@@ -70,6 +70,10 @@ class ManualInstanceSpaces(AgentInstanceSpacesDefinition):
     spaces: list[str]
 
 
+class ProvidedAtRuntimeInstanceSpaces(AgentInstanceSpacesDefinition):
+    type: Literal["providedAtRuntime"] = "providedAtRuntime"
+
+
 class UnknownInstanceSpaces(AgentInstanceSpacesDefinition): ...
 
 
@@ -91,9 +95,53 @@ def _handle_unknown_instance_spaces(value: Any) -> Any:
 
 
 AgentInstanceSpaces = Annotated[
-    AllInstanceSpaces | ManualInstanceSpaces | UnknownInstanceSpaces,
+    AllInstanceSpaces | ManualInstanceSpaces | ProvidedAtRuntimeInstanceSpaces | UnknownInstanceSpaces,
     BeforeValidator(_handle_unknown_instance_spaces),
 ]
+
+
+class ManualQueryDataModels(AgentObject):
+    type: Literal["manual"] = "manual"
+    data_models: list[AgentDataModel]
+
+
+class ProvidedAtRuntimeQueryDataModels(AgentObject):
+    type: Literal["providedAtRuntime"] = "providedAtRuntime"
+
+
+class UnknownQueryDataModels(AgentObject):
+    type: str
+
+
+_KNOWN_QUERY_DATA_MODELS: dict[str, type[AgentObject]] = {
+    "manual": ManualQueryDataModels,
+    "providedAtRuntime": ProvidedAtRuntimeQueryDataModels,
+}
+
+
+def _handle_query_data_models(value: Any) -> Any:
+    if isinstance(value, dict):
+        type_ = value.get("type")
+        if type_ not in _KNOWN_QUERY_DATA_MODELS:
+            return UnknownQueryDataModels(**value)
+        return _KNOWN_QUERY_DATA_MODELS[type_].model_validate(value)
+    return value
+
+
+QueryDataModels = Annotated[
+    ManualQueryDataModels | ProvidedAtRuntimeQueryDataModels | UnknownQueryDataModels,
+    BeforeValidator(_handle_query_data_models),
+]
+
+
+class QueryConfig(AgentObject):
+    data_models: QueryDataModels
+    instance_spaces: AgentInstanceSpaces | None = None
+
+
+class Query(AgentToolDefinition):
+    type: Literal["query"] = "query"
+    configuration: QueryConfig
 
 
 class QueryKnowledgeGraphConfig(AgentObject):
@@ -137,6 +185,7 @@ KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
     "callFunction": CallFunction,
     "callRestApi": CallRestApi,
     "examineDataSemantically": ExamineDataSemantically,
+    "query": Query,
     "queryKnowledgeGraph": QueryKnowledgeGraph,
     "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
     "runPythonCode": RunPythonCode,
@@ -162,6 +211,7 @@ AgentTool = Annotated[
     | CallFunction
     | CallRestApi
     | ExamineDataSemantically
+    | Query
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
     | RunPythonCode
@@ -172,6 +222,20 @@ AgentTool = Annotated[
 ]
 
 
+class SubagentConfig(AgentObject):
+    agent_external_id: str = Field(min_length=1, max_length=255)
+
+
+class ExampleMessage(AgentObject):
+    role: str
+    content: str
+
+
+class ExampleQuestion(AgentObject):
+    question: str
+    expected_messages: list[ExampleMessage] = Field(default_factory=list)
+
+
 class Agent(AgentObject):
     external_id: str
     name: str
@@ -179,7 +243,10 @@ class Agent(AgentObject):
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    subagents: list[SubagentConfig] | None = None
+    skills: list[str] | None = None
     labels: list[str] | None = None
+    example_questions: list[ExampleQuestion] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

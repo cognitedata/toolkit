@@ -107,12 +107,9 @@ class DatapointsIO(
         for timeseries in self.client.time_series(
             data_set_external_ids=[selector.data_set_external_id],
             chunk_size=self.DOWNLOAD_CHUNK_SIZE,
-            is_string=True if selector.data_type == "string" else False,
+            is_string=True if selector.data_type.lower() == "string" else False,
             advanced_filter=Exists(TimeSeriesProperty.external_id),
             limit=limit,
-            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
-            # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
         ):
             if not timeseries:
                 continue

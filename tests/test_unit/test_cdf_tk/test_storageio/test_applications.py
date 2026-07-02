@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-import responses
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -181,30 +180,49 @@ class TestChartIO:
                             ],
                         },
                     },
+                ],
+                "nextCursor": None,
+            },
+        )
+        respx_mock.post(ts_url).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "id": 200,
+                        "externalId": "ts_1",
+                        "name": "ts_1",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "isStep": False,
+                        "isString": False,
+                    },
+                    {
+                        "id": 201,
+                        "externalId": "ts_4",
+                        "name": "ts_4",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "isStep": False,
+                        "isString": False,
+                    },
                 ]
             },
         )
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                ts_url,
-                json={"items": [{"id": 200, "externalId": "ts_1"}, {"id": 201, "externalId": "ts_4"}]},
-                status=200,
-            )
-            assert io.count(selector) == 2
-            charts_iterator = io.stream_data(selector=selector)
-            json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
-            chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
+        assert io.count(selector) == 2
+        charts_iterator = io.stream_data(selector=selector)
+        json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
+        chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
 
-            assert len(chart_data) == 1
-            chart_list = chart_data[0]
-            assert len(chart_list) == 2
-            first = chart_list.items[0]
-            assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
-            assert first.item.data.time_series_collection[1].ts_external_id == "ts_2"
-            second = chart_list.items[1]
-            assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
-            assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
+        assert len(chart_data) == 1
+        chart_list = chart_data[0]
+        assert len(chart_list) == 2
+        first = chart_list.items[0]
+        assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
+        assert first.item.data.time_series_collection[1].ts_external_id == "ts_2"
+        second = chart_list.items[1]
+        assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
+        assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
 
     def test_download_chart_with_backend_tasks(self) -> None:
         chart = _example_chart_response_for_download()
@@ -231,6 +249,66 @@ class TestChartIO:
 
         expected = self._create_downloaded_chart(chart, monitoring_job, calculation)
         assert downloaded_chart == expected
+
+    def test_chart_response_to_request_preserves_flow_node_data(self) -> None:
+        chart = ChartResponse.model_validate(
+            {
+                "externalId": _CHART_EXTERNAL_ID,
+                "visibility": "PRIVATE",
+                "ownerId": "owner",
+                "createdTime": 1700000000000,
+                "lastUpdatedTime": 1700000000000,
+                "data": {
+                    "version": 1,
+                    "name": "Chart with calculation",
+                    "dateFrom": "2025-01-01T00:00:00.000Z",
+                    "dateTo": "2025-12-31T23:59:59.999Z",
+                    "workflowCollection": [
+                        {
+                            "id": "workflow-id",
+                            "type": "workflow",
+                            "version": "v2",
+                            "name": "Calculation",
+                            "color": "#1192e8",
+                            "enabled": True,
+                            "settings": {"autoAlign": True},
+                            "flow": {
+                                "elements": [
+                                    {
+                                        "id": "constant-node",
+                                        "type": "Constant",
+                                        "position": {"x": 1.0, "y": 2.0},
+                                        "data": {"name": "Constant", "value": 37},
+                                    },
+                                    {
+                                        "id": "function-node",
+                                        "type": "ToolboxFunction",
+                                        "position": {"x": 3.0, "y": 4.0},
+                                        "data": {
+                                            "selectedOperation": {"op": "add", "version": "1.0"},
+                                            "parameterValues": {"align_timesteps": True},
+                                        },
+                                    },
+                                ]
+                            },
+                        }
+                    ],
+                },
+            },
+            by_alias=True,
+        )
+
+        dumped = chart.as_request_resource().dump()
+        elements = dumped["data"]["workflowCollection"][0]["flow"]["elements"]
+
+        assert elements[0]["data"] == {"name": "Constant", "value": 37}
+        assert elements[1]["data"] == {
+            "selectedOperation": {"op": "add", "version": "1.0"},
+            "parameterValues": {"align_timesteps": True},
+        }
+        assert "ownerId" not in dumped
+        assert "createdTime" not in dumped
+        assert "lastUpdatedTime" not in dumped
 
     def _create_downloaded_chart(
         self,

@@ -241,6 +241,7 @@ class IgnoredFile(BaseModel):
     filepath: Path
     code: Literal["MISSING-SUFFIX"]
     reason: str
+    fix: str
 
 
 class Module(BaseModel):

@@ -8,6 +8,8 @@ This is means that we have three set of resource classes we use in Toolkit:
 """
 
 from .agent import AgentYAML
+from .app import AppYAML
+from .app_version import AppVersionYAML
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
 from .cognitefile import CogniteFileYAML
@@ -50,6 +52,7 @@ from .simulator_model import SimulatorModelYAML
 from .simulator_model_revision import SimulatorModelRevisionYAML
 from .simulator_routine import SimulatorRoutineYAML
 from .simulator_routine_revision import SimulatorRoutineRevisionYAML
+from .skill import SkillYAML
 from .space import SpaceYAML
 from .streamlit_ import StreamlitYAML
 from .streams import StreamYAML
@@ -65,6 +68,8 @@ from .workflow_version import WorkflowVersionYAML
 
 __all__ = [
     "AgentYAML",
+    "AppVersionYAML",
+    "AppYAML",
     "AssetYAML",
     "BaseModelResource",
     "CogniteFileYAML",
@@ -114,6 +119,7 @@ __all__ = [
     "SimulatorModelYAML",
     "SimulatorRoutineRevisionYAML",
     "SimulatorRoutineYAML",
+    "SkillYAML",
     "SpaceYAML",
     "StreamYAML",
     "StreamlitYAML",

@@ -9,7 +9,10 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerId,
+    NodeId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -19,6 +22,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldUserMapping,
+    SpaceMappingInstanceIdMapper,
+    SuffixInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
@@ -31,11 +36,19 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360CollectionMapper,
+    Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+    create_360_image_selectors,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
+    DIRECT_RELATION_EDGE_TIEBREAKERS,
     create_infield_data_mappings,
     create_infield_schedule_selector,
 )
@@ -45,12 +58,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
@@ -71,12 +86,14 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    Image360CollectionInteractiveSelect,
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
     ThreeDInteractiveSelect,
     ViewSelectFilter,
 )
+from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
@@ -102,6 +119,8 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
+        if Flags.IMAGE360_MIGRATE.is_enabled():
+            self.command("360-images")(self.image_360_nodes)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -197,6 +216,19 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
+            selected_datasets = client.tool.datasets.retrieve(
+                ExternalId.from_external_ids(data_set), ignore_unknown_ids=True
+            )
+            if any(
+                warn_invalid_space_name(dataset.external_id)
+                for dataset in selected_datasets
+                if dataset.external_id is not None
+            ):
+                auto_fix = questionary.confirm(
+                    "Some selected data sets have characters in their external IDs that are not valid in space identifiers. "
+                    "Do you want to automatically fix this by replacing these invalid characters / truncating the external ID? (Datasets with invalid characters will be skipped if No)",
+                    default=auto_fix,
+                ).unsafe_ask()
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             output_dir = Path(
                 questionary.path(
@@ -1280,7 +1312,7 @@ class MigrateApp(typer.Typer):
         id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The ID of the 3D Model to migrate. If not provided, an interactive selection will be "
+                help="The IDs of the 3D Models to migrate. If not provided, an interactive selection will be "
                 "performed to select the 3D Models to migrate."
             ),
         ] = None,
@@ -1317,6 +1349,7 @@ class MigrateApp(typer.Typer):
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if id:
             selected_ids = id
@@ -1343,8 +1376,8 @@ class MigrateApp(typer.Typer):
         model_id: Annotated[
             list[int] | None,
             typer.Argument(
-                help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
-                "performed to select the."
+                help="The IDs of the 3D models to migrate asset mappings for. If not provided, an interactive selection will be "
+                "performed to select the 3D models to migrate asset mappings for."
             ),
         ] = None,
         object_3D_space: Annotated[
@@ -1393,6 +1426,7 @@ class MigrateApp(typer.Typer):
         This command expects that the selected 3D model has already been migrated to data modeling.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if model_id is not None:
             selected_ids = model_id
@@ -1487,6 +1521,12 @@ class MigrateApp(typer.Typer):
                 verbose=verbose,
             )
         )
+        cmd.console(
+            "[bold]IMPORTANT:[/] The next steps needs to be performed manually. Place the generated [bold]cdf_applications/[/] "
+            "(and optionally, the [bold]locations/[/] folder) inside a Toolkit module, "
+            "then deploy to CDF with [bold]cdf deploy[/] before running [bold]cdf migrate infield-data[/].",
+            prefix=HINT_LEAD_TEXT,
+        )
 
     @staticmethod
     def infield_data(
@@ -1531,6 +1571,14 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        skip_observations: Annotated[
+            bool,
+            typer.Option(
+                "--skip-observations",
+                help="Skip migrating Observation data to the default cdf_infield/FieldObservation view. "
+                "Only use this when you intend to migrate observations to a custom observation view manually.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1554,7 +1602,9 @@ class MigrateApp(typer.Typer):
             raise typer.BadParameter("No APM Configurations with app data space found. Cannot migrate Infield data.")
         if not target_candidates:
             raise typer.BadParameter(
-                "No InfieldOnCDM Configurations with app instance space found. Cannot migrate Infield data."
+                "No InfieldOnCDM Configurations with app instance space found. Cannot migrate Infield data. "
+                "Have you placed the CDMLocationConfig YAMLs generated by 'cdf migrate infield-configs' "
+                "into a Toolkit module and deployed them with 'cdf deploy'?"
             )
         if source_space is None and target_space is None:
             source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
@@ -1614,6 +1664,11 @@ class MigrateApp(typer.Typer):
             "cognite_app_data": "cognite_app_data",
         }
         infield_mappings = create_infield_data_mappings()
+        if skip_observations:
+            # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
+            # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
+            # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
+            infield_mappings = [m for m in infield_mappings if m.destination_view.external_id != "FieldObservation"]
         schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
@@ -1638,7 +1693,10 @@ class MigrateApp(typer.Typer):
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
-            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+            client,
+            instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
+            custom_mappings=[InFieldAssetMapping(client)],
+            direct_relation_edge_tiebreakers=DIRECT_RELATION_EDGE_TIEBREAKERS,
         )
         mapper = FDMtoCDMMapper(
             client,
@@ -1660,5 +1718,107 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
+            )
+        )
+
+    @staticmethod
+    def image_360_nodes(
+        ctx: typer.Context,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                help="The instance space containing the 360 image collections. "
+                "Must be used together with --collection.",
+            ),
+        ] = None,
+        collection: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--collection",
+                "-c",
+                help="External ID of an 360 image collection to migrate. Can be repeated. "
+                "Must be used together with --instance-space. If neither is provided, "
+                "an interactive selection will be performed.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if client.project.status().this_project.data_modeling_status != "DATA_MODELING_ONLY":
+            verify_threed_dm_migration_enabled(client)
+        cmd = MigrationCommand(client=client)
+
+        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        if legacy_site_count:
+            client.console.print(
+                Panel(
+                    f"[bold yellow]WARNING[/bold yellow] This project contains [bold]{legacy_site_count:,}[/bold] "
+                    "site(s) of Events-based 360-image data which is deprecated and no longer supported in CDF. "
+                    "These images are stored in the Events service and will [bold]NOT[/bold] be migrated by this command.\n\n"
+                    "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
+                    "data model using a standalone custom script before they can be migrated to CDM. "
+                    "Toolkit does not support this step. Please see the documentation for this migration "
+                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    title="Unsupported Events-based 360-image data detected",
+                    expand=False,
+                    border_style="yellow",
+                )
+            )
+
+        if collection is None and instance_space is None:
+            selected_collections = Image360CollectionInteractiveSelect(client, "migrate").select_collections()
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            if collection is None or instance_space is None:
+                raise typer.BadParameter("Both --instance-space and --collection must be provided together")
+            selected_collections = NodeId.from_str_ids(collection, space=instance_space)
+        selectors = create_360_image_selectors(selected_collections)
+        connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
+        mapper = Image360FDMtoCDMMapper(
+            client,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[Station360PropertiesMapping()],
+            custom_instance_mappings={
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
+            },
+        )
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_nodes",
             )
         )

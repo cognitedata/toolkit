@@ -51,12 +51,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
+    InstanceMappingError,
+    SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
     convert_edges,
     create_properties,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import DIRECT_RELATION_EDGE_TIEBREAKERS
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
@@ -1183,7 +1186,7 @@ class TestAssetCentricConversion:
                     external_id=ANNOTATION_ID.external_id,
                     start_node=NodeId(space="test_space", external_id="file_456_instance"),
                     end_node=NodeId(space="test_space", external_id="asset_123_instance"),
-                    type=NodeId(space="test_space", external_id="diagrams.FileLink"),
+                    type=NodeId(space="cdf_cdm", external_id="diagrams.FileLink"),
                     sources=[
                         InstanceSource(
                             source=ViewId(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
@@ -1320,6 +1323,12 @@ class TestInstanceToInstanceConversion:
             type=FileCDFExternalIdReference(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=FileCDFExternalIdReference(list=True),
+            **DEFAULT_ARGS,
+        ),
         "epoch": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="epoch",
@@ -1391,6 +1400,12 @@ class TestInstanceToInstanceConversion:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "files": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="files",
+            type=DirectNodeRelation(list=True),
+            **DEFAULT_ARGS,
+        ),
         "timestamp": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="timestamp",
@@ -1451,6 +1466,7 @@ class TestInstanceToInstanceConversion:
         container_mapping={
             "epoch": "timestamp",
             "jsonVal": "jsonDestination",
+            "files": "files",
         },
         edge_mapping={
             EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): "relatedAsset",
@@ -1491,6 +1507,16 @@ class TestInstanceToInstanceConversion:
                     " Cannot convert not-a-number to int64.",
                 ],
                 id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
+            pytest.param(
+                {"files": ["2c2a5867-a7f8-4eb2-9bd4-724776b4be9d"]},
+                {"files": []},
+                [
+                    "Failed to create direct relation for property 'files' with value "
+                    "'2c2a5867-a7f8-4eb2-9bd4-724776b4be9d': No migrated CogniteFile instance found for classic "
+                    "file external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
+                ],
+                id="Missing classic file reference in list direct relation",
             ),
             pytest.param(
                 {"epoch": 1700000000000},
@@ -1542,7 +1568,9 @@ class TestInstanceToInstanceConversion:
     def _create_connection_creator(self) -> ConnectionCreator:
         creator = ConnectionCreator(
             client=MagicMock(spec=ToolkitClient),
-            space_mapping={"src_space": "dst_space", "dst_space": "dst_space"},
+            instance_id_mapper=SpaceMappingInstanceIdMapper(
+                {"src_space": "dst_space", "dst_space": "dst_space"},
+            ),
         )
         source_view = ViewResponse(
             space=self.SOURCE_VIEW_ID.space,
@@ -1675,6 +1703,44 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestDirectRelationEdgeTiebreakers:
+    def test_reference_checklist_items_prefers_relation_suffix(self) -> None:
+        stale_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a:b"),
+            other_side=NodeId(space="src", external_id="checklist_a"),
+        )
+        native_edge = EdgeOtherSide(
+            edge_id=EdgeId(space="src", external_id="a_b_relation"),
+            other_side=NodeId(space="src", external_id="checklist_b"),
+        )
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker([stale_edge, native_edge]) == [native_edge]
+
+    def test_reference_checklist_items_returns_input_when_no_suffix_match(self) -> None:
+        edges = [
+            EdgeOtherSide(
+                edge_id=EdgeId(space="src", external_id="a:b"),
+                other_side=NodeId(space="src", external_id="checklist_a"),
+            )
+        ]
+        tiebreaker = DIRECT_RELATION_EDGE_TIEBREAKERS["referenceChecklistItems"]
+
+        assert tiebreaker(edges) == edges
+
+
+class TestInstanceIdMapper:
+    def test_space_mapping_instance_id_mapper_raises_for_unmapped_space(self) -> None:
+        mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
+        with pytest.raises(InstanceMappingError, match="source-to-destination space mapping"):
+            mapper.map_instance_id(NodeId(space="other_space", external_id="node1"))
+
+    def test_space_mapping_instance_id_mapper_maps_known_space(self) -> None:
+        mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
+        result = mapper.map_instance_id(NodeId(space="source_space", external_id="node1"))
+        assert result == NodeId(space="target_space", external_id="node1")
 
 
 class TestAssetCentricToRecord:

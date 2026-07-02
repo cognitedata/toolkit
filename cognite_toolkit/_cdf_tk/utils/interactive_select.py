@@ -20,7 +20,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    ContainerFilter,
+    DataModelFilter,
+    InstanceFilter,
+    ViewFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
@@ -30,6 +35,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
+    NodeId,
+    NodeResponse,
     SpaceResponse,
     ViewId,
     ViewResponse,
@@ -45,6 +52,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdm
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -637,8 +647,9 @@ class DataModelingSelect:
                     include_global=filter.include_global,
                 )
             views = datamodel.views or []
-            parents = {parent for view in views for parent in view.implements or []}
-            # We only allow the user to select child views
+            global_view_ids = {view.as_id() for view in views if view.is_global}
+            # Skip downloading parent views that belong to system (global) spaces
+            parents = {parent for view in views for parent in view.implements or [] if parent in global_view_ids}
             views = [view for view in views if view.as_id() not in parents]
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
@@ -989,6 +1000,43 @@ class ThreeDInteractiveSelect:
         return selected_models
 
 
+class Image360CollectionInteractiveSelect:
+    """Interactively select one or more legacy Image360Collection nodes to migrate."""
+
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def list_collections(self) -> list[NodeResponse]:
+        instance_filter = InstanceFilter(instance_type="node", source=LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW)
+        nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+        return [node for node in nodes if isinstance(node, NodeResponse)]
+
+    def _collection_label(self, node: NodeResponse) -> str:
+        if label := ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label"):
+            return f"{label} ({node.space}:{node.external_id})"
+        return f"{node.space}:{node.external_id}"
+
+    def select_collections(self) -> list[NodeId]:
+        """Select 360 image collections to migrate."""
+        collections = self.list_collections()
+        if not collections:
+            raise ToolkitMissingResourceError("No 360 image collections found in this project.")
+
+        choices = [
+            Choice(title=self._collection_label(node), value=NodeId(space=node.space, external_id=node.external_id))
+            for node in collections
+        ]
+        selected = questionary.checkbox(
+            f"Select 360 image collections to {self.operation}:",
+            choices=choices,
+            validate=lambda chosen: True if chosen else "You must select at least one collection.",
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No 360 image collections selected.")
+        return [node_id for node_id in selected if isinstance(node_id, NodeId)]
+
+
 class APMConfigInteractiveSelect:
     """Interactive select for APM Config (Infield V1) configurations."""
 
@@ -1133,11 +1181,13 @@ class DocumentSelectStatus:
 
     @property
     def current_filter(self) -> dict[str, Any] | None:
-        if not self.document_filter and not self.metadata_filter and self.data_set_id is None:
-            return None
-        leaf_filter = [*self.document_filter.values(), *self.metadata_filter.values()]
+        leaf_filter: list[dict[str, Any]] = [*self.document_filter.values(), *self.metadata_filter.values()]
         if self.data_set_id is not None:
             leaf_filter.append({"equals": {"property": ["sourceFile", "dataSetId"], "value": self.data_set_id}})
+        if self.is_cognite_file:
+            leaf_filter.append({"exists": {"property": ["instanceId", "space"]}})
+        if not leaf_filter:
+            return None
         return {"and": leaf_filter}
 
 
@@ -1174,6 +1224,8 @@ class DocumentsInteractiveSelect:
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
             elif action == "finished":
+                if count == 0:
+                    raise ToolkitValueError("No documents match the current filter. Adjust the filter or abort.")
                 break
             elif action == "filter-document-properties":
                 self._update_filter(
@@ -1210,22 +1262,21 @@ class DocumentsInteractiveSelect:
             choices.append(
                 Choice(title="Search documents (full-text query)", value="search"),
             )
-        if count <= self.MAX_TERMINAL_CHOICES:
+        if 0 < count <= self.MAX_TERMINAL_CHOICES:
             choices.append(Choice(title="Select individual documents by name", value="name"))
         choices.append(Choice(title="Abort", value="abort"))
         suffix = ""
-        if count <= self.max_selected:
+        if count == 0:
+            suffix = " No documents match the current filter."
+        elif count <= self.max_selected:
             choices.append(Choice(title="Finished", value="finished"))
         else:
             suffix = f" You have to filter down to below {self.max_selected} documents to continue."
         query_note = ""
         if self.status.search_query is not None:
             query_note = f' Active full-text query: "{self.status.search_query}".'
-        caveat = ""
-        if selected_file_type == "dms":
-            caveat = " (approximate)"
         return questionary.select(
-            f"{count} documents found{caveat}. How would you like to proceed?{query_note}{suffix}",
+            f"{count} documents found. How would you like to proceed?{query_note}{suffix}",
             choices=choices,
         ).unsafe_ask()
 
@@ -1239,11 +1290,12 @@ class DocumentsInteractiveSelect:
             "Which property do you want to filter by?",
             choices=[Choice(title=" > ".join(map(str, option)), value=option) for option in sorted(available_options)],
         ).unsafe_ask()
+        if filter_type is None:
+            return
 
         buckets = self.client.tool.documents.unique(
             property=filter_type, filter=self.status.current_filter, query=self.status.search_query
         )
-        self.status.attempted_options.add(filter_type)
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
@@ -1258,9 +1310,12 @@ class DocumentsInteractiveSelect:
                 choices=[
                     Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
                 ],
-                validator=lambda choices: True if choices else "You must select at least one value.",
+                validate=lambda choices: True if choices else "You must select at least one value.",
             ).unsafe_ask()
+            if not selected_values:
+                return
             filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+        self.status.attempted_options.add(filter_type)
 
     def _select_dataset(self) -> None:
         buckets = self.client.tool.documents.unique(
@@ -1288,6 +1343,12 @@ class DocumentsInteractiveSelect:
 
     def _set_cognite_file(self) -> None:
         self.status.is_cognite_file = True
+        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
+        if count == 0:
+            self.client.console.print(
+                "No CogniteFiles found with the current filter. Reverting the CogniteFile filter.", style="bold red"
+            )
+            self.status.is_cognite_file = False
 
     def _prompt_search_query(self) -> None:
         answer = questionary.text(
@@ -1321,6 +1382,6 @@ class DocumentsInteractiveSelect:
         documents = questionary.checkbox(
             "Select documents:",
             choices=choices,
-            validator=lambda choices: True if choices else "You must select at least one document.",
+            validate=lambda choices: True if choices else "You must select at least one document.",
         ).unsafe_ask()
         return SelectedDocuments(documents, self.status)
