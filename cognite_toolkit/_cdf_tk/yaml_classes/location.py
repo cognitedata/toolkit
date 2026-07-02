@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
@@ -46,7 +46,9 @@ class LocationFilterViewId(BaseModelResource):
 class AssetCentricFields(BaseModelResource):
     data_set_external_ids: list[str] | None = Field(default=None, description="The list of data set external IDs")
     asset_subtree_external_ids: list[dict[Literal["externalId"], str]] | None = Field(
-        default=None, description="External IDs of the asset."
+        default=None,
+        description="External IDs of the asset.",
+        validation_alias=AliasChoices("assetSubtreeExternalIds", "assetSubtreeIds"),
     )
     external_id_prefix: str | None = Field(default=None, description="The external ID prefix")
 
