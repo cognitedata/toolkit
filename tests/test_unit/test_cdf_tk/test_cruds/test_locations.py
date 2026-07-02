@@ -65,6 +65,29 @@ class TestLocationFilterLoader:
             external_id="event-subtree-id-678"
         )
 
+    @pytest.mark.parametrize("subtree_field", ["assetSubtreeIds", "assetSubtreeExternalIds"])
+    def test_load_asset_subtree_aliases(
+        self,
+        env_vars_with_client: EnvironmentVariables,
+        subtree_field: str,
+    ) -> None:
+        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+        loaded = loader.load_resource(
+            {
+                "externalId": "my-location",
+                "name": "My Location",
+                "assetCentric": {
+                    "assets": {
+                        subtree_field: [{"externalId": "GE"}],
+                    }
+                },
+            },
+            is_dry_run=True,
+        )
+        assert loaded.asset_centric is not None
+        assert loaded.asset_centric.assets is not None
+        assert loaded.asset_centric.assets.asset_subtree_ids == [ExternalId(external_id="GE")]
+
     def test_topological_sort_success(self) -> None:
         # Create location filters with parent-child relationships
         # Structure: grandparent -> parent -> child

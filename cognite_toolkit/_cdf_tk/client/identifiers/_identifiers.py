@@ -63,7 +63,7 @@ class InternalId(InternalOrExternalIdDefinitionId):
 
 
 class ExternalId(InternalOrExternalIdDefinitionId):
-    type: Literal["externalId"] = Field("externalId", exclude=True)
+    type: Literal["externalId"] = Field(default="externalId", exclude=True)
     external_id: str
 
     @classmethod
