@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
-    QueryDebugParameters,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -462,17 +461,17 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
         # TODO: Remove temporary debug parameters
-        query = query.model_copy(
-            update={
-                "debug": QueryDebugParameters(
-                    # emit_results=False,
-                    # include_plan=True,
-                    include_translated_query=True,
-                    # include_llm_prompt=True,
-                    profile=True,
-                )
-            }
-        )
+        # query = query.model_copy(
+        #     update={
+        #         "debug": QueryDebugParameters(
+        #             # emit_results=False,
+        #             # include_plan=True,
+        #             include_translated_query=True,
+        #             # include_llm_prompt=True,
+        #             profile=True,
+        #         )
+        #     }
+        # )
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
