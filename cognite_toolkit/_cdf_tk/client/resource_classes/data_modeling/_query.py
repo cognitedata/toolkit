@@ -43,6 +43,9 @@ class QueryThrough(BaseModelObject):
 class QueryExpression(BaseModelObject):
     sort: list[QuerySortSpec] | None = None
     limit: int | None = None
+    # /sync-only fields (see the ``POST /models/instances/sync`` docs). Ignored on /query.
+    mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = None
+    backfill_sort: list[QuerySortSpec] | None = None
 
 
 class QueryTableExpression(BaseModelObject):
@@ -142,7 +145,13 @@ class QueryRequest(BaseModelObject):
 
         """
         dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        # /sync-only fields must never appear on /query.
+        sync_only_expression_fields = {"mode", "backfill_sort"} if not camel_case else {"mode", "backfillSort"}
         if endpoint == "query":
+            with_section = dumped["with"]
+            for key in list(with_section.keys()):
+                for field in sync_only_expression_fields:
+                    with_section[key].pop(field, None)
             return dumped
         # The sync endpoint does not support sorting
         exclude: set[str] = {"sort"}

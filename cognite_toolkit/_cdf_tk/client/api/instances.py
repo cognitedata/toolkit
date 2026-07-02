@@ -168,6 +168,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             QuerySortSpec(property=["edge", "space"]),
             QuerySortSpec(property=["edge", "externalId"]),
         ]
+        # For /sync we use twoPhase mode with a (space, externalId) backfill sort so that
+        # the backfill stage of the sync uses the built-in cursorable index instead of
+        # scanning the full node/edge table. This matches the guidance in the DMS sync docs
+        # for syncs that use a hasData filter (or any filter beyond a single-space filter).
+        # On /query these fields are stripped in QueryRequest.dump().
+        sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
+        node_backfill_sort = node_sort if endpoint == "sync" else None
+        edge_backfill_sort = edge_sort if endpoint == "sync" else None
 
         if filter is None:
             query = QueryRequest(
@@ -176,6 +184,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                         limit=limit,
                         nodes=QueryNodeTableExpression(),
                         sort=node_sort,
+                        mode=sync_mode,
+                        backfill_sort=node_backfill_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -190,12 +200,16 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 limit=limit,
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
                 sort=edge_sort,
+                mode=sync_mode,
+                backfill_sort=edge_backfill_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
                 limit=limit,
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
                 sort=node_sort,
+                mode=sync_mode,
+                backfill_sort=node_backfill_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:
