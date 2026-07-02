@@ -14,9 +14,14 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    EdgeId,
+    NodeId,
+    NodeOrEdgeRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
@@ -57,13 +62,22 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
+    DmsContextualizationConfig,
+    Image360AnnotationItem,
+    Image360ContextualizationRequest,
     MigrationMapping,
     MigrationMappingList,
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
+from .image_360_mappings import load_image360_annotation_node_data
 from .issues import MigrationEntryV2
-from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
+from .selectors import (
+    AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
+    MigrateDataSetSelector,
+    MigrationCSVFileSelector,
+)
 
 
 class AssetCentricMigrationIO(
@@ -807,3 +821,138 @@ class ThreeDAssetMappingMigrationIO(
         self, data_chunk: Page[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")
+
+
+class Image360AnnotationMigrationIO(
+    UploadableDataIO[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationItem]
+):
+    """IO class for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint.
+
+    ``stream_data()`` pages through the Annotations API filtered by the face-file external IDs
+    from the pre-built caches.
+
+    ``upload_items()`` groups the mapped items by collection and posts one
+    ``Image360ContextualizationRequest`` per group.
+
+    Args:
+        client: ToolkitClient to use for CDF interactions.
+        caches: Pre-built node caches shared with the mapper.
+    """
+
+    KIND = "Image360AnnotationMigration"
+    CHUNK_SIZE = 100  # beta endpoint maximum
+    UPLOAD_ENDPOINT = "/3d/contextualization/image360"
+    # The annotations API supports at most 1000 IDs per filter call.
+    _ANNOTATION_FILTER_ID_CHUNK = 1000
+    _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._face_file_ext_ids: list[str] | None = None
+        self._collection_by_image360_id: dict[tuple[str, str], NodeId] = {}
+
+    def stream_data(
+        self,
+        selector: Image360AnnotationSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page[AnnotationResponse]]:
+        if self._face_file_ext_ids is None:
+            node_data = load_image360_annotation_node_data(self.client, selector.collections or ())
+            self._face_file_ext_ids = list(node_data.keys())
+            self._collection_by_image360_id = {
+                (img_node.space, img_node.external_id): col_node for (_, img_node, col_node) in node_data.values()
+            }
+        if not self._face_file_ext_ids:
+            return
+
+        total = 0
+        for id_batch in chunker_sequence(self._face_file_ext_ids, self._ANNOTATION_FILTER_ID_CHUNK):
+            annotation_filter = AnnotationFilter(
+                annotated_resource_type="file",
+                annotated_resource_ids=[ExternalId(external_id=ext_id) for ext_id in id_batch],
+            )
+            for annotation_batch in self.client.tool.annotations.iterate(
+                filter=annotation_filter,
+                limit=limit - total if limit is not None else None,
+            ):
+                filtered = [ann for ann in annotation_batch if ann.annotation_type in self._ANNOTATION_TYPES]
+                if not filtered:
+                    continue
+                total += len(filtered)
+                yield self.emit_registered_page(
+                    Page(
+                        worker_id="main",
+                        items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
+                    )
+                )
+                if limit is not None and total >= limit:
+                    return
+
+    def count(self, selector: Image360AnnotationSelector) -> int | None:
+        return None
+
+    def upload_items(
+        self,
+        data_chunk: Page[Image360AnnotationItem],
+        http_client: HTTPClient,
+        selector: Image360AnnotationSelector | None = None,
+    ) -> ItemsResultList:
+        """Upload annotations grouped by collection (revision) node.
+
+        Each group is posted as one ``Image360ContextualizationRequest``.
+        """
+        if not data_chunk or selector is None:
+            return ItemsResultList()
+
+        groups: dict[tuple[str, str], list[DataItem[Image360AnnotationItem]]] = {}
+        skipped_entries: list[MigrationEntryV2] = []
+        for data_item in data_chunk.items:
+            image360_instance_id = data_item.item.image360.instance_id
+            image360_key = (image360_instance_id.space, image360_instance_id.external_id)
+            collection_id = self._collection_by_image360_id.get(image360_key)
+            if collection_id is None:
+                skipped_entries.append(
+                    MigrationEntryV2(
+                        id=data_item.tracking_id,
+                        label="Skipped",
+                        message=f"No collection node found for Image360 instance {image360_instance_id}.",
+                        severity=Severity.skipped,
+                        source=self.KIND,
+                        destination="360-image-annotations",
+                    )
+                )
+                continue
+            revision_key = (collection_id.space, collection_id.external_id)
+            groups.setdefault(revision_key, []).append(data_item)
+
+        if skipped_entries:
+            self.logger.log(skipped_entries)
+
+        results = ItemsResultList()
+        endpoint_url = http_client.config.create_api_url(self.UPLOAD_ENDPOINT)
+        for (revision_space, revision_external_id), group_items in groups.items():
+            contextualization_request = Image360ContextualizationRequest(
+                items=[data_item.item for data_item in group_items],
+                dms_contextualization_config=DmsContextualizationConfig(
+                    object3d_space=selector.object3d_space,
+                    contextualization_space=selector.instance_space,
+                    revision=InstanceId(instance_id=NodeId(space=revision_space, external_id=revision_external_id)),
+                ),
+            )
+            for chunk in chunker_sequence(group_items, self.CHUNK_SIZE):
+                responses = http_client.request_items_retries(
+                    contextualization_request.as_items_request(endpoint_url=endpoint_url, tracked_items=chunk)
+                )
+                results.extend(responses)
+        return results
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> Image360AnnotationItem:
+        raise NotImplementedError("Deserializing Image360 Annotation Migrations from JSON is not supported.")
+
+    def data_to_json_chunk(
+        self,
+        data_chunk: Page[AnnotationResponse],
+        selector: Image360AnnotationSelector | None = None,
+    ) -> Page[dict[str, JsonVal]]:
+        raise NotImplementedError("Serializing Image360 Annotation Migrations to JSON is not supported.")
