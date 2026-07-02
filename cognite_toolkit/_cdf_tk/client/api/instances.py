@@ -337,6 +337,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                         first.items[key].extend(items)  # type: ignore[arg-type]
                     else:
                         first.items[key] = items  # type: ignore[assignment]
+            # Advance next_cursor to reflect the last batch. Otherwise callers
+            # that use this merged response as a paginated result will re-issue
+            # the first batch's cursor and re-fetch items 2..N, causing duplicate
+            # registrations downstream.
+            first.next_cursor = results[-1].next_cursor
         return first
 
     @overload
