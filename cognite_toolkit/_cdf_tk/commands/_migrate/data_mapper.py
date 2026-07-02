@@ -2044,6 +2044,7 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
                     "migrated to CogniteFile instances yet. Migrate the files first using 'cdf migrate files', "
                     "then re-run 'cdf migrate 360-images'."
                 )
+                # Batching all files initially to warmup cache and avoid individal API lookups:
                 self.client.lookup.files.id(missing_files)
                 file_descriptions = []
                 for ext_id in missing_files:
