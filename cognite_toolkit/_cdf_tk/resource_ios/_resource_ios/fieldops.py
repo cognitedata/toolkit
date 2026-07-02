@@ -403,40 +403,54 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        if resource.data_exploration_config is None:
-            return
-        for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
-            card_mapping = getattr(resource.data_exploration_config, card_attr, None)
-            if card_mapping is None:
-                continue
-            yield (
-                ViewIO,
-                ViewId(
-                    space=card_mapping.space,
-                    external_id=card_mapping.external_id,
-                    version=card_mapping.version,
-                ),
-            )
+        if resource.data_exploration_config is not None:
+            for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
+                card_mapping = getattr(resource.data_exploration_config, card_attr, None)
+                if card_mapping is None:
+                    continue
+                yield (ViewIO, card_mapping.as_id())
+        if resource.view_mappings and resource.view_mappings.observation:
+            for obs_config in resource.view_mappings.observation:
+                yield (ViewIO, obs_config.view.as_id())
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         data_exploration_config = item.get("dataExplorationConfig")
-        if not isinstance(data_exploration_config, dict):
-            return
-        for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
-            card_mapping = data_exploration_config.get(json_key)
-            if not isinstance(card_mapping, dict):
-                continue
-            if not in_dict(("space", "externalId", "version"), card_mapping):
-                continue
-            yield (
-                ViewIO,
-                ViewId(
-                    space=card_mapping["space"],
-                    external_id=card_mapping["externalId"],
-                    version=str(card_mapping["version"]),
-                ),
-            )
+        if isinstance(data_exploration_config, dict):
+            for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
+                card_mapping = data_exploration_config.get(json_key)
+                if not isinstance(card_mapping, dict):
+                    continue
+                if not in_dict(("space", "externalId", "version"), card_mapping):
+                    continue
+                yield (
+                    ViewIO,
+                    ViewId(
+                        space=card_mapping["space"],
+                        external_id=card_mapping["externalId"],
+                        version=str(card_mapping["version"]),
+                    ),
+                )
+        view_mappings = item.get("viewMappings")
+        if isinstance(view_mappings, dict):
+            observations = view_mappings.get("observation")
+            if isinstance(observations, list):
+                for obs_config in observations:
+                    if not isinstance(obs_config, dict):
+                        continue
+                    view = obs_config.get("view")
+                    if not isinstance(view, dict):
+                        continue
+                    if not in_dict(("space", "externalId", "version"), view):
+                        continue
+                    yield (
+                        ViewIO,
+                        ViewId(
+                            space=view["space"],
+                            external_id=view["externalId"],
+                            version=str(view["version"]),
+                        ),
+                    )
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
