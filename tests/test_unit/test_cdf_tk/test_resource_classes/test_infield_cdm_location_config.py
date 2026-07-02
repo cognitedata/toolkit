@@ -176,10 +176,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {
-            "In viewMappings.asset.externalId string should match pattern "
-            "'^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"
-        },
+        {"In viewMappings.asset.externalId string should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"},
         id="Invalid externalId pattern in viewMappings.asset",
     )
     yield pytest.param(
