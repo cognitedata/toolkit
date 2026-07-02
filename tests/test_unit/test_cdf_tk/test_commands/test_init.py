@@ -111,3 +111,22 @@ class TestInitCommand:
             ):
                 cmd = InitCommand(print_warning=False, skip_tracking=True)
                 cmd.execute()
+
+    def test_org_dir_prompt_only_once_across_toml_and_modules(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test that modules init reuses the org dir selected in toml init."""
+        with monkeypatch.context() as m:
+            m.chdir(tmp_path)
+
+            with (
+                patch.object(CDFToml, "load", classmethod(self._mock_cdf_toml_load_non_loaded)),
+                patch("cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir") as mock_prompt,
+                patch("cognite_toolkit._cdf_tk.commands.init.ModulesCommand.init") as mock_modules_init,
+            ):
+                mock_prompt.return_value = Path("my-org")
+
+                cmd = InitCommand(print_warning=False, skip_tracking=True)
+                cmd._init_toml()
+                cmd._init_modules()
+
+        assert mock_prompt.call_count == 1
+        assert mock_modules_init.called
