@@ -168,13 +168,15 @@ def _discover_instance_spaces_for_view(
             instance_type=instance_type,
             limit=1000,
         )
-    except CogniteAPIError:
+    except CogniteAPIError as exc:
+        print(f"[DEBUG] aggregate space discovery failed for {view.external_id}/{view.version}: {exc}")
         return None
     spaces: list[str] = []
     for item in result:
         space_value = item.group.get("space")
         if isinstance(space_value, str):
             spaces.append(space_value)
+    print(f"[DEBUG] aggregate space discovery for {view.external_id}/{view.version}: {spaces or 'no spaces'}")
     return tuple(spaces) if spaces else None
 
 
