@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryDebugParameters,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -143,30 +144,38 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             PagedResponse of InstanceResponse objects.
         """
-        request = self._create_query(filter, limit, cursor)
+        request = self._create_query(filter, limit, cursor, endpoint=endpoint)
         response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
         return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
 
     def _create_query(
-        self, filter: InstanceFilter | None, limit: int | None, cursor: str | None = None
+        self,
+        filter: InstanceFilter | None,
+        limit: int | None,
+        cursor: str | None = None,
+        endpoint: QueryEndpoint = "query",
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # We sort by space and externalId to get a stable sort order.
-        #
-        # This is also more performant than sorting by using the default sort, which will sort on
-        # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
-        # By sorting on space and externalId, we avoid this issue.
+        # Sort by (space, externalId) to get a stable, index-driven order on /query.
+        # /sync silently ignores client-provided sort and uses its own txn-ordered cursor,
+        # so emitting the sort unconditionally is safe and keeps the code simple.
+        node_sort: list[QuerySortSpec] = [
+            QuerySortSpec(property=["node", "space"]),
+            QuerySortSpec(property=["node", "externalId"]),
+        ]
+        edge_sort: list[QuerySortSpec] = [
+            QuerySortSpec(property=["edge", "space"]),
+            QuerySortSpec(property=["edge", "externalId"]),
+        ]
+
         if filter is None:
             query = QueryRequest(
                 with_={
                     "root": QueryNodeExpression(
                         limit=limit,
                         nodes=QueryNodeTableExpression(),
-                        sort=[
-                            QuerySortSpec(property=["node", "space"]),
-                            QuerySortSpec(property=["node", "externalId"]),
-                        ],
+                        sort=node_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -180,13 +189,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
                 limit=limit,
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
+                sort=edge_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
                 limit=limit,
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+                sort=node_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:
@@ -216,7 +225,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         """
         endpoint_prop = self._get_endpoint(endpoint)
         chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
-        query = self._create_query(filter, chunk_limit, init_cursor)
+        query = self._create_query(filter, chunk_limit, init_cursor, endpoint=endpoint)
         for response in self.query_iterate(
             query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
         ):
@@ -438,12 +447,26 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         response_cls: type[_T_QueryResponse],
         endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
+        # TODO: Remove temporary debug parameters
+        query = query.model_copy(
+            update={
+                "debug": QueryDebugParameters(
+                    # emit_results=False,
+                    # include_plan=True,
+                    include_translated_query=True,
+                    include_llm_prompt=True,
+                    profile=True,
+                )
+            }
+        )
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
             body_content=query.dump(endpoint=endpoint_name),
             # We do not retry 408 as that is an indication we should reduce load.
             retry_status_codes={429, 502, 503, 504},
+            # TODO: Remove temporary alpha header for debug notices
+            api_version="alpha",
         )
         response = self._http_client.request_single_retries(request)
         if isinstance(response, FailedResponse) and response.status_code == 408:
@@ -462,6 +485,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # Wrong type hint in pydantic, response_cls.model_validate_json returns an instance
         # of that class no the class type.
         query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
+        # TODO: Remove temporary debug output
+        if query_response.debug:
+            print("[DEBUG]", query_response.debug)
+            if isinstance(query_response.debug, dict) and query_response.debug.get("notices"):
+                for notice in query_response.debug["notices"]:
+                    print("[DEBUG NOTICE]", notice)
         # We persist the root from the query. This is for convenience.
         query_response.root = query.root
         return query_response

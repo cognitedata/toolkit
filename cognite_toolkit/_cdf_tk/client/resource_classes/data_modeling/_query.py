@@ -110,6 +110,9 @@ class QueryDebugParameters(BaseModelObject):
     emit_results: bool | None = None
     timeout: int | None = None
     profile: bool | None = None
+    include_plan: bool | None = None
+    include_translated_query: bool | None = None
+    include_llm_prompt: bool | None = None
 
 
 class QueryRequest(BaseModelObject):
