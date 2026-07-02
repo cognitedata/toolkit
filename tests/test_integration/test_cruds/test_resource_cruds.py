@@ -1332,8 +1332,8 @@ class TestSkillIO:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = SkillIO(toolkit_client, None)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
-        # Skill names must be unique in CDF; with pytest-xdist each worker gets its own RUN_UNIQUE_ID.
-        skill_name = f"integration-test-skill-{RUN_UNIQUE_ID}".replace("_", "-")
+        # Skill names must be unique in CDF and match ^[a-z0-9]+(?:-[a-z0-9]+)*$.
+        skill_name = f"integration-test-skill-{RUN_UNIQUE_ID}".lower().replace("_", "-")
         original = SkillRequest(
             external_id=external_id,
             name=skill_name,
