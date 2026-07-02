@@ -454,7 +454,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     # emit_results=False,
                     # include_plan=True,
                     include_translated_query=True,
-                    include_llm_prompt=True,
+                    # include_llm_prompt=True,
                     profile=True,
                 )
             }
