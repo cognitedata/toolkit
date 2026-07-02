@@ -1,7 +1,10 @@
 from typing import Any
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeResponse,
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
@@ -13,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector, SelectedView
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 LEGACY_360_IMAGE_SCHEMA_SPACE = "cdf_360_image_schema"
 
@@ -58,12 +62,7 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
             destination_view=COGNITE_360_IMAGE_VIEW,
             map_identical_id_properties=True,
             container_mapping={
-                "cubeMapFront": "front",
-                "cubeMapBack": "back",
-                "cubeMapLeft": "left",
-                "cubeMapRight": "right",
-                "cubeMapTop": "top",
-                "cubeMapBottom": "bottom",
+                **CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY,
                 "station": "station360",
                 "timeTaken": "takenAt",
             },
@@ -72,6 +71,58 @@ def create_360_image_data_mappings() -> list[ViewToViewMapping]:
             ignore_source_properties={"label"},
         ),
     ]
+
+
+def load_image360_annotation_node_data(
+    client: ToolkitClient,
+    collections: tuple[str, ...],
+) -> dict[str, tuple[str, NodeId, NodeId]]:
+    """Return a mapping from face-file external ID to (face_name, new_image360_node_id, new_collection_node_id).
+
+    Used by both Image360AnnotationMapper (needs face_name + image360 node) and
+    Image360AnnotationMigrationIO (needs file ext IDs for annotation filtering and
+    collection node for upload grouping).
+    """
+    instance_filter = InstanceFilter(
+        instance_type="node",
+        source=LEGACY_IMAGE360_SOURCE_VIEW,
+    )
+    all_nodes = client.tool.instances.list(filter=instance_filter, limit=None)
+
+    selected_collections = set(collections)
+    face_data_by_file_ext_id: dict[str, tuple[str, NodeId, NodeId]] = {}
+
+    for node in all_nodes:
+        if not isinstance(node, NodeResponse) or node.properties is None:
+            continue
+        props = node.properties.get(LEGACY_IMAGE360_SOURCE_VIEW, {})
+
+        collection_ref = props.get("collection360")
+        if not isinstance(collection_ref, dict):
+            continue
+        collection_ext_id = collection_ref.get("externalId")
+        if not collection_ext_id or collection_ext_id not in selected_collections:
+            continue
+
+        new_image360_node_id = NodeId(
+            space=node.space,
+            external_id=sanitize_instance_external_id(node.external_id, "_cdm"),
+        )
+        new_collection_node_id = NodeId(
+            space=node.space,
+            external_id=sanitize_instance_external_id(str(collection_ext_id), "_cdm"),
+        )
+
+        for prop_name, face_name in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY.items():
+            file_ext_id = props.get(prop_name)
+            if file_ext_id and isinstance(file_ext_id, str):
+                face_data_by_file_ext_id[file_ext_id] = (
+                    face_name,
+                    new_image360_node_id,
+                    new_collection_node_id,
+                )
+
+    return face_data_by_file_ext_id
 
 
 def create_360_image_selectors(
