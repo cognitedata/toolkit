@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
+    ToolkitRuntimeError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
@@ -324,38 +325,51 @@ class MigrationCommand(ToolkitCommand):
             responses: ItemsResultList = ItemsResultList()
             for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
                 chunk_page = page.create_from(list(chunk))
-                responses.extend(
-                    target.upload_items(data_chunk=chunk_page, http_client=write_client, selector=selected)
+                chunk_results = target.upload_items(
+                    data_chunk=chunk_page, http_client=write_client, selector=selected
                 )
+                responses.extend(chunk_results)
 
-            for item in responses:
-                if isinstance(item, ItemsSuccessResponse):
-                    continue
-                if isinstance(item, ItemsFailedResponse):
-                    error = item.error
-                    for id_ in item.ids:
-                        target.logger.log(
-                            MigrationEntryV2(
-                                id=id_,
-                                severity=Severity.failure,
-                                label=f"Failed to write to CDF: {error.code}",
-                                message=error.message,
-                                source=str(selected),
-                                destination=target.KIND,
+                for item in chunk_results:
+                    if isinstance(item, ItemsSuccessResponse):
+                        continue
+                    if isinstance(item, ItemsFailedResponse):
+                        error = item.error
+                        for id_ in item.ids:
+                            target.logger.log(
+                                MigrationEntryV2(
+                                    id=id_,
+                                    severity=Severity.failure,
+                                    label=f"Failed to write to CDF: {error.code}",
+                                    message=error.message,
+                                    source=str(selected),
+                                    destination=target.KIND,
+                                )
                             )
-                        )
-                elif isinstance(item, ItemsFailedRequest):
-                    for id_ in item.ids:
-                        target.logger.log(
-                            MigrationEntryV2(
-                                id=id_,
-                                severity=Severity.failure,
-                                label="Failed to write to CDF: Request failed",
-                                message=item.error_message,
-                                source=str(selected),
-                                destination=target.KIND,
+                    elif isinstance(item, ItemsFailedRequest):
+                        for id_ in item.ids:
+                            target.logger.log(
+                                MigrationEntryV2(
+                                    id=id_,
+                                    severity=Severity.failure,
+                                    label="Failed to write to CDF: Request failed",
+                                    message=item.error_message,
+                                    source=str(selected),
+                                    destination=target.KIND,
+                                )
                             )
-                        )
+
+                if chunk_results and all(
+                    isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in chunk_results
+                ):
+                    target.logger.apply_to_all_unprocessed(
+                        label="Early termination of migration",
+                        severity=Severity.skipped,
+                    )
+                    target.logger.force_write()
+                    raise ToolkitRuntimeError(
+                        f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
+                    )
 
             migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(

@@ -68,6 +68,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamSettings,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
@@ -95,8 +96,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
+from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, Severity
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
@@ -260,6 +262,22 @@ class _ChunkTrackingUploadIO:
     def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
         self.upload_chunk_sizes.append(len(data_chunk))
         return []
+
+
+class _FailingUploadIO:
+    CHUNK_SIZE = 1000
+    KIND = "Instances"
+
+    def __init__(self) -> None:
+        self.logger = MagicMock()
+
+    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
+        return [
+            ItemsFailedRequest(
+                ids=[item.tracking_id for item in data_chunk.items],
+                error_message="Aborting further splitting of requests after 50 failed attempts.",
+            )
+        ]
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -1161,6 +1179,31 @@ class TestMigrationCommand:
         upload(page)
 
         assert target.upload_chunk_sizes == [1000, 1]
+
+    def test_abort_when_all_items_in_chunk_fail(self, tmp_path: Path) -> None:
+        command = MigrationCommand(silent=True)
+        target = _FailingUploadIO()
+        page = Page(
+            worker_id="main",
+            items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(2)],
+        )
+        upload = command._upload(
+            selected=MagicMock(__str__=lambda self: "ChecklistItem_v7_node"),
+            write_client=MagicMock(),
+            target=target,  # type: ignore[arg-type]
+            dry_run=False,
+            log_dir=tmp_path,
+            total_item_count=2,
+            start_item=0,
+        )
+        with pytest.raises(ToolkitRuntimeError, match="Migration was stopped due to repeatedly failed uploads"):
+            upload(page)
+
+        target.logger.apply_to_all_unprocessed.assert_called_once_with(
+            label="Early termination of migration",
+            severity=Severity.skipped,
+        )
+        target.logger.force_write.assert_called_once()
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

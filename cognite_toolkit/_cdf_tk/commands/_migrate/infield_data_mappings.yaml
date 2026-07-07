@@ -74,23 +74,23 @@
 #   containerMapping:
 #     node.createdTime: sourceCreatedTime
 #     node.lastUpdatedTime: sourceUpdatedTime
-- externalId: InFieldMeasurementReadingMapping
-  sourceView:
-    space: cdf_apm
-    externalId: MeasurementReading
-    version: v4
-    type: view
-  destinationView:
-    space: cdf_infield
-    externalId: MeasurementReading
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  containerMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-  edgeMapping:
-    cdf_apm:referenceMeasurements(direction=inwards): item
+# - externalId: InFieldMeasurementReadingMapping
+#   sourceView:
+#     space: cdf_apm
+#     externalId: MeasurementReading
+#     version: v4
+#     type: view
+#   destinationView:
+#     space: cdf_infield
+#     externalId: MeasurementReading
+#     version: v1
+#     type: view
+#   mapIdenticalIdProperties: true
+#   containerMapping:
+#     node.createdTime: sourceCreatedTime
+#     node.lastUpdatedTime: sourceUpdatedTime
+#   edgeMapping:
+#     cdf_apm:referenceMeasurements(direction=inwards): item
 # - externalId: InFieldTemplateMapping
 #   sourceView:
 #     space: cdf_apm
@@ -136,24 +136,24 @@
 #   containerMapping:
 #     node.createdTime: sourceCreatedTime
 #     node.lastUpdatedTime: sourceUpdatedTime
-# - externalId: InFieldChecklistItemMapping
-#   sourceView:
-#     space: cdf_apm
-#     externalId: ChecklistItem
-#     version: v7
-#     type: view
-#   destinationView:
-#     space: cdf_infield
-#     externalId: ChecklistItem
-#     version: v1
-#     type: view
-#   mapIdenticalIdProperties: true
-#   containerMapping:
-#     node.createdTime: sourceCreatedTime
-#     node.lastUpdatedTime: sourceUpdatedTime
-#   edgeMapping:
-#     cdf_apm:referenceChecklistItems(direction=inwards): checklist
-#     cdf_apm:referenceObservations(direction=outwards): observations
+- externalId: InFieldChecklistItemMapping
+  sourceView:
+    space: cdf_apm
+    externalId: ChecklistItem
+    version: v7
+    type: view
+  destinationView:
+    space: cdf_infield
+    externalId: ChecklistItem
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  containerMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+  edgeMapping:
+    cdf_apm:referenceChecklistItems(direction=inwards): checklist
+    cdf_apm:referenceObservations(direction=outwards): observations
 # - externalId: InFieldTemplateItemMapping
 #   sourceView:
 #     space: cdf_apm
