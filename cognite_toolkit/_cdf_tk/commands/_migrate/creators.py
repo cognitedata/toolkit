@@ -1,4 +1,3 @@
-import uuid
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
@@ -32,11 +31,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
-    INFIELD_ON_CDM_DATA_MODEL,
     DataStorage,
     InFieldCDMLocationConfigRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, LabelResult, Severity, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
@@ -45,7 +42,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
-    LocationFilterIO,
     NodeCRUD,
     ResourceIO,
     SpaceCRUD,
@@ -309,13 +305,10 @@ class InfieldV2ConfigCreator(MigrationCreator):
             apm_configs = list(cast(Sequence[APMConfigResponse], self.apm_configs))
 
         all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
-        all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
         success_count = 0
         skipped_external_ids_by_label: dict[str, list[str]] = {}
         for apm_config in apm_configs:
-            location_configs, location_filters = self._create_infield_v2_config(
-                apm_config, skipped_external_ids_by_label
-            )
+            location_configs = self._create_infield_v2_config(apm_config, skipped_external_ids_by_label)
             success_count += len(location_configs)
             all_location_configs.extend(
                 CreatedResource(
@@ -325,22 +318,9 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 )
                 for loc_config in location_configs
             )
-            all_location_filters.extend(
-                CreatedResource(
-                    resource=loc_filter,
-                    config_data=loc_filter.dump(),
-                    filestem=f"{apm_config.external_id}_filter_{loc_filter.name}",
-                )
-                for loc_filter in location_filters
-            )
 
         self._display_summary(success_count, skipped_external_ids_by_label)
 
-        yield ToCreateResources(
-            resources=all_location_filters,
-            crud_cls=LocationFilterIO,
-            display_name="Location Filters",
-        )
         yield ToCreateResources(
             resources=all_location_configs,
             crud_cls=InFieldCDMLocationConfigIO,
@@ -351,11 +331,10 @@ class InfieldV2ConfigCreator(MigrationCreator):
         self,
         config: APMConfigResponse,
         skipped_external_ids_by_label: dict[str, list[str]],
-    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
+    ) -> list[InFieldCDMLocationConfigRequest]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
-        location_filters: list[LocationFilterRequest] = []
         if not config.feature_configuration:
-            return location_configs, location_filters
+            return location_configs
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"
@@ -377,10 +356,9 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
-            location_filters.append(self._create_location_filter(root_location_config))
             location_configs.append(location_config)
 
-        return location_configs, location_filters
+        return location_configs
 
     def _display_summary(self, success_count: int, skipped_external_ids_by_label: dict[str, list[str]]) -> None:
         items: list[ItemsResult] = []
@@ -402,27 +380,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
             )
         if items:
             display_item_results(items, title="InField Location Configs", console=self.client.console)
-
-    def _create_location_filter(self, config: RootLocationConfiguration) -> LocationFilterRequest:
-        original_external_id = config.external_id or config.asset_external_id or str(uuid.uuid4())
-        external_id = f"loc_{original_external_id}"
-        name = config.display_name or config.asset_external_id or external_id
-
-        instance_spaces = [
-            space
-            for space in [config.app_data_instance_space, config.source_data_instance_space]
-            if space is not None and space != ""
-        ]
-
-        # Todo: Scene and views
-        return LocationFilterRequest(
-            external_id=external_id,
-            name=name,
-            description="InField location, migrated from old location configuration",
-            instance_spaces=instance_spaces or None,
-            data_models=[INFIELD_ON_CDM_DATA_MODEL],
-            data_modeling_type="DATA_MODELING_ONLY",
-        )
 
     def _create_location_config(
         self,
