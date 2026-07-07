@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
+    InFieldAssetMapping,
     InstanceMappingError,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
@@ -1770,6 +1771,18 @@ class TestInstanceIdMapper:
         mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
         result = mapper.map_instance_id(NodeId(space="source_space", external_id="node1"))
         assert result == NodeId(space="target_space", external_id="node1")
+
+
+class TestInFieldAssetMapping:
+    def test_getitem_raises_descriptive_value_error_for_unmigrated_asset(self) -> None:
+        mapping = InFieldAssetMapping(MagicMock(spec=ToolkitClient))
+        mapping._node_id_by_external_id["AI29531"] = None
+
+        with pytest.raises(
+            ValueError,
+            match="No migrated CogniteAsset instance found for classic asset with external ID 'AI29531'",
+        ):
+            mapping[NodeId(space="APM_SourceData", external_id="AI29531")]
 
 
 class TestAssetCentricToRecord:

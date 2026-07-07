@@ -748,14 +748,13 @@ class ConnectionCreator:
             try:
                 targets.append(self._create_target(item, source_prop_id, source_view_id))
             except ValueError as error:
-                issues.append(
-                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
-                )
-            except KeyError:
-                issues.append(
-                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
-                    "no migrated instance found for reference"
-                )
+                issues.append(f"Failed to create direct relation for property {source_prop_id!r}: {error}")
+            except KeyError as error:
+                raise RuntimeError(
+                    f"Bug in Toolkit: {source_view_id!s}.{source_prop_id!s} value {item!r} was not registered via "
+                    "CustomConnectionMapping.update() before being used to create a direct relation. "
+                    "Did you forget to call update_cache()?"
+                ) from error
         return targets, issues
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
@@ -767,12 +766,12 @@ class ConnectionCreator:
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
             if value not in self._timeseries_reference_cache:
                 raise ValueError(
-                    f"No migrated CogniteTimeSeries instance found for classic timeseries external ID {value!r}"
+                    f"No migrated CogniteTimeSeries instance found for classic timeseries with external ID {value!r}"
                 )
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
             if value not in self._file_reference_cache:
-                raise ValueError(f"No migrated CogniteFile instance found for classic file external ID {value!r}")
+                raise ValueError(f"No migrated CogniteFile instance found for classic file with external ID {value!r}")
             return self._file_reference_cache[value]
         elif (
             self._is_direct_relation(source_view_id, source_prop_id)
@@ -1133,7 +1132,9 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
         # the external ID classic.
         result = self._node_id_by_external_id[item.external_id]
         if result is None:
-            raise KeyError(f"No mapping found for {item!r}")
+            raise ValueError(
+                f"No migrated CogniteAsset instance found for classic asset with external ID {item.external_id!r}"
+            )
         return result
 
     def update(self, items: Iterable[NodeId]) -> None:
