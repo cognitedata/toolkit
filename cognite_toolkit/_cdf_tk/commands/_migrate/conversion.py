@@ -851,16 +851,20 @@ class ConnectionCreator:
 
     def create_direct_relation(
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         targets, target_issues = self._create_targets(value, source_prop_id, source_view_id)
         relations, relation_issues = self._targets_to_direct_relation(
-            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}"
+            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}", known_issues=target_issues
         )
         return relations, target_issues + relation_issues
 
     def _targets_to_direct_relation(
-        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_display_name: str
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+        self,
+        targets: list[NodeId],
+        dm_prop: DirectNodeRelation,
+        source_display_name: str,
+        known_issues: Sequence[str] = (),
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
@@ -872,6 +876,10 @@ class ConnectionCreator:
         elif len(targets) == 1:
             return targets[0], errors
         elif len(targets) == 0:
+            if known_issues:
+                # The reason no target could be resolved is already captured in known_issues,
+                # so we skip raising a generic error that would otherwise hide it.
+                return None, errors
             raise ValueError(
                 f"No targets for items relation property {source_display_name!s}: expected exactly 1, got 0"
             )
@@ -897,7 +905,7 @@ class ConnectionCreator:
 
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         if not dm_prop.list:
             edges = self._tiebreak_direct_relation_edges(edges, source_edge_type)
         targets: list[NodeId] = []
@@ -909,7 +917,9 @@ class ConnectionCreator:
                 issues.append(str(error))
                 continue
             targets.append(target)
-        result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
+        result, relation_issues = self._targets_to_direct_relation(
+            targets, dm_prop, str(source_edge_type), known_issues=issues
+        )
         return result, issues + relation_issues
 
     def create_edges_from_edges(
@@ -1206,7 +1216,8 @@ def convert_container_properties(
                 )
                 continue
             errors.extend(issues)
-            created_properties[dest_prop_id] = created_connection
+            if created_connection is not None:
+                created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
                 created_value = convert_to_primary_property_with_special_cases(
@@ -1261,7 +1272,8 @@ def convert_edges(
                 )
                 continue
             errors.extend(issues)
-            created_properties[dest_prop_id] = created_connection
+            if created_connection is not None:
+                created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
             errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")

@@ -1519,6 +1519,16 @@ class TestInstanceToInstanceConversion:
                 id="Missing classic file reference in list direct relation",
             ),
             pytest.param(
+                {"sensorTs": "missing_ts_ext_id"},
+                {},
+                [
+                    "Failed to create direct relation for property 'sensorTs' with value "
+                    "'missing_ts_ext_id': No migrated CogniteTimeSeries instance found for classic "
+                    "timeseries external ID 'missing_ts_ext_id'"
+                ],
+                id="Missing classic timeseries reference in single-valued direct relation",
+            ),
+            pytest.param(
                 {"epoch": 1700000000000},
                 {"timestamp": "2023-11-14T22:13:20Z"},
                 [],
@@ -1680,6 +1690,25 @@ class TestInstanceToInstanceConversion:
                     "Cannot map edge property src_space:textEdge(direction=outwards) to non-connection property text.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
+            ),
+            pytest.param(
+                {
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): [
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="unmapped_space", external_id="asset_X"),
+                        )
+                    ],
+                },
+                {},
+                [],
+                [
+                    "No source-to-destination space mapping applies to space 'unmapped_space'. This migration is "
+                    "only configured to map instances from the following source space(s): dst_space and "
+                    "src_space. Instances (or direct-relation/edge targets) outside these spaces cannot be "
+                    "migrated. To fix this, re-run the migration with 'unmapped_space' included as a source space."
+                ],
+                id="Unmapped edge target space surfaces the specific mapping error instead of a generic one",
             ),
         ],
     )
