@@ -19,6 +19,7 @@ from .scopes import (
     AgentExternalIdScope,
     AllScope,
     AppConfigScope,
+    AppExternalIdScope,
     AssetRootIDScope,
     CurrentUserScope,
     DataSetScope,
@@ -113,7 +114,7 @@ class AppHostingAcl(Acl):
 
     acl_name: Literal["appHostingAcl"] = Field("appHostingAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScope | AppExternalIdScope
 
 
 class AssetsAcl(Acl):

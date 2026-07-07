@@ -58,6 +58,11 @@ class AppConfigScope(Scope):
     apps: list[Literal["SEARCH"]]
 
 
+class AppExternalIdScope(Scope):
+    _scope_name = "appExternalIdScope"
+    external_ids: list[str]
+
+
 class CurrentUserScope(Scope):
     _scope_name = "currentuserscope"
 
@@ -200,7 +205,7 @@ class AppConfigAcl(Capability):
 class AppHostingAcl(Capability):
     _capability_name = "appHostingAcl"
     actions: list[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScope | AppExternalIdScope
 
 
 class AssetsAcl(Capability):
