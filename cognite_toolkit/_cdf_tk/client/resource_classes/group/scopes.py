@@ -45,6 +45,8 @@ class AgentExternalIdScope(ScopeDefinition):
 
 
 class AppExternalIdScope(ScopeDefinition):
+    """Scope limited to specific Custom Apps by External ID."""
+
     scope_name: Literal["appExternalIdScope"] = Field("appExternalIdScope", exclude=True)
     external_ids: list[str]
 
