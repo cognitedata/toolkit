@@ -20,6 +20,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
@@ -68,7 +69,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamSettings,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
@@ -98,12 +98,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, Severity
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitRuntimeError, ToolkitValueError
 
 
 def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:

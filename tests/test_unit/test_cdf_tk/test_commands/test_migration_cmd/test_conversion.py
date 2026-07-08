@@ -1513,9 +1513,8 @@ class TestInstanceToInstanceConversion:
                 {"files": ["2c2a5867-a7f8-4eb2-9bd4-724776b4be9d"]},
                 {"files": []},
                 [
-                    "Failed to create direct relation for property 'files' with value "
-                    "'2c2a5867-a7f8-4eb2-9bd4-724776b4be9d': No migrated CogniteFile instance found for classic "
-                    "file external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
+                    "Failed to create direct relation for property 'files': No migrated CogniteFile instance "
+                    "found for classic file with external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
                 ],
                 id="Missing classic file reference in list direct relation",
             ),
@@ -1523,9 +1522,8 @@ class TestInstanceToInstanceConversion:
                 {"sensorTs": "missing_ts_ext_id"},
                 {},
                 [
-                    "Failed to create direct relation for property 'sensorTs' with value "
-                    "'missing_ts_ext_id': No migrated CogniteTimeSeries instance found for classic "
-                    "timeseries external ID 'missing_ts_ext_id'"
+                    "Failed to create direct relation for property 'sensorTs': No migrated CogniteTimeSeries "
+                    "instance found for classic timeseries with external ID 'missing_ts_ext_id'"
                 ],
                 id="Missing classic timeseries reference in single-valued direct relation",
             ),

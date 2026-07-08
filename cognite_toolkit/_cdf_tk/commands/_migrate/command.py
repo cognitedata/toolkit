@@ -325,9 +325,7 @@ class MigrationCommand(ToolkitCommand):
             responses: ItemsResultList = ItemsResultList()
             for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
                 chunk_page = page.create_from(list(chunk))
-                chunk_results = target.upload_items(
-                    data_chunk=chunk_page, http_client=write_client, selector=selected
-                )
+                chunk_results = target.upload_items(data_chunk=chunk_page, http_client=write_client, selector=selected)
                 responses.extend(chunk_results)
 
                 for item in chunk_results:
