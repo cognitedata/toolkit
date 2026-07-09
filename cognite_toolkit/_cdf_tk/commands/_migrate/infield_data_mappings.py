@@ -70,7 +70,10 @@ def resolve_observation_view_id(
         observations = config.view_mappings.get("observation") if config.view_mappings else None
         if not isinstance(observations, list) or not observations:
             continue
-        view = observations[0]
+        observation_config = observations[0]
+        if not isinstance(observation_config, dict):
+            continue
+        view = observation_config.get("view")
         if not isinstance(view, dict):
             continue
         view_id_by_location[config.external_id] = ViewId(

@@ -1121,16 +1121,16 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Observation", version="v5")})
 
     _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, str]] = {
-        "Sent": "Sent",
-        "Not sent": "Not sent",
-        "File not sent": "File not sent",
+        "sent": "sent",
+        "not sent": "notSent",
+        "file not sent": "fileNotSent",
     }
 
     def convert(
         self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
     ) -> ConversionResult:
         status = source_properties.get("status")
-        sap_status = self._SAP_STATUS_BY_APM_STATUS.get(status) if isinstance(status, str) else None
+        sap_status = self._SAP_STATUS_BY_APM_STATUS.get(status.lower()) if isinstance(status, str) else None
         if sap_status is None:  # Skip and use default handling if not a SAP writeback status
             return ConversionResult(container_properties={})
 
@@ -1143,9 +1143,9 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
             "notificationIdInSap" in context.destination_properties
         )
         if not supports_writeback:
-            # We cannot migrate SAP writeback status, but the business status is still migrated to "Completed".
+            # We cannot migrate SAP writeback status, but the business status is still migrated to "completed".
             issues = [
-                f"Observation has SAP writeback status {status!r} but the configured Observation view "
+                f"Observation has SAP writeback status {status!r} but the configured observation view "
                 f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
                 "and/or 'notificationIdInSap' properties required to migrate this status value."
             ]
@@ -1157,7 +1157,7 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
             "sapStatus": sap_status,
         }
         if source_id := source_properties.get("sourceId"):
-            if sap_status != "Not sent":
+            if sap_status != "notSent":
                 created_properties["notificationIdInSap"] = source_id
         return ConversionResult(container_properties=created_properties)
 

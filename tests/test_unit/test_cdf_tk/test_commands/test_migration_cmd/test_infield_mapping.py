@@ -31,10 +31,11 @@ def _location_config(
         view_mappings = {
             "observation": [
                 {
-                    "type": "view",
-                    "space": observation_view.space,
-                    "externalId": observation_view.external_id,
-                    "version": observation_view.version,
+                    "view": {
+                        "space": observation_view.space,
+                        "externalId": observation_view.external_id,
+                        "version": observation_view.version,
+                    }
                 }
             ]
         }
@@ -151,18 +152,28 @@ class TestInFieldObservationSapStatusMapping:
         [
             pytest.param(
                 "Sent",
-                {"sapStatus": "Sent", "notificationIdInSap": "sap-notification-123"},
+                {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
                 id="sent",
             ),
             pytest.param(
                 "Not sent",
-                {"sapStatus": "Not sent"},
+                {"sapStatus": "notSent"},
                 id="not_sent_has_no_notification_id",
             ),
             pytest.param(
                 "File not sent",
-                {"sapStatus": "File not sent", "notificationIdInSap": "sap-notification-123"},
+                {"sapStatus": "fileNotSent", "notificationIdInSap": "sap-notification-123"},
                 id="file_not_sent",
+            ),
+            pytest.param(
+                "sent",
+                {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
+                id="lowercase_status_matches_case_insensitively",
+            ),
+            pytest.param(
+                "NOT SENT",
+                {"sapStatus": "notSent"},
+                id="uppercase_status_matches_case_insensitively",
             ),
         ],
     )
