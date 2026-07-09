@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
+    InFieldAssetMapping,
     InstanceMappingError,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
@@ -1512,11 +1513,19 @@ class TestInstanceToInstanceConversion:
                 {"files": ["2c2a5867-a7f8-4eb2-9bd4-724776b4be9d"]},
                 {"files": []},
                 [
-                    "Failed to create direct relation for property 'files' with value "
-                    "'2c2a5867-a7f8-4eb2-9bd4-724776b4be9d': No migrated CogniteFile instance found for classic "
-                    "file external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
+                    "Failed to create direct relation for property 'files': No migrated CogniteFile instance "
+                    "found for classic file with external ID '2c2a5867-a7f8-4eb2-9bd4-724776b4be9d'"
                 ],
                 id="Missing classic file reference in list direct relation",
+            ),
+            pytest.param(
+                {"sensorTs": "missing_ts_ext_id"},
+                {},
+                [
+                    "Failed to create direct relation for property 'sensorTs': No migrated CogniteTimeSeries "
+                    "instance found for classic timeseries with external ID 'missing_ts_ext_id'"
+                ],
+                id="Missing classic timeseries reference in single-valued direct relation",
             ),
             pytest.param(
                 {"epoch": 1700000000000},
@@ -1681,6 +1690,25 @@ class TestInstanceToInstanceConversion:
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
             ),
+            pytest.param(
+                {
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): [
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="unmapped_space", external_id="asset_X"),
+                        )
+                    ],
+                },
+                {},
+                [],
+                [
+                    "No source-to-destination space mapping applies to space 'unmapped_space'. This migration is "
+                    "only configured to map instances from the following source space(s): dst_space and "
+                    "src_space. Instances (or direct-relation/edge targets) outside these spaces cannot be "
+                    "migrated. To fix this, re-run the migration with 'unmapped_space' included as a source space."
+                ],
+                id="Unmapped edge target space surfaces the specific mapping error instead of a generic one",
+            ),
         ],
     )
     def test_convert_edges(
@@ -1741,6 +1769,18 @@ class TestInstanceIdMapper:
         mapper = SpaceMappingInstanceIdMapper({"source_space": "target_space"})
         result = mapper.map_instance_id(NodeId(space="source_space", external_id="node1"))
         assert result == NodeId(space="target_space", external_id="node1")
+
+
+class TestInFieldAssetMapping:
+    def test_getitem_raises_descriptive_value_error_for_unmigrated_asset(self) -> None:
+        mapping = InFieldAssetMapping(MagicMock(spec=ToolkitClient))
+        mapping._node_id_by_external_id["AI29531"] = None
+
+        with pytest.raises(
+            ValueError,
+            match="No migrated CogniteAsset instance found for classic asset with external ID 'AI29531'",
+        ):
+            mapping[NodeId(space="APM_SourceData", external_id="AI29531")]
 
 
 class TestAssetCentricToRecord:
