@@ -1583,7 +1583,7 @@ class MigrateApp(typer.Typer):
                 help="Skip migrating Observation data. If not specified, toolkit will automatically migrate data "
                 "to the default cdf_infield/FieldObservation view. If a custom Observation view is configured, "
                 "toolkit will attempt a best-effort migration to this custom view. Only use this flag "
-                "when you intend to migrate observations manually yourself, for example if you need custom logic.",
+                "when you intend to migrate observations using custom logic.",
             ),
         ] = False,
     ) -> None:
