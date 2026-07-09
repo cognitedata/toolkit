@@ -1078,15 +1078,10 @@ class TestFDMtoCDMMapper:
     @pytest.mark.parametrize(
         "status, destination_supports_writeback, expected_properties, expect_missing_writeback_error",
         [
-            # "Draft" and "Completed" are business-only statuses in APM: CDM's dedicated 'status' field
-            # gets them unchanged regardless of whether the view also supports SAP writeback.
             pytest.param("Draft", True, {"status": "draft"}, False, id="draft_with_writeback_view"),
             pytest.param("Draft", False, {"status": "draft"}, False, id="draft_without_writeback_view"),
             pytest.param("Completed", True, {"status": "completed"}, False, id="completed_with_writeback_view"),
             pytest.param("Completed", False, {"status": "completed"}, False, id="completed_without_writeback_view"),
-            # "Sent", "Not sent" and "File not sent" are APM's SAP send-states, which the ADR splits out
-            # into the dedicated 'sapStatus'/'notificationIdInSap' fields, collapsing business 'status'
-            # to "completed" in all cases.
             pytest.param(
                 "Sent",
                 True,
@@ -1098,7 +1093,6 @@ class TestFDMtoCDMMapper:
             pytest.param(
                 "Not sent",
                 True,
-                # No SAP notification ID has been sent yet, so there is nothing to carry over.
                 {"status": "completed", "sapStatus": "Not sent"},
                 False,
                 id="not_sent_with_writeback_view",

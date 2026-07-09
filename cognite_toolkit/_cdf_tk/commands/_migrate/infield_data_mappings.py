@@ -67,15 +67,14 @@ def resolve_observation_view_id(
     for config in configs:
         if config.data_storage is None or config.data_storage.app_instance_space != target_space:
             continue
-        view_mappings = config.view_mappings or {}
-        observations = view_mappings.get("observation")
+        observations = config.view_mappings.get("observation") if config.view_mappings else None
         if not isinstance(observations, list) or not observations:
             continue
         view = observations[0]
-        if not isinstance(view, dict) or not all(key in view for key in ("space", "externalId", "version")):
+        if not isinstance(view, dict):
             continue
         view_id_by_location[config.external_id] = ViewId(
-            space=str(view["space"]), external_id=str(view["externalId"]), version=str(view["version"])
+            space=str(view["space"]), external_id=str(view.get("externalId")), version=str(view.get("version"))
         )
 
     distinct_view_ids = set(view_id_by_location.values())
