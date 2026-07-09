@@ -1085,7 +1085,7 @@ class TestFDMtoCDMMapper:
             pytest.param(
                 "Sent",
                 True,
-                {"status": "completed", "sapStatus": "Sent", "notificationIdInSap": "sap-notification-123"},
+                {"status": "completed", "sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
                 False,
                 id="sent_with_writeback_view",
             ),
@@ -1093,7 +1093,7 @@ class TestFDMtoCDMMapper:
             pytest.param(
                 "Not sent",
                 True,
-                {"status": "completed", "sapStatus": "Not sent"},
+                {"status": "completed", "sapStatus": "notSent"},
                 False,
                 id="not_sent_with_writeback_view",
             ),
@@ -1103,7 +1103,7 @@ class TestFDMtoCDMMapper:
                 True,
                 {
                     "status": "completed",
-                    "sapStatus": "File not sent",
+                    "sapStatus": "fileNotSent",
                     "notificationIdInSap": "sap-notification-123",
                 },
                 False,
