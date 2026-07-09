@@ -74,7 +74,7 @@ def resolve_observation_view_id(
         if not isinstance(view, dict):
             continue
         view_id_by_location[config.external_id] = ViewId(
-            space=str(view["space"]), external_id=str(view.get("externalId")), version=str(view.get("version"))
+            space=str(view.get("space")), external_id=str(view.get("externalId")), version=str(view.get("version"))
         )
 
     distinct_view_ids = set(view_id_by_location.values())
