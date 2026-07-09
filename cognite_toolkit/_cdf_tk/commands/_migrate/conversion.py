@@ -1117,8 +1117,9 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
 
     # APM's single `status` field conflates business workflow and SAP send-state for SAP-enabled clients.
     # This maps the SAP-related values to CDM's separate `sapStatus`/`notificationIdInSap` fields, collapsing
-    # the business status to "Completed" in all cases. "Draft" and "Completed" are business-only statuses and
-    # are left for the generic container mapping to pass through unchanged.
+    # the business status to "Completed" in all cases (regardless of whether the destination view supports
+    # writeback). "Draft" and "Completed" are business-only statuses and are left for the generic container
+    # mapping to pass through unchanged.
     _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, str]] = {
         "Sent": "Sent",
         "Not sent": "Not sent",
@@ -1134,12 +1135,18 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
             # "Draft", "Completed" or an unrecognized value: leave it to the generic identity mapping.
             return ConversionResult(container_properties={})
 
+        # SAP writeback statuses always collapse to a "Completed" business status. We overwrite the
+        # source value in-place so the generic container mapping (which runs after us on this same
+        # dict) maps 'status' to "Completed" too, instead of separately failing to convert e.g. "Sent"
+        # to the business 'status' enum and raising a redundant/confusing error alongside ours.
+        source_properties["status"] = "Completed"
+
         supports_writeback = "sapStatus" in context.destination_properties and (
             "notificationIdInSap" in context.destination_properties
         )
         if not supports_writeback:
-            # The destination view cannot represent SAP writeback state at all, so we leave this
-            # property alone rather than guessing a business status for it.
+            # The destination view cannot represent SAP writeback state at all, so we do not set the
+            # writeback-specific properties, but the business status above is still migrated to "Completed".
             issues = [
                 f"Observation has SAP writeback status {status!r} but the configured Observation view "
                 f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
@@ -1147,8 +1154,10 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
             ]
             return ConversionResult(container_properties={}, errors=issues)
 
+        # 'status' itself is intentionally left out here: the generic container mapping (running after
+        # us on the mutated source_properties above) already converts it to the destination view's
+        # "Completed" business status enum value with the correct casing.
         created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {
-            "status": "Completed",
             "sapStatus": sap_status,
         }
         if source_id := source_properties.get("sourceId"):

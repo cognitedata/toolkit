@@ -71,7 +71,7 @@ def resolve_observation_view_id(
         observations = view_mappings.get("observation")
         if not isinstance(observations, list) or not observations:
             continue
-        view = observations[0].get("view") if isinstance(observations[0], dict) else None
+        view = observations[0]
         if not isinstance(view, dict) or not all(key in view for key in ("space", "externalId", "version")):
             continue
         view_id_by_location[config.external_id] = ViewId(
