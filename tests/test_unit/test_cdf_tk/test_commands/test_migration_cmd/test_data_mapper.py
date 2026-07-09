@@ -1076,27 +1076,61 @@ class TestFDMtoCDMMapper:
     OBSERVATION_SOURCE_VIEW_ID = ViewId(space="cdf_apm", external_id="Observation", version="v5")
 
     @pytest.mark.parametrize(
-        "destination_supports_writeback, expected_properties",
+        "status, destination_supports_writeback, expected_properties, expect_missing_writeback_error",
         [
+            # "Draft" and "Completed" are business-only statuses in APM: CDM's dedicated 'status' field
+            # gets them unchanged regardless of whether the view also supports SAP writeback.
+            pytest.param("Draft", True, {"status": "draft"}, False, id="draft_with_writeback_view"),
+            pytest.param("Draft", False, {"status": "draft"}, False, id="draft_without_writeback_view"),
+            pytest.param("Completed", True, {"status": "completed"}, False, id="completed_with_writeback_view"),
+            pytest.param("Completed", False, {"status": "completed"}, False, id="completed_without_writeback_view"),
+            # "Sent", "Not sent" and "File not sent" are APM's SAP send-states, which the ADR splits out
+            # into the dedicated 'sapStatus'/'notificationIdInSap' fields, collapsing business 'status'
+            # to "completed" in all cases.
             pytest.param(
+                "Sent",
                 True,
                 {"status": "completed", "sapStatus": "Sent", "notificationIdInSap": "sap-notification-123"},
-                id="custom_view_with_writeback_fields",
+                False,
+                id="sent_with_writeback_view",
+            ),
+            pytest.param("Sent", False, {"status": "completed"}, True, id="sent_without_writeback_view"),
+            pytest.param(
+                "Not sent",
+                True,
+                # No SAP notification ID has been sent yet, so there is nothing to carry over.
+                {"status": "completed", "sapStatus": "Not sent"},
+                False,
+                id="not_sent_with_writeback_view",
+            ),
+            pytest.param("Not sent", False, {"status": "completed"}, True, id="not_sent_without_writeback_view"),
+            pytest.param(
+                "File not sent",
+                True,
+                {
+                    "status": "completed",
+                    "sapStatus": "File not sent",
+                    "notificationIdInSap": "sap-notification-123",
+                },
+                False,
+                id="file_not_sent_with_writeback_view",
             ),
             pytest.param(
-                False,
-                {"status": "completed"},
-                id="custom_view_without_writeback_fields",
+                "File not sent", False, {"status": "completed"}, True, id="file_not_sent_without_writeback_view"
             ),
         ],
     )
     def test_infield_observation_sap_status_migrates_to_custom_observation_view(
-        self, destination_supports_writeback: bool, expected_properties: dict[str, str]
+        self,
+        status: str,
+        destination_supports_writeback: bool,
+        expected_properties: dict[str, str],
+        expect_missing_writeback_error: bool,
     ) -> None:
-        """Regression test for the SAP writeback ADR: migrating an Observation with a SAP writeback status
-        onto a customer's custom observation view must succeed, with the business 'status' correctly
-        collapsed to the destination enum's "completed" value, regardless of whether the destination view
-        has the two writeback fields.
+        """Regression test for the SAP writeback ADR: migrating an Observation with any APM status onto a
+        customer's custom observation view must succeed, with the business 'status' correctly set on the
+        destination enum (with correct casing) and the SAP-specific fields populated per the ADR's mapping
+        rules, regardless of whether the destination view has the two writeback fields.
         """
         source_container = ContainerId(space="cdf_apm", external_id="Observation")
         source_view = ViewResponse(
@@ -1162,7 +1196,7 @@ class TestFDMtoCDMMapper:
             created_time=0,
             version=1,
             properties={
-                self.OBSERVATION_SOURCE_VIEW_ID: {"status": "Sent", "sourceId": "sap-notification-123"},
+                self.OBSERVATION_SOURCE_VIEW_ID: {"status": status, "sourceId": "sap-notification-123"},
             },
         )
 
@@ -1193,7 +1227,7 @@ class TestFDMtoCDMMapper:
         )
         assert observation_source.properties == expected_properties
 
-        if destination_supports_writeback:
+        if not expect_missing_writeback_error:
             logger.log.assert_not_called()
         else:
             # Exactly one informative issue is logged about the missing writeback fields, not a second
