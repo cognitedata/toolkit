@@ -1092,6 +1092,62 @@ class InFieldUserMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
+    """Splits the APM Observation ``status`` field into CDM's separate ``status`` (business workflow)
+    and ``sapStatus``/``notificationIdInSap`` (SAP writeback state) fields, per the "SAP writeback on CDM
+    custom observation views" ADR.
+
+    The destination view is only written to if it actually has the ``sapStatus``/``notificationIdInSap``
+    properties (detected dynamically from the resolved destination view, mirroring how InField itself
+    detects writeback capability). This means the same logic works whether Observations are migrated to
+    the default ``cdf_infield/FieldObservation`` view or to a customer's custom observation view that
+    includes these two writeback fields.
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Observation", version="v5")})
+
+    # APM's single `status` field conflates business workflow and SAP send-state for SAP-enabled clients.
+    # This maps the SAP-related values to CDM's separate `sapStatus`/`notificationIdInSap` fields, collapsing
+    # the business status to "Completed" in all cases. "Draft" and "Completed" are business-only statuses and
+    # are left for the generic container mapping to pass through unchanged.
+    _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, str]] = {
+        "Sent": "Sent",
+        "Not sent": "Not sent",
+        "File not sent": "File not sent",
+    }
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        status = source_properties.get("status")
+        sap_status = self._SAP_STATUS_BY_APM_STATUS.get(status) if isinstance(status, str) else None
+        if sap_status is None:
+            # "Draft", "Completed" or an unrecognized value: leave it to the generic identity mapping.
+            return ConversionResult(container_properties={})
+
+        supports_writeback = "sapStatus" in context.destination_properties and (
+            "notificationIdInSap" in context.destination_properties
+        )
+        if not supports_writeback:
+            # The destination view cannot represent SAP writeback state at all, so we leave this
+            # property alone rather than guessing a business status for it.
+            issues = [
+                f"Observation has SAP writeback status {status!r} but the configured Observation view "
+                f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
+                "and/or 'notificationIdInSap' properties required to migrate this status value."
+            ]
+            return ConversionResult(container_properties={}, errors=issues)
+
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {
+            "status": "Completed",
+            "sapStatus": sap_status,
+        }
+        if source_id := source_properties.get("sourceId"):
+            if sap_status != "Not sent":
+                created_properties["notificationIdInSap"] = source_id
+        return ConversionResult(container_properties=created_properties)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 

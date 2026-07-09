@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     InFieldAssetMapping,
     InFieldConditionMapping,
+    InFieldObservationSapStatusMapping,
     InFieldUserMapping,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
@@ -52,6 +53,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     DIRECT_RELATION_EDGE_TIEBREAKERS,
     create_infield_data_mappings,
     create_infield_schedule_selector,
+    resolve_observation_view_id,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
@@ -1578,8 +1580,10 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--skip-observations",
-                help="Skip migrating Observation data to the default cdf_infield/FieldObservation view. "
-                "Only use this when you intend to migrate observations to a custom observation view manually.",
+                help="Skip migrating Observation data. If not specified, toolkit will automatically migrate data "
+                "to the default cdf_infield/FieldObservation view. If a custom Observation view is configured, "
+                "toolkit will attempt a best-effort migration to this custom view. Only use this flag "
+                "when you intend to migrate observations manually yourself, for example if you need custom logic.",
             ),
         ] = False,
     ) -> None:
@@ -1672,6 +1676,17 @@ class MigrateApp(typer.Typer):
             # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
             # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
             infield_mappings = [m for m in infield_mappings if m.destination_view.external_id != "FieldObservation"]
+        else:
+            # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
+            # migrate Observations onto it instead of the default FieldObservation view.
+            custom_observation_view = resolve_observation_view_id(infield_cdm_configs, target_space)
+            if custom_observation_view is not None:
+                infield_mappings = [
+                    m.model_copy(update={"destination_view": custom_observation_view})
+                    if m.source_view.external_id == "Observation"
+                    else m
+                    for m in infield_mappings
+                ]
         schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
@@ -1705,7 +1720,11 @@ class MigrateApp(typer.Typer):
             client,
             infield_mappings,
             connection_creator=connection_creator,
-            custom_properties_mappings=[InFieldConditionMapping(infield_mappings), InFieldUserMapping()],
+            custom_properties_mappings=[
+                InFieldConditionMapping(infield_mappings),
+                InFieldUserMapping(),
+                InFieldObservationSapStatusMapping(),
+            ],
             custom_instance_mappings={
                 InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
                     client, connection_creator, schedule_mapping
