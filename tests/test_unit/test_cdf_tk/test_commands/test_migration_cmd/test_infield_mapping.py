@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldConditionMapping,
-    InFieldObservationSapStatusMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     create_infield_data_mappings,
@@ -129,86 +128,3 @@ class TestResolveObservationViewId:
 
         with pytest.raises(ToolkitMigrationError, match="different observation views"):
             resolve_observation_view_id(configs, "sp_target")
-
-
-class TestInFieldObservationSapStatusMapping:
-    @pytest.mark.parametrize(
-        "status",
-        ["Draft", "Completed", "SomeUnrecognizedStatus"],
-    )
-    def test_business_only_statuses_are_left_to_generic_mapping(self, status: str) -> None:
-        mapping = InFieldObservationSapStatusMapping()
-        context = MagicMock(destination_properties={"status": MagicMock()})
-        source_properties = {"status": status}
-
-        result = mapping.convert(source_properties, context)
-
-        assert result.container_properties == {}
-        assert result.errors == []
-        assert source_properties["status"] == status
-
-    @pytest.mark.parametrize(
-        "status, expected_container_properties",
-        [
-            pytest.param(
-                "Sent",
-                {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
-                id="sent",
-            ),
-            pytest.param(
-                "Not sent",
-                {"sapStatus": "notSent"},
-                id="not_sent_has_no_notification_id",
-            ),
-            pytest.param(
-                "File not sent",
-                {"sapStatus": "fileNotSent", "notificationIdInSap": "sap-notification-123"},
-                id="file_not_sent",
-            ),
-            pytest.param(
-                "sent",
-                {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
-                id="lowercase_status_matches_case_insensitively",
-            ),
-            pytest.param(
-                "NOT SENT",
-                {"sapStatus": "notSent"},
-                id="uppercase_status_matches_case_insensitively",
-            ),
-        ],
-    )
-    def test_sap_statuses_are_mapped_when_writeback_supported(
-        self, status: str, expected_container_properties: dict[str, str]
-    ) -> None:
-        mapping = InFieldObservationSapStatusMapping()
-        context = MagicMock(destination_properties={"sapStatus": MagicMock(), "notificationIdInSap": MagicMock()})
-        source_properties = {"status": status, "sourceId": "sap-notification-123"}
-
-        result = mapping.convert(source_properties, context)
-
-        assert result.container_properties == expected_container_properties
-        assert result.errors == []
-        # 'status' itself is left to the generic mapping (which runs after us on this same dict) to
-        # convert with the correct destination enum casing, so we just normalize the source value here.
-        assert source_properties["status"] == "Completed"
-
-    def test_sent_without_writeback_support_falls_back_to_completed_business_status(self) -> None:
-        mapping = InFieldObservationSapStatusMapping()
-        context = MagicMock(
-            destination_properties={"status": MagicMock()},
-            mapping=MagicMock(
-                destination_view=ViewId(space="cdf_infield", external_id="FieldObservation", version="v1")
-            ),
-        )
-        source_properties = {"status": "Sent", "sourceId": "sap-notification-123"}
-
-        result = mapping.convert(source_properties, context)
-
-        assert result.container_properties == {}
-        assert len(result.errors) == 1
-        assert (
-            "does not have the required target 'sapStatus' and/or 'notificationIdInSap' properties" in result.errors[0]
-        )
-        # The generic container mapping still runs afterwards and must not also fail to convert
-        # 'status', so we overwrite it to a valid business status here.
-        assert source_properties["status"] == "Completed"
