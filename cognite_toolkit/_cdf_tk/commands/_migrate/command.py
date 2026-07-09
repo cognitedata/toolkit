@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
+    ToolkitRuntimeError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
@@ -356,6 +357,16 @@ class MigrationCommand(ToolkitCommand):
                                 destination=target.KIND,
                             )
                         )
+
+            if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
+                target.logger.apply_to_all_unprocessed(
+                    label="Early termination of migration",
+                    severity=Severity.skipped,
+                )
+                target.logger.force_write()
+                raise ToolkitRuntimeError(
+                    f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
+                )
 
             migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(
