@@ -20,8 +20,6 @@ from cognite.client.data_classes.capabilities import (
     WorkflowOrchestrationAcl,
 )
 
-from cognite_toolkit._cdf_tk.client.resource_classes.group import TransformationsExternalDataSourcesAcl
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -246,11 +244,6 @@ class ValidateAccess:
         """
         acls: list[tuple[str, list[Capability.Action], list[Capability.Action]]] = [
             ("transformations", [TransformationsAcl.Action.Read], [TransformationsAcl.Action.Write]),
-            (
-                "transformation external data sources",
-                [TransformationsExternalDataSourcesAcl.Action.Read],
-                [TransformationsExternalDataSourcesAcl.Action.Write],
-            ),
             ("workflows", [WorkflowOrchestrationAcl.Action.Read], [WorkflowOrchestrationAcl.Action.Write]),
             ("extraction pipelines", [ExtractionPipelinesAcl.Action.Read], [ExtractionPipelinesAcl.Action.Write]),
         ]

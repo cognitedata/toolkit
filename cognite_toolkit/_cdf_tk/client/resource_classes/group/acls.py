@@ -11,8 +11,6 @@ from pydantic import BeforeValidator, Field, ValidationError, model_serializer, 
 from pydantic_core import ErrorDetails
 from pydantic_core.core_schema import FieldSerializationInfo
 
-from cognite.client.data_classes.capabilities import Capability
-
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME, SCOPE_NAME
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -535,11 +533,6 @@ class TransformationsExternalDataSourcesAcl(Acl):
     )
     actions: Sequence[Literal["READ", "WRITE", "USE"]]
     scope: AllScope | DataSetScope
-
-    class Action(Capability.Action):  # type: ignore[misc]
-        Read = "READ"
-        Write = "WRITE"
-        Use = "USE"
 
 
 class TypesAcl(Acl):

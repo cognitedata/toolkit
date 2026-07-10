@@ -139,7 +139,6 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     dependencies = frozenset(
         {
             DataSetsIO,
-            ExternalDataSourceIO,
             RawDatabaseCRUD,
             GroupAllScopedCRUD,
             SpaceCRUD,
@@ -232,6 +231,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.query:
+            for source_id in get_ext_onelake_source_ids(resource.query):
+                yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
                 yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)
