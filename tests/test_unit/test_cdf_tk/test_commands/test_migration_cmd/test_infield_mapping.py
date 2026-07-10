@@ -148,37 +148,54 @@ class TestInFieldObservationSapStatusMapping:
         assert source_properties["status"] == status
 
     @pytest.mark.parametrize(
-        "status, expected_container_properties",
+        "status, expected_container_properties, expected_business_status",
         [
             pytest.param(
                 "Sent",
                 {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
+                "Completed",
                 id="sent",
             ),
             pytest.param(
                 "Not sent",
                 {"sapStatus": "notSent"},
+                "Completed",
                 id="not_sent_has_no_notification_id",
             ),
             pytest.param(
                 "File not sent",
                 {"sapStatus": "fileNotSent", "notificationIdInSap": "sap-notification-123"},
+                "Completed",
                 id="file_not_sent",
+            ),
+            pytest.param(
+                "Pending",
+                {"sapStatus": "pending"},
+                "Draft",
+                id="pending_has_no_notification_id_and_is_draft",
+            ),
+            pytest.param(
+                "Failed",
+                {"sapStatus": "notSent"},
+                "Completed",
+                id="failed_is_folded_into_not_sent",
             ),
             pytest.param(
                 "sent",
                 {"sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
+                "Completed",
                 id="lowercase_status_matches_case_insensitively",
             ),
             pytest.param(
                 "NOT SENT",
                 {"sapStatus": "notSent"},
+                "Completed",
                 id="uppercase_status_matches_case_insensitively",
             ),
         ],
     )
     def test_sap_statuses_are_mapped_when_writeback_supported(
-        self, status: str, expected_container_properties: dict[str, str]
+        self, status: str, expected_container_properties: dict[str, str], expected_business_status: str
     ) -> None:
         mapping = InFieldObservationSapStatusMapping()
         context = MagicMock(destination_properties={"sapStatus": MagicMock(), "notificationIdInSap": MagicMock()})
@@ -193,7 +210,7 @@ class TestInFieldObservationSapStatusMapping:
         assert result.errors == []
         # 'status' itself is left to the generic mapping (which runs after us on this same dict) to
         # convert with the correct destination enum casing, so we just normalize the source value here.
-        assert source_properties["status"] == "Completed"
+        assert source_properties["status"] == expected_business_status
 
     def test_sent_without_writeback_support_falls_back_to_completed_business_status(self) -> None:
         mapping = InFieldObservationSapStatusMapping()

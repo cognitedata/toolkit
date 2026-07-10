@@ -1108,8 +1108,9 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
 
     APM's single ``status`` field conflates business workflow and SAP send-state. For CDM migrations, we map
     SAP-related values to separate ``sapStatus``/``notificationIdInSap`` fields, collapsing the business 'status'
-    field to "Completed" in all cases (regardless of whether the destination view supports writeback). "Draft"
-    and "Completed" are business-only statuses and are left for the generic container mapping to pass through.
+    field to "Completed" (or "Draft" for "Pending", which is still awaiting SAP) regardless of whether the
+    destination view supports writeback. "Draft" and "Completed" themselves are business-only statuses and are
+    left for the generic container mapping to pass through.
 
     The destination view is only written to if it actually has the ``sapStatus``/``notificationIdInSap``
     properties (detected dynamically from the resolved destination view, mirroring how InField itself
@@ -1120,30 +1121,37 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
 
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Observation", version="v5")})
 
-    _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, str]] = {
-        "sent": "sent",
-        "not sent": "notSent",
-        "file not sent": "fileNotSent",
+    # APM status (lowercased) -> (sapStatus, business status).
+    _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, tuple[str, str]]] = {
+        "sent": ("sent", "Completed"),
+        "not sent": ("notSent", "Completed"),
+        "file not sent": ("fileNotSent", "Completed"),
+        # "Pending" is still awaiting SAP, so the business status stays "Draft" rather than "Completed".
+        "pending": ("pending", "Draft"),
+        # "Failed" is not its own sapStatus enum value; it is folded into "notSent".
+        "failed": ("notSent", "Completed"),
     }
+    # sapStatus values for which there is no SAP notification ID to write back yet.
+    _SAP_STATUSES_WITHOUT_NOTIFICATION_ID: ClassVar[frozenset[str]] = frozenset({"notSent", "pending"})
 
     def convert(
         self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
     ) -> ConversionResult:
         status = source_properties.get("status")
-        sap_status = self._SAP_STATUS_BY_APM_STATUS.get(status.lower()) if isinstance(status, str) else None
-        if sap_status is None:  # Skip and use default handling if not a SAP writeback status
+        status_mapping = self._SAP_STATUS_BY_APM_STATUS.get(status.lower()) if isinstance(status, str) else None
+        if status_mapping is None:  # Skip and use default handling if not a SAP writeback status
             return ConversionResult(container_properties={})
+        sap_status, business_status = status_mapping
 
-        # SAP writeback-related statuses always convert to a "Completed" status in the new  business logic-only
-        # 'status' field. We overwrite the source value in-place so the generic container mapping which runs
-        # after this doesn't separately fail to convert e.g. "Sent" and raise a redundant/confusing error.
-        source_properties["status"] = "Completed"
+        # We overwrite the source value in-place so the generic container mapping which runs after this
+        # doesn't separately fail to convert e.g. "Sent" and raise a redundant/confusing error.
+        source_properties["status"] = business_status
 
         supports_writeback = "sapStatus" in context.destination_properties and (
             "notificationIdInSap" in context.destination_properties
         )
         if not supports_writeback:
-            # We cannot migrate SAP writeback status, but the business status is still migrated to "completed".
+            # We cannot migrate SAP writeback status, but the business status above is still migrated.
             issues = [
                 f"Observation has SAP writeback status {status!r} but the configured observation view "
                 f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
@@ -1157,7 +1165,7 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
             "sapStatus": sap_status,
         }
         if source_id := source_properties.get("sourceId"):
-            if sap_status != "notSent":
+            if sap_status not in self._SAP_STATUSES_WITHOUT_NOTIFICATION_ID:
                 created_properties["notificationIdInSap"] = source_id
         return ConversionResult(container_properties=created_properties)
 
