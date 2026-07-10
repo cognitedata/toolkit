@@ -156,29 +156,20 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # Default: omit sort so the server uses its internal-node-id order. This
-        # matches the container's cursorable (space, node_id) btree and lets the
-        # planner lead with the container (hasData) scan instead of scanning the
-        # full node table by (space, externalId) and probing the container per row.
-        # A (space, externalId) sort risks the node_project_id_space_external_id_idx
-        # plan, which on wide+sparse single-space views blows the 5s server budget
-        # because the matching rows sit alphabetically after millions of non-matching
-        # nodes in the space. Internal-id order is still cursorable — /list uses it
-        # by default.
+        # Default: omit sort so the server uses its internal-node-id order, which
+        # matches the container's (space, node_id) btree and avoids expensive
+        # (space, externalId)-ordered scans on wide/sparse single-space views.
         #
-        # Exception: when the filter selects multiple spaces via `space IN [...]`,
-        # the default node_id order forces the server to materialise all matching
-        # rows and top-N heapsort them (the union of 26 sub-ranges from the
-        # (project_id, space, node_id) btree is not node_id-ordered, and Postgres
-        # will not MergeAppend here). That blows the budget once row counts get
-        # into the hundreds of thousands. Requesting a (space, externalId) sort in
-        # that case lets the ScalarArrayOp scan on the (project_id, space,
-        # externalId) btree stream results in index order — no Sort node, LIMIT
-        # pushes down.
-        multi_space = filter is not None and filter.space is not None and len(filter.space) >= 2
+        # Exception: when the filter isn't pinned to exactly one space (multiple
+        # spaces, or none at all), node_id order no longer correlates with the
+        # container's (space, node_id) btree, so the planner may have to scan and
+        # heapsort the whole container to find the top-N. Requesting a
+        # (space, externalId) sort avoids that by streaming the
+        # (project_id, space, externalId) btree in order instead.
+        filter_spaces = filter.space if filter is not None else None
         space_ext_id_sort: list[QuerySortSpec] | None = None
-        if multi_space:
-            instance_type = filter.instance_type or "node"  # type: ignore[union-attr]
+        if filter is not None and (filter_spaces is None or len(filter_spaces) > 1):
+            instance_type = filter.instance_type or "node"
             space_ext_id_sort = [
                 QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
                 QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
