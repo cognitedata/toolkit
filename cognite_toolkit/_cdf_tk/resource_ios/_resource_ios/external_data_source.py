@@ -16,11 +16,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
-
-from .data_organization import DataSetsIO
 
 
 @final
@@ -51,7 +50,10 @@ class ExternalDataSourceIO(
     @classmethod
     def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return ExternalId(external_id=item["externalId"])
+            external_id = item.get("externalId") or item.get("external_id")
+            if external_id is None:
+                raise ToolkitRequiredValueError("ExternalDataSource must have externalId set.")
+            return ExternalId(external_id=external_id)
         if not item.external_id:
             raise ToolkitRequiredValueError("ExternalDataSource must have external_id set.")
         return ExternalId(external_id=item.external_id)
@@ -106,8 +108,14 @@ class ExternalDataSourceIO(
         return self.client.tool.transformations.external_data_sources.upsert(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExternalDataSourceResponse]:
+        if not ids:
+            return []
         id_set = {id_.external_id for id_ in ids}
-        return [source for source in self.client.tool.transformations.external_data_sources.list(limit=None) if source.external_id in id_set]
+        return [
+            source
+            for source in self.client.tool.transformations.external_data_sources.list(limit=None)
+            if source.external_id in id_set
+        ]
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
@@ -121,6 +129,17 @@ class ExternalDataSourceIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExternalDataSourceResponse]:
-        if data_set_external_id or space or parent_ids:
-            return iter([])
-        yield from self.client.tool.transformations.external_data_sources.list(limit=None)
+        if space or parent_ids:
+            return
+        if data_set_external_id is None:
+            yield from self.client.tool.transformations.external_data_sources.list(limit=None)
+            return
+        data_sets = self.client.tool.datasets.retrieve(
+            [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
+        )
+        if not data_sets:
+            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+        data_set = data_sets[0]
+        for source in self.client.tool.transformations.external_data_sources.list(limit=None):
+            if source.data_set_id == data_set.id:
+                yield source
