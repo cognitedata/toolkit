@@ -11,9 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     InstanceDefinitionId,
     SpaceId,
-    ViewDirectId,
     ViewId,
-    ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
@@ -48,26 +46,6 @@ from .logger import LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
-
-
-def _referenced_view_ids(view: dm.ViewResponse) -> set[ViewId]:
-    """Return all ViewIds that the given view depends on (implements + property sources)."""
-    referenced: set[ViewId] = set()
-    for parent in view.implements or []:
-        referenced.add(parent)
-    for prop in view.properties.values():
-        if isinstance(prop, dm.EdgeProperty):
-            referenced.add(prop.source)
-            if prop.edge_source is not None:
-                referenced.add(prop.edge_source)
-        elif isinstance(prop, dm.ReverseDirectRelationProperty):
-            referenced.add(prop.source)
-            if isinstance(prop.through, ViewDirectId):
-                referenced.add(prop.through.source)
-        elif isinstance(prop, dm.ViewCorePropertyResponse) and isinstance(prop.type, dm.DirectNodeRelation):
-            if prop.type.source is not None:
-                referenced.add(prop.type.source)
-    return referenced
 
 
 class InstanceIO(
@@ -638,20 +616,8 @@ class InstanceIO(
         if not selector.view:
             return
         view_crud = ViewIO(self.client, None, None, topological_sort_implements=True)
-        retrieved_by_id: dict[ViewId, dm.ViewResponse] = {}
-        to_fetch: set[ViewNoVersionId] = {selector.view.as_id()}
-        while to_fetch:
-            fetched = self.client.tool.views.retrieve(list(to_fetch), include_inherited_properties=False)
-            to_fetch = set()
-            for view in fetched:
-                view_id = view.as_id()
-                if view_id in retrieved_by_id:
-                    continue
-                retrieved_by_id[view_id] = view
-                for referenced_id in _referenced_view_ids(view):
-                    if referenced_id not in retrieved_by_id:
-                        to_fetch.add(referenced_id)
-        views = [view for view in retrieved_by_id.values() if not view.is_global]
+        views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
+        views = [view for view in views if not view.is_global]
         if not views:
             return
         for view in views:
