@@ -1,5 +1,0 @@
-externalId: onelake-to-assets
-name: OneLake assets sync
-queryFile: onelake_to_assets.sql
-destination:
-  type: assets
