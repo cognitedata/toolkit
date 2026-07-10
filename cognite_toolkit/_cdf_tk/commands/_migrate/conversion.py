@@ -1101,6 +1101,75 @@ class InFieldUserMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
+    """Splits the APM Observation ``status`` field into CDM's separate ``status`` (business workflow)
+    and ``sapStatus``/``notificationIdInSap`` (SAP writeback state) fields, per the "SAP writeback on CDM
+    custom observation views" ADR.
+
+    APM's single ``status`` field conflates business workflow and SAP send-state. For CDM migrations, we map
+    SAP-related values to separate ``sapStatus``/``notificationIdInSap`` fields, collapsing the business 'status'
+    field to "Completed" (or "Draft" for "Pending", which is still awaiting SAP) regardless of whether the
+    destination view supports writeback. "Draft" and "Completed" themselves are business-only statuses and are
+    left for the generic container mapping to pass through.
+
+    The destination view is only written to if it actually has the ``sapStatus``/``notificationIdInSap``
+    properties (detected dynamically from the resolved destination view, mirroring how InField itself
+    detects writeback capability). This means the same logic works whether Observations are migrated to
+    the default ``cdf_infield/FieldObservation`` view or to a customer's custom observation view that
+    includes these two writeback fields.
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Observation", version="v5")})
+
+    # APM status (lowercased) -> (sapStatus, business status).
+    _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, tuple[str, str]]] = {
+        "sent": ("sent", "Completed"),
+        "not sent": ("notSent", "Completed"),
+        "file not sent": ("fileNotSent", "Completed"),
+        # "Pending" is still awaiting SAP, so the business status stays "Draft" rather than "Completed".
+        "pending": ("pending", "Draft"),
+        # "Failed" is not its own sapStatus enum value; it is folded into "notSent".
+        "failed": ("notSent", "Completed"),
+    }
+    # sapStatus values for which there is no SAP notification ID to write back yet.
+    _SAP_STATUSES_WITHOUT_NOTIFICATION_ID: ClassVar[frozenset[str]] = frozenset({"notSent", "pending"})
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        status = source_properties.get("status")
+        status_mapping = self._SAP_STATUS_BY_APM_STATUS.get(status.lower()) if isinstance(status, str) else None
+        if status_mapping is None:  # Skip and use default handling if not a SAP writeback status
+            return ConversionResult(container_properties={})
+        sap_status, business_status = status_mapping
+
+        # We overwrite the source value in-place so the generic container mapping which runs after this
+        # doesn't separately fail to convert e.g. "Sent" and raise a redundant/confusing error.
+        source_properties["status"] = business_status
+
+        supports_writeback = "sapStatus" in context.destination_properties and (
+            "notificationIdInSap" in context.destination_properties
+        )
+        if not supports_writeback:
+            # We cannot migrate SAP writeback status, but the business status above is still migrated.
+            issues = [
+                f"Observation has SAP writeback status {status!r} but the configured observation view "
+                f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
+                "and/or 'notificationIdInSap' properties required to migrate this status value."
+            ]
+            return ConversionResult(container_properties={}, errors=issues)
+
+        # 'status' itself is intentionally left out here: the generic container mapping (running after
+        # this mapping on the mutated source_properties above) handles conversion of this field.
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {
+            "sapStatus": sap_status,
+        }
+        if source_id := source_properties.get("sourceId"):
+            if sap_status not in self._SAP_STATUSES_WITHOUT_NOTIFICATION_ID:
+                created_properties["notificationIdInSap"] = source_id
+        return ConversionResult(container_properties=created_properties)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 
