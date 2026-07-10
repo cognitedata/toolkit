@@ -80,6 +80,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TransformationIO,
     TransformationNotificationIO,
     TransformationScheduleIO,
+    ExternalDataSourceIO,
     ViewIO,
     WorkflowIO,
     WorkflowTriggerIO,
@@ -353,6 +354,9 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_loader(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
+        external_data_loader = ExternalDataSourceIO.create_loader(self.client)
+        external_data_list = list(external_data_loader.iterate())
+        yield [], external_data_list, external_data_loader, None
         notification_loader = TransformationNotificationIO.create_loader(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None

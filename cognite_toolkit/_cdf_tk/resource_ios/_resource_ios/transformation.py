@@ -104,7 +104,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -121,6 +121,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
 from .datamodel import DataModelIO, SpaceCRUD, ViewIO
+from .external_data_source import ExternalDataSourceIO
 from .group_scoped import GroupResourceScopedCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
@@ -138,6 +139,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     dependencies = frozenset(
         {
             DataSetsIO,
+            ExternalDataSourceIO,
             RawDatabaseCRUD,
             GroupAllScopedCRUD,
             SpaceCRUD,
@@ -203,6 +205,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
+        if query := item.get("query"):
+            for source_id in get_ext_onelake_source_ids(query):
+                yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := item.get("destination", {}):
             if not isinstance(destination, dict):
                 return

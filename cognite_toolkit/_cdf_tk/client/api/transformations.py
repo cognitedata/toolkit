@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
+from cognite_toolkit._cdf_tk.client.api.transformation_external_data import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -31,6 +32,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         )
         self.schedules = TransformationSchedulesAPI(http_client)
         self.notifications = TransformationNotificationsAPI(http_client)
+        self.external_data_sources = TransformationExternalDataSourcesAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
