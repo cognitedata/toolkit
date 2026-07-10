@@ -1,16 +1,12 @@
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import questionary
 import typer
-from cognite.client import data_modeling as sdk_dm
-from cognite.client.data_classes.aggregations import Count
-from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
@@ -144,38 +140,6 @@ class CompressionFormat(str, Enum):
 
 
 DEFAULT_DOWNLOAD_DIR = Path(DATA_DEFAULT_DIR)
-
-
-def _discover_instance_spaces_for_view(
-    client: ToolkitClient,
-    view: SelectedView,
-    instance_type: Literal["node", "edge"],
-) -> tuple[str, ...] | None:
-    """Discover which instance spaces contain instances of the given view.
-
-    Uses the DMS aggregate endpoint with ``group_by=["space"]`` to enumerate the
-    spaces cheaply, avoiding a full node-table scan at download time. Returns
-    ``None`` if the version is unknown, the API call fails, or no spaces are
-    found; the caller should then fall back to ``/sync``.
-    """
-    if view.version is None:
-        return None
-    try:
-        result = client.data_modeling.instances.aggregate(
-            view=sdk_dm.ViewId(space=view.space, external_id=view.external_id, version=view.version),
-            aggregates=Count("externalId"),
-            group_by=["space"],
-            instance_type=instance_type,
-            limit=1000,
-        )
-    except CogniteAPIError:
-        return None
-    spaces: list[str] = []
-    for item in result:
-        space_value = item.group.get("space")
-        if isinstance(space_value, str):
-            spaces.append(space_value)
-    return tuple(spaces) if spaces else None
 
 
 class DownloadApp(typer.Typer):
@@ -1040,18 +1004,14 @@ class DownloadApp(typer.Typer):
                 )
                 edge_types = edge_type_ids_by_view_id.get(view.as_id())
 
-                selected_view = SelectedView(
-                    space=view.space,
-                    external_id=view.external_id,
-                    version=view.version,
-                )
-                view_instance_spaces = selected_instance_spaces
-                if view_instance_spaces is None:
-                    view_instance_spaces = _discover_instance_spaces_for_view(client, selected_view, view_instance_type)
                 selectors.append(
                     InstanceViewSelector(
-                        view=selected_view,
-                        instance_spaces=view_instance_spaces,
+                        view=SelectedView(
+                            space=view.space,
+                            external_id=view.external_id,
+                            version=view.version,
+                        ),
+                        instance_spaces=selected_instance_spaces,
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
                         edge_types=tuple(edge_types) if edge_types else None,
@@ -1064,27 +1024,20 @@ class DownloadApp(typer.Typer):
         elif schema_space is not None and view_external_ids is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             download_dir_name = sanitize_filename(schema_space)
-            selectors = []
-            for view_id_str in view_external_ids:
-                selected_view = SelectedView(
-                    space=schema_space,
-                    external_id=view_id_str.split("/", maxsplit=1)[0],
-                    version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
+            selectors = [
+                InstanceViewSelector(
+                    view=SelectedView(
+                        space=schema_space,
+                        external_id=view_id_str.split("/", maxsplit=1)[0],
+                        version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
+                    ),
+                    instance_spaces=selected_instance_spaces,
+                    instance_type=instance_type.value,
+                    download_dir_name=download_dir_name,
+                    endpoint="sync",
                 )
-                view_instance_spaces = selected_instance_spaces
-                if view_instance_spaces is None:
-                    view_instance_spaces = _discover_instance_spaces_for_view(
-                        client, selected_view, instance_type.value
-                    )
-                selectors.append(
-                    InstanceViewSelector(
-                        view=selected_view,
-                        instance_spaces=view_instance_spaces,
-                        instance_type=instance_type.value,
-                        download_dir_name=download_dir_name,
-                        endpoint="sync",
-                    )
-                )
+                for view_id_str in view_external_ids
+            ]
         else:
             raise typer.BadParameter(
                 "Both '--schema-space' and '--view' must be provided together.",
