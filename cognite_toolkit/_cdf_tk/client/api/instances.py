@@ -480,35 +480,15 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         response_cls: type[_T_QueryResponse],
         endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
-        # TODO: Remove temporary debug parameters
-        # query = query.model_copy(
-        #     update={
-        #         "debug": QueryDebugParameters(
-        #             # emit_results=False,
-        #             # include_plan=True,
-        #             # include_translated_query=True,
-        #             include_llm_prompt=True,
-        #             profile=True,
-        #             # timeout=60000,
-        #         )
-        #     }
-        # )
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
             body_content=query.dump(endpoint=endpoint_name),
             # We do not retry 408 as that is an indication we should reduce load.
             retry_status_codes={429, 502, 503, 504},
-            # TODO: Remove temporary alpha header for debug notices
-            api_version="alpha",
         )
         response = self._http_client.request_single_retries(request)
         if isinstance(response, FailedResponse) and response.status_code == 408:
-            # Graph query timed out. Reduce load or contention, or optimise your query.
-            # TODO: Remove temporary debug output on 408 timeouts
-            print(f"[DEBUG 408] endpoint={endpoint_name} url={endpoint.path}")
-            print(f"[DEBUG 408] request body={request.body_content}")
-            print(f"[DEBUG 408] response body={response.body}")
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
                     f"Request failed with status code {response.status_code}: {response.error.message}",
@@ -523,9 +503,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # Wrong type hint in pydantic, response_cls.model_validate_json returns an instance
         # of that class no the class type.
         query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
-        # TODO: Remove temporary debug output
-        if query_response.debug:
-            print("[DEBUG]", query_response.debug)
         # We persist the root from the query. This is for convenience.
         query_response.root = query.root
         return query_response
