@@ -20,9 +20,9 @@ from .data_product_version import DataProductVersionYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
+from .external_data_source import ExternalDataSourceYAML
 from .extraction_pipeline import ExtractionPipelineYAML
 from .extraction_pipeline_config import ExtractionPipelineConfigYAML
-from .external_data_source import ExternalDataSourceYAML
 from .filemetadata import FileMetadataYAML
 from .function_schedule import FunctionScheduleYAML
 from .functions import FunctionsYAML
@@ -84,9 +84,9 @@ __all__ = [
     "EdgeYAML",
     "EmailSinkYAML",
     "EventYAML",
+    "ExternalDataSourceYAML",
     "ExtractionPipelineConfigYAML",
     "ExtractionPipelineYAML",
-    "ExternalDataSourceYAML",
     "FileMetadataYAML",
     "FunctionScheduleYAML",
     "FunctionsYAML",
