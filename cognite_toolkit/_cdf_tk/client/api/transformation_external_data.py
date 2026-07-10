@@ -52,7 +52,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     def list(self, limit: int | None = 100) -> list[ExternalDataSourceResponse]:
         return self._list(limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[ExternalDataSourceResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[Sequence[ExternalDataSourceResponse]]:
         return self._iterate(limit=limit)
 
     def verify_usability(self, external_id: str) -> ExternalDataSourceUsability:
