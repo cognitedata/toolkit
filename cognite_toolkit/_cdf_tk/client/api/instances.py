@@ -484,12 +484,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # query = query.model_copy(
         #     update={
         #         "debug": QueryDebugParameters(
-        #             emit_results=False,
-        #             include_plan=True,
-        #             include_translated_query=True,
+        #             # emit_results=False,
+        #             # include_plan=True,
+        #             # include_translated_query=True,
         #             include_llm_prompt=True,
         #             profile=True,
-        #             timeout=60000,
+        #             # timeout=60000,
         #         )
         #     }
         # )
@@ -526,9 +526,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # TODO: Remove temporary debug output
         if query_response.debug:
             print("[DEBUG]", query_response.debug)
-            if isinstance(query_response.debug, dict) and query_response.debug.get("notices"):
-                for notice in query_response.debug["notices"]:
-                    print("[DEBUG NOTICE]", notice)
         # We persist the root from the query. This is for convenience.
         query_response.root = query.root
         return query_response
