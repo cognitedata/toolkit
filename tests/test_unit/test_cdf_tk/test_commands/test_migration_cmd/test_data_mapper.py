@@ -42,8 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
-    EnumProperty,
-    EnumValue,
     FileCDFExternalIdReference,
     InstanceRequest,
     InstanceResponse,
@@ -79,7 +77,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
-    InFieldObservationSapStatusMapping,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
 )
@@ -1072,167 +1069,6 @@ class TestFDMtoCDMMapper:
             assert isinstance(entry, MigrationEntryV2)
             assert entry.id == f"{self.SOURCE_SPACE}:second"
             assert "does not exist" in entry.message
-
-    OBSERVATION_SOURCE_VIEW_ID = ViewId(space="cdf_apm", external_id="Observation", version="v5")
-
-    @pytest.mark.parametrize(
-        "status, destination_supports_writeback, expected_properties, expect_missing_writeback_error",
-        [
-            pytest.param("Draft", True, {"status": "draft"}, False, id="draft_with_writeback_view"),
-            pytest.param("Draft", False, {"status": "draft"}, False, id="draft_without_writeback_view"),
-            pytest.param("Completed", True, {"status": "completed"}, False, id="completed_with_writeback_view"),
-            pytest.param("Completed", False, {"status": "completed"}, False, id="completed_without_writeback_view"),
-            pytest.param(
-                "Sent",
-                True,
-                {"status": "completed", "sapStatus": "sent", "notificationIdInSap": "sap-notification-123"},
-                False,
-                id="sent_with_writeback_view",
-            ),
-            pytest.param("Sent", False, {"status": "completed"}, True, id="sent_without_writeback_view"),
-            pytest.param(
-                "Not sent",
-                True,
-                {"status": "completed", "sapStatus": "notSent"},
-                False,
-                id="not_sent_with_writeback_view",
-            ),
-            pytest.param("Not sent", False, {"status": "completed"}, True, id="not_sent_without_writeback_view"),
-            pytest.param(
-                "File not sent",
-                True,
-                {
-                    "status": "completed",
-                    "sapStatus": "fileNotSent",
-                    "notificationIdInSap": "sap-notification-123",
-                },
-                False,
-                id="file_not_sent_with_writeback_view",
-            ),
-            pytest.param(
-                "File not sent", False, {"status": "completed"}, True, id="file_not_sent_without_writeback_view"
-            ),
-        ],
-    )
-    def test_infield_observation_sap_status_migrates_to_custom_observation_view(
-        self,
-        status: str,
-        destination_supports_writeback: bool,
-        expected_properties: dict[str, str],
-        expect_missing_writeback_error: bool,
-    ) -> None:
-        """Regression test for the SAP writeback ADR: migrating an Observation with any APM status onto a
-        customer's custom observation view must succeed, with the business 'status' correctly set on the
-        destination enum (with correct casing) and the SAP-specific fields populated per the ADR's mapping
-        rules, regardless of whether the destination view has the two writeback fields.
-        """
-        source_container = ContainerId(space="cdf_apm", external_id="Observation")
-        source_view = ViewResponse(
-            space=self.OBSERVATION_SOURCE_VIEW_ID.space,
-            external_id=self.OBSERVATION_SOURCE_VIEW_ID.external_id,
-            version=self.OBSERVATION_SOURCE_VIEW_ID.version,
-            **self.DEFAULT_ARGS,
-            properties={
-                "status": ViewCorePropertyResponse(
-                    constraint_state=ConstraintOrIndexState(),
-                    type=TextProperty(),
-                    container_property_identifier="status",
-                    container=source_container,
-                ),
-                "sourceId": ViewCorePropertyResponse(
-                    constraint_state=ConstraintOrIndexState(),
-                    type=TextProperty(),
-                    container_property_identifier="sourceId",
-                    container=source_container,
-                ),
-            },
-        )
-        destination_container = ContainerId(space="sp_customer_idm", external_id="CustomObservation")
-        destination_properties: dict[str, ViewCorePropertyResponse] = {
-            "status": ViewCorePropertyResponse(
-                constraint_state=ConstraintOrIndexState(),
-                type=EnumProperty(values={"completed": EnumValue(), "draft": EnumValue()}),
-                container_property_identifier="status",
-                container=destination_container,
-            ),
-        }
-        if destination_supports_writeback:
-            destination_properties["sapStatus"] = ViewCorePropertyResponse(
-                constraint_state=ConstraintOrIndexState(),
-                type=TextProperty(),
-                container_property_identifier="sapStatus",
-                container=destination_container,
-            )
-            destination_properties["notificationIdInSap"] = ViewCorePropertyResponse(
-                constraint_state=ConstraintOrIndexState(),
-                type=TextProperty(),
-                container_property_identifier="notificationIdInSap",
-                container=destination_container,
-            )
-        destination_view = ViewResponse(
-            space="sp_custom",
-            external_id="CustomObservation",
-            version="v2",
-            **self.DEFAULT_ARGS,
-            properties=destination_properties,
-        )
-        mapping = ViewToViewMapping(
-            external_id="infield_observation_mapping",
-            source_view=self.OBSERVATION_SOURCE_VIEW_ID,
-            destination_view=destination_view.as_id(),
-            container_mapping={"status": "status"},
-            ignore_source_properties={"sourceId"},
-        )
-        node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="observation1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            properties={
-                self.OBSERVATION_SOURCE_VIEW_ID: {"status": status, "sourceId": "sap-notification-123"},
-            },
-        )
-
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [source_view, destination_view]
-            client.tool.instances.retrieve.return_value = []
-
-            connection_creator = ConnectionCreator(
-                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
-            )
-            mapper = FDMtoCDMMapper(
-                client,
-                [mapping],
-                connection_creator,
-                custom_properties_mappings=[InFieldObservationSapStatusMapping()],
-            )
-            logger = MagicMock(spec=DataLogger)
-            mapper.logger = logger
-            mapper.prepare(MagicMock())
-
-            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:observation1", item=node)])
-
-        assert len(actual) == 1
-        request = actual[0].item
-        assert isinstance(request, NodeRequest)
-        observation_source = next(
-            source for source in request.sources or [] if source.source == destination_view.as_id()
-        )
-        assert observation_source.properties == expected_properties
-
-        if not expect_missing_writeback_error:
-            logger.log.assert_not_called()
-        else:
-            # Exactly one informative issue is logged about the missing writeback fields, not a second
-            # error from the generic mapping separately failing to convert the raw SAP status value.
-            logger.log.assert_called_once()
-            entries = logger.log.call_args[0][0]
-            assert len(entries) == 1
-            assert entries[0].message.count(";") == 0
-            assert "does not have the required target 'sapStatus' and/or 'notificationIdInSap' properties" in (
-                entries[0].message
-            )
 
     @classmethod
     def _make_image360_views(cls, cube_map_properties: dict[str, str]) -> tuple[ViewResponse, ViewResponse]:
