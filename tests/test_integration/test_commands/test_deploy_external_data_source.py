@@ -1,7 +1,11 @@
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 _JETFIRE_ENV = Path(__file__).parents[4] / "jetfire-backend" / ".env"
 _FABRIC_ENV_VARS = (
@@ -25,15 +29,13 @@ def _load_jetfire_env() -> None:
 
 
 def _fabric_ci_available() -> bool:
-    if not _JETFIRE_ENV.is_file():
-        return False
     _load_jetfire_env()
     return all(os.environ.get(key) for key in _FABRIC_ENV_VARS)
 
 
-@pytest.mark.skipif(not _fabric_ci_available(), reason=f"Fabric integration env not available ({_JETFIRE_ENV})")
+@pytest.mark.skipif(not _fabric_ci_available(), reason="Fabric integration credentials not available in environment")
 class TestDeployExternalDataSourceIntegration:
-    def test_external_data_source_lifecycle(self, toolkit_client) -> None:
+    def test_external_data_source_lifecycle(self, toolkit_client: ToolkitClient) -> None:
         from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
             ExternalDataSourceRequest,
             OneLakeCredentialsWrite,

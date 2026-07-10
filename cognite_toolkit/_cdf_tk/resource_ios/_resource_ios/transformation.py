@@ -121,7 +121,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
 from .datamodel import DataModelIO, SpaceCRUD, ViewIO
-from .external_data_source import ExternalDataSourceIO
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.external_data_source import ExternalDataSourceIO
 from .group_scoped import GroupResourceScopedCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
