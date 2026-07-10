@@ -1,5 +1,3 @@
-from typing import Any, ClassVar
-
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
@@ -44,13 +42,8 @@ class ExternalDataSourceCore(BaseModelObject):
 
 
 class ExternalDataSourceRequest(ExternalDataSourceCore, RequestResource):
-    _FORMAT: ClassVar[str] = "one_lake"
+    format: str = "one_lake"
     settings: OneLakeSettingsWrite | None = None
-
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
-        result = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
-        result["format"] = self._FORMAT
-        return result
 
 
 class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[ExternalDataSourceRequest]):
