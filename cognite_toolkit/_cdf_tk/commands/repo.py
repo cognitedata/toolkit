@@ -22,6 +22,8 @@ REPOSITORY_HOSTING = [
 
 
 class RepoCommand(ToolkitCommand):
+    _GITIGNORE_MERGE_HEADER: str = "# Added by cdf repo init (missing entries)"
+
     def __init__(
         self,
         print_warning: bool = True,
@@ -54,7 +56,7 @@ class RepoCommand(ToolkitCommand):
                 )
 
         if host is None:
-            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).unsafe_ask()
+            repo_host = questionary.select("Where are you hosting the repository?", REPOSITORY_HOSTING).unsafe_ask()
         else:
             repo_host = next(
                 (provider for provider in REPOSITORY_HOSTING if provider.casefold() == host.casefold()), "Other"
@@ -82,6 +84,13 @@ class RepoCommand(ToolkitCommand):
                     continue
                 destination = cwd / file.relative_to(root)
                 if destination.exists():
+                    if destination.name == ".gitignore":
+                        if self._append_missing_gitignore_entries(template_file=file, destination=destination):
+                            if verbose:
+                                self.console(f"Appended missing entries to {destination.relative_to(cwd).as_posix()!r}")
+                        elif verbose:
+                            self.console(f"No missing entries found in {destination.relative_to(cwd).as_posix()!r}")
+                        continue
                     self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
                     continue
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -90,3 +99,41 @@ class RepoCommand(ToolkitCommand):
                     self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
 
         self.console("Repo initialization complete.")
+
+    def _append_missing_gitignore_entries(self, template_file: Path, destination: Path) -> bool:
+        template_entries = self._load_gitignore_entries(template_file)
+        existing_text = destination.read_text(encoding="utf-8")
+        existing_entries = self._load_gitignore_entries_from_text(existing_text)
+
+        missing_entries = [entry for entry in template_entries if entry not in existing_entries]
+        if not missing_entries:
+            return False
+
+        merged_text = existing_text
+        if merged_text and not merged_text.endswith("\n"):
+            merged_text += "\n"
+        if merged_text:
+            merged_text += "\n"
+        merged_text += f"{self._GITIGNORE_MERGE_HEADER}\n"
+        merged_text += "\n".join(missing_entries)
+        merged_text += "\n"
+        destination.write_text(merged_text, encoding="utf-8")
+        return True
+
+    @staticmethod
+    def _load_gitignore_entries(template_file: Path) -> list[str]:
+        return RepoCommand._load_gitignore_entries_from_text(template_file.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _load_gitignore_entries_from_text(content: str) -> list[str]:
+        entries: list[str] = []
+        seen_entries: set[str] = set()
+        for line in content.splitlines():
+            normalized = line.strip()
+            if not normalized or normalized.startswith("#"):
+                continue
+            if normalized in seen_entries:
+                continue
+            entries.append(normalized)
+            seen_entries.add(normalized)
+        return entries
