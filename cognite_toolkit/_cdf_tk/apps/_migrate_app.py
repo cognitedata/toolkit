@@ -1580,10 +1580,10 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--skip-observations",
-                help="Skip migrating Observation data. If not specified, toolkit will automatically migrate data "
-                "to the default cdf_infield/FieldObservation view. If a custom Observation view is configured, "
-                "toolkit will attempt a best-effort migration to this custom view. Only use this flag "
-                "when you intend to migrate observations using custom logic.",
+                help="Skip migrating Observation data. You need to use this flag if you are using a custom observation view with "
+                "significantly different or renamed properties from the default cdf_infield/FieldObservation, which requires custom "
+                "migration logic. By default, without this flag, Toolkit will migrate data to whatever observation view is configured "
+                "in the Infield location(s) that uses the relevant target space. ",
             ),
         ] = False,
     ) -> None:
