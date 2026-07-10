@@ -1,0 +1,11 @@
+# Example Fabric OneLake external data source for toolkit modules.
+externalId: fabric-lakehouse-prod
+name: Production lakehouse
+settings:
+  credentials:
+    clientId: "{{ FABRIC_CLIENT_ID }}"
+    tenantId: "{{ FABRIC_TENANT_ID }}"
+    clientSecret: "{{ FABRIC_CLIENT_SECRET }}"
+  locationDescription:
+    workspaceName: "{{ FABRIC_WORKSPACE }}"
+    containerName: "{{ FABRIC_LAKEHOUSE }}"
