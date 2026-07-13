@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
+    ExternalDataSourceIO,
     RawDatabaseCRUD,
     RawTableCRUD,
     ResourceIO,
@@ -211,6 +212,11 @@ authentication:
                     (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
                 ],
                 id="Transformation to RAW table",
+            ),
+            pytest.param(
+                {"query": "select * from ext_onelake('fabric-prod', 'assets')"},
+                [(ExternalDataSourceIO, ExternalId(external_id="fabric-prod"))],
+                id="Transformation with ext_onelake source",
             ),
         ],
     )

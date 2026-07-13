@@ -525,6 +525,16 @@ class TransformationsAcl(Acl):
     scope: AllScope | DataSetScope
 
 
+class TransformationsExternalDataSourcesAcl(Acl):
+    """ACL for Fabric OneLake external data sources used by transformations."""
+
+    acl_name: Literal["transformationsExternalDataSourcesAcl"] = Field(
+        "transformationsExternalDataSourcesAcl", exclude=True
+    )
+    actions: Sequence[Literal["READ", "WRITE", "USE"]]
+    scope: AllScope | DataSetScope
+
+
 class TypesAcl(Acl):
     """ACL for Types resources."""
 
@@ -692,6 +702,7 @@ AclType: TypeAlias = Annotated[
         | TimeSeriesAcl
         | TimeSeriesSubscriptionsAcl
         | TransformationsAcl
+        | TransformationsExternalDataSourcesAcl
         | TypesAcl
         | UserProfilesAcl
         | VideoStreamingAcl

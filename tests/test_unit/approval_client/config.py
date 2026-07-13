@@ -144,6 +144,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
+    ExternalDataSourceRequest,
+    ExternalDataSourceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -1237,6 +1241,17 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="iterate", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.transformations.external_data_sources",
+        resource_cls=ExternalDataSourceResponse,
+        _write_cls=ExternalDataSourceRequest,
+        methods={
+            "create": [Method(api_class_method="upsert", mock_class_method="upsert")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
             ],
         },
     ),

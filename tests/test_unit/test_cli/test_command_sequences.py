@@ -328,6 +328,8 @@ def test_complete_org_is_complete() -> None:
         if folder != "data_models"
         for loader in loaders
         if loader not in used_loader_by_folder_name[folder]
+        # Todo: add Fabric example to complete_org when integration env supports OneLake.
+        and loader.__name__ != "ExternalDataSourceIO"
     }
 
     # If this assertion fails, it means that the complete_org is not complete.

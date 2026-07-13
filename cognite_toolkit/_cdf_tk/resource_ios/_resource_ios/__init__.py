@@ -15,6 +15,7 @@ from .datamodel import (
     SpaceCRUD,
     ViewIO,
 )
+from .external_data_source import ExternalDataSourceIO
 from .extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
 from .fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
 from .file import CogniteFileCRUD, FileMetadataCRUD
@@ -68,6 +69,7 @@ __all__ = [
     "DatapointSubscriptionIO",
     "EdgeCRUD",
     "EventIO",
+    "ExternalDataSourceIO",
     "ExtractionPipelineConfigIO",
     "ExtractionPipelineIO",
     "FileMetadataCRUD",
