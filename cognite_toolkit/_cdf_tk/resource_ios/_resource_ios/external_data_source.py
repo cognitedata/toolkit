@@ -101,6 +101,14 @@ class ExternalDataSourceIO(
         if item.settings and item.settings.credentials and item.settings.credentials.client_secret:
             yield item.settings.credentials.client_secret
 
+    def prerequisite_warning(self) -> str | None:
+        missing = self.client.tool.token.verify_acls(
+            list(TransformationsExternalDataSourcesAcl(actions=["READ"], scope=AllScope()))
+        )
+        if missing:
+            return "Transformation external data sources are not available in this project."
+        return None
+
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
         return self.client.tool.transformations.external_data_sources.upsert(list(items))
 
