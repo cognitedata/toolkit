@@ -11,19 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Copyright 2023 Cognite AS
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 
 import random
@@ -104,7 +91,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -121,6 +108,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
 from .datamodel import DataModelIO, SpaceCRUD, ViewIO
+from .external_data_source import ExternalDataSourceIO
 from .group_scoped import GroupResourceScopedCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
@@ -203,6 +191,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
+        if query := item.get("query"):
+            for source_id in get_ext_onelake_source_ids(query):
+                yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := item.get("destination", {}):
             if not isinstance(destination, dict):
                 return
@@ -227,6 +218,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.query:
+            for source_id in get_ext_onelake_source_ids(resource.query):
+                yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
                 yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)

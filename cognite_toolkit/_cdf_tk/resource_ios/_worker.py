@@ -128,6 +128,8 @@ class ResourceWorker(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     def validate_access(
         self, local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]], is_dry_run: bool
     ) -> None:
+        if not local_by_id:
+            return
         actions: set[Literal["READ", "WRITE"]] = {"READ"} if is_dry_run else {"READ", "WRITE"}
         items = [item for _, item in local_by_id.values()]
         required_acls = list(self.loader.create_minimum_acl(actions, items))

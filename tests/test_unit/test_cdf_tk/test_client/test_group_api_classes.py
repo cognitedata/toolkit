@@ -224,7 +224,9 @@ class TestGroupAPIClasses:
     def test_capability_in_sync(self) -> None:
         """Checks that the request/response capabilities are in sync with the YAML spec."""
         request_capabilities = {acl.model_fields["acl_name"].default for acl in get_all_subclasses(Acl)} - {
-            "unknownAcl"
+            "unknownAcl",
+            # Until cognite-sdk publishes this capability class.
+            "transformationsExternalDataSourcesAcl",
         }
         spec_capabilities = {capability._capability_name for capability in get_all_subclasses(Capability)}
 
