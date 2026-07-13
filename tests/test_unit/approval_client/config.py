@@ -144,6 +144,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
+    ExternalDataSourceRequest,
+    ExternalDataSourceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -254,10 +258,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
-    ExternalDataSourceRequest,
-    ExternalDataSourceResponse,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
     TransformationNotificationRequest,
     TransformationNotificationResponse,
