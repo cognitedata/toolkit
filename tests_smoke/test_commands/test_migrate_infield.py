@@ -367,16 +367,18 @@ class TestMigrateInfield:
     def _get_destination_nodes(
         self, infield_legacy: list[InstanceRequest], target_space: SpaceResponse
     ) -> tuple[dict[ViewId, list[NodeId]], int, list[ViewId]]:
+        # Global spaces contain shared nodes (e.g. CDF_User in cognite_app_data) that are referenced
+        # by InField nodes but are not owned by any InField deployment and should not be migrated.
+        global_spaces = {"cognite_app_data"}
         mappings = create_infield_data_mappings()
         mapping_by_source = {item.source_view: item for item in mappings}
         destination_by_view_id: dict[ViewId, list[NodeId]] = defaultdict(list)
         missing_mappings: list[ViewId] = []
-        expected_node_count = 0
         for instance in infield_legacy:
             if not isinstance(instance, NodeRequest):
                 continue
-            if instance.sources and instance.sources[0].source.space in {"cdf_apm", "cdf_apps_shared"}:
-                expected_node_count += 1
+            if instance.space in global_spaces:
+                continue
             for source in instance.sources or []:
                 if not isinstance(source.source, ViewId):
                     continue
@@ -388,6 +390,7 @@ class TestMigrateInfield:
                 destination_by_view_id[mapping.destination_view].append(
                     NodeId(space=target_space.space, external_id=instance.external_id)
                 )
+        expected_node_count = sum(len(node_ids) for node_ids in destination_by_view_id.values())
         return destination_by_view_id, expected_node_count, missing_mappings
 
     def _assert_solution_tags_migrated(self, client: ToolkitClient, target_space: str) -> None:
