@@ -29,7 +29,25 @@ class TestExternalDataSourceYAML:
     def test_load_valid_external_data_source(self) -> None:
         loaded = ExternalDataSourceYAML.model_validate(self.VALID)
         assert loaded.external_id == "fabric-lakehouse-prod"
+        assert loaded.settings.credentials.client_secret is not None
         assert loaded.settings.credentials.client_secret.get_secret_value() == "azure-client-secret"
+
+    def test_load_external_data_source_without_client_secret(self) -> None:
+        data = {
+            "externalId": "fabric-lakehouse-prod",
+            "settings": {
+                "credentials": {
+                    "clientId": "azure-client-id",
+                    "tenantId": "azure-tenant-id",
+                },
+                "locationDescription": {
+                    "workspaceName": "workspace-guid",
+                    "containerName": "lakehouse-guid",
+                },
+            },
+        }
+        loaded = ExternalDataSourceYAML.model_validate(data)
+        assert loaded.settings.credentials.client_secret is None
 
     @pytest.mark.parametrize(
         "data, expected_errors",

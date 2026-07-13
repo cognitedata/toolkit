@@ -4,6 +4,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
+    ExternalDataSourceRequest,
+    OneLakeCredentialsWrite,
+    OneLakeLocationDescription,
+    OneLakeSettingsWrite,
+)
+
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client import ToolkitClient
 
@@ -33,16 +40,9 @@ def _fabric_ci_available() -> bool:
     return all(os.environ.get(key) for key in _FABRIC_ENV_VARS)
 
 
-@pytest.mark.skipif(not _fabric_ci_available(), reason="Fabric integration credentials not available in environment")
+@pytest.mark.skipif(not _fabric_ci_available(), reason="Fabric integration env vars not available")
 class TestDeployExternalDataSourceIntegration:
-    def test_external_data_source_lifecycle(self, toolkit_client: ToolkitClient) -> None:
-        from cognite_toolkit._cdf_tk.client.resource_classes.external_data_source import (
-            ExternalDataSourceRequest,
-            OneLakeCredentialsWrite,
-            OneLakeLocationDescription,
-            OneLakeSettingsWrite,
-        )
-
+    def test_external_data_source_lifecycle(self, toolkit_client: "ToolkitClient") -> None:
         external_id = "toolkit-integration-fabric-onelake"
         source = ExternalDataSourceRequest(
             external_id=external_id,
