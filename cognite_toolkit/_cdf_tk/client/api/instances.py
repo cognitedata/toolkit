@@ -165,8 +165,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # compromise across different projects compared to the (space, externalId) sort.
         filter_spaces = filter.space if filter is not None else None
         space_ext_id_sort: list[QuerySortSpec] | None = None
-        if filter is not None and (filter_spaces is None or len(filter_spaces) > 1):
-            instance_type = filter.instance_type or "node"
+        if filter is None or filter_spaces is None or len(filter_spaces) > 1:
+            instance_type = filter.instance_type if filter is not None else None
+            instance_type = instance_type or "node"
             space_ext_id_sort = [
                 QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
                 QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),

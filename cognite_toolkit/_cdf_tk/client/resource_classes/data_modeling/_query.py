@@ -157,9 +157,10 @@ class QueryRequest(BaseModelObject):
             if not camel_case
             else "allowExpiredCursorsAndAcceptMissedDeletes"
         )
+        with_key = "with" if camel_case else "with_"
         if endpoint == "query":
             dumped.pop(sync_only_request_field, None)
-            with_section = dumped["with"]
+            with_section = dumped[with_key]
             for key in list(with_section.keys()):
                 for field in sync_only_expression_fields:
                     with_section[key].pop(field, None)
@@ -168,7 +169,7 @@ class QueryRequest(BaseModelObject):
         exclude: set[str] = {"sort", "post_sort"}
         if exclude_extra and self.__pydantic_extra__:
             exclude.update(self.__pydantic_extra__.keys())
-        with_section = dumped["with"]
+        with_section = dumped[with_key]
         for key, expression in self.with_.items():
             with_section[key] = expression.model_dump(
                 mode="json",
