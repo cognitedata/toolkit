@@ -597,7 +597,7 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
         )
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
-        return [self._space_mapping[space] for space in source_spaces if space in self._space_mapping]
+        return list({self._space_mapping[space] for space in source_spaces if space in self._space_mapping})
 
 
 class SuffixInstanceIdMapper(InstanceIdMapper):
@@ -612,7 +612,7 @@ class SuffixInstanceIdMapper(InstanceIdMapper):
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         # The suffix mapper does not change the instance space.
-        return list(source_spaces)
+        return list(set(source_spaces))
 
 
 class ConnectionCreator:
