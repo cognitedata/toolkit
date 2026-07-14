@@ -112,7 +112,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
-from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
+from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
@@ -928,6 +928,38 @@ class TestFDMtoCDMMapper:
 
             actual = mapper.map([DataItem(tracking_id=str(i), item=inst) for i, inst in enumerate(instances)])
             assert [data_item.item.dump() for data_item in actual] == [item.dump() for item in expected]
+
+    def test_process_description(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [self.VIEW_MAPPING], connection_creator)
+
+            selector = InstanceViewSelector(
+                view=SelectedView(
+                    space=self.SOURCE_VIEW_ID.space,
+                    external_id=self.SOURCE_VIEW_ID.external_id,
+                    version=self.SOURCE_VIEW_ID.version,
+                ),
+                instance_spaces=(self.SOURCE_SPACE,),
+            )
+            assert mapper.process_description(selector) == (
+                f"Converting into view {self.DESTINATION_VIEW_ID!s} with {self.TARGET_SPACE} instance spaces"
+            )
+
+    def test_process_description_unknown_view_falls_back_to_default(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [self.VIEW_MAPPING], connection_creator)
+
+            selector = InstanceViewSelector(
+                view=SelectedView(space="other_space", external_id="OtherView", version="v1"),
+                instance_spaces=(self.SOURCE_SPACE,),
+            )
+            assert mapper.process_description(selector) == "Converting"
 
     def test_map_emits_all_mapped_items_with_tracking_ids(self) -> None:
         node = NodeResponse(

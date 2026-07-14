@@ -570,6 +570,13 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        """Return the destination instance spaces corresponding to the given source spaces, for display purposes.
+
+        Override in subclasses if the mapper can determine this without a full instance ID.
+        """
+        return []
+
 
 class SpaceMappingInstanceIdMapper(InstanceIdMapper):
     def __init__(self, space_mapping: Mapping[str, str]) -> None:
@@ -589,6 +596,9 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
             external_id=instance_id.external_id,
         )
 
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        return [self._space_mapping[space] for space in source_spaces if space in self._space_mapping]
+
 
 class SuffixInstanceIdMapper(InstanceIdMapper):
     def __init__(self, suffix: str = "_cdm") -> None:
@@ -599,6 +609,10 @@ class SuffixInstanceIdMapper(InstanceIdMapper):
             space=instance_id.space,
             external_id=sanitize_instance_external_id(instance_id.external_id, self._suffix),
         )
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        # The suffix mapper does not change the instance space.
+        return list(source_spaces)
 
 
 class ConnectionCreator:
@@ -633,6 +647,10 @@ class ConnectionCreator:
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
         self._direct_relation_edge_tiebreakers = direct_relation_edge_tiebreakers or {}
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        """Return the destination instance spaces corresponding to the given source spaces, for display purposes."""
+        return self._instance_id_mapper.get_destination_spaces(source_spaces)
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
