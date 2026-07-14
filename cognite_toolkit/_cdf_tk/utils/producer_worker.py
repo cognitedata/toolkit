@@ -111,6 +111,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.downloaded_items = 0
         self.error_message = ""
         self.error_traceback = ""
+        self.error_exception: Exception | None = None
         self.verbose = verbose
 
     @property
@@ -259,6 +260,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self._error_event.set()
                 self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
+                self.error_exception = e
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
@@ -301,6 +303,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self._error_event.set()
                 self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
+                self.error_exception = e
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
 
@@ -325,6 +328,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self._error_event.set()
                 self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
+                self.error_exception = e
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
 

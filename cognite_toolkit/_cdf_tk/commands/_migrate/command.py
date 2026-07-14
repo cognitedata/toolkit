@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
-    ToolkitRuntimeError,
+    ToolkitRepeatedUploadFailureError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
@@ -174,7 +174,13 @@ class MigrationCommand(ToolkitCommand):
             if progress is not None:
                 progress.status = executor.result
                 progress.dump_to_file(log_dir, filestem=str(selected))
-            executor.raise_on_error()
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                console.print(
+                    f"[yellow]Continuing with the next view after repeatedly failed uploads for "
+                    f"{selected.display_name}. Check the log files in {log_dir}.[/yellow]"
+                )
+            else:
+                executor.raise_on_error()
 
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
@@ -364,7 +370,7 @@ class MigrationCommand(ToolkitCommand):
                     severity=Severity.skipped,
                 )
                 target.logger.force_write()
-                raise ToolkitRuntimeError(
+                raise ToolkitRepeatedUploadFailureError(
                     f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
                 )
 

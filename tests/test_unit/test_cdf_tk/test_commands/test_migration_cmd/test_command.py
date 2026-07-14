@@ -102,7 +102,11 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitRuntimeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitRepeatedUploadFailureError,
+    ToolkitValueError,
+)
 
 
 def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
@@ -1195,7 +1199,7 @@ class TestMigrationCommand:
             total_item_count=2,
             start_item=0,
         )
-        with pytest.raises(ToolkitRuntimeError, match="Migration was stopped due to repeatedly failed uploads"):
+        with pytest.raises(ToolkitRepeatedUploadFailureError, match="Migration was stopped due to repeatedly failed uploads"):
             upload(page)
 
         target.logger.apply_to_all_unprocessed.assert_called_once_with(
