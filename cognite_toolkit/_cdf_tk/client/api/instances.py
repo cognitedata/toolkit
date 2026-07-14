@@ -156,8 +156,10 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # Sort to ensure performance. If you do not sort, you get the internal index,
-        # which includes all deleted instances as well.
+        # We sort by space and externalId to get a stable sort order.
+        # This is also more performant than sorting by using the default sort, which will sort on
+        # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
+        # By sorting on space and externalId, we avoid this issue.
         # Exception: when pinned to exactly one space, omit the sort so the server uses
         # its internal-node-id order. This was observed to be provide a better performance
         # compromise across different projects compared to the (space, externalId) sort.
