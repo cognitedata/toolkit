@@ -156,6 +156,16 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         # Override in subclass if needed.
         pass
 
+    def process_description(self, source_selector: T_Selector) -> str:
+        """A short description of the conversion step, used for progress tracking.
+
+        Args:
+            source_selector: The selector for the source data being converted.
+
+        """
+        # Override in subclass to provide more context, e.g., the conversion target.
+        return "Converting"
+
     @abstractmethod
     def map(self, source: Sequence[DataItem[T_DataResponse]]) -> Sequence[DataItem[T_DataRequest]]:
         """Map a chunk of source data to the target format.
@@ -1373,6 +1383,29 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # view of the current migration step, instead of a generic "FDM/CDM instances" label.
         self._current_issue_source: str = "FDM instances"
         self._current_issue_destination: str = "CDM instances"
+
+    def process_description(self, source_selector: InstanceSelector) -> str:
+        destination_view = self._get_destination_view(source_selector)
+        if destination_view is None:
+            return "Converting"
+        message = f"Converting into view {destination_view!s}"
+        source_spaces = source_selector.get_instance_spaces()
+        if source_spaces:
+            destination_spaces = self._connection_creator.get_destination_spaces(source_spaces)
+            if destination_spaces:
+                message += f" with {humanize_collection(destination_spaces)} instance spaces"
+        return message
+
+    def _get_destination_view(self, source_selector: InstanceSelector) -> ViewId | None:
+        if not isinstance(source_selector, InstanceViewSelector) or source_selector.view.version is None:
+            return None
+        source_view = ViewId(
+            space=source_selector.view.space,
+            external_id=source_selector.view.external_id,
+            version=source_selector.view.version,
+        )
+        mapping = self._mappings_by_source_view.get(source_view)
+        return mapping.destination_view if mapping is not None else None
 
     def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
