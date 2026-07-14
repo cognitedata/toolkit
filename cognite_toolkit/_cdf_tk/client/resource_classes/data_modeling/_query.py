@@ -130,6 +130,11 @@ class QueryRequest(BaseModelObject):
     parameters: dict[str, JsonValue] | None = None
     include_typing: bool | None = None
     debug: QueryDebugParameters | None = None
+    # /sync-only field. Ignored on /query. Sync cursors otherwise expire after 3 days (soft-deleted
+    # instances are cleaned up after that grace period). We accept the risk of missing deletes past
+    # that window so long-paused migrations/downloads can still resume from an old cursor instead of
+    # being forced to restart (since we currently do not support syncing deletes anyways).
+    allow_expired_cursors_and_accept_missed_deletes: bool = True
     # This is not part of the API request body, but it enables the exhaust sub selection feature in the InstanceAPI.
     root: str = Field(exclude=True)
 
@@ -147,14 +152,20 @@ class QueryRequest(BaseModelObject):
         dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
         # /sync-only fields must never appear on /query.
         sync_only_expression_fields = {"mode", "backfill_sort"} if not camel_case else {"mode", "backfillSort"}
+        sync_only_request_field = (
+            "allow_expired_cursors_and_accept_missed_deletes"
+            if not camel_case
+            else "allowExpiredCursorsAndAcceptMissedDeletes"
+        )
         if endpoint == "query":
+            dumped.pop(sync_only_request_field, None)
             with_section = dumped["with"]
             for key in list(with_section.keys()):
                 for field in sync_only_expression_fields:
                     with_section[key].pop(field, None)
             return dumped
-        # The sync endpoint does not support sorting
-        exclude: set[str] = {"sort"}
+        # The sync endpoint does not support sorting or post-sorting edges.
+        exclude: set[str] = {"sort", "post_sort"}
         if exclude_extra and self.__pydantic_extra__:
             exclude.update(self.__pydantic_extra__.keys())
         with_section = dumped["with"]
@@ -165,15 +176,6 @@ class QueryRequest(BaseModelObject):
                 exclude_unset=True,
                 by_alias=camel_case,
             )
-        # Sync cursors otherwise expire after 3 days (soft-deleted instances are cleaned up after that grace
-        # period). We accept the risk of missing deletes past that window so long-paused migrations/downloads
-        # can still resume from an old cursor instead of being forced to restart.
-        allow_expired_key = (
-            "allowExpiredCursorsAndAcceptMissedDeletes"
-            if camel_case
-            else "allow_expired_cursors_and_accept_missed_deletes"
-        )
-        dumped[allow_expired_key] = True
         return dumped
 
 
