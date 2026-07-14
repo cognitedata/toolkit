@@ -154,7 +154,7 @@ class MigrationCommand(ToolkitCommand):
                 total_item_count=step.total_count,
                 max_queue_size=10,
                 download_description=f"Downloading {selected.display_name}",
-                process_description="Converting",
+                process_description=mapper.process_description(selected),
                 write_description="Uploading",
                 console=console,
                 verbose=verbose,
