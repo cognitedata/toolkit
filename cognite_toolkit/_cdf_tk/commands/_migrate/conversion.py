@@ -589,7 +589,8 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
                 f"configured to map instances from the following source space(s): "
                 f"{humanize_collection(self._space_mapping)}. Instances (or direct-relation/edge targets) outside these "
                 f"spaces cannot be migrated. To fix this, re-run the migration with {instance_id.space!r} included as "
-                f"a source space."
+                f"a source space.",
+                severity=Severity.skipped,
             )
         return NodeId(
             space=self._space_mapping[instance_id.space],

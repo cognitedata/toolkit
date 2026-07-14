@@ -69,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamSettings,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand, MigrationStep
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
     AssetCentricToRecordMapper,
@@ -96,13 +96,18 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, Severity
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitRuntimeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitRepeatedUploadFailureError,
+    ToolkitValueError,
+)
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 
 def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
@@ -1195,14 +1200,54 @@ class TestMigrationCommand:
             total_item_count=2,
             start_item=0,
         )
-        with pytest.raises(ToolkitRuntimeError, match="Migration was stopped due to repeatedly failed uploads"):
+        with pytest.raises(
+            ToolkitRepeatedUploadFailureError, match="Migration was stopped due to repeatedly failed uploads"
+        ):
             upload(page)
 
-        target.logger.apply_to_all_unprocessed.assert_called_once_with(
-            label="Early termination of migration",
-            severity=Severity.skipped,
-        )
         target.logger.force_write.assert_called_once()
+
+    def test_late_registrations_after_abort_are_marked_skipped_not_success(self, tmp_path: Path) -> None:
+        """Regression test for the race between the download thread registering items and the
+        "unprocessed" sweep on early termination, see `_run_migration_steps`."""
+        logger = FileWithAggregationLogger(MagicMock())
+
+        def _fake_run(self: ProducerWorkerExecutor, start_item: int = 0) -> None:
+            logger.register(["item-1"])
+            try:
+                self._write(Page(worker_id="main", items=[DataItem(tracking_id="item-1", item=1)]))
+            except Exception as error:
+                self.error_exception = error
+            # Simulate the download thread registering more items concurrently, after the write
+            # failure is detected but before the executor's threads have actually joined.
+            logger.register(["item-2", "item-3"])
+
+        data = MagicMock(CHUNK_SIZE=1000, KIND="Instances")
+        data.upload_items.return_value = [ItemsFailedRequest(ids=["item-1"], error_message="boom")]
+        data.stream_data.return_value = iter([])
+        selected = MagicMock(display_name="TestView", kind="TestKind", __str__=lambda self: "TestView")
+        step = MigrationStep(
+            total_count=1, completed_count=0, bookmark=None, message="", is_completed=False, selector=selected
+        )
+
+        command = MigrationCommand(silent=True)
+        with patch.object(ProducerWorkerExecutor, "run", autospec=True, side_effect=_fake_run):
+            results_by_selector = command._run_migration_steps(
+                plan=[step],
+                data=data,
+                mapper=MagicMock(),
+                logger=logger,
+                write_client=MagicMock(),
+                log_dir=tmp_path,
+                dry_run=False,
+                verbose=False,
+                console=MagicMock(),
+            )
+
+        totals = _migration_status_totals(results_by_selector["TestView"])
+        assert totals["failure"] == 1
+        assert totals["skipped"] == 2
+        assert totals["success"] == 0
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

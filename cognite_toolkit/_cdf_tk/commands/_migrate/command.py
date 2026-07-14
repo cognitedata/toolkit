@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
-    ToolkitRuntimeError,
+    ToolkitRepeatedUploadFailureError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
@@ -162,6 +162,10 @@ class MigrationCommand(ToolkitCommand):
 
             executor.run(start_item=step.completed_count)
 
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                logger.apply_to_all_unprocessed(label="Early termination of migration", severity=Severity.skipped)
+                logger.force_write()
+
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
 
@@ -174,7 +178,13 @@ class MigrationCommand(ToolkitCommand):
             if progress is not None:
                 progress.status = executor.result
                 progress.dump_to_file(log_dir, filestem=str(selected))
-            executor.raise_on_error()
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                console.print(
+                    f"[yellow]Skipping migrating further items for {selected.display_name} after "
+                    f"encountering repeated failures. Check the log files in {log_dir}.[/yellow]"
+                )
+            else:
+                executor.raise_on_error()
 
             action = "Would migrate" if dry_run else "Migrating"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
@@ -359,12 +369,8 @@ class MigrationCommand(ToolkitCommand):
                         )
 
             if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
-                target.logger.apply_to_all_unprocessed(
-                    label="Early termination of migration",
-                    severity=Severity.skipped,
-                )
                 target.logger.force_write()
-                raise ToolkitRuntimeError(
+                raise ToolkitRepeatedUploadFailureError(
                     f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
                 )
 
