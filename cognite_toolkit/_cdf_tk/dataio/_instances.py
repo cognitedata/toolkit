@@ -342,13 +342,9 @@ class InstanceIO(
         root = "nodes"
         # Sort to ensure performance. If you do not sort, you get the internal index,
         # which includes all deleted instances as well.
-        #
         # Exception: when pinned to exactly one space, omit the sort so the server uses
-        # its internal-node-id order, matching the container's (space, node_id) btree.
-        # Without this, a sparse container (few matching rows in a large space) forces the
-        # planner to walk every node in the space in externalId order and nested-loop-probe
-        # the container per row, instead of driving off the container's own small index.
-        # Mirrors the equivalent exception in InstancesAPI._create_query.
+        # its internal-node-id order. This was observed to be provide a better performance
+        # compromise across different projects compared to the (space, externalId) sort.
         node_sort: list[QuerySortSpec] | None = [
             QuerySortSpec(property=["node", "space"]),
             QuerySortSpec(property=["node", "externalId"]),

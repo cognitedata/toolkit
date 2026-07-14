@@ -156,16 +156,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # Default: omit sort so the server uses its internal-node-id order, which
-        # matches the container's (space, node_id) btree and avoids expensive
-        # (space, externalId)-ordered scans on wide/sparse single-space views.
-        #
-        # Exception: when the filter isn't pinned to exactly one space (multiple
-        # spaces, or none at all), node_id order no longer correlates with the
-        # container's (space, node_id) btree, so the planner may have to scan and
-        # heapsort the whole container to find the top-N. Requesting a
-        # (space, externalId) sort avoids that by streaming the
-        # (project_id, space, externalId) btree in order instead.
+        # Sort to ensure performance. If you do not sort, you get the internal index,
+        # which includes all deleted instances as well.
+        # Exception: when pinned to exactly one space, omit the sort so the server uses
+        # its internal-node-id order. This was observed to be provide a better performance
+        # compromise across different projects compared to the (space, externalId) sort.
         filter_spaces = filter.space if filter is not None else None
         space_ext_id_sort: list[QuerySortSpec] | None = None
         if filter is not None and (filter_spaces is None or len(filter_spaces) > 1):
@@ -174,13 +169,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
                 QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
             ]
-        node_sort: list[QuerySortSpec] | None = space_ext_id_sort
-        edge_sort: list[QuerySortSpec] | None = space_ext_id_sort
-        # /sync still needs twoPhase; the backfill must use the same sort as the
-        # forward stream so the cursor is consistent across phases.
         sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
-        node_backfill_sort: list[QuerySortSpec] | None = space_ext_id_sort
-        edge_backfill_sort: list[QuerySortSpec] | None = space_ext_id_sort
 
         if filter is None:
             query = QueryRequest(
@@ -188,9 +177,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     "root": QueryNodeExpression(
                         limit=limit,
                         nodes=QueryNodeTableExpression(),
-                        sort=node_sort,
+                        sort=space_ext_id_sort,
                         mode=sync_mode,
-                        backfill_sort=node_backfill_sort,
+                        backfill_sort=space_ext_id_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -204,17 +193,17 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
                 limit=limit,
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=edge_sort,
+                sort=space_ext_id_sort,
                 mode=sync_mode,
-                backfill_sort=edge_backfill_sort,
+                backfill_sort=space_ext_id_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
                 limit=limit,
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=node_sort,
+                sort=space_ext_id_sort,
                 mode=sync_mode,
-                backfill_sort=node_backfill_sort,
+                backfill_sort=space_ext_id_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:

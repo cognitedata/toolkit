@@ -41,9 +41,9 @@ class QueryThrough(BaseModelObject):
 
 
 class QueryExpression(BaseModelObject):
-    sort: list[QuerySortSpec] | None = None
+    sort: list[QuerySortSpec] | None = None  # /query-only field. Ignored on /sync.
     limit: int | None = None
-    # /sync-only fields (see the ``POST /models/instances/sync`` docs). Ignored on /query.
+    # Below are /sync-only fields. Ignored on /query.
     mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = None
     backfill_sort: list[QuerySortSpec] | None = None
 
