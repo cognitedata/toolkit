@@ -1379,6 +1379,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # given container.
         self._constrained_properties_by_view_id: dict[ViewId, dict[str, ContainerId]] = {}
         self._is_existing_by_node_id: dict[NodeId, bool] = {}
+        # Set in prepare() so that reported issues can point to the specific source/destination
+        # view of the current migration step, instead of a generic "FDM/CDM instances" label.
+        self._current_issue_source: str = "FDM instances"
+        self._current_issue_destination: str = "CDM instances"
 
     def process_description(self, source_selector: InstanceSelector) -> str:
         destination_view = self._get_destination_view(source_selector)
@@ -1409,6 +1413,16 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         )
         views = self.client.tool.views.retrieve(list(view_ids))
         self._connection_creator.update_view_cache(views)
+        self._current_issue_source = str(source_selector)
+        mapping = None
+        if isinstance(source_selector, InstanceViewSelector) and source_selector.view.version is not None:
+            selected_view = ViewId(
+                space=source_selector.view.space,
+                external_id=source_selector.view.external_id,
+                version=source_selector.view.version,
+            )
+            mapping = self._mappings_by_source_view.get(selected_view)
+        self._current_issue_destination = str(mapping.destination_view) if mapping is not None else "CDM instances"
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -1475,7 +1489,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             self.logger.log(
                 [
                     instance_conversion_issue_as_migration_entry(
-                        issue, source="FDM instances", destination="CDM instances"
+                        issue, source=self._current_issue_source, destination=self._current_issue_destination
                     )
                     for issue in issue_by_source_node_id.values()
                 ]
