@@ -165,6 +165,15 @@ class QueryRequest(BaseModelObject):
                 exclude_unset=True,
                 by_alias=camel_case,
             )
+        # Sync cursors otherwise expire after 3 days (soft-deleted instances are cleaned up after that grace
+        # period). We accept the risk of missing deletes past that window so long-paused migrations/downloads
+        # can still resume from an old cursor instead of being forced to restart.
+        allow_expired_key = (
+            "allowExpiredCursorsAndAcceptMissedDeletes"
+            if camel_case
+            else "allow_expired_cursors_and_accept_missed_deletes"
+        )
+        dumped[allow_expired_key] = True
         return dumped
 
 

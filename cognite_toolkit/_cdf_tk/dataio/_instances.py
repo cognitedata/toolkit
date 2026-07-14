@@ -327,7 +327,7 @@ class InstanceIO(
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
             return
         elif isinstance(selector, InstanceQuerySelector):
-            pages = self._instance_by_query(selector.create_query(), limit, init_cursor)
+            pages = self._instance_by_query(selector.create_query(), limit, init_cursor, endpoint=selector.endpoint)
         else:
             raise NotImplementedError()
         yield from (self.emit_registered_page(page) for page in pages)
