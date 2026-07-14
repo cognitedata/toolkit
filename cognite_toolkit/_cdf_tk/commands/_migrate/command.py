@@ -162,6 +162,10 @@ class MigrationCommand(ToolkitCommand):
 
             executor.run(start_item=step.completed_count)
 
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                logger.apply_to_all_unprocessed(label="Early termination of migration", severity=Severity.skipped)
+                logger.force_write()
+
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
 
@@ -176,8 +180,8 @@ class MigrationCommand(ToolkitCommand):
                 progress.dump_to_file(log_dir, filestem=str(selected))
             if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
                 console.print(
-                    f"[yellow]Continuing with the next view after repeatedly failed uploads for "
-                    f"{selected.display_name}. Check the log files in {log_dir}.[/yellow]"
+                    f"[yellow]Skipping migrating further items for {selected.display_name} after "
+                    f"encountering repeated failures. Check the log files in {log_dir}.[/yellow]"
                 )
             else:
                 executor.raise_on_error()
@@ -365,10 +369,6 @@ class MigrationCommand(ToolkitCommand):
                         )
 
             if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
-                target.logger.apply_to_all_unprocessed(
-                    label="Early termination of migration",
-                    severity=Severity.skipped,
-                )
                 target.logger.force_write()
                 raise ToolkitRepeatedUploadFailureError(
                     f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."

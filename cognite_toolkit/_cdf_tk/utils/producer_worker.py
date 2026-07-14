@@ -23,7 +23,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
@@ -220,6 +220,20 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         else:
             return "completed"
 
+    def _report_error(self, description: str, error: Exception) -> None:
+        """Record the error and print it, unless the caller reports this error type itself.
+
+        `ToolkitRepeatedUploadFailureError` is deliberately handled and reported by the caller
+        (which decides whether to abort or continue with the next selector), so printing it here
+        too would just duplicate that message.
+        """
+        self._error_event.set()
+        self.error_message = f"{type(error).__name__} {error!s}"
+        self.error_traceback = traceback.format_exc()
+        self.error_exception = error
+        if not isinstance(error, ToolkitRepeatedUploadFailureError):
+            self.console.print(f"[red]Error[/red] occurred while {description}: {self.error_message}")
+
     def print_traceback(self) -> None:
         """Prints the traceback if an error occurred during execution."""
         if self.error_traceback:
@@ -257,11 +271,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except StopIteration:
                 break
             except Exception as e:
-                self._error_event.set()
-                self.error_message = f"{type(e).__name__} {e!s}"
-                self.error_traceback = traceback.format_exc()
-                self.error_exception = e
-                self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
+                self._report_error(self.download_description, e)
                 break
         self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
 
@@ -300,11 +310,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except queue.Empty:
                 continue
             except Exception as e:
-                self._error_event.set()
-                self.error_message = f"{type(e).__name__} {e!s}"
-                self.error_traceback = traceback.format_exc()
-                self.error_exception = e
-                self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
+                self._report_error(self.process_description, e)
                 break
 
     def _write_worker(self, progress: Progress, write_task: TaskID, start_item: int = 0) -> None:
@@ -325,11 +331,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except queue.Empty:
                 continue
             except Exception as e:
-                self._error_event.set()
-                self.error_message = f"{type(e).__name__} {e!s}"
-                self.error_traceback = traceback.format_exc()
-                self.error_exception = e
-                self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
+                self._report_error(self.write_description, e)
                 break
 
 
