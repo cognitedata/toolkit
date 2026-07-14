@@ -186,7 +186,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrating"
+            action = "Would migrate" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
