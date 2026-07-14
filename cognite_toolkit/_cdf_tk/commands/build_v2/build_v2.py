@@ -106,7 +106,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
+        built_modules = self._build_modules(build_source.modules, parameters.build_dir.resolve(), console)
 
         plan = self._create_validation_plan(built_modules, client)
         self._display_validation_plan(plan, console)
@@ -114,7 +114,7 @@ class BuildV2Command(ToolkitCommand):
 
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
-            build_dir=parameters.build_dir,
+            build_dir=parameters.build_dir.resolve(),
             built_modules=built_modules,
             validation_results=validation_results,
             all_variables=build_source.all_variables,

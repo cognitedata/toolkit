@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 )
 from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
@@ -304,10 +304,23 @@ class UploadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run()
+
+                if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                    logger.apply_to_all_unprocessed(
+                        label="Early termination of upload process", severity=Severity.skipped
+                    )
+                    logger.force_write()
+
                 items_results = logger.finalize(dry_run)
                 display_item_results(items_results, title=f"Finished upload {selector.display_name}", console=console)
                 tracker.track(DataTracking.from_item_results("UploadResult", selector.kind, items_results), client)
-                executor.raise_on_error()
+                if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                    console.print(
+                        f"[yellow]Skipping uploading further items for {selector.display_name} after "
+                        f"encountering repeated failures. Check the log files in {input_dir}.[/yellow]"
+                    )
+                else:
+                    executor.raise_on_error()
 
     @staticmethod
     def _create_upload_logfile_stem(log_dir: Path) -> str:
@@ -383,13 +396,11 @@ class UploadCommand(ToolkitCommand):
                     logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
 
         if all_failed and results:
-            logger.apply_to_all_unprocessed(
-                label="Early termination of upload process",
-                severity=Severity.skipped,
-            )
             logger.force_write()
             log_file = get_log_file()
             suffix = " Failed to get log file"
             if log_file:
                 suffix = f"\nCheck the log file {cls._path_as_display_name(log_file).as_posix()}."
-            raise ToolkitRuntimeError(f"Upload process was stopped due to repeatedly failed uploads.{suffix}")
+            raise ToolkitRepeatedUploadFailureError(
+                f"Upload process was stopped due to repeatedly failed uploads.{suffix}"
+            )

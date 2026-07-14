@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     Selector,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
 from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -228,7 +228,7 @@ class TestUploadCommand:
         ]
         with HTTPClient(config=toolkit_config) as http_client:
             with pytest.raises(
-                ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"
+                ToolkitRepeatedUploadFailureError, match="Upload process was stopped due to repeatedly failed uploads"
             ):
                 UploadCommand._upload_items(
                     data_chunk=Page(worker_id="main", items=items),

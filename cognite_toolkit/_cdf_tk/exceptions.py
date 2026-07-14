@@ -255,3 +255,10 @@ class ToolkitRuntimeError(RuntimeError, ToolkitError):
     """General runtime error for toolkit operations."""
 
     ...
+
+
+class ToolkitRepeatedUploadFailureError(ToolkitRuntimeError):
+    """Raised when uploads for a page of data repeatedly fail in full, causing early termination of that data's
+    processing."""
+
+    ...
