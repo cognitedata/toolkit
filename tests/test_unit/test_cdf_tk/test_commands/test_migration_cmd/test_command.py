@@ -96,7 +96,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, Severity
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
@@ -1200,7 +1200,9 @@ class TestMigrationCommand:
             total_item_count=2,
             start_item=0,
         )
-        with pytest.raises(ToolkitRepeatedUploadFailureError, match="Migration was stopped due to repeatedly failed uploads"):
+        with pytest.raises(
+            ToolkitRepeatedUploadFailureError, match="Migration was stopped due to repeatedly failed uploads"
+        ):
             upload(page)
 
         target.logger.force_write.assert_called_once()
