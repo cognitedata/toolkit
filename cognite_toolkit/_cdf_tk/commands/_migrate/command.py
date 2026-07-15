@@ -186,7 +186,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrating"
+            action = "Would migrate" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
@@ -220,7 +220,7 @@ class MigrationCommand(ToolkitCommand):
                         f"Found progress file for {selector.display_name}. But total items "
                         f"does not match the expected total. Starting from beginning..."
                     )
-                elif progress.status == "completed" and (not is_sync or completed_count == total_items):
+                elif progress.status == "completed" and not is_sync:
                     message = f"Found completed progress file for {selector.display_name}. Skipping migration."
                     is_complete = True
                 elif first is not None:

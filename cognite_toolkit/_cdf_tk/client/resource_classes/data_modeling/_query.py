@@ -41,8 +41,11 @@ class QueryThrough(BaseModelObject):
 
 
 class QueryExpression(BaseModelObject):
-    sort: list[QuerySortSpec] | None = None
+    sort: list[QuerySortSpec] | None = None  # /query-only field. Ignored on /sync.
     limit: int | None = None
+    # Below are /sync-only fields. Ignored on /query.
+    mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = None
+    backfill_sort: list[QuerySortSpec] | None = None
 
 
 class QueryTableExpression(BaseModelObject):
@@ -110,6 +113,9 @@ class QueryDebugParameters(BaseModelObject):
     emit_results: bool | None = None
     timeout: int | None = None
     profile: bool | None = None
+    include_plan: bool | None = None
+    include_translated_query: bool | None = None
+    include_llm_prompt: bool | None = None
 
 
 class QueryRequest(BaseModelObject):
@@ -124,6 +130,11 @@ class QueryRequest(BaseModelObject):
     parameters: dict[str, JsonValue] | None = None
     include_typing: bool | None = None
     debug: QueryDebugParameters | None = None
+    # /sync-only field. Ignored on /query. Sync cursors otherwise expire after 3 days (soft-deleted
+    # instances are cleaned up after that grace period). We accept the risk of missing deletes past
+    # that window so long-paused migrations/downloads can still resume from an old cursor instead of
+    # being forced to restart (since we currently do not support syncing deletes anyways).
+    allow_expired_cursors_and_accept_missed_deletes: bool = True
     # This is not part of the API request body, but it enables the exhaust sub selection feature in the InstanceAPI.
     root: str = Field(exclude=True)
 
@@ -139,13 +150,26 @@ class QueryRequest(BaseModelObject):
 
         """
         dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        # /sync-only fields must never appear on /query.
+        sync_only_expression_fields = {"mode", "backfill_sort"} if not camel_case else {"mode", "backfillSort"}
+        sync_only_request_field = (
+            "allow_expired_cursors_and_accept_missed_deletes"
+            if not camel_case
+            else "allowExpiredCursorsAndAcceptMissedDeletes"
+        )
+        with_key = "with" if camel_case else "with_"
         if endpoint == "query":
+            dumped.pop(sync_only_request_field, None)
+            with_section = dumped[with_key]
+            for key in list(with_section.keys()):
+                for field in sync_only_expression_fields:
+                    with_section[key].pop(field, None)
             return dumped
-        # The sync endpoint does not support sorting
-        exclude: set[str] = {"sort"}
+        # The sync endpoint does not support sorting or post-sorting edges.
+        exclude: set[str] = {"sort", "post_sort"}
         if exclude_extra and self.__pydantic_extra__:
             exclude.update(self.__pydantic_extra__.keys())
-        with_section = dumped["with"]
+        with_section = dumped[with_key]
         for key, expression in self.with_.items():
             with_section[key] = expression.model_dump(
                 mode="json",
