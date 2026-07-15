@@ -1175,6 +1175,7 @@ class TestMigrationCommand:
             selected=MagicMock(),
             write_client=MagicMock(),
             target=target,  # type: ignore[arg-type]
+            destination="Instances",
             dry_run=False,
             log_dir=tmp_path,
             total_item_count=1001,
@@ -1195,6 +1196,7 @@ class TestMigrationCommand:
             selected=MagicMock(__str__=lambda self: "ChecklistItem_v7_node"),
             write_client=MagicMock(),
             target=target,  # type: ignore[arg-type]
+            destination="Instances",
             dry_run=False,
             log_dir=tmp_path,
             total_item_count=2,
@@ -1235,7 +1237,7 @@ class TestMigrationCommand:
             results_by_selector = command._run_migration_steps(
                 plan=[step],
                 data=data,
-                mapper=MagicMock(),
+                mapper=MagicMock(destination_label=None),
                 logger=logger,
                 write_client=MagicMock(),
                 log_dir=tmp_path,
