@@ -149,7 +149,14 @@ class MigrationCommand(ToolkitCommand):
                 download_iterable=data.stream_data(selected, bookmark=step.bookmark),
                 process=self._convert(mapper),
                 write=self._upload(
-                    selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
+                    selected,
+                    write_client,
+                    data,
+                    mapper.destination_label or data.KIND,
+                    dry_run,
+                    log_dir,
+                    step.total_count,
+                    step.completed_count,
                 ),
                 total_item_count=step.total_count,
                 max_queue_size=10,
@@ -318,6 +325,7 @@ class MigrationCommand(ToolkitCommand):
         selected: T_Selector,
         write_client: HTTPClient,
         target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
+        destination: str,
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,
@@ -352,7 +360,7 @@ class MigrationCommand(ToolkitCommand):
                                 label=f"Failed to write to CDF: {error.code}",
                                 message=error.message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
                 elif isinstance(item, ItemsFailedRequest):
@@ -364,7 +372,7 @@ class MigrationCommand(ToolkitCommand):
                                 label="Failed to write to CDF: Request failed",
                                 message=item.error_message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
 
