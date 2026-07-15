@@ -145,6 +145,10 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         # just-mapped target instances as if they had been uploaded, so that downstream
         # steps' constraint checks do not falsely report them as missing in CDF.
         self.dry_run: bool = False
+        # Subclasses that know the specific destination (e.g., a target view) for the data
+        # being migrated in the current step can set this in prepare() so that upload failure
+        # logs can report it instead of a generic destination label (e.g., the DataIO KIND).
+        self.destination_label: str | None = None
 
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
@@ -1382,7 +1386,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # Set in prepare() so that reported issues can point to the specific source/destination
         # view of the current migration step, instead of a generic "FDM/CDM instances" label.
         self._current_issue_source: str = "FDM instances"
-        self._current_issue_destination: str = "CDM instances"
+        self.destination_label: str | None = "CDM instances"
 
     def process_description(self, source_selector: InstanceSelector) -> str:
         destination_view = self._get_destination_view(source_selector)
@@ -1422,7 +1426,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 version=source_selector.view.version,
             )
             mapping = self._mappings_by_source_view.get(selected_view)
-        self._current_issue_destination = str(mapping.destination_view) if mapping is not None else "CDM instances"
+        self.destination_label = str(mapping.destination_view) if mapping is not None else "CDM instances"
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -1489,7 +1493,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             self.logger.log(
                 [
                     instance_conversion_issue_as_migration_entry(
-                        issue, source=self._current_issue_source, destination=self._current_issue_destination
+                        issue, source=self._current_issue_source, destination=self.destination_label or "CDM instances"
                     )
                     for issue in issue_by_source_node_id.values()
                 ]
