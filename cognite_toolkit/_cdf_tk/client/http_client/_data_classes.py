@@ -25,13 +25,15 @@ class HTTPResult(HTTPBaseModel):
         if isinstance(self, SuccessResponse):
             return self
         elif isinstance(self, FailedResponse):
+            request_id_suffix = f" (x-request-id: {self.error.request_id})" if self.error.request_id else ""
             raise ToolkitAPIError(
-                f"Request failed with status code {self.status_code}: {self.error.message}",
+                f"Request failed with status code {self.status_code}: {self.error.message}{request_id_suffix}",
                 missing=self.error.missing,  # type: ignore[arg-type]
                 duplicated=self.error.duplicated,  # type: ignore[arg-type]
                 code=self.error.code,
                 request=request,
                 response=self,
+                request_id=self.error.request_id,
             )
         elif isinstance(self, FailedRequest):
             raise ToolkitAPIError(f"Request failed with error: {self.error}", request=request)
@@ -61,6 +63,7 @@ class HTTPResult(HTTPBaseModel):
                     missing=self.error.missing,
                     duplicated=self.error.duplicated,
                     is_auto_retryable=self.error.is_auto_retryable,
+                    request_id=self.error.request_id,
                 ),
             )
         elif isinstance(self, FailedRequest):
@@ -77,6 +80,8 @@ class SuccessResponse(HTTPResult):
     status_code: int
     body: str
     content: bytes
+    # The x-request-id response header, useful for correlating with server-side logs.
+    request_id: str | None = None
 
     @property
     def body_json(self) -> dict[str, Any]:
@@ -92,15 +97,21 @@ class ErrorDetails(HTTPBaseModel):
     missing: list[JsonValue] | None = None
     duplicated: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
+    # The x-request-id response header, useful for correlating a failure with server-side logs.
+    request_id: str | None = None
 
     @classmethod
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
+        request_id = response.headers.get("x-request-id")
         try:
             res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
         except ValueError:
-            return cls(code=response.status_code, message=response.text)
-        return res["error"]
+            return cls(code=response.status_code, message=response.text, request_id=request_id)
+        error = res["error"]
+        if error.request_id is None:
+            error.request_id = request_id
+        return error
 
 
 class FailedResponse(HTTPResult):

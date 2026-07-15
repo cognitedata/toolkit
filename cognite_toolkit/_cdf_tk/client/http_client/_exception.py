@@ -16,6 +16,7 @@ class ToolkitAPIError(Exception):
         is_auto_retryable: bool | None = None,
         request: "RequestMessage | None " = None,
         response: "FailedResponse | None " = None,
+        request_id: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -25,6 +26,7 @@ class ToolkitAPIError(Exception):
         self.is_auto_retryable = is_auto_retryable
         self.request = request
         self.response = response
+        self.request_id = request_id
 
     def as_debug_dict(self) -> dict[str, Any]:
         debug_info: dict[str, Any] = {}
@@ -38,6 +40,8 @@ class ToolkitAPIError(Exception):
             elif self.request.data_content:
                 debug_info["requestBody"] = "<bytes>"
         debug_info["errorMessage"] = self.message
+        if self.request_id:
+            debug_info["requestId"] = self.request_id
         if self.code:
             debug_info["statusCode"] = self.code
         if self.is_auto_retryable is not None:
