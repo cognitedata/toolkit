@@ -552,8 +552,8 @@ class TestInstanceIO:
         pages = list(InstanceIO(client).stream_data(station_selector))
 
         assert len(pages) == 2
-        assert {di.tracking_id for di in pages[0].items} == {"img_space:image1", "img_space:station1"}
-        assert {di.tracking_id for di in pages[1].items} == {"img_space:image2", "img_space:station2"}
+        assert {di.tracking_id for di in pages[0].items} == {"img_space:station1"}
+        assert {di.tracking_id for di in pages[1].items} == {"img_space:station2"}
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",
