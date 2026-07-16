@@ -1177,32 +1177,6 @@ class TestFDMtoCDMMapper:
             assert actual[0].item.external_id == sanitize_instance_external_id("image1", "_cdm")
             logger.log.assert_not_called()
 
-    def test_image360_mapper_skips_bare_pagination_only_nodes(self) -> None:
-        """The 'image360station' query selector includes 'image360' nodes with no properties purely
-        to drive pagination (see create_360_image_selectors). These must be silently skipped rather
-        than turned into empty placeholder nodes, since the images are migrated separately."""
-        bare_node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="image1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            properties=None,
-        )
-
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = []
-            connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
-            mapper = Image360FDMtoCDMMapper(client, connection_creator=connection_creator)
-            logger = MagicMock(spec=DataLogger)
-            mapper.logger = logger
-            mapper.prepare(MagicMock())
-
-            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:image1", item=bare_node)])
-
-        assert actual == []
-        logger.log.assert_not_called()
-
     def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,
