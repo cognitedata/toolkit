@@ -5,6 +5,7 @@ from pydantic import JsonValue, TypeAdapter
 from pydantic.config import ExtraValues
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
@@ -30,6 +31,22 @@ _VIEW_MAPPING_KEYS_BY_TYPE: dict[str, tuple[str, ...]] = {
     "maintenanceOrder": ("maintenanceOrder", "activity"),
     "operation": ("operation",),
     "notification": ("notification",),
+}
+
+# Identifies the canonical AppConfig node when a project has more than one (in practice, projects have
+# exactly one AppConfig node).
+APP_CONFIG_V2_EXTERNAL_ID = "APP_CONFIG_V2"
+DEFAULT_SOURCE_DATA_SPACE = "APM_SourceData"
+DEFAULT_SOURCE_DATA_VERSION = "1"
+# Maps the AppConfig entity key (featureConfiguration.viewMappings.<entity>) to the default APM_SourceData
+# view external ID for that entity.
+SOURCE_VIEW_EXTERNAL_ID_BY_ENTITY: dict[str, str] = {
+    "activity": "APM_Activity",
+    "operation": "APM_Operation",
+    "notification": "APM_Notification",
+}
+ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID: dict[str, str] = {
+    external_id: entity for entity, external_id in SOURCE_VIEW_EXTERNAL_ID_BY_ENTITY.items()
 }
 
 
@@ -119,3 +136,97 @@ def resolve_source_data_view_ids(
             f"{humanize_collection([str(view_id) for view_id in distinct_view_ids])}."
         )
     return resolved
+
+
+def select_primary_apm_config(configs: Sequence[APMConfigResponse]) -> APMConfigResponse | None:
+    """AppConfig's ``viewMappings`` (and space/version overrides) are project-global settings, not
+    per-location. If a project has an ``APP_CONFIG_V2`` node, that is the canonical config to read them
+    from; otherwise fall back to the first config (in practice, projects have exactly one AppConfig node).
+    """
+    return next((config for config in configs if config.external_id == APP_CONFIG_V2_EXTERNAL_ID), None) or (
+        configs[0] if configs else None
+    )
+
+
+def resolve_apm_source_data_view_ids(configs: Sequence[APMConfigResponse]) -> dict[str, ViewId]:
+    """Determine the APM_SourceData view (space/externalId/version) to migrate each entity ("activity",
+    "operation", "notification") from, based on the project's AppConfig node.
+
+    Resolution priority per entity:
+        1. ``featureConfiguration.viewMappings.<entity>`` on the AppConfig node, if set.
+        2. ``customerDataSpaceId`` (+ ``customerDataSpaceVersion``) on the AppConfig node, if set.
+        3. The hardcoded default: ``APM_SourceData/APM_<Entity>/1``.
+
+    Args:
+        configs: All deployed APM configs (``client.infield.apm_config.list()``).
+
+    Returns:
+        Dict of entity key ("activity", "operation", "notification") to the ``ViewId`` to migrate that
+        entity's data from.
+
+    """
+    config = select_primary_apm_config(configs)
+    feature_configuration = config.feature_configuration if config else None
+    view_mappings = feature_configuration.view_mappings if feature_configuration else None
+    customer_data_space_id = config.customer_data_space_id if config else None
+    customer_data_space_version = config.customer_data_space_version if config else None
+
+    resolved: dict[str, ViewId] = {}
+    for entity, default_external_id in SOURCE_VIEW_EXTERNAL_ID_BY_ENTITY.items():
+        mapping = view_mappings.get(entity) if isinstance(view_mappings, dict) else None
+        space = mapping.get("space") if isinstance(mapping, dict) else None
+        external_id = mapping.get("externalId") if isinstance(mapping, dict) else None
+        version = mapping.get("version") if isinstance(mapping, dict) else None
+        if isinstance(space, str) and isinstance(external_id, str) and isinstance(version, str):
+            resolved[entity] = ViewId(space=space, external_id=external_id, version=version)
+        elif isinstance(customer_data_space_id, str):
+            resolved[entity] = ViewId(
+                space=customer_data_space_id,
+                external_id=default_external_id,
+                version=customer_data_space_version or DEFAULT_SOURCE_DATA_VERSION,
+            )
+        else:
+            resolved[entity] = ViewId(
+                space=DEFAULT_SOURCE_DATA_SPACE, external_id=default_external_id, version=DEFAULT_SOURCE_DATA_VERSION
+            )
+    return resolved
+
+
+def resolve_apm_source_data_instance_spaces(configs: Sequence[APMConfigResponse]) -> set[str]:
+    """Collect the candidate APM_SourceData instance spaces to migrate from, across all root locations
+    configured on the given APM configs.
+
+    Note: AppConfig also has a top-level ``rootLocationsConfiguration.locations`` field, but that is only
+    thin metadata for populating a location picker dropdown in the Infield UI (``value``/``label`` pairs).
+    Infield itself always reads the rich per-location config, including ``sourceDataInstanceSpace``, from
+    ``featureConfiguration.rootLocationConfigurations``, so we do the same here.
+
+    For each root location, in priority order:
+        1. ``featureConfiguration.rootLocationConfigurations[n].sourceDataInstanceSpace``.
+        2. ``customerDataSpaceId`` (top-level fallback), used when a location has no source data instance
+           space of its own, or when a config has no root locations configured at all.
+
+    Args:
+        configs: All deployed APM configs (``client.infield.apm_config.list()``).
+
+    Returns:
+        The set of distinct candidate source instance spaces found across all configs/locations.
+
+    """
+    spaces: set[str] = set()
+    for config in configs:
+        customer_data_space_id = config.customer_data_space_id
+        root_location_configurations = (
+            config.feature_configuration.root_location_configurations if config.feature_configuration else None
+        )
+        if not root_location_configurations:
+            if isinstance(customer_data_space_id, str):
+                spaces.add(customer_data_space_id)
+            continue
+
+        for location in root_location_configurations:
+            if location.source_data_instance_space:
+                spaces.add(location.source_data_instance_space)
+            elif isinstance(customer_data_space_id, str):
+                spaces.add(customer_data_space_id)
+    return spaces

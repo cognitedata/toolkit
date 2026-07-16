@@ -18,9 +18,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
+    ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
     SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
     create_apm_source_data_mappings,
     get_first_instance_space,
+    resolve_apm_source_data_instance_spaces,
+    resolve_apm_source_data_view_ids,
     resolve_source_data_view_ids,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -1803,13 +1806,7 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand(client=client)
         apm_configs = client.infield.apm_config.list(limit=None)
-        source_candidates = {
-            location.source_data_instance_space
-            for config in apm_configs
-            if config.feature_configuration
-            for location in config.feature_configuration.root_location_configurations or []
-            if location.source_data_instance_space
-        }
+        source_candidates = resolve_apm_source_data_instance_spaces(apm_configs)
         infield_cdm_configs = client.infield.cdm_config.list(limit=None)
         target_candidates = {
             space
@@ -1888,12 +1885,21 @@ class MigrateApp(typer.Typer):
         if custom_views:
             # If a custom maintenanceOrder/operation/notification view is configured for the target space,
             # migrate the corresponding APM_SourceData view onto it instead of the default cdf_idm view.
+            # This must run before the source view override below, since it keys off the original
+            # (hardcoded) APM_Activity/APM_Operation/APM_Notification source view external IDs.
             mappings = [
                 m.model_copy(update={"destination_view": custom_views[type_key]})
                 if (type_key := SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.get(m.source_view.external_id)) in custom_views
                 else m
                 for m in mappings
             ]
+        source_views = resolve_apm_source_data_view_ids(apm_configs)
+        mappings = [
+            m.model_copy(update={"source_view": source_views[entity]})
+            if (entity := ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID.get(m.source_view.external_id)) in source_views
+            else m
+            for m in mappings
+        ]
         selectors: list[InstanceViewSelector] = [
             InstanceViewSelector(
                 view=SelectedView(
