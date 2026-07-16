@@ -10,7 +10,6 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
@@ -2133,9 +2132,6 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
     ViewToViewMapping path for Image360Collection source nodes.
     """
 
-    SOURCE_LABEL: ClassVar[str] = "Image360Collection"
-    DESTINATION_LABEL: ClassVar[str] = "Cognite360ImageCollection"
-
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
         collection_nodes = [node for node in raw_items if isinstance(node, NodeResponse)]
@@ -2172,24 +2168,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                 if self.dry_run:
                     model_external_id = "cog_3d_model_<dry-run>"
                 else:
-                    try:
-                        self.client.tool.instances.create(
-                            [self._revision_node_request(instance_space, collection_ext_id, name, None)]
-                        )
-                    except ToolkitAPIError as error:
-                        self.logger.log(
-                            [
-                                MigrationEntryV2(
-                                    id=str(node.as_id()),
-                                    label="Image360 collection migration failed",
-                                    message=f"Could not create the collection revision node: {error.message}",
-                                    severity=Severity.failure,
-                                    source=self.SOURCE_LABEL,
-                                    destination=self.DESTINATION_LABEL,
-                                )
-                            ]
-                        )
-                        continue
+                    self.client.tool.instances.create(
+                        [self._revision_node_request(instance_space, collection_ext_id, name, None)]
+                    )
                     label = str(name or node.external_id)
                     created_model = self.client.tool.three_d.models_classic.create(
                         [ThreeDModelDMSRequest(name=label, space=instance_space, type="Image360")]

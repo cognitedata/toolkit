@@ -1240,18 +1240,13 @@ class TestFDMtoCDMMapper:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.instances.retrieve.return_value = []
-            client.tool.instances.create.side_effect = ToolkitAPIError("boom")
+            client.tool.instances.create.side_effect = ToolkitAPIError("Error")
             mapper = Image360CollectionMapper(client)
-            logger = MagicMock(spec=DataLogger)
-            mapper.logger = logger
-            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+
+            with pytest.raises(ToolkitAPIError):
+                mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
         client.tool.three_d.models_classic.create.assert_not_called()
-        assert actual == []
-        logger.log.assert_called_once()
-        entry = logger.log.call_args[0][0][0]
-        assert isinstance(entry, MigrationEntryV2)
-        assert entry.severity == Severity.failure
 
     def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
         collection_node = NodeResponse(
