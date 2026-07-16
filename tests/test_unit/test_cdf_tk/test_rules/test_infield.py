@@ -232,6 +232,116 @@ class TestInFieldCDMViewPropertiesRuleSet:
         call_view_ids = mock_client.tool.views.retrieve.call_args[0][0]
         assert set(call_view_ids) == {activities_id, notifications_id}
 
+    def test_observation_view_with_required_properties_present(
+        self,
+        tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "viewMappings": {
+                    "observation": [
+                        {
+                            "view": {
+                                "space": "customer_idm",
+                                "version": "v2",
+                                "externalId": "ObservationView",
+                            },
+                            "requiredProperties": ["assets", "files"],
+                        },
+                    ],
+                },
+            },
+        )
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
+        observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
+        mock_client = MagicMock()
+        mock_client.tool.views.retrieve.return_value = [
+            mock_view(observation_id, frozenset({"assets", "files"}))
+        ]
+        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        assert list(rule.validate()) == []
+
+    def test_observation_view_missing_required_properties(
+        self,
+        tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "viewMappings": {
+                    "observation": [
+                        {
+                            "view": {
+                                "space": "customer_idm",
+                                "version": "v2",
+                                "externalId": "ObservationView",
+                            },
+                            "requiredProperties": ["assets", "files"],
+                        },
+                    ],
+                },
+            },
+        )
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
+        observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
+        mock_client = MagicMock()
+        mock_client.tool.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets"}))]
+        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        errors = list(rule.validate())
+        assert len(errors) == 1
+        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
+        assert "files" in errors[0].message
+
+    def test_observation_view_without_required_properties_is_not_checked(
+        self,
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "viewMappings": {
+                    "observation": [
+                        {
+                            "view": {
+                                "space": "customer_idm",
+                                "version": "v2",
+                                "externalId": "ObservationView",
+                            },
+                        },
+                    ],
+                },
+            },
+        )
+        resource = create_built_resource(yaml_file, yaml_file)
+        module = create_module(tmp_path, [resource])
+        mock_client = MagicMock()
+        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        assert list(rule.validate()) == []
+        mock_client.tool.views.retrieve.assert_not_called()
+
     def test_retrieve_batch_failure_propagates(
         self,
         tmp_path: Path,
