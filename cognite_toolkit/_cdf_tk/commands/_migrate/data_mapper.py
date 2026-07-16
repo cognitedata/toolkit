@@ -1436,10 +1436,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
                 custom_mapper = self._custom_instance_mappings[intersection_view_id]
-                # dry_run is only set on this (outer) mapper by the migration command, so it
-                # must be propagated explicitly to avoid the custom mapper performing real
-                # side effects (e.g., creating 3D models) during a dry run.
-                custom_mapper.dry_run = self.dry_run
                 custom_mapped = custom_mapper.map(source)
                 if self.dry_run:
                     for data_item in custom_mapped:
@@ -2131,6 +2127,10 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
     """
+
+    def __init__(self, client: ToolkitClient, dry_run: bool = False) -> None:
+        super().__init__(client)
+        self.dry_run = dry_run
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
