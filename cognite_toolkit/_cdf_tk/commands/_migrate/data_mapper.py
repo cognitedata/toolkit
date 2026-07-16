@@ -2186,9 +2186,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
         return results
 
     @staticmethod
-    def _revision_node_request(
-        space: str, external_id: str, name: Any, model_external_id: str | None
-    ) -> NodeRequest:
+    def _revision_node_request(space: str, external_id: str, name: Any, model_external_id: str | None) -> NodeRequest:
         revision_properties: dict[str, Any] = {
             "status": "Done",
             "published": True,

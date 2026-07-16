@@ -498,9 +498,8 @@ class TestInstanceIO:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         """Root ('image360') must be selected so the query endpoint emits a cursor for it, allowing
-        pagination to continue past the first page. Its own (property-less) items still flow through
-        the download; it is the mapper's responsibility to discard them, since they are migrated
-        separately by the 'Image360' InstanceViewSelector."""
+        pagination to continue past the first page. They are migrated separately by the 'Image360'
+        InstanceViewSelector however so we don't want any output for them."""
         client = ToolkitClient(config=toolkit_config)
         station_selector = create_360_image_selectors([NodeId(space="img_space", external_id="col1")])[1]
         assert isinstance(station_selector, InstanceQuerySelector)
