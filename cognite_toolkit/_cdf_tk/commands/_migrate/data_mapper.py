@@ -2055,6 +2055,18 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_instance_mappings=custom_instance_mappings,
         )
 
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        # 'image360' nodes are included in the 'image360station' query selector purely to drive
+        # pagination (see create_360_image_selectors) and are selected without any properties.
+        # The images themselves are migrated separately by the 'Image360' InstanceViewSelector, so
+        # they must be skipped here to avoid creating empty placeholder nodes.
+        filtered = [
+            data_item
+            for data_item in source
+            if not (isinstance(data_item.item, NodeResponse) and not data_item.item.properties)
+        ]
+        return super().map(filtered)
+
     @staticmethod
     def missing_cubemap_face_file_external_ids(
         source_node: NodeResponse,

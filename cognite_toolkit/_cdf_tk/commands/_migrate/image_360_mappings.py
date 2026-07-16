@@ -182,6 +182,12 @@ def create_360_image_selectors(
                     ),
                 },
                 select={
+                    # 'image360' has no source and is only selected so that the query endpoint emits a
+                    # cursor for it. Without this, the endpoint does not return a cursor for 'image360'
+                    # and pagination silently stops after the first page. The 'image360' items themselves
+                    # are excluded from the downloaded data by 'subselections' below, since they are
+                    # migrated separately by the 'Image360' InstanceViewSelector.
+                    "image360": QuerySelect(),
                     "image360station": QuerySelect(
                         sources=[QuerySelectSource(source=LEGACY_IMAGE360_STATION_SOURCE_VIEW, properties=["*"])]
                     ),
