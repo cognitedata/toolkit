@@ -2155,7 +2155,8 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             instance_space = node.space
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
-            name = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
+            label_value = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
+            name = label_value if isinstance(label_value, str) else None
 
             model_external_id: str | None = None
             migrated_node = existing_migrated_by_id.get(migrated_id)
@@ -2186,7 +2187,9 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
         return results
 
     @staticmethod
-    def _revision_node_request(space: str, external_id: str, name: Any, model_external_id: str | None) -> NodeRequest:
+    def _revision_node_request(
+        space: str, external_id: str, name: str | None, model_external_id: str | None
+    ) -> NodeRequest:
         revision_properties: dict[str, Any] = {
             "status": "Done",
             "published": True,
