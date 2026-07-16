@@ -7,22 +7,22 @@ InField CDM Location Configs:
   dataFilters:
     assets:
       instanceSpaces:
-      - sp_asset_oid_source
+      - migrated
     files:
       instanceSpaces:
-      - sp_asset_oid_source
+      - sp_infield_oid_app_data_cdm
     maintenanceOrders:
       instanceSpaces:
-      - sp_asset_oid_source
+      - sp_asset_oid_source_cdm
     notifications:
       instanceSpaces:
-      - sp_asset_oid_source
+      - sp_asset_oid_source_cdm
     operations:
       instanceSpaces:
-      - sp_asset_oid_source
+      - sp_asset_oid_source_cdm
     timeseries:
       instanceSpaces:
-      - sp_asset_oid_source
+      - sp_infield_oid_app_data_cdm
   dataStorage:
     appInstanceSpace: sp_infield_oid_app_data_cdm
     rootLocation:
@@ -33,7 +33,7 @@ InField CDM Location Configs:
   externalId: WMT:VAL_0
   featureToggles: null
   name: WMT:VAL
-  space: sp_asset_oid_source
+  space: sp_infield_oid_app_data_cdm
   viewMappings:
     asset:
       externalId: CogniteAsset

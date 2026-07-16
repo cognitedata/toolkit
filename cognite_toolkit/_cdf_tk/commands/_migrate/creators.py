@@ -62,6 +62,7 @@ class CreatedResource(Generic[T_RequestResource]):
     resource: T_RequestResource
     config_data: dict[str, Any] | None = None
     filestem: str | None = None
+    field_comments: dict[str, str] | None = None
 
 
 @dataclass
@@ -284,6 +285,13 @@ class SourceSystemCreator(MigrationCreator):
             raise ValueError("This should not happen.")
 
 
+LOCATION_CONFIG_SPACE_COMMENT = (
+    "This space controls who can see this location in InField (dataModelInstancesAcl READ). "
+    "Defaulted to the appInstanceSpace; set a dedicated space here if you need different access "
+    "control for location visibility than for write access."
+)
+
+
 class InfieldV2ConfigCreator(MigrationCreator):
     TARGET_SPACE = "APM_Config"
 
@@ -322,6 +330,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     resource=loc_config,
                     config_data=loc_config.dump(context="toolkit", exclude={"instance_type"}),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
+                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT},
                 )
                 for loc_config in location_configs
             )
@@ -463,15 +472,25 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.checklist_admins:
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
-        data_filters: dict[str, JsonValue] = {}
-        for key in ["assets", "files", "timeseries", "maintenanceOrders", "operations", "notifications"]:
-            # Todo Assets does not support multiple instanceSpaces.
-            #    add to Validation in cdf build.
-            data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
+        app_instance_space = f"{config.app_data_instance_space}_cdm"
+        # The source data migration (not yet implemented) will also suffix its destination space with
+        # "_cdm", so we anticipate that space here rather than the raw (classic) source_data_instance_space.
+        source_instance_space = f"{config.source_data_instance_space}_cdm"
+        # dataFilters.assets.instanceSpaces[0] must match dataStorage.rootLocation.space, otherwise the
+        # asset hierarchy query (which filters on both) silently returns nothing.
+        data_filters: dict[str, JsonValue] = {
+            "assets": {"instanceSpaces": [root_node.space]},
+        }
+        for key in ["timeseries", "files"]:
+            # appInstanceSpace must come first so that by-externalId lookups (which use the first
+            # instance space as the view's default space) resolve to app-written data correctly.
+            data_filters[key] = {"instanceSpaces": [app_instance_space]}
+        for key in ["maintenanceOrders", "operations", "notifications"]:
+            data_filters[key] = {"instanceSpaces": [source_instance_space]}
 
         data_storage = DataStorage(
             root_location=root_node.dump(include_instance_type=False),
-            app_instance_space=f"{config.app_data_instance_space}_cdm",
+            app_instance_space=app_instance_space,
         )
         view_mappings: dict[str, JsonValue] = {}
         for key, default_view in [
@@ -484,8 +503,11 @@ class InfieldV2ConfigCreator(MigrationCreator):
             view_mappings[key] = default_view.dump()
 
         name = config.display_name or config.asset_external_id or external_id
+        # The node's own space determines who can see this location in InField (dataModelInstancesAcl READ),
+        # independent of appInstanceSpace, which only governs write access. We default it to the
+        # appInstanceSpace, see LOCATION_CONFIG_SPACE_COMMENT for the caveat surfaced to the user.
         return InFieldCDMLocationConfigRequest(
-            space=config.source_data_instance_space or "<Please fill in the source data instance space>",
+            space=app_instance_space,
             external_id=external_id,
             name=name,
             description="Migrated InField Location Configuration",
