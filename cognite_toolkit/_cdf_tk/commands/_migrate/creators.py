@@ -385,15 +385,13 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if not config.feature_configuration:
             return location_configs, location_filters, spaces
 
-        origin_space_ids = list(
-            {
-                space_id
-                for root in (config.feature_configuration.root_location_configurations or [])
-                for space_id in [root.app_data_instance_space, root.source_data_instance_space]
-                if space_id is not None
-            }
-        )
-        origin_space_ids = [SpaceId(space=space_id) for space_id in origin_space_ids]
+        origin_space_names = {
+            space_id
+            for root in (config.feature_configuration.root_location_configurations or [])
+            for space_id in [root.app_data_instance_space, root.source_data_instance_space]
+            if space_id is not None
+        }
+        origin_space_ids = [SpaceId(space=space_name) for space_name in origin_space_names]
         origin_spaces = {s.space: s for s in self.client.tool.spaces.retrieve(origin_space_ids)}
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):

@@ -55,6 +55,13 @@ InField CDM Location Configs:
       externalId: CogniteOperation
       space: cdf_idm
       version: v1
+Instance Spaces:
+- description: null
+  name: null
+  space: sp_infield_oid_app_data_cdm
+- description: null
+  name: null
+  space: sp_asset_oid_source_cdm
 Location Filters:
 - dataModelingType: DATA_MODELING_ONLY
   dataModels:
