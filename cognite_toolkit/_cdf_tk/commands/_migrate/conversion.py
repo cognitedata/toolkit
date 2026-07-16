@@ -1189,11 +1189,16 @@ class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties)
 
 
-class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
+class InFieldAssetMapping(CustomConnectionMapping[NodeId | str]):
     """Custom cases in the InField data migration
 
     These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
     model.
+
+    Source values can either be a ``NodeId`` (older FDM views, e.g. ``cdf_apm``, which model the reference as a
+    direct relation to a legacy node that mirrors the classic asset external ID) or a plain ``str`` (APM_SourceData
+    views, which model the reference as a plain ``assetExternalId`` text property). Both are resolved the same way,
+    by external ID, into the migrated ``CogniteAsset`` instance.
 
     """
 
@@ -1205,6 +1210,9 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
             (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
             (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
+            (ViewId(space="APM_SourceData", external_id="APM_Activity", version="1"), "assetExternalId"),
+            (ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "assetExternalId"),
+            (ViewId(space="APM_SourceData", external_id="APM_Notification", version="1"), "assetExternalId"),
         }
     )
 
@@ -1215,18 +1223,19 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
         # which is important to avoid repeated lookups for missing references.
         self._node_id_by_external_id: dict[str, NodeId | None] = {}
 
-    def __getitem__(self, item: NodeId) -> NodeId:
+    def __getitem__(self, item: NodeId | str) -> NodeId:
         # We ignore the space and assume external ID matches
         # the external ID classic.
-        result = self._node_id_by_external_id[item.external_id]
+        external_id = item.external_id if isinstance(item, NodeId) else item
+        result = self._node_id_by_external_id[external_id]
         if result is None:
             raise ValueError(
-                f"No migrated CogniteAsset instance found for classic asset with external ID {item.external_id!r}"
+                f"No migrated CogniteAsset instance found for classic asset with external ID {external_id!r}"
             )
         return result
 
-    def update(self, items: Iterable[NodeId]) -> None:
-        external_ids = {item.external_id for item in items}
+    def update(self, items: Iterable[NodeId | str]) -> None:
+        external_ids = {item.external_id if isinstance(item, NodeId) else item for item in items}
         missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
         if missing_external_ids:
             results = self.client.migration.instance_source.retrieve(
@@ -1240,6 +1249,29 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
             failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
             for failed in failed_lookups:
                 self._node_id_by_external_id[failed] = None
+
+
+class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
+    """Custom case for the APM_SourceData migration.
+
+    APM_Operation stores its reference to the parent APM_Activity as a plain ``parentActivityId`` text
+    property (the classic ``externalId`` of the APM_Activity node). The migrated CogniteMaintenanceOrder
+    keeps this same external ID, only moving it into the target instance space, so the destination NodeId
+    can be derived directly without any lookup.
+    """
+
+    VIEW_PROPERTIES = frozenset(
+        {(ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "parentActivityId")}
+    )
+
+    def __init__(self, target_space: str) -> None:
+        self._target_space = target_space
+
+    def __getitem__(self, item: str) -> NodeId:
+        return NodeId(space=self._target_space, external_id=item)
+
+    def update(self, items: Iterable[str]) -> None:
+        return None
 
 
 def convert_container_properties(
