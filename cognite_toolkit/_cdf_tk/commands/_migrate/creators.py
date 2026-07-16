@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeId,
     NodeRequest,
+    SpaceId,
     SpaceRequest,
     ViewId,
 )
@@ -316,12 +317,14 @@ class InfieldV2ConfigCreator(MigrationCreator):
             # We know this is not None from the check in __init__
             apm_configs = list(cast(Sequence[APMConfigResponse], self.apm_configs))
 
+        all_spaces: list[CreatedResource[SpaceRequest]] = []
         all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
         all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
+        seen_spaces: set[str] = set()
         success_count = 0
         skipped_external_ids_by_label: dict[str, list[str]] = {}
         for apm_config in apm_configs:
-            location_configs, location_filters = self._create_infield_v2_config(
+            location_configs, location_filters, spaces = self._create_infield_v2_config(
                 apm_config, skipped_external_ids_by_label
             )
             success_count += len(location_configs)
@@ -342,9 +345,24 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 )
                 for loc_filter in location_filters
             )
+            for space in spaces:
+                if space.space not in seen_spaces:
+                    seen_spaces.add(space.space)
+                    all_spaces.append(
+                        CreatedResource(
+                            resource=space,
+                            config_data=space.dump(),
+                            filestem=space.space,
+                        )
+                    )
 
         self._display_summary(success_count, skipped_external_ids_by_label)
 
+        yield ToCreateResources(
+            resources=all_spaces,
+            crud_cls=SpaceCRUD,
+            display_name="Instance Spaces",
+        )
         yield ToCreateResources(
             resources=all_location_filters,
             crud_cls=LocationFilterIO,
@@ -360,11 +378,23 @@ class InfieldV2ConfigCreator(MigrationCreator):
         self,
         config: APMConfigResponse,
         skipped_external_ids_by_label: dict[str, list[str]],
-    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
+    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest], list[SpaceRequest]]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
         location_filters: list[LocationFilterRequest] = []
+        spaces: list[SpaceRequest] = []
         if not config.feature_configuration:
-            return location_configs, location_filters
+            return location_configs, location_filters, spaces
+
+        origin_space_ids = [
+            SpaceId(space=root.app_data_instance_space)
+            for root in (config.feature_configuration.root_location_configurations or [])
+            if root.app_data_instance_space is not None
+        ] + [
+            SpaceId(space=root.source_data_instance_space)
+            for root in (config.feature_configuration.root_location_configurations or [])
+            if root.source_data_instance_space is not None
+        ]
+        origin_spaces = {s.space: s for s in self.client.tool.spaces.retrieve(origin_space_ids)}
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"
@@ -386,10 +416,28 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
+            if root_location_config.app_data_instance_space is not None:
+                origin = origin_spaces.get(root_location_config.app_data_instance_space)
+                spaces.append(
+                    SpaceRequest(
+                        space=f"{root_location_config.app_data_instance_space}_cdm",
+                        name=f"{origin.name}_cdm" if origin and origin.name else None,
+                        description=f"{origin.description} (migrated)" if origin and origin.description else None,
+                    )
+                )
+            if root_location_config.source_data_instance_space is not None:
+                origin = origin_spaces.get(root_location_config.source_data_instance_space)
+                spaces.append(
+                    SpaceRequest(
+                        space=f"{root_location_config.source_data_instance_space}_cdm",
+                        name=f"{origin.name}_cdm" if origin and origin.name else None,
+                        description=f"{origin.description} (migrated)" if origin and origin.description else None,
+                    )
+                )
             location_filters.append(self._create_location_filter(root_location_config))
             location_configs.append(location_config)
 
-        return location_configs, location_filters
+        return location_configs, location_filters, spaces
 
     def _display_summary(self, success_count: int, skipped_external_ids_by_label: dict[str, list[str]]) -> None:
         items: list[ItemsResult] = []
