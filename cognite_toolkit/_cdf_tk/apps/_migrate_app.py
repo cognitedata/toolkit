@@ -1806,7 +1806,7 @@ class MigrateApp(typer.Typer):
                     "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
                     "data model using a standalone custom script before they can be migrated to CDM. "
                     "Toolkit does not support this step. Please see the documentation for this migration "
-                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    "command for more details and guidance on how to perform this separate migration.",
                     title="Unsupported Events-based 360-image data detected",
                     expand=False,
                     border_style="yellow",

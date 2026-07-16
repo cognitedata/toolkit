@@ -10,6 +10,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InternalId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationGeometry,
@@ -1224,6 +1225,17 @@ class TestFDMtoCDMMapper:
             mapper = Image360CollectionMapper(client)
             actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
+        # The revision node must be created (without model3D) and confirmed to succeed
+        # before the 3D model is created, so a failed node upsert never leaves a dangling model.
+        client.tool.instances.create.assert_called_once()
+        precreated_node = client.tool.instances.create.call_args[0][0][0]
+        assert isinstance(precreated_node, NodeRequest)
+        precreated_model_source = next(
+            source for source in precreated_node.sources or [] if source.source.external_id == "Cognite3DRevision"
+        )
+        assert precreated_model_source.properties is not None
+        assert "model3D" not in precreated_model_source.properties
+
         client.tool.three_d.models_classic.create.assert_called_once_with(
             [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
         )
@@ -1240,6 +1252,32 @@ class TestFDMtoCDMMapper:
             "space": self.SOURCE_SPACE,
             "externalId": model_external_id,
         }
+
+    def test_image360_collection_mapper_skips_model_creation_when_node_upsert_fails(self) -> None:
+        """If the revision node upsert fails, the 3D model must never be created, avoiding a dangling model."""
+        collection_node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="collection1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.retrieve.return_value = []
+            client.tool.instances.create.side_effect = ToolkitAPIError("boom")
+            mapper = Image360CollectionMapper(client)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
+
+        client.tool.three_d.models_classic.create.assert_not_called()
+        assert actual == []
+        logger.log.assert_called_once()
+        entry = logger.log.call_args[0][0][0]
+        assert isinstance(entry, MigrationEntryV2)
+        assert entry.severity == Severity.failure
 
     def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
         collection_node = NodeResponse(

@@ -10,6 +10,7 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
@@ -2130,13 +2131,22 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    First, as a side-effect, registers an Image360 3D model in the 3D backend per collection
-    (or reuses an existing model3D reference when the collection was already migrated previously)
-    and sets model3D on the collection revision.
+    As a side-effect, registers an Image360 3D model in the 3D backend per collection (or reuses
+    an existing model3D reference when the collection was already migrated previously) and sets
+    model3D on the collection revision.
+
+    To avoid ever leaving a dangling/orphaned 3D model behind, the revision node is first
+    created/upserted *without* a model3D reference. Only once that write has been confirmed to
+    succeed do we create the 3D model; the mapped node returned from `map` (which includes the
+    model3D reference) is then written by the regular upload step, effectively patching the
+    revision node with the reference to the newly created model.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
     """
+
+    SOURCE_LABEL: ClassVar[str] = "Image360Collection"
+    DESTINATION_LABEL: ClassVar[str] = "Cognite360ImageCollection"
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -2161,6 +2171,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             instance_space = node.space
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
+            name = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
 
             model_external_id: str | None = None
             migrated_node = existing_migrated_by_id.get(migrated_id)
@@ -2173,10 +2184,25 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                 if self.dry_run:
                     model_external_id = "cog_3d_model_<dry-run>"
                 else:
-                    label = str(
-                        ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
-                        or node.external_id
-                    )
+                    try:
+                        self.client.tool.instances.create(
+                            [self._revision_node_request(instance_space, collection_ext_id, name, None)]
+                        )
+                    except ToolkitAPIError as error:
+                        self.logger.log(
+                            [
+                                MigrationEntryV2(
+                                    id=str(node.as_id()),
+                                    label="Image360 collection migration failed",
+                                    message=f"Could not create the collection revision node: {error.message}",
+                                    severity=Severity.failure,
+                                    source=self.SOURCE_LABEL,
+                                    destination=self.DESTINATION_LABEL,
+                                )
+                            ]
+                        )
+                        continue
+                    label = str(name or node.external_id)
                     created_model = self.client.tool.three_d.models_classic.create(
                         [ThreeDModelDMSRequest(name=label, space=instance_space, type="Image360")]
                     )[0]
@@ -2185,32 +2211,36 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             results.append(
                 DataItem(
                     tracking_id=data_item.tracking_id,
-                    item=NodeRequest(
-                        space=instance_space,
-                        external_id=collection_ext_id,
-                        sources=[
-                            InstanceSource(
-                                source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                                properties={
-                                    "model3D": {"space": instance_space, "externalId": model_external_id},
-                                    "status": "Done",
-                                    "published": True,
-                                    "type": "Image360",
-                                },
-                            ),
-                            InstanceSource(
-                                source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                                properties={
-                                    "name": (
-                                        (node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}
-                                    ).get("label")
-                                },
-                            ),
-                        ],
-                    ),
+                    item=self._revision_node_request(instance_space, collection_ext_id, name, model_external_id),
                 )
             )
         return results
+
+    @staticmethod
+    def _revision_node_request(
+        space: str, external_id: str, name: Any, model_external_id: str | None
+    ) -> NodeRequest:
+        revision_properties: dict[str, Any] = {
+            "status": "Done",
+            "published": True,
+            "type": "Image360",
+        }
+        if model_external_id is not None:
+            revision_properties["model3D"] = {"space": space, "externalId": model_external_id}
+        return NodeRequest(
+            space=space,
+            external_id=external_id,
+            sources=[
+                InstanceSource(
+                    source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                    properties=revision_properties,
+                ),
+                InstanceSource(
+                    source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                    properties={"name": name},
+                ),
+            ],
+        )
 
 
 class Station360PropertiesMapping(CustomContainerPropertiesMapping):
