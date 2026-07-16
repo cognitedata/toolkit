@@ -264,9 +264,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         module = create_module(tmp_path, [resource])
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
-        mock_client.tool.views.retrieve.return_value = [
-            mock_view(observation_id, frozenset({"assets", "files"}))
-        ]
+        mock_client.tool.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets", "files"}))]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
 
