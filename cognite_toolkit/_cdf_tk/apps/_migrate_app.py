@@ -134,7 +134,7 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
-        self.command("apm-source-data")(self.apm_source_data)
+        self.command("infield-source-data")(self.infield_source_data)
         self.command("360-images")(self.image_360_nodes)
         self.command("360-image-annotations")(self.image_360_annotations)
 
@@ -1756,7 +1756,7 @@ class MigrateApp(typer.Typer):
         )
 
     @staticmethod
-    def apm_source_data(
+    def infield_source_data(
         ctx: typer.Context,
         source_space: Annotated[
             str | None,
@@ -1926,7 +1926,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
-                user_log_filestem="apm_source_data",
+                user_log_filestem="infield_source_data",
             )
         )
 
