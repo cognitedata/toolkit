@@ -1435,7 +1435,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapper = self._custom_instance_mappings[intersection_view_id]
+                # dry_run is only set on this (outer) mapper by the migration command, so it
+                # must be propagated explicitly to avoid the custom mapper performing real
+                # side effects (e.g., creating 3D models) during a dry run.
+                custom_mapper.dry_run = self.dry_run
+                custom_mapped = custom_mapper.map(source)
                 if self.dry_run:
                     for data_item in custom_mapped:
                         if isinstance(data_item.item, NodeRequest):
