@@ -414,24 +414,19 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
-            if root_location_config.app_data_instance_space is not None:
-                origin = origin_spaces.get(root_location_config.app_data_instance_space)
-                spaces.append(
-                    SpaceRequest(
-                        space=f"{root_location_config.app_data_instance_space}_cdm",
-                        name=f"{origin.name}_cdm" if origin and origin.name else None,
-                        description=f"{origin.description} (migrated)" if origin and origin.description else None,
+            for space_name in [
+                root_location_config.app_data_instance_space,
+                root_location_config.source_data_instance_space,
+            ]:
+                if space_name is not None:
+                    origin = origin_spaces.get(space_name)
+                    spaces.append(
+                        SpaceRequest(
+                            space=f"{space_name}_cdm",
+                            name=f"{origin.name}_cdm" if origin and origin.name else None,
+                            description=f"{origin.description} (migrated)" if origin and origin.description else None,
+                        )
                     )
-                )
-            if root_location_config.source_data_instance_space is not None:
-                origin = origin_spaces.get(root_location_config.source_data_instance_space)
-                spaces.append(
-                    SpaceRequest(
-                        space=f"{root_location_config.source_data_instance_space}_cdm",
-                        name=f"{origin.name}_cdm" if origin and origin.name else None,
-                        description=f"{origin.description} (migrated)" if origin and origin.description else None,
-                    )
-                )
             location_filters.append(self._create_location_filter(root_location_config))
             location_configs.append(location_config)
 
@@ -519,11 +514,9 @@ class InfieldV2ConfigCreator(MigrationCreator):
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
         app_instance_space = f"{config.app_data_instance_space}_cdm"
-        # The source data migration (not yet implemented) will also suffix its destination space with
-        # "_cdm", so we anticipate that space here rather than the raw (classic) source_data_instance_space.
         source_instance_space = f"{config.source_data_instance_space}_cdm"
         # dataFilters.assets.instanceSpaces[0] must match dataStorage.rootLocation.space, otherwise the
-        # asset hierarchy query (which filters on both) silently returns nothing.
+        # asset hierarchy query (which filters on both) can silently return nothing.
         data_filters: dict[str, JsonValue] = {
             "assets": {"instanceSpaces": [root_node.space]},
         }
