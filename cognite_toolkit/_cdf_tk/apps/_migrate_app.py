@@ -1527,8 +1527,9 @@ class MigrateApp(typer.Typer):
             )
         )
         cmd.console(
-            "[bold]IMPORTANT:[/] The next steps needs to be performed manually. Place the generated [bold]cdf_applications/[/] "
-            "(and optionally, the [bold]locations/[/] folder) inside a Toolkit module, "
+            f"[bold]IMPORTANT:[/] The next steps needs to be performed manually. Place the generated folders "
+            f"[bold]{output_dir / 'data_modeling'}[/], [bold]{output_dir / 'cdf_applications'}[/] "
+            f"(and optionally [bold]{output_dir / 'locations'}[/]) inside a Toolkit module, "
             "then deploy to CDF with [bold]cdf deploy[/] before running [bold]cdf migrate infield-data[/].",
             prefix=HINT_LEAD_TEXT,
         )
