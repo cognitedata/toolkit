@@ -12,6 +12,7 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationPoint,
     AnnotationResponse,
     ImageAssetLinkData,
 )
@@ -2326,20 +2327,16 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             return None
 
         object_region = annotation_data.object_region
-        if object_region is None or object_region.polygon is None:
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message="Annotation has no objectRegion polygon.",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        vertices = object_region.polygon.vertices
+        if object_region is not None and object_region.polygon is not None:
+            vertices = object_region.polygon.vertices
+        else:
+            bb = annotation_data.text_region
+            vertices = [
+                AnnotationPoint(x=bb.x_min, y=bb.y_min),
+                AnnotationPoint(x=bb.x_max, y=bb.y_min),
+                AnnotationPoint(x=bb.x_max, y=bb.y_max),
+                AnnotationPoint(x=bb.x_min, y=bb.y_max),
+            ]
         if len(vertices) < 3:
             self.logger.log(
                 MigrationEntryV2(

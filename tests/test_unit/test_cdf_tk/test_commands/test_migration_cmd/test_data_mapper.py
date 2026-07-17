@@ -1783,3 +1783,42 @@ class TestImage360AnnotationMapper:
         # First vertex (front face, 0.1, 0.2) matches the fusion reference values.
         assert item.polygon.data[1] == pytest.approx(2.3562, abs=1e-4)
         assert item.polygon.data[2] == pytest.approx(0.9273, abs=1e-4)
+
+    def test_map_falls_back_to_text_region_when_no_object_region(self) -> None:
+        """When objectRegion polygon is absent, text_region bounding box is used to synthesise a 4-vertex polygon."""
+        annotation = AnnotationResponse(
+            id=43,
+            annotation_type="images.AssetLink",
+            annotated_resource_type="file",
+            annotated_resource_id=111,
+            data=ImageAssetLinkData(
+                asset_ref=InternalId(id=222),
+                text="pump",
+                text_region=BoundingBox(x_min=0.1, x_max=0.5, y_min=0.2, y_max=0.6),
+                object_region=None,
+            ),
+            status="approved",
+            creating_app="unit_test",
+            creating_app_version="1.0.0",
+            creating_user="tester",
+            created_time=0,
+            last_updated_time=1,
+        )
+        new_image360_node_id = NodeId(space=self.SOURCE_SPACE, external_id="image_in_cdm")
+        asset_node_id = NodeId(space="asset_space", external_id="pump_1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.files.external_id.return_value = "file_in"
+            client.migration.lookup.assets.return_value = asset_node_id
+            mapper = Image360AnnotationMapper(client)
+            mapper._face_by_file_ext_id = {"file_in": ("front", new_image360_node_id)}
+
+            result = mapper.map([DataItem(tracking_id="43", item=annotation)])
+
+        assert len(result) == 1
+        item = result[0].item
+        assert item.asset.instance_id == asset_node_id
+        assert item.image360.instance_id == new_image360_node_id
+        # polygon.data: [N, phi1, theta1, ..., phiN, thetaN] for N=4 vertices → 9 floats
+        assert item.polygon.data[0] == 4.0
+        assert len(item.polygon.data) == 9
