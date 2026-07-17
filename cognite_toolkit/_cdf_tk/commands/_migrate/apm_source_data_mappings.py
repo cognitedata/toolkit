@@ -96,6 +96,8 @@ def resolve_source_data_view_ids(
                 continue
             view: object | None = None
             candidate = config.view_mappings.get(type_key)
+            if candidate is None and type_key == "maintenanceOrder":
+                candidate = config.view_mappings.get("activity")
             if isinstance(candidate, dict):
                 view = candidate
             if not isinstance(view, dict):
