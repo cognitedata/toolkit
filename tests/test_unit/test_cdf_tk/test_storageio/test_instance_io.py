@@ -494,41 +494,65 @@ class TestInstanceIO:
         assert second_edge_ids == set()
 
     @pytest.mark.usefixtures("disable_gzip")
-    def test_stream_data_query_root_not_in_select(
+    def test_stream_data_query_root_selected_enables_pagination(
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
-        """Root drives pagination but may be omitted from items when not selected."""
+        """Root ('image360') must be selected so the query endpoint emits a cursor for it, allowing
+        pagination to continue past the first page. They are migrated separately by the 'Image360'
+        InstanceViewSelector however so we don't want any output for them."""
         client = ToolkitClient(config=toolkit_config)
         station_selector = create_360_image_selectors([NodeId(space="img_space", external_id="col1")])[1]
         assert isinstance(station_selector, InstanceQuerySelector)
 
+        def _bare_node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "img_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        def _station(ext_id: str, label: str) -> dict:
+            return {
+                **_bare_node(ext_id),
+                "properties": {"cdf_360_image_schema": {"Station360/v1": {"label": label}}},
+            }
+
         query_url = toolkit_config.create_api_url("/models/instances/query")
-        respx_mock.post(query_url).respond(
-            status_code=200,
-            json={
-                "items": {
-                    "image360station": [
-                        {
-                            "instanceType": "node",
-                            "space": "img_space",
-                            "externalId": "station1",
-                            "version": 1,
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "properties": {"cdf_360_image_schema": {"Station360/v1": {"label": "Station A"}}},
-                        }
-                    ]
-                },
-                "nextCursor": {"image360": None},
-            },
+        respx_mock.post(query_url).mock(
+            side_effect=[
+                # Call 1: image360 has a cursor, so pagination continues even though image360station doesn't.
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "image360": [_bare_node("image1")],
+                            "image360station": [_station("station1", "Station A")],
+                        },
+                        "nextCursor": {"image360": "image360_cursor_1"},
+                    },
+                ),
+                # Call 2: no more cursors → done.
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "image360": [_bare_node("image2")],
+                            "image360station": [_station("station2", "Station B")],
+                        },
+                        "nextCursor": {},
+                    },
+                ),
+            ]
         )
 
         pages = list(InstanceIO(client).stream_data(station_selector))
 
-        assert len(pages) == 1
-        assert len(pages[0].items) == 1
-        assert pages[0].items[0].tracking_id == "img_space:station1"
-        assert pages[0].items[0].item.external_id == "station1"
+        assert len(pages) == 2
+        assert {di.tracking_id for di in pages[0].items} == {"img_space:station1"}
+        assert {di.tracking_id for di in pages[1].items} == {"img_space:station2"}
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",
