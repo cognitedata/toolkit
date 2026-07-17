@@ -1434,8 +1434,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapper = self._custom_instance_mappings[intersection_view_id]
-                custom_mapped = custom_mapper.map(source)
+                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
                 if self.dry_run:
                     for data_item in custom_mapped:
                         if isinstance(data_item.item, NodeRequest):
@@ -2145,8 +2144,6 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
             instance_space = node.space
             collection_ext_id = sanitize_instance_external_id(node.external_id, "_cdm")
             migrated_id = NodeId(space=instance_space, external_id=collection_ext_id)
-            label_value = ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
-            name = label_value if isinstance(label_value, str) else None
 
             model_external_id: str | None = None
             migrated_node = existing_migrated_by_id.get(migrated_id)
@@ -2178,7 +2175,11 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                             ),
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                                properties={"name": name},
+                                properties={
+                                    "name": (
+                                        (node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}
+                                    ).get("label")
+                                },
                             ),
                         ],
                     ),
