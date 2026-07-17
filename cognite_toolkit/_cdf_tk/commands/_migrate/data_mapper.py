@@ -2330,7 +2330,10 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         if object_region is not None and object_region.polygon is not None:
             vertices = object_region.polygon.vertices
         else:
-            bb = annotation_data.text_region
+            if object_region is not None and object_region.bounding_box is not None:
+                bb = object_region.bounding_box
+            else:
+                bb = annotation_data.text_region
             vertices = [
                 AnnotationPoint(x=bb.x_min, y=bb.y_min),
                 AnnotationPoint(x=bb.x_max, y=bb.y_min),
