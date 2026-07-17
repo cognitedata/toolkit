@@ -286,6 +286,11 @@ class SourceSystemCreator(MigrationCreator):
             raise ValueError("This should not happen.")
 
 
+DATA_FILTERS_COMMENT = (
+    "Defaulted time series and files to the asset instance space. If your timeseries or files live in a different space, "
+    "update instanceSpaces under 'timeseries' and 'files' accordingly."
+)
+
 LOCATION_CONFIG_SPACE_COMMENT = (
     "This space controls who can see this location in InField (dataModelInstancesAcl READ). "
     "Defaulted to a dedicated config space (<appInstanceSpaceBase>_cfg). This space controls "
@@ -333,7 +338,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     resource=loc_config,
                     config_data=loc_config.dump(context="toolkit", exclude={"instance_type"}),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
-                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT},
+                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT, "dataFilters": DATA_FILTERS_COMMENT},
                 )
                 for loc_config in location_configs
             )
@@ -547,7 +552,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         for key in ["timeseries", "files"]:
             # appInstanceSpace must come first so that by-externalId lookups (which use the first
             # instance space as the view's default space) resolve to app-written data correctly.
-            data_filters[key] = {"instanceSpaces": [app_instance_space]}
+            data_filters[key] = {"instanceSpaces": [root_node.space]}
         for key in ["maintenanceOrders", "operations", "notifications"]:
             data_filters[key] = {"instanceSpaces": [source_instance_space]}
 
