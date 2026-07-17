@@ -82,3 +82,6 @@
     node.lastUpdatedTime: sourceUpdatedTime
   ignoreSourceProperties:
     - rootLocationExternalId
+    - system
+    - Country
+    - subSystem
