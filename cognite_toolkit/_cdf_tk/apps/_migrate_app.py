@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     APMSourceDataMaintenanceOrderMapping,
     ConnectionCreator,
+    CustomConnectionMapping,
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldObservationSapStatusMapping,
@@ -1912,7 +1913,7 @@ class MigrateApp(typer.Typer):
             )
             for mapping in mappings
         ]
-        custom_mappings = [
+        custom_mappings: list[CustomConnectionMapping] = [
             InFieldAssetMapping(
                 client,
                 extra_asset_view_properties=[
