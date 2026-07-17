@@ -1881,7 +1881,13 @@ class MigrateApp(typer.Typer):
             source_space: target_space,
         }
         mappings = create_apm_source_data_mappings()
-        custom_views = resolve_source_data_view_ids(infield_cdm_configs, target_space)
+        custom_views, custom_view_warnings = resolve_source_data_view_ids(infield_cdm_configs, target_space)
+        for warning in custom_view_warnings:
+            client.console.print(
+                Panel(
+                    warning, title="Conflicting custom view configuration detected", expand=False, border_style="yellow"
+                )
+            )
         if custom_views:
             # If a custom maintenanceOrder/operation/notification view is configured for the target space,
             # migrate the corresponding APM_SourceData view into that one instead.

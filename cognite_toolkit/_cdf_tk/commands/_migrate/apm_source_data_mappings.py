@@ -8,8 +8,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
-from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, safe_read
 
 # Maps the ViewToViewMapping.source_view.external_id of each APM_SourceData mapping to the "type" key
@@ -67,7 +65,7 @@ def get_first_instance_space(data_filters: Mapping[str, JsonValue] | None, type_
 
 def resolve_source_data_view_ids(
     configs: Sequence[InFieldCDMLocationConfigResponse], target_space: str
-) -> dict[str, ViewId]:
+) -> tuple[dict[str, ViewId], list[str]]:
     """Determine which custom maintenanceOrder/operation/notification views, if any, APM_SourceData
     should be migrated to for a given target instance space, based on the ``viewMappings`` entries of the
     InField CDM location configs already deployed for that space.
@@ -77,16 +75,16 @@ def resolve_source_data_view_ids(
         target_space: The instance space APM_SourceData is being migrated to.
 
     Returns:
-        Dict of type key ("maintenanceOrder", "operation", "notification") to the custom ``ViewId`` to
-        migrate that type's data to. A type is omitted if no location targeting ``target_space`` has a
-        custom view configured for it (in which case the default cdf_idm view should be used).
-
-    Raises:
-        ToolkitMigrationError: If locations targeting ``target_space`` specify conflicting views for the
-            same type.
+        A tuple of:
+        - Dict of type key ("maintenanceOrder", "operation", "notification") to the custom ``ViewId`` to
+          migrate that type's data to. A type is omitted if no location targeting ``target_space`` has a
+          custom view configured for it (in which case the default cdf_idm view should be used), or if
+          locations targeting that space disagree on the view for that type.
+        - List of warning messages, one per type where conflicting views were found.
 
     """
     resolved: dict[str, ViewId] = {}
+    warnings: list[str] = []
     for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values():
         view_id_by_location: dict[str, ViewId] = {}
         for config in configs:
@@ -94,16 +92,11 @@ def resolve_source_data_view_ids(
                 continue
             if not isinstance(config.view_mappings, dict):
                 continue
-            view: object | None = None
             candidate = config.view_mappings.get(type_key)
-            if candidate is None and type_key == "maintenanceOrder":
-                candidate = config.view_mappings.get("activity")
-            if isinstance(candidate, dict):
-                view = candidate
-            if not isinstance(view, dict):
+            if not isinstance(candidate, dict):
                 continue
             try:
-                view_id = ViewId.model_validate(view)
+                view_id = ViewId.model_validate(candidate)
             except ValueError:
                 continue
             view_id_by_location[config.external_id] = view_id
@@ -116,14 +109,13 @@ def resolve_source_data_view_ids(
             continue
 
         conflicts = ", ".join(f"{location}={view_id!s}" for location, view_id in view_id_by_location.items())
-        raise ToolkitMigrationError(
-            f"You have configured multiple InField locations targeting the same {type_key + 's'} instance "
-            f"space {target_space!r} with different {type_key} views: {conflicts}. Therefore, Toolkit cannot "
-            f"automatically determine which view to migrate {type_key} data to. You need to ensure all "
-            f"locations targeting this instance space share the same {type_key} view. Distinct views found: "
-            f"{humanize_collection([str(view_id) for view_id in distinct_view_ids])}."
+        warnings.append(
+            f"Locations targeting {target_space!r} specify different {type_key} views: {conflicts}. "
+            f"Falling back to the default cdf_idm view for {type_key}. "
+            f"To use a custom view, ensure all locations targeting this instance space share the same "
+            f"{type_key} view."
         )
-    return resolved
+    return resolved, warnings
 
 
 def select_primary_apm_config(configs: Sequence[APMConfigResponse]) -> APMConfigResponse | None:

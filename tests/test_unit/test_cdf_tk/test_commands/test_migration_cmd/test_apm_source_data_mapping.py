@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
     resolve_apm_source_data_view_ids,
     resolve_source_data_view_ids,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 
 CUSTOM_OPERATION_VIEW = ViewId(space="sp_customer_idm", external_id="CustomOperationView", version="v1")
 OTHER_CUSTOM_OPERATION_VIEW = ViewId(space="sp_customer_idm", external_id="OtherCustomOperationView", version="v1")
@@ -77,58 +76,65 @@ class TestApmSourceDataMapping:
 
 
 class TestResolveSourceDataViewIds:
-    def test_no_locations_returns_empty(self) -> None:
-        assert resolve_source_data_view_ids([], "sp_target") == {}
-
-    def test_no_matching_location_returns_empty(self) -> None:
-        configs = [_location_config("loc1", {"operations": "sp_other_target"}, {"operation": CUSTOM_OPERATION_VIEW})]
-
-        assert resolve_source_data_view_ids(configs, "sp_target") == {}
-
-    def test_location_without_view_mapping_returns_empty(self) -> None:
-        configs = [_location_config("loc1", {"operations": "sp_target"}, {})]
-
-        assert resolve_source_data_view_ids(configs, "sp_target") == {}
-
-    def test_single_location_with_custom_operation_view(self) -> None:
-        configs = [_location_config("loc1", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW})]
-
-        assert resolve_source_data_view_ids(configs, "sp_target") == {"operation": CUSTOM_OPERATION_VIEW}
-
-    def test_maintenance_order_resolves_legacy_activity_alias(self) -> None:
-        configs = [
-            _location_config("loc1", {"maintenanceOrders": "sp_target"}, {"activity": CUSTOM_MAINTENANCE_ORDER_VIEW})
-        ]
-
-        assert resolve_source_data_view_ids(configs, "sp_target") == {"maintenanceOrder": CUSTOM_MAINTENANCE_ORDER_VIEW}
-
-    def test_multiple_locations_with_same_view(self) -> None:
-        configs = [
-            _location_config("loc1", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW}),
-            _location_config("loc2", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW}),
-        ]
-
-        assert resolve_source_data_view_ids(configs, "sp_target") == {"operation": CUSTOM_OPERATION_VIEW}
-
-    def test_resolves_multiple_types_independently(self) -> None:
-        configs = [
-            _location_config(
-                "loc1",
-                {"operations": "sp_target", "notifications": "sp_target"},
+    @pytest.mark.parametrize(
+        "configs, expected_resolved",
+        [
+            pytest.param([], {}, id="no_locations"),
+            pytest.param(
+                [_location_config("loc1", {"operations": "sp_other_target"}, {"operation": CUSTOM_OPERATION_VIEW})],
+                {},
+                id="no_matching_location",
+            ),
+            pytest.param(
+                [_location_config("loc1", {"operations": "sp_target"}, {})],
+                {},
+                id="no_view_mapping",
+            ),
+            pytest.param(
+                [_location_config("loc1", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW})],
                 {"operation": CUSTOM_OPERATION_VIEW},
-            )
-        ]
+                id="single_location_custom_operation",
+            ),
+            pytest.param(
+                [
+                    _location_config("loc1", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW}),
+                    _location_config("loc2", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW}),
+                ],
+                {"operation": CUSTOM_OPERATION_VIEW},
+                id="multiple_locations_same_view",
+            ),
+            pytest.param(
+                [
+                    _location_config(
+                        "loc1",
+                        {"operations": "sp_target", "notifications": "sp_target"},
+                        {"operation": CUSTOM_OPERATION_VIEW},
+                    )
+                ],
+                {"operation": CUSTOM_OPERATION_VIEW},
+                id="resolves_types_independently",
+            ),
+        ],
+    )
+    def test_resolved_views(
+        self, configs: list[InFieldCDMLocationConfigResponse], expected_resolved: dict[str, ViewId]
+    ) -> None:
+        resolved, warnings = resolve_source_data_view_ids(configs, "sp_target")
 
-        assert resolve_source_data_view_ids(configs, "sp_target") == {"operation": CUSTOM_OPERATION_VIEW}
+        assert resolved == expected_resolved
+        assert warnings == []
 
-    def test_conflicting_operation_views_raises(self) -> None:
+    def test_conflicting_operation_views_returns_warning(self) -> None:
         configs = [
             _location_config("loc1", {"operations": "sp_target"}, {"operation": CUSTOM_OPERATION_VIEW}),
             _location_config("loc2", {"operations": "sp_target"}, {"operation": OTHER_CUSTOM_OPERATION_VIEW}),
         ]
 
-        with pytest.raises(ToolkitMigrationError, match="different operation views"):
-            resolve_source_data_view_ids(configs, "sp_target")
+        resolved, warnings = resolve_source_data_view_ids(configs, "sp_target")
+
+        assert "operation" not in resolved
+        assert len(warnings) == 1
+        assert "operation" in warnings[0]
 
 
 class TestResolveApmSourceDataViewIds:
@@ -172,35 +178,43 @@ class TestResolveApmSourceDataViewIds:
 
 
 class TestResolveApmSourceDataInstanceSpaces:
-    def test_no_configs_returns_empty(self) -> None:
-        assert resolve_apm_source_data_instance_spaces([]) == set()
-
-    def test_root_location_configurations_are_collected(self) -> None:
-        configs = [
-            _apm_config(
-                root_location_configurations=[
-                    RootLocationConfiguration(source_data_instance_space="sp_source_a"),
-                    RootLocationConfiguration(source_data_instance_space="sp_source_b"),
-                ]
-            )
-        ]
-
-        assert resolve_apm_source_data_instance_spaces(configs) == {"sp_source_a", "sp_source_b"}
-
-    def test_location_without_source_space_falls_back_to_customer_data_space(self) -> None:
-        configs = [
-            _apm_config(
-                customer_data_space_id="sp_customer",
-                root_location_configurations=[RootLocationConfiguration(external_id="loc1")],
-            )
-        ]
-
-        assert resolve_apm_source_data_instance_spaces(configs) == {"sp_customer"}
-
-    def test_config_without_locations_falls_back_to_customer_data_space(self) -> None:
-        configs = [_apm_config(customer_data_space_id="sp_customer")]
-
-        assert resolve_apm_source_data_instance_spaces(configs) == {"sp_customer"}
-
-    def test_config_without_locations_or_customer_data_space_contributes_nothing(self) -> None:
-        assert resolve_apm_source_data_instance_spaces([_apm_config()]) == set()
+    @pytest.mark.parametrize(
+        "configs, expected_spaces",
+        [
+            pytest.param([], set(), id="no_configs"),
+            pytest.param(
+                [
+                    _apm_config(
+                        root_location_configurations=[
+                            RootLocationConfiguration(source_data_instance_space="sp_source_a"),
+                            RootLocationConfiguration(source_data_instance_space="sp_source_b"),
+                        ]
+                    )
+                ],
+                {"sp_source_a", "sp_source_b"},
+                id="root_locations_collected",
+            ),
+            pytest.param(
+                [
+                    _apm_config(
+                        customer_data_space_id="sp_customer",
+                        root_location_configurations=[RootLocationConfiguration(external_id="loc1")],
+                    )
+                ],
+                {"sp_customer"},
+                id="location_without_source_space_falls_back_to_customer_data_space",
+            ),
+            pytest.param(
+                [_apm_config(customer_data_space_id="sp_customer")],
+                {"sp_customer"},
+                id="no_locations_falls_back_to_customer_data_space",
+            ),
+            pytest.param(
+                [_apm_config()],
+                set(),
+                id="no_locations_no_customer_data_space_contributes_nothing",
+            ),
+        ],
+    )
+    def test_collects_instance_spaces(self, configs: list[APMConfigResponse], expected_spaces: set[str]) -> None:
+        assert resolve_apm_source_data_instance_spaces(configs) == expected_spaces
