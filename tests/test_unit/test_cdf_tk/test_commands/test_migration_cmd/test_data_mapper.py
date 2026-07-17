@@ -1176,8 +1176,6 @@ class TestFDMtoCDMMapper:
             logger.log.assert_not_called()
 
     def test_image360_collection_mapper_leaves_model3d_unset_when_no_existing_model(self) -> None:
-        """The mapper must never write to CDF; creating the 3D model and patching the model3D
-        reference is handled by Image360CollectionInstanceIO as part of the upload step."""
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="collection1",
