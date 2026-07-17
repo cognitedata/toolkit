@@ -1924,10 +1924,7 @@ class MigrateApp(typer.Typer):
             ),
             APMSourceDataMaintenanceOrderMapping(
                 target_space,
-                resolved_operation_view=next(
-                    (m.source_view for m in mappings if m.source_view.external_id == "APM_Operation"),
-                    None,
-                ),
+                resolved_operation_view=source_views.get("operation"),
             ),
         ]
         connection_creator = ConnectionCreator(
