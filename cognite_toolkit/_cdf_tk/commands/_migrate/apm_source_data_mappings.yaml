@@ -21,6 +21,7 @@
     actualStartTime: startTime
     actualEndTime: endTime
     assetExternalId: mainAsset
+    assetExternalIds: assets
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
     createdBy: sourceCreatedUser
@@ -38,6 +39,7 @@
     - mutatedFields
     - createdAt
     - lastUpdatedDate
+    - isArchived
 - externalId: APMOperationToOperationMapping
   sourceView:
     space: APM_SourceData
@@ -97,3 +99,4 @@
     - system
     - Country
     - subSystem
+    - source

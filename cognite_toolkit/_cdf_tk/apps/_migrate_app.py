@@ -1916,8 +1916,13 @@ class MigrateApp(typer.Typer):
             InFieldAssetMapping(
                 client,
                 extra_asset_view_properties=[
-                    (m.source_view, "assetExternalId")
+                    (m.source_view, prop)
                     for m in mappings
+                    for prop in (
+                        ["assetExternalId", "assetExternalIds"]
+                        if m.source_view.external_id == "APM_Activity"
+                        else ["assetExternalId"]
+                    )
                     if m.source_view.external_id in {"APM_Activity", "APM_Operation", "APM_Notification"}
                 ],
             ),

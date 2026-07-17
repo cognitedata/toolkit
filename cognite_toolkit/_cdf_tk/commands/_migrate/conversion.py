@@ -1297,7 +1297,6 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
         pass
 
 
-
 def convert_container_properties(
     source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
 ) -> ConversionResult:
