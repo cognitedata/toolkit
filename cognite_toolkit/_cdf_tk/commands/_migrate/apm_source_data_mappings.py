@@ -100,11 +100,11 @@ def resolve_source_data_view_ids(
                 view = candidate
             if not isinstance(view, dict):
                 continue
-            view_id_by_location[config.external_id] = ViewId(
-                space=str(view.get("space")),
-                external_id=str(view.get("externalId")),
-                version=str(view.get("version")),
-            )
+            try:
+                view_id = ViewId.model_validate(view)
+            except ValueError:
+                continue
+            view_id_by_location[config.external_id] = view_id
 
         distinct_view_ids = set(view_id_by_location.values())
         if not distinct_view_ids:
@@ -160,11 +160,14 @@ def resolve_apm_source_data_view_ids(configs: Sequence[APMConfigResponse]) -> di
     resolved: dict[str, ViewId] = {}
     for entity, default_external_id in SOURCE_VIEW_EXTERNAL_ID_BY_ENTITY.items():
         mapping = view_mappings.get(entity) if isinstance(view_mappings, dict) else None
-        space = mapping.get("space") if isinstance(mapping, dict) else None
-        external_id = mapping.get("externalId") if isinstance(mapping, dict) else None
-        version = mapping.get("version") if isinstance(mapping, dict) else None
-        if isinstance(space, str) and isinstance(external_id, str) and isinstance(version, str):
-            resolved[entity] = ViewId(space=space, external_id=external_id, version=version)
+        view_id: ViewId | None = None
+        if isinstance(mapping, dict):
+            try:
+                view_id = ViewId.model_validate(mapping)
+            except ValueError:
+                pass
+        if view_id is not None:
+            resolved[entity] = view_id
         elif isinstance(customer_data_space_id, str):
             resolved[entity] = ViewId(
                 space=customer_data_space_id,
