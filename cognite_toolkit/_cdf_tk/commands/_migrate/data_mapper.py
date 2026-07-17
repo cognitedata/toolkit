@@ -2054,6 +2054,23 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_instance_mappings=custom_instance_mappings,
         )
 
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        self._populate_cache([data_item.item for data_item in source])
+        return super().map(source)
+
+    def _populate_cache(self, source: Sequence[NodeOrEdgeResponse]) -> None:
+        file_external_ids: list[str] = []
+        for item in source:
+            if not isinstance(item, NodeResponse):
+                continue
+            image_props = (item.properties or {}).get(LEGACY_IMAGE360_SOURCE_VIEW) or {}
+            for source_property in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY:
+                value = image_props.get(source_property)
+                if isinstance(value, str):
+                    file_external_ids.append(value)
+        if file_external_ids:
+            self.client.migration.lookup.files(external_id=file_external_ids)
+
     @staticmethod
     def missing_cubemap_face_file_external_ids(
         source_node: NodeResponse,
