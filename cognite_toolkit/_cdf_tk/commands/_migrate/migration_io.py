@@ -617,6 +617,11 @@ class Image360CollectionInstanceIO(InstanceIO):
 
     @staticmethod
     def _has_model_3d(node: NodeRequest) -> bool:
+        """Return True if the node already has a model3D reference, or if it is not a collection node at all.
+
+        Nodes without a Cognite3DRevision source (e.g. Image360 station/image nodes) should be skipped —
+        they are not collection revision nodes and must not trigger 3D model creation.
+        """
         for source in node.sources or []:
             if (
                 isinstance(source.source, ContainerId)
@@ -624,7 +629,8 @@ class Image360CollectionInstanceIO(InstanceIO):
                 and source.properties
             ):
                 return "model3D" in source.properties
-        return False
+        # No Cognite3DRevision source — not a collection node, treat as already handled.
+        return True
 
     @staticmethod
     def _extract_name(node: NodeRequest) -> str | None:
