@@ -76,6 +76,7 @@
     - isMutated
     - files
     - lastUpdatedDate
+    - subOrder
 - externalId: APMNotificationToNotificationMapping
   sourceView:
     space: APM_SourceData
