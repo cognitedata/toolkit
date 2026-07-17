@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     NodeId,
     NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
     NodeRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
@@ -575,6 +576,25 @@ class Image360CollectionInstanceIO(InstanceIO):
     write has succeeded do we create the 3D model; the revision node is then re-uploaded with the
     model3D reference patched in.
     """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._seen_download_ids: set[str] = set()
+
+    def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
+        """
+        The station selector uses a graph traversal query (image360 → station) so the same station node
+        can appear on multiple root pages when it is referenced by several Image360 nodes. This class
+        deduplicates such cross-page repeats during download so the logger does not produce spurious
+        "multiple registrations" warnings.
+        """
+
+        unique_items = []
+        for data_item in page.items:
+            if data_item.tracking_id not in self._seen_download_ids:
+                self._seen_download_ids.add(data_item.tracking_id)
+                unique_items.append(data_item)
+        return super().emit_registered_page(page.create_from(unique_items))
 
     def upload_items(
         self,
