@@ -1878,14 +1878,12 @@ class MigrateApp(typer.Typer):
 
         space_mapping = {
             source_space: target_space,
-            # Users are stored in this space unchanged, to preserve any direct relations to users.
-            "cognite_app_data": "cognite_app_data",
         }
         mappings = create_apm_source_data_mappings()
         custom_views = resolve_source_data_view_ids(infield_cdm_configs, target_space)
         if custom_views:
             # If a custom maintenanceOrder/operation/notification view is configured for the target space,
-            # migrate the corresponding APM_SourceData view onto it instead of the default cdf_idm view.
+            # migrate the corresponding APM_SourceData view into that one instead.
             # This must run before the source view override below, since it keys off the original
             # (hardcoded) APM_Activity/APM_Operation/APM_Notification source view external IDs.
             mappings = [
@@ -1913,18 +1911,15 @@ class MigrateApp(typer.Typer):
             )
             for mapping in mappings
         ]
+        apm_asset_properties = {"assetExternalId", "assetExternalIds"}
         custom_mappings: list[CustomConnectionMapping] = [
             InFieldAssetMapping(
                 client,
                 extra_asset_view_properties=[
-                    (m.source_view, prop)
+                    (m.source_view, source_prop)
                     for m in mappings
-                    for prop in (
-                        ["assetExternalId", "assetExternalIds"]
-                        if m.source_view.external_id == "APM_Activity"
-                        else ["assetExternalId"]
-                    )
-                    if m.source_view.external_id in {"APM_Activity", "APM_Operation", "APM_Notification"}
+                    for source_prop in m.container_mapping
+                    if source_prop in apm_asset_properties
                 ],
             ),
             APMSourceDataMaintenanceOrderMapping(
