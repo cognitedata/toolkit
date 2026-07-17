@@ -138,7 +138,7 @@ def resolve_apm_source_data_view_ids(configs: Sequence[APMConfigResponse]) -> di
     """Determine the APM_SourceData view (space/externalId/version) to migrate each entity ("activity",
     "operation", "notification") from, based on the project's AppConfig node.
 
-    Resolution priority per entity:
+    Resolution priority per entity, based on what the UI currently does:
         1. ``featureConfiguration.viewMappings.<entity>`` on the AppConfig node, if set.
         2. ``customerDataSpaceId`` (+ ``customerDataSpaceVersion``) on the AppConfig node, if set.
         3. The hardcoded default: ``APM_SourceData/APM_<Entity>/1``.
@@ -185,12 +185,7 @@ def resolve_apm_source_data_instance_spaces(configs: Sequence[APMConfigResponse]
     """Collect the candidate APM_SourceData instance spaces to migrate from, across all root locations
     configured on the given APM configs.
 
-    Note: AppConfig also has a top-level ``rootLocationsConfiguration.locations`` field, but that is only
-    thin metadata for populating a location picker dropdown in the Infield UI (``value``/``label`` pairs).
-    Infield itself always reads the rich per-location config, including ``sourceDataInstanceSpace``, from
-    ``featureConfiguration.rootLocationConfigurations``, so we do the same here.
-
-    For each root location, in priority order:
+    For each root location, in priority order, based on what the UI currently does:
         1. ``featureConfiguration.rootLocationConfigurations[n].sourceDataInstanceSpace``.
         2. ``customerDataSpaceId`` (top-level fallback), used when a location has no source data instance
            space of its own, or when a config has no root locations configured at all.

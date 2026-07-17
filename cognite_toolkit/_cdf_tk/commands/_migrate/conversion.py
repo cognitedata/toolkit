@@ -1217,9 +1217,6 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId | str]):
             (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
             (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
             (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
-            (ViewId(space="APM_SourceData", external_id="APM_Activity", version="1"), "assetExternalId"),
-            (ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "assetExternalId"),
-            (ViewId(space="APM_SourceData", external_id="APM_Notification", version="1"), "assetExternalId"),
         }
     )
 
