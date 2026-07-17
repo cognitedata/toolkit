@@ -27,6 +27,8 @@
     - assignedTo
     - subActivities
     - functionalLocation
+    - isInApp
+    - resource
     - rootLocation
     - source
     - cloneOf
