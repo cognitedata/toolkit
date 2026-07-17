@@ -70,7 +70,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
     ThreeDModelClassicResponse,
-    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -1176,7 +1175,7 @@ class TestFDMtoCDMMapper:
             assert actual[0].item.external_id == sanitize_instance_external_id("image1", "_cdm")
             logger.log.assert_not_called()
 
-    def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
+    def test_image360_collection_mapper_leaves_model3d_unset_when_no_existing_model(self) -> None:
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="collection1",
@@ -1185,22 +1184,15 @@ class TestFDMtoCDMMapper:
             version=1,
             properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
-        created_model = ThreeDModelClassicResponse(
-            id=42,
-            name="My collection",
-            created_time=0,
-        )
-        model_external_id = f"cog_3d_model_{created_model.id}"
 
         with monkeypatch_toolkit_client() as client:
             client.tool.instances.retrieve.return_value = []
-            client.tool.three_d.models_classic.create.return_value = [created_model]
             mapper = Image360CollectionMapper(client)
             actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
-        client.tool.three_d.models_classic.create.assert_called_once_with(
-            [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
-        )
+        client.tool.instances.create.assert_not_called()
+        client.tool.three_d.models_classic.create.assert_not_called()
+
         assert len(actual) == 1
         collection_request = actual[0].item
         assert isinstance(collection_request, NodeRequest)
@@ -1210,10 +1202,7 @@ class TestFDMtoCDMMapper:
             source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
         )
         assert model_source.properties is not None
-        assert model_source.properties["model3D"] == {
-            "space": self.SOURCE_SPACE,
-            "externalId": model_external_id,
-        }
+        assert "model3D" not in model_source.properties
 
     def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
         collection_node = NodeResponse(
@@ -1409,6 +1398,9 @@ def test_create_360_image_selectors_returns_collection_station_and_image_steps()
     assert isinstance(station_selector, InstanceQuerySelector)
     assert station_selector.root == "image360"
     assert station_selector.subselections == ("image360station",)
+    # 'image360' (root) must be in select, otherwise the query endpoint never emits a cursor for it
+    # and pagination silently stops after the first page.
+    assert set(station_selector.create_query().select) == {"image360", "image360station"}
     assert isinstance(image_selector, InstanceViewSelector)
     assert image_selector.view.external_id == "Image360"
 
