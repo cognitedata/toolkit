@@ -286,10 +286,15 @@ class SourceSystemCreator(MigrationCreator):
             raise ValueError("This should not happen.")
 
 
+DATA_FILTERS_COMMENT = (
+    "Defaulted time series and files to the asset instance space. If your timeseries or files live in a different space, "
+    "update instanceSpaces under 'timeseries' and 'files' accordingly."
+)
+
 LOCATION_CONFIG_SPACE_COMMENT = (
     "This space controls who can see this location in InField (dataModelInstancesAcl READ). "
-    "Defaulted to the appInstanceSpace; set a dedicated space here if you need different access "
-    "control for location visibility than for write access."
+    "Defaulted to a dedicated config space (<appInstanceSpaceBase>_cfg). This space also controls "
+    "write access to the Location config itself (dataModelInstancesAcl WRITE)."
 )
 
 
@@ -333,7 +338,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     resource=loc_config,
                     config_data=loc_config.dump(context="toolkit", exclude={"instance_type"}),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
-                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT},
+                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT, "dataFilters": DATA_FILTERS_COMMENT},
                 )
                 for loc_config in location_configs
             )
@@ -423,10 +428,19 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     spaces.append(
                         SpaceRequest(
                             space=f"{space_name}_cdm",
-                            name=f"{origin.name}_cdm" if origin and origin.name else None,
+                            name=f"{origin.name} (CDM)" if origin and origin.name else None,
                             description=f"{origin.description} (migrated)" if origin and origin.description else None,
                         )
                     )
+            if root_location_config.app_data_instance_space is not None:
+                origin = origin_spaces.get(root_location_config.app_data_instance_space)
+                spaces.append(
+                    SpaceRequest(
+                        space=f"{root_location_config.app_data_instance_space}_cfg",
+                        name=f"{origin.name} (config)" if origin and origin.name else None,
+                        description=f"{origin.description} (config)" if origin and origin.description else None,
+                    )
+                )
             location_filters.append(self._create_location_filter(root_location_config))
             location_configs.append(location_config)
 
@@ -504,6 +518,20 @@ class InfieldV2ConfigCreator(MigrationCreator):
             feature_toggles = config.feature_toggles.dump()
             if config.feature_toggles.observations:
                 feature_toggles["observations"] = config.feature_toggles.observations.is_enabled
+        else:
+            # featureToggles was not set in the old location; default all toggles to True
+            feature_toggles = {
+                "threeD": True,
+                "trends": True,
+                "documents": True,
+                "workorders": True,
+                "notifications": True,
+                "media": True,
+                "templateChecklistFlow": True,
+                "workorderChecklistFlow": True,
+                "observations": True,
+                "copilot": True,
+            }
 
         access_management: dict[str, JsonValue] = {}
         if config.template_admins:
@@ -515,6 +543,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
 
         app_instance_space = f"{config.app_data_instance_space}_cdm"
         source_instance_space = f"{config.source_data_instance_space}_cdm"
+        cfg_space = f"{config.app_data_instance_space}_cfg"
         # dataFilters.assets.instanceSpaces[0] must match dataStorage.rootLocation.space, otherwise the
         # asset hierarchy query (which filters on both) can silently return nothing.
         data_filters: dict[str, JsonValue] = {
@@ -523,7 +552,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         for key in ["timeseries", "files"]:
             # appInstanceSpace must come first so that by-externalId lookups (which use the first
             # instance space as the view's default space) resolve to app-written data correctly.
-            data_filters[key] = {"instanceSpaces": [app_instance_space]}
+            data_filters[key] = {"instanceSpaces": [root_node.space]}
         for key in ["maintenanceOrders", "operations", "notifications"]:
             data_filters[key] = {"instanceSpaces": [source_instance_space]}
 
@@ -543,10 +572,11 @@ class InfieldV2ConfigCreator(MigrationCreator):
 
         name = config.display_name or config.asset_external_id or external_id
         # The node's own space determines who can see this location in InField (dataModelInstancesAcl READ),
-        # independent of appInstanceSpace, which only governs write access. We default it to the
-        # appInstanceSpace, see LOCATION_CONFIG_SPACE_COMMENT for the caveat surfaced to the user.
+        # independent of appInstanceSpace, which only governs write access. We use a dedicated _cfg space
+        # (same base as appInstanceSpace but with _cfg suffix) so location visibility is independently
+        # access-controlled from app data writes. See LOCATION_CONFIG_SPACE_COMMENT.
         return InFieldCDMLocationConfigRequest(
-            space=app_instance_space,
+            space=cfg_space,
             external_id=external_id,
             name=name,
             description="Migrated InField Location Configuration",

@@ -327,7 +327,13 @@ class InstanceIO(
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
             return
         elif isinstance(selector, InstanceQuerySelector):
-            pages = self._instance_by_query(selector.create_query(), limit, init_cursor, endpoint=selector.endpoint)
+            pages = self._instance_by_query(
+                selector.create_query(),
+                limit,
+                init_cursor,
+                endpoint=selector.endpoint,
+                include_root=selector.include_root,
+            )
         else:
             raise NotImplementedError()
         yield from (self.emit_registered_page(page) for page in pages)
@@ -397,10 +403,12 @@ class InstanceIO(
         limit: int | None,
         init_cursor: str | None = None,
         endpoint: Literal["query", "sync"] = "query",
+        include_root: bool = True,
     ) -> Iterable[Page]:
         if init_cursor is not None:
             query.cursors = {query.root: init_cursor}
 
+        included_groups = [group for group in query.with_ if include_root or group != query.root]
         for batch in self.client.tool.instances.query_iterate(
             query,
             type_results=True,
@@ -410,8 +418,8 @@ class InstanceIO(
         ):
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
-                for items in batch.items.values()
-                for item in items
+                for group in included_groups
+                for item in batch.items.get(group, [])
             ]
             next_cursor = batch.root_cursor
             yield Page(

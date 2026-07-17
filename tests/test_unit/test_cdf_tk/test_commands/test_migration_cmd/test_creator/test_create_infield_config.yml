@@ -10,7 +10,7 @@ InField CDM Location Configs:
       - migrated
     files:
       instanceSpaces:
-      - sp_infield_oid_app_data_cdm
+      - migrated
     maintenanceOrders:
       instanceSpaces:
       - sp_asset_oid_source_cdm
@@ -22,7 +22,7 @@ InField CDM Location Configs:
       - sp_asset_oid_source_cdm
     timeseries:
       instanceSpaces:
-      - sp_infield_oid_app_data_cdm
+      - migrated
   dataStorage:
     appInstanceSpace: sp_infield_oid_app_data_cdm
     rootLocation:
@@ -31,9 +31,19 @@ InField CDM Location Configs:
   description: Migrated InField Location Configuration
   disciplines: null
   externalId: WMT:VAL_0
-  featureToggles: null
+  featureToggles:
+    copilot: true
+    documents: true
+    media: true
+    notifications: true
+    observations: true
+    templateChecklistFlow: true
+    threeD: true
+    trends: true
+    workorderChecklistFlow: true
+    workorders: true
   name: WMT:VAL
-  space: sp_infield_oid_app_data_cdm
+  space: sp_infield_oid_app_data_cfg
   viewMappings:
     asset:
       externalId: CogniteAsset
@@ -62,6 +72,9 @@ Instance Spaces:
 - description: null
   name: null
   space: sp_asset_oid_source_cdm
+- description: null
+  name: null
+  space: sp_infield_oid_app_data_cfg
 Location Filters:
 - dataModelingType: DATA_MODELING_ONLY
   dataModels:
