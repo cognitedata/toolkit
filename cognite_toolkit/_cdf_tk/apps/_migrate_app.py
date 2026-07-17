@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
     Image360AnnotationMigrationIO,
+    Image360CollectionInstanceIO,
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
@@ -1837,7 +1838,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
-                data=InstanceIO(client),
+                data=Image360CollectionInstanceIO(client),
                 mapper=mapper,
                 log_dir=log_dir,
                 dry_run=dry_run,

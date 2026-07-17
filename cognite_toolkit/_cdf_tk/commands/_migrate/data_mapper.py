@@ -74,7 +74,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
     RevisionStatus,
     ThreeDModelClassicResponse,
-    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -2114,15 +2113,11 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    As a side-effect, registers an Image360 3D model in the 3D backend per collection (or reuses
-    an existing model3D reference when the collection was already migrated previously) and sets
-    model3D on the collection revision.
-
-    To avoid ever leaving a dangling/orphaned 3D model behind, the revision node is first
-    created/upserted *without* a model3D reference. Only once that write has been confirmed to
-    succeed do we create the 3D model; the mapped node returned from `map` (which includes the
-    model3D reference) is then written by the regular upload step, effectively patching the
-    revision node with the reference to the newly created model.
+    Reuses the existing model3D reference when the collection was already migrated previously.
+    Otherwise, the mapped node is returned *without* a model3D reference; creating the Image360
+    3D model and patching the reference onto the revision node is handled by
+    Image360CollectionInstanceIO as part of the upload step (and is skipped entirely on dry-run),
+    so that this mapper only maps and never writes to CDF.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
@@ -2165,52 +2160,35 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                 if isinstance(model_3d, dict) and (existing_external_id := model_3d.get("externalId")):
                     model_external_id = str(existing_external_id)
 
-            if model_external_id is None:
-                if self.dry_run:
-                    model_external_id = "cog_3d_model_<dry-run>"
-                else:
-                    self.client.tool.instances.create(
-                        [self._revision_node_request(instance_space, collection_ext_id, name, None)]
-                    )
-                    label = str(name or node.external_id)
-                    created_model = self.client.tool.three_d.models_classic.create(
-                        [ThreeDModelDMSRequest(name=label, space=instance_space, type="Image360")]
-                    )[0]
-                    model_external_id = f"cog_3d_model_{created_model.id}"
+            if model_external_id is None and self.dry_run:
+                # The real model_external_id is only known once the 3D model has been created,
+                # which happens as part of the upload step (see Image360CollectionInstanceIO).
+                model_external_id = "cog_3d_model_<dry-run>"
 
             results.append(
                 DataItem(
                     tracking_id=data_item.tracking_id,
-                    item=self._revision_node_request(instance_space, collection_ext_id, name, model_external_id),
+                    item=NodeRequest(
+                        space=instance_space,
+                        external_id=collection_ext_id,
+                        sources=[
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                                properties={
+                                    "status": "Done",
+                                    "published": True,
+                                    "type": "Image360",
+                                },
+                            ),
+                            InstanceSource(
+                                source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                                properties={"name": name},
+                            ),
+                        ],
+                    ),
                 )
             )
         return results
-
-    @staticmethod
-    def _revision_node_request(
-        space: str, external_id: str, name: str | None, model_external_id: str | None
-    ) -> NodeRequest:
-        revision_properties: dict[str, Any] = {
-            "status": "Done",
-            "published": True,
-            "type": "Image360",
-        }
-        if model_external_id is not None:
-            revision_properties["model3D"] = {"space": space, "externalId": model_external_id}
-        return NodeRequest(
-            space=space,
-            external_id=external_id,
-            sources=[
-                InstanceSource(
-                    source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                    properties=revision_properties,
-                ),
-                InstanceSource(
-                    source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
-                    properties={"name": name},
-                ),
-            ],
-        )
 
 
 class Station360PropertiesMapping(CustomContainerPropertiesMapping):
