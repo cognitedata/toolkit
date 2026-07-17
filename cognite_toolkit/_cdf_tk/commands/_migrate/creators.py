@@ -293,8 +293,8 @@ DATA_FILTERS_COMMENT = (
 
 LOCATION_CONFIG_SPACE_COMMENT = (
     "This space controls who can see this location in InField (dataModelInstancesAcl READ). "
-    "Defaulted to a dedicated config space (<appInstanceSpaceBase>_cfg). This space controls "
-    "read access to this Infield location within the Infield app, as well as write access to the Location config itself."
+    "Defaulted to a dedicated config space (<appInstanceSpaceBase>_cfg). This space also controls "
+    "write access to the Location config itself (dataModelInstancesAcl WRITE)."
 )
 
 
