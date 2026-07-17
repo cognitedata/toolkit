@@ -1206,35 +1206,6 @@ class TestFDMtoCDMMapper:
         assert model_source.properties is not None
         assert "model3D" not in model_source.properties
 
-    def test_image360_collection_mapper_uses_placeholder_model3d_on_dry_run(self) -> None:
-        collection_node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="collection1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
-        )
-
-        with monkeypatch_toolkit_client() as client:
-            client.tool.instances.retrieve.return_value = []
-            mapper = Image360CollectionMapper(client, dry_run=True)
-            actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
-
-        client.tool.instances.create.assert_not_called()
-        client.tool.three_d.models_classic.create.assert_not_called()
-
-        collection_request = actual[0].item
-        assert isinstance(collection_request, NodeRequest)
-        model_source = next(
-            source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
-        )
-        assert model_source.properties is not None
-        assert model_source.properties["model3D"] == {
-            "space": self.SOURCE_SPACE,
-            "externalId": "cog_3d_model_<dry-run>",
-        }
-
     def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,

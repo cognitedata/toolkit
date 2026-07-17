@@ -1832,7 +1832,7 @@ class MigrateApp(typer.Typer):
             connection_creator=connection_creator,
             custom_properties_mappings=[Station360PropertiesMapping()],
             custom_instance_mappings={
-                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client, dry_run=dry_run),
+                LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: Image360CollectionMapper(client),
             },
         )
         cmd.run(

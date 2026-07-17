@@ -2113,19 +2113,14 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    Reuses the existing model3D reference when the collection was already migrated previously.
-    Otherwise, the mapped node is returned *without* a model3D reference; creating the Image360
-    3D model and patching the reference onto the revision node is handled by
-    Image360CollectionInstanceIO as part of the upload step (and is skipped entirely on dry-run),
-    so that this mapper only maps and never writes to CDF.
+    When the collection was already migrated, the existing model3D reference is included in the
+    mapped NodeRequest so that Image360CollectionInstanceIO skips model creation on re-runs.
+    Otherwise, the node is emitted without model3D; Image360CollectionInstanceIO will create the
+    Image360 3D model and patch the reference in during the upload step.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
     """
-
-    def __init__(self, client: ToolkitClient, dry_run: bool = False) -> None:
-        super().__init__(client)
-        self.dry_run = dry_run
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -2160,10 +2155,15 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                 if isinstance(model_3d, dict) and (existing_external_id := model_3d.get("externalId")):
                     model_external_id = str(existing_external_id)
 
-            if model_external_id is None and self.dry_run:
-                # The real model_external_id is only known once the 3D model has been created,
-                # which happens as part of the upload step (see Image360CollectionInstanceIO).
-                model_external_id = "cog_3d_model_<dry-run>"
+            revision_properties: dict[str, Any] = {
+                "status": "Done",
+                "published": True,
+                "type": "Image360",
+            }
+            if model_external_id is not None:
+                # Include the existing model3D reference so Image360CollectionInstanceIO
+                # knows not to create a new 3D model on re-runs.
+                revision_properties["model3D"] = {"space": instance_space, "externalId": model_external_id}
 
             results.append(
                 DataItem(
@@ -2174,11 +2174,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                         sources=[
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                                properties={
-                                    "status": "Done",
-                                    "published": True,
-                                    "type": "Image360",
-                                },
+                                properties=revision_properties,
                             ),
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
