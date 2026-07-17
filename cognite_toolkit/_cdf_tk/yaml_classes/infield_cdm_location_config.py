@@ -73,6 +73,7 @@ class ObservationViewConfig(BaseModelResource):
     """Observation view configuration."""
 
     view: ViewReference
+    required_properties: list[str] | None = None
     write_back: ObservationViewWriteBack | None = None
 
 
