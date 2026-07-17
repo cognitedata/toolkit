@@ -23,6 +23,8 @@
     assetExternalId: mainAsset
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+    createdBy: sourceCreatedUser
+    mutatedBy: sourceUpdatedUser
   ignoreSourceProperties:
     - assignedTo
     - subActivities
@@ -34,6 +36,8 @@
     - cloneOf
     - isMutated
     - mutatedFields
+    - createdAt
+    - lastUpdatedDate
 - externalId: APMOperationToOperationMapping
   sourceView:
     space: APM_SourceData
@@ -59,9 +63,17 @@
     endTime: scheduledEndTime
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+    createdBy: sourceCreatedUser
+    mutatedBy: sourceUpdatedUser
   ignoreSourceProperties:
     - cloneOf
     - source
+    - type
+    - isInApp
+    - createdAt
+    - isMutated
+    - files
+    - lastUpdatedDate
 - externalId: APMNotificationToNotificationMapping
   sourceView:
     space: APM_SourceData

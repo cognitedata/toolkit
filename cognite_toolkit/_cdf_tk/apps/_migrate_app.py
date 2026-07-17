@@ -1912,10 +1912,27 @@ class MigrateApp(typer.Typer):
             )
             for mapping in mappings
         ]
+        custom_mappings = [
+            InFieldAssetMapping(
+                client,
+                extra_asset_view_properties=[
+                    (m.source_view, "assetExternalId")
+                    for m in mappings
+                    if m.source_view.external_id in {"APM_Activity", "APM_Operation", "APM_Notification"}
+                ],
+            ),
+            APMSourceDataMaintenanceOrderMapping(
+                target_space,
+                resolved_operation_view=next(
+                    (m.source_view for m in mappings if m.source_view.external_id == "APM_Operation"),
+                    None,
+                ),
+            ),
+        ]
         connection_creator = ConnectionCreator(
             client,
             instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
-            custom_mappings=[InFieldAssetMapping(client), APMSourceDataMaintenanceOrderMapping(target_space)],
+            custom_mappings=custom_mappings,
         )
         mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
         cmd.run(

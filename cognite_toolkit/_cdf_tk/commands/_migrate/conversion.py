@@ -556,6 +556,13 @@ class CustomConnectionMapping(ABC, Generic[T_ID]):
 
     VIEW_PROPERTIES: ClassVar[frozenset[tuple[ViewId, str]]] = frozenset()
 
+    def get_view_properties(self) -> frozenset[tuple[ViewId, str]]:
+        """Return the (view_id, prop_id) pairs this mapping handles.
+
+        Override in subclasses that need to extend VIEW_PROPERTIES with runtime-resolved view IDs.
+        """
+        return self.VIEW_PROPERTIES
+
     @abstractmethod
     def __getitem__(self, item: T_ID) -> NodeId:
         raise NotImplementedError
@@ -658,7 +665,7 @@ class ConnectionCreator:
     ) -> dict[tuple[ViewId, str], CustomConnectionMapping]:
         mapping: dict[tuple[ViewId, str], CustomConnectionMapping] = {}
         for case in custom_mappings:
-            for view_property in case.VIEW_PROPERTIES:
+            for view_property in case.get_view_properties():
                 mapping[view_property] = case
         return mapping
 
@@ -693,7 +700,7 @@ class ConnectionCreator:
             # We create the keys for this custom case cache here. This is to ensure all
             # view properties will write to the same set.
             keys: set[Hashable] = set()
-            for view_property in custom_caches.VIEW_PROPERTIES:
+            for view_property in custom_caches.get_view_properties():
                 custom_cases_keys[view_property] = (custom_caches, keys)
         for item in instances:
             for view_id, properties in (item.properties or {}).items():
@@ -1216,12 +1223,20 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId | str]):
         }
     )
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        extra_asset_view_properties: Iterable[tuple[ViewId, str]] = (),
+    ) -> None:
         self.client = client
+        self._extra_asset_view_properties: frozenset[tuple[ViewId, str]] = frozenset(extra_asset_view_properties)
         # We use None to indicate that we have looked up the reference, but it was not found,
         # this allows us to distinguish between "not looked up yet" and "looked up but not found",
         # which is important to avoid repeated lookups for missing references.
         self._node_id_by_external_id: dict[str, NodeId | None] = {}
+
+    def get_view_properties(self) -> frozenset[tuple[ViewId, str]]:
+        return self.VIEW_PROPERTIES | self._extra_asset_view_properties
 
     def __getitem__(self, item: NodeId | str) -> NodeId:
         # We ignore the space and assume external ID matches
@@ -1264,14 +1279,23 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
         {(ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "parentActivityId")}
     )
 
-    def __init__(self, target_space: str) -> None:
+    def __init__(self, target_space: str, resolved_operation_view: ViewId | None = None) -> None:
         self._target_space = target_space
+        self._extra_view_properties: frozenset[tuple[ViewId, str]] = (
+            frozenset({(resolved_operation_view, "parentActivityId")})
+            if resolved_operation_view is not None
+            else frozenset()
+        )
+
+    def get_view_properties(self) -> frozenset[tuple[ViewId, str]]:
+        return self.VIEW_PROPERTIES | self._extra_view_properties
 
     def __getitem__(self, item: str) -> NodeId:
         return NodeId(space=self._target_space, external_id=item)
 
     def update(self, items: Iterable[str]) -> None:
         pass
+
 
 
 def convert_container_properties(
@@ -1319,7 +1343,8 @@ def convert_container_properties(
                     context.new_id,
                 )
             except ValueError as e:
-                errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
+                if source_prop_id not in context.mapping.ignore_source_properties:
+                    errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
                 continue
             edges.extend(created_edges)
             errors.extend(issues)
@@ -1332,11 +1357,13 @@ def convert_container_properties(
                     context.source_view_id,
                 )
             except ValueError as e:
-                errors.append(
-                    f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
-                )
+                if source_prop_id not in context.mapping.ignore_source_properties:
+                    errors.append(
+                        f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+                    )
                 continue
-            errors.extend(issues)
+            if source_prop_id not in context.mapping.ignore_source_properties:
+                errors.extend(issues)
             if created_connection is not None:
                 created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
