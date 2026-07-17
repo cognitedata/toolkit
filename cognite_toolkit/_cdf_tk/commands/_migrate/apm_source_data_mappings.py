@@ -19,19 +19,7 @@ SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID: dict[str, str] = {
     "APM_Operation": "operation",
     "APM_Notification": "notification",
 }
-# The dataFilters key for each APM_SourceData type.
-_DATA_FILTER_KEY_BY_TYPE: dict[str, str] = {
-    "maintenanceOrder": "maintenanceOrders",
-    "operation": "operations",
-    "notification": "notifications",
-}
-# The viewMappings key(s) for each APM_SourceData type. maintenanceOrder has two possible aliases:
-# 'maintenanceOrder' and the legacy 'activity'.
-_VIEW_MAPPING_KEYS_BY_TYPE: dict[str, tuple[str, ...]] = {
-    "maintenanceOrder": ("maintenanceOrder", "activity"),
-    "operation": ("operation",),
-    "notification": ("notification",),
-}
+
 
 # Identifies the canonical AppConfig node when a project has more than one (in practice, projects have
 # exactly one AppConfig node).
@@ -68,7 +56,7 @@ def get_first_instance_space(data_filters: Mapping[str, JsonValue] | None, type_
     """
     if not isinstance(data_filters, dict):
         return None
-    filter_ = data_filters.get(_DATA_FILTER_KEY_BY_TYPE[type_key])
+    filter_ = data_filters.get(type_key + "s")
     if not isinstance(filter_, dict):
         return None
     instance_spaces = filter_.get("instanceSpaces")
@@ -99,7 +87,7 @@ def resolve_source_data_view_ids(
 
     """
     resolved: dict[str, ViewId] = {}
-    for type_key, data_filter_key in _DATA_FILTER_KEY_BY_TYPE.items():
+    for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values():
         view_id_by_location: dict[str, ViewId] = {}
         for config in configs:
             if get_first_instance_space(config.data_filters, type_key) != target_space:
@@ -107,11 +95,9 @@ def resolve_source_data_view_ids(
             if not isinstance(config.view_mappings, dict):
                 continue
             view: object | None = None
-            for key in _VIEW_MAPPING_KEYS_BY_TYPE[type_key]:
-                candidate = config.view_mappings.get(key)
-                if isinstance(candidate, dict):
-                    view = candidate
-                    break
+            candidate = config.view_mappings.get(type_key)
+            if isinstance(candidate, dict):
+                view = candidate
             if not isinstance(view, dict):
                 continue
             view_id_by_location[config.external_id] = ViewId(
@@ -129,7 +115,7 @@ def resolve_source_data_view_ids(
 
         conflicts = ", ".join(f"{location}={view_id!s}" for location, view_id in view_id_by_location.items())
         raise ToolkitMigrationError(
-            f"You have configured multiple InField locations targeting the same {data_filter_key} instance "
+            f"You have configured multiple InField locations targeting the same {type_key + 's'} instance "
             f"space {target_space!r} with different {type_key} views: {conflicts}. Therefore, Toolkit cannot "
             f"automatically determine which view to migrate {type_key} data to. You need to ensure all "
             f"locations targeting this instance space share the same {type_key} view. Distinct views found: "
