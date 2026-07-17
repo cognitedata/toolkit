@@ -1271,7 +1271,7 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
         return NodeId(space=self._target_space, external_id=item)
 
     def update(self, items: Iterable[str]) -> None:
-        return None
+        pass
 
 
 def convert_container_properties(

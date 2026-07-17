@@ -24,6 +24,7 @@
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
   ignoreSourceProperties:
+    - assignedTo
     - rootLocation
     - source
     - cloneOf
