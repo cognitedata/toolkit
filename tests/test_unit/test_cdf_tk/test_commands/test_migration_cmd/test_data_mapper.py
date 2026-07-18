@@ -1,3 +1,4 @@
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
@@ -9,7 +10,15 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InternalId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationGeometry,
+    AnnotationPoint,
+    AnnotationPolygon,
+    AnnotationResponse,
+    BoundingBox,
+    ImageAssetLinkData,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
@@ -61,7 +70,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
     ThreeDModelClassicResponse,
-    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -83,6 +91,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360AnnotationMapper,
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
@@ -99,7 +108,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
@@ -1166,7 +1175,7 @@ class TestFDMtoCDMMapper:
             assert actual[0].item.external_id == sanitize_instance_external_id("image1", "_cdm")
             logger.log.assert_not_called()
 
-    def test_image360_collection_mapper_uses_same_space_and_model3d_from_map(self) -> None:
+    def test_image360_collection_mapper_leaves_model3d_unset_when_no_existing_model(self) -> None:
         collection_node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="collection1",
@@ -1175,22 +1184,15 @@ class TestFDMtoCDMMapper:
             version=1,
             properties={LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW: {"label": "My collection"}},
         )
-        created_model = ThreeDModelClassicResponse(
-            id=42,
-            name="My collection",
-            created_time=0,
-        )
-        model_external_id = f"cog_3d_model_{created_model.id}"
 
         with monkeypatch_toolkit_client() as client:
             client.tool.instances.retrieve.return_value = []
-            client.tool.three_d.models_classic.create.return_value = [created_model]
             mapper = Image360CollectionMapper(client)
             actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
-        client.tool.three_d.models_classic.create.assert_called_once_with(
-            [ThreeDModelDMSRequest(name="My collection", space=self.SOURCE_SPACE, type="Image360")]
-        )
+        client.tool.instances.create.assert_not_called()
+        client.tool.three_d.models_classic.create.assert_not_called()
+
         assert len(actual) == 1
         collection_request = actual[0].item
         assert isinstance(collection_request, NodeRequest)
@@ -1200,10 +1202,7 @@ class TestFDMtoCDMMapper:
             source for source in collection_request.sources or [] if source.source.external_id == "Cognite3DRevision"
         )
         assert model_source.properties is not None
-        assert model_source.properties["model3D"] == {
-            "space": self.SOURCE_SPACE,
-            "externalId": model_external_id,
-        }
+        assert "model3D" not in model_source.properties
 
     def test_image360_collection_mapper_reuses_existing_model3d_without_creating(self) -> None:
         collection_node = NodeResponse(
@@ -1399,6 +1398,9 @@ def test_create_360_image_selectors_returns_collection_station_and_image_steps()
     assert isinstance(station_selector, InstanceQuerySelector)
     assert station_selector.root == "image360"
     assert station_selector.subselections == ("image360station",)
+    # 'image360' (root) must be in select, otherwise the query endpoint never emits a cursor for it
+    # and pagination silently stops after the first page.
+    assert set(station_selector.create_query().select) == {"image360", "image360station"}
     assert isinstance(image_selector, InstanceViewSelector)
     assert image_selector.view.external_id == "Image360"
 
@@ -1662,3 +1664,153 @@ class TestAssetCentricToRecordMapper:
         assert len(record.sources) == 1
         assert record.sources[0].source == container_id
         assert record.sources[0].properties["description"] == "An event"
+
+
+class TestImage360AnnotationMapper:
+    SOURCE_SPACE = "cdf_360_image_schema"
+
+    @staticmethod
+    def _image_node(external_id: str, collection_external_id: str, file_external_id: str) -> NodeResponse:
+        return NodeResponse(
+            space=TestImage360AnnotationMapper.SOURCE_SPACE,
+            external_id=external_id,
+            created_time=0,
+            last_updated_time=1,
+            version=1,
+            properties={
+                LEGACY_IMAGE360_SOURCE_VIEW: {
+                    "collection360": {
+                        "space": TestImage360AnnotationMapper.SOURCE_SPACE,
+                        "externalId": collection_external_id,
+                    },
+                    "cubeMapFront": file_external_id,
+                }
+            },
+        )
+
+    def test_prepare_filters_by_selected_collection(self) -> None:
+        node_in = self._image_node("image_in", "collection_in", "file_in")
+        node_out = self._image_node("image_out", "collection_out", "file_out")
+        selector = Image360AnnotationSelector(
+            object3d_space="obj_space",
+            instance_space="inst_space",
+            collections=("collection_in",),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.instances.list.return_value = [node_in, node_out]
+            mapper = Image360AnnotationMapper(client)
+            mapper.prepare(selector)
+
+        # Only the face file belonging to the selected collection is loaded.
+        assert set(mapper._face_by_file_ext_id) == {"file_in"}
+
+    def test_face_centers_match_fusion_reference(self) -> None:
+        """Face centers (u=v=0.5) must match fusion's getNormalizedVectorFromUVAndFace.test.ts."""
+        expected = {
+            "left": (math.pi / 2, math.pi / 2),
+            "right": (math.pi / 2, 3 * math.pi / 2),
+            "front": (math.pi, math.pi),
+            "back": (0.0, math.pi),
+            "top": (math.pi / 2, 0.0),
+            "bottom": (math.pi / 2, math.pi),
+        }
+        for face, (expected_phi, expected_theta) in expected.items():
+            phi, theta = Image360AnnotationMapper.uv_and_face_to_spherical(face, 0.5, 0.5)
+            assert phi == pytest.approx(expected_phi, abs=1e-4)
+            assert theta == pytest.approx(expected_theta, abs=1e-4)
+
+    def test_front_vertex_matches_fusion_transform_annotations(self) -> None:
+        """front (0.1, 0.2) must match fusion's transformAnnotationsToVectors.test.ts."""
+        phi, theta = Image360AnnotationMapper.uv_and_face_to_spherical("front", 0.1, 0.2)
+        assert phi == pytest.approx(2.3562, abs=1e-4)
+        assert theta == pytest.approx(0.9273, abs=1e-4)
+
+    def test_map_produces_image360_annotation_item(self) -> None:
+        """End-to-end map call: AnnotationResponse → Image360AnnotationItem with spherical polygon."""
+        annotation = AnnotationResponse(
+            id=42,
+            annotation_type="images.AssetLink",
+            annotated_resource_type="file",
+            annotated_resource_id=111,
+            data=ImageAssetLinkData(
+                asset_ref=InternalId(id=222),
+                text="pump",
+                text_region=BoundingBox(x_min=0.0, x_max=0.1, y_min=0.0, y_max=0.1),
+                object_region=AnnotationGeometry(
+                    polygon=AnnotationPolygon(
+                        vertices=[
+                            AnnotationPoint(x=0.1, y=0.2),
+                            AnnotationPoint(x=0.3, y=0.4),
+                            AnnotationPoint(x=0.5, y=0.6),
+                        ]
+                    )
+                ),
+            ),
+            status="approved",
+            creating_app="unit_test",
+            creating_app_version="1.0.0",
+            creating_user="tester",
+            created_time=0,
+            last_updated_time=1,
+        )
+        new_image360_node_id = NodeId(space=self.SOURCE_SPACE, external_id="image_in_cdm")
+        asset_node_id = NodeId(space="asset_space", external_id="pump_1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.files.external_id.return_value = "file_in"
+            client.migration.lookup.assets.return_value = asset_node_id
+            mapper = Image360AnnotationMapper(client)
+            mapper._face_by_file_ext_id = {"file_in": ("front", new_image360_node_id)}
+
+            result = mapper.map([DataItem(tracking_id="42", item=annotation)])
+
+        assert len(result) == 1
+        item = result[0].item
+        assert item.asset.instance_id == asset_node_id
+        assert item.image360.instance_id == new_image360_node_id
+        # polygon.data: [N, phi1, theta1, ..., phiN, thetaN] for N=3 vertices → 7 floats
+        assert len(item.polygon.data) == 7
+        assert item.polygon.data[0] == 3.0
+        # First vertex (front face, 0.1, 0.2) matches the fusion reference values.
+        assert item.polygon.data[1] == pytest.approx(2.3562, abs=1e-4)
+        assert item.polygon.data[2] == pytest.approx(0.9273, abs=1e-4)
+
+    def test_map_falls_back_to_text_region_when_no_object_region(self) -> None:
+        """When objectRegion polygon is absent, text_region bounding box is used to synthesise a 4-vertex polygon."""
+        annotation = AnnotationResponse(
+            id=43,
+            annotation_type="images.AssetLink",
+            annotated_resource_type="file",
+            annotated_resource_id=111,
+            data=ImageAssetLinkData(
+                asset_ref=InternalId(id=222),
+                text="pump",
+                text_region=BoundingBox(x_min=0.1, x_max=0.5, y_min=0.2, y_max=0.6),
+                object_region=None,
+            ),
+            status="approved",
+            creating_app="unit_test",
+            creating_app_version="1.0.0",
+            creating_user="tester",
+            created_time=0,
+            last_updated_time=1,
+        )
+        new_image360_node_id = NodeId(space=self.SOURCE_SPACE, external_id="image_in_cdm")
+        asset_node_id = NodeId(space="asset_space", external_id="pump_1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.files.external_id.return_value = "file_in"
+            client.migration.lookup.assets.return_value = asset_node_id
+            mapper = Image360AnnotationMapper(client)
+            mapper._face_by_file_ext_id = {"file_in": ("front", new_image360_node_id)}
+
+            result = mapper.map([DataItem(tracking_id="43", item=annotation)])
+
+        assert len(result) == 1
+        item = result[0].item
+        assert item.asset.instance_id == asset_node_id
+        assert item.image360.instance_id == new_image360_node_id
+        # polygon.data: [N, phi1, theta1, ..., phiN, thetaN] for N=4 vertices → 9 floats
+        assert item.polygon.data[0] == 4.0
+        assert len(item.polygon.data) == 9

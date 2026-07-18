@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
+    ToolkitRepeatedUploadFailureError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
@@ -148,18 +149,29 @@ class MigrationCommand(ToolkitCommand):
                 download_iterable=data.stream_data(selected, bookmark=step.bookmark),
                 process=self._convert(mapper),
                 write=self._upload(
-                    selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
+                    selected,
+                    write_client,
+                    data,
+                    mapper.destination_label or data.KIND,
+                    dry_run,
+                    log_dir,
+                    step.total_count,
+                    step.completed_count,
                 ),
                 total_item_count=step.total_count,
                 max_queue_size=10,
                 download_description=f"Downloading {selected.display_name}",
-                process_description="Converting",
+                process_description=mapper.process_description(selected),
                 write_description="Uploading",
                 console=console,
                 verbose=verbose,
             )
 
             executor.run(start_item=step.completed_count)
+
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                logger.apply_to_all_unprocessed(label="Early termination of migration", severity=Severity.skipped)
+                logger.force_write()
 
             items_results = logger.finalize(dry_run)
             results_by_selector[str(selected)] = items_results
@@ -173,9 +185,15 @@ class MigrationCommand(ToolkitCommand):
             if progress is not None:
                 progress.status = executor.result
                 progress.dump_to_file(log_dir, filestem=str(selected))
-            executor.raise_on_error()
+            if isinstance(executor.error_exception, ToolkitRepeatedUploadFailureError):
+                console.print(
+                    f"[yellow]Skipping migrating further items for {selected.display_name} after "
+                    f"encountering repeated failures. Check the log files in {log_dir}.[/yellow]"
+                )
+            else:
+                executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrating"
+            action = "Would migrate" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
@@ -209,7 +227,7 @@ class MigrationCommand(ToolkitCommand):
                         f"Found progress file for {selector.display_name}. But total items "
                         f"does not match the expected total. Starting from beginning..."
                     )
-                elif progress.status == "completed" and (not is_sync or completed_count == total_items):
+                elif progress.status == "completed" and not is_sync:
                     message = f"Found completed progress file for {selector.display_name}. Skipping migration."
                     is_complete = True
                 elif first is not None:
@@ -307,6 +325,7 @@ class MigrationCommand(ToolkitCommand):
         selected: T_Selector,
         write_client: HTTPClient,
         target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
+        destination: str,
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,
@@ -341,7 +360,7 @@ class MigrationCommand(ToolkitCommand):
                                 label=f"Failed to write to CDF: {error.code}",
                                 message=error.message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
                 elif isinstance(item, ItemsFailedRequest):
@@ -353,9 +372,15 @@ class MigrationCommand(ToolkitCommand):
                                 label="Failed to write to CDF: Request failed",
                                 message=item.error_message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
+
+            if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
+                target.logger.force_write()
+                raise ToolkitRepeatedUploadFailureError(
+                    f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
+                )
 
             migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(

@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -14,9 +14,16 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId, InstanceId, InternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, NodeId, NodeOrEdgeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    EdgeId,
+    NodeId,
+    NodeOrEdgeRequest,
+    NodeOrEdgeResponse,
+    NodeRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import SpaceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
@@ -25,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
     ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID
@@ -39,6 +47,7 @@ from cognite_toolkit._cdf_tk.dataio._base import Bookmark, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.dataio.selectors import (
+    InstanceSelector,
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
     ThreeDSelector,
@@ -57,13 +66,22 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
+    DmsContextualizationConfig,
+    Image360AnnotationItem,
+    Image360ContextualizationRequest,
     MigrationMapping,
     MigrationMappingList,
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
+from .image_360_mappings import load_image360_annotation_node_data
 from .issues import MigrationEntryV2
-from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
+from .selectors import (
+    AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
+    MigrateDataSetSelector,
+    MigrationCSVFileSelector,
+)
 
 
 class AssetCentricMigrationIO(
@@ -546,6 +564,119 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
+class Image360CollectionInstanceIO(InstanceIO):
+    """InstanceIO for uploading Cognite360ImageCollection revision nodes mapped by Image360CollectionMapper.
+
+    In addition to the regular instance upload, this creates the underlying Image360 3D model for
+    collections that do not already have one, and patches the model3D reference onto the revision
+    node once the model has been created.
+
+    To avoid ever leaving a dangling/orphaned 3D model behind, the revision node is first
+    uploaded *without* a model3D reference (as mapped by Image360CollectionMapper). Only once that
+    write has succeeded do we create the 3D model; the revision node is then re-uploaded with the
+    model3D reference patched in.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._seen_download_ids: set[str] = set()
+
+    def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
+        """
+        The station selector uses a graph traversal query (image360 → station) so the same station node
+        can appear on multiple root pages when it is referenced by several Image360 nodes. This class
+        deduplicates such cross-page repeats during download so the logger does not produce spurious
+        "multiple registrations" warnings.
+        """
+
+        unique_items = []
+        for data_item in page.items:
+            if data_item.tracking_id not in self._seen_download_ids:
+                self._seen_download_ids.add(data_item.tracking_id)
+                unique_items.append(data_item)
+        return super().emit_registered_page(page.create_from(unique_items))
+
+    def upload_items(
+        self,
+        data_chunk: Page[NodeOrEdgeRequest],
+        http_client: HTTPClient,
+        selector: InstanceSelector | None = None,
+    ) -> ItemsResultList:
+        results = super().upload_items(data_chunk, http_client, selector)
+        success_ids = {id_ for res in results if isinstance(res, ItemsSuccessResponse) for id_ in res.ids}
+        pending_model_items = [
+            data_item
+            for data_item in data_chunk.items
+            if data_item.tracking_id in success_ids
+            and isinstance(data_item.item, NodeRequest)
+            and not self._has_model_3d(data_item.item)
+        ]
+        if not pending_model_items:
+            return results
+        patched_chunk = data_chunk.create_from(self._create_models(pending_model_items))
+        results.extend(super().upload_items(patched_chunk, http_client, selector))
+        return results
+
+    def _create_models(
+        self, pending_model_items: Sequence[DataItem[NodeOrEdgeRequest]]
+    ) -> list[DataItem[NodeOrEdgeRequest]]:
+        patched: list[DataItem[NodeOrEdgeRequest]] = []
+        for data_item in pending_model_items:
+            node = data_item.item
+            if not isinstance(node, NodeRequest):
+                continue
+            label = self._extract_name(node) or node.external_id
+            created_model = self.client.tool.three_d.models_classic.create(
+                [ThreeDModelDMSRequest(name=label, space=node.space, type="Image360")]
+            )[0]
+            model_external_id = f"cog_3d_model_{created_model.id}"
+            patched.append(
+                DataItem(tracking_id=data_item.tracking_id, item=self._with_model_3d(node, model_external_id))
+            )
+        return patched
+
+    @staticmethod
+    def _has_model_3d(node: NodeRequest) -> bool:
+        """Return True if the node already has a model3D reference, or if it is not a collection node at all.
+
+        Nodes without a Cognite3DRevision source (e.g. Image360 station/image nodes) should be skipped —
+        they are not collection revision nodes and must not trigger 3D model creation.
+        """
+        for source in node.sources or []:
+            if (
+                isinstance(source.source, ContainerId)
+                and source.source.external_id == "Cognite3DRevision"
+                and source.properties
+            ):
+                return "model3D" in source.properties
+        # No Cognite3DRevision source — not a collection node, treat as already handled.
+        return True
+
+    @staticmethod
+    def _extract_name(node: NodeRequest) -> str | None:
+        for source in node.sources or []:
+            if (
+                isinstance(source.source, ContainerId)
+                and source.source.external_id == "CogniteDescribable"
+                and source.properties
+            ):
+                name = source.properties.get("name")
+                return name if isinstance(name, str) else None
+        return None
+
+    @staticmethod
+    def _with_model_3d(node: NodeRequest, model_external_id: str) -> NodeRequest:
+        updated_sources = []
+        for source in node.sources or []:
+            if isinstance(source.source, ContainerId) and source.source.external_id == "Cognite3DRevision":
+                properties = dict(source.properties or {})
+                properties["model3D"] = {"space": node.space, "externalId": model_external_id}
+                updated_sources.append(source.model_copy(update={"properties": properties}))
+            else:
+                updated_sources.append(source)
+        return node.model_copy(update={"sources": updated_sources})
+
+
 def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
     """
     Probe /3d/migrate/models to check if the 3D DM migration feature flag is
@@ -807,3 +938,138 @@ class ThreeDAssetMappingMigrationIO(
         self, data_chunk: Page[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")
+
+
+class Image360AnnotationMigrationIO(
+    UploadableDataIO[Image360AnnotationSelector, AnnotationResponse, Image360AnnotationItem]
+):
+    """IO class for migrating 360-image annotations via the beta /3d/contextualization/image360 endpoint.
+
+    ``stream_data()`` pages through the Annotations API filtered by the face-file external IDs
+    from the pre-built caches.
+
+    ``upload_items()`` groups the mapped items by collection and posts one
+    ``Image360ContextualizationRequest`` per group.
+
+    Args:
+        client: ToolkitClient to use for CDF interactions.
+        caches: Pre-built node caches shared with the mapper.
+    """
+
+    KIND = "Image360AnnotationMigration"
+    CHUNK_SIZE = 100  # beta endpoint maximum
+    UPLOAD_ENDPOINT = "/3d/contextualization/image360"
+    # The annotations API supports at most 1000 IDs per filter call.
+    _ANNOTATION_FILTER_ID_CHUNK = 1000
+    _ANNOTATION_TYPES = frozenset(["images.AssetLink", "images.InstanceLink"])
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._face_file_ext_ids: list[str] | None = None
+        self._collection_by_image360_id: dict[tuple[str, str], NodeId] = {}
+
+    def stream_data(
+        self,
+        selector: Image360AnnotationSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page[AnnotationResponse]]:
+        if self._face_file_ext_ids is None:
+            node_data = load_image360_annotation_node_data(self.client, selector.collections or ())
+            self._face_file_ext_ids = list(node_data.keys())
+            self._collection_by_image360_id = {
+                (img_node.space, img_node.external_id): col_node for (_, img_node, col_node) in node_data.values()
+            }
+        if not self._face_file_ext_ids:
+            return
+
+        total = 0
+        for id_batch in chunker_sequence(self._face_file_ext_ids, self._ANNOTATION_FILTER_ID_CHUNK):
+            annotation_filter = AnnotationFilter(
+                annotated_resource_type="file",
+                annotated_resource_ids=[ExternalId(external_id=ext_id) for ext_id in id_batch],
+            )
+            for annotation_batch in self.client.tool.annotations.iterate(
+                filter=annotation_filter,
+                limit=limit - total if limit is not None else None,
+            ):
+                filtered = [ann for ann in annotation_batch if ann.annotation_type in self._ANNOTATION_TYPES]
+                if not filtered:
+                    continue
+                total += len(filtered)
+                yield self.emit_registered_page(
+                    Page(
+                        worker_id="main",
+                        items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
+                    )
+                )
+                if limit is not None and total >= limit:
+                    return
+
+    def count(self, selector: Image360AnnotationSelector) -> int | None:
+        return None
+
+    def upload_items(
+        self,
+        data_chunk: Page[Image360AnnotationItem],
+        http_client: HTTPClient,
+        selector: Image360AnnotationSelector | None = None,
+    ) -> ItemsResultList:
+        """Upload annotations grouped by collection (revision) node.
+
+        Each group is posted as one ``Image360ContextualizationRequest``.
+        """
+        if not data_chunk or selector is None:
+            return ItemsResultList()
+
+        groups: dict[tuple[str, str], list[DataItem[Image360AnnotationItem]]] = {}
+        skipped_entries: list[MigrationEntryV2] = []
+        for data_item in data_chunk.items:
+            image360_instance_id = data_item.item.image360.instance_id
+            image360_key = (image360_instance_id.space, image360_instance_id.external_id)
+            collection_id = self._collection_by_image360_id.get(image360_key)
+            if collection_id is None:
+                skipped_entries.append(
+                    MigrationEntryV2(
+                        id=data_item.tracking_id,
+                        label="Skipped",
+                        message=f"No collection node found for Image360 instance {image360_instance_id}.",
+                        severity=Severity.skipped,
+                        source=self.KIND,
+                        destination="360-image-annotations",
+                    )
+                )
+                continue
+            revision_key = (collection_id.space, collection_id.external_id)
+            groups.setdefault(revision_key, []).append(data_item)
+
+        if skipped_entries:
+            self.logger.log(skipped_entries)
+
+        results = ItemsResultList()
+        endpoint_url = http_client.config.create_api_url(self.UPLOAD_ENDPOINT)
+        for (revision_space, revision_external_id), group_items in groups.items():
+            contextualization_request = Image360ContextualizationRequest(
+                items=[data_item.item for data_item in group_items],
+                dms_contextualization_config=DmsContextualizationConfig(
+                    object3d_space=selector.object3d_space,
+                    contextualization_space=selector.instance_space,
+                    revision=InstanceId(instance_id=NodeId(space=revision_space, external_id=revision_external_id)),
+                ),
+            )
+            for chunk in chunker_sequence(group_items, self.CHUNK_SIZE):
+                responses = http_client.request_items_retries(
+                    contextualization_request.as_items_request(endpoint_url=endpoint_url, tracked_items=chunk)
+                )
+                results.extend(responses)
+        return results
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> Image360AnnotationItem:
+        raise NotImplementedError("Deserializing Image360 Annotation Migrations from JSON is not supported.")
+
+    def data_to_json_chunk(
+        self,
+        data_chunk: Page[AnnotationResponse],
+        selector: Image360AnnotationSelector | None = None,
+    ) -> Page[dict[str, JsonVal]]:
+        raise NotImplementedError("Serializing Image360 Annotation Migrations to JSON is not supported.")

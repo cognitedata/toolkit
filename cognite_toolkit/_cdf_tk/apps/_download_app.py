@@ -1015,6 +1015,7 @@ class DownloadApp(typer.Typer):
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
                         edge_types=tuple(edge_types) if edge_types else None,
+                        endpoint="sync",
                     )
                 )
             output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
@@ -1033,6 +1034,7 @@ class DownloadApp(typer.Typer):
                     instance_spaces=selected_instance_spaces,
                     instance_type=instance_type.value,
                     download_dir_name=download_dir_name,
+                    endpoint="sync",
                 )
                 for view_id_str in view_external_ids
             ]

@@ -126,13 +126,139 @@ def invalid_test_cases() -> Iterable:
             "space": "my_space",
             "viewMappings": {
                 "observation": [
-                    {"space": "my_space", "version": "v1", "externalId": "ObsA"},
-                    {"space": "my_space", "version": "v1", "externalId": "ObsB"},
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsA",
+                        },
+                    },
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsB",
+                        },
+                    },
                 ],
             },
         },
         {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
         id="Multiple observations in viewMappings not supported",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {"space": "my_space", "version": "v1", "externalId": "ObsA"},
+                ],
+            },
+        },
+        {
+            "In viewMappings.observation[1] missing required field: 'view'",
+            "In viewMappings.observation[1] unknown field: 'externalId'",
+            "In viewMappings.observation[1] unknown field: 'space'",
+            "In viewMappings.observation[1] unknown field: 'version'",
+        },
+        id="Flat legacy ViewMapping shape in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "asset": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "123invalid",
+                },
+            },
+        },
+        {"In viewMappings.asset.externalId string should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"},
+        id="Invalid externalId pattern in viewMappings.asset",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                        },
+                    },
+                ],
+            },
+        },
+        {"In viewMappings.observation[1].view missing required field: 'externalId'"},
+        id="Missing required field in viewMappings.observation view",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "unknownField": "bad_value",
+                    },
+                ],
+            },
+        },
+        {"In viewMappings.observation[1] unknown field: 'unknownField'"},
+        id="Unknown field in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                            "unknownField": "bad_value",
+                        },
+                    },
+                ],
+            },
+        },
+        {"In viewMappings.observation[1].writeBack unknown field: 'unknownField'"},
+        id="Unknown field in viewMappings.observation.writeBack",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {},
+                    },
+                ],
+            },
+        },
+        {"In viewMappings.observation[1].writeBack missing required field: 'notificationsEndpointExternalId'"},
+        id="Missing notificationsEndpointExternalId in viewMappings.observation.writeBack",
     )
     yield pytest.param(
         {
@@ -217,3 +343,50 @@ class TestInfieldCDMLocationConfigYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_load_valid_observation_view_config(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                        },
+                    },
+                ],
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data
+
+    def test_load_valid_observation_view_config_with_required_properties(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "requiredProperties": ["assets", "files"],
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                        },
+                    },
+                ],
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data

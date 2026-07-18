@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     InFieldAssetMapping,
     InFieldConditionMapping,
+    InFieldObservationSapStatusMapping,
     InFieldUserMapping,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
@@ -36,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    Image360AnnotationMapper,
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
@@ -51,10 +53,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     DIRECT_RELATION_EDGE_TIEBREAKERS,
     create_infield_data_mappings,
     create_infield_schedule_selector,
+    resolve_observation_view_id,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    Image360AnnotationMigrationIO,
+    Image360CollectionInstanceIO,
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
@@ -62,6 +67,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
+    Image360AnnotationSelector,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
@@ -119,8 +125,8 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
-        if Flags.IMAGE360_MIGRATE.is_enabled():
-            self.command("360-images")(self.image_360_nodes)
+        self.command("360-images")(self.image_360_nodes)
+        self.command("360-image-annotations")(self.image_360_annotations)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1575,8 +1581,10 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--skip-observations",
-                help="Skip migrating Observation data to the default cdf_infield/FieldObservation view. "
-                "Only use this when you intend to migrate observations to a custom observation view manually.",
+                help="Skip migrating Observation data. You need to use this flag if you are using a custom observation view with "
+                "significantly different or renamed properties from the default cdf_infield/FieldObservation, which requires custom "
+                "migration logic. By default, without this flag, Toolkit will migrate data to whatever observation view is configured "
+                "in the Infield location(s) that uses the relevant target space. ",
             ),
         ] = False,
     ) -> None:
@@ -1669,6 +1677,17 @@ class MigrateApp(typer.Typer):
             # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
             # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
             infield_mappings = [m for m in infield_mappings if m.destination_view.external_id != "FieldObservation"]
+        else:
+            # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
+            # migrate Observations onto it instead of the default FieldObservation view.
+            custom_observation_view = resolve_observation_view_id(infield_cdm_configs, target_space)
+            if custom_observation_view is not None:
+                infield_mappings = [
+                    m.model_copy(update={"destination_view": custom_observation_view})
+                    if m.source_view.external_id == "Observation"
+                    else m
+                    for m in infield_mappings
+                ]
         schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
@@ -1687,7 +1706,7 @@ class MigrateApp(typer.Typer):
                         ),
                         instance_spaces=(source_space,),
                         edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
-                        endpoint="query",
+                        endpoint="sync",
                     )
                 )
         if schedule_mapping is None:
@@ -1702,7 +1721,11 @@ class MigrateApp(typer.Typer):
             client,
             infield_mappings,
             connection_creator=connection_creator,
-            custom_properties_mappings=[InFieldConditionMapping(infield_mappings), InFieldUserMapping()],
+            custom_properties_mappings=[
+                InFieldConditionMapping(infield_mappings),
+                InFieldUserMapping(),
+                InFieldObservationSapStatusMapping(),
+            ],
             custom_instance_mappings={
                 InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
                     client, connection_creator, schedule_mapping
@@ -1728,6 +1751,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--instance-space",
+                "-i",
                 help="The instance space containing the 360 image collections. "
                 "Must be used together with --collection.",
             ),
@@ -1783,7 +1807,7 @@ class MigrateApp(typer.Typer):
                     "They must first be migrated from the Events service to the [italic]cdf_360_image_schema[/italic] "
                     "data model using a standalone custom script before they can be migrated to CDM. "
                     "Toolkit does not support this step. Please see the documentation for this migration "
-                    "command for more details and guidance on how to perform this separate migration.\n\n",
+                    "command for more details and guidance on how to perform this separate migration.",
                     title="Unsupported Events-based 360-image data detected",
                     expand=False,
                     border_style="yellow",
@@ -1814,11 +1838,131 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
-                data=InstanceIO(client),
+                data=Image360CollectionInstanceIO(client),
                 mapper=mapper,
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="360_image_nodes",
+            )
+        )
+
+    @staticmethod
+    def image_360_annotations(
+        ctx: typer.Context,
+        collection_instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--collection-instance-space",
+                "-i",
+                help="The instance space containing the 360 image collections. "
+                "Must be used together with --collection.",
+            ),
+        ] = None,
+        collection: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--collection",
+                "-c",
+                help="External ID of a 360 image collection whose annotations should be migrated. Can be repeated. "
+                "Must be used together with --collection-instance-space. If neither is provided, "
+                "an interactive selection will be performed.",
+            ),
+        ] = None,
+        object_3D_space: Annotated[
+            str | None,
+            typer.Option(
+                "--object-3d-space",
+                "-o",
+                help="The instance space used for Cognite3DObject nodes that will be created during the migration "
+                "(if they don't already exist). Must be used together with --contextualization-space when "
+                "using --collection and --collection-instance-space.",
+            ),
+        ] = None,
+        contextualization_space: Annotated[
+            str | None,
+            typer.Option(
+                "--contextualization-space",
+                "-s",
+                help="The instance space used for Cognite360ImageAnnotation edges that will be created during the "
+                "migration. Must be used together with --object-3d-space when using --collection and --collection-instance-space.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        verify_threed_dm_migration_enabled(client)
+        cmd = MigrationCommand(client=client)
+
+        is_interactive = collection is None and collection_instance_space is None
+        if is_interactive:
+            selected_collections = Image360CollectionInteractiveSelect(
+                client, "migrate annotations for"
+            ).select_collections()
+            space_selector = DataModelingSelect(client, "migrate")
+            object_3D_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the 3D Object nodes?",
+                include_empty=True,
+            )
+            contextualization_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the Cognite360ImageAnnotation edges?",
+                include_empty=True,
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            if collection is None or collection_instance_space is None:
+                raise typer.BadParameter("Both --collection-instance-space and --collection must be provided together")
+            selected_collections = NodeId.from_str_ids(collection, space=collection_instance_space)
+            if object_3D_space is None or contextualization_space is None:
+                raise typer.BadParameter(
+                    "Both --object-3d-space and --contextualization-space are required when "
+                    "using --collection and --collection-instance-space."
+                )
+
+        collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
+
+        selector = Image360AnnotationSelector(
+            object3d_space=object_3D_space,
+            instance_space=contextualization_space,
+            collections=collection_external_ids,
+        )
+        mapper = Image360AnnotationMapper(client)
+        io = Image360AnnotationMigrationIO(client)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=[selector],
+                data=io,
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="360_image_annotations",
             )
         )

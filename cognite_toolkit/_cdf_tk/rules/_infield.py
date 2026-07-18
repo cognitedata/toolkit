@@ -12,8 +12,8 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
     INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY,
-    ViewMapping,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
 _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
     "assetActivitiesCardView": frozenset(
@@ -77,17 +77,29 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
     def _collect_card_view_refs(resource: BuiltResource) -> list[_CardViewRef]:
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
-        if not config.data_exploration_config:
-            return []
 
         refs: list[_CardViewRef] = []
-        for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
-            mapping: ViewMapping | None = getattr(config.data_exploration_config, attr, None)
-            if mapping is None:
-                continue
-            view_id = ViewId(space=mapping.space, external_id=mapping.external_id, version=mapping.version)
-            required = _REQUIRED_PROPERTIES[card_key]
-            refs.append((resource, card_key, view_id, required))
+        if config.data_exploration_config:
+            for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
+                mapping: ViewReference | None = getattr(config.data_exploration_config, attr, None)
+                if mapping is None:
+                    continue
+                view_id = mapping.as_id()
+                required = _REQUIRED_PROPERTIES[card_key]
+                refs.append((resource, card_key, view_id, required))
+
+        if config.view_mappings and config.view_mappings.observation:
+            for observation_config in config.view_mappings.observation:
+                if not observation_config.required_properties:
+                    continue
+                refs.append(
+                    (
+                        resource,
+                        "observation",
+                        observation_config.view.as_id(),
+                        frozenset(observation_config.required_properties),
+                    )
+                )
         return refs
 
     def _check_view(

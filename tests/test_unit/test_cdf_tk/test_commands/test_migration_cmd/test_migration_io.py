@@ -8,15 +8,30 @@ from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import ErrorDetails
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
+    ItemsFailedResponse,
+    ItemsResultList,
+    ItemsSuccessResponse,
+)
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceSource,
+    NodeOrEdgeRequest,
+    NodeRequest,
+    SpaceResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse, ThreeDModelDMSRequest
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    Image360CollectionInstanceIO,
     ThreeDAssetMappingMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.dataio import AssetDataIO, Page
+from cognite_toolkit._cdf_tk.dataio import AssetDataIO, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.selectors import ThreeDModelIdSelector
 
 
@@ -263,3 +278,103 @@ class TestThreeDAssetMappingMigrationIO:
 
         with pytest.raises(NotImplementedError):
             io.data_to_json_chunk(MagicMock())
+
+
+class TestImage360CollectionInstanceIO:
+    @staticmethod
+    def _revision_node(model3d: dict | None = None) -> NodeRequest:
+        revision_properties: dict = {"status": "Done", "published": True, "type": "Image360"}
+        if model3d is not None:
+            revision_properties["model3D"] = model3d
+        return NodeRequest(
+            space="mySpace",
+            external_id="collection1_cdm",
+            sources=[
+                InstanceSource(
+                    source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
+                    properties=revision_properties,
+                ),
+                InstanceSource(
+                    source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
+                    properties={"name": "My collection"},
+                ),
+            ],
+        )
+
+    def test_creates_model_and_patches_reference_after_successful_upload(self) -> None:
+        page = Page[NodeOrEdgeRequest](
+            worker_id="main", items=[DataItem(tracking_id="mySpace:collection1", item=self._revision_node())]
+        )
+        created_model = ThreeDModelClassicResponse(id=42, name="My collection", created_time=0)
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.three_d.models_classic.create.return_value = [created_model]
+            io = Image360CollectionInstanceIO(client)
+            http_client = MagicMock()
+            http_client.config.create_api_url.return_value = "https://example.com/models/instances"
+            http_client.request_items_retries.side_effect = [
+                ItemsResultList(
+                    [ItemsSuccessResponse(ids=["mySpace:collection1"], status_code=200, body="{}", content=b"{}")]
+                ),
+                ItemsResultList(
+                    [ItemsSuccessResponse(ids=["mySpace:collection1"], status_code=200, body="{}", content=b"{}")]
+                ),
+            ]
+            results = io.upload_items(page, http_client)
+
+        assert len(results) == 2
+        assert http_client.request_items_retries.call_count == 2
+        client.tool.three_d.models_classic.create.assert_called_once_with(
+            [ThreeDModelDMSRequest(name="My collection", space="mySpace", type="Image360")]
+        )
+        patched_node = http_client.request_items_retries.call_args_list[1].kwargs["message"].items[0].item
+        model_source = next(s for s in patched_node.sources if s.source.external_id == "Cognite3DRevision")
+        assert model_source.properties["model3D"] == {"space": "mySpace", "externalId": "cog_3d_model_42"}
+
+    def test_skips_model_creation_when_initial_upload_fails(self) -> None:
+        """If the revision node upsert fails, the 3D model must never be created, avoiding a dangling model."""
+        page = Page[NodeOrEdgeRequest](
+            worker_id="main", items=[DataItem(tracking_id="mySpace:collection1", item=self._revision_node())]
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            io = Image360CollectionInstanceIO(client)
+            http_client = MagicMock()
+            http_client.config.create_api_url.return_value = "https://example.com/models/instances"
+            http_client.request_items_retries.return_value = ItemsResultList(
+                [
+                    ItemsFailedResponse(
+                        ids=["mySpace:collection1"],
+                        status_code=400,
+                        body="{}",
+                        error=ErrorDetails(code=400, message="Error"),
+                    )
+                ]
+            )
+            results = io.upload_items(page, http_client)
+
+        assert http_client.request_items_retries.call_count == 1
+        client.tool.three_d.models_classic.create.assert_not_called()
+        assert len(results) == 1
+
+    def test_reuses_existing_model3d_without_creating(self) -> None:
+        """When the revision node already has a model3D reference (reused from a previous migration),
+        no new model should be created and the node is only uploaded once."""
+        existing_model3d = {"space": "mySpace", "externalId": "cog_3d_model_99"}
+        page = Page[NodeOrEdgeRequest](
+            worker_id="main",
+            items=[DataItem(tracking_id="mySpace:collection1", item=self._revision_node(existing_model3d))],
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            io = Image360CollectionInstanceIO(client)
+            http_client = MagicMock()
+            http_client.config.create_api_url.return_value = "https://example.com/models/instances"
+            http_client.request_items_retries.return_value = ItemsResultList(
+                [ItemsSuccessResponse(ids=["mySpace:collection1"], status_code=200, body="{}", content=b"{}")]
+            )
+            results = io.upload_items(page, http_client)
+
+        assert http_client.request_items_retries.call_count == 1
+        client.tool.three_d.models_classic.create.assert_not_called()
+        assert len(results) == 1

@@ -44,6 +44,13 @@ class AgentExternalIdScope(ScopeDefinition):
     external_ids: list[str]
 
 
+class AppExternalIdScope(ScopeDefinition):
+    """Scope limited to specific Custom Apps by External ID."""
+
+    scope_name: Literal["appExternalIdScope"] = Field("appExternalIdScope", exclude=True)
+    external_ids: list[str]
+
+
 class AllScope(ScopeDefinition):
     """Scope that applies to all resources."""
 
@@ -215,6 +222,7 @@ Scope: TypeAlias = Annotated[
         | AppConfigScope
         | PostgresGatewayUsersScope
         | AgentExternalIdScope
+        | AppExternalIdScope
         | UnknownScope
     ),
     BeforeValidator(_handle_unknown_scope),

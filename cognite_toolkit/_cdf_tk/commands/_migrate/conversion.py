@@ -570,6 +570,13 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        """Return the destination instance spaces corresponding to the given source spaces, for display purposes.
+
+        Override in subclasses if the mapper can determine this without a full instance ID.
+        """
+        return []
+
 
 class SpaceMappingInstanceIdMapper(InstanceIdMapper):
     def __init__(self, space_mapping: Mapping[str, str]) -> None:
@@ -582,12 +589,16 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
                 f"configured to map instances from the following source space(s): "
                 f"{humanize_collection(self._space_mapping)}. Instances (or direct-relation/edge targets) outside these "
                 f"spaces cannot be migrated. To fix this, re-run the migration with {instance_id.space!r} included as "
-                f"a source space."
+                f"a source space.",
+                severity=Severity.skipped,
             )
         return NodeId(
             space=self._space_mapping[instance_id.space],
             external_id=instance_id.external_id,
         )
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        return list({self._space_mapping[space] for space in source_spaces if space in self._space_mapping})
 
 
 class SuffixInstanceIdMapper(InstanceIdMapper):
@@ -599,6 +610,10 @@ class SuffixInstanceIdMapper(InstanceIdMapper):
             space=instance_id.space,
             external_id=sanitize_instance_external_id(instance_id.external_id, self._suffix),
         )
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        # The suffix mapper does not change the instance space.
+        return list(set(source_spaces))
 
 
 class ConnectionCreator:
@@ -633,6 +648,10 @@ class ConnectionCreator:
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
         self._direct_relation_edge_tiebreakers = direct_relation_edge_tiebreakers or {}
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        """Return the destination instance spaces corresponding to the given source spaces, for display purposes."""
+        return self._instance_id_mapper.get_destination_spaces(source_spaces)
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
@@ -748,14 +767,13 @@ class ConnectionCreator:
             try:
                 targets.append(self._create_target(item, source_prop_id, source_view_id))
             except ValueError as error:
-                issues.append(
-                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: {error}"
-                )
-            except KeyError:
-                issues.append(
-                    f"Failed to create direct relation for property {source_prop_id!r} with value {item!r}: "
-                    "no migrated instance found for reference"
-                )
+                issues.append(f"Failed to create direct relation for property {source_prop_id!r}: {error}")
+            except KeyError as error:
+                raise RuntimeError(
+                    f"Bug in Toolkit: {source_view_id!s}.{source_prop_id!s} value {item!r} was not registered via "
+                    "CustomConnectionMapping.update() before being used to create a direct relation. "
+                    "Did you forget to call update_cache()?"
+                ) from error
         return targets, issues
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
@@ -767,12 +785,12 @@ class ConnectionCreator:
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
             if value not in self._timeseries_reference_cache:
                 raise ValueError(
-                    f"No migrated CogniteTimeSeries instance found for classic timeseries external ID {value!r}"
+                    f"No migrated CogniteTimeSeries instance found for classic timeseries with external ID {value!r}"
                 )
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
             if value not in self._file_reference_cache:
-                raise ValueError(f"No migrated CogniteFile instance found for classic file external ID {value!r}")
+                raise ValueError(f"No migrated CogniteFile instance found for classic file with external ID {value!r}")
             return self._file_reference_cache[value]
         elif (
             self._is_direct_relation(source_view_id, source_prop_id)
@@ -851,16 +869,20 @@ class ConnectionCreator:
 
     def create_direct_relation(
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         targets, target_issues = self._create_targets(value, source_prop_id, source_view_id)
         relations, relation_issues = self._targets_to_direct_relation(
-            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}"
+            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}", known_issues=target_issues
         )
         return relations, target_issues + relation_issues
 
     def _targets_to_direct_relation(
-        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_display_name: str
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+        self,
+        targets: list[NodeId],
+        dm_prop: DirectNodeRelation,
+        source_display_name: str,
+        known_issues: Sequence[str] = (),
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
@@ -872,6 +894,10 @@ class ConnectionCreator:
         elif len(targets) == 1:
             return targets[0], errors
         elif len(targets) == 0:
+            if known_issues:
+                # The reason no target could be resolved is already captured in known_issues,
+                # so we skip raising a generic error that would otherwise hide it.
+                return None, errors
             raise ValueError(
                 f"No targets for items relation property {source_display_name!s}: expected exactly 1, got 0"
             )
@@ -897,7 +923,7 @@ class ConnectionCreator:
 
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
-    ) -> tuple[NodeId | list[NodeId], list[str]]:
+    ) -> tuple[NodeId | list[NodeId] | None, list[str]]:
         if not dm_prop.list:
             edges = self._tiebreak_direct_relation_edges(edges, source_edge_type)
         targets: list[NodeId] = []
@@ -909,7 +935,9 @@ class ConnectionCreator:
                 issues.append(str(error))
                 continue
             targets.append(target)
-        result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
+        result, relation_issues = self._targets_to_direct_relation(
+            targets, dm_prop, str(source_edge_type), known_issues=issues
+        )
         return result, issues + relation_issues
 
     def create_edges_from_edges(
@@ -1092,6 +1120,75 @@ class InFieldUserMapping(CustomContainerPropertiesMapping):
         return ConversionResult(container_properties=created_properties, errors=issues)
 
 
+class InFieldObservationSapStatusMapping(CustomContainerPropertiesMapping):
+    """Splits the APM Observation ``status`` field into CDM's separate ``status`` (business workflow)
+    and ``sapStatus``/``notificationIdInSap`` (SAP writeback state) fields, per the "SAP writeback on CDM
+    custom observation views" ADR.
+
+    APM's single ``status`` field conflates business workflow and SAP send-state. For CDM migrations, we map
+    SAP-related values to separate ``sapStatus``/``notificationIdInSap`` fields, collapsing the business 'status'
+    field to "Completed" (or "Draft" for "Pending", which is still awaiting SAP) regardless of whether the
+    destination view supports writeback. "Draft" and "Completed" themselves are business-only statuses and are
+    left for the generic container mapping to pass through.
+
+    The destination view is only written to if it actually has the ``sapStatus``/``notificationIdInSap``
+    properties (detected dynamically from the resolved destination view, mirroring how InField itself
+    detects writeback capability). This means the same logic works whether Observations are migrated to
+    the default ``cdf_infield/FieldObservation`` view or to a customer's custom observation view that
+    includes these two writeback fields.
+    """
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Observation", version="v5")})
+
+    # APM status (lowercased) -> (sapStatus, business status).
+    _SAP_STATUS_BY_APM_STATUS: ClassVar[dict[str, tuple[str, str]]] = {
+        "sent": ("sent", "Completed"),
+        "not sent": ("notSent", "Completed"),
+        "file not sent": ("fileNotSent", "Completed"),
+        # "Pending" is still awaiting SAP, so the business status stays "Draft" rather than "Completed".
+        "pending": ("pending", "Draft"),
+        # "Failed" is not its own sapStatus enum value; it is folded into "notSent".
+        "failed": ("notSent", "Completed"),
+    }
+    # sapStatus values for which there is no SAP notification ID to write back yet.
+    _SAP_STATUSES_WITHOUT_NOTIFICATION_ID: ClassVar[frozenset[str]] = frozenset({"notSent", "pending"})
+
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        status = source_properties.get("status")
+        status_mapping = self._SAP_STATUS_BY_APM_STATUS.get(status.lower()) if isinstance(status, str) else None
+        if status_mapping is None:  # Skip and use default handling if not a SAP writeback status
+            return ConversionResult(container_properties={})
+        sap_status, business_status = status_mapping
+
+        # We overwrite the source value in-place so the generic container mapping which runs after this
+        # doesn't separately fail to convert e.g. "Sent" and raise a redundant/confusing error.
+        source_properties["status"] = business_status
+
+        supports_writeback = "sapStatus" in context.destination_properties and (
+            "notificationIdInSap" in context.destination_properties
+        )
+        if not supports_writeback:
+            # We cannot migrate SAP writeback status, but the business status above is still migrated.
+            issues = [
+                f"Observation has SAP writeback status {status!r} but the configured observation view "
+                f"{context.mapping.destination_view!s} does not have the required target 'sapStatus' "
+                "and/or 'notificationIdInSap' properties required to migrate this status value."
+            ]
+            return ConversionResult(container_properties={}, errors=issues)
+
+        # 'status' itself is intentionally left out here: the generic container mapping (running after
+        # this mapping on the mutated source_properties above) handles conversion of this field.
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {
+            "sapStatus": sap_status,
+        }
+        if source_id := source_properties.get("sourceId"):
+            if sap_status not in self._SAP_STATUSES_WITHOUT_NOTIFICATION_ID:
+                created_properties["notificationIdInSap"] = source_id
+        return ConversionResult(container_properties=created_properties)
+
+
 class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
     """Custom cases in the InField data migration
 
@@ -1123,7 +1220,9 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
         # the external ID classic.
         result = self._node_id_by_external_id[item.external_id]
         if result is None:
-            raise KeyError(f"No mapping found for {item!r}")
+            raise ValueError(
+                f"No migrated CogniteAsset instance found for classic asset with external ID {item.external_id!r}"
+            )
         return result
 
     def update(self, items: Iterable[NodeId]) -> None:
@@ -1206,7 +1305,8 @@ def convert_container_properties(
                 )
                 continue
             errors.extend(issues)
-            created_properties[dest_prop_id] = created_connection
+            if created_connection is not None:
+                created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
                 created_value = convert_to_primary_property_with_special_cases(
@@ -1261,7 +1361,8 @@ def convert_edges(
                 )
                 continue
             errors.extend(issues)
-            created_properties[dest_prop_id] = created_connection
+            if created_connection is not None:
+                created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
             errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")

@@ -20,6 +20,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,
@@ -68,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamSettings,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand, MigrationStep
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToInstanceMapper,
     AssetCentricToRecordMapper,
@@ -95,13 +96,18 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult
 from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitRepeatedUploadFailureError,
+    ToolkitValueError,
+)
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 
 def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
@@ -260,6 +266,22 @@ class _ChunkTrackingUploadIO:
     def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
         self.upload_chunk_sizes.append(len(data_chunk))
         return []
+
+
+class _FailingUploadIO:
+    CHUNK_SIZE = 1000
+    KIND = "Instances"
+
+    def __init__(self) -> None:
+        self.logger = MagicMock()
+
+    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
+        return [
+            ItemsFailedRequest(
+                ids=[item.tracking_id for item in data_chunk.items],
+                error_message="Aborting further splitting of requests after 50 failed attempts.",
+            )
+        ]
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -1153,6 +1175,7 @@ class TestMigrationCommand:
             selected=MagicMock(),
             write_client=MagicMock(),
             target=target,  # type: ignore[arg-type]
+            destination="Instances",
             dry_run=False,
             log_dir=tmp_path,
             total_item_count=1001,
@@ -1161,6 +1184,72 @@ class TestMigrationCommand:
         upload(page)
 
         assert target.upload_chunk_sizes == [1000, 1]
+
+    def test_abort_when_all_items_in_chunk_fail(self, tmp_path: Path) -> None:
+        command = MigrationCommand(silent=True)
+        target = _FailingUploadIO()
+        page = Page(
+            worker_id="main",
+            items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(2)],
+        )
+        upload = command._upload(
+            selected=MagicMock(__str__=lambda self: "ChecklistItem_v7_node"),
+            write_client=MagicMock(),
+            target=target,  # type: ignore[arg-type]
+            destination="Instances",
+            dry_run=False,
+            log_dir=tmp_path,
+            total_item_count=2,
+            start_item=0,
+        )
+        with pytest.raises(
+            ToolkitRepeatedUploadFailureError, match="Migration was stopped due to repeatedly failed uploads"
+        ):
+            upload(page)
+
+        target.logger.force_write.assert_called_once()
+
+    def test_late_registrations_after_abort_are_marked_skipped_not_success(self, tmp_path: Path) -> None:
+        """Regression test for the race between the download thread registering items and the
+        "unprocessed" sweep on early termination, see `_run_migration_steps`."""
+        logger = FileWithAggregationLogger(MagicMock())
+
+        def _fake_run(self: ProducerWorkerExecutor, start_item: int = 0) -> None:
+            logger.register(["item-1"])
+            try:
+                self._write(Page(worker_id="main", items=[DataItem(tracking_id="item-1", item=1)]))
+            except Exception as error:
+                self.error_exception = error
+            # Simulate the download thread registering more items concurrently, after the write
+            # failure is detected but before the executor's threads have actually joined.
+            logger.register(["item-2", "item-3"])
+
+        data = MagicMock(CHUNK_SIZE=1000, KIND="Instances")
+        data.upload_items.return_value = [ItemsFailedRequest(ids=["item-1"], error_message="boom")]
+        data.stream_data.return_value = iter([])
+        selected = MagicMock(display_name="TestView", kind="TestKind", __str__=lambda self: "TestView")
+        step = MigrationStep(
+            total_count=1, completed_count=0, bookmark=None, message="", is_completed=False, selector=selected
+        )
+
+        command = MigrationCommand(silent=True)
+        with patch.object(ProducerWorkerExecutor, "run", autospec=True, side_effect=_fake_run):
+            results_by_selector = command._run_migration_steps(
+                plan=[step],
+                data=data,
+                mapper=MagicMock(destination_label=None),
+                logger=logger,
+                write_client=MagicMock(),
+                log_dir=tmp_path,
+                dry_run=False,
+                verbose=False,
+                console=MagicMock(),
+            )
+
+        totals = _migration_status_totals(results_by_selector["TestView"])
+        assert totals["failure"] == 1
+        assert totals["skipped"] == 2
+        assert totals["success"] == 0
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
