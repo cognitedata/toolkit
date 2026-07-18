@@ -99,7 +99,11 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         for item in items:
             payload = {
                 "query": UPSERT_BODY,
-                "variables": {"dmCreate": item.model_dump(mode="json", by_alias=True, exclude_unset=False)},
+                # Use dump(exclude_extra=True) so that any extra keys in the source YAML
+                # (stored in __pydantic_extra__ via extra="allow") are not forwarded to
+                # the GraphQlDmlVersionUpsert input — the CDF API rejects unknown fields
+                # with upsertGraphQlDmlVersion=null and a top-level GraphQL error.
+                "variables": {"dmCreate": item.dump(exclude_extra=True)},
             }
             response = self._post_graphql(payload)
             results.append(response.upsert_graph_ql_dml_version.result)

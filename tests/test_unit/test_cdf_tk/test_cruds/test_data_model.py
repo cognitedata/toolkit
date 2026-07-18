@@ -627,6 +627,47 @@ class TestGraphQLCRUDGetDependencies:
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
 
 
+class TestGraphQLCreatePayload:
+    """Regression tests for the GraphQL upsert mutation payload sent to the CDF API."""
+
+    def test_extra_yaml_fields_excluded_from_mutation_variables(self) -> None:
+        # Regression: model_dump(exclude_unset=False) forwarded any extra YAML key
+        # (stored in __pydantic_extra__ via extra="allow") to the GraphQlDmlVersionUpsert
+        # mutation variables.  The CDF API rejects unknown fields and returns
+        # upsertGraphQlDmlVersion=null, causing a cryptic Pydantic validation error.
+        r = GraphQLDataModelRequest.model_validate(
+            {"space": "s", "externalId": "e", "version": "v", "unknownYamlKey": "leaks"}
+        )
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert "unknownYamlKey" not in payload
+        assert "graphQlDml" in payload
+
+    def test_null_optional_fields_not_sent_in_mutation_variables(self) -> None:
+        # Optional fields that were never set should not appear in the payload so we
+        # don't forward unexpected nulls to the API.
+        r = GraphQLDataModelRequest.model_validate({"space": "s", "externalId": "e", "version": "v"})
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert "preserveDml" not in payload
+        assert "previousVersion" not in payload
+        assert "name" not in payload
+        assert "description" not in payload
+
+    def test_explicitly_set_optional_fields_are_sent(self) -> None:
+        # Fields that the user explicitly put in their YAML should be forwarded.
+        r = GraphQLDataModelRequest.model_validate(
+            {"space": "s", "externalId": "e", "version": "v", "previousVersion": "v0", "preserveDml": True}
+        )
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert payload["previousVersion"] == "v0"
+        assert payload["preserveDml"] is True
+
+
 class TestDataModelBuilder:
     """Regression tests for DataModelBuilder (build v1)."""
 
