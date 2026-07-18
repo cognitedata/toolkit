@@ -627,6 +627,89 @@ class TestGraphQLCRUDGetDependencies:
         assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
 
 
+class TestGraphQLCreatePayload:
+    """Regression tests for the GraphQL upsert mutation payload and response parsing."""
+
+    def test_extra_yaml_fields_excluded_from_mutation_variables(self) -> None:
+        r = GraphQLDataModelRequest.model_validate(
+            {"space": "s", "externalId": "e", "version": "v", "unknownYamlKey": "leaks"}
+        )
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert "unknownYamlKey" not in payload
+        assert "graphQlDml" in payload
+
+    def test_null_optional_fields_not_sent_in_mutation_variables(self) -> None:
+        r = GraphQLDataModelRequest.model_validate({"space": "s", "externalId": "e", "version": "v"})
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert "preserveDml" not in payload
+        assert "previousVersion" not in payload
+        assert "name" not in payload
+        assert "description" not in payload
+
+    def test_explicitly_set_optional_fields_are_sent(self) -> None:
+        r = GraphQLDataModelRequest.model_validate(
+            {"space": "s", "externalId": "e", "version": "v", "previousVersion": "v0", "preserveDml": True}
+        )
+        r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
+        payload = r_with_dml.dump(exclude_extra=True)
+
+        assert payload["previousVersion"] == "v0"
+        assert payload["preserveDml"] is True
+
+    @staticmethod
+    def _make_api(response_body: str):  # type: ignore[return]
+        from unittest.mock import MagicMock
+
+        from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+
+        mock_success = MagicMock()
+        mock_success.body = response_body
+        mock_result = MagicMock()
+        mock_result.get_success_or_raise.return_value = mock_success
+        mock_http = MagicMock()
+        mock_http.request_single_retries.return_value = mock_result
+
+        api = GraphQLDataModelsAPI(http_client=mock_http)
+        api._make_url = MagicMock(return_value="https://api.cognitedata.com/dml/graphql")  # type: ignore[method-assign]
+        return api
+
+    def test_top_level_graphql_error_surfaced_not_swallowed(self) -> None:
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        body = json.dumps(
+            {
+                "data": {"upsertGraphQlDmlVersion": None},
+                "errors": [{"message": "Unknown argument 'dml' on field 'upsertGraphQlDmlVersion'"}],
+            }
+        )
+        with pytest.raises(ToolkitAPIError, match="Unknown argument 'dml'"):
+            self._make_api(body)._post_graphql({"query": "...", "variables": {}})
+
+    def test_dml_compile_error_surfaced_as_actionable_message(self) -> None:
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        body = json.dumps(
+            {
+                "data": {
+                    "upsertGraphQlDmlVersion": {
+                        "errors": [{"kind": "COMPILE_ERROR", "message": "Type 'Foo' not found", "hint": None}],
+                        "result": None,
+                    }
+                },
+            }
+        )
+        with pytest.raises(ToolkitAPIError, match="Type 'Foo' not found"):
+            self._make_api(body)._post_graphql({"query": "...", "variables": {}})
+
+
 class TestDataModelBuilder:
     """Regression tests for DataModelBuilder (build v1)."""
 
