@@ -150,6 +150,11 @@ class AssetPageConfiguration(BaseModelObject):
 
 class FeatureConfiguration(BaseModelObject):
     root_location_configurations: list[RootLocationConfiguration] | None = None
+    # If viewMappings is set, it will override the customerDataSpaceId, customerDataSpaceVersion
+    # and which view externalIds are used in the UI. If set, it will also be used to determine the views
+    # ("activity", "operation", "notification") to migrate from instead of the default APM_SourceData.
+    # Each value is a raw {space, externalId, version} dict.
+    view_mappings: dict[str, JsonValue] | None = None
     copilot: EnabledToggle | DisabledToggle | None = None
     activities: Activities | None = None
     documents: Documents | None = None
