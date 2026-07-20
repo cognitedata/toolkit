@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeId,
     NodeRequest,
+    SpaceId,
     SpaceRequest,
     ViewId,
 )
@@ -62,6 +63,7 @@ class CreatedResource(Generic[T_RequestResource]):
     resource: T_RequestResource
     config_data: dict[str, Any] | None = None
     filestem: str | None = None
+    field_comments: dict[str, str] | None = None
 
 
 @dataclass
@@ -284,6 +286,18 @@ class SourceSystemCreator(MigrationCreator):
             raise ValueError("This should not happen.")
 
 
+DATA_FILTERS_COMMENT = (
+    "Defaulted time series and files to the asset instance space. If your timeseries or files live in a different space, "
+    "update instanceSpaces under 'timeseries' and 'files' accordingly."
+)
+
+LOCATION_CONFIG_SPACE_COMMENT = (
+    "This space controls who can see this location in InField (dataModelInstancesAcl READ). "
+    "Defaulted to a dedicated config space (<appInstanceSpaceBase>_cfg). This space also controls "
+    "write access to the Location config itself (dataModelInstancesAcl WRITE)."
+)
+
+
 class InfieldV2ConfigCreator(MigrationCreator):
     TARGET_SPACE = "APM_Config"
 
@@ -308,12 +322,14 @@ class InfieldV2ConfigCreator(MigrationCreator):
             # We know this is not None from the check in __init__
             apm_configs = list(cast(Sequence[APMConfigResponse], self.apm_configs))
 
+        all_spaces: list[CreatedResource[SpaceRequest]] = []
         all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
         all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
+        seen_spaces: set[str] = set()
         success_count = 0
         skipped_external_ids_by_label: dict[str, list[str]] = {}
         for apm_config in apm_configs:
-            location_configs, location_filters = self._create_infield_v2_config(
+            location_configs, location_filters, spaces = self._create_infield_v2_config(
                 apm_config, skipped_external_ids_by_label
             )
             success_count += len(location_configs)
@@ -322,6 +338,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     resource=loc_config,
                     config_data=loc_config.dump(context="toolkit", exclude={"instance_type"}),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
+                    field_comments={"space": LOCATION_CONFIG_SPACE_COMMENT, "dataFilters": DATA_FILTERS_COMMENT},
                 )
                 for loc_config in location_configs
             )
@@ -333,9 +350,24 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 )
                 for loc_filter in location_filters
             )
+            for space in spaces:
+                if space.space not in seen_spaces:
+                    seen_spaces.add(space.space)
+                    all_spaces.append(
+                        CreatedResource(
+                            resource=space,
+                            config_data=space.dump(),
+                            filestem=space.space,
+                        )
+                    )
 
         self._display_summary(success_count, skipped_external_ids_by_label)
 
+        yield ToCreateResources(
+            resources=all_spaces,
+            crud_cls=SpaceCRUD,
+            display_name="Instance Spaces",
+        )
         yield ToCreateResources(
             resources=all_location_filters,
             crud_cls=LocationFilterIO,
@@ -351,11 +383,21 @@ class InfieldV2ConfigCreator(MigrationCreator):
         self,
         config: APMConfigResponse,
         skipped_external_ids_by_label: dict[str, list[str]],
-    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
+    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest], list[SpaceRequest]]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
         location_filters: list[LocationFilterRequest] = []
+        spaces: list[SpaceRequest] = []
         if not config.feature_configuration:
-            return location_configs, location_filters
+            return location_configs, location_filters, spaces
+
+        origin_space_names = {
+            space_id
+            for root in (config.feature_configuration.root_location_configurations or [])
+            for space_id in [root.app_data_instance_space, root.source_data_instance_space]
+            if space_id is not None
+        }
+        origin_space_ids = [SpaceId(space=space_name) for space_name in origin_space_names]
+        origin_spaces = {s.space: s for s in self.client.tool.spaces.retrieve(origin_space_ids)}
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"
@@ -377,10 +419,32 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
+            for space_name in [
+                root_location_config.app_data_instance_space,
+                root_location_config.source_data_instance_space,
+            ]:
+                if space_name is not None:
+                    origin = origin_spaces.get(space_name)
+                    spaces.append(
+                        SpaceRequest(
+                            space=f"{space_name}_cdm",
+                            name=f"{origin.name} (CDM)" if origin and origin.name else None,
+                            description=f"{origin.description} (migrated)" if origin and origin.description else None,
+                        )
+                    )
+            if root_location_config.app_data_instance_space is not None:
+                origin = origin_spaces.get(root_location_config.app_data_instance_space)
+                spaces.append(
+                    SpaceRequest(
+                        space=f"{root_location_config.app_data_instance_space}_cfg",
+                        name=f"{origin.name} (config)" if origin and origin.name else None,
+                        description=f"{origin.description} (config)" if origin and origin.description else None,
+                    )
+                )
             location_filters.append(self._create_location_filter(root_location_config))
             location_configs.append(location_config)
 
-        return location_configs, location_filters
+        return location_configs, location_filters, spaces
 
     def _display_summary(self, success_count: int, skipped_external_ids_by_label: dict[str, list[str]]) -> None:
         items: list[ItemsResult] = []
@@ -454,6 +518,20 @@ class InfieldV2ConfigCreator(MigrationCreator):
             feature_toggles = config.feature_toggles.dump()
             if config.feature_toggles.observations:
                 feature_toggles["observations"] = config.feature_toggles.observations.is_enabled
+        else:
+            # featureToggles was not set in the old location; default all toggles to True
+            feature_toggles = {
+                "threeD": True,
+                "trends": True,
+                "documents": True,
+                "workorders": True,
+                "notifications": True,
+                "media": True,
+                "templateChecklistFlow": True,
+                "workorderChecklistFlow": True,
+                "observations": True,
+                "copilot": True,
+            }
 
         access_management: dict[str, JsonValue] = {}
         if config.template_admins:
@@ -463,15 +541,24 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.checklist_admins:
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
-        data_filters: dict[str, JsonValue] = {}
-        for key in ["assets", "files", "timeseries", "maintenanceOrders", "operations", "notifications"]:
-            # Todo Assets does not support multiple instanceSpaces.
-            #    add to Validation in cdf build.
-            data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
+        app_instance_space = f"{config.app_data_instance_space}_cdm"
+        source_instance_space = f"{config.source_data_instance_space}_cdm"
+        cfg_space = f"{config.app_data_instance_space}_cfg"
+        # dataFilters.assets.instanceSpaces[0] must match dataStorage.rootLocation.space, otherwise the
+        # asset hierarchy query (which filters on both) can silently return nothing.
+        data_filters: dict[str, JsonValue] = {
+            "assets": {"instanceSpaces": [root_node.space]},
+        }
+        for key in ["timeseries", "files"]:
+            # appInstanceSpace must come first so that by-externalId lookups (which use the first
+            # instance space as the view's default space) resolve to app-written data correctly.
+            data_filters[key] = {"instanceSpaces": [root_node.space]}
+        for key in ["maintenanceOrders", "operations", "notifications"]:
+            data_filters[key] = {"instanceSpaces": [source_instance_space]}
 
         data_storage = DataStorage(
             root_location=root_node.dump(include_instance_type=False),
-            app_instance_space=f"{config.app_data_instance_space}_cdm",
+            app_instance_space=app_instance_space,
         )
         view_mappings: dict[str, JsonValue] = {}
         for key, default_view in [
@@ -484,8 +571,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
             view_mappings[key] = default_view.dump()
 
         name = config.display_name or config.asset_external_id or external_id
+        # The node's own space determines who can see this location in InField (dataModelInstancesAcl READ),
+        # independent of appInstanceSpace, which only governs write access. We use a dedicated _cfg space
+        # (same base as appInstanceSpace but with _cfg suffix) so location visibility is independently
+        # access-controlled from app data writes. See LOCATION_CONFIG_SPACE_COMMENT.
         return InFieldCDMLocationConfigRequest(
-            space=config.source_data_instance_space or "<Please fill in the source data instance space>",
+            space=cfg_space,
             external_id=external_id,
             name=name,
             description="Migrated InField Location Configuration",
