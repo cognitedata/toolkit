@@ -272,3 +272,49 @@ def test_update_missing_capabilities_dm_only_project() -> None:
     created_group_request = client.tool.groups.create.call_args[0][0][0]
     assert len(created_group_request.capabilities) == 1
     assert isinstance(created_group_request.capabilities[0].acl, StreamsAcl)
+
+
+def test_update_missing_capabilities_drops_source_id_when_members_present() -> None:
+    """On Entra ID clusters, the API returns groups with both members and sourceId.
+    The create call must not send both simultaneously."""
+    missing_acls = [
+        StreamsAcl(actions=["READ"], scope=AllScope()),
+    ]
+    existing = GroupResponse(
+        id=42,
+        is_deleted=False,
+        name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+        source_id="entra-id-group-id",
+        members=["service-account@example.com"],
+        capabilities=[
+            GroupCapability(acl=AssetsAcl(actions=["READ"], scope=AllScope())),
+        ],
+    )
+    created_response = GroupResponse(
+        id=43,
+        is_deleted=False,
+        name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+        members=["service-account@example.com"],
+        capabilities=[
+            GroupCapability(acl=AssetsAcl(actions=["READ"], scope=AllScope())),
+            GroupCapability(acl=StreamsAcl(actions=["READ"], scope=AllScope())),
+        ],
+    )
+    with monkeypatch_toolkit_client() as client:
+        client.tool.groups.create.return_value = [created_response]
+        client.tool.groups.delete.return_value = None
+
+        result = AuthCommand()._update_missing_capabilities(
+            client,
+            existing,
+            missing_acls,
+            dry_run=False,
+            project=CDF_PROJECT,
+            data_modeling_status="HYBRID",
+        )
+
+    assert result is True
+    client.tool.groups.create.assert_called_once()
+    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    assert created_group_request.members == ["service-account@example.com"]
+    assert created_group_request.source_id is None

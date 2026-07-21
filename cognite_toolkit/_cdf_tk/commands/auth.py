@@ -373,6 +373,10 @@ class AuthCommand(ToolkitCommand):
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
         updated_group = existing_group.as_request_resource()
+        # CDF API rejects requests with both members and sourceId set.
+        # When the group uses members (CDF-managed), drop the IDP-populated sourceId.
+        if updated_group.members and updated_group.source_id is not None:
+            updated_group.source_id = None
         missing_group_caps = [GroupCapability(acl=acl) for acl in missing_capabilities]
         if updated_group.capabilities is None:
             updated_group.capabilities = list(missing_group_caps)
