@@ -21,6 +21,7 @@ global_config.silence_feature_preview_warnings = True
 from rich import print
 
 from cognite_toolkit._cdf_tk.apps import (
+    AgentApp,
     AuthApp,
     CoreApp,
     DataApp,
@@ -112,6 +113,9 @@ if Flags.IMPORT_CMD.is_enabled():
 if Plugins.data.value.is_enabled():
     _app.add_typer(DataApp(**default_typer_kws), name="data")
 
+if Plugins.agent.value.is_enabled():
+    _app.command(".", context_settings={"ignore_unknown_options": True})(AgentApp.agent)
+
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
@@ -182,13 +186,14 @@ def app() -> NoReturn:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
     except SystemExit:
-        if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
+        if result := re.search(r"click.exceptions.UsageError: No such command '([^']+)'.", traceback.format_exc()):
             cmd = result.group(1)
-            if cmd in Plugins.list():
+            plugin_name = "agent" if cmd == "." else cmd
+            if plugin_name in Plugins.list():
                 plugin = r"[plugins]"
                 print(
-                    f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
-                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
+                    f"{HINT_LEAD_TEXT} The plugin [bold]{plugin_name}[/bold] is not enabled."
+                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{plugin_name} = true' in the "
                     f"[bold]{escape(plugin)}[/bold] section."
                     f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
                 )
