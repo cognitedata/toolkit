@@ -34,6 +34,10 @@ class BuildParameters(BaseModel):
         default="csv",
         description="Format for the insights file written to the build directory.",
     )
+    topology: Path | None = Field(
+        default=None,
+        description="If set, the instance-level resource dependency graph is written as YAML to this path.",
+    )
 
     @property
     def modules_directory(self) -> Path:
