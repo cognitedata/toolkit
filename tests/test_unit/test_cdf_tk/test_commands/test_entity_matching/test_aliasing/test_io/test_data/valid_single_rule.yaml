@@ -1,0 +1,8 @@
+key_path: 'properties.cdf_cdm["CogniteAsset/v1"].name'
+rules:
+  - name: "replace_p_with_k"
+    rule_type: "character_substitution"
+    description: "Replace P with K"
+    payload:
+      replacements:
+        "P": "K"
