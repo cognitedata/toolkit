@@ -3,6 +3,7 @@
 This API provides a wrapper around the legacy DML API for managing GraphQL data models.
 """
 
+import json
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -26,13 +27,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
+class DMLError(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    kind: str | None = None
+    message: str | None = None
+    hint: str | None = None
+
+
 class UpsertResponseData(BaseModel):
-    errors: dict[str, Any] | None = None
-    result: GraphQLDataModelResponse
+    errors: list[DMLError] | None = None
+    result: GraphQLDataModelResponse | None = None
 
 
 class GraphQLUpsertResponse(BaseModel):
-    upsert_graph_ql_dml_version: UpsertResponseData = Field(alias="upsertGraphQlDmlVersion")
+    upsert_graph_ql_dml_version: UpsertResponseData | None = Field(None, alias="upsertGraphQlDmlVersion")
 
 
 class GraphQLErrors(BaseModel):
@@ -43,7 +51,7 @@ class GraphQLErrors(BaseModel):
 
 
 class GraphQLResponse(BaseModel):
-    data: GraphQLUpsertResponse
+    data: GraphQLUpsertResponse | None = None
     errors: list[GraphQLErrors] | None = None
 
 
@@ -79,11 +87,19 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise(request)
-        parsed = GraphQLResponse.model_validate_json(response.body)
-        if errors := parsed.errors:
-            raise ToolkitAPIError(
-                f"Failed GraphQL errors: {humanize_collection([error.message for error in errors if error.message])}"
-            )
+        raw = json.loads(response.body)
+        if top_errors := raw.get("errors"):
+            messages = [e.get("message", str(e)) for e in top_errors if isinstance(e, dict)]
+            raise ToolkitAPIError(f"GraphQL mutation failed: {humanize_collection(messages)}")
+        parsed = GraphQLResponse.model_validate(raw)
+        if parsed.data is None:
+            raise ToolkitAPIError("GraphQL mutation returned no data and no errors.")
+        upsert = parsed.data.upsert_graph_ql_dml_version
+        if upsert is None:
+            raise ToolkitAPIError("GraphQL mutation returned no result and no errors.")
+        if upsert.errors:
+            messages = [e.message for e in upsert.errors if e.message]
+            raise ToolkitAPIError(f"DML validation failed: {humanize_collection(messages)}")
         return parsed.data
 
     def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
@@ -99,10 +115,13 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         for item in items:
             payload = {
                 "query": UPSERT_BODY,
-                "variables": {"dmCreate": item.model_dump(mode="json", by_alias=True, exclude_unset=False)},
+                "variables": {"dmCreate": item.dump(exclude_extra=True)},
             }
             response = self._post_graphql(payload)
-            results.append(response.upsert_graph_ql_dml_version.result)
+            upsert = response.upsert_graph_ql_dml_version
+            if upsert is None or upsert.result is None:
+                raise ToolkitAPIError("GraphQL mutation succeeded but returned no data model.")
+            results.append(upsert.result)
         return results
 
     def retrieve(self, items: Sequence[DataModelId], inline_views: bool = False) -> list[GraphQLDataModelResponse]:

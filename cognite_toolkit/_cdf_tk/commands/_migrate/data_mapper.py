@@ -12,6 +12,7 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationPoint,
     AnnotationResponse,
     ImageAssetLinkData,
 )
@@ -74,7 +75,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
     RevisionStatus,
     ThreeDModelClassicResponse,
-    ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -145,6 +145,10 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         # just-mapped target instances as if they had been uploaded, so that downstream
         # steps' constraint checks do not falsely report them as missing in CDF.
         self.dry_run: bool = False
+        # Subclasses that know the specific destination (e.g., a target view) for the data
+        # being migrated in the current step can set this in prepare() so that upload failure
+        # logs can report it instead of a generic destination label (e.g., the DataIO KIND).
+        self.destination_label: str | None = None
 
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
@@ -1382,7 +1386,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         # Set in prepare() so that reported issues can point to the specific source/destination
         # view of the current migration step, instead of a generic "FDM/CDM instances" label.
         self._current_issue_source: str = "FDM instances"
-        self._current_issue_destination: str = "CDM instances"
+        self.destination_label: str | None = "CDM instances"
 
     def process_description(self, source_selector: InstanceSelector) -> str:
         destination_view = self._get_destination_view(source_selector)
@@ -1422,7 +1426,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 version=source_selector.view.version,
             )
             mapping = self._mappings_by_source_view.get(selected_view)
-        self._current_issue_destination = str(mapping.destination_view) if mapping is not None else "CDM instances"
+        self.destination_label = str(mapping.destination_view) if mapping is not None else "CDM instances"
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -1489,7 +1493,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             self.logger.log(
                 [
                     instance_conversion_issue_as_migration_entry(
-                        issue, source=self._current_issue_source, destination=self._current_issue_destination
+                        issue, source=self._current_issue_source, destination=self.destination_label or "CDM instances"
                     )
                     for issue in issue_by_source_node_id.values()
                 ]
@@ -2051,6 +2055,23 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_instance_mappings=custom_instance_mappings,
         )
 
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        self._populate_cache([data_item.item for data_item in source])
+        return super().map(source)
+
+    def _populate_cache(self, source: Sequence[NodeOrEdgeResponse]) -> None:
+        file_external_ids: list[str] = []
+        for item in source:
+            if not isinstance(item, NodeResponse):
+                continue
+            image_props = (item.properties or {}).get(LEGACY_IMAGE360_SOURCE_VIEW) or {}
+            for source_property in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY:
+                value = image_props.get(source_property)
+                if isinstance(value, str):
+                    file_external_ids.append(value)
+        if file_external_ids:
+            self.client.migration.lookup.files(external_id=file_external_ids)
+
     @staticmethod
     def missing_cubemap_face_file_external_ids(
         source_node: NodeResponse,
@@ -2109,9 +2130,10 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
 class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
     """Maps each legacy Image360Collection node to a Cognite360ImageCollection CDM node.
 
-    First, as a side-effect, registers an Image360 3D model in the 3D backend per collection
-    (or reuses an existing model3D reference when the collection was already migrated previously)
-    and sets model3D on the collection revision.
+    When the collection was already migrated, the existing model3D reference is included in the
+    mapped NodeRequest so that Image360CollectionInstanceIO skips model creation on re-runs.
+    Otherwise, the node is emitted without model3D; Image360CollectionInstanceIO will create the
+    Image360 3D model and patch the reference in during the upload step.
 
     Registered via FDMtoCDMMapper.custom_instance_mappings so it runs instead of the default
     ViewToViewMapping path for Image360Collection source nodes.
@@ -2148,18 +2170,15 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                 if isinstance(model_3d, dict) and (existing_external_id := model_3d.get("externalId")):
                     model_external_id = str(existing_external_id)
 
-            if model_external_id is None:
-                if self.dry_run:
-                    model_external_id = "cog_3d_model_<dry-run>"
-                else:
-                    label = str(
-                        ((node.properties or {}).get(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW) or {}).get("label")
-                        or node.external_id
-                    )
-                    created_model = self.client.tool.three_d.models_classic.create(
-                        [ThreeDModelDMSRequest(name=label, space=instance_space, type="Image360")]
-                    )[0]
-                    model_external_id = f"cog_3d_model_{created_model.id}"
+            revision_properties: dict[str, Any] = {
+                "status": "Done",
+                "published": True,
+                "type": "Image360",
+            }
+            if model_external_id is not None:
+                # Include the existing model3D reference so Image360CollectionInstanceIO
+                # knows not to create a new 3D model on re-runs.
+                revision_properties["model3D"] = {"space": instance_space, "externalId": model_external_id}
 
             results.append(
                 DataItem(
@@ -2170,12 +2189,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
                         sources=[
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm_3d", external_id="Cognite3DRevision"),
-                                properties={
-                                    "model3D": {"space": instance_space, "externalId": model_external_id},
-                                    "status": "Done",
-                                    "published": True,
-                                    "type": "Image360",
-                                },
+                                properties=revision_properties,
                             ),
                             InstanceSource(
                                 source=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
@@ -2322,20 +2336,19 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
             return None
 
         object_region = annotation_data.object_region
-        if object_region is None or object_region.polygon is None:
-            self.logger.log(
-                MigrationEntryV2(
-                    id=str(annotation.id),
-                    severity=Severity.skipped,
-                    label="Skipped",
-                    message="Annotation has no objectRegion polygon.",
-                    source="Image360 annotations",
-                    destination="360-image-annotations",
-                )
-            )
-            return None
-
-        vertices = object_region.polygon.vertices
+        if object_region is not None and object_region.polygon is not None:
+            vertices = object_region.polygon.vertices
+        else:
+            if object_region is not None and object_region.bounding_box is not None:
+                bb = object_region.bounding_box
+            else:
+                bb = annotation_data.text_region
+            vertices = [
+                AnnotationPoint(x=bb.x_min, y=bb.y_min),
+                AnnotationPoint(x=bb.x_max, y=bb.y_min),
+                AnnotationPoint(x=bb.x_max, y=bb.y_max),
+                AnnotationPoint(x=bb.x_min, y=bb.y_max),
+            ]
         if len(vertices) < 3:
             self.logger.log(
                 MigrationEntryV2(

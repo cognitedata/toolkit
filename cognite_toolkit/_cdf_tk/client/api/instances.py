@@ -143,30 +143,46 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             PagedResponse of InstanceResponse objects.
         """
-        request = self._create_query(filter, limit, cursor)
+        request = self._create_query(filter, limit, cursor, endpoint=endpoint)
         response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
         return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
 
     def _create_query(
-        self, filter: InstanceFilter | None, limit: int | None, cursor: str | None = None
+        self,
+        filter: InstanceFilter | None,
+        limit: int | None,
+        cursor: str | None = None,
+        endpoint: QueryEndpoint = "query",
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
         # We sort by space and externalId to get a stable sort order.
-        #
         # This is also more performant than sorting by using the default sort, which will sort on
         # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
         # By sorting on space and externalId, we avoid this issue.
+        # Exception: when pinned to exactly one space, omit the sort so the server uses
+        # its internal-node-id order. This was observed to be provide a better performance
+        # compromise across different projects compared to the (space, externalId) sort.
+        filter_spaces = filter.space if filter is not None else None
+        space_ext_id_sort: list[QuerySortSpec] | None = None
+        if filter is None or filter_spaces is None or len(filter_spaces) > 1:
+            instance_type = filter.instance_type if filter is not None else None
+            instance_type = instance_type or "node"
+            space_ext_id_sort = [
+                QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
+                QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
+            ]
+        sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
+
         if filter is None:
             query = QueryRequest(
                 with_={
                     "root": QueryNodeExpression(
                         limit=limit,
                         nodes=QueryNodeTableExpression(),
-                        sort=[
-                            QuerySortSpec(property=["node", "space"]),
-                            QuerySortSpec(property=["node", "externalId"]),
-                        ],
+                        sort=space_ext_id_sort,
+                        mode=sync_mode,
+                        backfill_sort=space_ext_id_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -180,13 +196,17 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
                 limit=limit,
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
+                sort=space_ext_id_sort,
+                mode=sync_mode,
+                backfill_sort=space_ext_id_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
                 limit=limit,
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+                sort=space_ext_id_sort,
+                mode=sync_mode,
+                backfill_sort=space_ext_id_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:
@@ -216,7 +236,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         """
         endpoint_prop = self._get_endpoint(endpoint)
         chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
-        query = self._create_query(filter, chunk_limit, init_cursor)
+        query = self._create_query(filter, chunk_limit, init_cursor, endpoint=endpoint)
         for response in self.query_iterate(
             query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
         ):
@@ -300,6 +320,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                         first.items[key].extend(items)  # type: ignore[arg-type]
                     else:
                         first.items[key] = items  # type: ignore[assignment]
+            # Advance next_cursor to reflect the last batch. Otherwise callers
+            # that use this merged response as a paginated result will re-issue
+            # the first batch's cursor and re-fetch items 2..N, causing duplicate
+            # registrations downstream.
+            first.next_cursor = results[-1].next_cursor
         return first
 
     @overload
@@ -447,7 +472,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         )
         response = self._http_client.request_single_retries(request)
         if isinstance(response, FailedResponse) and response.status_code == 408:
-            # Graph query timed out. Reduce load or contention, or optimise your query.
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
                     f"Request failed with status code {response.status_code}: {response.error.message}",

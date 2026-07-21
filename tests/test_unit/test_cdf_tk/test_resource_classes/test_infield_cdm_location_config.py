@@ -366,3 +366,27 @@ class TestInfieldCDMLocationConfigYAML:
         loaded = InFieldCDMLocationConfigYAML.model_validate(data)
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         assert dumped == data
+
+    def test_load_valid_observation_view_config_with_required_properties(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "requiredProperties": ["assets", "files"],
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                        },
+                    },
+                ],
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data

@@ -184,6 +184,10 @@ class InstanceQuerySelector(InstanceSelector):
         root: The root node in the query. This is used for identifying the relevant spaces for
             the migration and for identifying the relevant instances in the response.
         subselections: A list of subselection names in the query. This is used for identifying
+        include_root: Whether the root group's items should be included in the downloaded data. Set this to
+            False when the root is only selected to make the query endpoint emit a cursor for it (needed for
+            pagination), and its items are not actual migration targets, e.g. because they are downloaded
+            separately by another selector.
     """
 
     type: Literal["instanceQuery"] = "instanceQuery"
@@ -191,6 +195,7 @@ class InstanceQuerySelector(InstanceSelector):
     query: str
     root: str
     subselections: tuple[str, ...]
+    include_root: bool = True
 
     def get_schema_spaces(self) -> list[str] | None:
         return None

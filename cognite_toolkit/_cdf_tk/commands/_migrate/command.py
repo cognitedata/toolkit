@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import add_top_level_comment_in_yaml, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
@@ -149,7 +149,14 @@ class MigrationCommand(ToolkitCommand):
                 download_iterable=data.stream_data(selected, bookmark=step.bookmark),
                 process=self._convert(mapper),
                 write=self._upload(
-                    selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
+                    selected,
+                    write_client,
+                    data,
+                    mapper.destination_label or data.KIND,
+                    dry_run,
+                    log_dir,
+                    step.total_count,
+                    step.completed_count,
                 ),
                 total_item_count=step.total_count,
                 max_queue_size=10,
@@ -186,7 +193,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrating"
+            action = "Would migrate" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
@@ -220,7 +227,7 @@ class MigrationCommand(ToolkitCommand):
                         f"Found progress file for {selector.display_name}. But total items "
                         f"does not match the expected total. Starting from beginning..."
                     )
-                elif progress.status == "completed" and (not is_sync or completed_count == total_items):
+                elif progress.status == "completed" and not is_sync:
                     message = f"Found completed progress file for {selector.display_name}. Skipping migration."
                     is_complete = True
                 elif first is not None:
@@ -318,6 +325,7 @@ class MigrationCommand(ToolkitCommand):
         selected: T_Selector,
         write_client: HTTPClient,
         target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
+        destination: str,
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,
@@ -352,7 +360,7 @@ class MigrationCommand(ToolkitCommand):
                                 label=f"Failed to write to CDF: {error.code}",
                                 message=error.message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
                 elif isinstance(item, ItemsFailedRequest):
@@ -364,7 +372,7 @@ class MigrationCommand(ToolkitCommand):
                                 label="Failed to write to CDF: Request failed",
                                 message=item.error_message,
                                 source=str(selected),
-                                destination=target.KIND,
+                                destination=destination,
                             )
                         )
 
@@ -514,7 +522,10 @@ class MigrationCommand(ToolkitCommand):
                         output_dir / crud_cls.folder_name / f"{sanitize_filename(item.filestem)}.{crud_cls.kind}.yaml"
                     )
                     filepath.parent.mkdir(parents=True, exist_ok=True)
-                    safe_write(filepath, yaml_safe_dump(item.config_data))
+                    content = yaml_safe_dump(item.config_data)
+                    for key, comment in (item.field_comments or {}).items():
+                        content = add_top_level_comment_in_yaml(content, key, comment)
+                    safe_write(filepath, content)
             self.console(
                 f"{len(to_create.resources)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
             )
