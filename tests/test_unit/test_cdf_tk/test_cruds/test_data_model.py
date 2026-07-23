@@ -257,7 +257,7 @@ class TestViewLoader:
             client.tool.views.retrieve.return_value = parent_grandparent_view
             parent = ViewId(space="space", external_id="Parent", version="v1")
             grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, Path("build_dir"), None)
             actual = loader.topological_sort_implements(
                 [
                     parent,
@@ -266,6 +266,77 @@ class TestViewLoader:
             )
 
         assert actual == [grandparent, parent]
+
+    def test_topological_sorting_preserves_unresolved_views(self) -> None:
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        unresolved = ViewId(space="space", external_id="Missing", version="v1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = []
+            loader = ViewIO(client, Path("build_dir"), None)
+            actual = loader.topological_sort_implements([parent, unresolved])
+
+        assert actual == [parent, unresolved]
+
+    def test_topological_sorting_uses_local_views(self, parent_grandparent_view: list[ViewResponse]) -> None:
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
+        local_views = {
+            parent: ViewRequest(
+                space=parent.space,
+                external_id=parent.external_id,
+                version=parent.version,
+                implements=[grandparent],
+            ),
+            grandparent: ViewRequest(
+                space=grandparent.space,
+                external_id=grandparent.external_id,
+                version=grandparent.version,
+            ),
+        }
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = []
+            loader = ViewIO(client, Path("build_dir"), None)
+            actual = loader.topological_sort_implements([parent, grandparent], local_views=local_views)
+
+        assert actual == [grandparent, parent]
+
+    def test_load_resource_normalizes_implements_order(self, parent_grandparent_view: list[ViewResponse]) -> None:
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewIO(client, Path("build_dir"), None)
+            loaded = loader.load_resource(
+                {
+                    "space": "space",
+                    "externalId": "Child",
+                    "version": "v1",
+                    "implements": [parent.dump(), grandparent.dump()],
+                }
+            )
+
+        assert loaded.implements == [grandparent, parent]
+
+    def test_create_normalizes_implements_order(self, parent_grandparent_view: list[ViewResponse]) -> None:
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
+        child = ViewRequest(
+            space="space",
+            external_id="Child",
+            version="v1",
+            implements=[parent, grandparent],
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewIO(client, Path("build_dir"), None)
+            loader.create([child])
+
+        sent_view = client.tool.views.create.call_args[0][0][0]
+        assert sent_view.implements == [grandparent, parent]
 
     def test_topological_sorting_cycle(self, parent_grandparent_view: list[ViewResponse]) -> None:
         parent_grandparent_view[1] = parent_grandparent_view[1].model_copy(
@@ -276,7 +347,7 @@ class TestViewLoader:
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, Path("build_dir"), None)
             loader.topological_sort_implements(
                 [
                     parent,
