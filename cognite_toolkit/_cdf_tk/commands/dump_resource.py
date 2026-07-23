@@ -224,7 +224,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             yield list(self.container_ids), None, ContainerCRUD.create_loader(self.client), "containers"
             yield list(self.space_ids), None, SpaceCRUD.create_loader(self.client), None
         else:
-            view_loader = ViewIO(self.client, None, None, topological_sort_implements=True)
+            view_loader = ViewIO(self.client, None, None)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
             container_loader = ContainerCRUD.create_loader(self.client)
