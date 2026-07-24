@@ -106,7 +106,9 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber input should be greater than or equal to 0"},
+        {
+            "In dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber input should be greater than or equal to 0"
+        },
         id="Negative orderNumber in dataExplorationConfig.assetPropertiesCardConfig",
     )
     yield pytest.param(

@@ -115,7 +115,9 @@ class ObservationViewConfig(BaseModelResource):
 
     @field_validator("fields_config")
     @classmethod
-    def validate_fields_config_keys(cls, val: dict[str, ObservationFieldConfig] | None) -> dict[str, ObservationFieldConfig] | None:
+    def validate_fields_config_keys(
+        cls, val: dict[str, ObservationFieldConfig] | None
+    ) -> dict[str, ObservationFieldConfig] | None:
         if val is None:
             return val
         _validate_view_property_keys(val)
