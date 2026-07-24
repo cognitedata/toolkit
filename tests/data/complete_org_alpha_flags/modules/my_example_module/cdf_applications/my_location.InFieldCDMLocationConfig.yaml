@@ -80,10 +80,12 @@ disciplines:
 - name: Civil
   externalId: discipline_civil
 dataExplorationConfig:
-  assetPropertiesCardView:
-    space: customer_idm_extention
-    version: v3
-    externalId: AssetPropertiesCard
+  assetPropertiesCardConfig:
+    name:
+      displayName: Asset name
+      orderNumber: 0
+    description:
+      orderNumber: 1
   assetActivitiesCardView:
     space: customer_idm_extention
     version: v4
