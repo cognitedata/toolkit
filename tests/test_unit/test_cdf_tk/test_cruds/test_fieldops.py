@@ -244,6 +244,38 @@ class TestInFieldCDMLocationConfigCRUD:
             (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
         }
 
+    def test_get_dependent_items_skips_malformed_observation_entries(self) -> None:
+        item = {
+            "space": "sp_instance",
+            "externalId": "my_location_config",
+            "viewMappings": {
+                "observation": [
+                    "not-a-dict",
+                    {"view": "not-a-dict"},
+                    {
+                        "view": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                        },
+                    },
+                    {
+                        "view": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "ObservationView",
+                        },
+                    },
+                ],
+            },
+        }
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
+        }
+
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"
         item = InFieldCDMLocationConfigRequest(

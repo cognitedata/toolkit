@@ -423,9 +423,10 @@ class TestInFieldCDMViewPropertiesRuleSet:
         assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
         assert "unknownField" in errors[0].message
 
-    def test_asset_properties_card_config_without_asset_view_errors(
+    def test_asset_properties_card_config_defaults_to_cognite_asset_view(
         self,
         tmp_path: Path,
+        mock_view: Callable[[ViewId, frozenset[str]], MagicMock],
         write_config_yaml: Callable[[Path, dict], None],
         create_built_resource: Callable[[Path, Path], BuiltResource],
         create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
@@ -445,12 +446,12 @@ class TestInFieldCDMViewPropertiesRuleSet:
         )
         resource = create_built_resource(yaml_file, yaml_file)
         module = create_module(tmp_path, [resource])
+        default_asset_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
+        mock_client.tool.views.retrieve.return_value = [mock_view(default_asset_id, frozenset({"name"}))]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
-        errors = list(rule.validate())
-        assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-MISSING-ASSET-VIEW"
-        mock_client.tool.views.retrieve.assert_not_called()
+        assert list(rule.validate()) == []
+        mock_client.tool.views.retrieve.assert_called_once_with([default_asset_id], include_inherited_properties=True)
 
     def test_retrieve_batch_failure_propagates(
         self,

@@ -368,6 +368,45 @@ def invalid_test_cases() -> Iterable:
         {
             "externalId": "my_config",
             "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "fieldsConfig": {
+                            "externalId": {},
+                        },
+                    },
+                ],
+            },
+        },
+        {
+            "In viewMappings.observation[1].fieldsConfig 'externalId' is a reserved property identifier. Reserved identifiers are: createdTime, deletedTime, edge_id, extensions, externalId, lastUpdatedTime, node_id, project_id, property_group, seq, space and tg_table_name"
+        },
+        id="Reserved property key in viewMappings.observation.fieldsConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "externalId": {},
+                },
+            },
+        },
+        {
+            "In dataExplorationConfig.assetPropertiesCardConfig 'externalId' is a reserved property identifier. Reserved identifiers are: createdTime, deletedTime, edge_id, extensions, externalId, lastUpdatedTime, node_id, project_id, property_group, seq, space and tg_table_name"
+        },
+        id="Reserved property key in dataExplorationConfig.assetPropertiesCardConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
             "dataExplorationConfig": {
                 "assetActivitiesCardView": {
                     "space": "my_space",

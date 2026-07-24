@@ -28,6 +28,7 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
 _CardViewRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
 # (resource, config_key, view_id, configured field keys)
 _FieldConfigRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
+_DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
 
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
@@ -64,10 +65,9 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     continue
                 if resource.type != config_type:
                     continue
-                card_refs, field_refs, errors = self._collect_refs(resource)
+                card_refs, field_refs = self._collect_refs(resource)
                 card_view_refs.extend(card_refs)
                 field_config_refs.extend(field_refs)
-                yield from errors
 
         if not card_view_refs and not field_config_refs:
             return
@@ -83,15 +83,20 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             yield from self._check_field_config_keys(resource, config_key, view_id, field_keys, views_by_id)
 
     @staticmethod
+    def _asset_view_id_for_card_config(config: InFieldCDMLocationConfigYAML) -> ViewId:
+        if config.view_mappings and config.view_mappings.asset is not None:
+            return config.view_mappings.asset.as_id()
+        return _DEFAULT_ASSET_VIEW_ID
+
+    @staticmethod
     def _collect_refs(
         resource: BuiltResource,
-    ) -> tuple[list[_CardViewRef], list[_FieldConfigRef], list[ConsistencyError]]:
+    ) -> tuple[list[_CardViewRef], list[_FieldConfigRef]]:
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
 
         card_refs: list[_CardViewRef] = []
         field_refs: list[_FieldConfigRef] = []
-        errors: list[ConsistencyError] = []
 
         if config.data_exploration_config:
             for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
@@ -103,26 +108,14 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                 card_refs.append((resource, card_key, view_id, required))
 
             if card_config := config.data_exploration_config.asset_properties_card_config:
-                if config.view_mappings is None or config.view_mappings.asset is None:
-                    errors.append(
-                        ConsistencyError(
-                            code=f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-MISSING-ASSET-VIEW",
-                            message=(
-                                f"dataExplorationConfig.assetPropertiesCardConfig in {resource.source_path.name!r} "
-                                "requires viewMappings.asset to validate field keys."
-                            ),
-                            fix="Add viewMappings.asset or remove assetPropertiesCardConfig.",
-                        )
+                field_refs.append(
+                    (
+                        resource,
+                        "assetPropertiesCardConfig",
+                        InFieldCDMViewPropertiesRuleSet._asset_view_id_for_card_config(config),
+                        frozenset(card_config.keys()),
                     )
-                else:
-                    field_refs.append(
-                        (
-                            resource,
-                            "assetPropertiesCardConfig",
-                            config.view_mappings.asset.as_id(),
-                            frozenset(card_config.keys()),
-                        )
-                    )
+                )
 
         if config.view_mappings and config.view_mappings.observation:
             for observation_config in config.view_mappings.observation:
@@ -137,7 +130,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     )
                 )
 
-        return card_refs, field_refs, errors
+        return card_refs, field_refs
 
     def _check_required_properties(
         self,
