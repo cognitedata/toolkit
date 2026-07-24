@@ -158,10 +158,12 @@ InFieldCDMLocationConfigResponse:
           externalId: InfieldNotificationsCardView
           space: customer_idm_extention
           version: v2
-        assetPropertiesCardView:
-          externalId: AssetPropertiesCard
-          space: customer_idm_extention
-          version: v3
+        assetPropertiesCardConfig:
+          description:
+            orderNumber: 1
+          name:
+            displayName: Asset name
+            orderNumber: 0
       dataFilters:
         assets:
           instanceSpaces:
