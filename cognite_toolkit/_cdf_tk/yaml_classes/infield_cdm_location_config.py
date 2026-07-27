@@ -1,32 +1,10 @@
-import re
-from collections.abc import Mapping
-
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
-from cognite_toolkit._cdf_tk.constants import (
-    CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
-    FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
-    SPACE_FORMAT_PATTERN,
-)
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 from .view_field_definitions import ViewReference
-
-_PROPERTY_KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
-
-
-def _validate_view_property_keys(val: Mapping[str, object]) -> Mapping[str, object]:
-    for key in val:
-        if not _PROPERTY_KEY_PATTERN.match(key):
-            raise ValueError(f"Property '{key}' does not match the required pattern: {_PROPERTY_KEY_PATTERN.pattern}")
-        if key in FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER:
-            raise ValueError(
-                f"'{key}' is a reserved property identifier. Reserved identifiers are: "
-                f"{humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER)}"
-            )
-    return val
 
 
 class FeatureToggles(BaseModelResource):
@@ -113,16 +91,6 @@ class ObservationViewConfig(BaseModelResource):
     fields_config: dict[str, ObservationFieldConfig] | None = None
     write_back: ObservationViewWriteBack | None = None
 
-    @field_validator("fields_config")
-    @classmethod
-    def validate_fields_config_keys(
-        cls, val: dict[str, ObservationFieldConfig] | None
-    ) -> dict[str, ObservationFieldConfig] | None:
-        if val is None:
-            return val
-        _validate_view_property_keys(val)
-        return val
-
 
 class ViewMappings(BaseModelResource):
     """View mappings configuration."""
@@ -148,16 +116,6 @@ class DataExplorationConfig(BaseModelResource):
     asset_properties_card_config: dict[str, AssetPropertiesCardFieldConfig] | None = None
     asset_activities_card_view: ViewReference | None = None
     asset_notifications_card_view: ViewReference | None = None
-
-    @field_validator("asset_properties_card_config")
-    @classmethod
-    def validate_asset_properties_card_config_keys(
-        cls, val: dict[str, AssetPropertiesCardFieldConfig] | None
-    ) -> dict[str, AssetPropertiesCardFieldConfig] | None:
-        if val is None:
-            return val
-        _validate_view_property_keys(val)
-        return val
 
 
 # Pydantic attribute name -> YAML/API key for card views used in build dependency and validation rules.

@@ -130,21 +130,6 @@ def invalid_test_cases() -> Iterable:
         {
             "externalId": "my_config",
             "space": "my_space",
-            "dataExplorationConfig": {
-                "assetPropertiesCardConfig": {
-                    "invalid@": {},
-                },
-            },
-        },
-        {
-            "In dataExplorationConfig.assetPropertiesCardConfig property 'invalid@' does not match the required pattern: ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
-        },
-        id="Invalid property key in dataExplorationConfig.assetPropertiesCardConfig",
-    )
-    yield pytest.param(
-        {
-            "externalId": "my_config",
-            "space": "my_space",
             "viewMappings": {
                 "observation": [],
             },
@@ -339,69 +324,6 @@ def invalid_test_cases() -> Iterable:
         },
         {"In viewMappings.observation[1].fieldsConfig.assets unknown field: 'unknownField'"},
         id="Unknown field in viewMappings.observation.fieldsConfig entry",
-    )
-    yield pytest.param(
-        {
-            "externalId": "my_config",
-            "space": "my_space",
-            "viewMappings": {
-                "observation": [
-                    {
-                        "view": {
-                            "space": "my_space",
-                            "version": "v1",
-                            "externalId": "ObsView",
-                        },
-                        "fieldsConfig": {
-                            "invalid@": {},
-                        },
-                    },
-                ],
-            },
-        },
-        {
-            "In viewMappings.observation[1].fieldsConfig property 'invalid@' does not match the required pattern: ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
-        },
-        id="Invalid property key in viewMappings.observation.fieldsConfig",
-    )
-    yield pytest.param(
-        {
-            "externalId": "my_config",
-            "space": "my_space",
-            "viewMappings": {
-                "observation": [
-                    {
-                        "view": {
-                            "space": "my_space",
-                            "version": "v1",
-                            "externalId": "ObsView",
-                        },
-                        "fieldsConfig": {
-                            "externalId": {},
-                        },
-                    },
-                ],
-            },
-        },
-        {
-            "In viewMappings.observation[1].fieldsConfig 'externalId' is a reserved property identifier. Reserved identifiers are: createdTime, deletedTime, edge_id, extensions, externalId, lastUpdatedTime, node_id, project_id, property_group, seq, space and tg_table_name"
-        },
-        id="Reserved property key in viewMappings.observation.fieldsConfig",
-    )
-    yield pytest.param(
-        {
-            "externalId": "my_config",
-            "space": "my_space",
-            "dataExplorationConfig": {
-                "assetPropertiesCardConfig": {
-                    "externalId": {},
-                },
-            },
-        },
-        {
-            "In dataExplorationConfig.assetPropertiesCardConfig 'externalId' is a reserved property identifier. Reserved identifiers are: createdTime, deletedTime, edge_id, extensions, externalId, lastUpdatedTime, node_id, project_id, property_group, seq, space and tg_table_name"
-        },
-        id="Reserved property key in dataExplorationConfig.assetPropertiesCardConfig",
     )
     yield pytest.param(
         {
