@@ -99,15 +99,32 @@ def invalid_test_cases() -> Iterable:
             "externalId": "my_config",
             "space": "my_space",
             "dataExplorationConfig": {
-                "assetPropertiesCardView": {
-                    "space": "my_space",
-                    "version": "v1",
-                    # Missing externalId
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "orderNumber": -1,
+                    },
                 },
             },
         },
-        {"In dataExplorationConfig.assetPropertiesCardView missing required field: 'externalId'"},
-        id="Missing required field in dataExplorationConfig.assetPropertiesCardView",
+        {
+            "In dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber input should be greater than or equal to 0"
+        },
+        id="Negative orderNumber in dataExplorationConfig.assetPropertiesCardConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "unknownField": "bad_value",
+                    },
+                },
+            },
+        },
+        {"In dataExplorationConfig.assetPropertiesCardConfig.name unknown field: 'unknownField'"},
+        id="Unknown field in dataExplorationConfig.assetPropertiesCardConfig entry",
     )
     yield pytest.param(
         {
@@ -272,16 +289,17 @@ def invalid_test_cases() -> Iterable:
                             "version": "v1",
                             "externalId": "ObsView",
                         },
-                        "formView": {
-                            "space": "my_space",
-                            "version": "v1",
+                        "fieldsConfig": {
+                            "assets": {
+                                "orderNumber": -1,
+                            },
                         },
                     },
                 ],
             },
         },
-        {"In viewMappings.observation[1].formView missing required field: 'externalId'"},
-        id="Missing required field in viewMappings.observation formView",
+        {"In viewMappings.observation[1].fieldsConfig.assets.orderNumber input should be greater than or equal to 0"},
+        id="Negative orderNumber in viewMappings.observation.fieldsConfig",
     )
     yield pytest.param(
         {
@@ -295,18 +313,17 @@ def invalid_test_cases() -> Iterable:
                             "version": "v1",
                             "externalId": "ObsView",
                         },
-                        "formView": {
-                            "space": "my_space",
-                            "version": "v1",
-                            "externalId": "ObsFormView",
-                            "unknownField": "bad_value",
+                        "fieldsConfig": {
+                            "assets": {
+                                "unknownField": "bad_value",
+                            },
                         },
                     },
                 ],
             },
         },
-        {"In viewMappings.observation[1].formView unknown field: 'unknownField'"},
-        id="Unknown field in viewMappings.observation.formView",
+        {"In viewMappings.observation[1].fieldsConfig.assets unknown field: 'unknownField'"},
+        id="Unknown field in viewMappings.observation.fieldsConfig entry",
     )
     yield pytest.param(
         {
@@ -415,7 +432,7 @@ class TestInfieldCDMLocationConfigYAML:
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         assert dumped == data
 
-    def test_load_valid_observation_view_config_with_required_properties(self) -> None:
+    def test_load_valid_observation_view_config_with_fields_config(self) -> None:
         data = {
             "externalId": "my_config",
             "space": "my_space",
@@ -427,7 +444,16 @@ class TestInfieldCDMLocationConfigYAML:
                             "version": "v1",
                             "externalId": "ObsView",
                         },
-                        "requiredProperties": ["assets", "files"],
+                        "fieldsConfig": {
+                            "assets": {
+                                "isRequired": True,
+                                "isEditable": False,
+                                "orderNumber": 1,
+                            },
+                            "files": {
+                                "orderNumber": 2,
+                            },
+                        },
                         "writeBack": {
                             "notificationsEndpointExternalId": "notif-endpoint",
                         },
@@ -439,29 +465,20 @@ class TestInfieldCDMLocationConfigYAML:
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         assert dumped == data
 
-    def test_load_valid_observation_view_config_with_form_view(self) -> None:
+    def test_load_valid_asset_properties_card_config(self) -> None:
         data = {
             "externalId": "my_config",
             "space": "my_space",
-            "viewMappings": {
-                "observation": [
-                    {
-                        "view": {
-                            "space": "my_space",
-                            "version": "v1",
-                            "externalId": "ObsView",
-                        },
-                        "formView": {
-                            "space": "my_space",
-                            "version": "v1",
-                            "externalId": "ObsFormView",
-                        },
-                        "requiredProperties": ["assets", "files"],
-                        "writeBack": {
-                            "notificationsEndpointExternalId": "notif-endpoint",
-                        },
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "displayName": "Asset name",
+                        "orderNumber": 0,
                     },
-                ],
+                    "description": {
+                        "orderNumber": 1,
+                    },
+                },
             },
         }
         loaded = InFieldCDMLocationConfigYAML.model_validate(data)

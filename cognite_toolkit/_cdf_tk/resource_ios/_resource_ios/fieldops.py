@@ -412,8 +412,6 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
         if resource.view_mappings and resource.view_mappings.observation:
             for obs_config in resource.view_mappings.observation:
                 yield (ViewIO, obs_config.view.as_id())
-                if obs_config.form_view is not None:
-                    yield (ViewIO, obs_config.form_view.as_id())
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
@@ -440,20 +438,19 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
                 for obs_config in observations:
                     if not isinstance(obs_config, dict):
                         continue
-                    for view_key in ("view", "formView"):
-                        view = obs_config.get(view_key)
-                        if not isinstance(view, dict):
-                            continue
-                        if not in_dict(("space", "externalId", "version"), view):
-                            continue
-                        yield (
-                            ViewIO,
-                            ViewId(
-                                space=view["space"],
-                                external_id=view["externalId"],
-                                version=str(view["version"]),
-                            ),
-                        )
+                    view = obs_config.get("view")
+                    if not isinstance(view, dict):
+                        continue
+                    if not in_dict(("space", "externalId", "version"), view):
+                        continue
+                    yield (
+                        ViewIO,
+                        ViewId(
+                            space=view["space"],
+                            external_id=view["externalId"],
+                            version=str(view["version"]),
+                        ),
+                    )
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
