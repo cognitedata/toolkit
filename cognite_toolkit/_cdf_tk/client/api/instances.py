@@ -566,7 +566,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             return None
 
     @staticmethod
-    def _write_debug_info(endpoint_name: QueryEndpoint, debug_data: dict[str, JsonValue], output_dir: Path) -> Path | None:
+    def _write_debug_info(
+        endpoint_name: QueryEndpoint, debug_data: dict[str, JsonValue], output_dir: Path
+    ) -> Path | None:
         """Write the (potentially large) query plan/profile to its own file, once, and return its path.
 
         This is written with a dedicated NDJsonWriter/kind so it does not mix with the per-item
