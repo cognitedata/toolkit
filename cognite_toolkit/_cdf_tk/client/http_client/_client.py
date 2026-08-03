@@ -1,3 +1,4 @@
+import logging
 import random
 import sys
 import time
@@ -35,6 +36,8 @@ else:
     from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+
+log = logging.getLogger(__name__)
 
 _T_Request_Message = TypeVar("_T_Request_Message", bound=BaseRequestMessage)
 
@@ -206,7 +209,17 @@ class HTTPClient:
         if retry_request := self._retry_request(response, request, error_details):
             return retry_request
         else:
-            # Permanent failure
+            if error_details.x_request_id is None:
+                # No X-Request-ID to surface in the raised error (e.g. a gateway-level failure that
+                # never reached CDF's application layer). Log the full headers at debug level in case
+                # there is another lead worth handing to support; this is deliberately not a warning,
+                # since 408s are routinely handled as expected control flow (e.g. query chunk-size backoff).
+                log.debug(
+                    "Request to %s failed with status %s and no X-Request-ID. Response headers: %s",
+                    request.endpoint_url,
+                    response.status_code,
+                    dict(response.headers),
+                )
             return FailedResponse(
                 status_code=response.status_code,
                 body=response.text,

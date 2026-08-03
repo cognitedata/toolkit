@@ -409,12 +409,14 @@ class InstanceIO(
             query.cursors = {query.root: init_cursor}
 
         included_groups = [group for group in query.with_ if include_root or group != query.root]
+        debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         for batch in self.client.tool.instances.query_iterate(
             query,
             type_results=True,
             exhaust_sub_selections=True,
             limit=limit,
             endpoint=endpoint,
+            debug_writer=debug_writer,
         ):
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
@@ -443,7 +445,11 @@ class InstanceIO(
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             page = self.client.tool.instances.paginate(
-                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint, debug_writer=debug_writer
+                instance_filter,
+                limit=page_limit,
+                cursor=cursor,
+                endpoint=selector.endpoint,
+                debug_writer=debug_writer,
             )
             total += len(page.items)
             if page:
