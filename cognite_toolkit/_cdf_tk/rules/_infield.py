@@ -20,7 +20,7 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
         {"sourceId", "name", "status", "type", "mainAsset", "scheduledEndTime", "scheduledStartTime"}
     ),
     "assetNotificationsCardView": frozenset(
-        {"name", "sourceId", "type", "status", "description", "asset", "createdDate", "priority"}
+        {"name", "sourceId", "type", "status", "description", "asset", "sourceCreatedTime", "priority"}
     ),
 }
 
