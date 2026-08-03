@@ -42,7 +42,7 @@ class TestRobotMapYAML:
             (
                 {"name": "Invalid Map", "externalId": "map_invalid", "mapType": "INVALID_TYPE"},
                 {
-                    "In field mapType input should be 'WAYPOINTMAP', 'THREEDMODEL', 'TWODMAP' or 'POINTCLOUD'. Got 'INVALID_TYPE'."
+                    "Invalid value at mapType: Input should be 'WAYPOINTMAP', 'THREEDMODEL', 'TWODMAP' or 'POINTCLOUD'. Got 'INVALID_TYPE'."
                 },
             ),
             (
@@ -56,7 +56,7 @@ class TestRobotMapYAML:
                     "locationExternalId": "location_001",
                     "scale": 1.1,
                 },
-                {"In field scale input should be less than or equal to 1"},
+                {"Invalid value at scale: Input should be less than or equal to 1"},
             ),
         ],
     )

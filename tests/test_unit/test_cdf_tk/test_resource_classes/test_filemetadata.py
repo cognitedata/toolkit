@@ -16,7 +16,7 @@ def invalid_filemetadata_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "my_file", "name": "TextFile", "mimeType": True},
         {
-            "In field mimeType input should be a valid string. Got True of type bool. "
+            "Invalid value at mimeType: Input should be a valid string. Got True of type bool. "
             "Hint: Use double quotes to force string."
         },
         id="Invalid mimeType type",

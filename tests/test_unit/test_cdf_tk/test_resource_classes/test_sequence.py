@@ -18,7 +18,7 @@ def invalid_sequence_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Sequence 1", "columns": []},
         {
-            "In field columns list should have at least 1 item after validation, not 0",
+            "Invalid value at columns: List should have at least 1 item after validation, not 0",
             "Missing required field: 'externalId'",
         },
         id="columns-list-validation-errors",
@@ -41,7 +41,7 @@ def invalid_sequence_test_cases() -> Iterable:
             ],
         },
         {
-            "In columns[1].valueType input should be 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
+            "Invalid value at columns[1].valueType: Input should be 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
         },
         id="invalid-valueType-in-column",
     )
@@ -144,8 +144,8 @@ def invalid_sequence_row_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "seq_row_1", "columns": [], "rows": []},
         {
-            "In field columns list should have at least 1 item after validation, not 0",
-            "In field rows list should have at least 1 item after validation, not 0",
+            "Invalid value at columns: List should have at least 1 item after validation, not 0",
+            "Invalid value at rows: List should have at least 1 item after validation, not 0",
         },
         id="empty-lists-validation-errors",
     )
@@ -164,7 +164,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"rowNumber": -1, "values": [1, 2, 3]}],
         },
-        {"In rows[1].rowNumber input should be greater than or equal to 0"},
+        {"Invalid value at rows[1].rowNumber: Input should be greater than or equal to 0"},
         id="negative-rowNumber",
     )
     yield pytest.param(
@@ -173,7 +173,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"rowNumber": 0, "values": []}],
         },
-        {"In rows[1].values list should have at least 1 item after validation, not 0"},
+        {"Invalid value at rows[1].values: List should have at least 1 item after validation, not 0"},
         id="empty-values-in-row",
     )
     yield pytest.param(
@@ -214,7 +214,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"rowNumber": 0, "values": [1]}],
         },
-        {"In field externalId string should have at most 256 characters"},
+        {"Invalid value at externalId: String should have at most 256 characters"},
         id="externalId-too-long",
     )
     yield pytest.param(
@@ -223,7 +223,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["a"] * 201,
             "rows": [{"rowNumber": 0, "values": [1]}],
         },
-        {"In field columns list should have at most 200 items after validation, not 201"},
+        {"Invalid value at columns: List should have at most 200 items after validation, not 201"},
         id="too-many-columns",
     )
     yield pytest.param(
@@ -232,7 +232,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"rowNumber": 0, "values": [1]}] * 10001,
         },
-        {"In field rows list should have at most 10000 items after validation, not 10001"},
+        {"Invalid value at rows: List should have at most 10000 items after validation, not 10001"},
         id="too-many-rows",
     )
 

@@ -21,15 +21,15 @@ def invalid_extraction_pipeline_config_test_cases() -> Iterable:
     # Empty external_id
     yield pytest.param(
         {"externalId": "", "config": {"key": "value"}},
-        {"In field externalId string should have at least 1 character"},
+        {"Invalid value at externalId: String should have at least 1 character"},
         id="Empty externalId",
     )
     # config is not a string or dict
     yield pytest.param(
         {"externalId": "myConfig", "config": 123},
         {
-            "In config.dict input should be a valid dictionary. Got 123 of type int.",
-            "In config.str input should be a valid string. Got 123 of type int. Hint: "
+            "Invalid value at config.dict: Input should be a valid dictionary. Got 123 of type int.",
+            "Invalid value at config.str: Input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
         },
         id="Config not string or dict",

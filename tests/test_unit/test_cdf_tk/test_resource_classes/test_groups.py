@@ -31,7 +31,7 @@ capabilities:
           db_complete_org: {}
 """,
         {
-            "In capabilities[1].scope.dbsToTables.db_complete_org input should be a valid list. Got {}.",
+            "Invalid value at capabilities[1].scope.dbsToTables.db_complete_org: Input should be a valid list. Got {}.",
         },
         id="Naughty metadata and non-standard rawAcl tableScope",
     )

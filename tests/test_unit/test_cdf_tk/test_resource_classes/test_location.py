@@ -131,14 +131,14 @@ def invalid_location_filters_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "my_location", "name": "Location 1", "dataModelingType": "ASSET_CENTRIC_ONLY"},
-        {"In field dataModelingType input should be 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."},
+        {"Invalid value at dataModelingType: Input should be 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."},
         id="Invalid dataModelingType value",
     )
     yield pytest.param(
         {"externalId": "location_1", "name": "Location 1", "dataModels": ["model-1", "model-2"]},
         {
-            "In dataModels[1] input must be an object of type DataModelID. Got 'model-1' of type str.",
-            "In dataModels[2] input must be an object of type DataModelID. Got 'model-2' of type str.",
+            "Invalid value at dataModels[1]: Input should be a valid DataModelID object. Got 'model-1' of type str.",
+            "Invalid value at dataModels[2]: Input should be a valid DataModelID object. Got 'model-2' of type str.",
         },
         id="Invalid list of dataModels.",
     )

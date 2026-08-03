@@ -36,7 +36,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         },
         {
             "Missing required fields at authentication: 'clientId' and 'clientSecret'",
-            "In field triggerRule invalid trigger rule data missing 'triggerType' key",
+            "Invalid value at triggerRule: Invalid trigger rule data missing 'triggerType' key",
             "Unknown field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
@@ -51,7 +51,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
         {
-            "In field triggerRule invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
+            "Invalid value at triggerRule: invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
         },
         id="Invalid triggerType value",
     )
@@ -81,7 +81,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"In triggerRule.batchSize input should be a valid integer, unable to parse string as an integer"},
+        {"Invalid value at triggerRule.batchSize: Input should be a valid integer, unable to parse string as an integer"},
         id="Wrong type for batchSize in dataModeling trigger",
     )
     # Invalid value for batch_timeout (too low)
@@ -98,7 +98,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"In triggerRule.batchTimeout input should be greater than or equal to 60"},
+        {"Invalid value at triggerRule.batchTimeout: Input should be greater than or equal to 60"},
         id="Invalid value for batchTimeout in dataModeling trigger",
     )
     # Invalid Json input
@@ -111,7 +111,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"In input.dict.not_json input was not a valid JSON value"},
+        {"Invalid value at input.dict.not_json: input was not a valid JSON value"},
         id="Invalid Json input in dataModelingQuery",
     )
 

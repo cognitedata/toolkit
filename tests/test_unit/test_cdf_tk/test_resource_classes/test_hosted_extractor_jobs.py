@@ -19,7 +19,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "config": {"topicFilter": "some_filter"},
         },
         {
-            "In field format invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
+            "Invalid value at format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
         },
         id="Invalid type",
     )
@@ -45,7 +45,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"encoding": "utf8"},
         },
         {
-            "In field format invalid input format missing 'type' key",
+            "Invalid value at format: Invalid input format missing 'type' key",
         },
         id="Format missing type",
     )
@@ -59,7 +59,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "encoding": "invalid_encoding"},
         },
         {
-            "In format.encoding input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
+            "Invalid value at format.encoding: Input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
         },
         id="CogniteFormat invalid encoding",
     )
@@ -73,7 +73,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "compression": "invalid_compression"},
         },
         {
-            "In format.compression input should be 'gzip'. Got 'invalid_compression'.",
+            "Invalid value at format.compression: Input should be 'gzip'. Got 'invalid_compression'.",
         },
         id="CogniteFormat invalid compression",
     )
@@ -101,7 +101,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "custom", "mappingId": "a" * 256},
         },
         {
-            "In format.mappingId string should have at most 255 characters",
+            "Invalid value at format.mappingId: String should have at most 255 characters",
         },
         id="CustomFormat mappingId too long",
     )
@@ -115,7 +115,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "prefix": {"prefix": "a" * 256}},
         },
         {
-            "In format.prefix.prefix string should have at most 255 characters",
+            "Invalid value at format.prefix.prefix: String should have at most 255 characters",
         },
         id="CogniteFormat prefix too long",
     )
@@ -129,7 +129,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "dataModels": [{"space": f"space{i}"} for i in range(11)]},
         },
         {
-            "In format.dataModels list should have at most 10 items after validation, not 11",
+            "Invalid value at format.dataModels: List should have at most 10 items after validation, not 11",
         },
         id="CogniteFormat too many data models",
     )
@@ -157,9 +157,9 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite"},
         },
         {
-            "In field externalId string should have at most 255 characters",
-            "In field destinationId string should have at most 255 characters",
-            "In field sourceId string should have at most 255 characters",
+            "Invalid value at externalId: String should have at most 255 characters",
+            "Invalid value at destinationId: String should have at most 255 characters",
+            "Invalid value at sourceId: String should have at most 255 characters",
         },
         id="externalId too long",
     )
@@ -173,7 +173,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": "invalid_format",
         },
         {
-            "In field format invalid input for format '<class 'str'>' expected dict",
+            "Invalid value at format: Invalid input for format '<class 'str'>' expected dict",
         },
         id="Format non-dict type",
     )
@@ -187,7 +187,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": None,
         },
         {
-            "In field format invalid input for format '<class 'NoneType'>' expected dict",
+            "Invalid value at format: Invalid input for format '<class 'NoneType'>' expected dict",
         },
         id="Format null type",
     )
@@ -214,7 +214,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "Missing required field at config.MQTTConfig: 'topicFilter'",
             "Unrecognized fields at config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
             "'pagination' and 'path'. ",
-            "In config.RestConfig.incrementalLoad invalid type 'nextUrl'. Expected one of "
+            "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
             "body, headerValue and queryParameter",
         },
         id="Invalid IncrementalLoad and Pagination type",

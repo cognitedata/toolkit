@@ -142,7 +142,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "name": "Invalid ignore_null_fields",
             "ignoreNullFields": "yes",
         },
-        {"In field ignoreNullFields input should be a valid boolean. Got 'yes' of type str."},
+        {"Invalid value at ignoreNullFields: Input should be a valid boolean. Got 'yes' of type str."},
         id="Invalid ignore_null_fields type",
     )
     yield pytest.param(
@@ -152,7 +152,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "tags": ["a", "b", "c", "d", "e", "f"],
         },
-        {"In field tags list should have at most 5 items after validation, not 6"},
+        {"Invalid value at tags: List should have at most 5 items after validation, not 6"},
         id="Too many tags in transformation",
     )
     yield pytest.param(
@@ -162,7 +162,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "conflictMode": "replace",
         },
-        {"In field conflictMode input should be 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
+        {"Invalid value at conflictMode: Input should be 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
         id="Invalid conflict_mode value",
     )
     yield pytest.param(

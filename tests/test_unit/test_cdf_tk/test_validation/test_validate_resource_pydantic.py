@@ -62,7 +62,7 @@ def group_yaml_test_cases() -> Iterable:
             "members": "allUserAccounts",
         },
         {
-            "In capabilities[1].actions[1] input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
+            "Invalid value at capabilities[1].actions[1]: Input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
             "Missing required field at capabilities[1]: 'scope'",
         },
         id="Invalid action and missing scope",

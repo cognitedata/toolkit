@@ -35,7 +35,7 @@ def invalid_test_cases() -> Iterable:
         [
             "Unknown field: 'name'",
             "Unknown field: 'description'",
-            "In field content string should match pattern",
+            "Invalid value at content: String should match pattern",
         ],
         id="schema-allows-content-but-rejects-invalid-markdown-format",
     )
@@ -46,7 +46,7 @@ def invalid_test_cases() -> Iterable:
             "description": "",
         },
         [
-            "In field externalId string should have at least 1 character",
+            "Invalid value at externalId: String should have at least 1 character",
             "Unknown field: 'name'",
             "Unknown field: 'description'",
         ],

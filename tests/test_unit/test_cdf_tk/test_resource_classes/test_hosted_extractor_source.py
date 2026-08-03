@@ -167,7 +167,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "In field authentication invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
+            "Invalid value at authentication: Invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
         },
         id="RESTSource with invalid auth type",
     )
@@ -231,7 +231,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "In field authentication invalid authentication type 'query' for Kafka source. Expected one of basic, clientCredentials, scramSha256 or scramSha512"
+            "Invalid value at authentication: Invalid authentication type 'query' for Kafka source. Expected one of basic, clientCredentials, scramSha256 or scramSha512"
         },
         id="KafkaSource QueryCredentials invalid type for Kafka",
     )

@@ -15,7 +15,7 @@ def invalid_dataset_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "MyDataSet", "writeProtected": "yes"},
-        {"In field writeProtected input should be a valid boolean. Got 'yes' of type str."},
+        {"Invalid value at writeProtected: Input should be a valid boolean. Got 'yes' of type str."},
         id="Invalid writeProtected type",
     )
 

@@ -386,7 +386,7 @@ class TestReadFileSystem:
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)
 
-        assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
+        assert "Invalid value at environment.validation-type: Input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
             exc_info.value
         )
 

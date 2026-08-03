@@ -196,7 +196,7 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
         elif error_type == "model_type":
             model_name = item["ctx"].get("class_name", "unknown")
-            msg = f"Input must be an object of type {model_name}. Got {item['input']!r} of type {type(item['input']).__name__}."
+            msg = f"Input should be a valid {model_name} object. Got {item['input']!r} of type {type(item['input']).__name__}."
         elif error_type in {
             "int_type",
             "bool_type",
@@ -222,11 +222,9 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             #  This is hard to read, so we simplify it to just the field name.
             loc = tuple(["dict" if isinstance(x, str) and "json-or-python" in x else x for x in loc])
 
-        if len(loc) > 1:
-            # Note: "missing"/"extra_forbidden" errors with len(loc) > 1 are handled above and never reach here.
-            msg = f"In {as_json_path(loc)} {msg[:1].casefold()}{msg[1:]}"
-        elif len(loc) == 1 and isinstance(loc[0], str) and error_type not in {"extra_forbidden", "missing"}:
-            msg = f"In field {loc[0]} {msg[:1].casefold()}{msg[1:]}"
+        if len(loc) >= 1 and error_type not in {"extra_forbidden", "missing"}:
+            # Note: "missing"/"extra_forbidden" errors are handled above and never reach here.
+            msg = f"Invalid value at {as_json_path(loc)}: {msg}"
         ordered_entries.append(msg)
 
     errors: list[str] = []

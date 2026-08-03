@@ -17,7 +17,7 @@ def invalid_database_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"dbName": "myDB" * 32},
-        {"In field dbName string should have at most 32 characters"},
+        {"Invalid value at dbName: String should have at most 32 characters"},
         id="Above maximum character length for dbName",
     )
 
@@ -28,7 +28,7 @@ def invalid_table_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"dbName": "myDB" * 32, "tableName": "MyTable"},
-        {"In field dbName string should have at most 32 characters"},
+        {"Invalid value at dbName: String should have at most 32 characters"},
         id="Above maximum character length for dbName",
     )
 

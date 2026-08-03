@@ -27,8 +27,8 @@ def invalid_test_cases() -> Iterable:
             "version": "#1",
         },
         {
-            "In field space string should have at least 1 character",
-            "In field version string should match pattern '^[a-zA-Z0-9]([.a-zA-Z0-9_-]{0,41}[a-zA-Z0-9])?$'",
+            "Invalid value at space: String should have at least 1 character",
+            "Invalid value at version: String should match pattern '^[a-zA-Z0-9]([.a-zA-Z0-9_-]{0,41}[a-zA-Z0-9])?$'",
         },
         id="invalid space and version",
     )
