@@ -36,7 +36,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    Insight,
+    ModelSyntaxError,
+    ModelSyntaxWarning,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -496,6 +500,11 @@ class BuildV2Command(ToolkitCommand):
                         module_id=module.id,
                         resources=built_resources,
                         insights=insights,
+                        syntax_errors_by_source={
+                            file.source_path: file.syntax_error
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_error is not None
+                        },
                         syntax_warnings_by_source={
                             file.source_path: file.syntax_warning
                             for file in module.files
@@ -611,16 +620,18 @@ class BuildV2Command(ToolkitCommand):
 
         if isinstance(parsed_yaml, dict):
             toolkit_resource: ToolkitResource | None = None
+            syntax_error: ModelSyntaxError | None = None
             syntax_warning: ModelSyntaxWarning | None = None
             try:
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
             except ValidationError as errors:
-                syntax_warning = self._create_syntax_warning(errors)
+                syntax_error, syntax_warning = self._create_syntax_warning(errors)
                 try:
                     identifier = crud_class.get_id(parsed_yaml)
                 except KeyError:
                     return SuccessfulReadYAMLFile(
+                        syntax_error=syntax_error,
                         syntax_warning=syntax_warning,
                         resources=[],
                         **args,
@@ -631,6 +642,7 @@ class BuildV2Command(ToolkitCommand):
             )
 
             return SuccessfulReadYAMLFile(
+                syntax_error=syntax_error,
                 syntax_warning=syntax_warning,
                 resources=[
                     ReadResource(
@@ -645,11 +657,12 @@ class BuildV2Command(ToolkitCommand):
         # and thus not available to te static type checker.
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
+        syntax_error = None
         syntax_warning = None
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_warning = self._create_syntax_warning(errors)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors)
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
@@ -671,7 +684,11 @@ class BuildV2Command(ToolkitCommand):
                 )
             )
         return SuccessfulReadYAMLFile(
-            syntax_warning=syntax_warning, resources=read_resources, **args, unresolved_variables=unresolved_variables
+            syntax_error=syntax_error,
+            syntax_warning=syntax_warning,
+            resources=read_resources,
+            **args,
+            unresolved_variables=unresolved_variables,
         )
 
     @classmethod
@@ -698,15 +715,31 @@ class BuildV2Command(ToolkitCommand):
             output.append(extra_file)
         return output
 
-    def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
+    def _create_syntax_warning(
+        self, error: ValidationError
+    ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
         errors = humanize_validation_error(error) or ["The resource definition has syntax errors."]
-        # The insight type already communicates this is a syntax error, so we skip a generic intro line.
-        message = "\n".join(errors)
-        return ModelSyntaxWarning(
-            code="MODEL-SYNTAX-WARNING",
-            message=message,
-            fix="Make sure the resource YAML content is valid and follows the expected structure.",
-        )
+        unknown_field_errors = [error for error in errors if error.startswith(("Unrecognized field", "Unknown field:"))]
+        other_errors = [error for error in errors if error not in unknown_field_errors]
+
+        syntax_error = None
+        if other_errors:
+            # The insight type already communicates this is a syntax error, so we skip a generic intro line.
+            syntax_error = ModelSyntaxError(
+                code="MODEL-SYNTAX-ERROR",
+                message="\n".join(other_errors),
+                fix="Make sure the resource YAML content is valid and follows the expected structure.",
+            )
+
+        syntax_warning = None
+        if unknown_field_errors:
+            syntax_warning = ModelSyntaxWarning(
+                code="UNRECOGNIZED-FIELD",
+                message="\n".join(unknown_field_errors),
+                fix="This could be a typo, or a field Toolkit does not yet recognize. It will still "
+                "be included when the resource is deployed, but may be ignored by CDF.",
+            )
+        return syntax_error, syntax_warning
 
     def _export_resources(
         self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
@@ -841,7 +874,8 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
-            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "InternalValidatorError": (AuraColor.RED.rich, "✗"),
+            "ModelSyntaxError": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "*"),
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
@@ -891,9 +925,9 @@ class BuildV2Command(ToolkitCommand):
         insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
 
         match max_border_severity:
-            case severity if severity <= 15:
+            case severity if severity < 15:
                 border_style = AuraColor.GREEN.rich
-            case severity if 15 < severity <= 35:
+            case severity if 15 <= severity <= 35:
                 border_style = AuraColor.AMBER.rich
             case _:
                 border_style = AuraColor.RED.rich
@@ -957,9 +991,9 @@ class BuildV2Command(ToolkitCommand):
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
             match severity:
-                case severity if severity <= 15:
+                case severity if severity < 15:
                     insight_style = "[green]✓[/]"
-                case severity if 15 < severity <= 35:
+                case severity if 15 <= severity <= 35:
                     insight_style = "[yellow]![/]"
                 case _:
                     insight_style = "[red]✗[/]"
@@ -971,10 +1005,10 @@ class BuildV2Command(ToolkitCommand):
             build_dir_display = f"{build_dir_display}/"
 
         match max_severity:
-            case severity if severity <= 15:
+            case severity if severity < 15:
                 border_color = AuraColor.GREEN.rich
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
-            case severity if 15 < severity <= 35:
+            case severity if 15 <= severity <= 35:
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are model syntax warnings. Deployment may fail for some resources."

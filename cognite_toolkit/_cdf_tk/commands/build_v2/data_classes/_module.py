@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import ModelSyntaxWarning
+from ._insights import ModelSyntaxError, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
@@ -110,7 +110,7 @@ class BuildVariable(BaseModel):
 
 
 class InvalidBuildVariable(BuildVariable):
-    error: ModelSyntaxWarning
+    error: ModelSyntaxError
 
 
 class ModuleId(Identifier):
@@ -233,6 +233,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     resource_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
+    syntax_error: ModelSyntaxError | None = None
     syntax_warning: ModelSyntaxWarning | None = None
     line_count: int
 

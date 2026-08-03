@@ -26,11 +26,17 @@ class FileReadError(InsightDefinition):
     severity = 60
 
 
-class ModelSyntaxWarning(InsightDefinition):
+class ModelSyntaxError(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
     severity = 40
+
+
+class ModelSyntaxWarning(InsightDefinition):
+    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
+
+    severity = 15
 
 
 class ConsistencyError(InsightDefinition):
@@ -39,7 +45,7 @@ class ConsistencyError(InsightDefinition):
     severity = 30
 
 
-class FailedValidation(InsightDefinition):
+class InternalValidatorError(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
     This should never happen in normal operation — it indicates a bug in the validator itself.
@@ -61,7 +67,13 @@ class Recommendation(InsightDefinition):
 
 
 Insight: TypeAlias = (
-    ModelSyntaxWarning | ConsistencyError | FailedValidation | Recommendation | FileReadError | IgnoredFileWarning
+    ModelSyntaxError
+    | ModelSyntaxWarning
+    | ConsistencyError
+    | InternalValidatorError
+    | Recommendation
+    | FileReadError
+    | IgnoredFileWarning
 )
 
 
@@ -96,13 +108,13 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxWarning) for insight in self.data)
+        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
         return any(
-            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, FailedValidation)) for insight in self.data
+            isinstance(insight, (ModelSyntaxError, ConsistencyError, InternalValidatorError)) for insight in self.data
         )
 
     @property
