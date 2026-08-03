@@ -785,12 +785,12 @@ class ModulesCommand(ToolkitCommand):
             return
 
         table = Table(title=f"{effective_build_env} {organization_dir.name} modules")
-        table.add_column("Module Name", style="bold")
-        table.add_column("Resource Folders", style="bold")
-        table.add_column("Resources", style="bold")
-        table.add_column("Build Warnings", style="bold")
-        table.add_column("Build Result", style="bold")
-        table.add_column("Location", style="bold")
+        table.add_column("Module Name", style="bold", min_width=20, no_wrap=True)
+        table.add_column("Resource\nFolders", style="bold", justify="right", min_width=8)
+        table.add_column("Resources", style="bold", justify="right", min_width=9)
+        table.add_column("Build\nWarnings", style="bold", justify="right", min_width=8)
+        table.add_column("Build Result", style="bold", min_width=13)
+        table.add_column("Location", style="bold", min_width=40, no_wrap=True)
 
         for module in module_list:
             if module.status == "Success":
