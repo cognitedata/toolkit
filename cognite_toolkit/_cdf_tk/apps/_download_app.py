@@ -1032,7 +1032,7 @@ class DownloadApp(typer.Typer):
         elif schema_space is not None and view_external_ids is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             download_dir_name = sanitize_filename(schema_space)
-            selected_views = [
+            selected_schema_views = [
                 SelectedView(
                     space=schema_space,
                     external_id=view_id_str.split("/", maxsplit=1)[0],
@@ -1042,9 +1042,13 @@ class DownloadApp(typer.Typer):
             ]
             edge_types_by_view_id: dict[ViewNoVersionId, tuple[EdgeTypeId, ...]] = {}
             if include_edges:
-                for view in client.tool.views.retrieve([view.as_id() for view in selected_views]):
-                    edge_types_by_view_id[view.as_id()] = tuple(
-                        prop.as_edge_type_id() for prop in view.properties.values() if isinstance(prop, EdgeProperty)
+                for retrieved_view in client.tool.views.retrieve(
+                    [view.as_id() for view in selected_schema_views]
+                ):
+                    edge_types_by_view_id[retrieved_view.as_id()] = tuple(
+                        prop.as_edge_type_id()
+                        for prop in retrieved_view.properties.values()
+                        if isinstance(prop, EdgeProperty)
                     )
             selectors = [
                 InstanceViewSelector(
@@ -1055,7 +1059,7 @@ class DownloadApp(typer.Typer):
                     edge_types=edge_types_by_view_id.get(view.as_id()) or None,
                     endpoint="sync",
                 )
-                for view in selected_views
+                for view in selected_schema_views
             ]
         else:
             raise typer.BadParameter(
