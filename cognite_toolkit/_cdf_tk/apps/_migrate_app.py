@@ -17,8 +17,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping imp
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
+    ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
+    SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
+    create_apm_source_data_mappings,
+    get_first_instance_space,
+    resolve_apm_source_data_instance_spaces,
+    resolve_apm_source_data_view_ids,
+    resolve_source_data_view_ids,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    APMSourceDataMaintenanceOrderMapping,
     ConnectionCreator,
+    CustomConnectionMapping,
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldObservationSapStatusMapping,
@@ -125,6 +136,7 @@ class MigrateApp(typer.Typer):
             self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
+        self.command("infield-source-data")(self.infield_source_data)
         self.command("360-images")(self.image_360_nodes)
         self.command("360-image-annotations")(self.image_360_annotations)
 
@@ -1528,8 +1540,9 @@ class MigrateApp(typer.Typer):
             )
         )
         cmd.console(
-            "[bold]IMPORTANT:[/] The next steps needs to be performed manually. Place the generated [bold]cdf_applications/[/] "
-            "(and optionally, the [bold]locations/[/] folder) inside a Toolkit module, "
+            f"[bold]IMPORTANT:[/] The next steps needs to be performed manually. Place the generated folders "
+            f"[bold]{output_dir / 'data_modeling'}[/], [bold]{output_dir / 'cdf_applications'}[/] "
+            f"(and optionally [bold]{output_dir / 'locations'}[/]) inside a Toolkit module, "
             "then deploy to CDF with [bold]cdf deploy[/] before running [bold]cdf migrate infield-data[/].",
             prefix=HINT_LEAD_TEXT,
         )
@@ -1741,6 +1754,201 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
+            )
+        )
+
+    @staticmethod
+    def infield_source_data(
+        ctx: typer.Context,
+        source_space: Annotated[
+            str | None,
+            typer.Option(
+                "--source-space",
+                "-s",
+                help="The instance space to select APM_SourceData from. If not provided, an interactive selection will be performed to select the instance space.",
+            ),
+        ] = None,
+        target_space: Annotated[
+            str | None,
+            typer.Option(
+                "--target-space",
+                "-t",
+                help="The instance space to migrate APM_SourceData to. If not provided, an interactive selection will be performed to select the target instance space.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrates APM_SourceData (work orders, operations, notifications) used by Infield from the legacy
+        APM_SourceData data model to the cdf_idm CogniteMaintenanceOrder/CogniteOperation/CogniteNotification views
+        used by InFieldOnCDM."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCommand(client=client)
+        apm_configs = client.infield.apm_config.list(limit=None)
+        source_candidates = resolve_apm_source_data_instance_spaces(apm_configs)
+        infield_cdm_configs = client.infield.cdm_config.list(limit=None)
+        target_candidates = {
+            space
+            for config in infield_cdm_configs
+            for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values()
+            if (space := get_first_instance_space(config.data_filters, type_key)) is not None
+        }
+        if not source_candidates:
+            raise typer.BadParameter(
+                "No APM Configurations with sourceDataInstanceSpace found. Cannot migrate APM_SourceData."
+            )
+        if not target_candidates:
+            raise typer.BadParameter(
+                "No InfieldOnCDM Configurations with maintenanceOrders/operations/notifications dataFilters found. "
+                "Cannot migrate APM_SourceData. Have you placed the CDMLocationConfig YAMLs generated by "
+                "'cdf migrate infield-configs' into a Toolkit module and deployed them with 'cdf deploy'?"
+            )
+        if source_space is None and target_space is None:
+            source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
+            if not source_stats:
+                raise typer.BadParameter(
+                    f"Source spaces {humanize_collection(source_candidates)} do not exist or cannot be accessed. Please ensure the APM_SourceData instance space contains data and can be accessed."
+                )
+            source_space = questionary.select(
+                "Select the instance space to migrate APM_SourceData from:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in source_stats
+                ],
+            ).unsafe_ask()
+            target_stats = client.data_modeling.statistics.spaces.retrieve(list(target_candidates))
+            if not target_stats:
+                raise typer.BadParameter(
+                    f"Target spaces {humanize_collection(target_candidates)} do not exist or cannot be accessed. Please create the instance space or ensure you can access it."
+                )
+            target_space = questionary.select(
+                "Select the instance space to migrate APM_SourceData to:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in target_stats
+                ],
+            ).unsafe_ask()
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        elif source_space is not None and target_space is not None:
+            errors: list[str] = []
+            if source_space not in source_candidates:
+                errors.append(
+                    f"Source space '{source_space}' is not a valid source for APM_SourceData migration. Available source spaces are: {humanize_collection(source_candidates)}."
+                )
+            if target_space not in target_candidates:
+                errors.append(
+                    f"Target space '{target_space}' is not a valid target for APM_SourceData migration. Available target spaces are: {humanize_collection(target_candidates)}."
+                )
+            if errors:
+                raise typer.BadParameter("\n".join(errors))
+        else:
+            raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
+
+        space_mapping = {
+            source_space: target_space,
+        }
+        mappings = create_apm_source_data_mappings()
+        custom_views, custom_view_warnings = resolve_source_data_view_ids(infield_cdm_configs, target_space)
+        for warning in custom_view_warnings:
+            client.console.print(
+                Panel(
+                    warning, title="Conflicting custom view configuration detected", expand=False, border_style="yellow"
+                )
+            )
+        if custom_views:
+            # If a custom maintenanceOrder/operation/notification view is configured for the target space,
+            # migrate the corresponding APM_SourceData view into that one instead.
+            # This must run before the source view override below, since it keys off the original
+            # (hardcoded) APM_Activity/APM_Operation/APM_Notification source view external IDs.
+            mappings = [
+                m.model_copy(update={"destination_view": custom_views[type_key]})
+                if (type_key := SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.get(m.source_view.external_id)) in custom_views
+                else m
+                for m in mappings
+            ]
+        source_views = resolve_apm_source_data_view_ids(apm_configs)
+        mappings = [
+            m.model_copy(update={"source_view": source_views[entity]})
+            if (entity := ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID.get(m.source_view.external_id)) in source_views
+            else m
+            for m in mappings
+        ]
+        selectors: list[InstanceViewSelector] = [
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=mapping.source_view.space,
+                    external_id=mapping.source_view.external_id,
+                    version=mapping.source_view.version,
+                ),
+                instance_spaces=(source_space,),
+                endpoint="sync",
+            )
+            for mapping in mappings
+        ]
+        apm_asset_properties = {"assetExternalId", "assetExternalIds"}
+        custom_mappings: list[CustomConnectionMapping] = [
+            InFieldAssetMapping(
+                client,
+                extra_asset_view_properties=[
+                    (m.source_view, source_prop)
+                    for m in mappings
+                    for source_prop in m.container_mapping
+                    if source_prop in apm_asset_properties
+                ],
+            ),
+            APMSourceDataMaintenanceOrderMapping(
+                target_space,
+                resolved_operation_view=source_views.get("operation"),
+            ),
+        ]
+        connection_creator = ConnectionCreator(
+            client,
+            instance_id_mapper=SpaceMappingInstanceIdMapper(space_mapping),
+            custom_mappings=custom_mappings,
+        )
+        mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=mapper,
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="infield_source_data",
             )
         )
 

@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import add_top_level_comment_in_yaml, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
@@ -522,7 +522,10 @@ class MigrationCommand(ToolkitCommand):
                         output_dir / crud_cls.folder_name / f"{sanitize_filename(item.filestem)}.{crud_cls.kind}.yaml"
                     )
                     filepath.parent.mkdir(parents=True, exist_ok=True)
-                    safe_write(filepath, yaml_safe_dump(item.config_data))
+                    content = yaml_safe_dump(item.config_data)
+                    for key, comment in (item.field_comments or {}).items():
+                        content = add_top_level_comment_in_yaml(content, key, comment)
+                    safe_write(filepath, content)
             self.console(
                 f"{len(to_create.resources)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
             )

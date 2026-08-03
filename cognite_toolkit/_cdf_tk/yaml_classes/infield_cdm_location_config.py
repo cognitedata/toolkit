@@ -69,11 +69,26 @@ class ObservationViewWriteBack(BaseModelResource):
     attachments_endpoint_external_id: str | None = Field(None, min_length=1)
 
 
+class ObservationFieldConfig(BaseModelResource):
+    """Per-field configuration for an observation view."""
+
+    is_required: bool | None = None
+    is_editable: bool | None = None
+    order_number: int | None = Field(None, ge=0)
+
+
+class AssetPropertiesCardFieldConfig(BaseModelResource):
+    """Per-field configuration for the asset properties card."""
+
+    display_name: str | None = None
+    order_number: int | None = Field(None, ge=0)
+
+
 class ObservationViewConfig(BaseModelResource):
     """Observation view configuration."""
 
     view: ViewReference
-    required_properties: list[str] | None = None
+    fields_config: dict[str, ObservationFieldConfig] | None = None
     write_back: ObservationViewWriteBack | None = None
 
 
@@ -98,7 +113,7 @@ class ViewMappings(BaseModelResource):
 class DataExplorationConfig(BaseModelResource):
     """Data exploration configuration."""
 
-    asset_properties_card_view: ViewReference | None = None
+    asset_properties_card_config: dict[str, AssetPropertiesCardFieldConfig] | None = None
     asset_activities_card_view: ViewReference | None = None
     asset_notifications_card_view: ViewReference | None = None
 

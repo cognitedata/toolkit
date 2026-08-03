@@ -134,6 +134,23 @@ class TestInFieldCDMLocationConfigCRUD:
             (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
         }
 
+    def test_get_dependencies_without_asset_properties_card_config(self) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataExplorationConfig": {
+                    "assetPropertiesCardConfig": {
+                        "name": {
+                            "displayName": "Asset name",
+                            "orderNumber": 0,
+                        },
+                    },
+                },
+            }
+        )
+        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
+
     def test_get_dependencies_includes_card_views_and_observation_view(self) -> None:
         config = InFieldCDMLocationConfigYAML.model_validate(
             {
@@ -174,22 +191,6 @@ class TestInFieldCDMLocationConfigCRUD:
         )
         assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
 
-    def test_get_dependencies_ignores_asset_properties_card(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {
-                "space": "sp_instance",
-                "externalId": "my_location_config",
-                "dataExplorationConfig": {
-                    "assetPropertiesCardView": {
-                        "space": "customer_idm_extention",
-                        "version": "v2",
-                        "externalId": "PropertiesCard",
-                    },
-                },
-            }
-        )
-        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
-
     def test_get_dependent_items_includes_data_exploration_view_mappings(self) -> None:
         item = {
             "space": "sp_instance",
@@ -225,6 +226,38 @@ class TestInFieldCDMLocationConfigCRUD:
             "externalId": "my_location_config",
             "viewMappings": {
                 "observation": [
+                    {
+                        "view": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "ObservationView",
+                        },
+                    },
+                ],
+            },
+        }
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
+        }
+        assert actual == {
+            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
+        }
+
+    def test_get_dependent_items_skips_malformed_observation_entries(self) -> None:
+        item = {
+            "space": "sp_instance",
+            "externalId": "my_location_config",
+            "viewMappings": {
+                "observation": [
+                    "not-a-dict",
+                    {"view": "not-a-dict"},
+                    {
+                        "view": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                        },
+                    },
                     {
                         "view": {
                             "space": "customer_idm_extention",

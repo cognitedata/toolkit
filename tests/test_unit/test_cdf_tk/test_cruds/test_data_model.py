@@ -628,13 +628,9 @@ class TestGraphQLCRUDGetDependencies:
 
 
 class TestGraphQLCreatePayload:
-    """Regression tests for the GraphQL upsert mutation payload sent to the CDF API."""
+    """Regression tests for the GraphQL upsert mutation payload and response parsing."""
 
     def test_extra_yaml_fields_excluded_from_mutation_variables(self) -> None:
-        # Regression: model_dump(exclude_unset=False) forwarded any extra YAML key
-        # (stored in __pydantic_extra__ via extra="allow") to the GraphQlDmlVersionUpsert
-        # mutation variables.  The CDF API rejects unknown fields and returns
-        # upsertGraphQlDmlVersion=null, causing a cryptic Pydantic validation error.
         r = GraphQLDataModelRequest.model_validate(
             {"space": "s", "externalId": "e", "version": "v", "unknownYamlKey": "leaks"}
         )
@@ -666,6 +662,55 @@ class TestGraphQLCreatePayload:
 
         assert payload["previousVersion"] == "v0"
         assert payload["preserveDml"] is True
+
+    @staticmethod
+    def _make_api(response_body: str):  # type: ignore[return]
+        from unittest.mock import MagicMock
+
+        from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+
+        mock_success = MagicMock()
+        mock_success.body = response_body
+        mock_result = MagicMock()
+        mock_result.get_success_or_raise.return_value = mock_success
+        mock_http = MagicMock()
+        mock_http.request_single_retries.return_value = mock_result
+
+        api = GraphQLDataModelsAPI(http_client=mock_http)
+        api._make_url = MagicMock(return_value="https://api.cognitedata.com/dml/graphql")  # type: ignore[method-assign]
+        return api
+
+    def test_top_level_graphql_error_surfaced_not_swallowed(self) -> None:
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        body = json.dumps(
+            {
+                "data": {"upsertGraphQlDmlVersion": None},
+                "errors": [{"message": "Unknown argument 'dml' on field 'upsertGraphQlDmlVersion'"}],
+            }
+        )
+        with pytest.raises(ToolkitAPIError, match="Unknown argument 'dml'"):
+            self._make_api(body)._post_graphql({"query": "...", "variables": {}})
+
+    def test_dml_compile_error_surfaced_as_actionable_message(self) -> None:
+        import json
+
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+
+        body = json.dumps(
+            {
+                "data": {
+                    "upsertGraphQlDmlVersion": {
+                        "errors": [{"kind": "COMPILE_ERROR", "message": "Type 'Foo' not found", "hint": None}],
+                        "result": None,
+                    }
+                },
+            }
+        )
+        with pytest.raises(ToolkitAPIError, match="Type 'Foo' not found"):
+            self._make_api(body)._post_graphql({"query": "...", "variables": {}})
 
 
 class TestDataModelBuilder:

@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    APMSourceDataMaintenanceOrderMapping,
     ConnectionCreator,
     ConversionContext,
     DirectRelationCache,
@@ -1781,6 +1782,38 @@ class TestInFieldAssetMapping:
             match="No migrated CogniteAsset instance found for classic asset with external ID 'AI29531'",
         ):
             mapping[NodeId(space="APM_SourceData", external_id="AI29531")]
+
+    def test_getitem_accepts_plain_external_id_string(self) -> None:
+        """APM_SourceData views model 'assetExternalId' as a plain string rather than a direct relation NodeId."""
+        mapping = InFieldAssetMapping(MagicMock(spec=ToolkitClient))
+        expected = NodeId(space="sp_assets", external_id="AI29531")
+        mapping._node_id_by_external_id["AI29531"] = expected
+
+        assert mapping["AI29531"] == expected
+
+    def test_update_accepts_mixed_node_id_and_string_items(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.migration.instance_source.retrieve.return_value = []
+            mapping = InFieldAssetMapping(client)
+
+            mapping.update([NodeId(space="APM_SourceData", external_id="AI29531"), "AI29532"])
+
+            (call_kwargs,) = client.migration.instance_source.retrieve.call_args_list
+            looked_up_external_ids = {item.external_id for item in call_kwargs.kwargs["external_ids"]}
+        assert looked_up_external_ids == {"AI29531", "AI29532"}
+
+
+class TestAPMSourceDataMaintenanceOrderMapping:
+    def test_getitem_derives_node_id_from_target_space(self) -> None:
+        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+
+        assert mapping["activity_123"] == NodeId(space="sp_target", external_id="activity_123")
+
+    def test_update_is_a_no_op(self) -> None:
+        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+
+        # No lookup is needed, so this should simply not raise.
+        mapping.update(["activity_123"])
 
 
 class TestAssetCentricToRecord:
