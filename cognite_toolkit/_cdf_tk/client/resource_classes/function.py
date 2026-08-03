@@ -75,8 +75,8 @@ class FunctionLimits(BaseModelObject):
     timeout_minutes: int
     cpu_cores: ResourceLimit
     memory_gb: ResourceLimit
-    # Kept as a plain list of strings (rather than list[FunctionRuntime]) so that the API adding a new
+    # Kept as a list of FunctionRuntime | str so that the API adding a new
     # runtime before the toolkit knows about it does not break parsing of the limits response.
-    runtimes: list[str]
+    runtimes: list[FunctionRuntime | str]
     # As of 24.04.2026 this is marked as a required field in the API, but it's currently only returned for projects on Gcloud
     response_size_mb: int | None = None
