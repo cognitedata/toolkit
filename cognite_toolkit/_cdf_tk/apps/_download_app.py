@@ -1042,9 +1042,7 @@ class DownloadApp(typer.Typer):
             ]
             edge_types_by_view_id: dict[ViewNoVersionId, tuple[EdgeTypeId, ...]] = {}
             if include_edges:
-                for retrieved_view in client.tool.views.retrieve(
-                    [view.as_id() for view in selected_schema_views]
-                ):
+                for retrieved_view in client.tool.views.retrieve([view.as_id() for view in selected_schema_views]):
                     edge_types_by_view_id[retrieved_view.as_id()] = tuple(
                         prop.as_edge_type_id()
                         for prop in retrieved_view.properties.values()
