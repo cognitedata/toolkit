@@ -638,10 +638,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None,
-        topological_sort_implements: bool = False,
     ) -> None:
         super().__init__(client, build_dir, console)
-        self._topological_sort_implements = topological_sort_implements
         self._view_by_id: dict[ViewId, ViewResponse] = {}
 
     @property
@@ -763,15 +761,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                 dumped["implements"] = local["implements"]
             else:
                 dumped.pop("implements", None)
-        if resource.implements and len(resource.implements) > 1 and self._topological_sort_implements:
-            # This is a special case that we want to do when we run the cdf dump datamodel command.
-            # The issue is as follows:
-            # 1. If a data model is deployed through GraphQL, the implements for a child view are sorted
-            #   from parent, grandparent, etc.
-            # 2. If the grand parent has a direct relation that the parent overwrites to update the source.
-            #   The child will get the grandparent's source, not the parent's.
-            # We sort the implements in topological order to ensure that the child view get the order grandparent,
-            # parent, such that the parent's source is used.
+        if resource.implements and len(resource.implements) > 1:
+            # If a data model is deployed through GraphQL, the implements for a child view are sorted
+            # from parent, grandparent, etc. If the grand parent has a direct relation that the parent
+            # overwrites to update the source, the child will get the grandparent's source, not the parent's,
+            # unless implements are in topological order (grandparent before parent).
             try:
                 dumped["implements"] = [
                     view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
@@ -816,8 +810,14 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ViewRequest:
+        view = self.resource_write_cls._load(resource)
+        return self._normalize_view_implements(view)
+
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
-        creation_order = self._compute_deploy_batches(items)
+        views_by_id = {self.get_id(item): item for item in items}
+        normalized = [self._normalize_view_implements(item, local_views=views_by_id) for item in items]
+        creation_order = self._compute_deploy_batches(normalized)
         created: list[ViewResponse] = []
         for batch in creation_order:
             created.extend(self.client.tool.views.create(batch))
@@ -976,10 +976,45 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                 f"Failed to sort views topologically. This is likely due to a cycle in implements. {e.args[1]}"
             )
 
-    def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
-        """Sorts the views in topological order based on their implements and through properties."""
-        view_by_ids = self._lookup_views(view_ids)
-        return self._sort_implements_or_raise_cycle(view_by_ids)
+    def topological_sort_implements(
+        self,
+        view_ids: list[ViewId],
+        local_views: Mapping[ViewId, ViewRequest] | None = None,
+    ) -> list[ViewId]:
+        """Sorts view references in topological order based on their implements relationships.
+
+        Views from ``local_views`` (e.g. the current deploy batch) are preferred over CDF lookups.
+        References that cannot be resolved keep their original relative order at the end.
+        """
+        if len(view_ids) <= 1:
+            return view_ids
+
+        view_by_ids: dict[ViewId, View] = {}
+        if local_views:
+            view_by_ids.update({view_id: local_views[view_id] for view_id in view_ids if view_id in local_views})
+        missing_ids = [view_id for view_id in view_ids if view_id not in view_by_ids]
+        if missing_ids:
+            view_by_ids.update(self._lookup_views(missing_ids))
+
+        relevant = {view_id: view_by_ids[view_id] for view_id in view_ids if view_id in view_by_ids}
+        if len(relevant) < 2:
+            return view_ids
+
+        sorted_portion = self._sort_implements_or_raise_cycle(relevant)
+        sorted_set = set(sorted_portion)
+        return sorted_portion + [view_id for view_id in view_ids if view_id not in sorted_set]
+
+    def _normalize_view_implements(
+        self,
+        view: ViewRequest,
+        local_views: Mapping[ViewId, ViewRequest] | None = None,
+    ) -> ViewRequest:
+        if not view.implements or len(view.implements) <= 1:
+            return view
+        sorted_implements = self.topological_sort_implements(view.implements, local_views=local_views)
+        if sorted_implements == view.implements:
+            return view
+        return view.model_copy(update={"implements": sorted_implements})
 
     def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> tuple[list[ViewId], list[ViewId]]:
         """Sorts the views in topological order based on their container constraints.
