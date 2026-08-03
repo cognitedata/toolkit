@@ -58,7 +58,7 @@ def invalid_cognitefile_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"space": "my_space", "externalId": "my_file", "source": {"space": "source_space"}},
-        {"In source missing required field: 'externalId'"},
+        {"Missing required field at source: 'externalId'"},
         id="invalid-DirectRelationReference-missing-externalId",
     )
     yield pytest.param(

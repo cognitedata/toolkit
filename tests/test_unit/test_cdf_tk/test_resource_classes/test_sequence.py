@@ -30,7 +30,7 @@ def invalid_sequence_test_cases() -> Iterable:
                 {"name": "Column 1"},
             ],
         },
-        {"In columns[1] missing required field: 'externalId'"},
+        {"Missing required field at columns[1]: 'externalId'"},
         id="missing-externalId-in-column",
     )
     yield pytest.param(
@@ -155,7 +155,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"values": [1, 2, 3]}],
         },
-        {"In rows[1] missing required field: 'rowNumber'"},
+        {"Missing required field at rows[1]: 'rowNumber'"},
         id="missing-rowNumber-in-row",
     )
     yield pytest.param(

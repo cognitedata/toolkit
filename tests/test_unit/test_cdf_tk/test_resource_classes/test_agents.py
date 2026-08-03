@@ -102,7 +102,7 @@ def invalid_test_cases() -> Iterable:
         {
             "In tools[1].queryKnowledgeGraph.configuration.dataModels list should have at "
             "least 1 item after validation, not 0",
-            "In tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual missing required field: 'spaces'",
+            "Missing required field at tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
             "In tools[1].queryKnowledgeGraph.configuration.version input should be 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
@@ -460,7 +460,7 @@ class TestAgentYAML:
                     "name": "My Agent",
                     "exampleQuestions": [{}],
                 },
-                "In exampleQuestions[1] missing required field: 'question'",
+                "Missing required field at exampleQuestions[1]: 'question'",
                 id="missing-question",
             ),
             pytest.param(
@@ -483,7 +483,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "In exampleQuestions[1].expectedMessages[1] missing required field: 'content'",
+                "Missing required field at exampleQuestions[1].expectedMessages[1]: 'content'",
                 id="expected-message-missing-content",
             ),
             pytest.param(
@@ -497,7 +497,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "In exampleQuestions[1].expectedMessages[1] missing required field: 'role'",
+                "Missing required field at exampleQuestions[1].expectedMessages[1]: 'role'",
                 id="expected-message-missing-role",
             ),
         ],

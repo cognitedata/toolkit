@@ -87,7 +87,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "custom"},
         },
         {
-            "In format missing required field: 'mappingId'",
+            "Missing required field at format: 'mappingId'",
         },
         id="CustomFormat missing mappingId",
     )
@@ -143,7 +143,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "dataModels": [{}]},
         },
         {
-            "In format.dataModels[1] missing required field: 'space'",
+            "Missing required field at format.dataModels[1]: 'space'",
         },
         id="CogniteFormat missing space in dataModels",
     )
@@ -208,18 +208,12 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             },
         },
         {
-            "In config.KafkaConfig missing required field: 'topic'",
-            "In config.KafkaConfig unknown field: 'incrementalLoad'",
-            "In config.KafkaConfig unknown field: 'interval'",
-            "In config.KafkaConfig unknown field: 'method'",
-            "In config.KafkaConfig unknown field: 'pagination'",
-            "In config.KafkaConfig unknown field: 'path'",
-            "In config.MQTTConfig missing required field: 'topicFilter'",
-            "In config.MQTTConfig unknown field: 'incrementalLoad'",
-            "In config.MQTTConfig unknown field: 'interval'",
-            "In config.MQTTConfig unknown field: 'method'",
-            "In config.MQTTConfig unknown field: 'pagination'",
-            "In config.MQTTConfig unknown field: 'path'",
+            "Missing required field at config.KafkaConfig: 'topic'",
+            "Unrecognized fields at config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
+            "'pagination' and 'path'. ",
+            "Missing required field at config.MQTTConfig: 'topicFilter'",
+            "Unrecognized fields at config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
+            "'pagination' and 'path'. ",
             "In config.RestConfig.incrementalLoad invalid type 'nextUrl'. Expected one of "
             "body, headerValue and queryParameter",
         },

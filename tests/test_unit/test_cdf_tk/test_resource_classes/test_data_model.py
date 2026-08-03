@@ -131,7 +131,7 @@ class TestDataModelYAML:
                         }
                     ],
                 },
-                ["In views[1] missing required field: 'version'"],
+                ["Missing required field at views[1]: 'version'"],
                 id="view-missing-version",
             ),
             pytest.param(

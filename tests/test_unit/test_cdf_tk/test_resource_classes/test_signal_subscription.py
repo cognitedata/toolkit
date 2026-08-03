@@ -104,7 +104,7 @@ def invalid_test_cases() -> Iterable:
             "sink": {"type": "email"},
             "filter": {"topic": "cognite_workflows"},
         },
-        {"In sink.email missing required field: 'externalId'"},
+        {"Missing required field at sink.email: 'externalId'"},
         id="email-sink-missing-external-id",
     )
 

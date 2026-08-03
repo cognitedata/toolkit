@@ -173,9 +173,8 @@ def invalid_transformation_test_cases() -> Iterable:
             "authentication": {"invalid_key": "value"},
         },
         {
-            "In authentication missing required field: 'clientId'",
-            "In authentication missing required field: 'clientSecret'",
-            "In authentication unknown field: 'invalid_key'",
+            "Missing required fields at authentication: 'clientId' and 'clientSecret'",
+            "Unrecognized field at authentication: 'invalid_key'. ",
         },
         id="Invalid authentication type",
     )

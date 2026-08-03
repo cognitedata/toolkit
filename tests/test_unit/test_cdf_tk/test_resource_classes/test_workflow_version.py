@@ -51,7 +51,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
+            "Missing required field at workflowDefinition.tasks[1].function.parameters: 'function'",
             "In workflowDefinition.tasks[1].function.retries input should be a valid "
             "integer. Got 'notAnInt' of type str.",
         },
@@ -69,7 +69,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {
             "In workflowDefinition.tasks[1].function.onFailure input should be "
             "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
-            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
+            "Missing required field at workflowDefinition.tasks[1].function.parameters: 'function'",
         },
         id="Invalid enum value for onFailure",
     )

@@ -89,7 +89,7 @@ def invalid_edge_test_cases() -> Iterable:
                 "unknownField": "value",
             },
         },
-        {"In type unknown field: 'unknownField'"},
+        {"Unrecognized field at type: 'unknownField'. "},
         id="unknown-field-node-type",
     )
     yield pytest.param(
@@ -143,7 +143,7 @@ def invalid_edge_test_cases() -> Iterable:
         },
         {
             "In sources[1].source.ViewReference.type input should be 'view'. Got 'unknown'.",
-            "In sources[1].source.ViewReference missing required field: 'version'",
+            "Missing required field at sources[1].source.ViewReference: 'version'",
             "In sources[1].source.ContainerReference.type input should be 'container'. Got 'unknown'.",
         },
         id="invalid-source-type",

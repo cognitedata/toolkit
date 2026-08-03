@@ -30,7 +30,7 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2"},
         ],
         [
-            "In item [2] missing required field: 'externalId'",
+            "Missing required field at item [2]: 'externalId'",
         ],
         id="Invalid second element of list of timeseries",
     )
@@ -41,9 +41,9 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2", "type": "numeric"},
         ],
         [
-            "In item [1] unknown field: 'nam'",
-            "In item [2] missing required field: 'externalId'",
-            "In item [2] unknown field: 'type'",
+            "Unrecognized field at item [1]: 'nam'. ",
+            "Missing required field at item [2]: 'externalId'",
+            "Unrecognized field at item [2]: 'type'. ",
         ],
         id="Multiple issues in a list of timeseries",
     )
@@ -63,7 +63,7 @@ def group_yaml_test_cases() -> Iterable:
         },
         {
             "In capabilities[1].actions[1] input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
-            "In capabilities[1] missing required field: 'scope'",
+            "Missing required field at capabilities[1]: 'scope'",
         },
         id="Invalid action and missing scope",
     )

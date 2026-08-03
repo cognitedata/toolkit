@@ -699,11 +699,12 @@ class BuildV2Command(ToolkitCommand):
         return output
 
     def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
-        errors = humanize_validation_error(error)
-        error_str = " - ".join(errors)
+        errors = humanize_validation_error(error) or ["The resource definition has syntax errors."]
+        # The insight type already communicates this is a syntax error, so we skip a generic intro line.
+        message = "\n".join(errors)
         return ModelSyntaxWarning(
             code="MODEL-SYNTAX-WARNING",
-            message=f"The resource definition has syntax errors:\n{error_str}",
+            message=message,
             fix="Make sure the resource YAML content is valid and follows the expected structure.",
         )
 

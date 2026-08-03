@@ -139,6 +139,9 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
 
     This overwrites the default error messages from Pydantic to be better suited for Toolkit users.
 
+    Multiple missing fields at the same location are grouped into a single "missing required fields" message,
+    and likewise for multiple unknown fields, instead of repeating the location for each individual field.
+
     Args:
         error: The ValidationError to convert.
 
@@ -146,13 +149,32 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
         A list of human-readable error messages.
     """
 
-    errors: list[str] = []
+    # Ordered list of either a literal message, or a location key referring into `field_groups_by_loc`.
+    ordered_entries: list[str | tuple[str | int, ...]] = []
+    field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str]]] = {}
     item: ErrorDetails
 
     for item in error.errors(include_input=True, include_url=False):
         loc = item["loc"]
         error_type = item["type"]
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
+        # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
+        # reported by Pydantic as "model_type" with a None input. The field is present but empty, which
+        # is often caused by its properties being under-indented so they end up as siblings instead.
+        is_empty_nested_object = error_type == "model_type" and item["input"] is None
+        if len(loc) > 1 and (error_type in {"missing", "extra_forbidden"} or is_empty_nested_object):
+            group_loc = loc[:-1]
+            group = field_groups_by_loc.setdefault(group_loc, {"missing": [], "unknown": [], "empty": []})
+            if group_loc not in ordered_entries:
+                ordered_entries.append(group_loc)
+            if error_type == "extra_forbidden":
+                key = "unknown"
+            elif is_empty_nested_object:
+                key = "empty"
+            else:
+                key = "missing"
+            group[key].append(f"{loc[-1]!r}")
+            continue
         if error_type == "missing":
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
@@ -200,14 +222,32 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             #  This is hard to read, so we simplify it to just the field name.
             loc = tuple(["dict" if isinstance(x, str) and "json-or-python" in x else x for x in loc])
 
-        if len(loc) > 1 and error_type in {"extra_forbidden", "missing"}:
-            # We skip the last element as this is in the message already
-            msg = f"In {as_json_path(loc[:-1])} {msg[:1].casefold()}{msg[1:]}"
-        elif len(loc) > 1:
+        if len(loc) > 1:
+            # Note: "missing"/"extra_forbidden" errors with len(loc) > 1 are handled above and never reach here.
             msg = f"In {as_json_path(loc)} {msg[:1].casefold()}{msg[1:]}"
         elif len(loc) == 1 and isinstance(loc[0], str) and error_type not in {"extra_forbidden", "missing"}:
             msg = f"In field {loc[0]} {msg[:1].casefold()}{msg[1:]}"
-        errors.append(msg)
+        ordered_entries.append(msg)
+
+    errors: list[str] = []
+    for entry in ordered_entries:
+        if isinstance(entry, str):
+            errors.append(entry)
+            continue
+        group = field_groups_by_loc[entry]
+        path = as_json_path(entry)
+        if missing := group["missing"]:
+            field_word = "field" if len(missing) == 1 else "fields"
+            errors.append(f"Missing required {field_word} at {path}: {humanize_collection(missing)}")
+        if empty := group["empty"]:
+            field_word = "field" if len(empty) == 1 else "fields"
+            errors.append(
+                f"Empty {field_word} at {path}: {humanize_collection(empty)}. "
+                "Hint: Check that its properties are properly indented underneath it."
+            )
+        if unknown := group["unknown"]:
+            field_word = "field" if len(unknown) == 1 else "fields"
+            errors.append(f"Unrecognized {field_word} at {path}: {humanize_collection(unknown)}. ")
     return errors
 
 
