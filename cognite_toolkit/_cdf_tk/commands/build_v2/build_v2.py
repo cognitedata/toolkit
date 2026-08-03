@@ -862,7 +862,10 @@ class BuildV2Command(ToolkitCommand):
 
             insight_subsections: list[RenderableType] = []
             for insight in insight_content:
-                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                content: list[RenderableType] = []
+                if insight.source_file:
+                    content.append(hanging_indent("⎿", insight.source_file, marker_style="dim"))
+                content.append(hanging_indent(icon, insight.message, marker_style=style))
                 if insight.fix:
                     content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
                 insight_subsections.append(

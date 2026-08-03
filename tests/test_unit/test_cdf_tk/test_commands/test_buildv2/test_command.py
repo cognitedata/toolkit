@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     BuildSource,
@@ -539,6 +540,32 @@ class TestDisplayModuleSourcesOutput:
         assert "Misplaced Modules" in rendered
         assert "modules/parent/child" in rendered
         assert "modules/parent" in rendered
+
+
+class TestDisplayInsightsOutput:
+    @staticmethod
+    def _console() -> tuple[Console, StringIO]:
+        output = StringIO()
+        return Console(file=output, force_terminal=False, width=120), output
+
+    def test_displays_source_file_in_panel(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        insights = InsightList(
+            [
+                ModelSyntaxWarning(
+                    code="MODEL-SYNTAX-WARNING",
+                    message="Unknown field: 'Name'",
+                    fix="Make sure the resource YAML content is valid and follows the expected structure.",
+                    source_file="modules/my_module/data_modeling/my_space.Space.yaml",
+                )
+            ]
+        )
+
+        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+
+        rendered = output.getvalue()
+        assert "modules/my_module/data_modeling/my_space.Space.yaml" in rendered
+        assert "Unknown field: 'Name'" in rendered
 
 
 def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
