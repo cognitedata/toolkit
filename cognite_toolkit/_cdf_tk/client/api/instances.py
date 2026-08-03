@@ -574,7 +574,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         This is written with a dedicated NDJsonWriter/kind so it does not mix with the per-item
         LogEntryV2 entries written to the download issues log.
         """
-        filestem = create_logfile_stem(output_dir, f"download")
+        filestem = create_logfile_stem(output_dir, "download")
         with NDJsonWriter(
             output_dir, kind="QueryDebugResponse", default_filestem=filestem, compression=Uncompressed
         ) as writer:
