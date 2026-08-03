@@ -65,7 +65,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     )
 
     def _source_files_for_resources(self, resources: list[BuiltResource]) -> str:
-        return ", ".join(format_insight_source_file(resource.source_path) for resource in resources)
+        unique_paths = list(dict.fromkeys(format_insight_source_file(resource.source_path) for resource in resources))
+        return ", ".join(unique_paths)
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
         return " - ".join(
