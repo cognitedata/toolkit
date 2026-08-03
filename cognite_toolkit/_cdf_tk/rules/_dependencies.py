@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_if_possible
 
 from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
 
@@ -44,10 +44,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 }
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
+                        referencing_resources = expected_by_identifier[identifier]
                         yield ConsistencyError(
                             code=f"{self.CODE_PREFIX}-CDF",
                             message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
                             fix=f"Ensure that {display_name} exists or remove the reference to it.",
+                            source_file=self._source_files_for_resources(referencing_resources),
                         )
         else:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
@@ -59,7 +61,11 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
                         fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
+                        source_file=self._source_files_for_resources(expected_resources),
                     )
+
+    def _source_files_for_resources(self, resources: list[BuiltResource]) -> str:
+        return ", ".join(format_insight_source_file(resource.source_path) for resource in resources)
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
         return " - ".join(

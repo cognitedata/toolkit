@@ -15,6 +15,7 @@ class InsightDefinition(BaseModel):
     message: str
     code: str | None = None
     fix: str | None = None
+    source_file: str | None = None
 
     @classmethod
     def insight_type(cls) -> str:
@@ -124,10 +125,10 @@ class InsightList(UserList[Insight]):
         Carriage returns inside cells are normalized to LF newlines.
 
         Returns:
-            CSV formatted string with columns: insight_type, code, message, fix
+            CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
         output = io.StringIO()
-        fieldnames = ["insight_type", "code", "message", "fix"]
+        fieldnames = ["insight_type", "code", "source_file", "message", "fix"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, dialect=csv.unix_dialect)
         writer.writeheader()
 
@@ -136,6 +137,7 @@ class InsightList(UserList[Insight]):
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
+                    "source_file": _normalize_csv_cell(insight.source_file or ""),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
@@ -144,12 +146,13 @@ class InsightList(UserList[Insight]):
         return output.getvalue()
 
     def to_json(self) -> str:
-        """Returns a JSON array of insight objects with keys insight_type, code, message, fix."""
+        """Returns a JSON array of insight objects with keys insight_type, code, source_file, message, fix."""
 
         rows = [
             {
                 "insightType": insight.insight_type(),
                 "code": insight.code,
+                "sourceFile": insight.source_file,
                 "message": insight.message,
                 "fix": insight.fix,
             }

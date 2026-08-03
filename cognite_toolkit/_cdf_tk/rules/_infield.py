@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
     INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY,
@@ -123,4 +123,5 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     f"is missing required properties: {humanize_collection(sorted(missing))}."
                 ),
                 fix=f"Ensure the view has these properties: {humanize_collection(sorted(missing))}.",
+                source_file=format_insight_source_file(resource.source_path),
             )

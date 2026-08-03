@@ -183,6 +183,12 @@ name: My Space
             "insight_codes": {"MODEL-SYNTAX-WARNING"},
         }
 
+        syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING")
+        assert syntax_insight.source_file == "modules/my_module/data_modeling/my_space.Space.yaml"
+
+        insights_csv = (build_dir / "insights.csv").read_text()
+        assert "modules/my_module/data_modeling/my_space.Space.yaml" in insights_csv
+
     def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
 
