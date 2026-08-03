@@ -182,7 +182,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
                 QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
             ]
-        sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "onePhase" if endpoint == "sync" else None
+        sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
 
         if filter is None:
             query = QueryRequest(
@@ -192,7 +192,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                         nodes=QueryNodeTableExpression(),
                         sort=space_ext_id_sort,
                         mode=sync_mode,
-                        # backfill_sort=space_ext_id_sort,
+                        backfill_sort=space_ext_id_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -208,7 +208,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
                 sort=space_ext_id_sort,
                 mode=sync_mode,
-                # backfill_sort=space_ext_id_sort,
+                backfill_sort=space_ext_id_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
@@ -216,7 +216,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
                 sort=space_ext_id_sort,
                 mode=sync_mode,
-                # backfill_sort=space_ext_id_sort,
+                backfill_sort=space_ext_id_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:
@@ -574,7 +574,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         This is written with a dedicated NDJsonWriter/kind so it does not mix with the per-item
         LogEntryV2 entries written to the download issues log.
         """
-        filestem = create_logfile_stem(output_dir, f"debug_{endpoint_name}")
+        filestem = create_logfile_stem(output_dir, f"download")
         with NDJsonWriter(
             output_dir, kind="QueryDebugResponse", default_filestem=filestem, compression=Uncompressed
         ) as writer:
