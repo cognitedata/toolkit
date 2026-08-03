@@ -42,18 +42,22 @@ class ModelSyntaxWarning(InsightDefinition):
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 30
+    severity = 45
 
 
-class InternalValidatorError(InsightDefinition):
+class InternalValidatorException(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
-    This should never happen in normal operation — it indicates a bug in the validator itself.
+    This should never happen in normal operation — it indicates a bug in the validator itself, not
+    necessarily an issue with the resource being validated. Treated like a warning: the build can proceed,
+    but the affected resource was not fully validated.
     """
 
-    severity = 60
+    severity = 35
     source: str
-    fix: str | None = "This is an unexpected error in the validator. Please report this as a bug."
+    fix: str | None = (
+        "This is an unexpected error in the validator. It does not necessarily indicate an issue with your resource, only that we failed to validate it. Please report this as a bug."
+    )
 
 
 class IgnoredFileWarning(InsightDefinition):
@@ -70,7 +74,7 @@ Insight: TypeAlias = (
     ModelSyntaxError
     | ModelSyntaxWarning
     | ConsistencyError
-    | InternalValidatorError
+    | InternalValidatorException
     | Recommendation
     | FileReadError
     | IgnoredFileWarning
@@ -113,9 +117,7 @@ class InsightList(UserList[Insight]):
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(
-            isinstance(insight, (ModelSyntaxError, ConsistencyError, InternalValidatorError)) for insight in self.data
-        )
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:

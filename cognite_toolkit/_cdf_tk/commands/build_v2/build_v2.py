@@ -874,7 +874,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
-            "InternalValidatorError": (AuraColor.RED.rich, "✗"),
+            "InternalValidatorException": (AuraColor.AMBER.rich, "!"),
             "ModelSyntaxError": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "*"),
@@ -1011,7 +1011,7 @@ class BuildV2Command(ToolkitCommand):
             case severity if 15 <= severity <= 35:
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
-                    "There are model syntax warnings. Deployment may fail for some resources."
+                    "There are warnings that should be reviewed. Deployment may potentially fail for some resources."
                 )
                 border_color = AuraColor.AMBER.rich
             case _:
