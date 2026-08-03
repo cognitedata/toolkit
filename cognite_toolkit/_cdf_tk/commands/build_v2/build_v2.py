@@ -862,15 +862,12 @@ class BuildV2Command(ToolkitCommand):
 
             insight_subsections: list[RenderableType] = []
             for insight in insight_content:
-                content: list[RenderableType] = []
-                if insight.source_file:
-                    content.append(hanging_indent("⎿", insight.source_file, marker_style="dim"))
-                content.append(hanging_indent(icon, insight.message, marker_style=style))
+                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
                 if insight.fix:
                     content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
                 insight_subsections.append(
                     ToolkitPanelSection(
-                        title=self._humanize_insight_code(insight.code),
+                        title=self._insight_section_title(insight),
                         content=content,
                     )
                 )
@@ -912,6 +909,13 @@ class BuildV2Command(ToolkitCommand):
         if code is None:
             return "Undefined"
         return code.replace("-", " ").replace("_", " ").capitalize()
+
+    @classmethod
+    def _insight_section_title(cls, insight: Insight) -> str:
+        title = cls._humanize_insight_code(insight.code)
+        if insight.source_file:
+            return f"{title} in {insight.source_file}"
+        return title
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""

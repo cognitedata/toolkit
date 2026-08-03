@@ -564,7 +564,7 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "modules/my_module/data_modeling/my_space.Space.yaml" in rendered
+        assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unknown field: 'Name'" in rendered
 
 
