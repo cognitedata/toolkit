@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 import respx
+import yaml
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
@@ -204,25 +205,6 @@ class TestCreateDeploymentPlan:
                     path=Path("build"),
                     resource_directories=[
                         ResourceDirectory(
-                            directory=Path("build/data_modeling"),
-                            files_by_crud={
-                                DataModelIO: [Path("build/data_modeling/my.DataModel.yaml")],
-                                GraphQLCRUD: [Path("build/data_modeling/schema.GraphQLSchema.yaml")],
-                            },
-                        )
-                    ],
-                ),
-                [
-                    DeploymentStep(GraphQLCRUD, [Path("build/data_modeling/schema.GraphQLSchema.yaml")]),
-                    DeploymentStep(DataModelIO, [Path("build/data_modeling/my.DataModel.yaml")]),
-                ],
-                id="GraphQL schemas deploy before entity-based data models",
-            ),
-            pytest.param(
-                ReadBuildDirectory(
-                    path=Path("build"),
-                    resource_directories=[
-                        ResourceDirectory(
                             directory=Path("build/files"),
                             files_by_crud={
                                 CogniteFileCRUD: [Path("build/files/my.CogniteFile.yaml")],
@@ -251,6 +233,76 @@ class TestCreateDeploymentPlan:
         actual_plan = DeployV2Command.create_deployment_plan(read_dir)
 
         assert actual_plan == expected_plan
+
+    def test_graphql_deploys_before_data_model_referencing_generated_view(self, tmp_path: Path) -> None:
+        read_dir = self._create_mixed_data_model_build(
+            tmp_path,
+            graphql_content='type Generated @view(space: "my_space", version: "v1") { name: String }',
+            data_model_views=[{"type": "view", "space": "my_space", "externalId": "Generated", "version": "v1"}],
+        )
+
+        actual_plan = DeployV2Command.create_deployment_plan(read_dir)
+
+        assert [step.crud_cls for step in actual_plan] == [GraphQLCRUD, DataModelIO]
+
+    def test_data_model_deploys_before_graphql_importing_it(self, tmp_path: Path) -> None:
+        read_dir = self._create_mixed_data_model_build(
+            tmp_path,
+            graphql_content=(
+                'type Imported @import(dataModel: {space: "my_space", externalId: "entity_model", version: "v1"}) '
+                "{ name: String }"
+            ),
+        )
+
+        actual_plan = DeployV2Command.create_deployment_plan(read_dir)
+
+        assert [step.crud_cls for step in actual_plan] == [DataModelIO, GraphQLCRUD]
+
+    def test_bidirectional_mixed_data_model_dependencies_raise(self, tmp_path: Path) -> None:
+        read_dir = self._create_mixed_data_model_build(
+            tmp_path,
+            graphql_content=(
+                'type Generated @view(space: "my_space", version: "v1") { name: String }\n'
+                'type Imported @import(dataModel: {space: "my_space", externalId: "entity_model", version: "v1"}) '
+                "{ name: String }\n"
+            ),
+            data_model_views=[{"type": "view", "space": "my_space", "externalId": "Generated", "version": "v1"}],
+        )
+
+        with pytest.raises(ToolkitValidationError, match="dependencies in both directions"):
+            DeployV2Command.create_deployment_plan(read_dir)
+
+    @staticmethod
+    def _create_mixed_data_model_build(
+        tmp_path: Path,
+        graphql_content: str,
+        data_model_views: list[dict[str, str]] | None = None,
+    ) -> ReadBuildDirectory:
+        resource_dir = tmp_path / "build" / "data_modeling"
+        resource_dir.mkdir(parents=True)
+        graphql_yaml = resource_dir / "schema.GraphQLSchema.yaml"
+        graphql_yaml.write_text("space: my_space\nexternalId: graphql_model\nversion: v1\n")
+        graphql_yaml.with_name("schema.graphql").write_text(graphql_content)
+        data_model_yaml = resource_dir / "entity.DataModel.yaml"
+        data_model = {
+            "space": "my_space",
+            "externalId": "entity_model",
+            "version": "v1",
+            "views": data_model_views,
+        }
+        data_model_yaml.write_text(yaml.safe_dump(data_model))
+        return ReadBuildDirectory(
+            path=resource_dir.parent,
+            resource_directories=[
+                ResourceDirectory(
+                    directory=resource_dir,
+                    files_by_crud={
+                        DataModelIO: [data_model_yaml],
+                        GraphQLCRUD: [graphql_yaml],
+                    },
+                )
+            ],
+        )
 
 
 @dataclass
