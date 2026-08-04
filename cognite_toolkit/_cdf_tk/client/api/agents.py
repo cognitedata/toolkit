@@ -7,11 +7,19 @@ Note: This is an alpha API and may change in future releases.
 """
 
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.agent_chat import (
+    AgentChatResponse,
+    ChatActionResult,
+    ChatMessage,
+    ClientToolAction,
+    ToolConfirmationResult,
+)
 
 
 class AgentsAPI(CDFResourceAPI[AgentResponse]):
@@ -104,3 +112,42 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
             List of AgentResponse objects.
         """
         return self._list(limit=limit)
+
+    def chat(
+        self,
+        agent_external_id: str,
+        messages: ChatMessage
+        | ChatActionResult
+        | ToolConfirmationResult
+        | Sequence[ChatMessage | ChatActionResult | ToolConfirmationResult],
+        cursor: str | None = None,
+        actions: Sequence[ClientToolAction] | None = None,
+    ) -> AgentChatResponse:
+        """Start or continue a chat session with an agent.
+
+        See: https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_session_ai_agents_chat_post/
+        """
+        if isinstance(messages, (ChatMessage, ChatActionResult, ToolConfirmationResult)):
+            message_list: list[ChatMessage | ChatActionResult | ToolConfirmationResult] = [messages]
+        else:
+            message_list = list(messages)
+
+        body: dict[str, Any] = {
+            "agentExternalId": agent_external_id,
+            "messages": [message.dump() for message in message_list],
+        }
+        if cursor is not None:
+            body["cursor"] = cursor
+        if actions:
+            body["actions"] = [action.dump() for action in actions]
+
+        request = RequestMessage(
+            endpoint_url=self._make_url("/ai/agents/chat"),
+            method="POST",
+            body_content=body,
+            api_version=self._api_version,
+            disable_gzip=True,
+        )
+        result = self._http_client.request_single_retries(request)
+        response = result.get_success_or_raise(request)
+        return AgentChatResponse.model_validate_json(response.body)
