@@ -38,8 +38,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import (
     CogniteFileCRUD,
     ContainerCRUD,
+    DataModelIO,
     DataSetsIO,
     FunctionScheduleIO,
+    GraphQLCRUD,
     LabelIO,
     RawDatabaseCRUD,
     RawTableCRUD,
@@ -196,6 +198,25 @@ class TestCreateDeploymentPlan:
                     DeploymentStep(ContainerCRUD, [Path("build/data_modeling/my.Container.yaml")]),
                 ],
                 id="Topological sorting of dependencies",
+            ),
+            pytest.param(
+                ReadBuildDirectory(
+                    path=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_modeling"),
+                            files_by_crud={
+                                DataModelIO: [Path("build/data_modeling/my.DataModel.yaml")],
+                                GraphQLCRUD: [Path("build/data_modeling/schema.GraphQLSchema.yaml")],
+                            },
+                        )
+                    ],
+                ),
+                [
+                    DeploymentStep(GraphQLCRUD, [Path("build/data_modeling/schema.GraphQLSchema.yaml")]),
+                    DeploymentStep(DataModelIO, [Path("build/data_modeling/my.DataModel.yaml")]),
+                ],
+                id="GraphQL schemas deploy before entity-based data models",
             ),
             pytest.param(
                 ReadBuildDirectory(
