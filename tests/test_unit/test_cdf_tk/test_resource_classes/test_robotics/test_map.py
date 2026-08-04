@@ -56,7 +56,7 @@ class TestRobotMapYAML:
                     "locationExternalId": "location_001",
                     "scale": 1.1,
                 },
-                {"Invalid value at scale: Input should be less than or equal to 1"},
+                {"Invalid value for scale: Input should be less than or equal to 1"},
             ),
         ],
     )

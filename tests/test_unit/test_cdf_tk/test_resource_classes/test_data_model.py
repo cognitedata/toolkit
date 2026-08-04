@@ -75,7 +75,7 @@ class TestDataModelYAML:
                     "externalId": "my_model",
                     "version": "v1",
                 },
-                ["Invalid value at space: String should have at least 1 character"],
+                ["Invalid value for space: String should have at least 1 character"],
                 id="invalid-space",
             ),
             pytest.param(
@@ -84,7 +84,7 @@ class TestDataModelYAML:
                     "externalId": "a" * 256,  # External ID too long (max 255)
                     "version": "v1",
                 },
-                ["Invalid value at externalId: String should have at most 255 characters"],
+                ["Invalid value for externalId: String should have at most 255 characters"],
                 id="invalid-external-id",
             ),
             pytest.param(
@@ -93,7 +93,7 @@ class TestDataModelYAML:
                     "externalId": "my_model",
                     "version": "a" * 44,  # Version too long (max 43)
                 },
-                ["Invalid value at version: String should have at most 43 characters"],
+                ["Invalid value for version: String should have at most 43 characters"],
                 id="invalid-version",
             ),
             pytest.param(
@@ -103,7 +103,7 @@ class TestDataModelYAML:
                     "version": "v1",
                     "name": "a" * 256,  # Name too long (max 255)
                 },
-                ["Invalid value at name: String should have at most 255 characters"],
+                ["Invalid value for name: String should have at most 255 characters"],
                 id="invalid-name",
             ),
         ],

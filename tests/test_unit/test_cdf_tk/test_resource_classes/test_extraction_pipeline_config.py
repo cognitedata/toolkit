@@ -21,7 +21,7 @@ def invalid_extraction_pipeline_config_test_cases() -> Iterable:
     # Empty external_id
     yield pytest.param(
         {"externalId": "", "config": {"key": "value"}},
-        {"Invalid value at externalId: String should have at least 1 character"},
+        {"Invalid value for externalId: String should have at least 1 character"},
         id="Empty externalId",
     )
     # config is not a string or dict

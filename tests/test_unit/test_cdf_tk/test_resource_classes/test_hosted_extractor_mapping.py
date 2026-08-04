@@ -13,7 +13,7 @@ def invalid_hosted_extractor_mapping_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "myMapping", "mapping": "var->to->other", "published": True},
         {
-            "Invalid value at mapping: Input should be a valid Mapping object. Got 'var->to->other' of type str.",
+            "Invalid value for mapping: Input should be a valid Mapping object. Got 'var->to->other' of type str.",
         },
         id="Incorrect variables type ",
     )

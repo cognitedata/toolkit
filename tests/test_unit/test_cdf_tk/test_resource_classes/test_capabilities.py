@@ -200,7 +200,7 @@ class TestCapabilities:
         [
             pytest.param(
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
-                ["Invalid value at scope: invalid scope name 'idscope'. Expected all or idScope"],
+                ["Invalid value for scope: invalid scope name 'idscope'. Expected all or idScope"],
                 id="Wrong case for datasetsAcl idScope",
             ),
             pytest.param(
@@ -211,7 +211,7 @@ class TestCapabilities:
                     }
                 },
                 [
-                    "Invalid value at scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
+                    "Invalid value for scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
                     "Unrecognized value for actions[1]: Expected one of 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
@@ -224,7 +224,7 @@ class TestCapabilities:
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
-                    "Invalid value at scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
+                    "Invalid value for scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
                     "Unrecognized value for actions[2]: Expected one of 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",

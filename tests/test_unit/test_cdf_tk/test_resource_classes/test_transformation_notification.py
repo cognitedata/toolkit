@@ -26,7 +26,7 @@ class TestTransformationNotificationYAML:
             pytest.param(
                 {"transformationExternalId": 123, "destination": "example@emai.com"},
                 {
-                    "Invalid value at transformationExternalId: Input should be a valid string. Got 123 of "
+                    "Invalid value for transformationExternalId: Input should be a valid string. Got 123 of "
                     "type int. Hint: Use double quotes to force string."
                 },
                 id="wrong_type_field",

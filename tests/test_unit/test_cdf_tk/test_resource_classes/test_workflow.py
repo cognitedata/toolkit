@@ -17,7 +17,7 @@ def invalid_workflow_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "MyWorkflow", "description": "way too long" * 500},
-        {"Invalid value at description: String should have at most 500 characters"},
+        {"Invalid value for description: String should have at most 500 characters"},
         id="Too long description",
     )
 

@@ -37,7 +37,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "existingVersion": -1,
         },
-        {"Invalid value at existingVersion: Input should be greater than or equal to 0"},
+        {"Invalid value for existingVersion: Input should be greater than or equal to 0"},
         id="negative-existing-version",
     )
     yield pytest.param(
@@ -53,7 +53,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "space": "1invalid_space",
         },
-        {"Invalid value at space: String should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
+        {"Invalid value for space: String should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
         id="invalid-space-pattern",
     )
     yield pytest.param(
@@ -61,7 +61,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "space": "a" * 44,
         },
-        {"Invalid value at space: String should have at most 43 characters"},
+        {"Invalid value for space: String should have at most 43 characters"},
         id="space-too-long",
     )
     yield pytest.param(
@@ -69,7 +69,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "externalId": "",
         },
-        {"Invalid value at externalId: String should have at least 1 character"},
+        {"Invalid value for externalId: String should have at least 1 character"},
         id="invalid-external-id",
     )
     yield pytest.param(
@@ -77,7 +77,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "externalId": "a" * 257,
         },
-        {"Invalid value at externalId: String should have at most 256 characters"},
+        {"Invalid value for externalId: String should have at most 256 characters"},
         id="external-id-too-long",
     )
     yield pytest.param(

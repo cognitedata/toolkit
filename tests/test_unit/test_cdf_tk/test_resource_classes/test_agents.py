@@ -54,11 +54,11 @@ def invalid_test_cases() -> Iterable:
             "tools": [{"type": "invalid"}] * 21,  # Too many tools - violates max_length=20
         },
         {
-            "Invalid value at description: String should have at most 1024 characters",
-            "Invalid value at externalId: String should have at least 1 character",
+            "Invalid value for description: String should have at most 1024 characters",
+            "Invalid value for externalId: String should have at least 1 character",
             _model_literal_error_message("invalid-model"),
-            "Invalid value at name: String should have at least 1 character",
-            "Invalid value at tools: List should have at most 20 items after validation, not 21",
+            "Invalid value for name: String should have at least 1 character",
+            "Invalid value for tools: List should have at most 20 items after validation, not 21",
         },
         id="multiple-validation-errors",
     )
@@ -76,9 +76,9 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "Invalid value at externalId: String should have at most 128 characters",
-            "Invalid value at instructions: String should have at most 32000 characters",
-            "Invalid value at name: String should have at most 255 characters",
+            "Invalid value for externalId: String should have at most 128 characters",
+            "Invalid value for instructions: String should have at most 32000 characters",
+            "Invalid value for name: String should have at most 255 characters",
             "Invalid value at tools[1].askDocument.description: String should have at least 10 characters",
             "Invalid value at tools[1].askDocument.name: String should have at least 1 character",
         },
@@ -137,7 +137,7 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "Invalid value at externalId: String should match pattern '^[^\\x00]{1,128}$'",
+            "Invalid value for externalId: String should match pattern '^[^\\x00]{1,128}$'",
             "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
             "most 80 items after validation, not 81",
             "Invalid value at tools[1].queryKnowledgeGraph.description: String should have at most 1024 characters",
@@ -155,14 +155,14 @@ def invalid_test_cases() -> Iterable:
             "tools": "not_a_list",  # Wrong type - should be list
         },
         {
-            "Invalid value at description: Input should be a valid string. Got 456 of type int. "
+            "Invalid value for description: Input should be a valid string. Got 456 of type int. "
             "Hint: Use double quotes to force string.",
-            "Invalid value at instructions: Input should be a valid string. Got [] of type list. "
+            "Invalid value for instructions: Input should be a valid string. Got [] of type list. "
             "Hint: Use double quotes to force string.",
             _model_literal_error_message(True),
-            "Invalid value at name: Input should be a valid string. Got None of type NoneType. "
+            "Invalid value for name: Input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
-            "Invalid value at tools: Input should be a valid list. Got 'not_a_list'.",
+            "Invalid value for tools: Input should be a valid list. Got 'not_a_list'.",
             "Missing required field: 'externalId'",
             "Unknown field: 'external_id'",
         },

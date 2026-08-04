@@ -19,7 +19,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "config": {"topicFilter": "some_filter"},
         },
         {
-            "Invalid value at format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
+            "Invalid value for format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
         },
         id="Invalid type",
     )
@@ -45,7 +45,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"encoding": "utf8"},
         },
         {
-            "Invalid value at format: Invalid input format missing 'type' key",
+            "Invalid value for format: Invalid input format missing 'type' key",
         },
         id="Format missing type",
     )
@@ -157,9 +157,9 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite"},
         },
         {
-            "Invalid value at externalId: String should have at most 255 characters",
-            "Invalid value at destinationId: String should have at most 255 characters",
-            "Invalid value at sourceId: String should have at most 255 characters",
+            "Invalid value for externalId: String should have at most 255 characters",
+            "Invalid value for destinationId: String should have at most 255 characters",
+            "Invalid value for sourceId: String should have at most 255 characters",
         },
         id="externalId too long",
     )
@@ -173,7 +173,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": "invalid_format",
         },
         {
-            "Invalid value at format: Invalid input for format '<class 'str'>' expected dict",
+            "Invalid value for format: Invalid input for format '<class 'str'>' expected dict",
         },
         id="Format non-dict type",
     )
@@ -187,7 +187,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": None,
         },
         {
-            "Invalid value at format: Invalid input for format '<class 'NoneType'>' expected dict",
+            "Invalid value for format: Invalid input for format '<class 'NoneType'>' expected dict",
         },
         id="Format null type",
     )

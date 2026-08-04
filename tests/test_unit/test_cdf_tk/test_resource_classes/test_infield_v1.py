@@ -25,9 +25,9 @@ def invalid_test_cases() -> Iterable:
             "dataSetId": "invalid",  # Unknown field
         },
         {
-            "Invalid value at externalId: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
-            "Invalid value at name: Input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
-            "Invalid value at appDataSpaceVersion: Input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
+            "Invalid value for externalId: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for name: Input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for appDataSpaceVersion: Input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
             "Unknown field: 'dataSetId'",
         },
         id="Multiple type validation errors",

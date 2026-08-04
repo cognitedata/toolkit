@@ -20,7 +20,7 @@ def invalid_event_test_cases() -> Iterable:
             "Hint: Use double quotes to force string.",
             "Invalid value at assetExternalIds[2]: Input should be a valid string. Got 456 of type int. "
             "Hint: Use double quotes to force string.",
-            "Invalid value at startTime: Input should be a valid integer. Got '2023-10-01T00:00:00Z' of type str.",
+            "Invalid value for startTime: Input should be a valid integer. Got '2023-10-01T00:00:00Z' of type str.",
         },
         id="Invalid data type in assetExternalIds",
     )

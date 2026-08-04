@@ -22,7 +22,7 @@ def invalid_3D_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"name": "MyModel", "metadata": {f"key{i}": f"value{i}" for i in range(17)}},
-        {"Invalid value at metadata: Dictionary should have at most 16 items after validation, not 17"},
+        {"Invalid value for metadata: Dictionary should have at most 16 items after validation, not 17"},
         id="Invalid metadata types",
     )
 

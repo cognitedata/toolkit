@@ -36,7 +36,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         },
         {
             "Missing required fields in authentication: 'clientId' and 'clientSecret'",
-            "Invalid value at triggerRule: Invalid trigger rule data missing 'triggerType' key",
+            "Invalid value for triggerRule: Invalid trigger rule data missing 'triggerType' key",
             "Unknown field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
@@ -51,7 +51,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
         {
-            "Invalid value at triggerRule: invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
+            "Invalid value for triggerRule: invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
         },
         id="Invalid triggerType value",
     )
