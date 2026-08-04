@@ -209,7 +209,7 @@ class HTTPClient:
         if retry_request := self._retry_request(response, request, error_details):
             return retry_request
         else:
-            # Permenant failure
+            # Permanent failure
             return FailedResponse(
                 status_code=response.status_code,
                 body=response.text,
