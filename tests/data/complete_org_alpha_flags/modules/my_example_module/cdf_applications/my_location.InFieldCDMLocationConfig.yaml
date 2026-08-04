@@ -94,3 +94,7 @@ dataExplorationConfig:
     space: customer_idm_extention
     version: v2
     externalId: InfieldNotificationsCardView
+  assetDocumentsCardView:
+    externalId: InfieldDocumentsCardView
+    space: customer_idm_extention
+    version: v2
