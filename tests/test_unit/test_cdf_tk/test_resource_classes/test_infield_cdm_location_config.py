@@ -29,7 +29,7 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "Unrecognized field at featureToggles: 'invalidToggle'. ",
+            "Unrecognized field in featureToggles: 'invalidToggle'. ",
             "Unknown field: 'anotherUnknownField'",
             "Unknown field: 'unknownField'",
         },
@@ -76,10 +76,10 @@ def invalid_test_cases() -> Iterable:
             "Invalid value at dataFilters.files.instanceSpaces: Input should be a valid list. Got 'should_be_list'.",
             "Invalid value at dataFilters.files.path.externalId: Input should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
             "Invalid value at dataFilters.files.path.space: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
-            "Missing required field at disciplines[1]: 'externalId'",
+            "Missing required field in disciplines[1]: 'externalId'",
             "Invalid value at featureToggles.threeD: Input should be a valid boolean. Got 'not_a_boolean' of type str.",
             "Invalid value at featureToggles.trends: Input should be a valid boolean. Got 123 of type int.",
-            "Missing required field at viewMappings.asset: 'externalId'",
+            "Missing required field in viewMappings.asset: 'externalId'",
         },
         id="Multiple type mismatches across nested structures",
     )
@@ -91,7 +91,7 @@ def invalid_test_cases() -> Iterable:
                 "unknownField": "bad_value",
             },
         },
-        {"Unrecognized field at dataExplorationConfig: 'unknownField'. "},
+        {"Unrecognized field in dataExplorationConfig: 'unknownField'. "},
         id="Unknown field in dataExplorationConfig",
     )
     yield pytest.param(
@@ -123,7 +123,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Unrecognized field at dataExplorationConfig.assetPropertiesCardConfig.name: 'unknownField'. "},
+        {"Unrecognized field in dataExplorationConfig.assetPropertiesCardConfig.name: 'unknownField'. "},
         id="Unknown field in dataExplorationConfig.assetPropertiesCardConfig entry",
     )
     yield pytest.param(
@@ -174,8 +174,8 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field at viewMappings.observation[1]: 'view'",
-            "Unrecognized fields at viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
+            "Missing required field in viewMappings.observation[1]: 'view'",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
         },
         id="Flat legacy ViewMapping shape in viewMappings.observation",
     )
@@ -195,9 +195,9 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "Empty field at viewMappings.observation[1]: 'view'. "
+            "Empty field in viewMappings.observation[1]: 'view'. "
             "Hint: Check that its properties are properly indented underneath it.",
-            "Unrecognized fields at viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
         },
         id="Empty view (under-indented siblings) in viewMappings.observation",
     )
@@ -231,7 +231,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Missing required field at viewMappings.observation[1].view: 'externalId'"},
+        {"Missing required field in viewMappings.observation[1].view: 'externalId'"},
         id="Missing required field in viewMappings.observation view",
     )
     yield pytest.param(
@@ -251,7 +251,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Unrecognized field at viewMappings.observation[1]: 'unknownField'. "},
+        {"Unrecognized field in viewMappings.observation[1]: 'unknownField'. "},
         id="Unknown field in viewMappings.observation",
     )
     yield pytest.param(
@@ -274,7 +274,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Unrecognized field at viewMappings.observation[1].writeBack: 'unknownField'. "},
+        {"Unrecognized field in viewMappings.observation[1].writeBack: 'unknownField'. "},
         id="Unknown field in viewMappings.observation.writeBack",
     )
     yield pytest.param(
@@ -294,7 +294,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Missing required field at viewMappings.observation[1].writeBack: 'notificationsEndpointExternalId'"},
+        {"Missing required field in viewMappings.observation[1].writeBack: 'notificationsEndpointExternalId'"},
         id="Missing notificationsEndpointExternalId in viewMappings.observation.writeBack",
     )
     yield pytest.param(
@@ -342,7 +342,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Unrecognized field at viewMappings.observation[1].fieldsConfig.assets: 'unknownField'. "},
+        {"Unrecognized field in viewMappings.observation[1].fieldsConfig.assets: 'unknownField'. "},
         id="Unknown field in viewMappings.observation.fieldsConfig entry",
     )
     yield pytest.param(
@@ -358,7 +358,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Unrecognized field at dataExplorationConfig.assetActivitiesCardView: 'unknownNested'. "},
+        {"Unrecognized field in dataExplorationConfig.assetActivitiesCardView: 'unknownNested'. "},
         id="Unknown field in dataExplorationConfig.assetActivitiesCardView",
     )
     yield pytest.param(
@@ -372,7 +372,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Missing required field at dataExplorationConfig.assetActivitiesCardView: 'externalId'"},
+        {"Missing required field in dataExplorationConfig.assetActivitiesCardView: 'externalId'"},
         id="Missing required field in dataExplorationConfig.assetActivitiesCardView",
     )
     yield pytest.param(
@@ -388,7 +388,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Unrecognized field at dataExplorationConfig.assetNotificationsCardView: 'extraProp'. "},
+        {"Unrecognized field in dataExplorationConfig.assetNotificationsCardView: 'extraProp'. "},
         id="Unknown field in dataExplorationConfig.assetNotificationsCardView",
     )
     yield pytest.param(
@@ -402,7 +402,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Missing required field at dataExplorationConfig.assetNotificationsCardView: 'externalId'"},
+        {"Missing required field in dataExplorationConfig.assetNotificationsCardView: 'externalId'"},
         id="Missing required field in dataExplorationConfig.assetNotificationsCardView",
     )
 

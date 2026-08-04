@@ -30,7 +30,7 @@ def invalid_sequence_test_cases() -> Iterable:
                 {"name": "Column 1"},
             ],
         },
-        {"Missing required field at columns[1]: 'externalId'"},
+        {"Missing required field in columns[1]: 'externalId'"},
         id="missing-externalId-in-column",
     )
     yield pytest.param(
@@ -41,7 +41,7 @@ def invalid_sequence_test_cases() -> Iterable:
             ],
         },
         {
-            "Invalid value at columns[1].valueType: Input should be 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
+            "Unrecognized value at columns[1].valueType: Expected one of 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
         },
         id="invalid-valueType-in-column",
     )
@@ -155,7 +155,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "columns": ["col1"],
             "rows": [{"values": [1, 2, 3]}],
         },
-        {"Missing required field at rows[1]: 'rowNumber'"},
+        {"Missing required field in rows[1]: 'rowNumber'"},
         id="missing-rowNumber-in-row",
     )
     yield pytest.param(

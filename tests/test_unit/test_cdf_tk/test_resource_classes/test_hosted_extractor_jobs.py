@@ -59,7 +59,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "encoding": "invalid_encoding"},
         },
         {
-            "Invalid value at format.encoding: Input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
+            "Unrecognized value at format.encoding: Expected one of 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
         },
         id="CogniteFormat invalid encoding",
     )
@@ -73,7 +73,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "compression": "invalid_compression"},
         },
         {
-            "Invalid value at format.compression: Input should be 'gzip'. Got 'invalid_compression'.",
+            "Unrecognized value at format.compression: Expected 'gzip'. Got 'invalid_compression'.",
         },
         id="CogniteFormat invalid compression",
     )
@@ -87,7 +87,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "custom"},
         },
         {
-            "Missing required field at format: 'mappingId'",
+            "Missing required field in format: 'mappingId'",
         },
         id="CustomFormat missing mappingId",
     )
@@ -143,7 +143,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "dataModels": [{}]},
         },
         {
-            "Missing required field at format.dataModels[1]: 'space'",
+            "Missing required field in format.dataModels[1]: 'space'",
         },
         id="CogniteFormat missing space in dataModels",
     )
@@ -208,11 +208,11 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field at config.KafkaConfig: 'topic'",
-            "Unrecognized fields at config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
+            "Missing required field in config.KafkaConfig: 'topic'",
+            "Unrecognized fields in config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
             "'pagination' and 'path'. ",
-            "Missing required field at config.MQTTConfig: 'topicFilter'",
-            "Unrecognized fields at config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
+            "Missing required field in config.MQTTConfig: 'topicFilter'",
+            "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
             "'pagination' and 'path'. ",
             "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
             "body, headerValue and queryParameter",

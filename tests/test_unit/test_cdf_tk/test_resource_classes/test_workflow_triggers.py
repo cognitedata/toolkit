@@ -35,7 +35,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "foo": 123,
         },
         {
-            "Missing required fields at authentication: 'clientId' and 'clientSecret'",
+            "Missing required fields in authentication: 'clientId' and 'clientSecret'",
             "Invalid value at triggerRule: Invalid trigger rule data missing 'triggerType' key",
             "Unknown field: 'foo'",
         },
@@ -64,7 +64,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"Missing required field at triggerRule: 'cronExpression'"},
+        {"Missing required field in triggerRule: 'cronExpression'"},
         id="Missing required field in schedule triggerRule",
     )
     # Wrong type for batch_size in dataModeling trigger

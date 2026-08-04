@@ -28,8 +28,13 @@ from tests.test_unit.utils import find_resources
 def _model_literal_error_message(invalid_value: object) -> str:
     models = literal_string_values_from_annotation(Model)
     quoted = ", ".join(f"'{model}'" for model in models[:-1])
-    options = f"{quoted} or '{models[-1]}'" if len(models) > 1 else f"'{models[0]}'"
-    return f"Invalid value at model: Input should be {options}. Got {invalid_value!r}."
+    if len(models) > 1:
+        prefix = "Expected one of"
+        options = f"{quoted} or '{models[-1]}'"
+    else:
+        prefix = "Expected"
+        options = f"'{models[0]}'"
+    return f"Unrecognized value at model: {prefix} {options}. Got {invalid_value!r}."
 
 
 def invalid_test_cases() -> Iterable:
@@ -102,8 +107,8 @@ def invalid_test_cases() -> Iterable:
         {
             "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
             "least 1 item after validation, not 0",
-            "Missing required field at tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
-            "Invalid value at tools[1].queryKnowledgeGraph.configuration.version: Input should be 'v1' or 'v2'. Got 'v3'.",
+            "Missing required field in tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
+            "Unrecognized value at tools[1].queryKnowledgeGraph.configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
     )
@@ -460,7 +465,7 @@ class TestAgentYAML:
                     "name": "My Agent",
                     "exampleQuestions": [{}],
                 },
-                "Missing required field at exampleQuestions[1]: 'question'",
+                "Missing required field in exampleQuestions[1]: 'question'",
                 id="missing-question",
             ),
             pytest.param(
@@ -483,7 +488,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "Missing required field at exampleQuestions[1].expectedMessages[1]: 'content'",
+                "Missing required field in exampleQuestions[1].expectedMessages[1]: 'content'",
                 id="expected-message-missing-content",
             ),
             pytest.param(
@@ -497,7 +502,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "Missing required field at exampleQuestions[1].expectedMessages[1]: 'role'",
+                "Missing required field in exampleQuestions[1].expectedMessages[1]: 'role'",
                 id="expected-message-missing-role",
             ),
         ],

@@ -212,20 +212,20 @@ class TestCapabilities:
                 },
                 [
                     "Invalid value at scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
-                    "Invalid value at actions[1]: Input should be 'READ' or 'WRITE'. Got 'OWNER'.",
+                    "Unrecognized value at actions[1]: Expected one of 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
             ),
             pytest.param(
                 {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["UNKNOWN_APP"]}}}},
-                ["Invalid value at scope.apps[1]: Input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
+                ["Unrecognized value at scope.apps[1]: Expected 'SEARCH'. Got 'UNKNOWN_APP'."],
                 id="Invalid app name in appConfigAcl",
             ),
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
                     "Invalid value at scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
-                    "Invalid value at actions[2]: Input should be 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
+                    "Unrecognized value at actions[2]: Expected one of 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",
             ),

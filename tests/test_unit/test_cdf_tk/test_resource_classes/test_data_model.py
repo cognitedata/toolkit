@@ -131,7 +131,7 @@ class TestDataModelYAML:
                         }
                     ],
                 },
-                ["Missing required field at views[1]: 'version'"],
+                ["Missing required field in views[1]: 'version'"],
                 id="view-missing-version",
             ),
             pytest.param(
@@ -148,7 +148,7 @@ class TestDataModelYAML:
                         }
                     ],
                 },
-                ["Invalid value at views[1].type: Input should be 'view'. Got 'invalid_type'."],
+                ["Unrecognized value at views[1].type: Expected 'view'. Got 'invalid_type'."],
                 id="view-invalid-type",
             ),
         ],

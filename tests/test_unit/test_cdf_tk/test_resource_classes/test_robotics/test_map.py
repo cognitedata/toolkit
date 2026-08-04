@@ -42,7 +42,7 @@ class TestRobotMapYAML:
             (
                 {"name": "Invalid Map", "externalId": "map_invalid", "mapType": "INVALID_TYPE"},
                 {
-                    "Invalid value at mapType: Input should be 'WAYPOINTMAP', 'THREEDMODEL', 'TWODMAP' or 'POINTCLOUD'. Got 'INVALID_TYPE'."
+                    "Unrecognized value at mapType: Expected one of 'WAYPOINTMAP', 'THREEDMODEL', 'TWODMAP' or 'POINTCLOUD'. Got 'INVALID_TYPE'."
                 },
             ),
             (

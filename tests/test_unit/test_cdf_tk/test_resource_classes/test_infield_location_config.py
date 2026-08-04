@@ -29,7 +29,7 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "Unrecognized field at featureToggles: 'invalidToggle'. ",
+            "Unrecognized field in featureToggles: 'invalidToggle'. ",
             "Unknown field: 'anotherUnknownField'",
             "Unknown field: 'unknownField'",
         },

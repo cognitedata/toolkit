@@ -100,7 +100,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"Missing required field at authentication: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="RESTSource BasicAuthentication missing password",
     )
     # RESTSource with ClientCredentials (missing client_secret)
@@ -118,8 +118,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required fields at authentication: 'clientId', 'clientSecret' and 'tokenUrl'",
-            "Unrecognized fields at authentication: 'client_id' and 'token_url'. ",
+            "Missing required fields in authentication: 'clientId', 'clientSecret' and 'tokenUrl'",
+            "Unrecognized fields in authentication: 'client_id' and 'token_url'. ",
         },
         id="RESTSource ClientCredentials missing client_secret",
     )
@@ -135,7 +135,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing value
             },
         },
-        {"Missing required field at authentication: 'value'"},
+        {"Missing required field in authentication: 'value'"},
         id="RESTSource QueryCredentials missing value",
     )
     # RESTSource with HeaderCredentials (missing value)
@@ -150,7 +150,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing value
             },
         },
-        {"Missing required field at authentication: 'value'"},
+        {"Missing required field in authentication: 'value'"},
         id="RESTSource HeaderCredentials missing value",
     )
     # RESTSource with ScramSha256 (invalid type)
@@ -183,7 +183,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"Missing required field at authentication: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="KafkaSource ScramSha256 missing password",
     )
     # KafkaSource with BasicAuthentication (missing password)
@@ -198,7 +198,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"Missing required field at authentication: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="KafkaSource BasicAuthentication missing password",
     )
     # KafkaSource with ClientCredentials (missing client_secret)
@@ -215,7 +215,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing client_secret
             },
         },
-        {"Missing required field at authentication: 'clientSecret'"},
+        {"Missing required field in authentication: 'clientSecret'"},
         id="KafkaSource ClientCredentials missing client_secret",
     )
     # KafkaSource with QueryCredentials (invalid type)

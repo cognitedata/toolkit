@@ -74,7 +74,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_rmtree,
     yaml_safe_dump,
 )
-from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error, humanize_validation_error_categorized
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
@@ -718,26 +718,28 @@ class BuildV2Command(ToolkitCommand):
     def _create_syntax_warning(
         self, error: ValidationError
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
-        errors = humanize_validation_error(error) or ["The resource definition has syntax errors."]
-        unknown_field_errors = [error for error in errors if error.startswith(("Unrecognized field", "Unknown field:"))]
-        other_errors = [error for error in errors if error not in unknown_field_errors]
+        categorized_errors = humanize_validation_error_categorized(error) or [
+            ("The resource definition has syntax errors.", "error")
+        ]
+        warning_messages = [message for message, category in categorized_errors if category == "warning"]
+        error_messages = [message for message, category in categorized_errors if category == "error"]
 
         syntax_error = None
-        if other_errors:
+        if error_messages:
             # The insight type already communicates this is a syntax error, so we skip a generic intro line.
             syntax_error = ModelSyntaxError(
                 code="MODEL-SYNTAX-ERROR",
-                message="\n".join(other_errors),
+                message="\n".join(error_messages),
                 fix="Make sure the resource YAML content is valid and follows the expected structure.",
             )
 
         syntax_warning = None
-        if unknown_field_errors:
+        if warning_messages:
             syntax_warning = ModelSyntaxWarning(
-                code="UNRECOGNIZED-FIELD",
-                message="\n".join(unknown_field_errors),
-                fix="This could be a typo, or a field Toolkit does not yet recognize. It will still "
-                "be included when the resource is deployed, but may be ignored by CDF.",
+                code="MODEL-SYNTAX-WARNING",
+                message="\n".join(warning_messages),
+                fix="This could be a typo, an unrecognized field, or an invalid enum value. It will still "
+                "be included when the resource is deployed, but may be ignored or rejected by CDF.",
             )
         return syntax_error, syntax_warning
 

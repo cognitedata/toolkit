@@ -1,7 +1,7 @@
 import inspect
 import re
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, NamedTuple, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 
 __all__ = [
     "humanize_validation_error",
+    "humanize_validation_error_categorized",
     "validate_data_set_is_set",
     "validate_module_selection",
     "validate_modules_variables",
@@ -35,6 +36,15 @@ __all__ = [
 
 
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
+
+
+class _MessageEntry(NamedTuple):
+    message: str
+    category: str
+
+
+class _GroupEntry(NamedTuple):
+    loc: tuple[str | int, ...]
 
 
 def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
@@ -148,15 +158,31 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
     Returns:
         A list of human-readable error messages.
     """
+    return [message for message, _ in humanize_validation_error_categorized(error)]
 
-    # Ordered list of either a literal message, or a location key referring into `field_groups_by_loc`.
-    ordered_entries: list[str | tuple[str | int, ...]] = []
+
+def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[str, str]]:
+    """Same as ``humanize_validation_error``, but also classifies each message as "error" or "warning".
+
+    Unrecognized fields and invalid enum/literal values are classified as "warning" since they do not
+    prevent the resource from being built or deployed. Everything else is classified as "error".
+
+    Args:
+        error: The ValidationError to convert.
+
+    Returns:
+        A list of (message, category) tuples, where category is either "error" or "warning".
+    """
+
+    # Ordered list of either a (literal message, category) entry, or a group entry referring into `field_groups_by_loc`.
+    ordered_entries: list[_MessageEntry | _GroupEntry] = []
     field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str]]] = {}
     item: ErrorDetails
 
     for item in error.errors(include_input=True, include_url=False):
         loc = item["loc"]
         error_type = item["type"]
+        category = "error"
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
         # reported by Pydantic as "model_type" with a None input. The field is present but empty, which
@@ -165,8 +191,8 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
         if len(loc) > 1 and (error_type in {"missing", "extra_forbidden"} or is_empty_nested_object):
             group_loc = loc[:-1]
             group = field_groups_by_loc.setdefault(group_loc, {"missing": [], "unknown": [], "empty": []})
-            if group_loc not in ordered_entries:
-                ordered_entries.append(group_loc)
+            if _GroupEntry(group_loc) not in ordered_entries:
+                ordered_entries.append(_GroupEntry(group_loc))
             if error_type == "extra_forbidden":
                 key = "unknown"
             elif is_empty_nested_object:
@@ -179,9 +205,15 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
             msg = f"Unknown field: {loc[-1]!r}"
+            category = "warning"
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
-        elif error_type in {"literal_error", "list_type"}:
+        elif error_type == "literal_error":
+            expected = item.get("ctx", {}).get("expected", item["msg"].removeprefix("Input should be "))
+            prefix = "Expected one of" if " or " in expected else "Expected"
+            msg = f"{prefix} {expected}. Got {item['input']!r}."
+            category = "warning"
+        elif error_type == "list_type":
             msg = f"{item['msg']}. Got {item['input']!r}."
         elif is_metadata_string_value_error:
             # We skip metadata string errors. There are multiple reasons for this
@@ -224,28 +256,39 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
 
         if len(loc) >= 1 and error_type not in {"extra_forbidden", "missing"}:
             # Note: "missing"/"extra_forbidden" errors are handled above and never reach here.
-            msg = f"Invalid value at {as_json_path(loc)}: {msg}"
-        ordered_entries.append(msg)
+            if error_type == "literal_error":
+                # "Unrecognized value" always reads as "for a field", regardless of path depth.
+                prefix, connector = "Unrecognized value", "for"
+            else:
+                prefix = "Invalid value"
+                # A single top-level field name (e.g. "name") reads awkwardly with "at"; use "for" instead.
+                # Nested or indexed paths (e.g. "settings.template.name", "actions[1]") still read fine with "at".
+                connector = "for" if len(loc) == 1 and isinstance(loc[0], str) else "at"
+            msg = f"{prefix} {connector} {as_json_path(loc)}: {msg}"
+        ordered_entries.append(_MessageEntry(msg, category))
 
-    errors: list[str] = []
+    errors: list[tuple[str, str]] = []
     for entry in ordered_entries:
-        if isinstance(entry, str):
-            errors.append(entry)
+        if isinstance(entry, _MessageEntry):
+            errors.append((entry.message, entry.category))
             continue
-        group = field_groups_by_loc[entry]
-        path = as_json_path(entry)
+        group = field_groups_by_loc[entry.loc]
+        path = as_json_path(entry.loc)
         if missing := group["missing"]:
             field_word = "field" if len(missing) == 1 else "fields"
-            errors.append(f"Missing required {field_word} at {path}: {humanize_collection(missing)}")
+            errors.append((f"Missing required {field_word} in {path}: {humanize_collection(missing)}", "error"))
         if empty := group["empty"]:
             field_word = "field" if len(empty) == 1 else "fields"
             errors.append(
-                f"Empty {field_word} at {path}: {humanize_collection(empty)}. "
-                "Hint: Check that its properties are properly indented underneath it."
+                (
+                    f"Empty {field_word} in {path}: {humanize_collection(empty)}. "
+                    "Hint: Check that its properties are properly indented underneath it.",
+                    "error",
+                )
             )
         if unknown := group["unknown"]:
             field_word = "field" if len(unknown) == 1 else "fields"
-            errors.append(f"Unrecognized {field_word} at {path}: {humanize_collection(unknown)}. ")
+            errors.append((f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}. ", "warning"))
     return errors
 
 

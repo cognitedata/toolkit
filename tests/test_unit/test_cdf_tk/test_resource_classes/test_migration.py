@@ -32,7 +32,7 @@ def invalid_mapping_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field at viewId: 'space'",
+            "Missing required field in viewId: 'space'",
             "Invalid value at viewId.version: Input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
         },

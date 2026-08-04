@@ -162,7 +162,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "conflictMode": "replace",
         },
-        {"Invalid value at conflictMode: Input should be 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
+        {"Unrecognized value at conflictMode: Expected one of 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
         id="Invalid conflict_mode value",
     )
     yield pytest.param(
@@ -173,8 +173,8 @@ def invalid_transformation_test_cases() -> Iterable:
             "authentication": {"invalid_key": "value"},
         },
         {
-            "Missing required fields at authentication: 'clientId' and 'clientSecret'",
-            "Unrecognized field at authentication: 'invalid_key'. ",
+            "Missing required fields in authentication: 'clientId' and 'clientSecret'",
+            "Unrecognized field in authentication: 'invalid_key'. ",
         },
         id="Invalid authentication type",
     )

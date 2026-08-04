@@ -23,7 +23,7 @@ def invalid_function_test_cases() -> Iterable:
             "secrets": {f"secret_name{i}": f"super_secret{i}" for i in range(31)},
         },
         {
-            "Invalid value at runtime: Input should be 'py39', 'py310', 'py311', 'py312', 'py313' or 'py314'. Got 'py36'.",
+            "Unrecognized value at runtime: Expected one of 'py39', 'py310', 'py311', 'py312', 'py313' or 'py314'. Got 'py36'.",
             "Invalid value at secrets: Dictionary should have at most 30 items after validation, not 31",
         },
         id="Invalid runtime",
