@@ -1,4 +1,3 @@
-import re
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping
 from functools import partial
@@ -43,6 +42,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -248,7 +248,7 @@ class UploadCommand(ToolkitCommand):
         action = "Would upload" if dry_run else "Uploading"
 
         input_dir.mkdir(parents=True, exist_ok=True)
-        log_filestem = cls._create_upload_logfile_stem(input_dir)
+        log_filestem = create_logfile_stem(input_dir, "upload")
         with (
             NDJsonWriter(
                 input_dir, kind="UploadIssues", default_filestem=log_filestem, compression=Uncompressed
@@ -321,24 +321,6 @@ class UploadCommand(ToolkitCommand):
                     )
                 else:
                     executor.raise_on_error()
-
-    @staticmethod
-    def _create_upload_logfile_stem(log_dir: Path) -> str:
-        """Create a filestem for the upload log file that does not conflict with existing files in the directory."""
-        base_logstem = "upload-"
-        existing_files = list(log_dir.glob(f"{base_logstem}*"))
-        if not existing_files:
-            return base_logstem
-
-        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
-        max_run = 0
-        for f in existing_files:
-            match = run_pattern.match(f.name)
-            if match:
-                max_run = max(max_run, int(match.group(1)))
-
-        next_run = max(2, max_run + 1)
-        return f"{base_logstem}run{next_run}-"
 
     @staticmethod
     def _path_as_display_name(input_path: Path, cwd: Path = Path.cwd()) -> Path:

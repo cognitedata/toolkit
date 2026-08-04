@@ -195,6 +195,30 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
 _ILLEGAL_CHARACTERS = re.compile(r"[<>:\"/\\|?*\s]")
 
 
+def create_logfile_stem(log_dir: Path, base_logstem: str) -> str:
+    """Create a filestem for a log file that does not conflict with existing files in the directory.
+
+    Returns base_logstem unchanged if no files with that prefix exist yet, otherwise appends a
+    "run{n}-" suffix with the next unused run number.
+    """
+    if not base_logstem.endswith("-"):
+        base_logstem += "-"
+
+    existing_files = list(log_dir.glob(f"{base_logstem}*"))
+    if not existing_files:
+        return base_logstem
+
+    run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+    max_run = 0
+    for f in existing_files:
+        match = run_pattern.match(f.name)
+        if match:
+            max_run = max(max_run, int(match.group(1)))
+
+    next_run = max(2, max_run + 1)
+    return f"{base_logstem}run{next_run}-"
+
+
 def sanitize_filename(text: str) -> str:
     """Convert a string to be a valid filename by replacing illegal characters with underscores."""
     cleaned = _ILLEGAL_CHARACTERS.sub("_", text)

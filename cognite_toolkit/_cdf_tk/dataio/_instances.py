@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableDataIO
-from .logger import LogEntryV2, Severity
+from .logger import FileWithAggregationLogger, LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
@@ -409,12 +409,14 @@ class InstanceIO(
             query.cursors = {query.root: init_cursor}
 
         included_groups = [group for group in query.with_ if include_root or group != query.root]
+        debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         for batch in self.client.tool.instances.query_iterate(
             query,
             type_results=True,
             exhaust_sub_selections=True,
             limit=limit,
             endpoint=endpoint,
+            debug_writer=debug_writer,
         ):
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
@@ -439,10 +441,15 @@ class InstanceIO(
         instance_filter = self._build_list_filter(selector)
         total = 0
         cursor: str | None = init_cursor
+        debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             page = self.client.tool.instances.paginate(
-                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint
+                instance_filter,
+                limit=page_limit,
+                cursor=cursor,
+                endpoint=selector.endpoint,
+                debug_writer=debug_writer,
             )
             total += len(page.items)
             if page:
