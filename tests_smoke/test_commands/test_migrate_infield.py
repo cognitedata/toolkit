@@ -376,9 +376,9 @@ class TestMigrateInfield:
             if not isinstance(instance, NodeRequest):
                 continue
             if instance.sources:
-                source = instance.sources[0].source
-                if source.space == "cdf_apm" or (
-                    source.space == "cdf_apps_shared" and source.external_id == "CogniteSolutionTag"
+                first_source = instance.sources[0].source
+                if first_source.space == "cdf_apm" or (
+                    first_source.space == "cdf_apps_shared" and first_source.external_id == "CogniteSolutionTag"
                 ):
                     expected_node_count += 1
             for source in instance.sources or []:
