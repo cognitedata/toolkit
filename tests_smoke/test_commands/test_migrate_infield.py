@@ -375,13 +375,19 @@ class TestMigrateInfield:
         for instance in infield_legacy:
             if not isinstance(instance, NodeRequest):
                 continue
-            if instance.sources and instance.sources[0].source.space in {"cdf_apm", "cdf_apps_shared"}:
-                expected_node_count += 1
+            if instance.sources:
+                source = instance.sources[0].source
+                if source.space == "cdf_apm" or (
+                    source.space == "cdf_apps_shared" and source.external_id == "CogniteSolutionTag"
+                ):
+                    expected_node_count += 1
             for source in instance.sources or []:
                 if not isinstance(source.source, ViewId):
                     continue
                 if source.source not in mapping_by_source:
-                    if source.source.space in {"cdf_apm", "cdf_apps_shared"}:
+                    if source.source.space == "cdf_apm" or (
+                        source.source.space == "cdf_apps_shared" and source.source.external_id == "CogniteSolutionTag"
+                    ):
                         missing_mappings.append(source.source)
                     continue
                 mapping = mapping_by_source[source.source]
