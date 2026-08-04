@@ -1,6 +1,8 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
+from pathlib import Path
 from typing import Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
@@ -28,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryDebugParameters,
     QueryEdgeExpression,
     QueryEdgeTableExpression,
     QueryNodeExpression,
@@ -39,6 +42,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+
+log = logging.getLogger(__name__)
 
 METHOD_MAP: dict[APIMethod, Endpoint] = {
     "upsert": Endpoint(method="POST", path="/models/instances", item_limit=1000),
@@ -131,6 +138,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         limit: int = 100,
         cursor: str | None = None,
         endpoint: QueryEndpoint = "query",
+        debug_writer: NDJsonWriter | None = None,
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
@@ -144,7 +152,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             PagedResponse of InstanceResponse objects.
         """
         request = self._create_query(filter, limit, cursor, endpoint=endpoint)
-        response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
+        response = self.query(
+            request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, debug_writer=debug_writer
+        )
         return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
 
     def _create_query(
@@ -259,6 +269,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: Literal[True] = True,
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug_writer: NDJsonWriter | None = None,
     ) -> QueryResponseTyped: ...
 
     @overload
@@ -268,6 +279,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: Literal[False],
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug_writer: NDJsonWriter | None = None,
     ) -> QueryResponseUntyped: ...
 
     def query(
@@ -276,6 +288,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         type_results: bool = True,
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
+        debug_writer: NDJsonWriter | None = None,
     ) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
@@ -302,6 +315,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             endpoint,
             exhaust_sub_selections,
             limit,
+            debug_writer,
         ):
             results.append(batch)
         if not results:
@@ -335,6 +349,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug_writer: NDJsonWriter | None = None,
     ) -> Iterable[QueryResponseTyped]: ...
 
     @overload
@@ -345,6 +360,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug_writer: NDJsonWriter | None = None,
     ) -> Iterable[QueryResponseUntyped]: ...
 
     def query_iterate(
@@ -354,6 +370,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug_writer: NDJsonWriter | None = None,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         """Iterate over the results of a query against the instances query/sync endpoint."""
         yield from self._query_iterate(
@@ -363,6 +380,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             endpoint,
             exhaust_sub_selections,
             limit,
+            debug_writer,
         )
 
     def _query_iterate(
@@ -372,6 +390,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         endpoint: QueryEndpoint = "query",
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
+        debug_writer: NDJsonWriter | None = None,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         endpoint_prop = self._get_endpoint(endpoint)
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
@@ -386,7 +405,21 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
             except ReduceLoadException as e:
                 if current_chunk_size <= 1:
-                    raise e.source_exception
+                    debug_file: Path | None = None
+                    if endpoint == "sync":
+                        debug_file = self._run_and_log_debug_query(query, endpoint_prop, endpoint, debug_writer)
+                    source = e.source_exception
+                    if isinstance(source, ToolkitAPIError) and debug_file is not None:
+                        source = ToolkitAPIError(
+                            f"{source.message} | Debug info (query plan and notices) was written to {debug_file}.",
+                            missing=source.missing,
+                            duplicated=source.duplicated,
+                            code=source.code,
+                            request=source.request,
+                            debug_file=debug_file,
+                            x_request_id=source.x_request_id,
+                        )
+                    raise source
                 min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
                 success_request_count = 0
                 current_chunk_size = current_chunk_size // 2
@@ -479,6 +512,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     duplicated=response.error.duplicated,  # type: ignore[arg-type]
                     code=response.error.code,
                     request=request,
+                    x_request_id=response.error.x_request_id,
                 )
             )
 
@@ -489,6 +523,63 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # We persist the root from the query. This is for convenience.
         query_response.root = query.root
         return query_response
+
+    def _run_and_log_debug_query(
+        self, query: QueryRequest, endpoint: Endpoint, endpoint_name: QueryEndpoint, debug_writer: NDJsonWriter | None
+    ) -> Path | None:
+        """Issue a diagnostic query with plan/profile debug parameters and write the result to disk.
+
+        Returns:
+            The path to the file the debug info was written to, or None if no debug info was written.
+        """
+        if debug_writer is None:
+            return None
+        debug_query = query.model_copy(
+            update={
+                "debug": QueryDebugParameters(
+                    include_plan=True,
+                    include_translated_query=True,
+                    emit_results=False,
+                    profile=True,
+                    timeout=55000,
+                )
+            }
+        )
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method=endpoint.method,
+            body_content=debug_query.dump(endpoint=endpoint_name),
+            retry_status_codes=set(),
+            api_version="alpha",
+            client_timeout=65,
+        )
+        try:
+            response = self._http_client.request_single_retries(request)
+            success_response = response.get_success_or_raise(request)
+            debug_response = QueryResponseUntyped.model_validate_json(success_response.body)
+            if debug_response.debug:
+                return self._write_debug_info(endpoint_name, debug_response.debug, debug_writer.output_dir)
+            return None
+        except Exception:
+            # The debug query itself may fail with e.g. a 408 error, but if that happens we do not want to
+            # potentially distract from the original error by printing diagnostic info for a separate query.
+            return None
+
+    @staticmethod
+    def _write_debug_info(
+        endpoint_name: QueryEndpoint, debug_data: dict[str, JsonValue], output_dir: Path
+    ) -> Path | None:
+        """Write the (potentially large) query plan/profile to its own file, once, and return its path.
+
+        This is written with a dedicated NDJsonWriter/kind so it does not mix with the per-item
+        LogEntryV2 entries written to the download issues log.
+        """
+        filestem = create_logfile_stem(output_dir, "download")
+        with NDJsonWriter(
+            output_dir, kind="QueryDebugResponse", default_filestem=filestem, compression=Uncompressed
+        ) as writer:
+            writer.write_chunks([debug_data])  # type: ignore[list-item]
+            return writer.latest_file
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
         if endpoint == "query":

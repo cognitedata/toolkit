@@ -1,3 +1,4 @@
+import logging
 import random
 import sys
 import time
@@ -35,6 +36,8 @@ else:
     from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+
+log = logging.getLogger(__name__)
 
 _T_Request_Message = TypeVar("_T_Request_Message", bound=BaseRequestMessage)
 

@@ -32,6 +32,7 @@ class HTTPResult(HTTPBaseModel):
                 code=self.error.code,
                 request=request,
                 response=self,
+                x_request_id=self.error.x_request_id,
             )
         elif isinstance(self, FailedRequest):
             raise ToolkitAPIError(f"Request failed with error: {self.error}", request=request)
@@ -92,15 +93,19 @@ class ErrorDetails(HTTPBaseModel):
     missing: list[JsonValue] | None = None
     duplicated: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
+    x_request_id: str | None = None
 
     @classmethod
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
+        x_request_id = response.headers.get("x-request-id")
         try:
             res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
+            error_details = res["error"]
         except ValueError:
-            return cls(code=response.status_code, message=response.text)
-        return res["error"]
+            error_details = cls(code=response.status_code, message=response.text)
+        error_details.x_request_id = x_request_id
+        return error_details
 
 
 class FailedResponse(HTTPResult):

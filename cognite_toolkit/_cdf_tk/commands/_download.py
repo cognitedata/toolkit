@@ -1,6 +1,5 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date
 from functools import partial
 from pathlib import Path
 from typing import Generic, Literal, TypeAlias
@@ -23,7 +22,7 @@ from cognite_toolkit._cdf_tk.dataio import (
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
-from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
     Compression,
@@ -215,8 +214,8 @@ class DownloadCommand(ToolkitCommand):
 
     @classmethod
     def _create_log_file_writer(cls, target_dir: Path) -> NDJsonWriter:
-        log_filestem = f"download_{date.today().strftime('%Y%m%d')}"
-        return NDJsonWriter(target_dir, kind="DownloadLogs", default_filestem=log_filestem, compression=Uncompressed)
+        log_filestem = create_logfile_stem(target_dir, "download")
+        return NDJsonWriter(target_dir, kind="DownloadIssues", default_filestem=log_filestem, compression=Uncompressed)
 
     def _download_data(
         self,
