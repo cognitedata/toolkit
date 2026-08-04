@@ -80,7 +80,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                         f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                         f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                     ),
-                    code=f"{self.CODE_PREFIX}-CPU",
+                    code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
                     fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                     source_file=source_file,
                 )
@@ -93,7 +93,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                         f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                         f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                     ),
-                    code=f"{self.CODE_PREFIX}-MEMORY",
+                    code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
                     fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                     source_file=source_file,
                 )
@@ -106,7 +106,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
             if not pip_result.success:
                 yield ConsistencyError(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code=f"{self.CODE_PREFIX}-REQUIREMENTS-TXT",
+                    code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=source_file,
                 )

@@ -11,7 +11,6 @@ from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleS
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "MISSING-DEPENDENCY"
     DISPLAY_NAME = "dependencies"
 
     def get_status(self) -> RuleSetStatus:
@@ -46,7 +45,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for identifier in missing:
                         referencing_resources = expected_by_identifier[identifier]
                         yield ConsistencyError(
-                            code=f"{self.CODE_PREFIX}-CDF",
+                            code="DANGLING-REFERENCE",
                             message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
                             fix=f"Ensure that {display_name} exists or remove the reference to it.",
                             source_file=self._source_files_for_resources(referencing_resources),
@@ -57,7 +56,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 for identifier, expected_resources in expected_by_identifier.items():
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
-                        code=f"{self.CODE_PREFIX}-LOCAL",
+                        code="UNVERIFIED-DEPENDENCY",
                         message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
                         fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",

@@ -32,7 +32,7 @@ _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", ver
 
 
 class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "INFIELD-CDM"
+    CODE_PREFIX = "INFIELD"
     DISPLAY_NAME = "InField CDM view properties"
 
     def get_status(self) -> RuleSetStatus:
