@@ -119,13 +119,14 @@ class TestFileMetadataContentIO:
 my_json_file,my_json_file.json,{json_file.relative_to(tmp_path)}\n
 my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
 """
-        (tmp_path / f"{selector.as_filestem()}.csv").write_text(csv_file)
+        csv_path = tmp_path / f"{selector.as_filestem()}.csv"
+        csv_path.write_text(csv_file)
 
         results = self._upload_files(selector, tmp_path)
 
         assert results == [
-            ItemsSuccessResponse(ids=["row 1"], status_code=200, body="", content=b""),
-            ItemsSuccessResponse(ids=["row 2"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-1"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-2"], status_code=200, body="", content=b""),
         ]
 
     def _upload_files(self, selector: FileMetadataContentSelectorV2, tmp_path: Path) -> list[ItemsResultMessage]:
@@ -219,7 +220,8 @@ class TestCogniteFileContentIO:
         selector = CogniteFileFilesSelectorV2()
         selector.dump_to_file(tmp_path)
         csv_file = f"""space,externalId,name,{FILEPATH}\nmy-space,r1,row-1,{text_file.relative_to(tmp_path)}\n"""
-        (tmp_path / f"{selector.as_filestem()}.csv").write_text(csv_file)
+        csv_path = tmp_path / f"{selector.as_filestem()}.csv"
+        csv_path.write_text(csv_file)
 
         with monkeypatch_toolkit_client() as client:
             client.tool.cognite_files.create.return_value = [
@@ -252,5 +254,5 @@ class TestCogniteFileContentIO:
             result_pages = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
 
         assert result_pages[0] == [
-            ItemsSuccessResponse(ids=["row 1"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-1"], status_code=200, body="", content=b""),
         ]
