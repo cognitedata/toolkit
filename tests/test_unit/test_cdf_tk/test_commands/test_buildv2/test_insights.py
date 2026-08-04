@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 
 
-def test_insight_list_to_csv_flattens_multiline_message_and_fix() -> None:
-    """Multiline messages are flattened to a single line so each insight stays on one CSV row."""
+def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
+    """Multiline and special characters round-trip via the csv module; rows use LF only."""
     insights = InsightList(
         [
             ConsistencyError(
@@ -33,8 +33,8 @@ def test_insight_list_to_csv_flattens_multiline_message_and_fix() -> None:
         {
             "insight_type": "ConsistencyError",
             "code": "ERR-1",
-            "message": "summary line; next line",
-            "fix": "do this; then that",
+            "message": "summary line\nnext line",
+            "fix": "do this\nthen that",
         },
         {
             "insight_type": "Recommendation",
