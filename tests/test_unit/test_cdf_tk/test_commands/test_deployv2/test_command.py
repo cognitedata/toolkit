@@ -281,10 +281,10 @@ class TestCreateDeploymentPlan:
             tmp_path,
             graphql_content='type Generated @view(space: "my_space", version: "v1") { name: String }',
         )
+        files_by_crud = read_dir.as_files_by_crud()
 
-        actual = DeployV2Command._get_data_modeling_cross_dependencies(read_dir.as_files_by_crud())
-
-        assert actual == {}
+        assert DataModelIO.get_deployment_dependencies(files_by_crud) == DataModelIO.dependencies
+        assert GraphQLCRUD.get_deployment_dependencies(files_by_crud) == GraphQLCRUD.dependencies
 
     @staticmethod
     def _create_mixed_data_model_build(

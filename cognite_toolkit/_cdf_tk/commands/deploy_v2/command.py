@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias, cast
 
 import questionary
-from cognite.client import data_modeling as dm
 from pydantic import ValidationError
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -21,7 +20,7 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
@@ -50,9 +49,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ContainerCRUD,
-    DataModelIO,
     EdgeCRUD,
-    GraphQLCRUD,
     NodeCRUD,
     RawTableCRUD,
     ResourceContainerIO,
@@ -74,14 +71,7 @@ from cognite_toolkit._cdf_tk.ui import (
     ToolkitTable,
     hanging_indent,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    GraphQLParser,
-    humanize_collection,
-    read_yaml_content,
-    safe_read,
-    sanitize_filename,
-    to_diff,
-)
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
@@ -524,13 +514,10 @@ class DeployV2Command(ToolkitCommand):
         """
         files_by_crud = read_dir.as_files_by_crud()
         skipped_cruds = read_dir.skipped_cruds()
-        cross_dependencies = cls._get_data_modeling_cross_dependencies(files_by_crud)
         dependencies_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         skipped_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         for crud_cls in files_by_crud.keys():
-            dependencies = crud_cls.dependencies
-            if additional_dependencies := cross_dependencies.get(crud_cls):
-                dependencies = dependencies | additional_dependencies
+            dependencies = crud_cls.get_deployment_dependencies(files_by_crud)
             if missing := (skipped_cruds.intersection(dependencies)):
                 skipped_by_crud[crud_cls] = missing
             dependencies_by_crud[crud_cls] = dependencies
@@ -548,66 +535,6 @@ class DeployV2Command(ToolkitCommand):
                 DeploymentStep(crud_cls=step, files=files_by_crud[step], skipped_cruds=skipped_by_crud.get(step, set()))
             )
         return plan
-
-    @classmethod
-    def _get_data_modeling_cross_dependencies(
-        cls, files_by_crud: Mapping[type[ResourceIO], list[Path]]
-    ) -> dict[type[ResourceIO], set[type[ResourceIO]]]:
-        graphql_files = files_by_crud.get(GraphQLCRUD)
-        data_model_files = files_by_crud.get(DataModelIO)
-        if not graphql_files or not data_model_files:
-            return {}
-
-        generated_views: set[tuple[str, str]] = set()
-        imported_data_models: set[DataModelId] = set()
-        for filepath in graphql_files:
-            raw = read_yaml_content(GraphQLCRUD.safe_read(filepath))
-            for item in raw if isinstance(raw, list) else [raw]:
-                model_id = GraphQLCRUD.get_id(item)
-                graphql_file = GraphQLCRUD._get_graphql_file(filepath, dml=item.get("dml"))
-                parser = GraphQLParser(
-                    safe_read(graphql_file),
-                    dm.DataModelId(
-                        space=model_id.space,
-                        external_id=model_id.external_id,
-                        version=model_id.version,
-                    ),
-                )
-                generated_views.update((view.space, view.external_id) for view in parser.get_views())
-                imported_data_models.update(
-                    DataModelId(
-                        space=dependency.space,
-                        external_id=dependency.external_id,
-                        version=str(dependency.version or ""),
-                    )
-                    for dependency in parser.get_dependencies()
-                    if isinstance(dependency, dm.DataModelId)
-                )
-
-        local_data_models: set[DataModelId] = set()
-        referenced_views: set[tuple[str, str]] = set()
-        for filepath in data_model_files:
-            raw = read_yaml_content(DataModelIO.safe_read(filepath))
-            for item in raw if isinstance(raw, list) else [raw]:
-                local_data_models.add(DataModelIO.get_id(item))
-                referenced_views.update(
-                    (view["space"], view["externalId"])
-                    for view in item.get("views") or []
-                    if "space" in view and "externalId" in view
-                )
-
-        data_model_depends_on_graphql = bool(referenced_views & generated_views)
-        graphql_depends_on_data_model = bool(imported_data_models & local_data_models)
-        if data_model_depends_on_graphql and graphql_depends_on_data_model:
-            raise ToolkitValidationError(
-                "Cannot deploy mixed GraphQL and entity-based data models with dependencies in both directions "
-                "in a single deployment. Split the deployment to avoid a cyclic resource-type dependency."
-            )
-        if data_model_depends_on_graphql:
-            return {DataModelIO: {GraphQLCRUD}}
-        if graphql_depends_on_data_model:
-            return {GraphQLCRUD: {DataModelIO}}
-        return {}
 
     @classmethod
     def _display_plan(cls, plan: list[DeploymentStep], operation: str, operation_noun: str, console: Console) -> None:

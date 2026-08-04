@@ -1,6 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Mapping, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
@@ -82,6 +82,12 @@ class Loader(ABC):
     @classmethod
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
+
+    @classmethod
+    def get_deployment_dependencies(
+        cls, files_by_crud: Mapping[type["ResourceIO"], list[Path]]
+    ) -> "frozenset[type[ResourceIO]]":
+        return cls.dependencies
 
     def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.

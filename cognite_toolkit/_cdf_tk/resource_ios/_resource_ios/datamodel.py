@@ -95,7 +95,12 @@ from cognite_toolkit._cdf_tk.constants import (
     URL,
     VIEW_UPSERT_BATCH_LIMIT,
 )
-from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import (
+    GraphQLParseError,
+    ToolkitCycleError,
+    ToolkitFileNotFoundError,
+    ToolkitValidationError,
+)
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -111,6 +116,7 @@ from cognite_toolkit._cdf_tk.utils import (
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
+    read_yaml_content,
     safe_read,
     sanitize_filename,
     to_diff,
@@ -1053,6 +1059,12 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
     yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
+    @classmethod
+    def get_deployment_dependencies(
+        cls, files_by_crud: Mapping[type[ResourceIO], list[Path]]
+    ) -> frozenset[type[ResourceIO]]:
+        return cls.dependencies | _get_data_modeling_cross_dependencies(files_by_crud).get(cls, frozenset())
+
     @property
     def display_name(self) -> str:
         return "data models"
@@ -1376,6 +1388,12 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
+    @classmethod
+    def get_deployment_dependencies(
+        cls, files_by_crud: Mapping[type[ResourceIO], list[Path]]
+    ) -> frozenset[type[ResourceIO]]:
+        return cls.dependencies | _get_data_modeling_cross_dependencies(files_by_crud).get(cls, frozenset())
+
     def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
         super().__init__(client, build_dir, console)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
@@ -1614,6 +1632,66 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
                 f"Cannot create GraphQL schemas. Cycle detected between models {e.args} using the @import directive.",
                 *e.args[1:],
             )
+
+
+def _get_data_modeling_cross_dependencies(
+    files_by_crud: Mapping[type[ResourceIO], list[Path]],
+) -> dict[type[ResourceIO], frozenset[type[ResourceIO]]]:
+    graphql_files = files_by_crud.get(GraphQLCRUD)
+    data_model_files = files_by_crud.get(DataModelIO)
+    if not graphql_files or not data_model_files:
+        return {}
+
+    generated_views: set[tuple[str, str]] = set()
+    imported_data_models: set[DataModelId] = set()
+    for filepath in graphql_files:
+        raw = read_yaml_content(GraphQLCRUD.safe_read(filepath))
+        for item in raw if isinstance(raw, list) else [raw]:
+            model_id = GraphQLCRUD.get_id(item)
+            graphql_file = GraphQLCRUD._get_graphql_file(filepath, dml=item.get("dml"))
+            parser = GraphQLParser(
+                safe_read(graphql_file),
+                dm.DataModelId(
+                    space=model_id.space,
+                    external_id=model_id.external_id,
+                    version=model_id.version,
+                ),
+            )
+            generated_views.update((view.space, view.external_id) for view in parser.get_views())
+            imported_data_models.update(
+                DataModelId(
+                    space=dependency.space,
+                    external_id=dependency.external_id,
+                    version=str(dependency.version or ""),
+                )
+                for dependency in parser.get_dependencies()
+                if isinstance(dependency, dm.DataModelId)
+            )
+
+    local_data_models: set[DataModelId] = set()
+    referenced_views: set[tuple[str, str]] = set()
+    for filepath in data_model_files:
+        raw = read_yaml_content(DataModelIO.safe_read(filepath))
+        for item in raw if isinstance(raw, list) else [raw]:
+            local_data_models.add(DataModelIO.get_id(item))
+            referenced_views.update(
+                (view["space"], view["externalId"])
+                for view in item.get("views") or []
+                if "space" in view and "externalId" in view
+            )
+
+    data_model_depends_on_graphql = bool(referenced_views & generated_views)
+    graphql_depends_on_data_model = bool(imported_data_models & local_data_models)
+    if data_model_depends_on_graphql and graphql_depends_on_data_model:
+        raise ToolkitValidationError(
+            "Cannot deploy mixed GraphQL and entity-based data models with dependencies in both directions "
+            "in a single deployment. Split the deployment to avoid a cyclic resource-type dependency."
+        )
+    if data_model_depends_on_graphql:
+        return {DataModelIO: frozenset({GraphQLCRUD})}
+    if graphql_depends_on_data_model:
+        return {GraphQLCRUD: frozenset({DataModelIO})}
+    return {}
 
 
 @final
