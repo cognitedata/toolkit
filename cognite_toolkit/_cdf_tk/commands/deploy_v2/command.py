@@ -519,10 +519,10 @@ class DeployV2Command(ToolkitCommand):
         dependencies_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         skipped_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         for crud_cls in files_by_crud.keys():
-            dependencies = set(crud_cls.dependencies)
-            if crud_cls is DataModelIO and GraphQLCRUD in files_by_crud.keys() | skipped_cruds:
+            dependencies = crud_cls.dependencies
+            if crud_cls is DataModelIO and (GraphQLCRUD in files_by_crud or GraphQLCRUD in skipped_cruds):
                 # GraphQL schemas create views that can be referenced by entity-based data models.
-                dependencies.add(GraphQLCRUD)
+                dependencies = dependencies | {GraphQLCRUD}
             if missing := (skipped_cruds.intersection(dependencies)):
                 skipped_by_crud[crud_cls] = missing
             dependencies_by_crud[crud_cls] = dependencies
