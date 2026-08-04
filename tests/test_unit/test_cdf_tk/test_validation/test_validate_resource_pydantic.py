@@ -62,7 +62,7 @@ def group_yaml_test_cases() -> Iterable:
             "members": "allUserAccounts",
         },
         {
-            "Unrecognized value at capabilities[1].actions[1]: Expected one of 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
+            "Unrecognized value for capabilities[1].actions[1]: Expected one of 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
             "Missing required field in capabilities[1]: 'scope'",
         },
         id="Invalid action and missing scope",

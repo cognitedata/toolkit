@@ -67,7 +67,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "Unrecognized value at workflowDefinition.tasks[1].function.onFailure: Expected one of "
+            "Unrecognized value for workflowDefinition.tasks[1].function.onFailure: Expected one of "
             "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
             "Missing required field in workflowDefinition.tasks[1].function.parameters: 'function'",
         },

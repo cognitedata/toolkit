@@ -142,9 +142,9 @@ def invalid_edge_test_cases() -> Iterable:
             ],
         },
         {
-            "Unrecognized value at sources[1].source.ViewReference.type: Expected 'view'. Got 'unknown'.",
+            "Unrecognized value for sources[1].source.ViewReference.type: Expected 'view'. Got 'unknown'.",
             "Missing required field in sources[1].source.ViewReference: 'version'",
-            "Unrecognized value at sources[1].source.ContainerReference.type: Expected 'container'. Got 'unknown'.",
+            "Unrecognized value for sources[1].source.ContainerReference.type: Expected 'container'. Got 'unknown'.",
         },
         id="invalid-source-type",
     )

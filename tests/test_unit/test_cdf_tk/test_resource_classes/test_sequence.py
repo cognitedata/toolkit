@@ -41,7 +41,7 @@ def invalid_sequence_test_cases() -> Iterable:
             ],
         },
         {
-            "Unrecognized value at columns[1].valueType: Expected one of 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
+            "Unrecognized value for columns[1].valueType: Expected one of 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
         },
         id="invalid-valueType-in-column",
     )

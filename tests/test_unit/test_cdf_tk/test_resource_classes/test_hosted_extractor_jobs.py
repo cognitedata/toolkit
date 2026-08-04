@@ -59,7 +59,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "encoding": "invalid_encoding"},
         },
         {
-            "Unrecognized value at format.encoding: Expected one of 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
+            "Unrecognized value for format.encoding: Expected one of 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
         },
         id="CogniteFormat invalid encoding",
     )
@@ -73,7 +73,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "compression": "invalid_compression"},
         },
         {
-            "Unrecognized value at format.compression: Expected 'gzip'. Got 'invalid_compression'.",
+            "Unrecognized value for format.compression: Expected 'gzip'. Got 'invalid_compression'.",
         },
         id="CogniteFormat invalid compression",
     )

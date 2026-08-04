@@ -738,7 +738,7 @@ class BuildV2Command(ToolkitCommand):
             syntax_warning = ModelSyntaxWarning(
                 code="MODEL-SYNTAX-WARNING",
                 message="\n".join(warning_messages),
-                fix="This could be a typo, an unrecognized field, or an invalid enum value. It will still "
+                fix="This could be a typo, or something Toolkit does not yet recognize. It will still "
                 "be included when the resource is deployed, but may be ignored or rejected by CDF.",
             )
         return syntax_error, syntax_warning

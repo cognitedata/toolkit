@@ -148,7 +148,7 @@ class TestDataModelYAML:
                         }
                     ],
                 },
-                ["Unrecognized value at views[1].type: Expected 'view'. Got 'invalid_type'."],
+                ["Unrecognized value for views[1].type: Expected 'view'. Got 'invalid_type'."],
                 id="view-invalid-type",
             ),
         ],

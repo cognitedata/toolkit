@@ -34,7 +34,7 @@ def _model_literal_error_message(invalid_value: object) -> str:
     else:
         prefix = "Expected"
         options = f"'{models[0]}'"
-    return f"Unrecognized value at model: {prefix} {options}. Got {invalid_value!r}."
+    return f"Unrecognized value for model: {prefix} {options}. Got {invalid_value!r}."
 
 
 def invalid_test_cases() -> Iterable:
@@ -108,7 +108,7 @@ def invalid_test_cases() -> Iterable:
             "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
             "least 1 item after validation, not 0",
             "Missing required field in tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
-            "Unrecognized value at tools[1].queryKnowledgeGraph.configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
+            "Unrecognized value for tools[1].queryKnowledgeGraph.configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
     )

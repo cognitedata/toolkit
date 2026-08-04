@@ -25,7 +25,7 @@ def invalid_stream_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
         {
-            "Unrecognized value at settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
+            "Unrecognized value for settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
         },
         id="Invalid template name",
     )
@@ -40,7 +40,7 @@ def invalid_stream_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"names": "ImmutableTestStream"}}},
-        {"Unrecognized value at settings.template.names[key]: Expected 'name'. Got 'names'."},
+        {"Unrecognized value for settings.template.names[key]: Expected 'name'. Got 'names'."},
         id="wrong template dictionary format",
     )
     yield pytest.param(
