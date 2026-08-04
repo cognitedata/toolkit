@@ -261,16 +261,30 @@ class TestCreateDeploymentPlan:
     def test_bidirectional_mixed_data_model_dependencies_raise(self, tmp_path: Path) -> None:
         read_dir = self._create_mixed_data_model_build(
             tmp_path,
-            graphql_content=(
-                'type Generated @view(space: "my_space", version: "v1") { name: String }\n'
-                'type Imported @import(dataModel: {space: "my_space", externalId: "entity_model", version: "v1"}) '
-                "{ name: String }\n"
-            ),
+            graphql_content='type Generated @view(space: "my_space", version: "v1") { name: String }',
             data_model_views=[{"type": "view", "space": "my_space", "externalId": "Generated", "version": "v1"}],
         )
+        resource_dir = read_dir.resource_directories[0]
+        consumer_yaml = resource_dir.directory / "consumer.GraphQLSchema.yaml"
+        consumer_yaml.write_text("space: my_space\nexternalId: consumer_model\nversion: v1\n")
+        consumer_yaml.with_name("consumer.graphql").write_text(
+            'type Imported @import(dataModel: {space: "my_space", externalId: "entity_model", version: "v1"}) '
+            "{ name: String }"
+        )
+        resource_dir.files_by_crud[GraphQLCRUD].append(consumer_yaml)
 
         with pytest.raises(ToolkitValidationError, match="dependencies in both directions"):
             DeployV2Command.create_deployment_plan(read_dir)
+
+    def test_unrelated_mixed_data_models_add_no_cross_dependency(self, tmp_path: Path) -> None:
+        read_dir = self._create_mixed_data_model_build(
+            tmp_path,
+            graphql_content='type Generated @view(space: "my_space", version: "v1") { name: String }',
+        )
+
+        actual = DeployV2Command._get_data_modeling_cross_dependencies(read_dir.as_files_by_crud())
+
+        assert actual == {}
 
     @staticmethod
     def _create_mixed_data_model_build(
