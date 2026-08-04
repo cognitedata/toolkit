@@ -149,7 +149,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
                 message=(
-                    f"View {view_id!s} used as {card_key!r} in {resource.source_path.name!r} "
+                    f"View {view_id!s} used as {card_key!r} "
                     f"is missing required properties: {humanize_collection(sorted(missing))}."
                 ),
                 fix=f"Ensure the view has these properties: {humanize_collection(sorted(missing))}.",
@@ -173,8 +173,9 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY",
                 message=(
-                    f"View {view_id!s} used for {config_key!r} in {resource.source_path.name!r} "
+                    f"View {view_id!s} used for {config_key!r} "
                     f"does not have properties: {humanize_collection(sorted(unknown))}."
                 ),
                 fix=f"Use property names that exist on the view: {humanize_collection(sorted(unknown))}.",
+                source_file=format_insight_source_file(resource.source_path),
             )
