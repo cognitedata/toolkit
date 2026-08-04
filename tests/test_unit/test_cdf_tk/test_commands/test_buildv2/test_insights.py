@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 
 
-def test_insight_list_to_csv_flattens_multiline_message_and_fix() -> None:
-    """Multiline messages are flattened to a single physical CSV row for readability in spreadsheet tools."""
+def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
+    """Multiline and special characters round-trip via the csv module; rows use LF only."""
     insights = InsightList(
         [
             ConsistencyError(
@@ -29,15 +29,14 @@ def test_insight_list_to_csv_flattens_multiline_message_and_fix() -> None:
 
     csv_text = insights.to_csv()
     assert "\r\n" not in csv_text, "record separators must be LF-only (unix CSV dialect)"
-    assert len(csv_text.splitlines()) == 3, "header plus one physical line per insight, no embedded newlines"
     rows = list(csv.DictReader(io.StringIO(csv_text), dialect=csv.unix_dialect))
     assert rows == [
         {
             "insight_type": "ConsistencyError",
             "code": "ERR-1",
             "source_file": "",
-            "message": "summary line; next line",
-            "fix": "do this; then that",
+            "message": "summary line\nnext line",
+            "fix": "do this\nthen that",
         },
         {
             "insight_type": "Recommendation",

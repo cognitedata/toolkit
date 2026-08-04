@@ -82,8 +82,8 @@ Insight: TypeAlias = (
 
 
 def _normalize_csv_cell(text: str) -> str:
-    """Flattens multi-line text into a single line so each insight stays on one physical CSV row."""
-    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "; ")
+    """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 class InsightList(UserList[Insight]):

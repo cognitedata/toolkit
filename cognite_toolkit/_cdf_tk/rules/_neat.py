@@ -47,11 +47,6 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         for module in self.modules:
             for resource in module.resources:
                 if resource.type == data_model_type:
-                    if resource.source_path in module.unresolved_variables_by_source:
-                        # The file still contains unresolved variables (e.g. "{{space}}"), which is already
-                        # reported as its own insight. Running Neat against it would only produce a flood of
-                        # confusing, unrelated validation errors.
-                        continue
                     data_model_file = resource.build_path
                     try:
                         yield from self._validate_model(data_model_file.parent, data_model_file)
