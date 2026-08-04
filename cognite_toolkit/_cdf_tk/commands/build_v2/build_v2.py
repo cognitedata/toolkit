@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
@@ -864,7 +864,8 @@ class BuildV2Command(ToolkitCommand):
 
             insight_subsections: list[RenderableType] = []
             for insight in insight_content:
-                content: list[RenderableType] = [hanging_indent(icon, insight.message, marker_style=style)]
+                message = self._truncate_for_terminal(insight.message)
+                content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
                 if insight.fix:
                     content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
                 insight_subsections.append(
@@ -905,6 +906,16 @@ class BuildV2Command(ToolkitCommand):
                 border_style=border_style,
             )
         )
+
+    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 1000
+
+    @classmethod
+    def _truncate_for_terminal(cls, message: str) -> str:
+        """Truncates a message for terminal display only; the full message is always written to the insights file."""
+        if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
+            return message
+        truncated_notice = "[dim italic](truncated, see full message in the insights file)[/]"
+        return f"{message[: cls._MAX_TERMINAL_MESSAGE_LENGTH]}... {truncated_notice}"
 
     @staticmethod
     def _humanize_insight_code(code: str | None) -> str:
