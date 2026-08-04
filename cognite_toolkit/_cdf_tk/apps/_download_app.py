@@ -7,7 +7,7 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
@@ -911,6 +911,14 @@ class DownloadApp(typer.Typer):
                 hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
             ),
         ] = ApiFormat.request,
+        include_edges: Annotated[
+            bool,
+            typer.Option(
+                "--include-edges",
+                help="Include edges connected to downloaded node instances.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = False,
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -982,11 +990,11 @@ class DownloadApp(typer.Typer):
             selected_instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
                 selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
-            edge_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
-            if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
+            edge_type_ids_by_view_id: dict[ViewNoVersionId, set[EdgeTypeId]] = {}
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
                 include_edges = questionary.confirm(
                     "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
-                    default=False,
+                    default=include_edges,
                 ).unsafe_ask()
                 if include_edges:
                     for view in data_model.views or []:
@@ -1024,19 +1032,32 @@ class DownloadApp(typer.Typer):
         elif schema_space is not None and view_external_ids is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             download_dir_name = sanitize_filename(schema_space)
+            selected_schema_views = [
+                SelectedView(
+                    space=schema_space,
+                    external_id=view_id_str.split("/", maxsplit=1)[0],
+                    version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
+                )
+                for view_id_str in view_external_ids
+            ]
+            edge_types_by_view_id: dict[ViewNoVersionId, tuple[EdgeTypeId, ...]] = {}
+            if include_edges:
+                for retrieved_view in client.tool.views.retrieve([view.as_id() for view in selected_schema_views]):
+                    edge_types_by_view_id[retrieved_view.as_id()] = tuple(
+                        prop.as_edge_type_id()
+                        for prop in retrieved_view.properties.values()
+                        if isinstance(prop, EdgeProperty)
+                    )
             selectors = [
                 InstanceViewSelector(
-                    view=SelectedView(
-                        space=schema_space,
-                        external_id=view_id_str.split("/", maxsplit=1)[0],
-                        version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
-                    ),
+                    view=view,
                     instance_spaces=selected_instance_spaces,
                     instance_type=instance_type.value,
                     download_dir_name=download_dir_name,
+                    edge_types=edge_types_by_view_id.get(view.as_id()) or None,
                     endpoint="sync",
                 )
-                for view_id_str in view_external_ids
+                for view in selected_schema_views
             ]
         else:
             raise typer.BadParameter(
