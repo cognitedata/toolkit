@@ -68,7 +68,6 @@ class DirectRelationReference(BaseModelResource):
 class ThroughRelationReference(BaseModelResource):
     source: ViewReference | ContainerReference = Field(
         description="Reference to the view or container from where this relation is inherited.",
-        discriminator="type",
     )
     identifier: str = Field(
         description="Identifier of the relation in the source view or container.",
