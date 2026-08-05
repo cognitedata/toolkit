@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.utils.gitignore import append_missing_gitignore_entries, load_gitignore_entries_from_text
 
 from . import _cli_commands
 from ._base import ToolkitCommand
@@ -101,39 +102,5 @@ class RepoCommand(ToolkitCommand):
         self.console("Repo initialization complete.")
 
     def _append_missing_gitignore_entries(self, template_file: Path, destination: Path) -> bool:
-        template_entries = self._load_gitignore_entries(template_file)
-        existing_text = destination.read_text(encoding="utf-8")
-        existing_entries = self._load_gitignore_entries_from_text(existing_text)
-
-        missing_entries = [entry for entry in template_entries if entry not in existing_entries]
-        if not missing_entries:
-            return False
-
-        merged_text = existing_text
-        if merged_text and not merged_text.endswith("\n"):
-            merged_text += "\n"
-        if merged_text:
-            merged_text += "\n"
-        merged_text += f"{self._GITIGNORE_MERGE_HEADER}\n"
-        merged_text += "\n".join(missing_entries)
-        merged_text += "\n"
-        destination.write_text(merged_text, encoding="utf-8")
-        return True
-
-    @staticmethod
-    def _load_gitignore_entries(template_file: Path) -> list[str]:
-        return RepoCommand._load_gitignore_entries_from_text(template_file.read_text(encoding="utf-8"))
-
-    @staticmethod
-    def _load_gitignore_entries_from_text(content: str) -> list[str]:
-        entries: list[str] = []
-        seen_entries: set[str] = set()
-        for line in content.splitlines():
-            normalized = line.strip()
-            if not normalized or normalized.startswith("#"):
-                continue
-            if normalized in seen_entries:
-                continue
-            entries.append(normalized)
-            seen_entries.add(normalized)
-        return entries
+        template_entries = load_gitignore_entries_from_text(template_file.read_text(encoding="utf-8"))
+        return append_missing_gitignore_entries(template_entries, destination, header=self._GITIGNORE_MERGE_HEADER)

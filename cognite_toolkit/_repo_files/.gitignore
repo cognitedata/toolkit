@@ -278,4 +278,5 @@ build.*
 build/
 function_local_venvs/
 data/
+tmp/
 logs/
