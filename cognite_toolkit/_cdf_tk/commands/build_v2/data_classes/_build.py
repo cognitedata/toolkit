@@ -9,9 +9,17 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_if_possible
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
-from ._insights import ConsistencyError, FileReadError, IgnoredFileWarning, Insight, InsightList, ModelSyntaxWarning
+from ._insights import (
+    ConsistencyError,
+    FileReadError,
+    IgnoredFileWarning,
+    Insight,
+    InsightList,
+    ModelSyntaxError,
+    ModelSyntaxWarning,
+)
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -100,6 +108,7 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
+    syntax_errors_by_source: dict[Path, ModelSyntaxError] = Field(default_factory=dict)
     syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
@@ -122,42 +131,40 @@ class BuiltModule(BaseModel):
         insights = InsightList(self.insights)
         for resource in self.resources:
             for failed_extra in resource.failed_extra:
-                display_path = relative_to_if_possible(resource.source_path)
                 insights.append(
                     FileReadError(
-                        message=f"In {display_path.as_posix()!r}: {failed_extra.error}",
+                        message=failed_extra.error,
                         code=failed_extra.code,
                         source_file=format_insight_source_file(resource.source_path),
                     )
                 )
+        for path, error in self.syntax_errors_by_source.items():
+            insights.append(error.model_copy(update={"source_file": format_insight_source_file(path)}))
         for path, warning in self.syntax_warnings_by_source.items():
             insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
         for path, variables in self.unresolved_variables_by_source.items():
-            display_path = relative_to_if_possible(path)
             insights.append(
                 ConsistencyError(
                     code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} [bold]{humanize_collection(variables)}[/] in file {display_path.as_posix()!r}",
+                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} [bold]{humanize_collection(variables)}[/]",
                     fix="Make sure to define the variables in the 'config YAML' file and that they are "
                     "correctly placed in the variables section matching the file path",
                     source_file=format_insight_source_file(path),
                 )
             )
         for failed_file in self.failed_files:
-            display_path = relative_to_if_possible(failed_file.source_path)
             insights.append(
                 FileReadError(
                     code=failed_file.code,
-                    message=f"In {display_path.as_posix()!r}: {failed_file.error}",
+                    message=failed_file.error,
                     source_file=format_insight_source_file(failed_file.source_path),
                 )
             )
         for ignored_file in self.ignored_files:
-            display_path = relative_to_if_possible(ignored_file.filepath)
             insights.append(
                 IgnoredFileWarning(
                     code=ignored_file.code,
-                    message=f"{ignored_file.reason} It is located at {display_path.as_posix()!r}.",
+                    message=ignored_file.reason,
                     fix=ignored_file.fix,
                     source_file=format_insight_source_file(ignored_file.filepath),
                 )

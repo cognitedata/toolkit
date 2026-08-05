@@ -24,14 +24,14 @@ def invalid_extraction_pipeline_test_cases() -> Iterable:
     # Empty name
     yield pytest.param(
         {"externalId": "pipeline3", "name": "", "dataSetExternalId": "ds2"},
-        {"In field name string should have at least 1 character"},
+        {"Invalid value for name: String should have at least 1 character"},
         id="Empty name",
     )
     # Invalid dataSetExternalId type
     yield pytest.param(
         {"externalId": "pipeline4", "name": "Pipeline 4", "dataSetExternalId": 123},
         {
-            "In field dataSetExternalId input should be a valid string. Got 123 of type "
+            "Invalid value for dataSetExternalId: Input should be a valid string. Got 123 of type "
             "int. Hint: Use double quotes to force string."
         },
         id="Invalid dataSetExternalId type",

@@ -25,9 +25,9 @@ def invalid_test_cases() -> Iterable:
             "dataSetId": "invalid",  # Unknown field
         },
         {
-            "In field externalId input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
-            "In field name input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
-            "In field appDataSpaceVersion input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
+            "Invalid value for externalId: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for name: Input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for appDataSpaceVersion: Input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
             "Unknown field: 'dataSetId'",
         },
         id="Multiple type validation errors",
@@ -67,7 +67,7 @@ def invalid_test_cases() -> Iterable:
             "input should be a valid boolean. Got 'not-a-bool' of type str.",
             "In featureConfiguration.rootLocationConfigurations[1].featureToggles.threeD "
             "input should be a valid boolean. Got 'not-a-bool' of type str.",
-            "In featureConfiguration.rootLocationConfigurations[1].templateAdmins input "
+            "Invalid value at featureConfiguration.rootLocationConfigurations[1].templateAdmins: Input "
             "should be a valid list. Got 'not-a-list'.",
             "In "
             "featureConfiguration.rootLocationConfigurations[1].threeDConfiguration.fullWeightModels[1].modelId "

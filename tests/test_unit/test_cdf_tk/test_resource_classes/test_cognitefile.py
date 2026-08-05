@@ -53,22 +53,22 @@ def invalid_cognitefile_test_cases() -> Iterable:
     yield pytest.param({"externalId": "my_file"}, {"Missing required field: 'space'"}, id="missing-required-field")
     yield pytest.param(
         {"space": "my_space", "externalId": "my_file", "sourceCreatedTime": "invalid_date"},
-        {"In field sourceCreatedTime input should be a valid datetime. Got 'invalid_date' of type str."},
+        {"Invalid value for sourceCreatedTime: Input should be a valid datetime. Got 'invalid_date' of type str."},
         id="invalid-sourceCreatedTime-format",
     )
     yield pytest.param(
         {"space": "my_space", "externalId": "my_file", "source": {"space": "source_space"}},
-        {"In source missing required field: 'externalId'"},
+        {"Missing required field in source: 'externalId'"},
         id="invalid-DirectRelationReference-missing-externalId",
     )
     yield pytest.param(
         {"space": "my_space", "externalId": "my_file", "existingVersion": "not_a_number"},
-        {"In field existingVersion input should be a valid integer. Got 'not_a_number' of type str."},
+        {"Invalid value for existingVersion: Input should be a valid integer. Got 'not_a_number' of type str."},
         id="invalid-existingVersion-type",
     )
     yield pytest.param(
         {"space": "my_space", "externalId": "a" * 256},
-        {"In field externalId string should have at most 255 characters"},
+        {"Invalid value for externalId: String should have at most 255 characters"},
         id="invalid-externalId-too-long",
     )
 

@@ -37,7 +37,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {"workflowExternalId": "wf1", "version": "v1", "workflowDefinition": {"description": "desc", "tasks": [{}]}},
         # Note that when we do not have 'type', we cannot determine which task type it is, so we only get the error about missing 'type'.
         {
-            "In workflowDefinition.tasks[1] missing required field: 'type'",
+            "Invalid value at workflowDefinition.tasks[1]: Missing required field: 'type'",
         },
         id="Missing required type in task definition",
     )
@@ -51,8 +51,8 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
-            "In workflowDefinition.tasks[1].function.retries input should be a valid "
+            "Missing required field in workflowDefinition.tasks[1].function.parameters: 'function'",
+            "Invalid value at workflowDefinition.tasks[1].function.retries: Input should be a valid "
             "integer. Got 'notAnInt' of type str.",
         },
         id="Wrong type for retries",
@@ -67,9 +67,9 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1].function.onFailure input should be "
+            "Unrecognized value for workflowDefinition.tasks[1].function.onFailure: Expected one of "
             "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
-            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
+            "Missing required field in workflowDefinition.tasks[1].function.parameters: 'function'",
         },
         id="Invalid enum value for onFailure",
     )
@@ -83,7 +83,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1] input tag 'unknownType' found using 'type' "
+            "Invalid value at workflowDefinition.tasks[1]: Input tag 'unknownType' found using 'type' "
             "does not match any of the expected tags: 'function', 'transformation', "
             "'cdfRequest', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
         },

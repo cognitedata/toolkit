@@ -25,7 +25,7 @@ def invalid_stream_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
         {
-            "In settings.template.name input should be 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
+            "Unrecognized value for settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
         },
         id="Invalid template name",
     )
@@ -40,32 +40,32 @@ def invalid_stream_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"names": "ImmutableTestStream"}}},
-        {"In settings.template.names[key] input should be 'name'. Got 'names'."},
+        {"Unrecognized value for settings.template.names[key]: Expected 'name'. Got 'names'."},
         id="wrong template dictionary format",
     )
     yield pytest.param(
         {"externalId": "Test-stream", "settings": {"template": {"name": "ImmutableTestStream"}}},
-        {"In field externalId string should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
+        {"Invalid value for externalId: String should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
         id="Invalid external_id: starts with uppercase",
     )
     yield pytest.param(
         {"externalId": "test-stream-", "settings": {"template": {"name": "ImmutableTestStream"}}},
-        {"In field externalId string should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
+        {"Invalid value for externalId: String should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
         id="Invalid external_id: ends with hyphen",
     )
     yield pytest.param(
         {"externalId": "test-stream_", "settings": {"template": {"name": "ImmutableTestStream"}}},
-        {"In field externalId string should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
+        {"Invalid value for externalId: String should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
         id="Invalid external_id: ends with underscore",
     )
     yield pytest.param(
         {"externalId": "1test-stream", "settings": {"template": {"name": "ImmutableTestStream"}}},
-        {"In field externalId string should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
+        {"Invalid value for externalId: String should match pattern '^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$'"},
         id="Invalid external_id: starts with number",
     )
     yield pytest.param(
         {"externalId": "t" * 101, "settings": {"template": {"name": "ImmutableTestStream"}}},
-        {"In field externalId string should have at most 100 characters"},
+        {"Invalid value for externalId: String should have at most 100 characters"},
         id="externalId-too-long",
     )
 

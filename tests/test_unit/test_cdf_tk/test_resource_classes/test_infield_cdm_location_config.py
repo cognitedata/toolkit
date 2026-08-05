@@ -29,7 +29,7 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In featureToggles unknown field: 'invalidToggle'",
+            "Unrecognized field in featureToggles: 'invalidToggle'. ",
             "Unknown field: 'anotherUnknownField'",
             "Unknown field: 'unknownField'",
         },
@@ -71,15 +71,15 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "In accessManagement.checklistAdmins input should be a valid list. Got 456.",
-            "In accessManagement.templateAdmins input should be a valid list. Got 'should_be_a_list'.",
-            "In dataFilters.files.instanceSpaces input should be a valid list. Got 'should_be_list'.",
-            "In dataFilters.files.path.externalId input should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
-            "In dataFilters.files.path.space input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
-            "In disciplines[1] missing required field: 'externalId'",
-            "In featureToggles.threeD input should be a valid boolean. Got 'not_a_boolean' of type str.",
-            "In featureToggles.trends input should be a valid boolean. Got 123 of type int.",
-            "In viewMappings.asset missing required field: 'externalId'",
+            "Invalid value at accessManagement.checklistAdmins: Input should be a valid list. Got 456.",
+            "Invalid value at accessManagement.templateAdmins: Input should be a valid list. Got 'should_be_a_list'.",
+            "Invalid value at dataFilters.files.instanceSpaces: Input should be a valid list. Got 'should_be_list'.",
+            "Invalid value at dataFilters.files.path.externalId: Input should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
+            "Invalid value at dataFilters.files.path.space: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
+            "Missing required field in disciplines[1]: 'externalId'",
+            "Invalid value at featureToggles.threeD: Input should be a valid boolean. Got 'not_a_boolean' of type str.",
+            "Invalid value at featureToggles.trends: Input should be a valid boolean. Got 123 of type int.",
+            "Missing required field in viewMappings.asset: 'externalId'",
         },
         id="Multiple type mismatches across nested structures",
     )
@@ -91,7 +91,7 @@ def invalid_test_cases() -> Iterable:
                 "unknownField": "bad_value",
             },
         },
-        {"In dataExplorationConfig unknown field: 'unknownField'"},
+        {"Unrecognized field in dataExplorationConfig: 'unknownField'. "},
         id="Unknown field in dataExplorationConfig",
     )
     yield pytest.param(
@@ -107,7 +107,7 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber input should be greater than or equal to 0"
+            "Invalid value at dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber: Input should be greater than or equal to 0"
         },
         id="Negative orderNumber in dataExplorationConfig.assetPropertiesCardConfig",
     )
@@ -123,7 +123,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetPropertiesCardConfig.name unknown field: 'unknownField'"},
+        {"Unrecognized field in dataExplorationConfig.assetPropertiesCardConfig.name: 'unknownField'. "},
         id="Unknown field in dataExplorationConfig.assetPropertiesCardConfig entry",
     )
     yield pytest.param(
@@ -134,7 +134,7 @@ def invalid_test_cases() -> Iterable:
                 "observation": [],
             },
         },
-        {"In viewMappings.observation list should have at least 1 item after validation, not 0"},
+        {"Invalid value at viewMappings.observation: List should have at least 1 item after validation, not 0"},
         id="Empty observation list in viewMappings",
     )
     yield pytest.param(
@@ -160,7 +160,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation list should have at most 1 item after validation, not 2"},
+        {"Invalid value at viewMappings.observation: List should have at most 1 item after validation, not 2"},
         id="Multiple observations in viewMappings not supported",
     )
     yield pytest.param(
@@ -174,12 +174,32 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In viewMappings.observation[1] missing required field: 'view'",
-            "In viewMappings.observation[1] unknown field: 'externalId'",
-            "In viewMappings.observation[1] unknown field: 'space'",
-            "In viewMappings.observation[1] unknown field: 'version'",
+            "Missing required field in viewMappings.observation[1]: 'view'",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
         },
         id="Flat legacy ViewMapping shape in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": None,
+                        "space": "my_space",
+                        "version": "v1",
+                        "externalId": "ObsA",
+                    },
+                ],
+            },
+        },
+        {
+            "Empty field in viewMappings.observation[1]: 'view'. "
+            "Hint: Check that its properties are properly indented underneath it.",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
+        },
+        id="Empty view (under-indented siblings) in viewMappings.observation",
     )
     yield pytest.param(
         {
@@ -193,7 +213,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In viewMappings.asset.externalId string should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"},
+        {"Invalid value at viewMappings.asset.externalId: String should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"},
         id="Invalid externalId pattern in viewMappings.asset",
     )
     yield pytest.param(
@@ -211,7 +231,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1].view missing required field: 'externalId'"},
+        {"Missing required field in viewMappings.observation[1].view: 'externalId'"},
         id="Missing required field in viewMappings.observation view",
     )
     yield pytest.param(
@@ -231,7 +251,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1] unknown field: 'unknownField'"},
+        {"Unrecognized field in viewMappings.observation[1]: 'unknownField'. "},
         id="Unknown field in viewMappings.observation",
     )
     yield pytest.param(
@@ -254,7 +274,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1].writeBack unknown field: 'unknownField'"},
+        {"Unrecognized field in viewMappings.observation[1].writeBack: 'unknownField'. "},
         id="Unknown field in viewMappings.observation.writeBack",
     )
     yield pytest.param(
@@ -274,7 +294,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1].writeBack missing required field: 'notificationsEndpointExternalId'"},
+        {"Missing required field in viewMappings.observation[1].writeBack: 'notificationsEndpointExternalId'"},
         id="Missing notificationsEndpointExternalId in viewMappings.observation.writeBack",
     )
     yield pytest.param(
@@ -298,7 +318,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1].fieldsConfig.assets.orderNumber input should be greater than or equal to 0"},
+        {"Invalid value at viewMappings.observation[1].fieldsConfig.assets.orderNumber: Input should be greater than or equal to 0"},
         id="Negative orderNumber in viewMappings.observation.fieldsConfig",
     )
     yield pytest.param(
@@ -322,7 +342,7 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"In viewMappings.observation[1].fieldsConfig.assets unknown field: 'unknownField'"},
+        {"Unrecognized field in viewMappings.observation[1].fieldsConfig.assets: 'unknownField'. "},
         id="Unknown field in viewMappings.observation.fieldsConfig entry",
     )
     yield pytest.param(
@@ -338,7 +358,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetActivitiesCardView unknown field: 'unknownNested'"},
+        {"Unrecognized field in dataExplorationConfig.assetActivitiesCardView: 'unknownNested'. "},
         id="Unknown field in dataExplorationConfig.assetActivitiesCardView",
     )
     yield pytest.param(
@@ -352,7 +372,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetActivitiesCardView missing required field: 'externalId'"},
+        {"Missing required field in dataExplorationConfig.assetActivitiesCardView: 'externalId'"},
         id="Missing required field in dataExplorationConfig.assetActivitiesCardView",
     )
     yield pytest.param(
@@ -368,7 +388,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetNotificationsCardView unknown field: 'extraProp'"},
+        {"Unrecognized field in dataExplorationConfig.assetNotificationsCardView: 'extraProp'. "},
         id="Unknown field in dataExplorationConfig.assetNotificationsCardView",
     )
     yield pytest.param(
@@ -382,7 +402,7 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"In dataExplorationConfig.assetNotificationsCardView missing required field: 'externalId'"},
+        {"Missing required field in dataExplorationConfig.assetNotificationsCardView: 'externalId'"},
         id="Missing required field in dataExplorationConfig.assetNotificationsCardView",
     )
 

@@ -26,28 +26,38 @@ class FileReadError(InsightDefinition):
     severity = 60
 
 
-class ModelSyntaxWarning(InsightDefinition):
+class ModelSyntaxError(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
     severity = 40
 
 
+class ModelSyntaxWarning(InsightDefinition):
+    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
+
+    severity = 15
+
+
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 30
+    severity = 45
 
 
-class FailedValidation(InsightDefinition):
+class InternalValidatorException(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
-    This should never happen in normal operation — it indicates a bug in the validator itself.
+    This should never happen in normal operation — it indicates a bug in the validator itself, not
+    necessarily an issue with the resource being validated. Treated like a warning: the build can proceed,
+    but the affected resource was not fully validated.
     """
 
-    severity = 60
+    severity = 35
     source: str
-    fix: str | None = "This is an unexpected error in the validator. Please report this as a bug."
+    fix: str | None = (
+        "This is an unexpected error in the validator. It does not necessarily indicate an issue with your resource, only that we failed to validate it. Please report this as a bug."
+    )
 
 
 class IgnoredFileWarning(InsightDefinition):
@@ -61,13 +71,19 @@ class Recommendation(InsightDefinition):
 
 
 Insight: TypeAlias = (
-    ModelSyntaxWarning | ConsistencyError | FailedValidation | Recommendation | FileReadError | IgnoredFileWarning
+    ModelSyntaxError
+    | ModelSyntaxWarning
+    | ConsistencyError
+    | InternalValidatorException
+    | Recommendation
+    | FileReadError
+    | IgnoredFileWarning
 )
 
 
 def _normalize_csv_cell(text: str) -> str:
-    """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
-    return text.replace("\r\n", "\n").replace("\r", "\n")
+    """Flattens multi-line text into a single line so each insight stays on one physical CSV row."""
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "; ")
 
 
 class InsightList(UserList[Insight]):
@@ -96,14 +112,12 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxWarning) for insight in self.data)
+        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(
-            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, FailedValidation)) for insight in self.data
-        )
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:
@@ -120,9 +134,8 @@ class InsightList(UserList[Insight]):
     def to_csv(self) -> str:
         """Returns a CSV formatted string representation of the insights.
 
-        Uses a Unix-style CSV dialect (LF-only record separators, all fields quoted) so
-        ``message`` and ``fix`` may contain newlines without corrupting row boundaries.
-        Carriage returns inside cells are normalized to LF newlines.
+        Uses a Unix-style CSV dialect (LF-only record separators, all fields quoted). Newlines in
+        ``message`` and ``fix`` are flattened to keep each insight on a single physical CSV row.
 
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix

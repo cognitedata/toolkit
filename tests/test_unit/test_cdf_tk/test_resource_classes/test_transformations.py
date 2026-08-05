@@ -142,7 +142,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "name": "Invalid ignore_null_fields",
             "ignoreNullFields": "yes",
         },
-        {"In field ignoreNullFields input should be a valid boolean. Got 'yes' of type str."},
+        {"Invalid value for ignoreNullFields: Input should be a valid boolean. Got 'yes' of type str."},
         id="Invalid ignore_null_fields type",
     )
     yield pytest.param(
@@ -152,7 +152,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "tags": ["a", "b", "c", "d", "e", "f"],
         },
-        {"In field tags list should have at most 5 items after validation, not 6"},
+        {"Invalid value for tags: List should have at most 5 items after validation, not 6"},
         id="Too many tags in transformation",
     )
     yield pytest.param(
@@ -162,7 +162,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "conflictMode": "replace",
         },
-        {"In field conflictMode input should be 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
+        {"Unrecognized value for conflictMode: Expected one of 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
         id="Invalid conflict_mode value",
     )
     yield pytest.param(
@@ -173,9 +173,8 @@ def invalid_transformation_test_cases() -> Iterable:
             "authentication": {"invalid_key": "value"},
         },
         {
-            "In authentication missing required field: 'clientId'",
-            "In authentication missing required field: 'clientSecret'",
-            "In authentication unknown field: 'invalid_key'",
+            "Missing required fields in authentication: 'clientId' and 'clientSecret'",
+            "Unrecognized field in authentication: 'invalid_key'. ",
         },
         id="Invalid authentication type",
     )

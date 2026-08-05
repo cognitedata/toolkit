@@ -157,7 +157,7 @@ class TestBuildCommand:
         assert len(lineage_file) == 1
         assert len(insights_file) == 1
 
-    def test_end_to_end_invalid_space_emits_syntax_warning(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+    def test_end_to_end_invalid_space_emits_syntax_error(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
         # Set up a simple organization with modules folder.
@@ -176,15 +176,15 @@ name: My Space
         my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
         assert {
             "resource_count": len(my_module.resources),
-            "syntax_warnings": len(my_module.syntax_warnings_by_source),
+            "syntax_errors": len(my_module.syntax_errors_by_source),
             "insight_codes": {i.code for i in folder.all_insights if i.code},
         } == {
             "resource_count": 1,
-            "syntax_warnings": 1,
-            "insight_codes": {"MODEL-SYNTAX-WARNING"},
+            "syntax_errors": 1,
+            "insight_codes": {"MODEL-SYNTAX-ERROR"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING")
+        syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR")
         assert syntax_insight.source_file == "modules/my_module/data_modeling/my_space.Space.yaml"
 
         insights_csv = (build_dir / "insights.csv").read_text()
@@ -386,7 +386,7 @@ class TestReadFileSystem:
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)
 
-        assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
+        assert "Unrecognized value for environment.validation-type: Expected one of 'dev' or 'prod'. Got 'invalid_type'." in str(
             exc_info.value
         )
 
@@ -622,13 +622,14 @@ class TestReadResourceFile:
         assert result.code == expected_code
 
     @pytest.mark.parametrize(
-        "filename, content, crud_class, expected_resource_count, has_syntax_warning",
+        "filename, content, crud_class, expected_resource_count, has_syntax_error, has_syntax_warning",
         [
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nname: My Space\n",
                 SpaceCRUD,
                 1,
+                False,
                 False,
                 id="successful_single_resource",
             ),
@@ -638,13 +639,15 @@ class TestReadResourceFile:
                 SpaceCRUD,
                 1,
                 True,
-                id="model_validation_error_yields_syntax_warning",
+                False,
+                id="model_validation_error_yields_syntax_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nextra_field: value\n",
                 SpaceCRUD,
                 1,
+                False,
                 True,
                 id="extra_fields_produces_syntax_warning",
             ),
@@ -653,6 +656,7 @@ class TestReadResourceFile:
                 "- space: space_one\n- space: space_two\n",
                 SpaceCRUD,
                 2,
+                False,
                 False,
                 id="multiple_resources_in_list",
             ),
@@ -664,6 +668,7 @@ class TestReadResourceFile:
         content: str | None,
         crud_class: type[ResourceIO],
         expected_resource_count: int,
+        has_syntax_error: bool,
         has_syntax_warning: bool,
         tmp_path: Path,
     ) -> None:
@@ -675,6 +680,7 @@ class TestReadResourceFile:
         result = cmd._read_resource_file(resource_file, crud_class, [])
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
+        assert has_syntax_error == (result.syntax_error is not None)
         assert has_syntax_warning == (result.syntax_warning is not None)
 
 

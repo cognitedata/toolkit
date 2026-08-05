@@ -28,8 +28,13 @@ from tests.test_unit.utils import find_resources
 def _model_literal_error_message(invalid_value: object) -> str:
     models = literal_string_values_from_annotation(Model)
     quoted = ", ".join(f"'{model}'" for model in models[:-1])
-    options = f"{quoted} or '{models[-1]}'" if len(models) > 1 else f"'{models[0]}'"
-    return f"In field model input should be {options}. Got {invalid_value!r}."
+    if len(models) > 1:
+        prefix = "Expected one of"
+        options = f"{quoted} or '{models[-1]}'"
+    else:
+        prefix = "Expected"
+        options = f"'{models[0]}'"
+    return f"Unrecognized value for model: {prefix} {options}. Got {invalid_value!r}."
 
 
 def invalid_test_cases() -> Iterable:
@@ -49,11 +54,11 @@ def invalid_test_cases() -> Iterable:
             "tools": [{"type": "invalid"}] * 21,  # Too many tools - violates max_length=20
         },
         {
-            "In field description string should have at most 1024 characters",
-            "In field externalId string should have at least 1 character",
+            "Invalid value for description: String should have at most 1024 characters",
+            "Invalid value for externalId: String should have at least 1 character",
             _model_literal_error_message("invalid-model"),
-            "In field name string should have at least 1 character",
-            "In field tools list should have at most 20 items after validation, not 21",
+            "Invalid value for name: String should have at least 1 character",
+            "Invalid value for tools: List should have at most 20 items after validation, not 21",
         },
         id="multiple-validation-errors",
     )
@@ -71,11 +76,11 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "In field externalId string should have at most 128 characters",
-            "In field instructions string should have at most 32000 characters",
-            "In field name string should have at most 255 characters",
-            "In tools[1].askDocument.description string should have at least 10 characters",
-            "In tools[1].askDocument.name string should have at least 1 character",
+            "Invalid value for externalId: String should have at most 128 characters",
+            "Invalid value for instructions: String should have at most 32000 characters",
+            "Invalid value for name: String should have at most 255 characters",
+            "Invalid value at tools[1].askDocument.description: String should have at least 10 characters",
+            "Invalid value at tools[1].askDocument.name: String should have at least 1 character",
         },
         id="length-validation-errors",
     )
@@ -100,10 +105,10 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "In tools[1].queryKnowledgeGraph.configuration.dataModels list should have at "
+            "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
             "least 1 item after validation, not 0",
-            "In tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual missing required field: 'spaces'",
-            "In tools[1].queryKnowledgeGraph.configuration.version input should be 'v1' or 'v2'. Got 'v3'.",
+            "Missing required field in tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
+            "Unrecognized value for tools[1].queryKnowledgeGraph.configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
     )
@@ -132,11 +137,11 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "In field externalId string should match pattern '^[^\\x00]{1,128}$'",
-            "In tools[1].queryKnowledgeGraph.configuration.dataModels list should have at "
+            "Invalid value for externalId: String should match pattern '^[^\\x00]{1,128}$'",
+            "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
             "most 80 items after validation, not 81",
-            "In tools[1].queryKnowledgeGraph.description string should have at most 1024 characters",
-            "In tools[1].queryKnowledgeGraph.name string should match pattern '^[^\\x00]{1,64}$'",
+            "Invalid value at tools[1].queryKnowledgeGraph.description: String should have at most 1024 characters",
+            "Invalid value at tools[1].queryKnowledgeGraph.name: String should match pattern '^[^\\x00]{1,64}$'",
         },
         id="pattern-and-nested-validation-errors",
     )
@@ -150,14 +155,14 @@ def invalid_test_cases() -> Iterable:
             "tools": "not_a_list",  # Wrong type - should be list
         },
         {
-            "In field description input should be a valid string. Got 456 of type int. "
+            "Invalid value for description: Input should be a valid string. Got 456 of type int. "
             "Hint: Use double quotes to force string.",
-            "In field instructions input should be a valid string. Got [] of type list. "
+            "Invalid value for instructions: Input should be a valid string. Got [] of type list. "
             "Hint: Use double quotes to force string.",
             _model_literal_error_message(True),
-            "In field name input should be a valid string. Got None of type NoneType. "
+            "Invalid value for name: Input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
-            "In field tools input should be a valid list. Got 'not_a_list'.",
+            "Invalid value for tools: Input should be a valid list. Got 'not_a_list'.",
             "Missing required field: 'externalId'",
             "Unknown field: 'external_id'",
         },
@@ -166,7 +171,7 @@ def invalid_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "valid_id", "name": "Valid Name", "tools": [{"type": "invalid"}]},
         {
-            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'query', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
+            "Invalid value at tools[1]: Input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'query', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
         },
         id="invalid-tool-type-validation-errors",
     )
@@ -325,7 +330,7 @@ class TestAgentYAML:
                         {"agentExternalId": "weather-specialist"},
                     ],
                 },
-                "duplicate subagent agentExternalId(s): ['weather-specialist']. Each entry must reference a distinct agent.",
+                "Duplicate subagent agentExternalId(s): ['weather-specialist']. Each entry must reference a distinct agent.",
                 id="duplicate-subagents",
             ),
             pytest.param(
@@ -335,7 +340,7 @@ class TestAgentYAML:
                     "runtimeVersion": "1.3.0",
                     "subagents": [{"agentExternalId": ""}],
                 },
-                "In subagents[1].agentExternalId string should have at least 1 character",
+                "Invalid value at subagents[1].agentExternalId: String should have at least 1 character",
                 id="empty-subagent-external-id",
             ),
             pytest.param(
@@ -396,7 +401,7 @@ class TestAgentYAML:
         assert len(warning_list) == 1
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
-        assert any(f"list should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors)
+        assert any(f"List should have at most {MAX_SUB_AGENTS_PER_AGENT} items" in error for error in warning.errors)
 
     def test_example_questions_roundtrip_question_only(self) -> None:
         data = {
@@ -451,7 +456,7 @@ class TestAgentYAML:
                     "name": "My Agent",
                     "exampleQuestions": ["What can you do?"],
                 },
-                "In exampleQuestions[1] input must be an object of type ExampleQuestion",
+                "Invalid value at exampleQuestions[1]: Input should be a valid ExampleQuestion object",
                 id="bare-string-shorthand",
             ),
             pytest.param(
@@ -460,7 +465,7 @@ class TestAgentYAML:
                     "name": "My Agent",
                     "exampleQuestions": [{}],
                 },
-                "In exampleQuestions[1] missing required field: 'question'",
+                "Missing required field in exampleQuestions[1]: 'question'",
                 id="missing-question",
             ),
             pytest.param(
@@ -469,7 +474,7 @@ class TestAgentYAML:
                     "name": "My Agent",
                     "exampleQuestions": [{"question": ""}],
                 },
-                "In exampleQuestions[1].question string should have at least 1 character",
+                "Invalid value at exampleQuestions[1].question: String should have at least 1 character",
                 id="empty-question",
             ),
             pytest.param(
@@ -483,7 +488,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "In exampleQuestions[1].expectedMessages[1] missing required field: 'content'",
+                "Missing required field in exampleQuestions[1].expectedMessages[1]: 'content'",
                 id="expected-message-missing-content",
             ),
             pytest.param(
@@ -497,7 +502,7 @@ class TestAgentYAML:
                         }
                     ],
                 },
-                "In exampleQuestions[1].expectedMessages[1] missing required field: 'role'",
+                "Missing required field in exampleQuestions[1].expectedMessages[1]: 'role'",
                 id="expected-message-missing-role",
             ),
         ],
@@ -522,7 +527,7 @@ class TestAgentYAML:
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
         assert any(
-            f"list should have at most {EXAMPLE_QUESTIONS_MAX_LENGTH} items" in error for error in warning.errors
+            f"List should have at most {EXAMPLE_QUESTIONS_MAX_LENGTH} items" in error for error in warning.errors
         )
 
     def test_example_questions_serialized_size_validation(self) -> None:

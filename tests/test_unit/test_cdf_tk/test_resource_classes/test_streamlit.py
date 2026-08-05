@@ -17,7 +17,7 @@ def invalid_streamlit_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "MyApp", "creator": "doctrino", "name": "MyApp", "published": "yes", "draft": "no"},
-        {"In field published input should be a valid boolean. Got 'yes' of type str.", "Unknown field: 'draft'"},
+        {"Invalid value for published: Input should be a valid boolean. Got 'yes' of type str.", "Unknown field: 'draft'"},
         id="Invalid boolean and unknown field",
     )
 
