@@ -282,9 +282,7 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
         batch: list[DataItem[dict[str, JsonVal]]] = []
         line_no: int = -1
         for line_no, item in reader.read_chunks_with_line_numbers():
-            batch.append(
-                DataItem(tracking_id=file_line_tracking_id(reader.current_file, line_no, label), item=item)
-            )
+            batch.append(DataItem(tracking_id=file_line_tracking_id(reader.current_file, line_no, label), item=item))
             if len(batch) >= cls.CHUNK_SIZE:
                 yield Page(
                     worker_id="main",
