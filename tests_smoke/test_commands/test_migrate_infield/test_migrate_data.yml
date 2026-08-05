@@ -1,4 +1,11 @@
 instances:
+- externalId: smoke_tag_safety
+  instanceType: node
+  properties:
+    cdf_apps_shared:
+      CogniteSolutionTag/v1:
+        name: Safety
+  space: smoke_infield_migration_target_space
 - externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
   instanceType: node
   properties:
@@ -72,7 +79,9 @@ instances:
         rootLocation:
           externalId: SmokeAsset
           space: smoke_infield_migration_target_space
-        solutionTags: []
+        solutionTags:
+        - externalId: smoke_tag_safety
+          space: smoke_infield_migration_target_space
         status: Ready
         title: '!!!!AAA Suu Template Reg Test- copy- copy'
         updatedBy:
@@ -120,7 +129,9 @@ instances:
         rootLocation:
           externalId: SmokeAsset
           space: smoke_infield_migration_target_space
-        solutionTags: []
+        solutionTags:
+        - externalId: smoke_tag_safety
+          space: smoke_infield_migration_target_space
         sourceCreatedUser: VJZrRM_kByZe-moErWilvg
         sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
         sourceUpdatedUser: VJZrRM_kByZe-moErWilvg
