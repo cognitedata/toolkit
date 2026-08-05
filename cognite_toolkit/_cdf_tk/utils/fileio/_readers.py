@@ -25,6 +25,8 @@ from ._compression import COMPRESSION_BY_SUFFIX, Compression
 class FileReader(FileIO, ABC):
     def __init__(self, input_file: Path) -> None:
         self.input_file = input_file
+        # Tracks the file currently being read. Overridden by MultiFileReader when it moves between files.
+        self.current_file = input_file
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         compression = Compression.from_filepath(self.input_file)
