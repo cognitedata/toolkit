@@ -19,13 +19,13 @@ from .logger import DataLogger, NoOpLogger
 from .selectors import DataSelector
 
 
-def file_line_tracking_id(filepath: Path, line_no: int) -> str:
-    """Build a tracking ID that identifies the file and line number an item came from.
+def file_line_tracking_id(filepath: Path, line_no: int, label: Literal["line", "row"] = "line") -> str:
+    """Build a tracking ID that identifies the file and line/row number an item came from.
 
     Only the filename is used (not the full path), since the log file that these tracking IDs
     end up in is always written alongside the data file it refers to.
     """
-    return f"{filepath.name}:line-{line_no}"
+    return f"{filepath.name}:{label}-{line_no}"
 
 
 @runtime_checkable
@@ -278,10 +278,13 @@ class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataI
             reader: An instance of MultiFileReader to read data from.
             selector: The selection criteria to identify the data.
         """
+        label: Literal["line", "row"] = "row" if reader.is_table else "line"
         batch: list[DataItem[dict[str, JsonVal]]] = []
         line_no: int = -1
         for line_no, item in reader.read_chunks_with_line_numbers():
-            batch.append(DataItem(tracking_id=file_line_tracking_id(reader.current_file, line_no), item=item))
+            batch.append(
+                DataItem(tracking_id=file_line_tracking_id(reader.current_file, line_no, label), item=item)
+            )
             if len(batch) >= cls.CHUNK_SIZE:
                 yield Page(
                     worker_id="main",

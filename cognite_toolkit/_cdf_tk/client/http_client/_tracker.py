@@ -22,7 +22,7 @@ class ItemsRequestTracker:
     failed_split_count: int = field(default=0, init=False)
 
     def register_failure(self) -> None:
-        """Register a failed split request."""
+        """Register a failed split request and return whether to continue splitting."""
         with self.lock:
             self.failed_split_count += 1
 

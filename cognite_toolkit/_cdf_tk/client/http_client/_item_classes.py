@@ -55,7 +55,7 @@ class ItemsRequest(BaseRequestMessage):
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
     # The error message from the parent batch this request was split out from, if any. Used to propagate
-    # the error causing this batch to potentially be skipped without being attempted, if that should that happen.
+    # the error causing this batch to potentially be skipped without being attempted, if that should happen.
     parent_error_message: str | None = Field(init=False, default=None, exclude=True)
 
     @property

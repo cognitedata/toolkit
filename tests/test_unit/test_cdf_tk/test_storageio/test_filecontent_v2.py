@@ -125,8 +125,8 @@ my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
         results = self._upload_files(selector, tmp_path)
 
         assert results == [
-            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-1"], status_code=200, body="", content=b""),
-            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-2"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:row-1"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:row-2"], status_code=200, body="", content=b""),
         ]
 
     def _upload_files(self, selector: FileMetadataContentSelectorV2, tmp_path: Path) -> list[ItemsResultMessage]:
@@ -254,5 +254,5 @@ class TestCogniteFileContentIO:
             result_pages = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
 
         assert result_pages[0] == [
-            ItemsSuccessResponse(ids=[f"{csv_path.name}:line-1"], status_code=200, body="", content=b""),
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:row-1"], status_code=200, body="", content=b""),
         ]
