@@ -386,7 +386,8 @@ class HTTPClient:
             return [
                 ItemsFailedRequest(
                     ids=[str(item) for item in message.items],
-                    error_message=message.parent_error_message or "Unknown error",
+                    error_message=message.parent_error_message
+                    or f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
             ]
         try:
