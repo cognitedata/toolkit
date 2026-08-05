@@ -93,7 +93,11 @@ class ItemsResultList(UserList[ItemsResultMessage]):
         failed_requests = [resp for resp in self.data if isinstance(resp, ItemsFailedRequest)]
         if not failed_responses and not failed_requests:
             return
-        error_messages = "; ".join(f"Status {err.status_code}: {err.error.message}" for err in failed_responses)
+        error_messages = "; ".join(
+            f"Status {err.status_code}: {err.error.message}"
+            + (f" | X-Request-ID: {err.error.x_request_id}" if err.error.x_request_id else "")
+            for err in failed_responses
+        )
         if failed_requests:
             if error_messages:
                 error_messages += "; "

@@ -4,7 +4,12 @@ from zipfile import ZipFile
 
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, read_yaml_content, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import (
+    create_logfile_stem,
+    create_temporary_zip,
+    read_yaml_content,
+    sanitize_filename,
+)
 
 
 class TestCreateTemporaryZip:
@@ -56,6 +61,23 @@ class TestSanitizeFilename:
     )
     def test_sanitize_filename(self, filename: str, expected: str) -> None:
         assert sanitize_filename(filename) == expected
+
+
+class TestCreateLogfileStem:
+    @pytest.mark.parametrize(
+        "existing_files, stem, expected",
+        [
+            ([], "migration_log", "migration_log-"),
+            (["migration_log-part001.log"], "migration_log", "migration_log-run2-"),
+            (["migration_log-part001.log", "migration_log-run3-part001.log"], "migration_log", "migration_log-run4-"),
+        ],
+    )
+    def test_create_logfile_stem(self, existing_files: list[str], stem: str, expected: str, tmp_path: Path) -> None:
+        for filename in existing_files:
+            (tmp_path / filename).touch()
+        actual = create_logfile_stem(tmp_path, stem)
+
+        assert actual == expected
 
 
 class TestReadYamlContent:

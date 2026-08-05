@@ -120,6 +120,10 @@ class FileWithAggregationLogger(DataLogger):
         self._batch: list[LogEntryV2] = []
         self.aggregations_by_ids: dict[str, list[LogAggregation]] = {}
 
+    @property
+    def writer(self) -> NDJsonWriter:
+        return self._writer
+
     def __enter__(self) -> "FileWithAggregationLogger":
         return self
 
