@@ -103,7 +103,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = Path(f"logs/purge_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -208,7 +208,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = Path(f"logs/purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -337,7 +337,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = Path(f"logs/purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
