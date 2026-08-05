@@ -22,6 +22,7 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
                 message='text with "quotes" and, commas',
                 code=None,
                 fix="single",
+                source_file="modules/foo/bar.yaml",
             ),
         ]
     )
@@ -33,12 +34,14 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
         {
             "insight_type": "ConsistencyError",
             "code": "ERR-1",
+            "source_file": "",
             "message": "summary line\nnext line",
             "fix": "do this\nthen that",
         },
         {
             "insight_type": "Recommendation",
             "code": "",
+            "source_file": "modules/foo/bar.yaml",
             "message": 'text with "quotes" and, commas',
             "fix": "single",
         },
@@ -54,6 +57,6 @@ def test_insight_list_to_json_matches_structural_fields() -> None:
     )
     parsed = json.loads(insights.to_json())
     assert parsed == [
-        {"insightType": "ConsistencyError", "code": "C1", "message": "a", "fix": "f1"},
-        {"insightType": "Recommendation", "code": None, "message": "b", "fix": None},
+        {"insightType": "ConsistencyError", "code": "C1", "sourceFile": None, "message": "a", "fix": "f1"},
+        {"insightType": "Recommendation", "code": None, "sourceFile": None, "message": "b", "fix": None},
     ]

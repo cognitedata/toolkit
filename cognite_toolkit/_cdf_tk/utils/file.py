@@ -22,7 +22,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
     ToolkitYAMLFormatError,
@@ -557,3 +557,14 @@ def relative_to_if_possible(path: Path, base: Path = Path.cwd()) -> Path:
         return path.relative_to(base)
     except ValueError:
         return path
+
+
+def format_insight_source_file(path: Path) -> str:
+    """Format a source path for insight output, preferring cwd-relative or modules/ paths."""
+    relative = relative_to_if_possible(path)
+    if not relative.is_absolute():
+        return relative.as_posix()
+    if MODULES in path.parts:
+        module_index = path.parts.index(MODULES)
+        return "/".join(path.parts[module_index:])
+    return path.as_posix()
