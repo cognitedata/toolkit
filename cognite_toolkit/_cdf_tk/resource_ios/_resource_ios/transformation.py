@@ -127,6 +127,22 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
+_AUTO_CREATE_FIELDS = ("startNodes", "endNodes", "directRelations")
+
+
+def _strip_default_auto_create(cdf_destination: dict[str, Any], local_destination: dict[str, Any]) -> None:
+    auto_create = cdf_destination.get("autoCreate")
+    if not isinstance(auto_create, dict):
+        return
+    local_auto_create = local_destination.get("autoCreate", {})
+    if not isinstance(local_auto_create, dict):
+        local_auto_create = {}
+    for key in _AUTO_CREATE_FIELDS:
+        if auto_create.get(key) is True and key not in local_auto_create:
+            auto_create.pop(key, None)
+    if not auto_create:
+        cdf_destination.pop("autoCreate", None)
+
 
 @final
 class TransformationIO(ResourceIO[ExternalId, TransformationRequest, TransformationResponse]):
@@ -506,6 +522,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         if isinstance(cdf_destination, dict) and isinstance(local_destination, dict):
             if cdf_destination.get("instanceSpace") is None and "instanceSpace" not in local_destination:
                 cdf_destination.pop("instanceSpace", None)
+            _strip_default_auto_create(cdf_destination, local_destination)
         if not dumped.get("query") and "query" not in local:
             dumped.pop("query", None)
         if dumped.get("conflictMode") == "upsert" and "conflictMode" not in local:
