@@ -336,7 +336,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         skipped_external_ids_by_label: dict[str, list[str]] = {}
         shared_legacy_spaces = find_shared_legacy_instance_spaces(apm_configs)
         for apm_config in apm_configs:
-            location_configs, location_filters, spaces = self._create_infield_v2_config(
+            location_configs, location_filters, spaces = self._create_infield_cdm_config(
                 apm_config, skipped_external_ids_by_label, shared_legacy_spaces
             )
             success_count += len(location_configs)
@@ -386,7 +386,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             display_name="InField CDM Location Configs",
         )
 
-    def _create_infield_v2_config(
+    def _create_infield_cdm_config(
         self,
         config: APMConfigResponse,
         skipped_external_ids_by_label: dict[str, list[str]],
