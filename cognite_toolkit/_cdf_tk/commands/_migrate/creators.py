@@ -56,6 +56,12 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name, warn_invalid_space_name
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
+from .location_split import (
+    CDM_SPACE_SUFFIX,
+    CFG_SPACE_SUFFIX,
+    build_infield_instance_space_name,
+    find_shared_legacy_instance_spaces,
+)
 
 
 @dataclass
@@ -328,9 +334,10 @@ class InfieldV2ConfigCreator(MigrationCreator):
         seen_spaces: set[str] = set()
         success_count = 0
         skipped_external_ids_by_label: dict[str, list[str]] = {}
+        shared_legacy_spaces = find_shared_legacy_instance_spaces(apm_configs)
         for apm_config in apm_configs:
             location_configs, location_filters, spaces = self._create_infield_v2_config(
-                apm_config, skipped_external_ids_by_label
+                apm_config, skipped_external_ids_by_label, shared_legacy_spaces
             )
             success_count += len(location_configs)
             all_location_configs.extend(
@@ -383,6 +390,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         self,
         config: APMConfigResponse,
         skipped_external_ids_by_label: dict[str, list[str]],
+        shared_legacy_spaces: set[str],
     ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest], list[SpaceRequest]]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
         location_filters: list[LocationFilterRequest] = []
@@ -406,6 +414,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     root_location_config,
                     config.feature_configuration.disciplines,
                     index,
+                    shared_legacy_spaces,
                 )
             except ToolkitMigrationError as error:
                 skipped_external_ids_by_label.setdefault("Missing required fields", []).append(identifier)
@@ -419,24 +428,37 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
+            asset_external_id = root_location_config.asset_external_id
             for space_name in [
                 root_location_config.app_data_instance_space,
                 root_location_config.source_data_instance_space,
             ]:
                 if space_name is not None:
                     origin = origin_spaces.get(space_name)
+                    cdm_space = build_infield_instance_space_name(
+                        space_name,
+                        CDM_SPACE_SUFFIX,
+                        asset_external_id=asset_external_id,
+                        shared=space_name in shared_legacy_spaces,
+                    )
                     spaces.append(
                         SpaceRequest(
-                            space=f"{space_name}_cdm",
+                            space=cdm_space,
                             name=f"{origin.name} (CDM)" if origin and origin.name else None,
                             description=f"{origin.description} (migrated)" if origin and origin.description else None,
                         )
                     )
             if root_location_config.app_data_instance_space is not None:
                 origin = origin_spaces.get(root_location_config.app_data_instance_space)
+                cfg_space = build_infield_instance_space_name(
+                    root_location_config.app_data_instance_space,
+                    CFG_SPACE_SUFFIX,
+                    asset_external_id=asset_external_id,
+                    shared=root_location_config.app_data_instance_space in shared_legacy_spaces,
+                )
                 spaces.append(
                     SpaceRequest(
-                        space=f"{root_location_config.app_data_instance_space}_cfg",
+                        space=cfg_space,
                         name=f"{origin.name} (config)" if origin and origin.name else None,
                         description=f"{origin.description} (config)" if origin and origin.description else None,
                     )
@@ -493,6 +515,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
         config: RootLocationConfiguration,
         disciplines: list[Discipline] | None,
         index: int,
+        shared_legacy_spaces: set[str],
     ) -> InFieldCDMLocationConfigRequest:
         if (
             config.asset_external_id is None
@@ -541,9 +564,24 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.checklist_admins:
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
-        app_instance_space = f"{config.app_data_instance_space}_cdm"
-        source_instance_space = f"{config.source_data_instance_space}_cdm"
-        cfg_space = f"{config.app_data_instance_space}_cfg"
+        app_instance_space = build_infield_instance_space_name(
+            config.app_data_instance_space,
+            CDM_SPACE_SUFFIX,
+            asset_external_id=config.asset_external_id,
+            shared=config.app_data_instance_space in shared_legacy_spaces,
+        )
+        source_instance_space = build_infield_instance_space_name(
+            config.source_data_instance_space,
+            CDM_SPACE_SUFFIX,
+            asset_external_id=config.asset_external_id,
+            shared=config.source_data_instance_space in shared_legacy_spaces,
+        )
+        cfg_space = build_infield_instance_space_name(
+            config.app_data_instance_space,
+            CFG_SPACE_SUFFIX,
+            asset_external_id=config.asset_external_id,
+            shared=config.app_data_instance_space in shared_legacy_spaces,
+        )
         # dataFilters.assets.instanceSpaces[0] must match dataStorage.rootLocation.space, otherwise the
         # asset hierarchy query (which filters on both) can silently return nothing.
         data_filters: dict[str, JsonValue] = {

@@ -6,7 +6,11 @@ import yaml
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse, RootLocationConfiguration
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APMConfigResponse,
+    FeatureConfiguration,
+    RootLocationConfiguration,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     NodeId,
@@ -236,3 +240,54 @@ class TestCreator:
 
         assert len(resources_by_kind["InField CDM Location Configs"]) == 1
         assert len(resources_by_kind["Location Filters"]) == 1
+
+    def test_create_infield_config_splits_shared_instance_spaces(self) -> None:
+        shared_app = "shared_app_data"
+        shared_source = "shared_source_data"
+        apm_config = APMConfigResponse(
+            space="APM_Config",
+            external_id="shared_locations_config",
+            version=1,
+            created_time=0,
+            last_updated_time=0,
+            feature_configuration=FeatureConfiguration(
+                root_location_configurations=[
+                    RootLocationConfiguration(
+                        external_id="loc_alpha",
+                        asset_external_id="ROOT_ALPHA",
+                        display_name="Alpha",
+                        app_data_instance_space=shared_app,
+                        source_data_instance_space=shared_source,
+                    ),
+                    RootLocationConfiguration(
+                        external_id="loc_beta",
+                        asset_external_id="ROOT_BETA",
+                        display_name="Beta",
+                        app_data_instance_space=shared_app,
+                        source_data_instance_space=shared_source,
+                    ),
+                ]
+            ),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.assets.side_effect = lambda external_id: NodeId(
+                space="migrated", external_id=external_id
+            )
+            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            resources_by_kind = {
+                to_create.display_name: [resource.resource for resource in to_create.resources]
+                for to_create in creator.create_resources()
+            }
+
+        location_configs = resources_by_kind["InField CDM Location Configs"]
+        assert len(location_configs) == 2
+        app_spaces = {config.data_storage.app_instance_space for config in location_configs}
+        cfg_spaces = {config.space for config in location_configs}
+        source_spaces = {config.data_filters["maintenanceOrders"]["instanceSpaces"][0] for config in location_configs}
+        assert app_spaces == {"shared_app_data_ROOT_ALPHA_cdm", "shared_app_data_ROOT_BETA_cdm"}
+        assert cfg_spaces == {"shared_app_data_ROOT_ALPHA_cfg", "shared_app_data_ROOT_BETA_cfg"}
+        assert source_spaces == {"shared_source_data_ROOT_ALPHA_cdm", "shared_source_data_ROOT_BETA_cdm"}
+
+        created_spaces = {space.space for space in resources_by_kind["Instance Spaces"]}
+        assert app_spaces | cfg_spaces | source_spaces <= created_spaces
