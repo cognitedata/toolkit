@@ -608,6 +608,57 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
         return list({self._space_mapping[space] for space in source_spaces if space in self._space_mapping})
 
 
+class LocationSplitInstanceIdMapper(InstanceIdMapper):
+    """Maps instances from a shared legacy source space to per-location CDM spaces.
+
+    Instances in ``source_space`` are looked up in ``target_space_by_external_id``. Unresolved instances
+    are skipped. Spaces listed in ``passthrough_space_mapping`` (e.g. ``cognite_app_data``) keep a fixed
+    1:1 mapping so cross-space direct relations continue to resolve.
+    """
+
+    def __init__(
+        self,
+        source_space: str,
+        target_space_by_external_id: Mapping[str, str],
+        passthrough_space_mapping: Mapping[str, str] | None = None,
+    ) -> None:
+        self._source_space = source_space
+        self._target_space_by_external_id = target_space_by_external_id
+        self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        if instance_id.space == self._source_space:
+            target_space = self._target_space_by_external_id.get(instance_id.external_id)
+            if target_space is None:
+                raise InstanceMappingError(
+                    f"Instance {instance_id} could not be assigned to a per-location target space during the "
+                    f"location split of {self._source_space!r}. It was logged as an orphan in the location split "
+                    "report (missing/unmatched rootLocation or parent relation).",
+                    severity=Severity.skipped,
+                )
+            return NodeId(space=target_space, external_id=instance_id.external_id)
+        if instance_id.space in self._passthrough_space_mapping:
+            return NodeId(
+                space=self._passthrough_space_mapping[instance_id.space],
+                external_id=instance_id.external_id,
+            )
+        raise InstanceMappingError(
+            f"No source-to-destination space mapping applies to space {instance_id.space!r}. This location-split "
+            f"migration only remaps instances from {self._source_space!r} "
+            f"(plus passthrough spaces {humanize_collection(self._passthrough_space_mapping) or 'none'}).",
+            severity=Severity.skipped,
+        )
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        destinations: set[str] = set()
+        for space in source_spaces:
+            if space == self._source_space:
+                destinations.update(self._target_space_by_external_id.values())
+            elif space in self._passthrough_space_mapping:
+                destinations.add(self._passthrough_space_mapping[space])
+        return list(destinations)
+
+
 class SuffixInstanceIdMapper(InstanceIdMapper):
     def __init__(self, suffix: str = "_cdm") -> None:
         self._suffix = suffix
@@ -1269,15 +1320,21 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
     APM_Operation stores its reference to the parent APM_Activity as a plain ``parentActivityId`` text
     property (the classic ``externalId`` of the APM_Activity node). The migrated CogniteMaintenanceOrder
     keeps this same external ID, only moving it into the target instance space, so the destination NodeId
-    can be derived directly without any lookup.
+    can be derived via the same ``InstanceIdMapper`` used for the rest of the migration.
     """
 
     VIEW_PROPERTIES = frozenset(
         {(ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "parentActivityId")}
     )
 
-    def __init__(self, target_space: str, resolved_operation_view: ViewId | None = None) -> None:
-        self._target_space = target_space
+    def __init__(
+        self,
+        source_space: str,
+        instance_id_mapper: InstanceIdMapper,
+        resolved_operation_view: ViewId | None = None,
+    ) -> None:
+        self._source_space = source_space
+        self._instance_id_mapper = instance_id_mapper
         self._extra_view_properties: frozenset[tuple[ViewId, str]] = (
             frozenset({(resolved_operation_view, "parentActivityId")})
             if resolved_operation_view is not None
@@ -1288,7 +1345,7 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
         return self.VIEW_PROPERTIES | self._extra_view_properties
 
     def __getitem__(self, item: str) -> NodeId:
-        return NodeId(space=self._target_space, external_id=item)
+        return self._instance_id_mapper.map_instance_id(NodeId(space=self._source_space, external_id=item))
 
     def update(self, items: Iterable[str]) -> None:
         pass

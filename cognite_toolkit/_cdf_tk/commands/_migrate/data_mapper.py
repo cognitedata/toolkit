@@ -1851,12 +1851,12 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
-        dict[str, list[NodeResponse]],
+        dict[tuple[str, str], list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        schedules: dict[tuple[str, str], list[NodeResponse]] = defaultdict(list)
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
@@ -1865,7 +1865,13 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 item_properties = item.properties or {}
                 if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
                     schedule_hash = self._calculate_schedule_hash(schedule_properties)
-                    schedules[schedule_hash].append(item)
+                    try:
+                        target_space = self._connection_creator.map_instance(item.as_id()).space
+                    except InstanceMappingError:
+                        # Keep unresolved schedules from collapsing across locations; they will be
+                        # skipped when _create_single_schedule tries to map the instance id.
+                        target_space = f"__unresolved__:{item.external_id}"
+                    schedules[(target_space, schedule_hash)].append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
                     # The template nodes are included to do pagination correctly (one page per template),
                     # but we do not need the templates, so we can safely ignore them.
