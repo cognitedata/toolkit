@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSou
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
-    InfieldV2ConfigCreator,
+    InfieldCDMConfigCreator,
     InstanceSpaceCreator,
     SourceSystemCreator,
 )
@@ -207,7 +207,7 @@ class TestCreator:
         with monkeypatch_toolkit_client() as client:
             asset_external_id = apm_config.feature_configuration.root_location_configurations[0].asset_external_id
             client.migration.lookup.assets.return_value = NodeId(space="migrated", external_id=asset_external_id)
-            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            creator = InfieldCDMConfigCreator(client, apm_configs=[apm_config])
             for to_create in creator.create_resources():
                 for resource in to_create.resources:
                     output.setdefault(to_create.display_name, []).append(resource.config_data)
@@ -233,7 +233,7 @@ class TestCreator:
             client.migration.lookup.assets.return_value = NodeId(
                 space="migrated", external_id=valid_root_location.asset_external_id
             )
-            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            creator = InfieldCDMConfigCreator(client, apm_configs=[apm_config])
             resources_by_kind = {
                 to_create.display_name: to_create.resources for to_create in creator.create_resources()
             }
@@ -274,7 +274,7 @@ class TestCreator:
             client.migration.lookup.assets.side_effect = lambda external_id: NodeId(
                 space="migrated", external_id=external_id
             )
-            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            creator = InfieldCDMConfigCreator(client, apm_configs=[apm_config])
             resources_by_kind = {
                 to_create.display_name: [resource.resource for resource in to_create.resources]
                 for to_create in creator.create_resources()

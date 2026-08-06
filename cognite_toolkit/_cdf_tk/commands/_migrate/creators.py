@@ -304,7 +304,7 @@ LOCATION_CONFIG_SPACE_COMMENT = (
 )
 
 
-class InfieldV2ConfigCreator(MigrationCreator):
+class InfieldCDMConfigCreator(MigrationCreator):
     TARGET_SPACE = "APM_Config"
 
     def __init__(

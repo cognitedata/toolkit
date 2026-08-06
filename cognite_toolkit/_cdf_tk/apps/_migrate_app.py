@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     SuffixInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
-    InfieldV2ConfigCreator,
+    InfieldCDMConfigCreator,
     InstanceSpaceCreator,
     SourceSystemCreator,
 )
@@ -1532,7 +1532,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.create(
                 client,
-                creator=InfieldV2ConfigCreator(client, external_id, apm_configs),
+                creator=InfieldCDMConfigCreator(client, external_id, apm_configs),
                 output_dir=output_dir,
                 dry_run=False,
                 deploy=False,
