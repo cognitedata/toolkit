@@ -1492,7 +1492,7 @@ class MigrateApp(typer.Typer):
         external_id: Annotated[
             list[str] | None,
             typer.Argument(
-                help="The external IDs of the APM Configurations to create Infield V2 configurations for. "
+                help="The external IDs of the APM Configurations to create CDM configurations for Infield for. "
                 "If not provided, an interactive selection will be performed to select the APM Configurations."
             ),
         ] = None,
@@ -1501,7 +1501,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Path to the directory where the Infield V2 configuration definitions will be dumped. It is recommended "
+                help="Path to the directory where the Infield CDM configuration definitions will be dumped. It is recommended "
                 "to govern these configurations in a git repository.",
             ),
         ] = Path("tmp"),
@@ -1514,7 +1514,7 @@ class MigrateApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Creates Infield V2 configurations from existing APM Configurations in CDF."""
+        """Creates Infield CDM configurations from existing APM Configurations in CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = MigrationCommand(client=client)
@@ -1522,7 +1522,7 @@ class MigrateApp(typer.Typer):
             apm_configs = APMConfigInteractiveSelect(client, "migrate").select_apm_configs()
             output_dir = Path(
                 questionary.path(
-                    "Specify output directory for Infield V2 configuration definitions:", default=str(output_dir)
+                    "Specify output directory for Infield CDM configuration definitions:", default=str(output_dir)
                 ).unsafe_ask()
             )
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
