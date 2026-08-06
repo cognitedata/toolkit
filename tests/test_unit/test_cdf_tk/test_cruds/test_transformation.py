@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    AutoCreateOptions,
     NonceCredentials,
     TransformationRequest,
     TransformationResponse,
@@ -264,3 +265,105 @@ authentication:
             created = crud.create(transformations)
 
             assert [t.external_id for t in created] == [t.external_id for t in transformations]
+
+    def test_load_resource_with_auto_create(self) -> None:
+        resource = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {"directRelations": False},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            loaded = loader.load_resource(resource)
+
+        assert loaded.destination is not None
+        assert loaded.destination.auto_create == AutoCreateOptions(direct_relations=False)
+
+    def test_dump_resource_strips_default_auto_create(self) -> None:
+        cdf_transformation = TransformationResponse(
+            id=1,
+            name="Nodes transformation",
+            external_id="tr_nodes",
+            query="SELECT 1",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            is_public=True,
+            conflict_mode="upsert",
+            destination={
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {
+                    "startNodes": True,
+                    "endNodes": True,
+                    "directRelations": True,
+                },
+            },
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        )
+        local_dumped = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            dumped = loader.dump_resource(cdf_transformation, local_dumped)
+
+        assert "autoCreate" not in dumped["destination"]
+
+    def test_dump_resource_keeps_non_default_auto_create(self) -> None:
+        cdf_transformation = TransformationResponse(
+            id=1,
+            name="Nodes transformation",
+            external_id="tr_nodes",
+            query="SELECT 1",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            is_public=True,
+            conflict_mode="upsert",
+            destination={
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {
+                    "startNodes": True,
+                    "endNodes": True,
+                    "directRelations": False,
+                },
+            },
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        )
+        local_dumped = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {"directRelations": False},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            dumped = loader.dump_resource(cdf_transformation, local_dumped)
+
+        assert dumped["destination"]["autoCreate"] == {"directRelations": False}
