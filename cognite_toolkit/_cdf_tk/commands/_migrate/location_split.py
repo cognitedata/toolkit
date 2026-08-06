@@ -16,18 +16,23 @@ def find_shared_legacy_instance_spaces(apm_configs: Sequence[APMConfigResponse])
     A space is shared if it appears as ``appDataInstanceSpace`` for more than one root location,
     or as ``sourceDataInstanceSpace`` for more than one root location. The same space used as both
     app and source data for a single location does not count as shared.
+
+    Only root locations with an ``assetExternalId`` are counted. That field is required both to
+    create a CDM location config and to disambiguate shared-space names, so roots without it cannot
+    participate in a split.
     """
     locations_by_app_space: dict[str, set[str]] = defaultdict(set)
     locations_by_source_space: dict[str, set[str]] = defaultdict(set)
     for config in apm_configs:
         if not config.feature_configuration:
             continue
-        for index, root in enumerate(config.feature_configuration.root_location_configurations or []):
-            location_key = root.external_id or root.asset_external_id or f"{config.external_id}:{index}"
+        for root in config.feature_configuration.root_location_configurations or []:
+            if not root.asset_external_id:
+                continue
             if root.app_data_instance_space:
-                locations_by_app_space[root.app_data_instance_space].add(location_key)
+                locations_by_app_space[root.app_data_instance_space].add(root.asset_external_id)
             if root.source_data_instance_space:
-                locations_by_source_space[root.source_data_instance_space].add(location_key)
+                locations_by_source_space[root.source_data_instance_space].add(root.asset_external_id)
 
     shared: set[str] = set()
     for space, locations in locations_by_app_space.items():
