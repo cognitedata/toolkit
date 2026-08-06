@@ -428,7 +428,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     console=self.client.console
                 )
                 continue
-            asset_external_id = root_location_config.asset_external_id
             for space_name in [
                 root_location_config.app_data_instance_space,
                 root_location_config.source_data_instance_space,
@@ -438,7 +437,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     cdm_space = build_infield_instance_space_name(
                         space_name,
                         CDM_SPACE_SUFFIX,
-                        asset_external_id=asset_external_id,
+                        asset_external_id=root_location_config.asset_external_id,
                         shared=space_name in shared_legacy_spaces,
                     )
                     spaces.append(
@@ -453,7 +452,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 cfg_space = build_infield_instance_space_name(
                     root_location_config.app_data_instance_space,
                     CFG_SPACE_SUFFIX,
-                    asset_external_id=asset_external_id,
+                    asset_external_id=root_location_config.asset_external_id,
                     shared=root_location_config.app_data_instance_space in shared_legacy_spaces,
                 )
                 spaces.append(
