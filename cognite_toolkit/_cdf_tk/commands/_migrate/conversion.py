@@ -633,11 +633,10 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
             target_space = self._target_space_by_external_id.get(instance_id.external_id)
             if target_space is None:
                 reason = self._orphan_reason_by_external_id.get(
-                    instance_id.external_id, "not visited during location split resolution"
+                    instance_id.external_id, "is not linked to any root location"
                 )
                 raise InstanceMappingError(
-                    f"Instance {instance_id} could not be assigned to a per-location target space during the "
-                    f"location split of {self._source_space!r}: {reason}.",
+                    f"Instance {instance_id} could not be assigned to a target space: {reason}.",
                     severity=Severity.failure,
                 )
             return NodeId(space=target_space, external_id=instance_id.external_id)
@@ -646,11 +645,11 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
                 space=self._passthrough_space_mapping[instance_id.space],
                 external_id=instance_id.external_id,
             )
-        raise InstanceMappingError(
-            f"No source-to-destination space mapping applies to space {instance_id.space!r}. This location-split "
-            f"migration only remaps instances from {self._source_space!r} "
-            f"(plus passthrough spaces {humanize_collection(self._passthrough_space_mapping) or 'none'}).",
-            severity=Severity.skipped,
+        raise RuntimeError(
+            f"Bug in Toolkit: encountered instance {instance_id} outside the location-split source space "
+            f"{self._source_space!r} and its passthrough spaces "
+            f"({humanize_collection(self._passthrough_space_mapping) or 'none'}). This should not happen during "
+            "normal operation, please report this as a bug."
         )
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:

@@ -1837,7 +1837,7 @@ class TestLocationSplitInstanceIdMapper:
 
     def test_reports_unresolved_orphan_as_failure(self) -> None:
         mapper = LocationSplitInstanceIdMapper("shared_source", {"node_a": "space_b"})
-        with pytest.raises(InstanceMappingError, match="not visited during location split resolution") as exc_info:
+        with pytest.raises(InstanceMappingError, match="is not linked to any root location") as exc_info:
             mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
         assert exc_info.value.severity == Severity.failure
 
@@ -1860,6 +1860,15 @@ class TestLocationSplitInstanceIdMapper:
         assert mapper.map_instance_id(NodeId(space="cognite_app_data", external_id="user1")) == NodeId(
             space="cognite_app_data", external_id="user1"
         )
+
+    def test_unexpected_space_raises_bug_in_toolkit(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
+        )
+        with pytest.raises(RuntimeError, match="Bug in Toolkit"):
+            mapper.map_instance_id(NodeId(space="some_other_space", external_id="node_x"))
 
 
 class TestAssetCentricToRecord:
