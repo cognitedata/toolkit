@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldAssetMapping,
     InstanceMappingError,
+    LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
@@ -67,6 +68,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     FailedConversion,
     InvalidPropertyDataType,
 )
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 
 
 @pytest.fixture(scope="module")
@@ -1804,16 +1806,69 @@ class TestInFieldAssetMapping:
 
 
 class TestAPMSourceDataMaintenanceOrderMapping:
-    def test_getitem_derives_node_id_from_target_space(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+    def test_getitem_derives_node_id_via_instance_id_mapper(self) -> None:
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         assert mapping["activity_123"] == NodeId(space="sp_target", external_id="activity_123")
 
     def test_update_is_a_no_op(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         # No lookup is needed, so this should simply not raise.
         mapping.update(["activity_123"])
+
+
+class TestLocationSplitInstanceIdMapper:
+    def test_maps_resolved_instance(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
+        )
+        assert mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a")) == NodeId(
+            space="space_b", external_id="node_a"
+        )
+
+    def test_reports_unresolved_orphan_as_failure(self) -> None:
+        mapper = LocationSplitInstanceIdMapper("shared_source", {"node_a": "space_b"})
+        with pytest.raises(InstanceMappingError, match="is not linked to any root location") as exc_info:
+            mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+        assert exc_info.value.severity == Severity.failure
+
+    def test_reports_specific_orphan_reason_when_available(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            orphan_reason_by_external_id={"missing": "missing rootLocation"},
+        )
+        with pytest.raises(InstanceMappingError, match="missing rootLocation") as exc_info:
+            mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+        assert exc_info.value.severity == Severity.failure
+
+    def test_passthrough_space(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
+        )
+        assert mapper.map_instance_id(NodeId(space="cognite_app_data", external_id="user1")) == NodeId(
+            space="cognite_app_data", external_id="user1"
+        )
+
+    def test_unexpected_space_raises_bug_in_toolkit(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
+        )
+        with pytest.raises(RuntimeError, match="Bug in Toolkit"):
+            mapper.map_instance_id(NodeId(space="some_other_space", external_id="node_x"))
 
 
 class TestAssetCentricToRecord:

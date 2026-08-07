@@ -1864,6 +1864,15 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
                 if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
+                    # Check mapping before grouping so an unresolved schedule is reported on its own,
+                    # rather than being grouped by content hash with resolvable duplicates. Otherwise,
+                    # a resolvable duplicate could be silently dropped alongside a broken one, or a
+                    # broken one could be silently hidden behind a resolvable one.
+                    try:
+                        self._connection_creator.map_instance(item.as_id())
+                    except InstanceMappingError as error:
+                        issues.append(InstanceConversionIssue(id=str(item.as_id()), errors=[str(error)]))
+                        continue
                     schedule_hash = self._calculate_schedule_hash(schedule_properties)
                     schedules[schedule_hash].append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
