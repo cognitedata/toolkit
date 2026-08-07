@@ -578,7 +578,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         output_dir.mkdir(parents=True, exist_ok=True)
         filestem = create_logfile_stem(output_dir, "download")
         filepath = output_dir / f"{sanitize_filename(filestem)}QueryDebugResponse.json"
-        filepath.write_text(json.dumps(debug_data, indent=2), encoding="utf-8")
+        with filepath.open("w", encoding="utf-8") as file:
+            json.dump(debug_data, file, indent=2)
         return filepath
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
