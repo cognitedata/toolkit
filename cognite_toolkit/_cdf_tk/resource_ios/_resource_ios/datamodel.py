@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ViewFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    Container,
     ContainerRequest,
     ContainerResponse,
     DataModelRequest,
@@ -438,16 +439,9 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
 
         dependencies_by_id: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
-            direct_dependencies: set[ContainerId] = set()
-            for constraint in (container.constraints or {}).values():
-                if isinstance(constraint, ClientRequiresConstraintDefinition) and constraint.require in (
-                    containers_by_id
-                ):
-                    direct_dependencies.add(constraint.require)
-            for property in container.properties.values():
-                if isinstance(property.type, ClientDirectNodeRelation) and property.type.container in containers_by_id:
-                    direct_dependencies.add(property.type.container)
-            dependencies_by_id[container_id].update(direct_dependencies)
+            dependencies_by_id[container_id].update(
+                dependency for dependency in self._direct_container_references(container) if dependency in containers_by_id
+            )
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
@@ -600,20 +594,24 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
             if container_id in self._container_by_id
         }
 
+    @staticmethod
+    def _direct_container_references(container: Container) -> Iterable[ContainerId]:
+        """Yields the container ids directly referenced by a container's requires constraints
+        and direct relation properties."""
+        for constraint in (container.constraints or {}).values():
+            if isinstance(constraint, ClientRequiresConstraintDefinition):
+                yield constraint.require
+        for property in container.properties.values():
+            if isinstance(property.type, ClientDirectNodeRelation) and property.type.container is not None:
+                yield property.type.container
+
     def _find_direct_container_dependencies(
         self, container_ids: Sequence[ContainerId]
     ) -> dict[ContainerId, set[ContainerId]]:
         containers_by_id = self._lookup_containers(container_ids)
         container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
-            for constraint in (container.constraints or {}).values():
-                if not isinstance(constraint, ClientRequiresConstraintDefinition):
-                    continue
-                container_dependencies[container_id].add(constraint.require)
-            for property in container.properties.values():
-                if not isinstance(property.type, ClientDirectNodeRelation) or property.type.container is None:
-                    continue
-                container_dependencies[container_id].add(property.type.container)
+            container_dependencies[container_id].update(self._direct_container_references(container))
         return container_dependencies
 
     def _propagate_indirect_container_dependencies(
