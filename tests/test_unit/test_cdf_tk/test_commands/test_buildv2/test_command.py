@@ -684,6 +684,15 @@ functionExternalId: fn_first_function
                 [],
                 id="No unresolved variables",
             ),
+            pytest.param(
+                """space: '{{ space }}'
+views:
+  - space: '{{ space }}'
+    version: '{{ dm_version }}'
+""",
+                ["space", "dm_version"],
+                id="Duplicate unresolved variables are deduplicated",
+            ),
         ],
     )
     def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
