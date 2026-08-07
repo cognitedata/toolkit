@@ -419,9 +419,8 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        creation_order = self._compute_deploy_batches(items)
         created: list[ContainerResponse] = []
-        for batch in creation_order:
+        for batch in self._compute_deploy_batches(items):
             created.extend(self.client.tool.containers.create(batch))
         return created
 
@@ -430,7 +429,7 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         and direct relation container references).
 
         The API validates a container's dependencies against containers that already exist in CDF,
-        not against other containers in the same batch. Computes the strongly connected components
+        as well as against other containers in the same batch. Computes the strongly connected components
         in topological order, then packs consecutive SCCs into batches up to
         CONTAINER_UPSERT_BATCH_LIMIT, so a container is always sent in the same or an earlier batch
         than containers depending on it.
