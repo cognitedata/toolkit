@@ -246,15 +246,33 @@ def _target_spaces_for_root_assets(
             continue
         target_by_root_asset[classic_root_asset] = target_space
     space_kind = "appInstanceSpace" if target_kind == "app_data" else "source-data instance space"
-    # Root locations without a resolved target space are not a hard error: they are simply excluded
-    # from target_by_root_asset. Any instance that traces back to one of them will fail on its own,
-    # individually, via the normal orphan reporting in the resolution cascade below.
     if not target_by_root_asset:
         raise ToolkitMigrationError(
             f"Legacy instance space {source_space!r} is shared by {len(classic_root_assets)} root location(s) "
             f"({', '.join(sorted(classic_root_assets))}), but Toolkit could not resolve a deployed CDM "
             f"{space_kind} for any of them. Ensure 'cdf migrate infield-configs' has been run and at least one "
             "location config sharing this space has been deployed."
+        )
+    # If two or more of the root locations that ARE deployed resolve to the same target space, that is a
+    # genuine misconfiguration (it defeats the purpose of splitting a shared space) and should fail loudly
+    root_assets_by_target_space: dict[str, list[str]] = defaultdict(list)
+    for classic_root_asset, target_space in target_by_root_asset.items():
+        root_assets_by_target_space[target_space].append(classic_root_asset)
+    duplicated = {
+        target_space: root_assets
+        for target_space, root_assets in root_assets_by_target_space.items()
+        if len(root_assets) > 1
+    }
+    if duplicated:
+        conflicts = "; ".join(
+            f"{target_space!r} <- {', '.join(sorted(root_assets))}"
+            for target_space, root_assets in sorted(duplicated.items())
+        )
+        raise ToolkitMigrationError(
+            f"Legacy instance space {source_space!r} is shared by root location(s) "
+            f"({', '.join(sorted(classic_root_assets))}), but deployed CDM location configs assign the same "
+            f"{space_kind} to more than one of them: {conflicts}. Each deployed root location sharing this "
+            f"space must have a distinct {space_kind}."
         )
     return target_by_root_asset
 
