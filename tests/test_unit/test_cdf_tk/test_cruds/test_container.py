@@ -121,7 +121,30 @@ indexes: {}
 
 
 class TestContainerDeployTopologicalSort:
-    def test_requires_constraint_dependency_ordering(self) -> None:
+    @pytest.mark.parametrize(
+        "dependent_properties,dependent_constraints",
+        [
+            pytest.param(
+                {"name": ContainerPropertyDefinition(type=TextProperty())},
+                {
+                    "requiresDependency": RequiresConstraintDefinition(
+                        require=ContainerId(space="sp_space", external_id="Dependency")
+                    )
+                },
+                id="requires_constraint",
+            ),
+            pytest.param(
+                {
+                    "ref": ContainerPropertyDefinition(
+                        type=DirectNodeRelation(container=ContainerId(space="sp_space", external_id="Dependency"))
+                    )
+                },
+                None,
+                id="direct_relation",
+            ),
+        ],
+    )
+    def test_dependency_ordering(self, dependent_properties: dict, dependent_constraints: dict | None) -> None:
         dependency_container = ContainerRequest(
             space="sp_space",
             external_id="Dependency",
@@ -130,35 +153,8 @@ class TestContainerDeployTopologicalSort:
         dependent_container = ContainerRequest(
             space="sp_space",
             external_id="Dependent",
-            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
-            constraints={
-                "requiresDependency": RequiresConstraintDefinition(
-                    require=ContainerId(space="sp_space", external_id="Dependency")
-                )
-            },
-        )
-
-        with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
-            batches = loader._compute_deploy_batches([dependent_container, dependency_container])
-
-        flat_ids = [container.external_id for batch in batches for container in batch]
-        assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
-
-    def test_direct_relation_dependency_ordering(self) -> None:
-        dependency_container = ContainerRequest(
-            space="sp_space",
-            external_id="Dependency",
-            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
-        )
-        dependent_container = ContainerRequest(
-            space="sp_space",
-            external_id="Dependent",
-            properties={
-                "ref": ContainerPropertyDefinition(
-                    type=DirectNodeRelation(container=ContainerId(space="sp_space", external_id="Dependency"))
-                )
-            },
+            properties=dependent_properties,
+            constraints=dependent_constraints,
         )
 
         with monkeypatch_toolkit_client() as client:
@@ -169,8 +165,6 @@ class TestContainerDeployTopologicalSort:
         assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
 
     def test_many_dependents_split_across_batches_after_dependency(self) -> None:
-        # Reproduces the reported bug: a single dependency-free container, and more containers
-        # requiring it than fit in a single upsert batch.
         container_count = CONTAINER_UPSERT_BATCH_LIMIT + 25
         dependency_container = ContainerRequest(
             space="sp_space",
@@ -196,7 +190,7 @@ class TestContainerDeployTopologicalSort:
             batches = loader._compute_deploy_batches([*dependents, dependency_container])
 
         assert len(batches) > 1, "Should split into multiple batches given the batch limit"
-        assert batches[0][0].external_id == "Dependency", "Dependency-free container must be sent first"
+        assert batches[0][0].external_id == "Dependency", "Container being depended on must be sent first"
         flat_ids = [container.external_id for batch in batches for container in batch]
         for dependent in dependents:
             assert flat_ids.index("Dependency") < flat_ids.index(dependent.external_id)
@@ -222,5 +216,7 @@ class TestContainerDeployTopologicalSort:
             loader = ContainerCRUD(client, Path("build_dir"), None)
             batches = loader._compute_deploy_batches(containers)
 
-        assert len(batches) == 1, "All containers in one SCC should stay in a single batch"
+        assert len(batches) == 1, (
+            "All containers in one SCC should stay in a single batch despite exceeding the local batch limit"
+        )
         assert len(batches[0]) == container_count
