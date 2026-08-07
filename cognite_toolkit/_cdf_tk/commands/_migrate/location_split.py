@@ -289,55 +289,29 @@ def _resolve_app_data_cascade(
     resolution = LocationSplitResolution()
     target_by_external_id: dict[str, str] = {}
 
-    _resolve_tier0_root_location_nodes(
-        client,
-        source_space=source_space,
-        view_id=_TEMPLATE_VIEW,
-        target_by_root_asset=target_by_root_asset,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_tier0_root_location_nodes(
-        client,
-        source_space=source_space,
-        view_id=_CHECKLIST_VIEW,
-        target_by_root_asset=target_by_root_asset,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_tier0_root_location_nodes(
-        client,
-        source_space=source_space,
-        view_id=_OBSERVATION_VIEW,
-        target_by_root_asset=target_by_root_asset,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
+    for view_id in (_TEMPLATE_VIEW, _CHECKLIST_VIEW, _OBSERVATION_VIEW):
+        _resolve_tier0_root_location_nodes(
+            client,
+            source_space=source_space,
+            view_id=view_id,
+            target_by_root_asset=target_by_root_asset,
+            target_by_external_id=target_by_external_id,
+            resolution=resolution,
+        )
 
-    _resolve_children_via_outbound_edges(
-        client,
-        source_space=source_space,
-        edge_type_external_id=_REFERENCE_TEMPLATE_ITEMS,
-        child_view_id=_TEMPLATE_ITEM_VIEW,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_children_via_outbound_edges(
-        client,
-        source_space=source_space,
-        edge_type_external_id=_REFERENCE_CHECKLIST_ITEMS,
-        child_view_id=_CHECKLIST_ITEM_VIEW,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_children_via_outbound_edges(
-        client,
-        source_space=source_space,
-        edge_type_external_id=_REFERENCE_SCHEDULES,
-        child_view_id=_SCHEDULE_VIEW,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
+    for edge_type_external_id, child_view_id in (
+        (_REFERENCE_TEMPLATE_ITEMS, _TEMPLATE_ITEM_VIEW),
+        (_REFERENCE_CHECKLIST_ITEMS, _CHECKLIST_ITEM_VIEW),
+        (_REFERENCE_SCHEDULES, _SCHEDULE_VIEW),
+    ):
+        _resolve_children_via_outbound_edges(
+            client,
+            source_space=source_space,
+            edge_type_external_id=edge_type_external_id,
+            child_view_id=child_view_id,
+            target_by_external_id=target_by_external_id,
+            resolution=resolution,
+        )
 
     _resolve_measurements_via_inbound_edges(
         client,
@@ -345,30 +319,20 @@ def _resolve_app_data_cascade(
         target_by_external_id=target_by_external_id,
         resolution=resolution,
     )
-    _resolve_via_parent_direct_relation(
-        client,
-        source_space=source_space,
-        view_id=_CONDITIONAL_ACTION_VIEW,
-        parent_property="parentObject",
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_via_parent_direct_relation(
-        client,
-        source_space=source_space,
-        view_id=_CONDITION_VIEW,
-        parent_property="conditionalAction",
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_via_parent_direct_relation(
-        client,
-        source_space=source_space,
-        view_id=_ACTION_VIEW,
-        parent_property="conditionalActions",
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
+
+    for view_id, parent_property in (
+        (_CONDITIONAL_ACTION_VIEW, "parentObject"),
+        (_CONDITION_VIEW, "conditionalAction"),
+        (_ACTION_VIEW, "conditionalActions"),
+    ):
+        _resolve_via_parent_direct_relation(
+            client,
+            source_space=source_space,
+            view_id=view_id,
+            parent_property=parent_property,
+            target_by_external_id=target_by_external_id,
+            resolution=resolution,
+        )
     return resolution
 
 
@@ -384,53 +348,22 @@ def _resolve_source_data_cascade(
     resolution = LocationSplitResolution()
     target_by_external_id: dict[str, str] = {}
 
-    activity_nodes = _list_nodes(client, activity_view, source_space)
-    for node in activity_nodes:
-        root_location = _as_external_id(_get_view_property(node, activity_view, "rootLocation"))
-        if root_location is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=activity_view.external_id,
-                    reason="missing rootLocation",
-                )
-            )
-            continue
-        target_space = target_by_root_asset.get(root_location)
-        if target_space is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=activity_view.external_id,
-                    reason=f"rootLocation {root_location!r} does not match a location sharing this source space",
-                )
-            )
-            continue
-        _assign(resolution, target_by_external_id, node.external_id, activity_view.external_id, target_space)
-
-    operation_nodes = _list_nodes(client, operation_view, source_space)
-    for node in operation_nodes:
-        parent_activity_id = _as_external_id(_get_view_property(node, operation_view, "parentActivityId"))
-        if parent_activity_id is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=operation_view.external_id,
-                    reason="missing parentActivityId",
-                )
-            )
-            continue
-        target_space = target_by_external_id.get(parent_activity_id)
-        if target_space is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=operation_view.external_id,
-                    reason=f"parent Activity {parent_activity_id!r} was not resolved",
-                )
-            )
-            continue
-        _assign(resolution, target_by_external_id, node.external_id, operation_view.external_id, target_space)
+    _resolve_tier0_root_location_nodes(
+        client,
+        source_space=source_space,
+        view_id=activity_view,
+        target_by_root_asset=target_by_root_asset,
+        target_by_external_id=target_by_external_id,
+        resolution=resolution,
+    )
+    _resolve_via_parent_direct_relation(
+        client,
+        source_space=source_space,
+        view_id=operation_view,
+        parent_property="parentActivityId",
+        target_by_external_id=target_by_external_id,
+        resolution=resolution,
+    )
 
     root_id_to_target = _root_internal_id_to_target_space(client, target_by_root_asset)
     notification_nodes = _list_nodes(client, notification_view, source_space)
