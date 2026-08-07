@@ -603,9 +603,9 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         for constraint in (container.constraints or {}).values():
             if isinstance(constraint, ClientRequiresConstraintDefinition):
                 yield constraint.require
-        for property in container.properties.values():
-            if isinstance(property.type, ClientDirectNodeRelation) and property.type.container is not None:
-                yield property.type.container
+        for prop in container.properties.values():
+            if isinstance(prop.type, ClientDirectNodeRelation) and prop.type.container is not None:
+                yield prop.type.container
 
     def _find_direct_container_dependencies(
         self, container_ids: Sequence[ContainerId]
