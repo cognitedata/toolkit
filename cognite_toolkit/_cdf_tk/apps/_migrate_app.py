@@ -1646,8 +1646,7 @@ class MigrateApp(typer.Typer):
             log_dir=log_dir,
             dry_run=dry_run,
             verbose=verbose,
-            source_label="Infield data",
-            target_label="Infield data",
+            label="Infield data",
         )
 
         instance_id_mapper: InstanceIdMapper
@@ -1841,8 +1840,7 @@ class MigrateApp(typer.Typer):
             log_dir=log_dir,
             dry_run=dry_run,
             verbose=verbose,
-            source_label="APM_SourceData",
-            target_label="APM_SourceData",
+            label="APM_SourceData",
         )
 
         source_views = resolve_apm_source_data_view_ids(apm_configs)
@@ -2200,8 +2198,7 @@ def _resolve_infield_migration_spaces(
     log_dir: Path,
     dry_run: bool,
     verbose: bool,
-    source_label: str,
-    target_label: str,
+    label: str,
 ) -> tuple[str, str | None, Path, bool, bool]:
     """Select/validate source (and optionally target) spaces for Infield data migrations.
 
@@ -2213,10 +2210,10 @@ def _resolve_infield_migration_spaces(
         if not source_stats:
             raise typer.BadParameter(
                 f"Source spaces {humanize_collection(source_candidates)} do not exist or cannot be accessed. "
-                f"Please ensure the {source_label} instance space contains data and can be accessed."
+                f"Please ensure the {label} instance space contains data and can be accessed."
             )
         source_space = questionary.select(
-            f"Select the instance space to migrate {source_label} from:",
+            f"Select the instance space to migrate {label} from:",
             choices=[
                 questionary.Choice(
                     title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
@@ -2229,8 +2226,7 @@ def _resolve_infield_migration_spaces(
             client.console.print(
                 Panel(
                     f"Source space {source_space!r} is shared by multiple InField locations. "
-                    "Instances will be resolved to per-location target spaces automatically; "
-                    "do not pass --target-space.",
+                    "Instances will be resolved to per-location target spaces automatically.",
                     title="Location split detected",
                     expand=False,
                     border_style="cyan",
@@ -2245,7 +2241,7 @@ def _resolve_infield_migration_spaces(
                     "Please create the instance space or ensure you can access it."
                 )
             target_space = questionary.select(
-                f"Select the instance space to migrate {target_label} to:",
+                f"Select the instance space to migrate {label} to:",
                 choices=[
                     questionary.Choice(
                         title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
@@ -2270,12 +2266,12 @@ def _resolve_infield_migration_spaces(
         errors: list[str] = []
         if source_space not in source_candidates:
             errors.append(
-                f"Source space '{source_space}' is not a valid source for {source_label} migration. "
+                f"Source space '{source_space}' is not a valid source for {label} migration. "
                 f"Available source spaces are: {humanize_collection(source_candidates)}."
             )
         if target_space not in target_candidates:
             errors.append(
-                f"Target space '{target_space}' is not a valid target for {target_label} migration. "
+                f"Target space '{target_space}' is not a valid target for {label} migration. "
                 f"Available target spaces are: {humanize_collection(target_candidates)}."
             )
         if errors:
@@ -2291,7 +2287,7 @@ def _resolve_infield_migration_spaces(
             )
         if source_space not in source_candidates:
             raise typer.BadParameter(
-                f"Source space '{source_space}' is not a valid source for {source_label} migration. "
+                f"Source space '{source_space}' is not a valid source for {label} migration. "
                 f"Available source spaces are: {humanize_collection(source_candidates)}."
             )
         return source_space, None, log_dir, dry_run, verbose
