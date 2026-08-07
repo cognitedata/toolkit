@@ -2255,41 +2255,27 @@ class MigrateApp(typer.Typer):
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
             return source_space, target_space, log_dir, dry_run, verbose
 
+        if source_space is not None and source_space not in source_candidates:
+            raise typer.BadParameter(
+                f"Source space '{source_space}' is not a valid source for {label} migration. "
+                f"Available source spaces are: {humanize_collection(source_candidates)}."
+            )
+
         if source_space is not None and target_space is not None:
             if source_space in shared_legacy_spaces:
                 raise typer.BadParameter(
-                    f"Source space {source_space!r} is shared by multiple InField locations and must be split into "
-                    "per-location target spaces during migration. Do not pass --target-space; run with only "
-                    f"--source-space {source_space} (or interactively) so Toolkit can resolve each instance's "
-                    "target space from the deployed location configs."
-                )
-            errors: list[str] = []
-            if source_space not in source_candidates:
-                errors.append(
-                    f"Source space '{source_space}' is not a valid source for {label} migration. "
-                    f"Available source spaces are: {humanize_collection(source_candidates)}."
+                    f"Source space {source_space!r} is shared by multiple InField locations; These must be split into "
+                    "multiple target spaces during migration. You should rerun this command without --target-space so "
+                    "Toolkit can determine the appropriate target spaces from the deployed location configs."
                 )
             if target_space not in target_candidates:
-                errors.append(
+                raise typer.BadParameter(
                     f"Target space '{target_space}' is not a valid target for {label} migration. "
                     f"Available target spaces are: {humanize_collection(target_candidates)}."
                 )
-            if errors:
-                raise typer.BadParameter("\n".join(errors))
             return source_space, target_space, log_dir, dry_run, verbose
 
-        if source_space is not None and target_space is None:
-            if source_space not in shared_legacy_spaces:
-                raise typer.BadParameter(
-                    "Either both --source-space and --target-space must be provided, or neither. "
-                    "Omitting --target-space is only valid when the source space is shared by multiple "
-                    "locations and requires a location split."
-                )
-            if source_space not in source_candidates:
-                raise typer.BadParameter(
-                    f"Source space '{source_space}' is not a valid source for {label} migration. "
-                    f"Available source spaces are: {humanize_collection(source_candidates)}."
-                )
+        if source_space is not None and target_space is None and source_space in shared_legacy_spaces:
             return source_space, None, log_dir, dry_run, verbose
 
         raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
