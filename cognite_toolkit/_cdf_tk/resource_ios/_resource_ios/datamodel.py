@@ -90,6 +90,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
+    CONTAINER_UPSERT_BATCH_LIMIT,
     HAS_DATA_FILTER_LIMIT,
     HINT_LEAD_TEXT,
     URL,
@@ -117,7 +118,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
-from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
+from cognite_toolkit._cdf_tk.utils.tarjan import pack_into_batches
 from cognite_toolkit._cdf_tk.yaml_classes import (
     ContainerYAML,
     DataModelYAML,
@@ -418,7 +419,44 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        return self.client.tool.containers.create(items)
+        creation_order = self._compute_deploy_batches(items)
+        created: list[ContainerResponse] = []
+        for batch in creation_order:
+            created.extend(self.client.tool.containers.create(batch))
+        return created
+
+    def _compute_deploy_batches(self, items: Sequence[ContainerRequest]) -> list[list[ContainerRequest]]:
+        """Sorts containers into batches based on their dependency graph (requires constraints
+        and direct relation container references).
+
+        The API validates a container's dependencies against containers that already exist in CDF,
+        not against other containers in the same batch. Computes the strongly connected components
+        in topological order, then packs consecutive SCCs into batches up to
+        CONTAINER_UPSERT_BATCH_LIMIT, so a container is always sent in the same or an earlier batch
+        than containers depending on it.
+        """
+        containers_by_id = {self.get_id(item): item for item in items}
+
+        dependencies_by_id: dict[ContainerId, set[ContainerId]] = defaultdict(set)
+        for container_id, container in containers_by_id.items():
+            direct_dependencies: set[ContainerId] = set()
+            for constraint in (container.constraints or {}).values():
+                if isinstance(constraint, ClientRequiresConstraintDefinition) and constraint.require in (
+                    containers_by_id
+                ):
+                    direct_dependencies.add(constraint.require)
+            for property in container.properties.values():
+                if isinstance(property.type, ClientDirectNodeRelation) and property.type.container in containers_by_id:
+                    direct_dependencies.add(property.type.container)
+            dependencies_by_id[container_id].update(direct_dependencies)
+
+        batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
+        for scc in oversized_sccs:
+            MediumSeverityWarning(
+                f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
+                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+            ).print_warning(console=self.console)
+        return batches
 
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
         return self.client.tool.containers.retrieve(list(ids))
@@ -853,21 +891,12 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                     if view_property.source in views_by_id:
                         dependencies_by_id[view_id].add(view_property.source)
 
-        batches: list[list[ViewRequest]] = []
-        current_batch: list[ViewRequest] = []
-        for strongly_connected in tarjan(dependencies_by_id):
-            scc_views = [views_by_id[view_id] for view_id in strongly_connected]
-            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
-                batches.append(current_batch)
-                current_batch = []
-            current_batch.extend(scc_views)
-            if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
-                MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
-                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-                ).print_warning(console=self.console)
-        if len(current_batch) > 0:
-            batches.append(current_batch)
+        batches, oversized_sccs = pack_into_batches(dependencies_by_id, views_by_id, VIEW_UPSERT_BATCH_LIMIT)
+        for scc in oversized_sccs:
+            MediumSeverityWarning(
+                f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
+                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+            ).print_warning(console=self.console)
         return batches
 
     def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:

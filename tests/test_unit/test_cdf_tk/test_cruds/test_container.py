@@ -6,9 +6,14 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
+    ContainerRequest,
     ContainerResponse,
+    DirectNodeRelation,
+    RequiresConstraintDefinition,
     TextProperty,
 )
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -113,3 +118,109 @@ indexes: {}
         dumped = crud.dump_resource(cdf_container, local_absent)
         assert "constraints" not in dumped
         assert "indexes" not in dumped
+
+
+class TestContainerDeployTopologicalSort:
+    def test_requires_constraint_dependency_ordering(self) -> None:
+        dependency_container = ContainerRequest(
+            space="sp_space",
+            external_id="Dependency",
+            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+        )
+        dependent_container = ContainerRequest(
+            space="sp_space",
+            external_id="Dependent",
+            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+            constraints={
+                "requiresDependency": RequiresConstraintDefinition(
+                    require=ContainerId(space="sp_space", external_id="Dependency")
+                )
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ContainerCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches([dependent_container, dependency_container])
+
+        flat_ids = [container.external_id for batch in batches for container in batch]
+        assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
+
+    def test_direct_relation_dependency_ordering(self) -> None:
+        dependency_container = ContainerRequest(
+            space="sp_space",
+            external_id="Dependency",
+            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+        )
+        dependent_container = ContainerRequest(
+            space="sp_space",
+            external_id="Dependent",
+            properties={
+                "ref": ContainerPropertyDefinition(
+                    type=DirectNodeRelation(container=ContainerId(space="sp_space", external_id="Dependency"))
+                )
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ContainerCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches([dependent_container, dependency_container])
+
+        flat_ids = [container.external_id for batch in batches for container in batch]
+        assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
+
+    def test_many_dependents_split_across_batches_after_dependency(self) -> None:
+        # Reproduces the reported bug: a single dependency-free container, and more containers
+        # requiring it than fit in a single upsert batch.
+        container_count = CONTAINER_UPSERT_BATCH_LIMIT + 25
+        dependency_container = ContainerRequest(
+            space="sp_space",
+            external_id="Dependency",
+            properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+        )
+        dependents = [
+            ContainerRequest(
+                space="sp_space",
+                external_id=f"Dependent_{i}",
+                properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+                constraints={
+                    "requiresDependency": RequiresConstraintDefinition(
+                        require=ContainerId(space="sp_space", external_id="Dependency")
+                    )
+                },
+            )
+            for i in range(container_count)
+        ]
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ContainerCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches([*dependents, dependency_container])
+
+        assert len(batches) > 1, "Should split into multiple batches given the batch limit"
+        assert batches[0][0].external_id == "Dependency", "Dependency-free container must be sent first"
+        flat_ids = [container.external_id for batch in batches for container in batch]
+        for dependent in dependents:
+            assert flat_ids.index("Dependency") < flat_ids.index(dependent.external_id)
+
+    def test_large_scc_kept_in_single_batch(self) -> None:
+        container_count = CONTAINER_UPSERT_BATCH_LIMIT + 25
+        containers = [
+            ContainerRequest(
+                space="sp_space",
+                external_id=f"Container_{i}",
+                properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+                constraints={
+                    "requiresNext": RequiresConstraintDefinition(
+                        # Cyclic dependency across all containers
+                        require=ContainerId(space="sp_space", external_id=f"Container_{(i + 1) % container_count}")
+                    )
+                },
+            )
+            for i in range(container_count)
+        ]
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ContainerCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches(containers)
+
+        assert len(batches) == 1, "All containers in one SCC should stay in a single batch"
+        assert len(batches[0]) == container_count
