@@ -178,6 +178,7 @@ def build_app_data_target_by_root_asset(
     )
     return _target_spaces_for_root_assets(
         client,
+        source_space=source_space,
         classic_root_assets=classic_root_assets,
         cdm_configs=cdm_configs,
         target_kind="app_data",
@@ -197,6 +198,7 @@ def build_source_data_target_by_root_asset(
     )
     return _target_spaces_for_root_assets(
         client,
+        source_space=source_space,
         classic_root_assets=classic_root_assets,
         cdm_configs=cdm_configs,
         target_kind="source_data",
@@ -229,32 +231,30 @@ def _classic_root_assets_for_legacy_space(
 def _target_spaces_for_root_assets(
     client: ToolkitClient,
     *,
+    source_space: str,
     classic_root_assets: set[str],
     cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
     target_kind: LocationSplitKind,
 ) -> dict[str, str]:
     target_by_root_asset: dict[str, str] = {}
-    missing: list[str] = []
     for classic_root_asset in sorted(classic_root_assets):
         migrated_root = client.migration.lookup.assets(external_id=classic_root_asset)
         if migrated_root is None:
-            missing.append(classic_root_asset)
             continue
         target_space = _find_cdm_target_space(cdm_configs, migrated_root, target_kind=target_kind)
         if target_space is None:
-            missing.append(classic_root_asset)
             continue
         target_by_root_asset[classic_root_asset] = target_space
-    if missing:
+    space_kind = "appInstanceSpace" if target_kind == "app_data" else "source-data instance space"
+    # Root locations without a resolved target space are not a hard error: they are simply excluded
+    # from target_by_root_asset. Any instance that traces back to one of them will fail on its own,
+    # individually, via the normal orphan reporting in the resolution cascade below.
+    if not target_by_root_asset:
         raise ToolkitMigrationError(
-            f"Could not resolve CDM target spaces for root asset(s) {', '.join(missing)}. "
-            "Ensure 'cdf migrate infield-configs' has been run and the generated location configs and "
-            "per-location instance spaces have been deployed."
-        )
-    if len(set(target_by_root_asset.values())) < 2:
-        raise ToolkitMigrationError(
-            "Location split requires at least two distinct CDM target spaces, but the deployed location "
-            f"configs resolve to: {sorted(set(target_by_root_asset.values()))}."
+            f"Legacy instance space {source_space!r} is shared by {len(classic_root_assets)} root location(s) "
+            f"({', '.join(sorted(classic_root_assets))}), but Toolkit could not resolve a deployed CDM "
+            f"{space_kind} for any of them. Ensure 'cdf migrate infield-configs' has been run and at least one "
+            "location config sharing this space has been deployed."
         )
     return target_by_root_asset
 
