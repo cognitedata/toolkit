@@ -294,10 +294,10 @@ def _find_cdm_target_space(
         return None
     if len(matching_configs) > 1:
         raise ToolkitMigrationError(
-            f"Found {len(matching_configs)} deployed InField CDM location configs "
+            f"Cannot proceed with migration: Found {len(matching_configs)} deployed InField CDM location configs "
             f"({', '.join(sorted(config.external_id for config in matching_configs))}) with the same root "
-            f"location {migrated_root!s}. Each root location must have exactly one deployed CDM location config. "
-            "in order to use this migration tool."
+            f"location {migrated_root!s}. Each root location must have exactly one deployed CDM location config "
+            "in order to use this migration tool to non-ambiguously assign target spaces."
         )
     config = matching_configs[0]
     data_storage = config.data_storage
