@@ -1,13 +1,9 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
-import json
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Literal
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
@@ -16,9 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMCon
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
-from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult, LabelResult, Severity, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
-from cognite_toolkit._cdf_tk.utils.file import safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
 CDM_SPACE_SUFFIX = "_cdm"
@@ -70,6 +64,10 @@ class LocationSplitResolution:
     @property
     def target_spaces(self) -> set[str]:
         return {assignment.target_space for assignment in self.assignments}
+
+    @property
+    def orphan_reason_by_external_id(self) -> dict[str, str]:
+        return {orphan.external_id: orphan.reason for orphan in self.orphans}
 
 
 def find_shared_legacy_instance_spaces(apm_configs: Sequence[APMConfigResponse]) -> set[str]:
@@ -203,83 +201,6 @@ def build_source_data_target_by_root_asset(
         cdm_configs=cdm_configs,
         target_kind="source_data",
     )
-
-
-def write_location_split_reports(
-    log_dir: Path, resolution: LocationSplitResolution, console: Console | None = None
-) -> None:
-    """Write resolution/orphan reports under ``log_dir`` and print an aggregated summary."""
-    log_dir.mkdir(parents=True, exist_ok=True)
-    resolution_path = log_dir / "location_split_resolution.ndjson"
-    with resolution_path.open("w", encoding="utf-8") as file:
-        for assignment in resolution.assignments:
-            file.write(
-                json.dumps(
-                    {
-                        "externalId": assignment.external_id,
-                        "type": assignment.view_external_id,
-                        "targetSpace": assignment.target_space,
-                    }
-                )
-                + "\n"
-            )
-    orphans_path = log_dir / "location_split_orphans.yaml"
-    safe_write(
-        orphans_path,
-        yaml_safe_dump(
-            [
-                {
-                    "externalId": orphan.external_id,
-                    "type": orphan.view_external_id,
-                    "reason": orphan.reason,
-                }
-                for orphan in resolution.orphans
-            ]
-        ),
-    )
-    items: list[ItemsResult] = []
-    if resolution.assignments:
-        space_counter: dict[str, int] = defaultdict(int)
-        for assignment in resolution.assignments:
-            space_counter[assignment.target_space] += 1
-        items.append(
-            ItemsResult(
-                status="success",
-                count=len(resolution.assignments),
-                severity=Severity.info.value,
-                labels=[
-                    LabelResult(
-                        label=space,
-                        count=count,
-                        attribute_counter=Counter(),
-                        attribute_name="instances",
-                    )
-                    for space, count in sorted(space_counter.items())
-                ],
-            )
-        )
-    if resolution.orphans:
-        reason_counter: dict[str, int] = defaultdict(int)
-        for orphan in resolution.orphans:
-            reason_counter[orphan.reason] += 1
-        items.append(
-            ItemsResult(
-                status="failure",
-                count=len(resolution.orphans),
-                severity=Severity.warning.value,
-                labels=[
-                    LabelResult(
-                        label=reason,
-                        count=count,
-                        attribute_counter=Counter(),
-                        attribute_name="orphans",
-                    )
-                    for reason, count in sorted(reason_counter.items())
-                ],
-            )
-        )
-    if items:
-        display_item_results(items, title="Location split resolution", console=console or Console())
 
 
 def _classic_root_assets_for_legacy_space(

@@ -612,8 +612,8 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
     """Maps instances from a shared legacy source space to per-location CDM spaces.
 
     Instances in ``source_space`` are looked up in ``target_space_by_external_id``. Unresolved instances
-    are skipped. Spaces listed in ``passthrough_space_mapping`` (e.g. ``cognite_app_data``) keep a fixed
-    1:1 mapping so cross-space direct relations continue to resolve.
+    are reported as failures. Spaces listed in ``passthrough_space_mapping`` (e.g. ``cognite_app_data``)
+    keep a fixed 1:1 mapping so cross-space direct relations continue to resolve.
     """
 
     def __init__(
@@ -621,20 +621,24 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         source_space: str,
         target_space_by_external_id: Mapping[str, str],
         passthrough_space_mapping: Mapping[str, str] | None = None,
+        orphan_reason_by_external_id: Mapping[str, str] | None = None,
     ) -> None:
         self._source_space = source_space
         self._target_space_by_external_id = target_space_by_external_id
         self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
+        self._orphan_reason_by_external_id = orphan_reason_by_external_id or {}
 
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         if instance_id.space == self._source_space:
             target_space = self._target_space_by_external_id.get(instance_id.external_id)
             if target_space is None:
+                reason = self._orphan_reason_by_external_id.get(
+                    instance_id.external_id, "not visited during location split resolution"
+                )
                 raise InstanceMappingError(
                     f"Instance {instance_id} could not be assigned to a per-location target space during the "
-                    f"location split of {self._source_space!r}. It was logged as an orphan in the location split "
-                    "report (missing/unmatched rootLocation or parent relation).",
-                    severity=Severity.skipped,
+                    f"location split of {self._source_space!r}: {reason}.",
+                    severity=Severity.failure,
                 )
             return NodeId(space=target_space, external_id=instance_id.external_id)
         if instance_id.space in self._passthrough_space_mapping:

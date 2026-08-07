@@ -68,6 +68,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     FailedConversion,
     InvalidPropertyDataType,
 )
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 
 
 @pytest.fixture(scope="module")
@@ -1834,10 +1835,21 @@ class TestLocationSplitInstanceIdMapper:
             space="space_b", external_id="node_a"
         )
 
-    def test_skips_unresolved_orphan(self) -> None:
+    def test_reports_unresolved_orphan_as_failure(self) -> None:
         mapper = LocationSplitInstanceIdMapper("shared_source", {"node_a": "space_b"})
-        with pytest.raises(InstanceMappingError, match="orphan"):
+        with pytest.raises(InstanceMappingError, match="not visited during location split resolution") as exc_info:
             mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+        assert exc_info.value.severity == Severity.failure
+
+    def test_reports_specific_orphan_reason_when_available(self) -> None:
+        mapper = LocationSplitInstanceIdMapper(
+            "shared_source",
+            {"node_a": "space_b"},
+            orphan_reason_by_external_id={"missing": "missing rootLocation"},
+        )
+        with pytest.raises(InstanceMappingError, match="missing rootLocation") as exc_info:
+            mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+        assert exc_info.value.severity == Severity.failure
 
     def test_passthrough_space(self) -> None:
         mapper = LocationSplitInstanceIdMapper(
