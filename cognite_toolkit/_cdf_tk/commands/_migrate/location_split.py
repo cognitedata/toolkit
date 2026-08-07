@@ -348,7 +348,10 @@ def _find_cdm_target_space(
         if config.data_storage is None or config.data_storage.root_location is None:
             continue
         root_location = config.data_storage.root_location
-        if root_location.get("space") != migrated_root.space or root_location.get("externalId") != migrated_root.external_id:
+        if (
+            root_location.get("space") != migrated_root.space
+            or root_location.get("externalId") != migrated_root.external_id
+        ):
             continue
         if target_kind == "app_data":
             return config.data_storage.app_instance_space
@@ -620,11 +623,7 @@ def _resolve_children_via_outbound_edges(
                 )
             )
             continue
-        parent_spaces = {
-            target_by_external_id[parent]
-            for parent in parents
-            if parent in target_by_external_id
-        }
+        parent_spaces = {target_by_external_id[parent] for parent in parents if parent in target_by_external_id}
         if len(parent_spaces) != 1:
             unresolved_parents = [parent for parent in parents if parent not in target_by_external_id]
             if unresolved_parents and not parent_spaces:
@@ -674,11 +673,7 @@ def _resolve_measurements_via_inbound_edges(
                 )
             )
             continue
-        parent_spaces = {
-            target_by_external_id[parent]
-            for parent in parents
-            if parent in target_by_external_id
-        }
+        parent_spaces = {target_by_external_id[parent] for parent in parents if parent in target_by_external_id}
         if len(parents) != 1 or len(parent_spaces) != 1:
             resolution.orphans.append(
                 LocationSplitOrphan(
@@ -730,9 +725,7 @@ def _resolve_via_parent_direct_relation(
         _assign(resolution, target_by_external_id, node.external_id, view_id.external_id, target_space)
 
 
-def _root_internal_id_to_target_space(
-    client: ToolkitClient, target_by_root_asset: Mapping[str, str]
-) -> dict[int, str]:
+def _root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
     root_assets = client.tool.assets.retrieve(
         ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
     )
@@ -802,7 +795,5 @@ def _assign(
 ) -> None:
     target_by_external_id[external_id] = target_space
     resolution.assignments.append(
-        LocationSplitAssignment(
-            external_id=external_id, view_external_id=view_external_id, target_space=target_space
-        )
+        LocationSplitAssignment(external_id=external_id, view_external_id=view_external_id, target_space=target_space)
     )

@@ -20,6 +20,9 @@ from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 _TEMPLATE_VIEW = ViewId(space="cdf_apm", external_id="Template", version="v8")
 _TEMPLATE_ITEM_VIEW = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
 
+)
+from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
+
 
 def _apm_config(*roots: RootLocationConfiguration) -> APMConfigResponse:
     return APMConfigResponse(
