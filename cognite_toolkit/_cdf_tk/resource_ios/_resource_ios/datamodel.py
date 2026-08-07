@@ -440,7 +440,9 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         dependencies_by_id: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
             dependencies_by_id[container_id].update(
-                dependency for dependency in self._direct_container_references(container) if dependency in containers_by_id
+                dependency
+                for dependency in self._direct_container_references(container)
+                if dependency in containers_by_id
             )
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
