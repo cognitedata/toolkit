@@ -52,6 +52,21 @@ class EdgeType(BaseModelResource):
     external_id: str = Field(description="External ID of the type.")
 
 
+class AutoCreateOptions(BaseModelResource):
+    start_nodes: bool | None = Field(
+        default=None,
+        description="Create missing start nodes when writing edges. Defaults to true.",
+    )
+    end_nodes: bool | None = Field(
+        default=None,
+        description="Create missing end nodes when writing edges. Defaults to true.",
+    )
+    direct_relations: bool | None = Field(
+        default=None,
+        description="Create missing direct-relation target nodes. Defaults to true.",
+    )
+
+
 class Destination(BaseModelResource):
     _destination_type: ClassVar[str]
     type: str
@@ -166,6 +181,10 @@ class DataModelSource(Destination):
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
+    auto_create: AutoCreateOptions | None = Field(
+        default=None,
+        description="Controls automatic creation of missing instance references.",
+    )
 
 
 class ViewDataSource(Destination):
@@ -179,6 +198,10 @@ class ViewDataSource(Destination):
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
+    )
+    auto_create: AutoCreateOptions | None = Field(
+        default=None,
+        description="Controls automatic creation of missing instance references.",
     )
 
 
