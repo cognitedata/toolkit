@@ -630,10 +630,17 @@ def _get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) ->
 
 
 def _as_external_id(value: Any) -> str | None:
+    """Extract the external ID referenced by a property value, handling both representations used here.
+
+    Some properties (e.g. ``rootLocation``, ``parentObject``) are genuine direct relations, which
+    come back from ``_get_view_property`` as a raw ``{"space": ..., "externalId": ...}`` dict --
+    pydantic keeps generic view properties as plain ``JsonValue``, it doesn't upgrade them to a
+    parsed ``NodeId``. Others (e.g. ``parentActivityId``, ``assetExternalId`` on the APM_SourceData
+    model) are plain text external-ID properties, not direct relations, so they come back as a
+    ``str`` directly.
+    """
     if isinstance(value, str):
         return value
-    if isinstance(value, NodeId):
-        return value.external_id
     if isinstance(value, dict):
         external_id = value.get("externalId")
         return external_id if isinstance(external_id, str) else None
