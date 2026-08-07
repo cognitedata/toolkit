@@ -265,13 +265,13 @@ def _target_spaces_for_root_assets(
     }
     if duplicated:
         conflicts = "; ".join(
-            f"root locations {', '.join(sorted(root_assets))} all use {space_kind} {target_space!r}"
+            f"{target_space!r} is shared by {', '.join(sorted(root_assets))}"
             for target_space, root_assets in sorted(duplicated.items())
         )
         raise ToolkitMigrationError(
-            f"Legacy instance space {source_space!r} is shared by multiple root locations, but their deployed "
-            f"CDM location configs do not each use a distinct {space_kind}: {conflicts}. Each root location "
-            f"sharing this space must be configured with its own {space_kind}."
+            f"Legacy instance space {source_space!r} is shared by multiple root locations, but (some of) the deployed "
+            f"CDM location configs use the same {space_kind}: {conflicts}. Each root location "
+            f"sharing this space must be configured with its own unique {space_kind}."
         )
     return target_by_root_asset
 
