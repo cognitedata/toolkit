@@ -282,19 +282,29 @@ def _find_cdm_target_space(
     *,
     target_kind: LocationSplitKind,
 ) -> str | None:
-    for config in cdm_configs:
-        if config.data_storage is None or config.data_storage.root_location is None:
-            continue
-        root_location = config.data_storage.root_location
-        if (
-            root_location.get("space") != migrated_root.space
-            or root_location.get("externalId") != migrated_root.external_id
-        ):
-            continue
-        if target_kind == "app_data":
-            return config.data_storage.app_instance_space
-        return get_first_instance_space(config.data_filters, "maintenanceOrder")
-    return None
+    matching_configs = [
+        config
+        for config in cdm_configs
+        if config.data_storage is not None
+        and config.data_storage.root_location is not None
+        and config.data_storage.root_location.get("space") == migrated_root.space
+        and config.data_storage.root_location.get("externalId") == migrated_root.external_id
+    ]
+    if not matching_configs:
+        return None
+    if len(matching_configs) > 1:
+        raise ToolkitMigrationError(
+            f"Found {len(matching_configs)} deployed InField CDM location configs "
+            f"({', '.join(sorted(config.external_id for config in matching_configs))}) with the same root "
+            f"location {migrated_root!s}. Each root location must have exactly one deployed CDM location config. "
+            "in order to use this migration tool."
+        )
+    config = matching_configs[0]
+    data_storage = config.data_storage
+    assert data_storage is not None
+    if target_kind == "app_data":
+        return data_storage.app_instance_space
+    return get_first_instance_space(config.data_filters, "maintenanceOrder")
 
 
 def _resolve_app_data_cascade(
