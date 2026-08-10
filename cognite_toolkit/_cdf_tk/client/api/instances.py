@@ -1,3 +1,4 @@
+import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
@@ -42,8 +43,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 log = logging.getLogger(__name__)
 
@@ -571,15 +572,15 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> Path | None:
         """Write the (potentially large) query plan/profile to its own file, once, and return its path.
 
-        This is written with a dedicated NDJsonWriter/kind so it does not mix with the per-item
+        This is written as a single JSON file, so it does not mix with the per-item
         LogEntryV2 entries written to the download issues log.
         """
+        output_dir.mkdir(parents=True, exist_ok=True)
         filestem = create_logfile_stem(output_dir, "download")
-        with NDJsonWriter(
-            output_dir, kind="QueryDebugResponse", default_filestem=filestem, compression=Uncompressed
-        ) as writer:
-            writer.write_chunks([debug_data])  # type: ignore[list-item]
-            return writer.latest_file
+        filepath = output_dir / f"{sanitize_filename(filestem)}QueryDebugResponse.json"
+        with filepath.open("w", encoding="utf-8") as file:
+            json.dump(debug_data, file, indent=2)
+        return filepath
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
         if endpoint == "query":
