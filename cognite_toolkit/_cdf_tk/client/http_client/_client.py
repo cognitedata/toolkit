@@ -1,3 +1,4 @@
+import logging
 import random
 import sys
 import time
@@ -35,6 +36,8 @@ else:
     from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+
+log = logging.getLogger(__name__)
 
 _T_Request_Message = TypeVar("_T_Request_Message", bound=BaseRequestMessage)
 
@@ -383,7 +386,8 @@ class HTTPClient:
             return [
                 ItemsFailedRequest(
                     ids=[str(item) for item in message.items],
-                    error_message=f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
+                    error_message=message.parent_error_message
+                    or f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
             ]
         try:
@@ -441,17 +445,18 @@ class HTTPClient:
         elif len(request.items) > 1 and response.status_code in self._split_items_status_codes:
             # 4XX: Status there is at least one item that is invalid, split the batch to get all valid items processed
             # 5xx: Server error, split to reduce the number of items in each request, and count as a status attempt
+            error_details = ErrorDetails.from_response(response)
             status_attempts = request.status_attempt
             if 500 <= response.status_code < 600:
                 status_attempts += 1
-            splits = request.split(status_attempts=status_attempts)
+            splits = request.split(status_attempts=status_attempts, error_message=error_details.message)
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [
                     ItemsFailedResponse(
                         ids=[str(item) for item in request.items],
                         status_code=response.status_code,
                         body=response.text,
-                        error=ErrorDetails.from_response(response),
+                        error=error_details,
                     )
                 ]
             return splits

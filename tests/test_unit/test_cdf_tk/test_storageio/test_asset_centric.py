@@ -374,14 +374,18 @@ class TestAssetIO:
         other_reader = MagicMock(spec=FileReader)
         other_reader.read_chunks_with_line_numbers.return_value = assets_with_line_numbers
         other_reader.input_file = Path("mocked_file.csv")
+        other_reader.current_file = Path("mocked_file.csv")
         output = list(
             AssetDataIO.read_chunks(other_reader, AssetSubtreeSelector(hierarchy="does not matter", kind="Assets"))
         )
 
         result = [[(di.tracking_id, di.item) for di in page.items] for page in output]
         assert result == [
-            [("line 4", {"id": 4}), ("line 5", {"id": 5, "depth": "not_an_int"})],
-            [("line 3", {"id": 3, "depth": 1})],
-            [("line 2", {"id": 2, "depth": 2})],
-            [("line 1", {"id": 1, "depth": 3})],
+            [
+                ("mocked_file.csv:line-4", {"id": 4}),
+                ("mocked_file.csv:line-5", {"id": 5, "depth": "not_an_int"}),
+            ],
+            [("mocked_file.csv:line-3", {"id": 3, "depth": 1})],
+            [("mocked_file.csv:line-2", {"id": 2, "depth": 2})],
+            [("mocked_file.csv:line-1", {"id": 1, "depth": 3})],
         ]

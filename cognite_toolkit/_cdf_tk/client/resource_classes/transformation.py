@@ -41,6 +41,12 @@ class EdgeType(BaseModelObject):
     external_id: str
 
 
+class AutoCreateOptions(BaseModelObject):
+    start_nodes: bool | None = None
+    end_nodes: bool | None = None
+    direct_relations: bool | None = None
+
+
 class AssetCentricDataSource(DestinationDefinition):
     type: Literal[
         "assets",
@@ -61,6 +67,7 @@ class DataModelSource(DestinationDefinition):
     type: Literal["instances"] = "instances"
     data_model: DataModelInfo
     instance_space: str | None = None
+    auto_create: AutoCreateOptions | None = None
 
 
 class ViewDataSource(DestinationDefinition):
@@ -68,6 +75,7 @@ class ViewDataSource(DestinationDefinition):
     view: ViewInfo
     edge_type: EdgeType | None = None
     instance_space: str | None = None
+    auto_create: AutoCreateOptions | None = None
 
 
 class RawDataSource(DestinationDefinition):
