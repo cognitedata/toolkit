@@ -177,4 +177,5 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     f"does not have properties: {humanize_collection(sorted(unknown))}."
                 ),
                 fix=f"Use property names that exist on the view: {humanize_collection(sorted(unknown))}.",
+                source_file=format_insight_source_file(resource.source_path),
             )
