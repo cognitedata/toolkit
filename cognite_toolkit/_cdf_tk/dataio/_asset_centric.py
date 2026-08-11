@@ -45,6 +45,7 @@ from ._base import (
     StorageIOConfig,
     TableDataIO,
     TableUploadableDataIO,
+    file_line_tracking_id,
 )
 from .logger import DataLogger
 from .progress import CursorBookmark, NoBookmark
@@ -393,7 +394,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     def read_chunks(cls, reader: FileReader, selector: AssetCentricSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         """Assets require special handling when reading data to ensure parent assets are created first."""
         current_depth = max_depth = 0
-        data_name = "row" if isinstance(reader, TableReader) else "line"
+        label: Literal["line", "row"] = "row" if isinstance(reader, TableReader) else "line"
         # We read the file multiple times, once for each depth level, to ensure parents are created before children.
         batch: list[DataItem[dict[str, JsonVal]]] = []
         while current_depth <= max_depth:
@@ -403,10 +404,18 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0
-                        batch.append(DataItem(tracking_id=f"{data_name} {line_number}", item=item))
+                        batch.append(
+                            DataItem(
+                                tracking_id=file_line_tracking_id(reader.current_file, line_number, label), item=item
+                            )
+                        )
                 else:
                     if depth == current_depth:
-                        batch.append(DataItem(tracking_id=f"{data_name} {line_number}", item=item))
+                        batch.append(
+                            DataItem(
+                                tracking_id=file_line_tracking_id(reader.current_file, line_number, label), item=item
+                            )
+                        )
                     elif current_depth == 0:
                         max_depth = max(max_depth, depth)
                 if len(batch) >= cls.CHUNK_SIZE:
