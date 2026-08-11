@@ -14,7 +14,10 @@ from rich import print
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read, safe_write
+from cognite_toolkit._cdf_tk.utils.gitignore import append_missing_gitignore_entries
 from cognite_toolkit._version import __version__
+
+from . import _cli_commands
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -598,6 +601,47 @@ After:
             if parent.name == "functions":
                 return parent / resource_yaml.name
         return resource_yaml
+
+
+class AddCommonDirectoriesToGitignore(AutomaticChange):
+    """Toolkit commands write working data, such as downloaded/uploaded files, and debug logs to the
+'data/', 'tmp/', and 'logs/' directories by default. These may contain user/customer data and should not
+be committed to version control.
+
+This change adds any of the 'data/', 'tmp/', and 'logs/' entries that are missing to your .gitignore file.
+
+In .gitignore, before:
+```
+build/
+```
+After:
+```
+build/
+data/
+tmp/
+logs/
+```
+    """
+
+    deprecated_from = Version("0.8.154")
+    required_from = Version("0.8.154")
+    has_file_changes = True
+
+    _ENTRIES = ["data/", "tmp/", "logs/"]
+
+    def do(self) -> set[Path]:
+        gitignore_dir = Path.cwd()
+        if _cli_commands.use_git() and _cli_commands.has_initiated_repo():
+            # The .gitignore created by 'cdf repo init' lives at the git root, which may differ from the
+            # current working directory, for example if the organization directory is nested inside a
+            # larger monorepo.
+            gitignore_dir = _cli_commands.git_root() or gitignore_dir
+        gitignore = gitignore_dir / ".gitignore"
+        if not gitignore.exists():
+            return set()
+        if append_missing_gitignore_entries(self._ENTRIES, gitignore):
+            return {gitignore}
+        return set()
 
 
 class UpdateModuleVersion(AutomaticChange):
