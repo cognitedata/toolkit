@@ -1,5 +1,4 @@
 import httpx
-import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig

@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import TransformationsExternalDataSourcesAcl
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO, ResourceWorker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -177,41 +178,44 @@ class TestExternalDataSourceIO:
         assert len(acls) == 1
         assert isinstance(acls[0], TransformationsExternalDataSourcesAcl)
 
-    def test_load_resource_with_dataset(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        toolkit_client_approval.mock_client.lookup.data_sets.id.return_value = 42
-        loaded = loader.load_resource(
-            {
-                "externalId": "fabric-lakehouse-prod",
-                "dataSetExternalId": "my_dataset",
-                "settings": {
-                    "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
-                    "locationDescription": {"workspaceId": "ws", "containerId": "lh"},
-                },
-            }
-        )
+    def test_load_resource_with_dataset(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO.create_loader(client)
+            client.lookup.data_sets.id.return_value = 42
+            loaded = loader.load_resource(
+                {
+                    "externalId": "fabric-lakehouse-prod",
+                    "dataSetExternalId": "my_dataset",
+                    "settings": {
+                        "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
+                        "locationDescription": {"workspaceId": "ws", "containerId": "lh"},
+                    },
+                }
+            )
         assert loaded.data_set_id == 42
 
-    def test_create_update_retrieve_delete(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        item = _make_request()
-        response = _make_response()
-        api = toolkit_client_approval.mock_client.tool.transformations.external_data_sources
-        api.upsert.return_value = [response]
-        api.list.return_value = [response]
+    def test_create_update_retrieve_delete(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO.create_loader(client)
+            item = _make_request()
+            response = _make_response()
+            api = client.tool.transformations.external_data_sources
+            api.upsert.return_value = [response]
+            api.list.return_value = [response]
 
-        assert loader.create([item]) == [response]
-        assert loader.update([item]) == [response]
-        assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
-        assert loader.retrieve([]) == []
-        assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == 1
-        assert loader.delete([]) == 0
+            assert loader.create([item]) == [response]
+            assert loader.update([item]) == [response]
+            assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
+            assert loader.retrieve([]) == []
+            assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == 1
+            assert loader.delete([]) == 0
 
-    def test_iterate_all(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        response = _make_response()
-        toolkit_client_approval.mock_client.tool.transformations.external_data_sources.list.return_value = [response]
-        assert list(loader._iterate()) == [response]
+    def test_iterate_all(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO.create_loader(client)
+            response = _make_response()
+            client.tool.transformations.external_data_sources.list.return_value = [response]
+            assert list(loader._iterate()) == [response]
 
     def test_iterate_with_space_returns_nothing(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
@@ -221,19 +225,18 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
         assert list(loader._iterate(parent_ids=[ExternalId(external_id="parent")])) == []
 
-    def test_iterate_filters_by_dataset(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        in_dataset = _make_response(external_id="in-dataset", data_set_id=42)
-        other = _make_response(external_id="other", data_set_id=99)
-        toolkit_client_approval.mock_client.lookup.data_sets.id.return_value = 42
-        toolkit_client_approval.mock_client.tool.transformations.external_data_sources.list.return_value = [
-            in_dataset,
-            other,
-        ]
-        assert list(loader._iterate(data_set_external_id="my_dataset")) == [in_dataset]
+    def test_iterate_filters_by_dataset(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO.create_loader(client)
+            in_dataset = _make_response(external_id="in-dataset", data_set_id=42)
+            other = _make_response(external_id="other", data_set_id=99)
+            client.lookup.data_sets.id.return_value = 42
+            client.tool.transformations.external_data_sources.list.return_value = [in_dataset, other]
+            assert list(loader._iterate(data_set_external_id="my_dataset")) == [in_dataset]
 
-    def test_iterate_missing_dataset_raises(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        toolkit_client_approval.mock_client.lookup.data_sets.id.return_value = None
-        with pytest.raises(ToolkitRequiredValueError, match="my_dataset"):
-            list(loader._iterate(data_set_external_id="my_dataset"))
+    def test_iterate_missing_dataset_raises(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO.create_loader(client)
+            client.lookup.data_sets.id.return_value = None
+            with pytest.raises(ToolkitRequiredValueError, match="my_dataset"):
+                list(loader._iterate(data_set_external_id="my_dataset"))

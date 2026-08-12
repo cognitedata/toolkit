@@ -230,6 +230,8 @@ authentication:
         resource = TransformationYAML.model_validate(
             {
                 "externalId": "my_transformation",
+                "name": "my_transformation",
+                "ignoreNullFields": True,
                 "query": "select * from ext_onelake('fabric-prod', 'assets')",
                 "destination": {"type": "assets"},
             }
