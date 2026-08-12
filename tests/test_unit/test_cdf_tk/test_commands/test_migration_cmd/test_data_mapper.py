@@ -63,7 +63,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container im
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+    CreatedSourceSystem,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -95,6 +98,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    LocationSplitFDMtoCDMMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
 )
@@ -976,6 +980,63 @@ class TestFDMtoCDMMapper:
         assert isinstance(mapped_items[0].item, NodeRequest)
         assert mapped_items[1].tracking_id == f"{self.SOURCE_SPACE}:node1"
         assert isinstance(mapped_items[1].item, EdgeRequest)
+
+    def test_location_split_mapper_tags_relocation_source_space(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = LocationSplitFDMtoCDMMapper(
+                client, [mapping], connection_creator, relocation_source_space=self.SOURCE_SPACE
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+
+        assert len(mapped_items) == 1
+        mapped_node = mapped_items[0].item
+        assert isinstance(mapped_node, NodeRequest)
+        assert mapped_node.sources is not None
+        assert InstanceSource(
+            source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID, properties={"sourceSpace": self.SOURCE_SPACE}
+        ) in mapped_node.sources
+
+    def test_plain_fdm_to_cdm_mapper_does_not_tag_relocation_source_space(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+
+        assert len(mapped_items) == 1
+        mapped_node = mapped_items[0].item
+        assert isinstance(mapped_node, NodeRequest)
+        assert not [
+            source for source in mapped_node.sources or [] if source.source == INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
+        ]
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",

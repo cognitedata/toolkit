@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    LocationSplitFDMtoCDMMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
@@ -1734,21 +1735,34 @@ class MigrateApp(typer.Typer):
             custom_mappings=[InFieldAssetMapping(client)],
             direct_relation_edge_tiebreakers=DIRECT_RELATION_EDGE_TIEBREAKERS,
         )
-        mapper = FDMtoCDMMapper(
-            client,
-            infield_mappings,
-            connection_creator=connection_creator,
-            custom_properties_mappings=[
-                InFieldConditionMapping(infield_mappings),
-                InFieldUserMapping(),
-                InFieldObservationSapStatusMapping(),
-            ],
-            custom_instance_mappings={
-                InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
-                    client, connection_creator, schedule_mapping
-                )
-            },
-        )
+        custom_properties_mappings = [
+            InFieldConditionMapping(infield_mappings),
+            InFieldUserMapping(),
+            InFieldObservationSapStatusMapping(),
+        ]
+        custom_instance_mappings = {
+            InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
+                client, connection_creator, schedule_mapping
+            )
+        }
+        mapper: FDMtoCDMMapper
+        if source_space in shared_legacy_spaces:
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                infield_mappings,
+                connection_creator=connection_creator,
+                relocation_source_space=source_space,
+                custom_properties_mappings=custom_properties_mappings,
+                custom_instance_mappings=custom_instance_mappings,
+            )
+        else:
+            mapper = FDMtoCDMMapper(
+                client,
+                infield_mappings,
+                connection_creator=connection_creator,
+                custom_properties_mappings=custom_properties_mappings,
+                custom_instance_mappings=custom_instance_mappings,
+            )
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
@@ -1948,7 +1962,13 @@ class MigrateApp(typer.Typer):
             instance_id_mapper=instance_id_mapper,
             custom_mappings=custom_mappings,
         )
-        mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
+        mapper: FDMtoCDMMapper
+        if source_space in shared_legacy_spaces:
+            mapper = LocationSplitFDMtoCDMMapper(
+                client, mappings, connection_creator=connection_creator, relocation_source_space=source_space
+            )
+        else:
+            mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,

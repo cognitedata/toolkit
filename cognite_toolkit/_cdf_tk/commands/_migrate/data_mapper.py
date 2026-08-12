@@ -64,6 +64,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -1744,8 +1745,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 if source.properties is None or not isinstance(source.source, ViewId):
                     continue
                 if source.source not in self._constrained_properties_by_view_id:
-                    # We have already populated the view_by_id cache, so we should have the view.
-                    view = self._connection_creator.view_by_id[source.source]
+                    view = self._connection_creator.view_by_id.get(source.source)
+                    if view is None:
+                        # Subclasses may tag instances with an extra source view (e.g. a bookkeeping
+                        # view) that was never added to the connection creator's view cache. Such
+                        # views are not part of the mapping, so they cannot have constrained direct
+                        # relations to check.
+                        self._constrained_properties_by_view_id[source.source] = {}
+                        continue
                     self._constrained_properties_by_view_id[source.source] = {
                         prop_id: prop.type.container
                         for prop_id, prop in view.properties.items()
@@ -1765,6 +1772,50 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         for prop_id in property_ids
                     }
                     yield node.as_id(), constraint_by_prop_id, source
+
+
+class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
+    """An ``FDMtoCDMMapper`` for a legacy instance space that is being split across multiple target spaces.
+
+    In addition to the base mapping, every migrated node is tagged, on write, with its legacy space in the
+    hidden InstanceSpaceRelocationSource view. A later migration step looks up this tag to resolve which
+    target space a legacy instance ended up in, without having to re-read millions of instances just to
+    answer that question.
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        mappings: Sequence[ViewToViewMapping],
+        connection_creator: ConnectionCreator,
+        relocation_source_space: str,
+        custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
+        | None = None,
+    ) -> None:
+        super().__init__(
+            client,
+            mappings,
+            connection_creator,
+            custom_properties_mappings=custom_properties_mappings,
+            custom_instance_mappings=custom_instance_mappings,
+        )
+        self._relocation_source_space = relocation_source_space
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
+    ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
+        mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
+        sources = [
+            *(mapped_node.sources or []),
+            InstanceSource(
+                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+                properties={"sourceSpace": self._relocation_source_space},
+            ),
+        ]
+        return mapped_node.model_copy(update={"sources": sources}), new_edges, issue
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
