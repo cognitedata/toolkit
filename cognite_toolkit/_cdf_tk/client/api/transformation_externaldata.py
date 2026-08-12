@@ -30,6 +30,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
                 "delete": Endpoint(method="POST", path="/transformations/externaldata/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/transformations/externaldata", item_limit=1000),
             },
+            api_version="beta",
         )
 
     def _validate_page_response(
