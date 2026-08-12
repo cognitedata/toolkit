@@ -347,6 +347,8 @@ class FakeCogniteResourceGenerator:
             else:
                 value = self.create_value(field.annotation, var_name=field_id)
             keyword_arguments[name] = value
+        if model_cls.__name__ in {"ExternalDataSourceRequest", "ExternalDataSourceResponse"}:
+            keyword_arguments["format"] = "one_lake"
         return model_cls(**keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
