@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import pytest
+from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
@@ -106,6 +107,16 @@ class TestExternalDataSourceYAML:
 
 
 class TestExternalDataSourceResourceClasses:
+    def test_request_default_format(self) -> None:
+        request = ExternalDataSourceRequest(external_id="fabric-lakehouse-prod")
+        assert request.format == "one_lake"
+        dumped = json.loads(request.model_dump_json(by_alias=True))
+        assert dumped["format"] == "one_lake"
+
+    def test_request_rejects_invalid_format(self) -> None:
+        with pytest.raises(ValidationError):
+            ExternalDataSourceRequest(external_id="fabric-lakehouse-prod", format="invalid")
+
     def test_request_as_id(self) -> None:
         request = ExternalDataSourceRequest(
             external_id="fabric-lakehouse-prod",

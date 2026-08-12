@@ -6,6 +6,8 @@ from .base import BaseModelResource, ToolkitResource
 
 
 class OneLakeCredentialsYAML(BaseModelResource):
+    """Azure credentials for OneLake access in toolkit YAML."""
+
     client_id: str = Field(description="Azure application (client) ID.")
     tenant_id: str = Field(description="Azure tenant (directory) ID.")
     client_secret: SecretStr | None = Field(default=None, description="Azure client secret.")
@@ -18,11 +20,15 @@ class OneLakeCredentialsYAML(BaseModelResource):
 
 
 class OneLakeLocationDescriptionYAML(BaseModelResource):
+    """Fabric workspace and lakehouse identifiers in toolkit YAML."""
+
     workspace_id: str = Field(description="Fabric workspace GUID (required).")
     container_id: str = Field(description="Fabric lakehouse GUID (required).")
 
 
 class OneLakeSettingsYAML(BaseModelResource):
+    """OneLake connection settings in toolkit YAML."""
+
     credentials: OneLakeCredentialsYAML = Field(description="Azure credentials for OneLake access.")
     location_description: OneLakeLocationDescriptionYAML = Field(
         description="Fabric workspace and lakehouse identifiers."
@@ -30,6 +36,8 @@ class OneLakeSettingsYAML(BaseModelResource):
 
 
 class ExternalDataSourceYAML(ToolkitResource):
+    """Toolkit YAML representation of a Fabric OneLake external data source."""
+
     external_id: str = Field(description="The external ID provided by the client.")
     name: str | None = Field(default=None, description="Human-readable name for the external data source.")
     data_set_external_id: str | None = Field(
