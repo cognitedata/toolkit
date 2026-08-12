@@ -60,7 +60,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AssetIO, RelationshipIO
+from cognite_toolkit._cdf_tk.resource_ios import AssetIO, ExternalDataSourceIO, RelationshipIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -373,10 +373,6 @@ class AuthCommand(ToolkitCommand):
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
         updated_group = existing_group.as_request_resource()
-        # CDF API rejects requests with both members and sourceId set.
-        # When the group uses members (CDF-managed), drop the IDP-populated sourceId.
-        if updated_group.members and updated_group.source_id is not None:
-            updated_group.source_id = None
         missing_group_caps = [GroupCapability(acl=acl) for acl in missing_capabilities]
         if updated_group.capabilities is None:
             updated_group.capabilities = list(missing_group_caps)
@@ -439,6 +435,9 @@ class AuthCommand(ToolkitCommand):
         required_acls: list[AclType] = []
         io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
         for crud_cls in resource_ios.RESOURCE_CRUD_LIST:
+            if crud_cls is ExternalDataSourceIO:
+                # Capability is not yet published in cognite-sdk inspect/FlatCapabilities.
+                continue
             if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetIO | RelationshipIO):
                 # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
                 continue

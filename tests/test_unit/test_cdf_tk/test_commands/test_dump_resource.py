@@ -45,10 +45,17 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     StreamlitFinder,
     TransformationFinder,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
+    ExternalDataSourceResponse,
+    OneLakeCredentialsRead,
+    OneLakeLocationDescription,
+    OneLakeSettingsRead,
+)
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     DataSetsIO,
     ExtractionPipelineIO,
+    ExternalDataSourceIO,
     FunctionIO,
     GroupAllScopedCRUD,
     LocationFilterIO,
@@ -157,6 +164,48 @@ class TestDumpTransformations:
         assert len(filepaths) == 2
         items = [read_yaml_file(filepath) for filepath in filepaths]
         assert items == [loader.dump_resource(t) for t in three_transformations[1:]]
+
+    def test_dump_transformations_with_ext_onelake_sources(self) -> None:
+        transformation = TransformationResponse(
+            id=1,
+            external_id="transformationA",
+            name="OneLake transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="select * from ext_onelake('fabric-prod', 'assets')",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        )
+        external_source = ExternalDataSourceResponse(
+            external_id="fabric-prod",
+            format="one_lake",
+            created_time=1,
+            last_updated_time=1,
+            settings=OneLakeSettingsRead(
+                credentials=OneLakeCredentialsRead(client_id="id", tenant_id="tenant"),
+                location_description=OneLakeLocationDescription(
+                    workspace_id="workspace-guid",
+                    container_id="lakehouse-guid",
+                ),
+            ),
+        )
+        with monkeypatch_toolkit_client() as client:
+            finder = TransformationFinder(client, ("transformationA",))
+            client.tool.transformations.retrieve.return_value = [transformation]
+            client.tool.transformations.schedules.retrieve.return_value = []
+            client.tool.transformations.external_data_sources.list.return_value = [external_source]
+
+            batches = list(finder)
+
+        _, external_data_list, loader, _ = batches[2]
+        assert isinstance(loader, ExternalDataSourceIO)
+        assert external_data_list == [external_source]
 
 
 @pytest.fixture()
