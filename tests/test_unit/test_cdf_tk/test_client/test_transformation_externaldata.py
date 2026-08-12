@@ -2,14 +2,12 @@ import httpx
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import (
-    ExternalDataSourceUsability,
-    TransformationExternalDataSourcesAPI,
-)
+from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
+    ExternalDataSourceUsabilityResponse,
     OneLakeCredentialsWrite,
     OneLakeLocationDescription,
     OneLakeSettingsWrite,
@@ -63,6 +61,7 @@ class TestTransformationExternalDataSourcesAPI:
         created = api.upsert([request])
         assert len(created) == 1
         assert created[0].external_id == "fabric-lakehouse-prod"
+        assert respx_mock.calls[-1].request.headers["cdf-version"] == "beta"
 
         updated = api.create([request])
         assert len(updated) == 1
@@ -91,6 +90,7 @@ class TestTransformationExternalDataSourcesAPI:
             )
         )
         usability = api.verify_usability("fabric-lakehouse-prod")
-        assert isinstance(usability, ExternalDataSourceUsability)
+        assert isinstance(usability, ExternalDataSourceUsabilityResponse)
         assert usability.external_id == "fabric-lakehouse-prod"
         assert usability.usable_version == "00000000-0000-0000-0000-000000000001"
+        assert respx_mock.calls[-1].request.headers["cdf-version"] == "beta"

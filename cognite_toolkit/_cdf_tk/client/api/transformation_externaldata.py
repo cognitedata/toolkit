@@ -1,7 +1,5 @@
 from collections.abc import Iterable, Sequence
 
-from pydantic import BaseModel, Field
-
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -9,14 +7,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    ExternalDataSourceUsabilityResponse,
 )
-
-
-class ExternalDataSourceUsability(BaseModelObject):
-    external_id: str = Field(alias="externalId")
-    usable_version: str | None = Field(default=None, alias="usableVersion")
-
-    model_config = {"populate_by_name": True}
 
 
 class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResponse]):
@@ -54,11 +46,12 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     def iterate(self, limit: int | None = 100) -> Iterable[Sequence[ExternalDataSourceResponse]]:
         return self._iterate(limit=limit)
 
-    def verify_usability(self, external_id: str) -> ExternalDataSourceUsability:
+    def verify_usability(self, external_id: str) -> ExternalDataSourceUsabilityResponse:
         request = RequestMessage(
             endpoint_url=self._make_url("/transformations/externaldata/usability"),
             method="POST",
             body_content={"externalId": external_id},
+            api_version=self._api_version,
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return ExternalDataSourceUsability.model_validate_json(response.body)
+        return ExternalDataSourceUsabilityResponse.model_validate_json(response.body)

@@ -73,3 +73,10 @@ class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[Extern
     @classmethod
     def request_cls(cls) -> type[ExternalDataSourceRequest]:
         return ExternalDataSourceRequest
+
+
+class ExternalDataSourceUsabilityResponse(BaseModelObject):
+    """Response from the external data source usability check endpoint."""
+
+    external_id: str
+    usable_version: str | None = None
