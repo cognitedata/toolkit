@@ -34,7 +34,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     CalculationStep,
     ChartScheduledCalculationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartCoreTimeseriesUIElement,
+    ChartData,
+    ChartTimeseriesUIElement,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -597,6 +601,48 @@ class TestChartMapper:
         )
 
         assert ChartMapper._has_legacy_backend_refs(chart)
+
+    def test_map_chart_preserves_existing_core_timeseries(self) -> None:
+        """A chart with both DM (core) and Classic timeseries should keep the DM ones after migration."""
+        target_space = "my_target_space"
+        existing_core_timeseries = ChartCoreTimeseriesUIElement(
+            id="existing_core_ts",
+            type="coreTimeseries",
+            node_reference=NodeId(space=target_space, external_id="already_migrated_ts"),
+        )
+        chart = ChartResponse(
+            external_id="chart_mixed",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Mixed chart",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                core_timeseries_collection=[existing_core_timeseries],
+                time_series_collection=[ChartTimeseriesUIElement(id="classic_ts", ts_external_id="classic_timeseries")],
+            ),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.time_series.return_value = NodeId(
+                space=target_space, external_id="classic_timeseries"
+            )
+            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
+            )
+
+            mapper = ChartMapper(client)
+            mapped_list = mapper.map([DataItem(tracking_id="t", item=chart)])
+
+        assert len(mapped_list) == 1
+        mapped = mapped_list[0].item
+        assert mapped.data.time_series_collection is None
+        assert mapped.data.core_timeseries_collection is not None
+        migrated_ids = {ts.id for ts in mapped.data.core_timeseries_collection}
+        assert migrated_ids == {"existing_core_ts", "classic_ts"}
 
     def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
