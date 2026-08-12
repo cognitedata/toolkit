@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
 )
 
 
-class ExternalDataSourceUsability(BaseModel):
+class ExternalDataSourceUsability(BaseModelObject):
     external_id: str = Field(alias="externalId")
     usable_version: str | None = Field(default=None, alias="usableVersion")
 
