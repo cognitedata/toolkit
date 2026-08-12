@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
+    ExternalDataSourceIO,
     RawDatabaseCRUD,
     RawTableCRUD,
     ResourceIO,
@@ -32,6 +33,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -213,12 +215,30 @@ authentication:
                 ],
                 id="Transformation to RAW table",
             ),
+            pytest.param(
+                {"query": "select * from ext_onelake('fabric-prod', 'assets')"},
+                [(ExternalDataSourceIO, ExternalId(external_id="fabric-prod"))],
+                id="Transformation with ext_onelake source",
+            ),
         ],
     )
     def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
         actual = TransformationIO.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    def test_get_dependencies_ext_onelake(self) -> None:
+        resource = TransformationYAML.model_validate(
+            {
+                "externalId": "my_transformation",
+                "name": "my_transformation",
+                "ignoreNullFields": True,
+                "query": "select * from ext_onelake('fabric-prod', 'assets')",
+                "destination": {"type": "assets"},
+            }
+        )
+        deps = list(TransformationIO.get_dependencies(resource))
+        assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
