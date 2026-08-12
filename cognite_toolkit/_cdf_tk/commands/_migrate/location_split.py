@@ -1,7 +1,7 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
-from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections import OrderedDict, defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSpaceRelocationSource
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
@@ -68,6 +69,58 @@ class LocationSplitResolution:
     @property
     def orphan_reason_by_external_id(self) -> dict[str, str]:
         return {orphan.external_id: orphan.reason for orphan in self.orphans}
+
+
+_DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE = 200_000
+
+
+class InstanceSpaceRelocationLookupCache:
+    """Bounded, FIFO-evicted client-side cache in front of ``client.migration.instance_space_relocation_source``.
+
+    A location split can touch millions of instances, so results are cached per ``(source_space,
+    external_id)`` to avoid re-querying the hidden InstanceSpaceRelocationSource view for instances already
+    resolved earlier in the same run. Once ``max_size`` entries are cached, the oldest ones are evicted
+    first, so memory use stays bounded regardless of how many instances are processed.
+    """
+
+    def __init__(self, client: ToolkitClient, max_size: int = _DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE) -> None:
+        self._client = client
+        self._max_size = max_size
+        self._cache: OrderedDict[tuple[str, str], list[InstanceSpaceRelocationSource]] = OrderedDict()
+
+    def retrieve(self, source_space: str, external_ids: Iterable[str]) -> list[InstanceSpaceRelocationSource]:
+        """Resolve ``(source_space, external_id)`` pairs, using and populating the cache as needed.
+
+        An external ID may resolve to zero, one, or more instances (an instance can be relocated into
+        multiple target spaces, e.g. a CogniteSolutionTag referenced from multiple locations).
+        """
+        distinct_ids = list(dict.fromkeys(external_ids))
+        results: list[InstanceSpaceRelocationSource] = []
+        to_fetch: list[str] = []
+        for external_id in distinct_ids:
+            key = (source_space, external_id)
+            if key in self._cache:
+                results.extend(self._cache[key])
+            else:
+                to_fetch.append(external_id)
+        if not to_fetch:
+            return results
+
+        fetched_by_external_id: dict[str, list[InstanceSpaceRelocationSource]] = defaultdict(list)
+        for relocated in self._client.migration.instance_space_relocation_source.retrieve(source_space, to_fetch):
+            fetched_by_external_id[relocated.external_id].append(relocated)
+
+        for external_id in to_fetch:
+            matches = fetched_by_external_id.get(external_id, [])
+            self._set(source_space, external_id, matches)
+            results.extend(matches)
+        return results
+
+    def _set(self, source_space: str, external_id: str, matches: list[InstanceSpaceRelocationSource]) -> None:
+        key = (source_space, external_id)
+        self._cache[key] = matches
+        if len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
 
 
 def find_shared_legacy_instance_spaces(apm_configs: Sequence[APMConfigResponse]) -> set[str]:

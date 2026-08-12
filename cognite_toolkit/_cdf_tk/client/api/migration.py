@@ -21,10 +21,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
     CREATED_SOURCE_SYSTEM_VIEW_ID,
     INSTANCE_SOURCE_VIEW_ID,
+    INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
     SPACE_SOURCE_VIEW_ID,
     AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,
+    InstanceSpaceRelocationSource,
     SpaceSource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -147,6 +149,53 @@ class InstanceSourceAPI:
         )
         nodes = self._instances_api.list(filter=filter_, limit=limit)
         return [InstanceSource.model_validate(node.dump()) for node in nodes]
+
+
+class InstanceSpaceRelocationSourceAPI:
+    """Lookup for instances that have been relocated to a new space as part of a migration (e.g. a location
+    split), tagged with the legacy space they were relocated from.
+
+    Never delete instances through this API: each shares its (space, externalId) identity with a real
+    migrated instance, so deleting it here deletes that instance entirely, including all data from every
+    other view attached to it. This API is read-only by design; tagging happens by adding this view's
+    ``sourceSpace`` property onto an instance's normal write, not through a separate create call here.
+    """
+
+    def __init__(self, instances_api: InstancesAPI) -> None:
+        self._instances_api = instances_api
+        self._RETRIEVE_LIMIT = 1000
+        self._view_id = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
+
+    def retrieve(self, source_space: str, external_ids: SequenceNotStr[str]) -> list[InstanceSpaceRelocationSource]:
+        """Retrieve the current space of every instance that was relocated from ``source_space`` and whose
+        external ID is in ``external_ids``.
+
+        An external ID may resolve to more than one instance if it was relocated into multiple target
+        spaces (e.g. a CogniteSolutionTag referenced from multiple locations) -- callers that expect a
+        single target space per external ID should treat more than one result as a conflict.
+        """
+        results: list[InstanceSpaceRelocationSource] = []
+        for chunk in chunker_sequence(external_ids, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
+            query_request = QueryRequest(
+                with_={
+                    "relocated": QueryNodeExpression(
+                        nodes=QueryNodeTableExpression(
+                            filter=_and_filter(
+                                _has_data_filter(self._view_id),
+                                _equals_filter(self._view_id, "sourceSpace", source_space),
+                                {"in": {"property": ["node", "externalId"], "values": list(chunk)}},
+                            ),
+                        ),
+                        limit=max(len(chunk), 1),
+                    ),
+                },
+                select={"relocated": _select_all(self._view_id)},
+                root="relocated",
+            )
+            response = self._instances_api.query(query_request, type_results=False)
+            for item in response.items.get("relocated", []):
+                results.append(InstanceSpaceRelocationSource.model_validate(item))
+        return results
 
 
 class ResourceViewMappingsAPI(WrappedInstancesAPI[NodeId, ResourceViewMappingResponse]):
@@ -514,4 +563,5 @@ class MigrationAPI:
         self.resource_view_mapping = ResourceViewMappingsAPI(http_client)
         self.created_source_system = CreatedSourceSystemAPI(instances_api)
         self.space_source = SpaceSourceAPI(instances_api)
+        self.instance_space_relocation_source = InstanceSpaceRelocationSourceAPI(instances_api)
         self.lookup = MigrationLookupAPI(instances_api)
