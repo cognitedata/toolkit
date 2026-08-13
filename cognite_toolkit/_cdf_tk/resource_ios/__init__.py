@@ -111,6 +111,8 @@ if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppVersionIO)
 if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
     _EXCLUDED_CRUDS.add(SkillIO)
+if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+    _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)

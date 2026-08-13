@@ -90,6 +90,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for agent skill resources",
     )
+    EXTERNAL_DATA_SOURCES = FlagMetadata(
+        visible=True,
+        description="Enables support for transformation external data sources (OneLake / Fabric)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

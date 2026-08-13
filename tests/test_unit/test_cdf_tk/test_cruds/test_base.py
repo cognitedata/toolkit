@@ -35,10 +35,13 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
+    _EXCLUDED_CRUDS,
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    KINDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
+    ExternalDataSourceIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupResourceScopedCRUD,
@@ -239,6 +242,18 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
+
+
+def test_external_data_source_io_respects_feature_flag() -> None:
+    transformation_kinds = KINDS_BY_FOLDER_NAME["transformations"]
+    if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+        assert ExternalDataSourceIO not in _EXCLUDED_CRUDS
+        assert ExternalDataSourceIO in RESOURCE_CRUD_LIST
+        assert "ExternalDataSource" in transformation_kinds
+    else:
+        assert ExternalDataSourceIO in _EXCLUDED_CRUDS
+        assert ExternalDataSourceIO not in RESOURCE_CRUD_LIST
+        assert "ExternalDataSource" not in transformation_kinds
 
 
 @contextmanager
