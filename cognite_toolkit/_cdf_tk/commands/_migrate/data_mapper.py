@@ -120,11 +120,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    APP_DATA_PARENT_EDGE_BY_VIEW,
+    APP_DATA_PARENT_PROPERTY_BY_VIEW,
+    APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
+    _as_external_id,
+    _get_view_property,
     register_solution_tag_references,
-    resolve_target_space_via_parent_edge,
-    resolve_target_space_via_parent_property,
-    resolve_target_space_via_root_location,
+    root_internal_id_to_target_space,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
@@ -1785,7 +1788,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
 
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
-    """FDMtoCDMMapper that assigns each node a per-location target space and tags it with its legacy space."""
+    """FDMtoCDMMapper that assigns each node a per-location target space and tags it with its legacy space.
+
+    App-data views are hardcoded. Pass ``source_views`` (activity / operation / notification) for APM_SourceData.
+    """
 
     def __init__(
         self,
@@ -1794,10 +1800,8 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         connection_creator: ConnectionCreator,
         instance_id_mapper: LocationSplitInstanceIdMapper,
         target_by_root_asset: Mapping[str, str],
-        root_location_views: Iterable[ViewId] = (),
-        parent_edge_by_view: Mapping[ViewId, EdgeTypeId] | None = None,
-        parent_property_by_view: Mapping[ViewId, str] | None = None,
-        custom_resolver_by_view: Mapping[ViewId, AssetExternalIdTargetSpaceResolver] | None = None,
+        *,
+        source_views: Mapping[str, ViewId] | None = None,
         custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
         custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
         | None = None,
@@ -1811,18 +1815,28 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         )
         self._instance_id_mapper = instance_id_mapper
         self._target_by_root_asset = target_by_root_asset
-        self._root_location_views = frozenset(root_location_views)
-        self._parent_edge_by_view = dict(parent_edge_by_view or {})
-        self._parent_property_by_view = dict(parent_property_by_view or {})
-        self._custom_resolver_by_view = dict(custom_resolver_by_view or {})
+        self._source_views = dict(source_views) if source_views is not None else None
+        self._notification_view: ViewId | None = None
+        self._notification_resolver: AssetExternalIdTargetSpaceResolver | None = None
+        if self._source_views is not None:
+            self._notification_view = self._source_views["notification"]
+            self._notification_resolver = AssetExternalIdTargetSpaceResolver(
+                client,
+                self._notification_view,
+                "assetExternalId",
+                root_internal_id_to_target_space(client, target_by_root_asset),
+            )
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
-        if self._custom_resolver_by_view:
-            nodes = [data_item.item for data_item in source if isinstance(data_item.item, NodeResponse)]
-            for view_id, resolver in self._custom_resolver_by_view.items():
-                matching_nodes = [node for node in nodes if view_id in (node.properties or {})]
-                if matching_nodes:
-                    resolver.prepare_page(matching_nodes)
+        if self._notification_resolver is not None and self._notification_view is not None:
+            matching_nodes = [
+                data_item.item
+                for data_item in source
+                if isinstance(data_item.item, NodeResponse)
+                and self._notification_view in (data_item.item.properties or {})
+            ]
+            if matching_nodes:
+                self._notification_resolver.prepare_page(matching_nodes)
         return super().map(source)
 
     def _map_single_node(
@@ -1849,25 +1863,74 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> str:
         properties = node.properties or {}
-        for view_id in self._root_location_views:
-            if view_id in properties:
-                return resolve_target_space_via_root_location(node, view_id, self._target_by_root_asset)
-        for view_id, parent_edge in self._parent_edge_by_view.items():
-            if view_id in properties:
-                return resolve_target_space_via_parent_edge(
-                    node, parent_edge, other_side_by_edge_type_and_direction, self._instance_id_mapper
-                )
-        for view_id, parent_property in self._parent_property_by_view.items():
-            if view_id in properties:
-                return resolve_target_space_via_parent_property(
-                    node, view_id, parent_property, self._instance_id_mapper
-                )
-        for view_id, resolver in self._custom_resolver_by_view.items():
-            if view_id in properties:
-                return resolver.resolve(node)
-        raise RuntimeError(
-            f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}."
-        )
+        if self._source_views is None:
+            for view_id in APP_DATA_ROOT_LOCATION_VIEWS:
+                if view_id in properties:
+                    return self._target_space_from_root_location(node, view_id)
+            for view_id, parent_edge in APP_DATA_PARENT_EDGE_BY_VIEW.items():
+                if view_id in properties:
+                    return self._target_space_from_parent_edge(node, parent_edge, other_side_by_edge_type_and_direction)
+            for view_id, parent_property in APP_DATA_PARENT_PROPERTY_BY_VIEW.items():
+                if view_id in properties:
+                    return self._target_space_from_parent_property(node, view_id, parent_property)
+        else:
+            activity_view = self._source_views["activity"]
+            operation_view = self._source_views["operation"]
+            if activity_view in properties:
+                return self._target_space_from_root_location(node, activity_view)
+            if operation_view in properties:
+                return self._target_space_from_parent_property(node, operation_view, "parentActivityId")
+            if self._notification_resolver is not None and self._notification_view in properties:
+                return self._notification_resolver.resolve(node)
+        raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
+
+    def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
+        root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
+        if root_location is None:
+            raise InstanceMappingError(f"{node.as_id()} is missing rootLocation.", severity=Severity.failure)
+        target_space = self._target_by_root_asset.get(root_location)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"{node.as_id()} has rootLocation {root_location!r}, which does not match a location sharing this "
+                "legacy instance space.",
+                severity=Severity.failure,
+            )
+        return target_space
+
+    def _target_space_from_parent_edge(
+        self,
+        node: NodeResponse,
+        parent_edge_type: EdgeTypeId,
+        other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
+    ) -> str:
+        parents = other_side_by_edge_type_and_direction.get(parent_edge_type, [])
+        if not parents:
+            raise InstanceMappingError(
+                f"{node.as_id()} has no inbound {parent_edge_type!s} edge to a parent.", severity=Severity.failure
+            )
+        target_spaces: set[str] = set()
+        for parent in parents:
+            target_space = self._instance_id_mapper.resolve_target_space(parent.other_side.external_id)
+            if target_space is not None:
+                target_spaces.add(target_space)
+        if len(target_spaces) != 1:
+            reason = "unresolved" if not target_spaces else "disagree on target space"
+            raise InstanceMappingError(
+                f"{node.as_id()}: parent(s) via {parent_edge_type!s} are {reason}.", severity=Severity.failure
+            )
+        return next(iter(target_spaces))
+
+    def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
+        parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
+        if parent_external_id is None:
+            raise InstanceMappingError(f"{node.as_id()} is missing {parent_property}.", severity=Severity.failure)
+        target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"{node.as_id()}: parent {parent_external_id!r} via {parent_property} is unresolved.",
+                severity=Severity.failure,
+            )
+        return target_space
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
@@ -2170,23 +2233,33 @@ class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMa
             None,
         )
         if template_node is None:
-            return {}, {}, {}, [
-                InstanceConversionIssue(
-                    id="schedules-page",
-                    errors=["Could not resolve target space for this page of schedules: expected a Template node."],
-                )
-            ]
+            return (
+                {},
+                {},
+                {},
+                [
+                    InstanceConversionIssue(
+                        id="schedules-page",
+                        errors=["Could not resolve target space for this page of schedules: expected a Template node."],
+                    )
+                ],
+            )
         target_space = self._instance_id_mapper.resolve_target_space(template_node.external_id)
         if target_space is None:
-            return {}, {}, {}, [
-                InstanceConversionIssue(
-                    id="schedules-page",
-                    errors=[
-                        f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
-                        "the Template has not been resolved to a target space."
-                    ],
-                )
-            ]
+            return (
+                {},
+                {},
+                {},
+                [
+                    InstanceConversionIssue(
+                        id="schedules-page",
+                        errors=[
+                            f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
+                            "the Template has not been resolved to a target space."
+                        ],
+                    )
+                ],
+            )
         for item in source:
             if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
                 self._instance_id_mapper.register(item.external_id, target_space)

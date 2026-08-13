@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRe
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    EdgeOtherSide,
     InstanceMappingError,
     LocationSplitInstanceIdMapper,
 )
@@ -279,64 +278,6 @@ class AssetExternalIdTargetSpaceResolver:
                 severity=Severity.failure,
             )
         return target_space
-
-
-def resolve_target_space_via_root_location(
-    node: NodeResponse, view_id: ViewId, target_by_root_asset: Mapping[str, str]
-) -> str:
-    root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
-    if root_location is None:
-        raise InstanceMappingError(f"{node.as_id()} is missing rootLocation.", severity=Severity.failure)
-    target_space = target_by_root_asset.get(root_location)
-    if target_space is None:
-        raise InstanceMappingError(
-            f"{node.as_id()} has rootLocation {root_location!r}, which does not match a location sharing this "
-            "legacy instance space.",
-            severity=Severity.failure,
-        )
-    return target_space
-
-
-def resolve_target_space_via_parent_edge(
-    node: NodeResponse,
-    parent_edge_type: EdgeTypeId,
-    other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
-    instance_id_mapper: LocationSplitInstanceIdMapper,
-) -> str:
-    parents = other_side_by_edge_type_and_direction.get(parent_edge_type, [])
-    if not parents:
-        raise InstanceMappingError(
-            f"{node.as_id()} has no inbound {parent_edge_type!s} edge to a parent.", severity=Severity.failure
-        )
-    target_spaces = {
-        target_space
-        for parent in parents
-        if (target_space := instance_id_mapper.resolve_target_space(parent.other_side.external_id)) is not None
-    }
-    if len(target_spaces) != 1:
-        reason = "unresolved" if not target_spaces else "disagree on target space"
-        raise InstanceMappingError(
-            f"{node.as_id()}: parent(s) via {parent_edge_type!s} are {reason}.", severity=Severity.failure
-        )
-    return next(iter(target_spaces))
-
-
-def resolve_target_space_via_parent_property(
-    node: NodeResponse,
-    view_id: ViewId,
-    parent_property: str,
-    instance_id_mapper: LocationSplitInstanceIdMapper,
-) -> str:
-    parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
-    if parent_external_id is None:
-        raise InstanceMappingError(f"{node.as_id()} is missing {parent_property}.", severity=Severity.failure)
-    target_space = instance_id_mapper.resolve_target_space(parent_external_id)
-    if target_space is None:
-        raise InstanceMappingError(
-            f"{node.as_id()}: parent {parent_external_id!r} via {parent_property} is unresolved.",
-            severity=Severity.failure,
-        )
-    return target_space
 
 
 def register_solution_tag_references(

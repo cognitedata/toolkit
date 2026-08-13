@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
@@ -9,10 +10,12 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     NodeId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
@@ -71,14 +74,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     resolve_observation_view_id,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    APP_DATA_PARENT_EDGE_BY_VIEW,
-    APP_DATA_PARENT_PROPERTY_BY_VIEW,
-    APP_DATA_ROOT_LOCATION_VIEWS,
-    AssetExternalIdTargetSpaceResolver,
     COGNITE_SOLUTION_TAG_VIEW_ID,
+    LocationSplitKind,
     build_target_by_root_asset,
     find_shared_legacy_instance_spaces,
-    root_internal_id_to_target_space,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
@@ -1655,39 +1654,19 @@ class MigrateApp(typer.Typer):
             label="Infield data",
         )
 
-        instance_id_mapper: InstanceIdMapper
-        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None
-        target_spaces: set[str]
-        target_by_root_asset: dict[str, str] = {}
-        if source_space in shared_legacy_spaces:
-            target_by_root_asset = build_target_by_root_asset(
+        instance_id_mapper, location_split_id_mapper, target_spaces, target_by_root_asset = (
+            MigrateApp._infield_instance_id_mappers(
                 client,
                 source_space=source_space,
+                target_space=target_space,
+                shared_legacy_spaces=shared_legacy_spaces,
                 apm_configs=apm_configs,
                 cdm_configs=infield_cdm_configs,
                 target_kind="app_data",
+                passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},  # users stay in this space
+                label="Infield data",
             )
-            location_split_id_mapper = LocationSplitInstanceIdMapper(
-                client,
-                source_space,
-                passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
-            )
-            instance_id_mapper = location_split_id_mapper
-            target_spaces = set(target_by_root_asset.values())
-        else:
-            if target_space is None:
-                raise typer.BadParameter(
-                    "Bug in Toolkit: target space is required for non-split Infield data migration."
-                )
-            instance_id_mapper = SpaceMappingInstanceIdMapper(
-                {
-                    source_space: target_space,
-                    # The users are stored in this space are unchanged. This ensures that all direct relations
-                    # to users are preserved.
-                    "cognite_app_data": "cognite_app_data",
-                }
-            )
-            target_spaces = {target_space}
+        )
         infield_mappings = create_infield_data_mappings()
         if skip_observations:
             # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
@@ -1762,12 +1741,9 @@ class MigrateApp(typer.Typer):
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
                 infield_mappings,
-                connection_creator=connection_creator,
-                instance_id_mapper=location_split_id_mapper,
-                target_by_root_asset=target_by_root_asset,
-                root_location_views=APP_DATA_ROOT_LOCATION_VIEWS,
-                parent_edge_by_view=APP_DATA_PARENT_EDGE_BY_VIEW,
-                parent_property_by_view=APP_DATA_PARENT_PROPERTY_BY_VIEW,
+                connection_creator,
+                location_split_id_mapper,
+                target_by_root_asset,
                 custom_properties_mappings=custom_properties_mappings,
                 custom_instance_mappings={
                     InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: LocationSplitInFieldLegacyToCDMScheduleMapper(
@@ -1913,28 +1889,18 @@ class MigrateApp(typer.Typer):
         )
 
         source_views = resolve_apm_source_data_view_ids(apm_configs)
-        instance_id_mapper: InstanceIdMapper
-        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None
-        target_spaces: set[str]
-        target_by_root_asset: dict[str, str] = {}
-        if source_space in shared_legacy_spaces:
-            target_by_root_asset = build_target_by_root_asset(
+        instance_id_mapper, location_split_id_mapper, target_spaces, target_by_root_asset = (
+            MigrateApp._infield_instance_id_mappers(
                 client,
                 source_space=source_space,
+                target_space=target_space,
+                shared_legacy_spaces=shared_legacy_spaces,
                 apm_configs=apm_configs,
                 cdm_configs=infield_cdm_configs,
                 target_kind="source_data",
+                label="APM_SourceData",
             )
-            location_split_id_mapper = LocationSplitInstanceIdMapper(client, source_space)
-            instance_id_mapper = location_split_id_mapper
-            target_spaces = set(target_by_root_asset.values())
-        else:
-            if target_space is None:
-                raise typer.BadParameter(
-                    "Bug in Toolkit: target space is required for non-split APM_SourceData migration."
-                )
-            instance_id_mapper = SpaceMappingInstanceIdMapper({source_space: target_space})
-            target_spaces = {target_space}
+        )
 
         mappings = create_apm_source_data_mappings()
         custom_views: dict[str, ViewId] = {}
@@ -2008,20 +1974,13 @@ class MigrateApp(typer.Typer):
         )
         mapper: FDMtoCDMMapper
         if location_split_id_mapper is not None:
-            root_id_to_target_space = root_internal_id_to_target_space(client, target_by_root_asset)
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
                 mappings,
-                connection_creator=connection_creator,
-                instance_id_mapper=location_split_id_mapper,
-                target_by_root_asset=target_by_root_asset,
-                root_location_views=(source_views["activity"],),
-                parent_property_by_view={source_views["operation"]: "parentActivityId"},
-                custom_resolver_by_view={
-                    source_views["notification"]: AssetExternalIdTargetSpaceResolver(
-                        client, source_views["notification"], "assetExternalId", root_id_to_target_space
-                    )
-                },
+                connection_creator,
+                location_split_id_mapper,
+                target_by_root_asset,
+                source_views=source_views,
             )
         else:
             mapper = FDMtoCDMMapper(client, mappings, connection_creator=connection_creator)
@@ -2259,6 +2218,42 @@ class MigrateApp(typer.Typer):
                 user_log_filestem="360_image_annotations",
             )
         )
+
+    @staticmethod
+    def _infield_instance_id_mappers(
+        client: ToolkitClient,
+        *,
+        source_space: str,
+        target_space: str | None,
+        shared_legacy_spaces: set[str],
+        apm_configs: Sequence[APMConfigResponse],
+        cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
+        target_kind: LocationSplitKind,
+        label: str,
+        passthrough_space_mapping: Mapping[str, str] | None = None,
+    ) -> tuple[InstanceIdMapper, LocationSplitInstanceIdMapper | None, set[str], dict[str, str]]:
+        passthrough = dict(passthrough_space_mapping or {})
+        if source_space in shared_legacy_spaces:
+            target_by_root_asset = build_target_by_root_asset(
+                client,
+                source_space=source_space,
+                apm_configs=apm_configs,
+                cdm_configs=cdm_configs,
+                target_kind=target_kind,
+            )
+            location_split_id_mapper = LocationSplitInstanceIdMapper(
+                client, source_space, passthrough_space_mapping=passthrough or None
+            )
+            return (
+                location_split_id_mapper,
+                location_split_id_mapper,
+                set(target_by_root_asset.values()),
+                target_by_root_asset,
+            )
+        if target_space is None:
+            raise typer.BadParameter(f"Bug in Toolkit: target space is required for non-split {label} migration.")
+        instance_id_mapper = SpaceMappingInstanceIdMapper({source_space: target_space, **passthrough})
+        return instance_id_mapper, None, {target_space}, {}
 
     @staticmethod
     def _resolve_infield_migration_spaces(
