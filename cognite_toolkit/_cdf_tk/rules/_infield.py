@@ -22,6 +22,7 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
     "assetNotificationsCardView": frozenset(
         {"name", "sourceId", "type", "status", "description", "asset", "sourceCreatedTime", "priority"}
     ),
+    "assetDocumentsCardView": frozenset({"assets", "mimeType", "name"}),
 }
 
 # (resource, card_key, view_id, required properties)

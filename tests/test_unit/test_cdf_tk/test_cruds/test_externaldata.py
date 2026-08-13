@@ -79,31 +79,28 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO(MagicMock(), None, None)
         assert list(loader.sensitive_strings(item)) == ["secret"]
 
-    def test_sensitive_strings_without_secret(self) -> None:
-        item = _make_request(
-            settings=OneLakeSettingsWrite(
-                credentials=OneLakeCredentialsWrite(client_id="id", tenant_id="tenant"),
-                location_description=OneLakeLocationDescription(
-                    workspace_id="workspace-guid",
-                    container_id="lakehouse-guid",
-                ),
-            )
-        )
-        loader = ExternalDataSourceIO(MagicMock(), None, None)
-        assert list(loader.sensitive_strings(item)) == []
-
-    def test_dump_resource_preserves_local_client_secret(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+    def test_dump_resource_without_local_omits_client_secret(
+        self, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        response = _make_response()
+        dumped = loader.dump_resource(_make_response())
+        credentials = dumped.get("settings", {}).get("credentials", {})
+        assert "clientSecret" not in credentials
+
+    def test_dump_resource_with_local_returns_identifier(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
         local = {
+            "externalId": "fabric-lakehouse-prod",
             "settings": {
                 "credentials": {
+                    "clientId": "azure-client-id",
+                    "tenantId": "azure-tenant-id",
                     "clientSecret": "azure-client-secret",
                 }
-            }
+            },
         }
-        dumped = loader.dump_resource(response, local)
-        assert dumped["settings"]["credentials"]["clientSecret"] == "azure-client-secret"
+        dumped = loader.dump_resource(_make_response(), local)
+        assert dumped == {"externalId": "fabric-lakehouse-prod"}
 
     def test_prepare_resources_create(
         self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
@@ -120,6 +117,20 @@ class TestExternalDataSourceIO:
             "unchanged": len(resources.unchanged),
         } == {"create": 1, "changed": 0, "delete": 0, "unchanged": 0}
 
+    def test_prepare_resources_existing_always_updates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        toolkit_client_approval.append(ExternalDataSourceResponse, _make_response())
+        local_file = MagicMock(spec=Path)
+        local_file.read_text.return_value = _YAML
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([local_file])
+        assert {
+            "create": len(resources.to_create),
+            "changed": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
+
     def test_get_dependent_items_dataset(self) -> None:
         deps = list(
             ExternalDataSourceIO.get_dependent_items(
@@ -134,7 +145,7 @@ class TestExternalDataSourceIO:
                 "externalId": "fabric-lakehouse-prod",
                 "dataSetExternalId": "my_dataset",
                 "settings": {
-                    "credentials": {"clientId": "id", "tenantId": "tenant"},
+                    "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
                     "locationDescription": {"workspaceId": "ws", "containerId": "lh"},
                 },
             }

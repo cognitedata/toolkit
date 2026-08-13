@@ -20,7 +20,7 @@ class OneLakeCredentialsWrite(BaseModelObject):
 
     client_id: str
     tenant_id: str
-    client_secret: str | None = None
+    client_secret: str
 
 
 class OneLakeLocationDescription(BaseModelObject):
