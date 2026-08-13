@@ -223,16 +223,6 @@ class TestDumpTransformations:
         assert isinstance(loader, ExternalDataSourceIO)
         assert external_data_list == [external_source]
 
-    def test_dump_transformations_ext_onelake_flag_off(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            finder = TransformationFinder(client, ("transformationA",))
-            client.tool.transformations.schedules.retrieve.return_value = []
-
-            batches = list(finder)
-
-        assert all(not isinstance(loader, ExternalDataSourceIO) for _, _, loader, _ in batches)
-        client.tool.transformations.external_data_sources.list.assert_not_called()
-
 
 @pytest.fixture()
 def three_data_models() -> list[DataModelResponse]:

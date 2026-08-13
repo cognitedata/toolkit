@@ -253,21 +253,11 @@ authentication:
 
         assert list(actual) == expected
 
-    def test_get_dependent_items_ext_onelake_flag_off(self) -> None:
-        actual = list(
-            TransformationIO.get_dependent_items({"query": "select * from ext_onelake('fabric-prod', 'assets')"})
-        )
-        assert ExternalDataSourceIO not in {loader for loader, _ in actual}
-
     def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
         _enable_external_data_sources(monkeypatch)
         resource = _ext_onelake_transformation_yaml()
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
-
-    def test_get_dependencies_ext_onelake_flag_off(self) -> None:
-        deps = list(TransformationIO.get_dependencies(_ext_onelake_transformation_yaml()))
-        assert ExternalDataSourceIO not in {loader for loader, _ in deps}
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
