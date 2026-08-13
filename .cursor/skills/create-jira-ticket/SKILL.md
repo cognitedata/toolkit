@@ -1,6 +1,6 @@
 ---
 name: create-jira-ticket
-description: Create a Jira ticket in the CDF project at cognitedata.atlassian.net. Defaults to Task or Bug issue type, component velocity:tooling, and parent epic CDF-26605 (Toolkit: Maintenance H1 2026). Use when the user wants to create a Jira ticket, log a bug, file a task, or track work in Jira.
+description: Create a Jira ticket in the CDF project at cognitedata.atlassian.net. Defaults to Task or Bug issue type, component velocity:tooling, and parent epic CDF-28398 (Toolkit: Maintenance H2 2026). Use when the user wants to create a Jira ticket, log a bug, file a task, or track work in Jira.
 ---
 
 # Create Jira Ticket
@@ -13,7 +13,7 @@ description: Create a Jira ticket in the CDF project at cognitedata.atlassian.ne
 | projectKey   | `CDF`                                          |
 | issueType    | `Task` (or `Bug` if it's a bug)                |
 | component    | `velocity:tooling`                             |
-| parent epic  | `CDF-26605` (Toolkit: Maintenance H1 2026)     |
+| parent epic  | `CDF-28398` (Toolkit: Maintenance H2 2026)     |
 
 Override any default when the user specifies otherwise.
 
@@ -33,7 +33,7 @@ Override any default when the user specifies otherwise.
    issueTypeName: Task   (or Bug)
    summary:       <user-provided>
    description:   <user-provided, if any>
-   parent:        CDF-26605
+   parent:        CDF-28398
    contentFormat: markdown
    additional_fields:
      components:

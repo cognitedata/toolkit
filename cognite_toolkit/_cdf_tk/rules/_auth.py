@@ -2,6 +2,7 @@ from collections.abc import Iterable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 BASE_CODE = "AUTH"
 
@@ -55,4 +56,9 @@ class CheckDataSetMissing(ToolkitLocalRule):
                 else:
                     message = f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}"
                     fix = f"Add a dataset association to the {source_file.resource_type!s}."
-                yield Recommendation(message=message, code=self.CODE, fix=fix)
+                yield Recommendation(
+                    message=message,
+                    code=self.CODE,
+                    fix=fix,
+                    source_file=format_insight_source_file(source_file.source_path),
+                )

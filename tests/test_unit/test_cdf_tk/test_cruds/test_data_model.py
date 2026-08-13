@@ -641,6 +641,8 @@ class TestGraphQLCreatePayload:
         assert "graphQlDml" in payload
 
     def test_null_optional_fields_not_sent_in_mutation_variables(self) -> None:
+        # Optional fields that were never set should not appear in the payload so we
+        # don't forward unexpected nulls to the API.
         r = GraphQLDataModelRequest.model_validate({"space": "s", "externalId": "e", "version": "v"})
         r_with_dml = r.model_copy(update={"graph_ql_dml": "type Foo { name: String }"})
         payload = r_with_dml.dump(exclude_extra=True)
@@ -651,6 +653,7 @@ class TestGraphQLCreatePayload:
         assert "description" not in payload
 
     def test_explicitly_set_optional_fields_are_sent(self) -> None:
+        # Fields that the user explicitly put in their YAML should be forwarded.
         r = GraphQLDataModelRequest.model_validate(
             {"space": "s", "externalId": "e", "version": "v", "previousVersion": "v0", "preserveDml": True}
         )
