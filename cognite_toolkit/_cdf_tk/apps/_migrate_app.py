@@ -80,6 +80,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     APP_DATA_PARENT_PROPERTY_BY_VIEW,
     APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
+    COGNITE_SOLUTION_TAG_VIEW_ID,
     build_app_data_target_by_root_asset,
     build_source_data_target_by_root_asset,
     find_shared_legacy_instance_spaces,
@@ -1718,26 +1719,36 @@ class MigrateApp(typer.Typer):
         schedule_selector = create_infield_schedule_selector(instance_space=source_space)
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None
+        solution_tag_mapping: ViewToViewMapping | None = None
         for mapping in infield_mappings:
             if mapping.source_view.external_id == "Schedule":
                 # Special case for schedules, see create_infield_schedule_query for docs on why.
                 selectors.append(schedule_selector)
                 schedule_mapping = mapping
-            else:
-                selectors.append(
-                    InstanceViewSelector(
-                        view=SelectedView(
-                            space=mapping.source_view.space,
-                            external_id=mapping.source_view.external_id,
-                            version=mapping.source_view.version,
-                        ),
-                        instance_spaces=(source_space,),
-                        edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
-                        endpoint="sync",
-                    )
+                continue
+            if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
+                solution_tag_mapping = mapping
+                if source_space in shared_legacy_spaces:
+                    # A CogniteSolutionTag is a shared resource that must be copied into every target space
+                    # of the split, not just one: migrated separately below, once per target space, instead
+                    # of through the main location-split mapper.
+                    continue
+            selectors.append(
+                InstanceViewSelector(
+                    view=SelectedView(
+                        space=mapping.source_view.space,
+                        external_id=mapping.source_view.external_id,
+                        version=mapping.source_view.version,
+                    ),
+                    instance_spaces=(source_space,),
+                    edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
+                    endpoint="sync",
                 )
+            )
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
+        if solution_tag_mapping is None:
+            raise ValueError("No mapping for CogniteSolutionTag view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
             client,
             instance_id_mapper=instance_id_mapper,
@@ -1757,7 +1768,7 @@ class MigrateApp(typer.Typer):
             custom_instance_mappings = {
                 InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: LocationSplitInFieldLegacyToCDMScheduleMapper(
                     client, connection_creator, schedule_mapping, instance_id_mapper
-                )
+                ),
             }
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
@@ -1795,6 +1806,38 @@ class MigrateApp(typer.Typer):
                 user_log_filestem="infield_data",
             )
         )
+        if source_space in shared_legacy_spaces:
+            # A CogniteSolutionTag is a shared resource: rather than tracking which target space(s)
+            # actually reference a given tag, every tag is simply copied into every target space of the
+            # split, once per target space, using the plain (non-split) mapper and a fixed space mapping.
+            solution_tag_selector = InstanceViewSelector(
+                view=SelectedView(
+                    space=solution_tag_mapping.source_view.space,
+                    external_id=solution_tag_mapping.source_view.external_id,
+                    version=solution_tag_mapping.source_view.version,
+                ),
+                instance_spaces=(source_space,),
+                endpoint="sync",
+            )
+            for tag_target_space in sorted(target_spaces):
+                tag_mapper = FDMtoCDMMapper(
+                    client,
+                    [solution_tag_mapping],
+                    connection_creator=ConnectionCreator(
+                        client, instance_id_mapper=SpaceMappingInstanceIdMapper({source_space: tag_target_space})
+                    ),
+                )
+                cmd.run(
+                    lambda tag_mapper=tag_mapper, tag_target_space=tag_target_space: cmd.migrate(
+                        selectors=[solution_tag_selector],
+                        data=InstanceIO(client),
+                        mapper=tag_mapper,
+                        log_dir=log_dir,
+                        dry_run=dry_run,
+                        verbose=verbose,
+                        user_log_filestem=f"infield_data_solution_tags_{tag_target_space}",
+                    )
+                )
 
     @staticmethod
     def infield_source_data(

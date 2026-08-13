@@ -93,12 +93,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_container_properties,
     convert_edges,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    TargetSpaceResolver,
-    resolve_target_space_via_parent_edge,
-    resolve_target_space_via_parent_property,
-    resolve_target_space_via_root_location,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Image360AnnotationItem,
     Image360Polygon,
@@ -124,6 +118,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     MigrationEntryV2,
     ThreeDModelMigrationIssue,
     instance_conversion_issue_as_migration_entry,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    TargetSpaceResolver,
+    register_solution_tag_references,
+    resolve_target_space_via_parent_edge,
+    resolve_target_space_via_parent_property,
+    resolve_target_space_via_root_location,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
@@ -1844,6 +1845,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         target_space = self._resolve_target_space(node, other_side_by_edge_type_and_direction)
         self._instance_id_mapper.register(node.external_id, target_space)
+        register_solution_tag_references(node, target_space, self._instance_id_mapper)
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
         sources = [
             *(mapped_node.sources or []),

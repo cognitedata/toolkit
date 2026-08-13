@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -34,6 +34,9 @@ CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalActio
 MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
 CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
 ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
+
+COGNITE_SOLUTION_TAG_VIEW_ID = ViewId(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
+SOLUTION_TAGS_PROPERTY_ID = "solutionTags"
 
 REFERENCE_TEMPLATE_ITEMS_EDGE = EdgeTypeId(
     type=NodeId(space=_APM_SPACE, external_id="referenceTemplateItems"), direction="inwards"
@@ -424,6 +427,35 @@ def resolve_target_space_via_parent_property(
             severity=Severity.failure,
         )
     return target_space
+
+
+def register_solution_tag_references(
+    node: NodeResponse,
+    target_space: str,
+    instance_id_mapper: LocationSplitInstanceIdMapper,
+) -> None:
+    """Register every CogniteSolutionTag referenced by ``node`` (via ``solutionTags``, on whichever view
+    carries it) so that this node's own reference to it resolves to ``target_space``.
+
+    Every CogniteSolutionTag is migrated separately into every target space of a location split upfront
+    (see ``infield_data`` in ``_migrate_app.py``), so a tag is always present wherever it is referenced
+    from: this only needs to make the direct relation on this node itself resolve immediately when it is
+    mapped, not track which spaces actually reference it.
+    """
+    for external_id in _iter_solution_tag_external_ids(node):
+        instance_id_mapper.register(external_id, target_space)
+
+
+def _iter_solution_tag_external_ids(node: NodeResponse) -> Iterator[str]:
+    for properties in (node.properties or {}).values():
+        if not isinstance(properties, dict):
+            continue
+        value = properties.get(SOLUTION_TAGS_PROPERTY_ID)
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if (external_id := _as_external_id(item)) is not None:
+                yield external_id
 
 
 def _get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) -> Any:
