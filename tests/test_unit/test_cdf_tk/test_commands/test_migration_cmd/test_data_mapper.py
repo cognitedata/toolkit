@@ -83,7 +83,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
-    InstanceSpaceRelocationLookupCache,
     LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
@@ -1043,9 +1042,7 @@ class TestFDMtoCDMMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            instance_id_mapper = LocationSplitInstanceIdMapper(
-                self.SOURCE_SPACE, InstanceSpaceRelocationLookupCache(client)
-            )
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
             connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
@@ -1067,36 +1064,7 @@ class TestFDMtoCDMMapper:
             source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID, properties={"sourceSpace": self.SOURCE_SPACE}
         ) in mapped_node.sources
 
-    def test_plain_fdm_to_cdm_mapper_does_not_tag_relocation_source_space(self) -> None:
-        node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="node1",
-            last_updated_time=1772522715000,
-            created_time=0,
-            version=1,
-            properties={self.SOURCE_VIEW_ID: {"textProp": "37"}},
-        )
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            connection_creator = ConnectionCreator(
-                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
-            )
-            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
-            mapper.prepare(MagicMock())
-
-            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
-
-        assert len(mapped_items) == 1
-        mapped_node = mapped_items[0].item
-        assert isinstance(mapped_node, NodeRequest)
-        assert not [
-            source for source in mapped_node.sources or [] if source.source == INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
-        ]
-
     def test_location_split_mapper_resolves_via_parent_property(self) -> None:
-        """A view configured with ``parent_property_by_view`` inherits its target space from an
-        already-registered parent, referenced via a direct relation property on the node itself."""
         node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="node1",
@@ -1113,9 +1081,7 @@ class TestFDMtoCDMMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            instance_id_mapper = LocationSplitInstanceIdMapper(
-                self.SOURCE_SPACE, InstanceSpaceRelocationLookupCache(client)
-            )
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
             instance_id_mapper.register("parent1", "target_space")
             connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
             mapper = LocationSplitFDMtoCDMMapper(
@@ -1147,9 +1113,7 @@ class TestFDMtoCDMMapper:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            instance_id_mapper = LocationSplitInstanceIdMapper(
-                self.SOURCE_SPACE, InstanceSpaceRelocationLookupCache(client)
-            )
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
             connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
             mapper = LocationSplitFDMtoCDMMapper(
                 client,

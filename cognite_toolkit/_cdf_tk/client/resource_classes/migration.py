@@ -94,13 +94,7 @@ class SpaceSource(WrappedInstanceResponseOnly):
 
 
 class InstanceSpaceRelocationSource(WrappedInstanceResponseOnly):
-    """Pydantic model for reading InstanceSpaceRelocationSource nodes from the cognite_migration data model.
-
-    Never delete instances read through this model: each shares its (space, externalId) identity with a
-    real migrated instance, so deleting it here deletes that instance entirely, including all data from
-    every other view attached to it. This model is only ever used to add the ``sourceSpace`` property to
-    an instance's existing identity, never to create or delete instances on its own.
-    """
+    """Pydantic model for reading InstanceSpaceRelocationSource nodes from the cognite_migration data model."""
 
     VIEW_ID: ClassVar[ViewId] = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 

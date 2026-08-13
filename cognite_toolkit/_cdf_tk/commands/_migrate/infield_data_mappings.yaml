@@ -1,14 +1,6 @@
-# The mapping definitions are topological ordered based on the container constraints of the
-# destination views. This is to ensure that data can be uploaded without violating any constraints.
-#
-# In addition, within the shared "cdf_apm" legacy instance space, the order also reflects the
-# location-split resolution lineage: each view's target space is resolved (without a full pre-scan)
-# either from its own rootLocation, or by inheriting the target space of an already-resolved parent.
-# Views must therefore come after every view they depend on for that resolution.
-#
-# InFieldCogniteSolutionTagMapping has no such dependency: every CogniteSolutionTag is copied into every
-# target space of a split upfront (see LocationSplitSolutionTagMapper), so its position here does not
-# matter.
+# Topologically ordered by destination container constraints. For a location split, parents
+# must also appear before children so target spaces can be inherited.
+# CogniteSolutionTag is copied into every target space separately, so its position does not matter.
 - externalId: InFieldCogniteSolutionTagMapping
   sourceView:
     space: cdf_apps_shared

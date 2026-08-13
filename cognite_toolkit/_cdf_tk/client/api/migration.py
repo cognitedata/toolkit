@@ -152,14 +152,7 @@ class InstanceSourceAPI:
 
 
 class InstanceSpaceRelocationSourceAPI:
-    """Lookup for instances that have been relocated to a new space as part of a migration (e.g. a location
-    split), tagged with the legacy space they were relocated from.
-
-    Never delete instances through this API: each shares its (space, externalId) identity with a real
-    migrated instance, so deleting it here deletes that instance entirely, including all data from every
-    other view attached to it. This API is read-only by design; tagging happens by adding this view's
-    ``sourceSpace`` property onto an instance's normal write, not through a separate create call here.
-    """
+    """Read-only lookup of instances tagged with the space they were relocated from. Do not delete through this view."""
 
     def __init__(self, instances_api: InstancesAPI) -> None:
         self._instances_api = instances_api
@@ -167,13 +160,6 @@ class InstanceSpaceRelocationSourceAPI:
         self._view_id = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 
     def retrieve(self, source_space: str, external_ids: SequenceNotStr[str]) -> list[InstanceSpaceRelocationSource]:
-        """Retrieve the current space of every instance that was relocated from ``source_space`` and whose
-        external ID is in ``external_ids``.
-
-        An external ID may resolve to more than one instance if it was relocated into multiple target
-        spaces (e.g. a CogniteSolutionTag referenced from multiple locations) -- callers that expect a
-        single target space per external ID should treat more than one result as a conflict.
-        """
         results: list[InstanceSpaceRelocationSource] = []
         for chunk in chunker_sequence(external_ids, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
             query_request = QueryRequest(

@@ -38,7 +38,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldObservationSapStatusMapping,
     InFieldUserMapping,
     InstanceIdMapper,
-    InstanceSpaceRelocationLookupCache,
     LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
@@ -81,8 +80,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
     COGNITE_SOLUTION_TAG_VIEW_ID,
-    build_app_data_target_by_root_asset,
-    build_source_data_target_by_root_asset,
+    build_target_by_root_asset,
     find_shared_legacy_instance_spaces,
     root_internal_id_to_target_space,
 )
@@ -1666,12 +1664,16 @@ class MigrateApp(typer.Typer):
         target_spaces: set[str]
         target_by_root_asset: dict[str, str] | None = None
         if source_space in shared_legacy_spaces:
-            target_by_root_asset = build_app_data_target_by_root_asset(
-                client, source_space=source_space, apm_configs=apm_configs, cdm_configs=infield_cdm_configs
+            target_by_root_asset = build_target_by_root_asset(
+                client,
+                source_space=source_space,
+                apm_configs=apm_configs,
+                cdm_configs=infield_cdm_configs,
+                target_kind="app_data",
             )
             instance_id_mapper = LocationSplitInstanceIdMapper(
+                client,
                 source_space,
-                InstanceSpaceRelocationLookupCache(client),
                 passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
             )
             target_spaces = set(target_by_root_asset.values())
@@ -1729,9 +1731,7 @@ class MigrateApp(typer.Typer):
             if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
                 solution_tag_mapping = mapping
                 if source_space in shared_legacy_spaces:
-                    # A CogniteSolutionTag is a shared resource that must be copied into every target space
-                    # of the split, not just one: migrated separately below, once per target space, instead
-                    # of through the main location-split mapper.
+                    # Copied into every target space separately below.
                     continue
             selectors.append(
                 InstanceViewSelector(
@@ -1807,9 +1807,7 @@ class MigrateApp(typer.Typer):
             )
         )
         if source_space in shared_legacy_spaces:
-            # A CogniteSolutionTag is a shared resource: rather than tracking which target space(s)
-            # actually reference a given tag, every tag is simply copied into every target space of the
-            # split, once per target space, using the plain (non-split) mapper and a fixed space mapping.
+            # Copy every tag into every target space rather than tracking which spaces reference which tags.
             solution_tag_selector = InstanceViewSelector(
                 view=SelectedView(
                     space=solution_tag_mapping.source_view.space,
@@ -1927,10 +1925,14 @@ class MigrateApp(typer.Typer):
         target_spaces: set[str]
         target_by_root_asset: dict[str, str] | None = None
         if source_space in shared_legacy_spaces:
-            target_by_root_asset = build_source_data_target_by_root_asset(
-                client, source_space=source_space, apm_configs=apm_configs, cdm_configs=infield_cdm_configs
+            target_by_root_asset = build_target_by_root_asset(
+                client,
+                source_space=source_space,
+                apm_configs=apm_configs,
+                cdm_configs=infield_cdm_configs,
+                target_kind="source_data",
             )
-            instance_id_mapper = LocationSplitInstanceIdMapper(source_space, InstanceSpaceRelocationLookupCache(client))
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, source_space)
             target_spaces = set(target_by_root_asset.values())
         else:
             if target_space is None:
@@ -1961,28 +1963,21 @@ class MigrateApp(typer.Typer):
                     )
                 custom_views[type_key] = view_id
         if custom_views:
-            # If a custom maintenanceOrder/operation/notification view is configured for the target space,
-            # migrate the corresponding APM_SourceData view into that one instead.
-            # This must run before the source view override below, since it keys off the original
-            # (hardcoded) APM_Activity/APM_Operation/APM_Notification source view external IDs.
-            updated_mappings: list[ViewToViewMapping] = []
+            # Custom maintenanceOrder/operation/notification views, keyed off the original APM source view IDs.
+            remapped: list[ViewToViewMapping] = []
             for mapping in mappings:
                 source_type_key = SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.get(mapping.source_view.external_id)
                 if source_type_key is not None and source_type_key in custom_views:
-                    updated_mappings.append(
-                        mapping.model_copy(update={"destination_view": custom_views[source_type_key]})
-                    )
-                else:
-                    updated_mappings.append(mapping)
-            mappings = updated_mappings
-        updated_source_mappings: list[ViewToViewMapping] = []
+                    mapping = mapping.model_copy(update={"destination_view": custom_views[source_type_key]})
+                remapped.append(mapping)
+            mappings = remapped
+        remapped_source: list[ViewToViewMapping] = []
         for mapping in mappings:
             source_entity = ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID.get(mapping.source_view.external_id)
             if source_entity is not None and source_entity in source_views:
-                updated_source_mappings.append(mapping.model_copy(update={"source_view": source_views[source_entity]}))
-            else:
-                updated_source_mappings.append(mapping)
-        mappings = updated_source_mappings
+                mapping = mapping.model_copy(update={"source_view": source_views[source_entity]})
+            remapped_source.append(mapping)
+        mappings = remapped_source
         selectors: list[InstanceViewSelector] = [
             InstanceViewSelector(
                 view=SelectedView(
@@ -2289,8 +2284,7 @@ class MigrateApp(typer.Typer):
     ) -> tuple[str, str | None, Path, bool, bool]:
         """Select/validate source (and optionally target) spaces for Infield data migrations.
 
-        When the chosen source space is shared by multiple root locations, ``--target-space`` is rejected
-        and interactive mode skips the target prompt — targets come from the location-split resolution.
+        Shared source spaces skip ``--target-space``; targets come from deployed location configs.
         """
         if source_space is None and target_space is None:
             source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))

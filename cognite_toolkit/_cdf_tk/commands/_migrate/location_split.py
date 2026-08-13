@@ -1,6 +1,5 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
-from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Literal
@@ -29,7 +28,6 @@ CHECKLIST_VIEW = ViewId(space=_APM_SPACE, external_id="Checklist", version="v7")
 OBSERVATION_VIEW = ViewId(space=_APM_SPACE, external_id="Observation", version="v5")
 TEMPLATE_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="TemplateItem", version="v7")
 CHECKLIST_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="ChecklistItem", version="v7")
-SCHEDULE_VIEW = ViewId(space=_APM_SPACE, external_id="Schedule", version="v4")
 CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalAction", version="v1")
 MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
 CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
@@ -48,16 +46,15 @@ REFERENCE_MEASUREMENTS_EDGE = EdgeTypeId(
     type=NodeId(space=_APM_SPACE, external_id="referenceMeasurements"), direction="inwards"
 )
 
-# App-data views resolved directly from their own ``rootLocation`` property.
+# Resolved from the node's own rootLocation.
 APP_DATA_ROOT_LOCATION_VIEWS = (TEMPLATE_VIEW, CHECKLIST_VIEW, OBSERVATION_VIEW)
-# App-data views resolved by inheriting the target space of a parent found via an inbound edge.
+# Inherit target space from a parent found via an inbound edge.
 APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
     TEMPLATE_ITEM_VIEW: REFERENCE_TEMPLATE_ITEMS_EDGE,
     CHECKLIST_ITEM_VIEW: REFERENCE_CHECKLIST_ITEMS_EDGE,
     MEASUREMENT_VIEW: REFERENCE_MEASUREMENTS_EDGE,
 }
-# App-data views resolved by inheriting the target space of a parent referenced via a direct relation
-# property on the node itself.
+# Inherit target space from a parent referenced by a direct-relation property.
 APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
     CONDITIONAL_ACTION_VIEW: "parentObject",
     CONDITION_VIEW: "conditionalAction",
@@ -124,43 +121,27 @@ def build_infield_instance_space_name(
     return fix_invalid_space_name(candidate)
 
 
-def build_app_data_target_by_root_asset(
+def build_target_by_root_asset(
     client: ToolkitClient,
     *,
     source_space: str,
     apm_configs: Sequence[APMConfigResponse],
     cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
+    target_kind: LocationSplitKind,
 ) -> dict[str, str]:
-    """Map classic root asset external ID -> CDM ``appInstanceSpace`` for locations using ``source_space``."""
+    """Map classic root asset external ID -> CDM target space for locations using ``source_space``."""
+    space_attr: Literal["app_data_instance_space", "source_data_instance_space"] = (
+        "app_data_instance_space" if target_kind == "app_data" else "source_data_instance_space"
+    )
     classic_root_assets = _classic_root_assets_for_legacy_space(
-        apm_configs, source_space=source_space, space_attr="app_data_instance_space"
+        apm_configs, source_space=source_space, space_attr=space_attr
     )
     return _target_spaces_for_root_assets(
         client,
         source_space=source_space,
         classic_root_assets=classic_root_assets,
         cdm_configs=cdm_configs,
-        target_kind="app_data",
-    )
-
-
-def build_source_data_target_by_root_asset(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    apm_configs: Sequence[APMConfigResponse],
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-) -> dict[str, str]:
-    """Map classic root asset external ID -> CDM source-data instance space for locations using ``source_space``."""
-    classic_root_assets = _classic_root_assets_for_legacy_space(
-        apm_configs, source_space=source_space, space_attr="source_data_instance_space"
-    )
-    return _target_spaces_for_root_assets(
-        client,
-        source_space=source_space,
-        classic_root_assets=classic_root_assets,
-        cdm_configs=cdm_configs,
-        target_kind="source_data",
+        target_kind=target_kind,
     )
 
 
@@ -212,8 +193,6 @@ def _target_spaces_for_root_assets(
             f"{space_kind} for any of them. Ensure 'cdf migrate infield-configs' has been run and at least one "
             "location config sharing this space has been deployed."
         )
-    # If two or more of the root locations that ARE deployed resolve to the same target space, that is a
-    # genuine misconfiguration (it defeats the purpose of splitting a shared space) and should fail loudly
     root_assets_by_target_space: dict[str, list[str]] = defaultdict(list)
     for classic_root_asset, target_space in target_by_root_asset.items():
         root_assets_by_target_space[target_space].append(classic_root_asset)
@@ -267,9 +246,7 @@ def _find_cdm_target_space(
 
 
 def root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
-    """Map classic root asset internal ID -> target space, for resolving instances that only carry a
-    classic asset reference (e.g. APM_SourceData Notifications), rather than a direct/edge lineage link.
-    """
+    """Map classic root asset internal ID -> target space."""
     root_assets = client.tool.assets.retrieve(
         ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
     )
@@ -281,31 +258,8 @@ def root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset
     return root_id_to_target
 
 
-class TargetSpaceResolver(ABC):
-    """Resolves target spaces for nodes of one view that need a resolution mechanism beyond a simple
-    ``rootLocation`` property, inbound edge, or direct-relation property to an already-migrated instance
-    (e.g. a lookup against classic Assets, as needed for APM_SourceData Notifications).
-    """
-
-    def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
-        """Optionally batch-prefetch data needed to resolve every node in a page, in as few round trips
-        as possible. The default implementation does nothing.
-        """
-
-    @abstractmethod
-    def resolve(self, node: NodeResponse) -> str:
-        raise NotImplementedError
-
-
-class AssetExternalIdTargetSpaceResolver(TargetSpaceResolver):
-    """Resolves a node's target space via a classic asset reference on the node itself (e.g. Notification's
-    ``assetExternalId``), by looking up that asset's root asset.
-
-    Root asset -> target space is already known upfront (``root_id_to_target_space``, derived from InField
-    location configs, not from a full instance pre-scan). Resolving a node's own asset reference to its root
-    asset is the only per-instance lookup needed, and it is batched per page via ``prepare_page`` rather than
-    issued once per node.
-    """
+class AssetExternalIdTargetSpaceResolver:
+    """Resolve target space from a classic asset reference on the node (e.g. Notification.assetExternalId)."""
 
     def __init__(
         self,
@@ -360,11 +314,6 @@ class AssetExternalIdTargetSpaceResolver(TargetSpaceResolver):
 def resolve_target_space_via_root_location(
     node: NodeResponse, view_id: ViewId, target_by_root_asset: Mapping[str, str]
 ) -> str:
-    """Resolve a node's target space directly from its own ``rootLocation`` property.
-
-    Used for the "tier 0" app-data/source-data views (Template, Checklist, Observation, Activity) that
-    carry a direct pointer to their root location, so no lineage lookup is needed.
-    """
     root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
     if root_location is None:
         raise InstanceMappingError(f"{node.as_id()} is missing rootLocation.", severity=Severity.failure)
@@ -384,12 +333,6 @@ def resolve_target_space_via_parent_edge(
     other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
     instance_id_mapper: LocationSplitInstanceIdMapper,
 ) -> str:
-    """Resolve a node's target space by inheriting it from a parent found via an inbound edge.
-
-    The parent's own target space must already be resolvable, either because it was migrated earlier in
-    this same run (registered in-memory), or because it was migrated in a previous run and is tagged in
-    the hidden relocation view.
-    """
     parents = other_side_by_edge_type_and_direction.get(parent_edge_type, [])
     if not parents:
         raise InstanceMappingError(
@@ -414,9 +357,6 @@ def resolve_target_space_via_parent_property(
     parent_property: str,
     instance_id_mapper: LocationSplitInstanceIdMapper,
 ) -> str:
-    """Resolve a node's target space by inheriting it from a parent referenced via a direct relation
-    property on the node itself (e.g. ``parentObject``, ``parentActivityId``).
-    """
     parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
     if parent_external_id is None:
         raise InstanceMappingError(f"{node.as_id()} is missing {parent_property}.", severity=Severity.failure)
@@ -434,14 +374,7 @@ def register_solution_tag_references(
     target_space: str,
     instance_id_mapper: LocationSplitInstanceIdMapper,
 ) -> None:
-    """Register every CogniteSolutionTag referenced by ``node`` (via ``solutionTags``, on whichever view
-    carries it) so that this node's own reference to it resolves to ``target_space``.
-
-    Every CogniteSolutionTag is migrated separately into every target space of a location split upfront
-    (see ``infield_data`` in ``_migrate_app.py``), so a tag is always present wherever it is referenced
-    from: this only needs to make the direct relation on this node itself resolve immediately when it is
-    mapped, not track which spaces actually reference it.
-    """
+    """Point this node's solutionTags at the copy of each tag in ``target_space``."""
     for external_id in _iter_solution_tag_external_ids(node):
         instance_id_mapper.register(external_id, target_space)
 
@@ -466,15 +399,7 @@ def _get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) ->
 
 
 def _as_external_id(value: Any) -> str | None:
-    """Extract the external ID referenced by a property value, handling both representations used here.
-
-    Some properties (e.g. ``rootLocation``, ``parentObject``) are genuine direct relations, which
-    come back from ``_get_view_property`` as a raw ``{"space": ..., "externalId": ...}`` dict --
-    pydantic keeps generic view properties as plain ``JsonValue``, it doesn't upgrade them to a
-    parsed ``NodeId``. Others (e.g. ``parentActivityId``, ``assetExternalId`` on the APM_SourceData
-    model) are plain text external-ID properties, not direct relations, so they come back as a
-    ``str`` directly.
-    """
+    """Direct relations are ``{space, externalId}`` dicts; some APM properties are plain strings."""
     if isinstance(value, str):
         return value
     if isinstance(value, dict):

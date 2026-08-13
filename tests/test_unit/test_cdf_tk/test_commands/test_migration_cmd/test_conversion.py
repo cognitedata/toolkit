@@ -58,7 +58,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldAssetMapping,
     InstanceMappingError,
-    InstanceSpaceRelocationLookupCache,
     LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
@@ -1895,40 +1894,9 @@ def _relocation_source(space: str, external_id: str, source_space: str) -> Insta
     )
 
 
-class TestInstanceSpaceRelocationLookupCache:
-    def test_caches_repeated_lookups(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.migration.instance_space_relocation_source.retrieve.return_value = [
-                _relocation_source("space_b", "node_a", "shared_source")
-            ]
-            cache = InstanceSpaceRelocationLookupCache(client)
-
-            first = cache.retrieve("shared_source", ["node_a"])
-            second = cache.retrieve("shared_source", ["node_a"])
-
-        assert [m.space for m in first] == ["space_b"]
-        assert [m.space for m in second] == ["space_b"]
-        client.migration.instance_space_relocation_source.retrieve.assert_called_once_with(
-            "shared_source", ["node_a"]
-        )
-
-    def test_evicts_oldest_entry_once_max_size_exceeded(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.migration.instance_space_relocation_source.retrieve.side_effect = (
-                lambda source_space, ids: [_relocation_source("space_b", external_id, source_space) for external_id in ids]
-            )
-            cache = InstanceSpaceRelocationLookupCache(client, max_size=1)
-
-            cache.retrieve("shared_source", ["node_a"])
-            cache.retrieve("shared_source", ["node_b"])
-            cache.retrieve("shared_source", ["node_a"])
-
-        assert client.migration.instance_space_relocation_source.retrieve.call_count == 3
-
-
 class TestLocationSplitInstanceIdMapper:
     def _mapper(self, client: ToolkitClient, source_space: str = "shared_source") -> LocationSplitInstanceIdMapper:
-        return LocationSplitInstanceIdMapper(source_space, InstanceSpaceRelocationLookupCache(client))
+        return LocationSplitInstanceIdMapper(client, source_space)
 
     def test_maps_registered_instance(self) -> None:
         with monkeypatch_toolkit_client() as client:
@@ -1964,21 +1932,14 @@ class TestLocationSplitInstanceIdMapper:
     def test_passthrough_space(self) -> None:
         with monkeypatch_toolkit_client() as client:
             mapper = LocationSplitInstanceIdMapper(
+                client,
                 "shared_source",
-                InstanceSpaceRelocationLookupCache(client),
                 passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
             )
 
             result = mapper.map_instance_id(NodeId(space="cognite_app_data", external_id="user1"))
 
         assert result == NodeId(space="cognite_app_data", external_id="user1")
-
-    def test_unexpected_space_raises_bug_in_toolkit(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._mapper(client)
-
-            with pytest.raises(RuntimeError, match="Bug in Toolkit"):
-                mapper.map_instance_id(NodeId(space="some_other_space", external_id="node_x"))
 
 
 class TestAssetCentricToRecord:

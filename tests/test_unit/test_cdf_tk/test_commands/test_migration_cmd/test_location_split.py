@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InstanceMappingError,
-    InstanceSpaceRelocationLookupCache,
     LocationSplitInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
@@ -56,7 +55,7 @@ def _node(view_id: ViewId, external_id: str, properties: dict, space: str = "sha
 def _instance_id_mapper() -> LocationSplitInstanceIdMapper:
     with monkeypatch_toolkit_client() as client:
         client.migration.instance_space_relocation_source.retrieve.return_value = []
-        return LocationSplitInstanceIdMapper("shared_app", InstanceSpaceRelocationLookupCache(client))
+        return LocationSplitInstanceIdMapper(client, "shared_app")
 
 
 class TestFindSharedLegacyInstanceSpaces:

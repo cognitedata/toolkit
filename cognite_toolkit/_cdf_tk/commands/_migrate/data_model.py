@@ -139,11 +139,7 @@ SPACE_SOURCE = ContainerRequest(
 INSTANCE_SPACE_RELOCATION_SOURCE = ContainerRequest(
     space=SPACE.space,
     external_id="InstanceSpaceRelocationSource",
-    description=(
-        "Internal Toolkit bookkeeping. Do NOT delete instances from this view: each instance shares its "
-        "(space, externalId) identity with a real migrated instance, so deleting it here deletes that "
-        "instance entirely, including all data from every other view attached to it."
-    ),
+    description=_NEVER_DELETE_WARNING,
     used_for="node",
     properties={
         "sourceSpace": ContainerPropertyDefinition(
@@ -281,8 +277,7 @@ CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW.as_id()
 
-# INSTANCE_SPACE_RELOCATION_SOURCE_VIEW is deliberately excluded from this list: it is deployed (see
-# VIEWS below and prepare.py) but must stay out of the documented migration model's view list.
+# Deployed via VIEWS but kept out of the documented CogniteMigration model.
 COGNITE_MIGRATION_MODEL = DataModelRequest(
     space=SPACE.space,
     external_id="CogniteMigration",

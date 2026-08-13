@@ -120,7 +120,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    TargetSpaceResolver,
+    AssetExternalIdTargetSpaceResolver,
     register_solution_tag_references,
     resolve_target_space_via_parent_edge,
     resolve_target_space_via_parent_property,
@@ -1785,22 +1785,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
 
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
-    """An ``FDMtoCDMMapper`` for a legacy instance space that is being split across multiple target spaces.
-
-    Every migrated node is:
-
-    1. Assigned a target space, resolved without a full pre-scan of the shared legacy space: either
-       directly from the node's own ``rootLocation`` property (for ``root_location_views``), or by
-       inheriting the target space of a parent found via an inbound edge (``parent_edge_by_view``) or a
-       direct-relation property on the node itself (``parent_property_by_view``). Parent lookups are
-       served by ``instance_id_mapper``, which resolves in-memory first and falls back to the hidden
-       InstanceSpaceRelocationSource view for parents migrated in a previous, possibly interrupted, run.
-    2. Tagged, on write, with its own legacy space in that same hidden view, so later tiers (in this run or
-       a future one) can resolve it as a parent without re-reading it.
-
-    Every source view migrated through this mapper must be covered by exactly one of
-    ``root_location_views``, ``parent_edge_by_view``, or ``parent_property_by_view``.
-    """
+    """FDMtoCDMMapper that assigns each node a per-location target space and tags it with its legacy space."""
 
     def __init__(
         self,
@@ -1812,7 +1797,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         root_location_views: Iterable[ViewId] = (),
         parent_edge_by_view: Mapping[ViewId, EdgeTypeId] | None = None,
         parent_property_by_view: Mapping[ViewId, str] | None = None,
-        custom_resolver_by_view: Mapping[ViewId, TargetSpaceResolver] | None = None,
+        custom_resolver_by_view: Mapping[ViewId, AssetExternalIdTargetSpaceResolver] | None = None,
         custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
         custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
         | None = None,
@@ -1863,40 +1848,26 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         node: NodeResponse,
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> str:
-        view_id = self._relevant_view_id(node)
-        if view_id in self._root_location_views:
-            return resolve_target_space_via_root_location(node, view_id, self._target_by_root_asset)
-        if (parent_edge := self._parent_edge_by_view.get(view_id)) is not None:
-            return resolve_target_space_via_parent_edge(
-                node, parent_edge, other_side_by_edge_type_and_direction, self._instance_id_mapper
-            )
-        if (parent_property := self._parent_property_by_view.get(view_id)) is not None:
-            return resolve_target_space_via_parent_property(node, view_id, parent_property, self._instance_id_mapper)
-        if (custom_resolver := self._custom_resolver_by_view.get(view_id)) is not None:
-            return custom_resolver.resolve(node)
+        properties = node.properties or {}
+        for view_id in self._root_location_views:
+            if view_id in properties:
+                return resolve_target_space_via_root_location(node, view_id, self._target_by_root_asset)
+        for view_id, parent_edge in self._parent_edge_by_view.items():
+            if view_id in properties:
+                return resolve_target_space_via_parent_edge(
+                    node, parent_edge, other_side_by_edge_type_and_direction, self._instance_id_mapper
+                )
+        for view_id, parent_property in self._parent_property_by_view.items():
+            if view_id in properties:
+                return resolve_target_space_via_parent_property(
+                    node, view_id, parent_property, self._instance_id_mapper
+                )
+        for view_id, resolver in self._custom_resolver_by_view.items():
+            if view_id in properties:
+                return resolver.resolve(node)
         raise RuntimeError(
-            f"Bug in Toolkit: no location-split resolver configured for view {view_id!s} on node {node.as_id()}. "
-            "Please report this as a bug."
+            f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}."
         )
-
-    def _relevant_view_id(self, node: NodeResponse) -> ViewId:
-        candidates = {
-            view_id
-            for view_id in (node.properties or {}).keys()
-            if isinstance(view_id, ViewId)
-            and (
-                view_id in self._root_location_views
-                or view_id in self._parent_edge_by_view
-                or view_id in self._parent_property_by_view
-                or view_id in self._custom_resolver_by_view
-            )
-        }
-        if len(candidates) != 1:
-            raise RuntimeError(
-                f"Bug in Toolkit: expected exactly one location-split-resolvable view on node {node.as_id()}, "
-                f"found {len(candidates)}. Please report this as a bug."
-            )
-        return next(iter(candidates))
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
@@ -1996,10 +1967,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
                 if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
-                    # Check mapping before grouping so an unresolved schedule is reported on its own,
-                    # rather than being grouped by content hash with resolvable duplicates. Otherwise,
-                    # a resolvable duplicate could be silently dropped alongside a broken one, or a
-                    # broken one could be silently hidden behind a resolvable one.
+                    # Fail unresolved schedules individually so they are not grouped with resolvable duplicates.
                     try:
                         self._connection_creator.map_instance(item.as_id())
                     except InstanceMappingError as error:
@@ -2173,13 +2141,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
 
 
 class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMapper):
-    """Resolves the location-split target space for a page of schedules, then tags every migrated
-    (deduplicated) schedule with its legacy space, mirroring ``LocationSplitFDMtoCDMMapper``.
-
-    Each page of the schedule selector is scoped to exactly one Template (see
-    ``create_infield_schedule_selector``), so the target space for every schedule on the page is simply
-    the already-resolved target space of that Template.
-    """
+    """Like the schedule mapper, but registers each schedule into the template's location-split target space."""
 
     def __init__(
         self,
