@@ -1787,6 +1787,17 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     yield node.as_id(), constraint_by_prop_id, source
 
 
+def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
+    sources = [
+        *(mapped_node.sources or []),
+        InstanceSource(
+            source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+            properties={"sourceSpace": source_space},
+        ),
+    ]
+    return mapped_node.model_copy(update={"sources": sources})
+
+
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
     """FDMtoCDMMapper that assigns each node a per-location target space and tags it with its legacy space.
 
@@ -1848,14 +1859,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         self._instance_id_mapper.register(node.external_id, target_space)
         register_solution_tag_references(node, target_space, self._instance_id_mapper)
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
-        sources = [
-            *(mapped_node.sources or []),
-            InstanceSource(
-                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
-                properties={"sourceSpace": node.space},
-            ),
-        ]
-        return mapped_node.model_copy(update={"sources": sources}), new_edges, issue
+        return _attach_relocation_source(mapped_node, node.space), new_edges, issue
 
     def _resolve_target_space(
         self,
@@ -1974,11 +1978,16 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     )
 
     def __init__(
-        self, client: ToolkitClient, connection_creator: ConnectionCreator, mapping: ViewToViewMapping
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        mapping: ViewToViewMapping,
+        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None,
     ) -> None:
         super().__init__(client)
         self._connection_creator = connection_creator
         self._mapping = mapping
+        self._location_split_id_mapper = location_split_id_mapper
         if self._mapping.source_view != self.SCHEDULE_VIEW:
             raise ValueError(
                 f"Invalid mapping for InFieldLegacyToCDMScheduleMapper. Expected source view {self.SCHEDULE_VIEW}, got {self._mapping.source_view}"
@@ -2026,6 +2035,10 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
+        if self._location_split_id_mapper is not None:
+            location_split_issue = self._register_location_split_schedules(source)
+            if location_split_issue is not None:
+                return {}, {}, {}, [location_split_issue]
         for item in source:
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
@@ -2070,6 +2083,36 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                         )
                     )
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
+
+    def _register_location_split_schedules(
+        self, source: Sequence[NodeOrEdgeResponse]
+    ) -> InstanceConversionIssue | None:
+        location_split_id_mapper = self._location_split_id_mapper
+        if location_split_id_mapper is None:
+            return None
+        template_node: NodeResponse | None = None
+        for item in source:
+            if isinstance(item, NodeResponse) and self.TEMPLATE_VIEW in (item.properties or {}):
+                template_node = item
+                break
+        if template_node is None:
+            return InstanceConversionIssue(
+                id="schedules-page",
+                errors=["Could not resolve target space for this page of schedules: expected a Template node."],
+            )
+        target_space = location_split_id_mapper.resolve_target_space(template_node.external_id)
+        if target_space is None:
+            return InstanceConversionIssue(
+                id="schedules-page",
+                errors=[
+                    f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
+                    "the Template has not been resolved to a target space."
+                ],
+            )
+        for item in source:
+            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
+                location_split_id_mapper.register(item.external_id, target_space)
+        return None
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:
         relevant_properties: dict[str, Any] = {}
@@ -2125,11 +2168,14 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         issue.errors.extend(special_properties.errors)
         created_properties.update(special_properties.container_properties)
 
-        return NodeRequest(
+        mapped_item = NodeRequest(
             space=new_id.space,
             external_id=new_id.external_id,
             sources=[InstanceSource(source=self._mapping.destination_view, properties=created_properties)],
-        ), issue
+        )
+        if self._location_split_id_mapper is not None:
+            mapped_item = _attach_relocation_source(mapped_item, first.space)
+        return mapped_item, issue
 
     def _find_schedule_edges(
         self,
@@ -2201,89 +2247,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
-
-
-class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMapper):
-    """Like the schedule mapper, but registers each schedule into the template's location-split target space."""
-
-    def __init__(
-        self,
-        client: ToolkitClient,
-        connection_creator: ConnectionCreator,
-        mapping: ViewToViewMapping,
-        instance_id_mapper: LocationSplitInstanceIdMapper,
-    ) -> None:
-        super().__init__(client, connection_creator, mapping)
-        self._instance_id_mapper = instance_id_mapper
-
-    def _as_schedules_and_edges(
-        self, source: Sequence[NodeOrEdgeResponse]
-    ) -> tuple[
-        dict[str, list[NodeResponse]],
-        dict[NodeId, list[EdgeOtherSide]],
-        dict[NodeId, list[EdgeOtherSide]],
-        list[InstanceConversionIssue],
-    ]:
-        template_node = next(
-            (
-                item
-                for item in source
-                if isinstance(item, NodeResponse) and self.TEMPLATE_VIEW in (item.properties or {})
-            ),
-            None,
-        )
-        if template_node is None:
-            return (
-                {},
-                {},
-                {},
-                [
-                    InstanceConversionIssue(
-                        id="schedules-page",
-                        errors=["Could not resolve target space for this page of schedules: expected a Template node."],
-                    )
-                ],
-            )
-        target_space = self._instance_id_mapper.resolve_target_space(template_node.external_id)
-        if target_space is None:
-            return (
-                {},
-                {},
-                {},
-                [
-                    InstanceConversionIssue(
-                        id="schedules-page",
-                        errors=[
-                            f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
-                            "the Template has not been resolved to a target space."
-                        ],
-                    )
-                ],
-            )
-        for item in source:
-            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
-                self._instance_id_mapper.register(item.external_id, target_space)
-        return super()._as_schedules_and_edges(source)
-
-    def _create_single_schedule(
-        self,
-        duplicated_schedules: list[NodeResponse],
-        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
-        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
-    ) -> tuple[NodeOrEdgeRequest | None, InstanceConversionIssue]:
-        mapped_item, issue = super()._create_single_schedule(
-            duplicated_schedules, template_edges_by_item_id, template_item_edges_by_schedule_id
-        )
-        if mapped_item is None or not isinstance(mapped_item, NodeRequest):
-            return mapped_item, issue
-        sources = [
-            *(mapped_item.sources or []),
-            InstanceSource(
-                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
-                properties={"sourceSpace": duplicated_schedules[0].space},
-            ),
-        ]
-        return mapped_item.model_copy(update={"sources": sources}), issue
 
 
 class Image360FDMtoCDMMapper(FDMtoCDMMapper):

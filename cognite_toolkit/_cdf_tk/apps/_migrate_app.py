@@ -58,7 +58,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     LocationSplitFDMtoCDMMapper,
-    LocationSplitInFieldLegacyToCDMScheduleMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
@@ -1737,6 +1736,9 @@ class MigrateApp(typer.Typer):
             InFieldObservationSapStatusMapping(),
         ]
         mapper: FDMtoCDMMapper
+        schedule_mapper = InFieldLegacyToCDMScheduleMapper(
+            client, connection_creator, schedule_mapping, location_split_id_mapper
+        )
         if location_split_id_mapper is not None:
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
@@ -1745,11 +1747,7 @@ class MigrateApp(typer.Typer):
                 location_split_id_mapper,
                 target_by_root_asset,
                 custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings={
-                    InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: LocationSplitInFieldLegacyToCDMScheduleMapper(
-                        client, connection_creator, schedule_mapping, location_split_id_mapper
-                    ),
-                },
+                custom_instance_mappings={InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: schedule_mapper},
             )
         else:
             mapper = FDMtoCDMMapper(
@@ -1757,11 +1755,7 @@ class MigrateApp(typer.Typer):
                 infield_mappings,
                 connection_creator=connection_creator,
                 custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings={
-                    InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
-                        client, connection_creator, schedule_mapping
-                    )
-                },
+                custom_instance_mappings={InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: schedule_mapper},
             )
         cmd.run(
             lambda: cmd.migrate(
