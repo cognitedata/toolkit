@@ -291,6 +291,26 @@ class TestPurgeInstances:
         )
         assert result.deleted == 2000
 
+    @pytest.mark.parametrize(
+        "external_id",
+        [
+            pytest.param("InstanceSource", id="InstanceSource"),
+            pytest.param("InstanceSpaceRelocationSource", id="InstanceSpaceRelocationSource"),
+        ],
+    )
+    def test_blocks_denied_views(
+        self,
+        external_id: str,
+        purge_client: ToolkitClient,
+        tmp_path: Path,
+    ) -> None:
+        cmd = PurgeCommand(silent=True)
+        selector = InstanceViewSelector(
+            view=SelectedView(space="cognite_migration", external_id=external_id, version="v1")
+        )
+        with pytest.raises(ToolkitValueError, match="Cannot purge instances through"):
+            cmd.instances(purge_client, selector, log_dir=tmp_path)
+
 
 class TestPurgeSpace:
     @pytest.mark.usefixtures("disable_gzip")
