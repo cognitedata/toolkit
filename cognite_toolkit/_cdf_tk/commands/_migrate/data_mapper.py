@@ -87,10 +87,17 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldUserMapping,
     InstanceMappingError,
+    LocationSplitInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
     convert_edges,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    TargetSpaceResolver,
+    resolve_target_space_via_parent_edge,
+    resolve_target_space_via_parent_property,
+    resolve_target_space_via_root_location,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Image360AnnotationItem,
@@ -1777,10 +1784,19 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
     """An ``FDMtoCDMMapper`` for a legacy instance space that is being split across multiple target spaces.
 
-    In addition to the base mapping, every migrated node is tagged, on write, with its legacy space in the
-    hidden InstanceSpaceRelocationSource view. A later migration step looks up this tag to resolve which
-    target space a legacy instance ended up in, without having to re-read millions of instances just to
-    answer that question.
+    Every migrated node is:
+
+    1. Assigned a target space, resolved without a full pre-scan of the shared legacy space: either
+       directly from the node's own ``rootLocation`` property (for ``root_location_views``), or by
+       inheriting the target space of a parent found via an inbound edge (``parent_edge_by_view``) or a
+       direct-relation property on the node itself (``parent_property_by_view``). Parent lookups are
+       served by ``instance_id_mapper``, which resolves in-memory first and falls back to the hidden
+       InstanceSpaceRelocationSource view for parents migrated in a previous, possibly interrupted, run.
+    2. Tagged, on write, with its own legacy space in that same hidden view, so later tiers (in this run or
+       a future one) can resolve it as a parent without re-reading it.
+
+    Every source view migrated through this mapper must be covered by exactly one of
+    ``root_location_views``, ``parent_edge_by_view``, or ``parent_property_by_view``.
     """
 
     def __init__(
@@ -1788,7 +1804,12 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         client: ToolkitClient,
         mappings: Sequence[ViewToViewMapping],
         connection_creator: ConnectionCreator,
-        relocation_source_space: str,
+        instance_id_mapper: LocationSplitInstanceIdMapper,
+        target_by_root_asset: Mapping[str, str],
+        root_location_views: Iterable[ViewId] = (),
+        parent_edge_by_view: Mapping[ViewId, EdgeTypeId] | None = None,
+        parent_property_by_view: Mapping[ViewId, str] | None = None,
+        custom_resolver_by_view: Mapping[ViewId, TargetSpaceResolver] | None = None,
         custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
         custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
         | None = None,
@@ -1800,22 +1821,78 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             custom_properties_mappings=custom_properties_mappings,
             custom_instance_mappings=custom_instance_mappings,
         )
-        self._relocation_source_space = relocation_source_space
+        self._instance_id_mapper = instance_id_mapper
+        self._target_by_root_asset = target_by_root_asset
+        self._root_location_views = frozenset(root_location_views)
+        self._parent_edge_by_view = dict(parent_edge_by_view or {})
+        self._parent_property_by_view = dict(parent_property_by_view or {})
+        self._custom_resolver_by_view = dict(custom_resolver_by_view or {})
+
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        if self._custom_resolver_by_view:
+            nodes = [data_item.item for data_item in source if isinstance(data_item.item, NodeResponse)]
+            for view_id, resolver in self._custom_resolver_by_view.items():
+                matching_nodes = [node for node in nodes if view_id in (node.properties or {})]
+                if matching_nodes:
+                    resolver.prepare_page(matching_nodes)
+        return super().map(source)
 
     def _map_single_node(
         self,
         node: NodeResponse,
         other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
+        target_space = self._resolve_target_space(node, other_side_by_edge_type_and_direction)
+        self._instance_id_mapper.register(node.external_id, target_space)
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
         sources = [
             *(mapped_node.sources or []),
             InstanceSource(
                 source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
-                properties={"sourceSpace": self._relocation_source_space},
+                properties={"sourceSpace": node.space},
             ),
         ]
         return mapped_node.model_copy(update={"sources": sources}), new_edges, issue
+
+    def _resolve_target_space(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
+    ) -> str:
+        view_id = self._relevant_view_id(node)
+        if view_id in self._root_location_views:
+            return resolve_target_space_via_root_location(node, view_id, self._target_by_root_asset)
+        if (parent_edge := self._parent_edge_by_view.get(view_id)) is not None:
+            return resolve_target_space_via_parent_edge(
+                node, parent_edge, other_side_by_edge_type_and_direction, self._instance_id_mapper
+            )
+        if (parent_property := self._parent_property_by_view.get(view_id)) is not None:
+            return resolve_target_space_via_parent_property(node, view_id, parent_property, self._instance_id_mapper)
+        if (custom_resolver := self._custom_resolver_by_view.get(view_id)) is not None:
+            return custom_resolver.resolve(node)
+        raise RuntimeError(
+            f"Bug in Toolkit: no location-split resolver configured for view {view_id!s} on node {node.as_id()}. "
+            "Please report this as a bug."
+        )
+
+    def _relevant_view_id(self, node: NodeResponse) -> ViewId:
+        candidates = {
+            view_id
+            for view_id in (node.properties or {}).keys()
+            if isinstance(view_id, ViewId)
+            and (
+                view_id in self._root_location_views
+                or view_id in self._parent_edge_by_view
+                or view_id in self._parent_property_by_view
+                or view_id in self._custom_resolver_by_view
+            )
+        }
+        if len(candidates) != 1:
+            raise RuntimeError(
+                f"Bug in Toolkit: expected exactly one location-split-resolvable view on node {node.as_id()}, "
+                f"found {len(candidates)}. Please report this as a bug."
+            )
+        return next(iter(candidates))
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
@@ -2089,6 +2166,86 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMapper):
+    """Resolves the location-split target space for a page of schedules, then tags every migrated
+    (deduplicated) schedule with its legacy space, mirroring ``LocationSplitFDMtoCDMMapper``.
+
+    Each page of the schedule selector is scoped to exactly one Template (see
+    ``create_infield_schedule_selector``), so the target space for every schedule on the page is simply
+    the already-resolved target space of that Template.
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        mapping: ViewToViewMapping,
+        instance_id_mapper: LocationSplitInstanceIdMapper,
+    ) -> None:
+        super().__init__(client, connection_creator, mapping)
+        self._instance_id_mapper = instance_id_mapper
+
+    def _as_schedules_and_edges(
+        self, source: Sequence[NodeOrEdgeResponse]
+    ) -> tuple[
+        dict[str, list[NodeResponse]],
+        dict[NodeId, list[EdgeOtherSide]],
+        dict[NodeId, list[EdgeOtherSide]],
+        list[InstanceConversionIssue],
+    ]:
+        try:
+            target_space = self._resolve_page_target_space(source)
+        except InstanceMappingError as error:
+            return {}, {}, {}, [InstanceConversionIssue(id="schedules-page", errors=[str(error)])]
+        for item in source:
+            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
+                self._instance_id_mapper.register(item.external_id, target_space)
+        return super()._as_schedules_and_edges(source)
+
+    def _resolve_page_target_space(self, source: Sequence[NodeOrEdgeResponse]) -> str:
+        template_node = next(
+            (
+                item
+                for item in source
+                if isinstance(item, NodeResponse) and self.TEMPLATE_VIEW in (item.properties or {})
+            ),
+            None,
+        )
+        if template_node is None:
+            raise InstanceMappingError(
+                "Could not resolve target space for this page of schedules: expected exactly one Template node.",
+                severity=Severity.failure,
+            )
+        target_space = self._instance_id_mapper.resolve_target_space(template_node.external_id)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"Could not resolve target space for schedules under Template {template_node.as_id()}: the "
+                "Template has not been resolved to a target space.",
+                severity=Severity.failure,
+            )
+        return target_space
+
+    def _create_single_schedule(
+        self,
+        duplicated_schedules: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> tuple[NodeOrEdgeRequest | None, InstanceConversionIssue]:
+        mapped_item, issue = super()._create_single_schedule(
+            duplicated_schedules, template_edges_by_item_id, template_item_edges_by_schedule_id
+        )
+        if mapped_item is None or not isinstance(mapped_item, NodeRequest):
+            return mapped_item, issue
+        sources = [
+            *(mapped_item.sources or []),
+            InstanceSource(
+                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+                properties={"sourceSpace": duplicated_schedules[0].space},
+            ),
+        ]
+        return mapped_item.model_copy(update={"sources": sources}), issue
 
 
 class Image360FDMtoCDMMapper(FDMtoCDMMapper):

@@ -1,18 +1,22 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
-from collections import OrderedDict, defaultdict
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ExternalId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSpaceRelocationSource
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    EdgeOtherSide,
+    InstanceMappingError,
+    LocationSplitInstanceIdMapper,
+)
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
@@ -20,107 +24,44 @@ CDM_SPACE_SUFFIX = "_cdm"
 CFG_SPACE_SUFFIX = "_cfg"
 
 _APM_SPACE = "cdf_apm"
-_TEMPLATE_VIEW = ViewId(space=_APM_SPACE, external_id="Template", version="v8")
-_CHECKLIST_VIEW = ViewId(space=_APM_SPACE, external_id="Checklist", version="v7")
-_OBSERVATION_VIEW = ViewId(space=_APM_SPACE, external_id="Observation", version="v5")
-_TEMPLATE_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="TemplateItem", version="v7")
-_CHECKLIST_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="ChecklistItem", version="v7")
-_SCHEDULE_VIEW = ViewId(space=_APM_SPACE, external_id="Schedule", version="v4")
-_CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalAction", version="v1")
-_MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
-_CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
-_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
+TEMPLATE_VIEW = ViewId(space=_APM_SPACE, external_id="Template", version="v8")
+CHECKLIST_VIEW = ViewId(space=_APM_SPACE, external_id="Checklist", version="v7")
+OBSERVATION_VIEW = ViewId(space=_APM_SPACE, external_id="Observation", version="v5")
+TEMPLATE_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="TemplateItem", version="v7")
+CHECKLIST_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="ChecklistItem", version="v7")
+SCHEDULE_VIEW = ViewId(space=_APM_SPACE, external_id="Schedule", version="v4")
+CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalAction", version="v1")
+MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
+CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
+ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
 
-_REFERENCE_TEMPLATE_ITEMS = "referenceTemplateItems"
-_REFERENCE_CHECKLIST_ITEMS = "referenceChecklistItems"
-_REFERENCE_SCHEDULES = "referenceSchedules"
-_REFERENCE_MEASUREMENTS = "referenceMeasurements"
+REFERENCE_TEMPLATE_ITEMS_EDGE = EdgeTypeId(
+    type=NodeId(space=_APM_SPACE, external_id="referenceTemplateItems"), direction="inwards"
+)
+REFERENCE_CHECKLIST_ITEMS_EDGE = EdgeTypeId(
+    type=NodeId(space=_APM_SPACE, external_id="referenceChecklistItems"), direction="inwards"
+)
+REFERENCE_MEASUREMENTS_EDGE = EdgeTypeId(
+    type=NodeId(space=_APM_SPACE, external_id="referenceMeasurements"), direction="inwards"
+)
+
+# App-data views resolved directly from their own ``rootLocation`` property.
+APP_DATA_ROOT_LOCATION_VIEWS = (TEMPLATE_VIEW, CHECKLIST_VIEW, OBSERVATION_VIEW)
+# App-data views resolved by inheriting the target space of a parent found via an inbound edge.
+APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
+    TEMPLATE_ITEM_VIEW: REFERENCE_TEMPLATE_ITEMS_EDGE,
+    CHECKLIST_ITEM_VIEW: REFERENCE_CHECKLIST_ITEMS_EDGE,
+    MEASUREMENT_VIEW: REFERENCE_MEASUREMENTS_EDGE,
+}
+# App-data views resolved by inheriting the target space of a parent referenced via a direct relation
+# property on the node itself.
+APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
+    CONDITIONAL_ACTION_VIEW: "parentObject",
+    CONDITION_VIEW: "conditionalAction",
+    ACTION_VIEW: "conditionalActions",
+}
 
 LocationSplitKind = Literal["app_data", "source_data"]
-
-
-@dataclass
-class LocationSplitAssignment:
-    external_id: str
-    view_external_id: str
-    target_space: str
-
-
-@dataclass
-class LocationSplitOrphan:
-    external_id: str
-    view_external_id: str
-    reason: str
-
-
-@dataclass
-class LocationSplitResolution:
-    assignments: list[LocationSplitAssignment] = field(default_factory=list)
-    orphans: list[LocationSplitOrphan] = field(default_factory=list)
-
-    @property
-    def target_space_by_external_id(self) -> dict[str, str]:
-        return {assignment.external_id: assignment.target_space for assignment in self.assignments}
-
-    @property
-    def target_spaces(self) -> set[str]:
-        return {assignment.target_space for assignment in self.assignments}
-
-    @property
-    def orphan_reason_by_external_id(self) -> dict[str, str]:
-        return {orphan.external_id: orphan.reason for orphan in self.orphans}
-
-
-_DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE = 200_000
-
-
-class InstanceSpaceRelocationLookupCache:
-    """Bounded, FIFO-evicted client-side cache in front of ``client.migration.instance_space_relocation_source``.
-
-    A location split can touch millions of instances, so results are cached per ``(source_space,
-    external_id)`` to avoid re-querying the hidden InstanceSpaceRelocationSource view for instances already
-    resolved earlier in the same run. Once ``max_size`` entries are cached, the oldest ones are evicted
-    first, so memory use stays bounded regardless of how many instances are processed.
-    """
-
-    def __init__(self, client: ToolkitClient, max_size: int = _DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE) -> None:
-        self._client = client
-        self._max_size = max_size
-        self._cache: OrderedDict[tuple[str, str], list[InstanceSpaceRelocationSource]] = OrderedDict()
-
-    def retrieve(self, source_space: str, external_ids: Iterable[str]) -> list[InstanceSpaceRelocationSource]:
-        """Resolve ``(source_space, external_id)`` pairs, using and populating the cache as needed.
-
-        An external ID may resolve to zero, one, or more instances (an instance can be relocated into
-        multiple target spaces, e.g. a CogniteSolutionTag referenced from multiple locations).
-        """
-        distinct_ids = list(dict.fromkeys(external_ids))
-        results: list[InstanceSpaceRelocationSource] = []
-        to_fetch: list[str] = []
-        for external_id in distinct_ids:
-            key = (source_space, external_id)
-            if key in self._cache:
-                results.extend(self._cache[key])
-            else:
-                to_fetch.append(external_id)
-        if not to_fetch:
-            return results
-
-        fetched_by_external_id: dict[str, list[InstanceSpaceRelocationSource]] = defaultdict(list)
-        for relocated in self._client.migration.instance_space_relocation_source.retrieve(source_space, to_fetch):
-            fetched_by_external_id[relocated.external_id].append(relocated)
-
-        for external_id in to_fetch:
-            matches = fetched_by_external_id.get(external_id, [])
-            self._set(source_space, external_id, matches)
-            results.extend(matches)
-        return results
-
-    def _set(self, source_space: str, external_id: str, matches: list[InstanceSpaceRelocationSource]) -> None:
-        key = (source_space, external_id)
-        self._cache[key] = matches
-        if len(self._cache) > self._max_size:
-            self._cache.popitem(last=False)
 
 
 def find_shared_legacy_instance_spaces(apm_configs: Sequence[APMConfigResponse]) -> set[str]:
@@ -178,44 +119,6 @@ def build_infield_instance_space_name(
     else:
         candidate = f"{legacy_space}{suffix}"
     return fix_invalid_space_name(candidate)
-
-
-def resolve_app_data_location_split(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    apm_configs: Sequence[APMConfigResponse],
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-) -> LocationSplitResolution:
-    """Resolve per-instance target spaces for shared ``appDataInstanceSpace`` app data."""
-    target_by_root_asset = build_app_data_target_by_root_asset(
-        client, source_space=source_space, apm_configs=apm_configs, cdm_configs=cdm_configs
-    )
-    return _resolve_app_data_cascade(client, source_space=source_space, target_by_root_asset=target_by_root_asset)
-
-
-def resolve_source_data_location_split(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    apm_configs: Sequence[APMConfigResponse],
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-    activity_view: ViewId,
-    operation_view: ViewId,
-    notification_view: ViewId,
-) -> LocationSplitResolution:
-    """Resolve per-instance target spaces for shared ``sourceDataInstanceSpace`` source data."""
-    target_by_root_asset = build_source_data_target_by_root_asset(
-        client, source_space=source_space, apm_configs=apm_configs, cdm_configs=cdm_configs
-    )
-    return _resolve_source_data_cascade(
-        client,
-        source_space=source_space,
-        target_by_root_asset=target_by_root_asset,
-        activity_view=activity_view,
-        operation_view=operation_view,
-        notification_view=notification_view,
-    )
 
 
 def build_app_data_target_by_root_asset(
@@ -360,306 +263,10 @@ def _find_cdm_target_space(
     return get_first_instance_space(config.data_filters, "maintenanceOrder")
 
 
-def _resolve_app_data_cascade(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    target_by_root_asset: Mapping[str, str],
-) -> LocationSplitResolution:
-    resolution = LocationSplitResolution()
-    target_by_external_id: dict[str, str] = {}
-
-    for view_id in (_TEMPLATE_VIEW, _CHECKLIST_VIEW, _OBSERVATION_VIEW):
-        _resolve_tier0_root_location_nodes(
-            client,
-            source_space=source_space,
-            view_id=view_id,
-            target_by_root_asset=target_by_root_asset,
-            target_by_external_id=target_by_external_id,
-            resolution=resolution,
-        )
-
-    for edge_type_external_id, child_view_id in (
-        (_REFERENCE_TEMPLATE_ITEMS, _TEMPLATE_ITEM_VIEW),
-        (_REFERENCE_CHECKLIST_ITEMS, _CHECKLIST_ITEM_VIEW),
-        (_REFERENCE_SCHEDULES, _SCHEDULE_VIEW),
-    ):
-        _resolve_children_via_outbound_edges(
-            client,
-            source_space=source_space,
-            edge_type_external_id=edge_type_external_id,
-            child_view_id=child_view_id,
-            target_by_external_id=target_by_external_id,
-            resolution=resolution,
-        )
-
-    _resolve_measurements_via_inbound_edges(
-        client,
-        source_space=source_space,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-
-    for view_id, parent_property in (
-        (_CONDITIONAL_ACTION_VIEW, "parentObject"),
-        (_CONDITION_VIEW, "conditionalAction"),
-        (_ACTION_VIEW, "conditionalActions"),
-    ):
-        _resolve_via_parent_direct_relation(
-            client,
-            source_space=source_space,
-            view_id=view_id,
-            parent_property=parent_property,
-            target_by_external_id=target_by_external_id,
-            resolution=resolution,
-        )
-    return resolution
-
-
-def _resolve_source_data_cascade(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    target_by_root_asset: Mapping[str, str],
-    activity_view: ViewId,
-    operation_view: ViewId,
-    notification_view: ViewId,
-) -> LocationSplitResolution:
-    resolution = LocationSplitResolution()
-    target_by_external_id: dict[str, str] = {}
-
-    _resolve_tier0_root_location_nodes(
-        client,
-        source_space=source_space,
-        view_id=activity_view,
-        target_by_root_asset=target_by_root_asset,
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-    _resolve_via_parent_direct_relation(
-        client,
-        source_space=source_space,
-        view_id=operation_view,
-        parent_property="parentActivityId",
-        target_by_external_id=target_by_external_id,
-        resolution=resolution,
-    )
-
-    root_id_to_target = _root_internal_id_to_target_space(client, target_by_root_asset)
-    notification_nodes = _list_nodes(client, notification_view, source_space)
-    asset_external_ids = {
-        asset_external_id
-        for node in notification_nodes
-        if (asset_external_id := _as_external_id(_get_view_property(node, notification_view, "assetExternalId")))
-        is not None
-    }
-    asset_by_external_id = {
-        asset.external_id: asset
-        for asset in client.tool.assets.retrieve(
-            ExternalId.from_external_ids(asset_external_ids), ignore_unknown_ids=True
-        )
-        if asset.external_id is not None
-    }
-    for node in notification_nodes:
-        asset_external_id = _as_external_id(_get_view_property(node, notification_view, "assetExternalId"))
-        if asset_external_id is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=notification_view.external_id,
-                    reason="missing assetExternalId",
-                )
-            )
-            continue
-        asset = asset_by_external_id.get(asset_external_id)
-        if asset is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=notification_view.external_id,
-                    reason=f"asset {asset_external_id!r} not found",
-                )
-            )
-            continue
-        target_space = root_id_to_target.get(asset.root_id)
-        if target_space is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=notification_view.external_id,
-                    reason=f"asset {asset_external_id!r} root_id does not match a location sharing this source space",
-                )
-            )
-            continue
-        _assign(resolution, target_by_external_id, node.external_id, notification_view.external_id, target_space)
-
-    return resolution
-
-
-def _resolve_tier0_root_location_nodes(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    view_id: ViewId,
-    target_by_root_asset: Mapping[str, str],
-    target_by_external_id: dict[str, str],
-    resolution: LocationSplitResolution,
-) -> None:
-    for node in _list_nodes(client, view_id, source_space):
-        root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
-        if root_location is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=view_id.external_id,
-                    reason="missing rootLocation",
-                )
-            )
-            continue
-        target_space = target_by_root_asset.get(root_location)
-        if target_space is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=view_id.external_id,
-                    reason=f"rootLocation {root_location!r} does not match a location sharing this source space",
-                )
-            )
-            continue
-        _assign(resolution, target_by_external_id, node.external_id, view_id.external_id, target_space)
-
-
-def _resolve_children_via_outbound_edges(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    edge_type_external_id: str,
-    child_view_id: ViewId,
-    target_by_external_id: dict[str, str],
-    resolution: LocationSplitResolution,
-) -> None:
-    child_external_ids = {node.external_id for node in _list_nodes(client, child_view_id, source_space)}
-    parent_by_child: dict[str, list[str]] = defaultdict(list)
-    for edge in _list_edges(client, source_space=source_space, edge_type_external_id=edge_type_external_id):
-        child_external_id = edge.end_node.external_id
-        if child_external_id not in child_external_ids:
-            continue
-        parent_by_child[child_external_id].append(edge.start_node.external_id)
-
-    for child_external_id in sorted(child_external_ids):
-        parents = parent_by_child.get(child_external_id, [])
-        if not parents:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=child_external_id,
-                    view_external_id=child_view_id.external_id,
-                    reason=f"missing inbound {edge_type_external_id} edge to a resolved parent",
-                )
-            )
-            continue
-        parent_spaces = {target_by_external_id[parent] for parent in parents if parent in target_by_external_id}
-        if len(parent_spaces) != 1:
-            unresolved_parents = [parent for parent in parents if parent not in target_by_external_id]
-            if unresolved_parents and not parent_spaces:
-                reason = f"parent(s) {', '.join(unresolved_parents)} were not resolved"
-            else:
-                reason = f"conflicting parent target spaces via {edge_type_external_id}"
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=child_external_id,
-                    view_external_id=child_view_id.external_id,
-                    reason=reason,
-                )
-            )
-            continue
-        _assign(
-            resolution,
-            target_by_external_id,
-            child_external_id,
-            child_view_id.external_id,
-            next(iter(parent_spaces)),
-        )
-
-
-def _resolve_measurements_via_inbound_edges(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    target_by_external_id: dict[str, str],
-    resolution: LocationSplitResolution,
-) -> None:
-    measurement_external_ids = {node.external_id for node in _list_nodes(client, _MEASUREMENT_VIEW, source_space)}
-    parents_by_measurement: dict[str, list[str]] = defaultdict(list)
-    for edge in _list_edges(client, source_space=source_space, edge_type_external_id=_REFERENCE_MEASUREMENTS):
-        measurement_external_id = edge.end_node.external_id
-        if measurement_external_id not in measurement_external_ids:
-            continue
-        parents_by_measurement[measurement_external_id].append(edge.start_node.external_id)
-
-    for measurement_external_id in sorted(measurement_external_ids):
-        parents = parents_by_measurement.get(measurement_external_id, [])
-        if not parents:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=measurement_external_id,
-                    view_external_id=_MEASUREMENT_VIEW.external_id,
-                    reason="missing inbound referenceMeasurements edge",
-                )
-            )
-            continue
-        parent_spaces = {target_by_external_id[parent] for parent in parents if parent in target_by_external_id}
-        if len(parents) != 1 or len(parent_spaces) != 1:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=measurement_external_id,
-                    view_external_id=_MEASUREMENT_VIEW.external_id,
-                    reason="conflicting or unresolved inbound referenceMeasurements edges",
-                )
-            )
-            continue
-        _assign(
-            resolution,
-            target_by_external_id,
-            measurement_external_id,
-            _MEASUREMENT_VIEW.external_id,
-            next(iter(parent_spaces)),
-        )
-
-
-def _resolve_via_parent_direct_relation(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    view_id: ViewId,
-    parent_property: str,
-    target_by_external_id: dict[str, str],
-    resolution: LocationSplitResolution,
-) -> None:
-    for node in _list_nodes(client, view_id, source_space):
-        parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
-        if parent_external_id is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=view_id.external_id,
-                    reason=f"missing {parent_property}",
-                )
-            )
-            continue
-        target_space = target_by_external_id.get(parent_external_id)
-        if target_space is None:
-            resolution.orphans.append(
-                LocationSplitOrphan(
-                    external_id=node.external_id,
-                    view_external_id=view_id.external_id,
-                    reason=f"parent {parent_external_id!r} via {parent_property} was not resolved",
-                )
-            )
-            continue
-        _assign(resolution, target_by_external_id, node.external_id, view_id.external_id, target_space)
-
-
-def _root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
+def root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
+    """Map classic root asset internal ID -> target space, for resolving instances that only carry a
+    classic asset reference (e.g. APM_SourceData Notifications), rather than a direct/edge lineage link.
+    """
     root_assets = client.tool.assets.retrieve(
         ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
     )
@@ -671,35 +278,152 @@ def _root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asse
     return root_id_to_target
 
 
-def _list_nodes(client: ToolkitClient, view_id: ViewId, source_space: str) -> list[NodeResponse]:
-    items = client.tool.instances.list(
-        InstanceFilter(instance_type="node", source=view_id, space=[source_space]),
-        limit=None,
-        endpoint="query",
-    )
-    return [item for item in items if isinstance(item, NodeResponse)]
+class TargetSpaceResolver(ABC):
+    """Resolves target spaces for nodes of one view that need a resolution mechanism beyond a simple
+    ``rootLocation`` property, inbound edge, or direct-relation property to an already-migrated instance
+    (e.g. a lookup against classic Assets, as needed for APM_SourceData Notifications).
+    """
+
+    def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
+        """Optionally batch-prefetch data needed to resolve every node in a page, in as few round trips
+        as possible. The default implementation does nothing.
+        """
+
+    @abstractmethod
+    def resolve(self, node: NodeResponse) -> str:
+        raise NotImplementedError
 
 
-def _list_edges(client: ToolkitClient, *, source_space: str, edge_type_external_id: str) -> list[EdgeResponse]:
-    items = client.tool.instances.list(
-        InstanceFilter(
-            instance_type="edge",
-            filter={
-                "and": [
-                    {"equals": {"property": ["edge", "space"], "value": source_space}},
-                    {
-                        "equals": {
-                            "property": ["edge", "type"],
-                            "value": {"space": _APM_SPACE, "externalId": edge_type_external_id},
-                        }
-                    },
-                ]
-            },
-        ),
-        limit=None,
-        endpoint="query",
-    )
-    return [item for item in items if isinstance(item, EdgeResponse)]
+class AssetExternalIdTargetSpaceResolver(TargetSpaceResolver):
+    """Resolves a node's target space via a classic asset reference on the node itself (e.g. Notification's
+    ``assetExternalId``), by looking up that asset's root asset.
+
+    Root asset -> target space is already known upfront (``root_id_to_target_space``, derived from InField
+    location configs, not from a full instance pre-scan). Resolving a node's own asset reference to its root
+    asset is the only per-instance lookup needed, and it is batched per page via ``prepare_page`` rather than
+    issued once per node.
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        view_id: ViewId,
+        property_id: str,
+        root_id_to_target_space: Mapping[int, str],
+    ) -> None:
+        self._client = client
+        self._view_id = view_id
+        self._property_id = property_id
+        self._root_id_to_target_space = root_id_to_target_space
+        self._root_id_by_asset_external_id: dict[str, int | None] = {}
+
+    def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
+        asset_external_ids = {
+            asset_external_id
+            for node in nodes
+            if (asset_external_id := _as_external_id(_get_view_property(node, self._view_id, self._property_id)))
+            is not None
+            and asset_external_id not in self._root_id_by_asset_external_id
+        }
+        if not asset_external_ids:
+            return
+        assets = self._client.tool.assets.retrieve(
+            ExternalId.from_external_ids(asset_external_ids), ignore_unknown_ids=True
+        )
+        found_by_external_id = {asset.external_id: asset.root_id for asset in assets if asset.external_id is not None}
+        for asset_external_id in asset_external_ids:
+            self._root_id_by_asset_external_id[asset_external_id] = found_by_external_id.get(asset_external_id)
+
+    def resolve(self, node: NodeResponse) -> str:
+        asset_external_id = _as_external_id(_get_view_property(node, self._view_id, self._property_id))
+        if asset_external_id is None:
+            raise InstanceMappingError(f"{node.as_id()} is missing {self._property_id}.", severity=Severity.failure)
+        root_id = self._root_id_by_asset_external_id.get(asset_external_id)
+        if root_id is None:
+            raise InstanceMappingError(
+                f"{node.as_id()}: asset {asset_external_id!r} referenced via {self._property_id} was not found.",
+                severity=Severity.failure,
+            )
+        target_space = self._root_id_to_target_space.get(root_id)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"{node.as_id()}: asset {asset_external_id!r} root asset does not match a location sharing this "
+                "source space.",
+                severity=Severity.failure,
+            )
+        return target_space
+
+
+def resolve_target_space_via_root_location(
+    node: NodeResponse, view_id: ViewId, target_by_root_asset: Mapping[str, str]
+) -> str:
+    """Resolve a node's target space directly from its own ``rootLocation`` property.
+
+    Used for the "tier 0" app-data/source-data views (Template, Checklist, Observation, Activity) that
+    carry a direct pointer to their root location, so no lineage lookup is needed.
+    """
+    root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
+    if root_location is None:
+        raise InstanceMappingError(f"{node.as_id()} is missing rootLocation.", severity=Severity.failure)
+    target_space = target_by_root_asset.get(root_location)
+    if target_space is None:
+        raise InstanceMappingError(
+            f"{node.as_id()} has rootLocation {root_location!r}, which does not match a location sharing this "
+            "legacy instance space.",
+            severity=Severity.failure,
+        )
+    return target_space
+
+
+def resolve_target_space_via_parent_edge(
+    node: NodeResponse,
+    parent_edge_type: EdgeTypeId,
+    other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
+    instance_id_mapper: LocationSplitInstanceIdMapper,
+) -> str:
+    """Resolve a node's target space by inheriting it from a parent found via an inbound edge.
+
+    The parent's own target space must already be resolvable, either because it was migrated earlier in
+    this same run (registered in-memory), or because it was migrated in a previous run and is tagged in
+    the hidden relocation view.
+    """
+    parents = other_side_by_edge_type_and_direction.get(parent_edge_type, [])
+    if not parents:
+        raise InstanceMappingError(
+            f"{node.as_id()} has no inbound {parent_edge_type!s} edge to a parent.", severity=Severity.failure
+        )
+    target_spaces = {
+        target_space
+        for parent in parents
+        if (target_space := instance_id_mapper.resolve_target_space(parent.other_side.external_id)) is not None
+    }
+    if len(target_spaces) != 1:
+        reason = "unresolved" if not target_spaces else "disagree on target space"
+        raise InstanceMappingError(
+            f"{node.as_id()}: parent(s) via {parent_edge_type!s} are {reason}.", severity=Severity.failure
+        )
+    return next(iter(target_spaces))
+
+
+def resolve_target_space_via_parent_property(
+    node: NodeResponse,
+    view_id: ViewId,
+    parent_property: str,
+    instance_id_mapper: LocationSplitInstanceIdMapper,
+) -> str:
+    """Resolve a node's target space by inheriting it from a parent referenced via a direct relation
+    property on the node itself (e.g. ``parentObject``, ``parentActivityId``).
+    """
+    parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
+    if parent_external_id is None:
+        raise InstanceMappingError(f"{node.as_id()} is missing {parent_property}.", severity=Severity.failure)
+    target_space = instance_id_mapper.resolve_target_space(parent_external_id)
+    if target_space is None:
+        raise InstanceMappingError(
+            f"{node.as_id()}: parent {parent_external_id!r} via {parent_property} is unresolved.",
+            severity=Severity.failure,
+        )
+    return target_space
 
 
 def _get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) -> Any:
@@ -725,16 +449,3 @@ def _as_external_id(value: Any) -> str | None:
         external_id = value.get("externalId")
         return external_id if isinstance(external_id, str) else None
     return None
-
-
-def _assign(
-    resolution: LocationSplitResolution,
-    target_by_external_id: dict[str, str],
-    external_id: str,
-    view_external_id: str,
-    target_space: str,
-) -> None:
-    target_by_external_id[external_id] = target_space
-    resolution.assignments.append(
-        LocationSplitAssignment(external_id=external_id, view_external_id=view_external_id, target_space=target_space)
-    )

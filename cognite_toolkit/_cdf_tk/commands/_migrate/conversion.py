@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -43,7 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, InstanceSpaceRelocationSource
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
@@ -608,35 +609,114 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
         return list({self._space_mapping[space] for space in source_spaces if space in self._space_mapping})
 
 
+_DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE = 200_000
+
+
+class InstanceSpaceRelocationLookupCache:
+    """Bounded, FIFO-evicted client-side cache in front of ``client.migration.instance_space_relocation_source``.
+
+    A location split can touch millions of instances, so results are cached per ``(source_space,
+    external_id)`` to avoid re-querying the hidden InstanceSpaceRelocationSource view for instances already
+    resolved earlier in the same run. Once ``max_size`` entries are cached, the oldest ones are evicted
+    first, so memory use stays bounded regardless of how many instances are processed.
+    """
+
+    def __init__(self, client: ToolkitClient, max_size: int = _DEFAULT_RELOCATION_LOOKUP_CACHE_SIZE) -> None:
+        self._client = client
+        self._max_size = max_size
+        self._cache: OrderedDict[tuple[str, str], list[InstanceSpaceRelocationSource]] = OrderedDict()
+
+    def retrieve(self, source_space: str, external_ids: Iterable[str]) -> list[InstanceSpaceRelocationSource]:
+        """Resolve ``(source_space, external_id)`` pairs, using and populating the cache as needed.
+
+        An external ID may resolve to zero, one, or more instances (an instance can be relocated into
+        multiple target spaces, e.g. a CogniteSolutionTag referenced from multiple locations).
+        """
+        distinct_ids = list(dict.fromkeys(external_ids))
+        results: list[InstanceSpaceRelocationSource] = []
+        to_fetch: list[str] = []
+        for external_id in distinct_ids:
+            key = (source_space, external_id)
+            if key in self._cache:
+                results.extend(self._cache[key])
+            else:
+                to_fetch.append(external_id)
+        if not to_fetch:
+            return results
+
+        fetched_by_external_id: dict[str, list[InstanceSpaceRelocationSource]] = defaultdict(list)
+        for relocated in self._client.migration.instance_space_relocation_source.retrieve(source_space, to_fetch):
+            fetched_by_external_id[relocated.external_id].append(relocated)
+
+        for external_id in to_fetch:
+            matches = fetched_by_external_id.get(external_id, [])
+            self._set(source_space, external_id, matches)
+            results.extend(matches)
+        return results
+
+    def _set(self, source_space: str, external_id: str, matches: list[InstanceSpaceRelocationSource]) -> None:
+        key = (source_space, external_id)
+        self._cache[key] = matches
+        if len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
+
+
 class LocationSplitInstanceIdMapper(InstanceIdMapper):
     """Maps instances from a shared legacy source space to per-location CDM spaces.
 
-    Instances in ``source_space`` are looked up in ``target_space_by_external_id``. Unresolved instances
-    are reported as failures. Spaces listed in ``passthrough_space_mapping`` (e.g. ``cognite_app_data``)
-    keep a fixed 1:1 mapping so cross-space direct relations continue to resolve.
+    Unlike ``SpaceMappingInstanceIdMapper``, the target space for a given external ID is not known
+    upfront: resolving it would require pre-scanning every instance in the shared space, which does not
+    scale to millions of instances. Instead, the target space is resolved lazily, one lineage at a time:
+
+    - Callers that already know an instance's target space (e.g. because it was just resolved from its own
+      ``rootLocation`` property, or from its parent's already-resolved target space) call ``register()``
+      before that instance is mapped.
+    - ``resolve_target_space()``/``map_instance_id()`` first check this in-memory registry. On a miss, they
+      fall back to ``relocation_lookup``, the hidden InstanceSpaceRelocationSource view: this covers
+      instances that were already migrated in an earlier, possibly interrupted, run of this same command,
+      without having to re-derive their lineage.
+
+    Spaces listed in ``passthrough_space_mapping`` (e.g. ``cognite_app_data``) keep a fixed 1:1 mapping so
+    cross-space direct relations continue to resolve.
     """
 
     def __init__(
         self,
         source_space: str,
-        target_space_by_external_id: Mapping[str, str],
+        relocation_lookup: InstanceSpaceRelocationLookupCache,
         passthrough_space_mapping: Mapping[str, str] | None = None,
-        orphan_reason_by_external_id: Mapping[str, str] | None = None,
     ) -> None:
         self._source_space = source_space
-        self._target_space_by_external_id = target_space_by_external_id
+        self._relocation_lookup = relocation_lookup
         self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
-        self._orphan_reason_by_external_id = orphan_reason_by_external_id or {}
+        self._target_space_by_external_id: dict[str, str] = {}
+
+    def register(self, external_id: str, target_space: str) -> None:
+        """Record that ``external_id`` (in ``source_space``) has been resolved to ``target_space``."""
+        self._target_space_by_external_id[external_id] = target_space
+
+    def resolve_target_space(self, external_id: str) -> str | None:
+        """Resolve the target space of an already-registered or already-migrated instance.
+
+        Returns ``None`` if the instance has neither been registered this run, nor found in the hidden
+        relocation view (e.g. because it has not been migrated yet, or does not exist).
+        """
+        if (target_space := self._target_space_by_external_id.get(external_id)) is not None:
+            return target_space
+        matches = self._relocation_lookup.retrieve(self._source_space, [external_id])
+        if len(matches) == 1:
+            target_space = matches[0].space
+            self.register(external_id, target_space)
+            return target_space
+        return None
 
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         if instance_id.space == self._source_space:
-            target_space = self._target_space_by_external_id.get(instance_id.external_id)
+            target_space = self.resolve_target_space(instance_id.external_id)
             if target_space is None:
-                reason = self._orphan_reason_by_external_id.get(
-                    instance_id.external_id, "is not linked to any root location"
-                )
                 raise InstanceMappingError(
-                    f"Instance {instance_id} could not be assigned to a target space: {reason}.",
+                    f"Instance {instance_id} could not be assigned to a target space: it has not been resolved "
+                    "to a location (directly, or through its lineage) sharing this legacy instance space.",
                     severity=Severity.failure,
                 )
             return NodeId(space=target_space, external_id=instance_id.external_id)

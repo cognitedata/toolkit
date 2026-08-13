@@ -1,24 +1,34 @@
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+import pytest
+
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, EdgeTypeId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
     FeatureConfiguration,
     RootLocationConfiguration,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    EdgeOtherSide,
+    InstanceMappingError,
+    InstanceSpaceRelocationLookupCache,
+    LocationSplitInstanceIdMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     CDM_SPACE_SUFFIX,
     CFG_SPACE_SUFFIX,
     build_infield_instance_space_name,
     find_shared_legacy_instance_spaces,
-    resolve_app_data_location_split,
+    resolve_target_space_via_parent_edge,
+    resolve_target_space_via_parent_property,
+    resolve_target_space_via_root_location,
 )
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
 _TEMPLATE_VIEW = ViewId(space="cdf_apm", external_id="Template", version="v8")
 _TEMPLATE_ITEM_VIEW = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
+_CONDITIONAL_ACTION_VIEW = ViewId(space="cdf_apm", external_id="ConditionalAction", version="v1")
+_PARENT_EDGE = EdgeTypeId(type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"), direction="inwards")
 
 
 def _apm_config(*roots: RootLocationConfiguration) -> APMConfigResponse:
@@ -32,62 +42,21 @@ def _apm_config(*roots: RootLocationConfiguration) -> APMConfigResponse:
     )
 
 
-def _lookup_assets_by_external_id(external_id: str) -> NodeId:
-    return NodeId(space="asset_space", external_id=external_id)
+def _node(view_id: ViewId, external_id: str, properties: dict, space: str = "shared_app") -> NodeResponse:
+    return NodeResponse(
+        space=space,
+        external_id=external_id,
+        version=1,
+        created_time=0,
+        last_updated_time=0,
+        properties={view_id: properties},
+    )
 
 
-def _list_app_data_split_instances(
-    filter: InstanceFilter, limit: int | None = None, endpoint: str = "query"
-) -> list[NodeResponse | EdgeResponse]:
-    source_space = "shared_app"
-    source = filter.source
-    if source == _TEMPLATE_VIEW:
-        return [
-            NodeResponse(
-                space=source_space,
-                external_id="template_a",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                properties={_TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}}},
-            ),
-            NodeResponse(
-                space=source_space,
-                external_id="template_orphan",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                properties={_TEMPLATE_VIEW: {}},
-            ),
-        ]
-    if source == _TEMPLATE_ITEM_VIEW:
-        return [
-            NodeResponse(
-                space=source_space,
-                external_id="item_a",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                properties={_TEMPLATE_ITEM_VIEW: {}},
-            )
-        ]
-    if filter.instance_type == "edge" and filter.filter is not None:
-        filter_dump = str(filter.filter)
-        if "referenceTemplateItems" not in filter_dump:
-            return []
-        return [
-            EdgeResponse(
-                space=source_space,
-                external_id="edge_a",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
-                start_node=NodeId(space=source_space, external_id="template_a"),
-                end_node=NodeId(space=source_space, external_id="item_a"),
-            )
-        ]
-    return []
+def _instance_id_mapper() -> LocationSplitInstanceIdMapper:
+    with monkeypatch_toolkit_client() as client:
+        client.migration.instance_space_relocation_source.retrieve.return_value = []
+        return LocationSplitInstanceIdMapper("shared_app", InstanceSpaceRelocationLookupCache(client))
 
 
 class TestFindSharedLegacyInstanceSpaces:
@@ -190,62 +159,90 @@ class TestBuildInfieldInstanceSpaceName:
         assert len(result) <= 43
 
 
-class TestResolveAppDataCascade:
-    def test_resolves_template_item_via_edge_and_orphans_missing_root(self) -> None:
-        source_space = "shared_app"
-        apm_configs = [
-            _apm_config(
-                RootLocationConfiguration(
-                    external_id="loc1",
-                    asset_external_id="ROOT_A",
-                    app_data_instance_space=source_space,
-                    source_data_instance_space="shared_source",
-                ),
-                RootLocationConfiguration(
-                    external_id="loc2",
-                    asset_external_id="ROOT_B",
-                    app_data_instance_space=source_space,
-                    source_data_instance_space="shared_source",
-                ),
-            )
-        ]
-        cdm_configs = [
-            InFieldCDMLocationConfigResponse(
-                space="cfg",
-                external_id="loc1",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                data_storage=DataStorage(
-                    root_location={"space": "asset_space", "externalId": "ROOT_A"},
-                    app_instance_space="shared_app_ROOT_A_cdm",
-                ),
-            ),
-            InFieldCDMLocationConfigResponse(
-                space="cfg",
-                external_id="loc2",
-                version=1,
-                created_time=0,
-                last_updated_time=0,
-                data_storage=DataStorage(
-                    root_location={"space": "asset_space", "externalId": "ROOT_B"},
-                    app_instance_space="shared_app_ROOT_B_cdm",
-                ),
-            ),
-        ]
+class TestResolveTargetSpaceViaRootLocation:
+    def test_resolves_matching_root_location(self) -> None:
+        node = _node(_TEMPLATE_VIEW, "template_a", {"rootLocation": {"space": "x", "externalId": "ROOT_A"}})
 
-        with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.side_effect = _lookup_assets_by_external_id
-            client.tool.instances.list.side_effect = _list_app_data_split_instances
-            resolution = resolve_app_data_location_split(
-                client,
-                source_space=source_space,
-                apm_configs=apm_configs,
-                cdm_configs=cdm_configs,
-            )
+        target_space = resolve_target_space_via_root_location(node, _TEMPLATE_VIEW, {"ROOT_A": "shared_app_ROOT_A"})
 
-        assert resolution.target_space_by_external_id == {
-            "template_a": "shared_app_ROOT_A_cdm",
-            "item_a": "shared_app_ROOT_A_cdm",
+        assert target_space == "shared_app_ROOT_A"
+
+    def test_missing_root_location_raises(self) -> None:
+        node = _node(_TEMPLATE_VIEW, "template_orphan", {})
+
+        with pytest.raises(InstanceMappingError, match="missing rootLocation") as exc_info:
+            resolve_target_space_via_root_location(node, _TEMPLATE_VIEW, {"ROOT_A": "shared_app_ROOT_A"})
+        assert exc_info.value.severity.name == "failure"
+
+    def test_unmatched_root_location_raises(self) -> None:
+        node = _node(_TEMPLATE_VIEW, "template_a", {"rootLocation": {"space": "x", "externalId": "ROOT_UNKNOWN"}})
+
+        with pytest.raises(InstanceMappingError, match="does not match a location"):
+            resolve_target_space_via_root_location(node, _TEMPLATE_VIEW, {"ROOT_A": "shared_app_ROOT_A"})
+
+
+class TestResolveTargetSpaceViaParentEdge:
+    def test_resolves_via_registered_parent(self) -> None:
+        node = _node(_TEMPLATE_ITEM_VIEW, "item_a", {})
+        instance_id_mapper = _instance_id_mapper()
+        instance_id_mapper.register("template_a", "shared_app_ROOT_A")
+        other_side_by_edge_type = {
+            _PARENT_EDGE: [
+                EdgeOtherSide(
+                    edge_id=EdgeId(space="shared_app", external_id="edge_a"),
+                    other_side=NodeId(space="shared_app", external_id="template_a"),
+                )
+            ]
         }
-        assert any(orphan.external_id == "template_orphan" for orphan in resolution.orphans)
+
+        target_space = resolve_target_space_via_parent_edge(
+            node, _PARENT_EDGE, other_side_by_edge_type, instance_id_mapper
+        )
+
+        assert target_space == "shared_app_ROOT_A"
+
+    def test_no_parent_edge_raises(self) -> None:
+        node = _node(_TEMPLATE_ITEM_VIEW, "item_orphan", {})
+        instance_id_mapper = _instance_id_mapper()
+
+        with pytest.raises(InstanceMappingError, match="no inbound"):
+            resolve_target_space_via_parent_edge(node, _PARENT_EDGE, {}, instance_id_mapper)
+
+    def test_unresolved_parent_raises(self) -> None:
+        node = _node(_TEMPLATE_ITEM_VIEW, "item_a", {})
+        instance_id_mapper = _instance_id_mapper()
+        other_side_by_edge_type = {
+            _PARENT_EDGE: [
+                EdgeOtherSide(
+                    edge_id=EdgeId(space="shared_app", external_id="edge_a"),
+                    other_side=NodeId(space="shared_app", external_id="template_unresolved"),
+                )
+            ]
+        }
+
+        with pytest.raises(InstanceMappingError, match="unresolved"):
+            resolve_target_space_via_parent_edge(node, _PARENT_EDGE, other_side_by_edge_type, instance_id_mapper)
+
+
+class TestResolveTargetSpaceViaParentProperty:
+    def test_resolves_via_registered_parent(self) -> None:
+        node = _node(
+            _CONDITIONAL_ACTION_VIEW, "action_a", {"parentObject": {"space": "shared_app", "externalId": "item_a"}}
+        )
+        instance_id_mapper = _instance_id_mapper()
+        instance_id_mapper.register("item_a", "shared_app_ROOT_A")
+
+        target_space = resolve_target_space_via_parent_property(
+            node, _CONDITIONAL_ACTION_VIEW, "parentObject", instance_id_mapper
+        )
+
+        assert target_space == "shared_app_ROOT_A"
+
+    def test_missing_parent_property_raises(self) -> None:
+        node = _node(_CONDITIONAL_ACTION_VIEW, "action_orphan", {})
+        instance_id_mapper = _instance_id_mapper()
+
+        with pytest.raises(InstanceMappingError, match="is missing parentObject"):
+            resolve_target_space_via_parent_property(
+                node, _CONDITIONAL_ACTION_VIEW, "parentObject", instance_id_mapper
+            )

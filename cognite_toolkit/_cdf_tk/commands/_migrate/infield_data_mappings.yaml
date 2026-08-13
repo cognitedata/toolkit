@@ -1,5 +1,11 @@
 # The mapping definitions are topological ordered based on the container constraints of the
 # destination views. This is to ensure that data can be uploaded without violating any constraints.
+#
+# In addition, within the shared "cdf_apm" legacy instance space (the group of mappings below
+# InFieldCogniteSolutionTagMapping), the order also reflects the location-split resolution lineage:
+# each view's target space is resolved (without a full pre-scan) either from its own rootLocation, or
+# by inheriting the target space of an already-resolved parent. Views must therefore come after every
+# view they depend on for that resolution.
 - externalId: InFieldCogniteSolutionTagMapping
   sourceView:
     space: cdf_apps_shared
@@ -13,15 +19,30 @@
     type: view
   mapIdenticalIdProperties: true
   containerMapping: {}
-- externalId: InFieldConditionalActionMapping
+- externalId: InFieldTemplateMapping
   sourceView:
     space: cdf_apm
-    externalId: ConditionalAction
-    version: v1
+    externalId: Template
+    version: v8
     type: view
   destinationView:
     space: cdf_infield
-    externalId: ConditionalAction
+    externalId: Template
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  containerMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+- externalId: InFieldChecklistMapping
+  sourceView:
+    space: cdf_apm
+    externalId: Checklist
+    version: v7
+    type: view
+  destinationView:
+    space: cdf_infield
+    externalId: Checklist
     version: v1
     type: view
   mapIdenticalIdProperties: true
@@ -59,21 +80,41 @@
     - sourceCreatedTime
     - isArchived
     - solutionTags
-- externalId: InFieldChecklistMapping
+- externalId: InFieldTemplateItemMapping
   sourceView:
     space: cdf_apm
-    externalId: Checklist
+    externalId: TemplateItem
     version: v7
     type: view
   destinationView:
     space: cdf_infield
-    externalId: Checklist
+    externalId: TemplateItem
     version: v1
     type: view
   mapIdenticalIdProperties: true
   containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+  edgeMapping:
+    cdf_apm:referenceTemplateItems(direction=inwards): template
+- externalId: InFieldChecklistItemMapping
+  sourceView:
+    space: cdf_apm
+    externalId: ChecklistItem
+    version: v7
+    type: view
+  destinationView:
+    space: cdf_infield
+    externalId: ChecklistItem
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  containerMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+  edgeMapping:
+    cdf_apm:referenceChecklistItems(direction=inwards): checklist
+    cdf_apm:referenceObservations(direction=outwards): observations
 - externalId: InFieldMeasurementReadingMapping
   sourceView:
     space: cdf_apm
@@ -91,30 +132,15 @@
     node.lastUpdatedTime: sourceUpdatedTime
   edgeMapping:
     cdf_apm:referenceMeasurements(direction=inwards): item
-- externalId: InFieldTemplateMapping
+- externalId: InFieldConditionalActionMapping
   sourceView:
     space: cdf_apm
-    externalId: Template
-    version: v8
-    type: view
-  destinationView:
-    space: cdf_infield
-    externalId: Template
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  containerMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-- externalId: InFieldActionMapping
-  sourceView:
-    space: cdf_apm
-    externalId: Action
+    externalId: ConditionalAction
     version: v1
     type: view
   destinationView:
     space: cdf_infield
-    externalId: Action
+    externalId: ConditionalAction
     version: v1
     type: view
   mapIdenticalIdProperties: true
@@ -136,41 +162,21 @@
   containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-- externalId: InFieldChecklistItemMapping
+- externalId: InFieldActionMapping
   sourceView:
     space: cdf_apm
-    externalId: ChecklistItem
-    version: v7
+    externalId: Action
+    version: v1
     type: view
   destinationView:
     space: cdf_infield
-    externalId: ChecklistItem
+    externalId: Action
     version: v1
     type: view
   mapIdenticalIdProperties: true
   containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  edgeMapping:
-    cdf_apm:referenceChecklistItems(direction=inwards): checklist
-    cdf_apm:referenceObservations(direction=outwards): observations
-- externalId: InFieldTemplateItemMapping
-  sourceView:
-    space: cdf_apm
-    externalId: TemplateItem
-    version: v7
-    type: view
-  destinationView:
-    space: cdf_infield
-    externalId: TemplateItem
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  containerMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-  edgeMapping:
-    cdf_apm:referenceTemplateItems(direction=inwards): template
 - externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
