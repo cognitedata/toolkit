@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
-    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -127,7 +126,6 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 "template": QueryNodeExpression(
                     limit=1,
                     nodes=QueryNodeTableExpression(filter=template_filter),
-                    sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
                 ),
                 "templateEdges": QueryEdgeExpression(
                     limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
