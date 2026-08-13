@@ -224,16 +224,14 @@ class TestDumpTransformations:
         assert external_data_list == [external_source]
 
     def test_dump_transformations_ext_onelake_flag_off(self) -> None:
-        transformation, external_source = _onelake_transformation_and_source()
         with monkeypatch_toolkit_client() as client:
             finder = TransformationFinder(client, ("transformationA",))
-            client.tool.transformations.retrieve.return_value = [transformation]
             client.tool.transformations.schedules.retrieve.return_value = []
-            client.tool.transformations.external_data_sources.list.return_value = [external_source]
 
             batches = list(finder)
 
         assert all(not isinstance(loader, ExternalDataSourceIO) for _, _, loader, _ in batches)
+        client.tool.transformations.external_data_sources.list.assert_not_called()
 
 
 @pytest.fixture()

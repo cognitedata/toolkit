@@ -356,23 +356,24 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_loader(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
-        transformations = (
-            [t for t in self.transformations if t.external_id in self.identifier]
-            if self.transformations
-            else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
-        )
-        source_ids = {
-            source_id
-            for transformation in transformations
-            if transformation.query
-            for source_id in get_ext_onelake_source_ids(transformation.query)
-        }
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and source_ids:
-            external_data_loader = ExternalDataSourceIO.create_loader(self.client)
-            external_data_list = external_data_loader.retrieve(
-                [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+            transformations = (
+                [t for t in self.transformations if t.external_id in self.identifier]
+                if self.transformations
+                else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
             )
-            yield [], external_data_list, external_data_loader, None
+            source_ids = {
+                source_id
+                for transformation in transformations
+                if transformation.query
+                for source_id in get_ext_onelake_source_ids(transformation.query)
+            }
+            if source_ids:
+                external_data_loader = ExternalDataSourceIO.create_loader(self.client)
+                external_data_list = external_data_loader.retrieve(
+                    [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
+                )
+                yield [], external_data_list, external_data_loader, None
         notification_loader = TransformationNotificationIO.create_loader(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
