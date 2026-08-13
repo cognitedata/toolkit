@@ -134,6 +134,23 @@ class TestExternalDataSourceResourceClasses:
         )
         assert request.as_id() == ExternalId(external_id="fabric-lakehouse-prod")
 
+    def test_response_default_format(self) -> None:
+        response = ExternalDataSourceResponse(
+            external_id="fabric-lakehouse-prod",
+            created_time=1,
+            last_updated_time=1,
+        )
+        assert response.format == "one_lake"
+
+    def test_response_rejects_invalid_format(self) -> None:
+        with pytest.raises(ValidationError):
+            ExternalDataSourceResponse(
+                external_id="fabric-lakehouse-prod",
+                format="invalid",
+                created_time=1,
+                last_updated_time=1,
+            )
+
     def test_response_as_id(self) -> None:
         response = ExternalDataSourceResponse(
             external_id="fabric-lakehouse-prod",

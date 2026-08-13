@@ -14,7 +14,7 @@ class ViewToViewMapping(BaseModelObject):
         "you can achieve the same by including the properties in the property_mapping with identical "
         " and destination IDs.",
     )
-    container_mapping: dict[str, str] = Field(
+    container_mapping: dict[str, str | list[str]] = Field(
         description="Mapping from property Ids in the source view to property Ids in the destination view."
     )
     edge_mapping: dict[EdgeTypeId, str] | None = Field(
@@ -26,11 +26,15 @@ class ViewToViewMapping(BaseModelObject):
         "These are silently dropped during conversion instead of producing an unmapped-property warning.",
     )
 
-    def get_destination_property(self, source_property: str) -> str | None:
-        dest_prop_id = self.container_mapping.get(source_property)
-        if not dest_prop_id and self.map_identical_id_properties:
-            return source_property
-        return dest_prop_id
+    def get_destination_properties(self, source_property: str) -> list[str]:
+        dest_prop_ids = self.container_mapping.get(source_property)
+        if dest_prop_ids is None:
+            if self.map_identical_id_properties:
+                return [source_property]
+            return []
+        if isinstance(dest_prop_ids, str):
+            return [dest_prop_ids]
+        return dest_prop_ids
 
     @field_serializer("edge_mapping", mode="plain")
     def serialize_edge_mapping(self, edge_mapping: dict[EdgeTypeId, str] | None) -> dict[str, str] | None:

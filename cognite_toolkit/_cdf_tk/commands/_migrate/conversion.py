@@ -1452,10 +1452,9 @@ def convert_container_properties(
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
-        dest_prop_id = context.mapping.get_destination_property(source_prop_id)
-        if not dest_prop_id or (
-            dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
-        ):
+        dest_prop_ids = context.mapping.get_destination_properties(source_prop_id)
+        is_explicit_mapping = source_prop_id in context.mapping.container_mapping
+        if not is_explicit_mapping and (not dest_prop_ids or dest_prop_ids[0] not in context.destination_properties):
             # We do not warn about the node properties, as they are typically ignored, nor about
             # source properties that are explicitly marked as intentionally unmapped.
             if (
@@ -1464,56 +1463,61 @@ def convert_container_properties(
             ):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
-        if dest_prop_id not in context.destination_properties:
-            errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
-            continue
 
-        dm_prop = context.destination_properties[dest_prop_id]
-        if isinstance(dm_prop, EdgeProperty):
-            try:
-                created_edges, issues = context.connection_creator.create_edges(
-                    value,
-                    dm_prop,
-                    source_prop_id,
-                    context.source_view_id,
-                    context.new_id,
-                )
-            except ValueError as e:
+        for dest_prop_id in dest_prop_ids:
+            if dest_prop_id not in context.destination_properties:
                 if source_prop_id not in context.mapping.ignore_source_properties:
-                    errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
+                    errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
                 continue
-            edges.extend(created_edges)
-            errors.extend(issues)
-        elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
-            try:
-                created_connection, issues = context.connection_creator.create_direct_relation(
-                    value,
-                    dm_prop.type,
-                    source_prop_id,
-                    context.source_view_id,
-                )
-            except ValueError as e:
-                if source_prop_id not in context.mapping.ignore_source_properties:
-                    errors.append(
-                        f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+
+            dm_prop = context.destination_properties[dest_prop_id]
+            if isinstance(dm_prop, EdgeProperty):
+                try:
+                    created_edges, issues = context.connection_creator.create_edges(
+                        value,
+                        dm_prop,
+                        source_prop_id,
+                        context.source_view_id,
+                        context.new_id,
                     )
-                continue
-            if source_prop_id not in context.mapping.ignore_source_properties:
+                except ValueError as e:
+                    if source_prop_id not in context.mapping.ignore_source_properties:
+                        errors.append(
+                            f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}"
+                        )
+                    continue
+                edges.extend(created_edges)
                 errors.extend(issues)
-            if created_connection is not None:
-                created_properties[dest_prop_id] = created_connection
-        elif isinstance(dm_prop, ViewCorePropertyResponse):
-            try:
-                created_value = convert_to_primary_property_with_special_cases(
-                    value,
-                    dm_prop.type,
-                    dm_prop.nullable if dm_prop.nullable is not None else True,
-                    destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
-                )
-                created_properties[dest_prop_id] = serialize_dms(created_value)
-            except (ValueError, TypeError, NotImplementedError) as e:
-                errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
-        # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
+            elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
+                try:
+                    created_connection, issues = context.connection_creator.create_direct_relation(
+                        value,
+                        dm_prop.type,
+                        source_prop_id,
+                        context.source_view_id,
+                    )
+                except ValueError as e:
+                    if source_prop_id not in context.mapping.ignore_source_properties:
+                        errors.append(
+                            f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+                        )
+                    continue
+                if source_prop_id not in context.mapping.ignore_source_properties:
+                    errors.extend(issues)
+                if created_connection is not None:
+                    created_properties[dest_prop_id] = created_connection
+            elif isinstance(dm_prop, ViewCorePropertyResponse):
+                try:
+                    created_value = convert_to_primary_property_with_special_cases(
+                        value,
+                        dm_prop.type,
+                        dm_prop.nullable if dm_prop.nullable is not None else True,
+                        destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
+                    )
+                    created_properties[dest_prop_id] = serialize_dms(created_value)
+                except (ValueError, TypeError, NotImplementedError) as e:
+                    errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
+            # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
     return ConversionResult(container_properties=created_properties, edges=edges, errors=errors)
 
