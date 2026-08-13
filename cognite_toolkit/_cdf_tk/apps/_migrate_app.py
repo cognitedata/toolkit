@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
@@ -13,8 +12,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     NodeId,
-    NodeOrEdgeRequest,
-    NodeOrEdgeResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordMigrationConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -52,7 +49,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
-    DataMapper,
     FDMtoCDMMapper,
     Image360AnnotationMapper,
     Image360CollectionMapper,
@@ -106,7 +102,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
     InstanceQuerySelector,
-    InstanceSelector,
     InstanceViewSelector,
     SelectedView,
     ThreeDModelIdSelector,
@@ -1661,8 +1656,9 @@ class MigrateApp(typer.Typer):
         )
 
         instance_id_mapper: InstanceIdMapper
+        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None
         target_spaces: set[str]
-        target_by_root_asset: dict[str, str] | None = None
+        target_by_root_asset: dict[str, str] = {}
         if source_space in shared_legacy_spaces:
             target_by_root_asset = build_target_by_root_asset(
                 client,
@@ -1671,11 +1667,12 @@ class MigrateApp(typer.Typer):
                 cdm_configs=infield_cdm_configs,
                 target_kind="app_data",
             )
-            instance_id_mapper = LocationSplitInstanceIdMapper(
+            location_split_id_mapper = LocationSplitInstanceIdMapper(
                 client,
                 source_space,
                 passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
             )
+            instance_id_mapper = location_split_id_mapper
             target_spaces = set(target_by_root_asset.values())
         else:
             if target_space is None:
@@ -1761,39 +1758,34 @@ class MigrateApp(typer.Typer):
             InFieldObservationSapStatusMapping(),
         ]
         mapper: FDMtoCDMMapper
-        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
-        if source_space in shared_legacy_spaces:
-            assert target_by_root_asset is not None
-            assert isinstance(instance_id_mapper, LocationSplitInstanceIdMapper)
-            custom_instance_mappings = {
-                InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: LocationSplitInFieldLegacyToCDMScheduleMapper(
-                    client, connection_creator, schedule_mapping, instance_id_mapper
-                ),
-            }
+        if location_split_id_mapper is not None:
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
                 infield_mappings,
                 connection_creator=connection_creator,
-                instance_id_mapper=instance_id_mapper,
+                instance_id_mapper=location_split_id_mapper,
                 target_by_root_asset=target_by_root_asset,
                 root_location_views=APP_DATA_ROOT_LOCATION_VIEWS,
                 parent_edge_by_view=APP_DATA_PARENT_EDGE_BY_VIEW,
                 parent_property_by_view=APP_DATA_PARENT_PROPERTY_BY_VIEW,
                 custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings=custom_instance_mappings,
+                custom_instance_mappings={
+                    InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: LocationSplitInFieldLegacyToCDMScheduleMapper(
+                        client, connection_creator, schedule_mapping, location_split_id_mapper
+                    ),
+                },
             )
         else:
-            custom_instance_mappings = {
-                InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
-                    client, connection_creator, schedule_mapping
-                )
-            }
             mapper = FDMtoCDMMapper(
                 client,
                 infield_mappings,
                 connection_creator=connection_creator,
                 custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings=custom_instance_mappings,
+                custom_instance_mappings={
+                    InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
+                        client, connection_creator, schedule_mapping
+                    )
+                },
             )
         cmd.run(
             lambda: cmd.migrate(
@@ -1922,8 +1914,9 @@ class MigrateApp(typer.Typer):
 
         source_views = resolve_apm_source_data_view_ids(apm_configs)
         instance_id_mapper: InstanceIdMapper
+        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None
         target_spaces: set[str]
-        target_by_root_asset: dict[str, str] | None = None
+        target_by_root_asset: dict[str, str] = {}
         if source_space in shared_legacy_spaces:
             target_by_root_asset = build_target_by_root_asset(
                 client,
@@ -1932,7 +1925,8 @@ class MigrateApp(typer.Typer):
                 cdm_configs=infield_cdm_configs,
                 target_kind="source_data",
             )
-            instance_id_mapper = LocationSplitInstanceIdMapper(client, source_space)
+            location_split_id_mapper = LocationSplitInstanceIdMapper(client, source_space)
+            instance_id_mapper = location_split_id_mapper
             target_spaces = set(target_by_root_asset.values())
         else:
             if target_space is None:
@@ -2013,15 +2007,13 @@ class MigrateApp(typer.Typer):
             custom_mappings=custom_mappings,
         )
         mapper: FDMtoCDMMapper
-        if source_space in shared_legacy_spaces:
-            assert target_by_root_asset is not None
-            assert isinstance(instance_id_mapper, LocationSplitInstanceIdMapper)
+        if location_split_id_mapper is not None:
             root_id_to_target_space = root_internal_id_to_target_space(client, target_by_root_asset)
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
                 mappings,
                 connection_creator=connection_creator,
-                instance_id_mapper=instance_id_mapper,
+                instance_id_mapper=location_split_id_mapper,
                 target_by_root_asset=target_by_root_asset,
                 root_location_views=(source_views["activity"],),
                 parent_property_by_view={source_views["operation"]: "parentActivityId"},

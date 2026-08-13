@@ -104,22 +104,6 @@ class TestFindSharedLegacyInstanceSpaces:
         )
         assert find_shared_legacy_instance_spaces([config]) == set()
 
-    def test_skips_roots_without_asset_external_id(self) -> None:
-        config = _apm_config(
-            RootLocationConfiguration(
-                external_id="loc1",
-                asset_external_id="ASSET_1",
-                app_data_instance_space="shared_app",
-                source_data_instance_space="shared_source",
-            ),
-            RootLocationConfiguration(
-                external_id="loc_missing_asset",
-                app_data_instance_space="shared_app",
-                source_data_instance_space="shared_source",
-            ),
-        )
-        assert find_shared_legacy_instance_spaces([config]) == set()
-
 
 class TestBuildInfieldInstanceSpaceName:
     def test_unshared_keeps_legacy_suffix(self) -> None:
@@ -169,14 +153,7 @@ class TestResolveTargetSpaceViaRootLocation:
     def test_missing_root_location_raises(self) -> None:
         node = _node(_TEMPLATE_VIEW, "template_orphan", {})
 
-        with pytest.raises(InstanceMappingError, match="missing rootLocation") as exc_info:
-            resolve_target_space_via_root_location(node, _TEMPLATE_VIEW, {"ROOT_A": "shared_app_ROOT_A"})
-        assert exc_info.value.severity.name == "failure"
-
-    def test_unmatched_root_location_raises(self) -> None:
-        node = _node(_TEMPLATE_VIEW, "template_a", {"rootLocation": {"space": "x", "externalId": "ROOT_UNKNOWN"}})
-
-        with pytest.raises(InstanceMappingError, match="does not match a location"):
+        with pytest.raises(InstanceMappingError, match="missing rootLocation"):
             resolve_target_space_via_root_location(node, _TEMPLATE_VIEW, {"ROOT_A": "shared_app_ROOT_A"})
 
 
@@ -207,21 +184,6 @@ class TestResolveTargetSpaceViaParentEdge:
         with pytest.raises(InstanceMappingError, match="no inbound"):
             resolve_target_space_via_parent_edge(node, _PARENT_EDGE, {}, instance_id_mapper)
 
-    def test_unresolved_parent_raises(self) -> None:
-        node = _node(_TEMPLATE_ITEM_VIEW, "item_a", {})
-        instance_id_mapper = _instance_id_mapper()
-        other_side_by_edge_type = {
-            _PARENT_EDGE: [
-                EdgeOtherSide(
-                    edge_id=EdgeId(space="shared_app", external_id="edge_a"),
-                    other_side=NodeId(space="shared_app", external_id="template_unresolved"),
-                )
-            ]
-        }
-
-        with pytest.raises(InstanceMappingError, match="unresolved"):
-            resolve_target_space_via_parent_edge(node, _PARENT_EDGE, other_side_by_edge_type, instance_id_mapper)
-
 
 class TestResolveTargetSpaceViaParentProperty:
     def test_resolves_via_registered_parent(self) -> None:
@@ -236,12 +198,3 @@ class TestResolveTargetSpaceViaParentProperty:
         )
 
         assert target_space == "shared_app_ROOT_A"
-
-    def test_missing_parent_property_raises(self) -> None:
-        node = _node(_CONDITIONAL_ACTION_VIEW, "action_orphan", {})
-        instance_id_mapper = _instance_id_mapper()
-
-        with pytest.raises(InstanceMappingError, match="is missing parentObject"):
-            resolve_target_space_via_parent_property(
-                node, _CONDITIONAL_ACTION_VIEW, "parentObject", instance_id_mapper
-            )

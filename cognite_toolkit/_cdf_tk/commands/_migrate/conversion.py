@@ -656,10 +656,9 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
                 external_id=instance_id.external_id,
             )
         raise RuntimeError(
-            f"Bug in Toolkit: encountered instance {instance_id} outside the location-split source space "
-            f"{self._source_space!r} and its passthrough spaces "
-            f"({humanize_collection(self._passthrough_space_mapping) or 'none'}). This should not happen during "
-            "normal operation, please report this as a bug."
+            f"Bug in Toolkit: instance {instance_id} is outside location-split source space "
+            f"{self._source_space!r} and passthrough spaces "
+            f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
         )
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
@@ -1328,13 +1327,7 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId | str]):
 
 
 class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
-    """Custom case for the APM_SourceData migration.
-
-    APM_Operation stores its reference to the parent APM_Activity as a plain ``parentActivityId`` text
-    property (the classic ``externalId`` of the APM_Activity node). The migrated CogniteMaintenanceOrder
-    keeps this same external ID, only moving it into the target instance space, so the destination NodeId
-    can be derived via the same ``InstanceIdMapper`` used for the rest of the migration.
-    """
+    """Maps APM_Operation.parentActivityId (a text external ID) through the InstanceIdMapper."""
 
     VIEW_PROPERTIES = frozenset(
         {(ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "parentActivityId")}

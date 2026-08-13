@@ -2161,16 +2161,6 @@ class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMa
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        try:
-            target_space = self._resolve_page_target_space(source)
-        except InstanceMappingError as error:
-            return {}, {}, {}, [InstanceConversionIssue(id="schedules-page", errors=[str(error)])]
-        for item in source:
-            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
-                self._instance_id_mapper.register(item.external_id, target_space)
-        return super()._as_schedules_and_edges(source)
-
-    def _resolve_page_target_space(self, source: Sequence[NodeOrEdgeResponse]) -> str:
         template_node = next(
             (
                 item
@@ -2180,18 +2170,27 @@ class LocationSplitInFieldLegacyToCDMScheduleMapper(InFieldLegacyToCDMScheduleMa
             None,
         )
         if template_node is None:
-            raise InstanceMappingError(
-                "Could not resolve target space for this page of schedules: expected exactly one Template node.",
-                severity=Severity.failure,
-            )
+            return {}, {}, {}, [
+                InstanceConversionIssue(
+                    id="schedules-page",
+                    errors=["Could not resolve target space for this page of schedules: expected a Template node."],
+                )
+            ]
         target_space = self._instance_id_mapper.resolve_target_space(template_node.external_id)
         if target_space is None:
-            raise InstanceMappingError(
-                f"Could not resolve target space for schedules under Template {template_node.as_id()}: the "
-                "Template has not been resolved to a target space.",
-                severity=Severity.failure,
-            )
-        return target_space
+            return {}, {}, {}, [
+                InstanceConversionIssue(
+                    id="schedules-page",
+                    errors=[
+                        f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
+                        "the Template has not been resolved to a target space."
+                    ],
+                )
+            ]
+        for item in source:
+            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
+                self._instance_id_mapper.register(item.external_id, target_space)
+        return super()._as_schedules_and_edges(source)
 
     def _create_single_schedule(
         self,

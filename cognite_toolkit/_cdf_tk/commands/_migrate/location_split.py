@@ -1,7 +1,7 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -133,49 +133,19 @@ def build_target_by_root_asset(
     space_attr: Literal["app_data_instance_space", "source_data_instance_space"] = (
         "app_data_instance_space" if target_kind == "app_data" else "source_data_instance_space"
     )
-    classic_root_assets = _classic_root_assets_for_legacy_space(
-        apm_configs, source_space=source_space, space_attr=space_attr
-    )
-    return _target_spaces_for_root_assets(
-        client,
-        source_space=source_space,
-        classic_root_assets=classic_root_assets,
-        cdm_configs=cdm_configs,
-        target_kind=target_kind,
-    )
-
-
-def _classic_root_assets_for_legacy_space(
-    apm_configs: Sequence[APMConfigResponse],
-    *,
-    source_space: str,
-    space_attr: Literal["app_data_instance_space", "source_data_instance_space"],
-) -> set[str]:
     classic_root_assets: set[str] = set()
     for config in apm_configs:
         if not config.feature_configuration:
             continue
         for root in config.feature_configuration.root_location_configurations or []:
-            if not root.asset_external_id:
-                continue
-            if getattr(root, space_attr) == source_space:
+            if root.asset_external_id and getattr(root, space_attr) == source_space:
                 classic_root_assets.add(root.asset_external_id)
     if len(classic_root_assets) < 2:
         raise ToolkitMigrationError(
             f"Expected at least two root locations using legacy instance space {source_space!r} for a location "
             f"split, found {len(classic_root_assets)}."
         )
-    return classic_root_assets
 
-
-def _target_spaces_for_root_assets(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    classic_root_assets: set[str],
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-    target_kind: LocationSplitKind,
-) -> dict[str, str]:
     target_by_root_asset: dict[str, str] = {}
     for classic_root_asset in sorted(classic_root_assets):
         migrated_root = client.migration.lookup.assets(external_id=classic_root_asset)
@@ -375,11 +345,6 @@ def register_solution_tag_references(
     instance_id_mapper: LocationSplitInstanceIdMapper,
 ) -> None:
     """Point this node's solutionTags at the copy of each tag in ``target_space``."""
-    for external_id in _iter_solution_tag_external_ids(node):
-        instance_id_mapper.register(external_id, target_space)
-
-
-def _iter_solution_tag_external_ids(node: NodeResponse) -> Iterator[str]:
     for properties in (node.properties or {}).values():
         if not isinstance(properties, dict):
             continue
@@ -388,7 +353,7 @@ def _iter_solution_tag_external_ids(node: NodeResponse) -> Iterator[str]:
             continue
         for item in value:
             if (external_id := _as_external_id(item)) is not None:
-                yield external_id
+                instance_id_mapper.register(external_id, target_space)
 
 
 def _get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) -> Any:
