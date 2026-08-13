@@ -308,7 +308,10 @@ class TestPurgeInstances:
         selector = InstanceViewSelector(
             view=SelectedView(space="cognite_migration", external_id=external_id, version="v1")
         )
-        with pytest.raises(ToolkitValueError, match="Cannot purge instances through"):
+        with pytest.raises(
+            ToolkitValueError,
+            match=f"Cannot purge instances through the .*{external_id}.*/{selector.view.version}.* view directly",
+        ):
             cmd.instances(purge_client, selector, log_dir=tmp_path)
 
 
