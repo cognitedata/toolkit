@@ -40,7 +40,9 @@
     version: v1
     type: view
   containerMapping:
-    node.createdTime: sourceCreatedTime
+    node.createdTime: # One source property provides the value for two target properties
+      - sourceCreatedTime
+      - startTime
     node.lastUpdatedTime: sourceUpdatedTime
     source: source
     description: description
