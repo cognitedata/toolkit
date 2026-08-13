@@ -91,6 +91,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -163,6 +164,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             RawTableCRUD,
             RawDatabaseCRUD,
             GroupResourceScopedCRUD,
+            *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
@@ -220,7 +222,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if query := item.get("query"):
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and (query := item.get("query")):
             for source_id in get_ext_onelake_source_ids(query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := item.get("destination", {}):
@@ -247,7 +249,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
-        if resource.query:
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:

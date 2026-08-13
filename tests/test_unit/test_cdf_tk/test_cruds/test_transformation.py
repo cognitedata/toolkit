@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
@@ -39,6 +40,27 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 def _return_none(*args, **kwargs) -> str | None:
     return None
+
+
+def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+    monkeypatch.setattr(
+        FeatureFlag,
+        "is_enabled",
+        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
+    )
+
+
+def _ext_onelake_transformation_yaml() -> TransformationYAML:
+    return TransformationYAML.model_validate(
+        {
+            "externalId": "my_transformation",
+            "name": "my_transformation",
+            "ignoreNullFields": True,
+            "query": "select * from ext_onelake('fabric-prod', 'assets')",
+            "destination": {"type": "assets"},
+        }
+    )
 
 
 class TestTransformationCRUD:
@@ -222,23 +244,30 @@ authentication:
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+    def test_get_dependent_items(
+        self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]], monkeypatch: MonkeyPatch
+    ) -> None:
+        if any(loader is ExternalDataSourceIO for loader, _ in expected):
+            _enable_external_data_sources(monkeypatch)
         actual = TransformationIO.get_dependent_items(item)
 
         assert list(actual) == expected
 
-    def test_get_dependencies_ext_onelake(self) -> None:
-        resource = TransformationYAML.model_validate(
-            {
-                "externalId": "my_transformation",
-                "name": "my_transformation",
-                "ignoreNullFields": True,
-                "query": "select * from ext_onelake('fabric-prod', 'assets')",
-                "destination": {"type": "assets"},
-            }
+    def test_get_dependent_items_ext_onelake_flag_off(self) -> None:
+        actual = list(
+            TransformationIO.get_dependent_items({"query": "select * from ext_onelake('fabric-prod', 'assets')"})
         )
+        assert ExternalDataSourceIO not in {loader for loader, _ in actual}
+
+    def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
+        _enable_external_data_sources(monkeypatch)
+        resource = _ext_onelake_transformation_yaml()
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
+
+    def test_get_dependencies_ext_onelake_flag_off(self) -> None:
+        deps = list(TransformationIO.get_dependencies(_ext_onelake_transformation_yaml()))
+        assert ExternalDataSourceIO not in {loader for loader, _ in deps}
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [

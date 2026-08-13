@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
@@ -366,7 +367,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             if transformation.query
             for source_id in get_ext_onelake_source_ids(transformation.query)
         }
-        if source_ids:
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and source_ids:
             external_data_loader = ExternalDataSourceIO.create_loader(self.client)
             external_data_list = external_data_loader.retrieve(
                 [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
