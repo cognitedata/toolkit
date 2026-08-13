@@ -10,12 +10,10 @@ class OneLakeCredentialsYAML(BaseModelResource):
 
     client_id: str = Field(description="Azure application (client) ID.")
     tenant_id: str = Field(description="Azure tenant (directory) ID.")
-    client_secret: SecretStr | None = Field(default=None, description="Azure client secret.")
+    client_secret: SecretStr = Field(description="Azure client secret. Required on every write.")
 
     @field_serializer("client_secret", when_used="json")
-    def dump_client_secret(self, value: SecretStr | None) -> str | None:
-        if value is None:
-            return None
+    def dump_client_secret(self, value: SecretStr) -> str:
         return value.get_secret_value()
 
 
