@@ -136,7 +136,7 @@ class ExternalDataSourceIO(
             return
         data_set_id = self.client.lookup.data_sets.id(data_set_external_id)
         if data_set_id is None:
-            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+            return
         for source in self.client.tool.transformations.external_data_sources.list(limit=None):
             if source.data_set_id == data_set_id:
                 yield source

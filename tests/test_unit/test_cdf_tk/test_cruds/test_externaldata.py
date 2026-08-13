@@ -234,9 +234,9 @@ class TestExternalDataSourceIO:
             client.tool.transformations.external_data_sources.list.return_value = [in_dataset, other]
             assert list(loader._iterate(data_set_external_id="my_dataset")) == [in_dataset]
 
-    def test_iterate_missing_dataset_raises(self) -> None:
+    def test_iterate_missing_dataset_returns_empty(self) -> None:
         with monkeypatch_toolkit_client() as client:
             loader = ExternalDataSourceIO.create_loader(client)
             client.lookup.data_sets.id.return_value = None
-            with pytest.raises(ToolkitRequiredValueError, match="my_dataset"):
-                list(loader._iterate(data_set_external_id="my_dataset"))
+            assert list(loader._iterate(data_set_external_id="my_dataset")) == []
+            client.tool.transformations.external_data_sources.list.assert_not_called()
