@@ -67,7 +67,7 @@ class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[Extern
 
     created_time: int
     last_updated_time: int
-    format: str | None = None
+    format: Literal["one_lake"] = "one_lake"
     settings: OneLakeSettingsRead | None = None
 
     @classmethod

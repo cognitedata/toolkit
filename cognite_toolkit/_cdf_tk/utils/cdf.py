@@ -1,3 +1,4 @@
+import re
 import sys
 import tempfile
 import time
@@ -33,6 +34,14 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .file import sanitize_filename
 from .sql_parser import SQLParser
+
+EXT_ONELAKE_SOURCE_RE = re.compile(r"ext_onelake\s*\(\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+
+
+def get_ext_onelake_source_ids(query: str) -> list[str]:
+    """Return external data source IDs referenced by ext_onelake() in a SQL query."""
+    return EXT_ONELAKE_SOURCE_RE.findall(query)
+
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
