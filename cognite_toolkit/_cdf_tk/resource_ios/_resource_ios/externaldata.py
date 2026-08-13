@@ -85,12 +85,12 @@ class ExternalDataSourceIO(
     def dump_resource(
         self, resource: ExternalDataSourceResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        HighSeverityWarning(
-            "External data sources will always be considered different, and thus will always be redeployed."
-        ).print_warning(console=self.client.console)
         # Secrets cannot be compared (API never returns clientSecret). Dumping only the identifier
         # when a local YAML exists makes deploy always upsert, matching hosted extractor sources.
         if local:
+            HighSeverityWarning(
+                "External data sources will always be considered different, and thus will always be redeployed."
+            ).print_warning(console=self.client.console)
             return self.dump_id(self.get_id(resource))
         dumped = resource.dump()
         dumped.pop("createdTime", None)
