@@ -1414,6 +1414,12 @@ class TestInstanceToInstanceConversion:
             type=TimestampProperty(),
             **DEFAULT_ARGS,
         ),
+        "startTime": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="startTime",
+            type=TimestampProperty(),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1571,6 +1577,55 @@ class TestInstanceToInstanceConversion:
         )
 
         results = convert_container_properties(source_properties, context)
+
+        assert results.container_properties == expected_properties
+        assert results.errors == expected_errors
+
+    @pytest.mark.parametrize(
+        "container_mapping, ignore_source_properties, expected_properties, expected_errors",
+        [
+            pytest.param(
+                {"epoch": ["timestamp", "startTime"]},
+                set(),
+                {"timestamp": "2023-11-14T22:13:20Z", "startTime": "2023-11-14T22:13:20Z"},
+                [],
+                id="maps_to_multiple_destinations",
+            ),
+            pytest.param(
+                {"epoch": ["timestamp", "missingProp"]},
+                set(),
+                {"timestamp": "2023-11-14T22:13:20Z"},
+                ["Destination instance is missing property 'missingProp'."],
+                id="missing_dest_errors",
+            ),
+            pytest.param(
+                {"epoch": ["timestamp", "missingProp"]},
+                {"epoch"},
+                {"timestamp": "2023-11-14T22:13:20Z"},
+                [],
+                id="missing_dest_ignored",
+            ),
+        ],
+    )
+    def test_convert_container_properties_multiple_destinations(
+        self,
+        container_mapping: dict[str, str | list[str]],
+        ignore_source_properties: set[str],
+        expected_properties: dict[str, str],
+        expected_errors: list[str],
+    ) -> None:
+        mapping = self.MAPPING.model_copy(
+            update={"container_mapping": container_mapping, "ignore_source_properties": ignore_source_properties},
+        )
+        context = ConversionContext(
+            mapping=mapping,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
+        )
+
+        results = convert_container_properties({"epoch": 1700000000000}, context)
 
         assert results.container_properties == expected_properties
         assert results.errors == expected_errors
