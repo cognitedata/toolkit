@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMViewPropertiesRuleSet
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
 @pytest.fixture
@@ -321,6 +322,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         assert len(errors) == 1
         assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
         assert "files" in errors[0].message
+        assert errors[0].source_file == format_insight_source_file(yaml_file)
 
     def test_observation_without_fields_config_is_not_checked(
         self,
@@ -431,6 +433,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         assert len(errors) == 1
         assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
         assert "unknownField" in errors[0].message
+        assert errors[0].source_file == format_insight_source_file(yaml_file)
 
     def test_asset_properties_card_config_defaults_to_cognite_asset_view(
         self,

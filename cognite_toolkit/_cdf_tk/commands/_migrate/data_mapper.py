@@ -705,7 +705,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         )
         mapped_chart = ChartRequest.model_validate(dumped_response, extra="allow", by_alias=True)
 
-        mapped_chart.data.core_timeseries_collection = timeseries_core_collection
+        mapped_chart.data.core_timeseries_collection = (
+            mapped_chart.data.core_timeseries_collection or []
+        ) + timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
         if updated_threshold_collection:
