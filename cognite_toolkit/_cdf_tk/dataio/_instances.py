@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
-    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
     EdgeResponse,
@@ -351,12 +350,12 @@ class InstanceIO(
         # Exception: when pinned to exactly one space, omit the sort so the server uses
         # its internal-node-id order. This was observed to be provide a better performance
         # compromise across different projects compared to the (space, externalId) sort.
-        node_sort: list[QuerySortSpec] | None = [
-            QuerySortSpec(property=["node", "space"]),
-            QuerySortSpec(property=["node", "externalId"]),
-        ]
-        if selector.instance_spaces and len(selector.instance_spaces) == 1:
-            node_sort = None
+        # node_sort: list[QuerySortSpec] | None = [
+        #     QuerySortSpec(property=["node", "space"]),
+        #     QuerySortSpec(property=["node", "externalId"]),
+        # ]
+        # if selector.instance_spaces and len(selector.instance_spaces) == 1:
+        #     node_sort = None
         # /sync needs twoPhase with a backfillSort matching the forward-stream sort, otherwise
         # the server falls back to an expensive full-container scan/heapsort for the backfill.
         sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = (
@@ -366,9 +365,9 @@ class InstanceIO(
             root: QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
                 nodes=QueryNodeTableExpression(filter=instance_filter),
-                sort=node_sort,
+                # sort=node_sort,
                 mode=sync_mode,
-                backfill_sort=node_sort if sync_mode == "twoPhase" else None,
+                # backfill_sort=node_sort if sync_mode == "twoPhase" else None,
             )
         }
         select: dict[str, QuerySelect] = {
