@@ -46,6 +46,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -72,6 +75,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
     LocationFilterIO,
     NodeCRUD,
     ResourceIO,
@@ -598,6 +605,65 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         yield [], configs, config_loader, None
 
 
+class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.sources: list[HostedExtractorSourceResponseUnion] | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.sources = self.client.tool.hosted_extractors.sources.list(limit=None)
+        if not self.sources:
+            raise ToolkitMissingResourceError("No hosted extractor sources found")
+        choices = [
+            Choice(f"{source.external_id} ({source.type})", value=source.external_id)
+            for source in sorted(self.sources, key=lambda s: s.external_id)
+        ]
+        selected_source_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which hosted extractor source(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one source.",
+        ).unsafe_ask()
+        if not selected_source_ids:
+            raise ToolkitValueError(
+                f"No hosted extractor sources selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}"
+            )
+        return tuple(selected_source_ids)
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
+        self.identifier = self._selected()
+        source_ids = set(self.identifier)
+        source_loader = HostedExtractorSourceIO.create_loader(self.client)
+        if self.sources:
+            selected_sources = [source for source in self.sources if source.external_id in source_ids]
+            yield [], selected_sources, source_loader, None
+        else:
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
+
+        jobs = [job for job in self.client.tool.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        if jobs:
+            yield [], jobs, HostedExtractorJobIO.create_loader(self.client), None
+
+        destination_ids = sorted({job.destination_id for job in jobs})
+        if destination_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in destination_ids],
+                None,
+                HostedExtractorDestinationIO.create_loader(self.client),
+                None,
+            )
+
+        mapping_ids = sorted({mapping_id for job in jobs if (mapping_id := getattr(job.format, "mapping_id", None))})
+        if mapping_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in mapping_ids],
+                None,
+                HostedExtractorMappingIO.create_loader(self.client),
+                None,
+            )
+
+
 class DataSetFinder(ResourceFinder[tuple[str, ...]]):
     """Finds data sets to dump."""
 
@@ -932,6 +998,7 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         dumped_ids: list[Hashable] = []
+        dumped_folders: set[Path] = set()
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -962,11 +1029,17 @@ class DumpResourceCommand(ToolkitCommand):
                 for filepath, subpart in loader.split_resource(base_filepath, dumped):
                     content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
                     safe_write(filepath, content, encoding="utf-8")
+                    dumped_folders.add(resource_folder)
                     if verbose:
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
                 if isinstance(finder, FunctionFinder) and isinstance(resource, FunctionResponse):
                     finder.dump_function_code(resource, resource_folder)
+                    dumped_folders.add(resource_folder)
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, StreamlitResponse):
                     finder.dump_code(resource, resource_folder)
+                    dumped_folders.add(resource_folder)
                 dumped_ids.append(resource_id)
-        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
+        success_message = f"Dumped {humanize_collection(dumped_ids)}"
+        if dumped_folders:
+            success_message = f"{success_message}\nWritten to {humanize_collection(sorted(folder.as_posix() for folder in dumped_folders))}"
+        print(Panel(success_message, title="Success", style="green", expand=False))

@@ -89,7 +89,7 @@ class ExternalDataSourceIO(
         # when a local YAML exists makes deploy always upsert, matching hosted extractor sources.
         if local:
             HighSeverityWarning(
-                "External data sources will always be considered different, and thus will always be redeployed."
+                "External data sources that contain credentials are always considered as changed and will be redeployed every time"
             ).print_warning(console=self.client.console)
             return self.dump_id(self.get_id(resource))
         dumped = resource.dump()
