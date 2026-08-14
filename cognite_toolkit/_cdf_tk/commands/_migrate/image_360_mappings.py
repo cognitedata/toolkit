@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
-    QuerySortSpec,
     QueryThrough,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -167,10 +166,6 @@ def create_360_image_selectors(
                     "image360": QueryNodeExpression(
                         limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                         nodes=QueryNodeTableExpression(filter=image360_filter),
-                        sort=[
-                            QuerySortSpec(property=["node", "space"]),
-                            QuerySortSpec(property=["node", "externalId"]),
-                        ],
                     ),
                     "image360station": QueryNodeExpression(
                         limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
