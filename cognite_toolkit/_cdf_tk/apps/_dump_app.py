@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -33,6 +32,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._helpers import print_help_if_no_subcommand
+
 
 class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -61,9 +62,7 @@ class DumpApp(typer.Typer):
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dump --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
 
 class DumpConfigApp(typer.Typer):
@@ -91,9 +90,7 @@ class DumpConfigApp(typer.Typer):
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dump config --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def dump_datamodel_cmd(

@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.commands import (
     ProfileAssetCentricCommand,
@@ -11,6 +10,8 @@ from cognite_toolkit._cdf_tk.commands import (
     ProfileTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
+from ._helpers import print_help_if_no_subcommand
 
 
 class ProfileApp(typer.Typer):
@@ -24,8 +25,7 @@ class ProfileApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """Commands profile functionality"""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf profile --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def assets(

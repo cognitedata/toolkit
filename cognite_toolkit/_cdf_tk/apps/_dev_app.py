@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -12,6 +11,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._entity_matching_app import EntityMatchingApp
+from ._helpers import print_help_if_no_subcommand
 from ._run import RunApp
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -30,9 +30,7 @@ class DevApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to work with development."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dev --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     def create(
         self,
