@@ -7,7 +7,7 @@ import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
@@ -22,6 +22,8 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Column
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitRuntimeError
 
@@ -37,6 +39,17 @@ WRITE_FINISH_SENTINEL = object()
 class ItemCountColumn(ProgressColumn):
     def render(self, task: Task) -> str:
         return f"[green]{int(task.fields.get('item_count', 0)):,} items"
+
+
+class ProgressWithFooter(Progress):
+    def __init__(self, *args: Any, footer: str = "", **kwargs: Any) -> None:
+        self.footer = footer
+        super().__init__(*args, **kwargs)
+
+    def get_renderables(self) -> Iterable[RenderableType]:
+        yield from super().get_renderables()
+        if self.footer:
+            yield Text(self.footer, style="blue")
 
 
 class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
@@ -126,16 +139,20 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _get_progress_columns(self) -> list[ProgressColumn]:
         """Helper to set up the progress bar and tasks based on iteration_count."""
+        description = TextColumn(
+            "[bold blue]{task.description}",
+            table_column=Column(no_wrap=True, overflow="ellipsis", ratio=1),
+        )
         if self.total_item_count is None:
             return [
                 SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
+                description,
                 ItemCountColumn(),
                 TimeElapsedColumn(),
             ]
         else:
             return [
-                TextColumn("[bold blue]{task.description}"),
+                description,
                 BarColumn(),
                 TaskProgressColumn(),
                 TimeRemainingColumn(),
@@ -164,9 +181,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         Args:
             start_item (int): The initial item count to start the progress from, used for resuming operations.
         """
-        self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
+        self.console.print()
         columns = self._get_progress_columns()
-        with Progress(*columns, console=self.console) as progress:
+        with ProgressWithFooter(
+            *columns, console=self.console, expand=True, footer="Press 'q' to stop."
+        ) as progress:
             task_args: dict[str, Any] = (
                 {"item_count": start_item, "total": None}
                 if self.total_item_count is None
@@ -200,6 +219,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             for t in [download_thread, process_thread, write_thread, input_thread]:
                 if t.is_alive():
                     t.join()
+            progress.footer = ""
+            progress.refresh()
 
     def raise_on_error(self) -> None:
         """Raises an exception if an error occurred during execution."""

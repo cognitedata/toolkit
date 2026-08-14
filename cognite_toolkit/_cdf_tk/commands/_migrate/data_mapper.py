@@ -1405,14 +1405,17 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
     def process_description(self, source_selector: InstanceSelector) -> str:
         destination_view = self._get_destination_view(source_selector)
-        if destination_view is None:
+        if destination_view is None or not isinstance(source_selector, InstanceViewSelector):
             return "Converting"
-        message = f"Converting into view {destination_view!s}"
+        message = f"Converting into {source_selector.instance_type}s"
         source_spaces = source_selector.get_instance_spaces()
         if source_spaces:
             destination_spaces = self._connection_creator.get_destination_spaces(source_spaces)
-            if destination_spaces:
-                message += f" with {humanize_collection(destination_spaces)} instance spaces"
+            if len(destination_spaces) == 1:
+                message += f" in instance space {destination_spaces[0]}"
+            elif len(destination_spaces) > 1:
+                message += f" in {len(destination_spaces)} instance spaces"
+        message += f" in view {destination_view!s}"
         return message
 
     def _get_destination_view(self, source_selector: InstanceSelector) -> ViewId | None:
