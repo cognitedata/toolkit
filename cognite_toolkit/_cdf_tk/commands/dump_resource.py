@@ -998,7 +998,6 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         dumped_ids: list[Hashable] = []
-        dumped_folders: set[Path] = set()
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -1029,17 +1028,14 @@ class DumpResourceCommand(ToolkitCommand):
                 for filepath, subpart in loader.split_resource(base_filepath, dumped):
                     content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
                     safe_write(filepath, content, encoding="utf-8")
-                    dumped_folders.add(resource_folder)
                     if verbose:
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
                 if isinstance(finder, FunctionFinder) and isinstance(resource, FunctionResponse):
                     finder.dump_function_code(resource, resource_folder)
-                    dumped_folders.add(resource_folder)
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, StreamlitResponse):
                     finder.dump_code(resource, resource_folder)
-                    dumped_folders.add(resource_folder)
                 dumped_ids.append(resource_id)
         success_message = f"Dumped {humanize_collection(dumped_ids)}"
-        if dumped_folders:
-            success_message = f"{success_message}\nWritten to {humanize_collection(sorted(folder.as_posix() for folder in dumped_folders))}"
+        if dumped_ids:
+            success_message = f"{success_message}\nWritten to {output_dir.as_posix()}"
         print(Panel(success_message, title="Success", style="green", expand=False))
