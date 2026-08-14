@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
     UniquenessConstraintDefinition,
     ViewCorePropertyRequest,
+    ViewId,
     ViewRequest,
 )
 
@@ -229,6 +230,13 @@ SPACE_SOURCE_VIEW = ViewRequest(
 )
 
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
+INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID = (
+    ViewId(  # This view does not exist in the CogniteMigration mode yet, it will be implemented in a future PR
+        space=SPACE.space,
+        external_id="InstanceSpaceRelocationSource",
+        version="v1",
+    )
+)
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()

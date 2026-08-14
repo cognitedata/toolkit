@@ -31,9 +31,11 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InstanceDefinitionId,
     InstanceId,
     InternalId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import InstanceIO, Page
@@ -45,10 +47,16 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
     Severity,
     display_item_results,
 )
-from cognite_toolkit._cdf_tk.dataio.selectors import InstanceSelector
+from cognite_toolkit._cdf_tk.dataio.selectors import (
+    InstanceSelector,
+    InstanceSpaceSelector,
+    InstanceViewSelector,
+    SelectedView,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -91,6 +99,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
+from ._migrate.data_model import INSTANCE_SOURCE_VIEW_ID, INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 from ._utils import (
     confirm_by_typing_project_name,
     print_soft_delete_panel,
@@ -290,6 +299,7 @@ class AssetToDelete(IdResourceToDelete):
 
 class PurgeCommand(ToolkitCommand):
     BATCH_SIZE_DM = 1000
+    DENIED_VIEW_IDS: frozenset[ViewId] = frozenset({INSTANCE_SOURCE_VIEW_ID, INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID})
 
     def space(
         self,
@@ -739,6 +749,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> DeleteResults:
         """Purge instances"""
+        self.validate_not_purging_through_denied_view(selector)
         io = InstanceIO(client)
         console = client.console
         validator = ValidateAccess(client, default_operation="purge")
@@ -819,6 +830,22 @@ class PurgeCommand(ToolkitCommand):
     def _log_filestem(self) -> str:
         log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
         return log_filestem
+
+    def validate_not_purging_through_denied_view(self, selector: InstanceSelector) -> None:
+        view: SelectedView | None = None
+        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
+            view = selector.view
+        if view is None or view.as_id() not in self.DENIED_VIEW_IDS:
+            return
+        raise ToolkitValueError(
+            f"Cannot purge instances through the [bold]{view.space}:{view.external_id}/{view.version}[/bold] view directly. "
+            "This view contains metadata for instances that [bold]also hold data in other views[/bold]. "
+            "Deleting instances through this view would irreversibly delete data in those other views as well, "
+            "which is likely not what you want.\n"
+            f"{HINT_LEAD_TEXT}You may delete these instances through other means if you know what you are doing "
+            "and are confident that you want to proceed with deleting them. For example you can use "
+            "[bold yellow]cdf data purge space[/] instead or select other views containing the same instances."
+        )
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
