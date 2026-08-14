@@ -645,7 +645,7 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
         if jobs:
             yield [], jobs, HostedExtractorJobIO.create_loader(self.client), None
 
-        destination_ids = sorted({job.destination_id for job in jobs})
+        destination_ids = sorted({job.destination_id for job in jobs if job.destination_id})
         if destination_ids:
             yield (
                 [ExternalId(external_id=external_id) for external_id in destination_ids],
