@@ -5,7 +5,6 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -25,6 +24,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 )
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
+from ._helpers import print_help_if_no_subcommand
+
 TODAY = date.today()
 
 
@@ -43,8 +44,7 @@ class PurgeApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """Commands deleting data from Cognite Data Fusion."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf purge --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def purge_dataset(

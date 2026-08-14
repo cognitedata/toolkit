@@ -113,6 +113,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
+from ._helpers import print_help_if_no_subcommand
+
 TODAY = date.today()
 
 
@@ -142,8 +144,7 @@ class MigrateApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf migrate --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def prepare(

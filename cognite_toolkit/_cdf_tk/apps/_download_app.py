@@ -5,7 +5,6 @@ from typing import Annotated, Any
 import questionary
 import typer
 from questionary import Choice
-from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
@@ -69,6 +68,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
 )
+
+from ._helpers import print_help_if_no_subcommand
 
 
 class RawFormats(str, Enum):
@@ -162,9 +163,7 @@ class DownloadApp(typer.Typer):
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
         """Commands to download data from CDF into a temporary directory."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf data download --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def download_raw_cmd(

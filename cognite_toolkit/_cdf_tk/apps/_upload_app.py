@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SU
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._helpers import print_help_if_no_subcommand
+
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
 
 
@@ -22,9 +24,7 @@ class UploadApp(typer.Typer):
     @staticmethod
     def upload_main(ctx: typer.Context) -> None:
         """Commands to upload data to CDF."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf upload --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def upload_dir(
