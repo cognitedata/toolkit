@@ -1941,6 +1941,17 @@ class TestLocationSplitInstanceIdMapper:
 
         assert result == NodeId(space="cognite_app_data", external_id="user1")
 
+    def test_get_destination_spaces_uses_configured_targets_not_registry(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            mapper = LocationSplitInstanceIdMapper(
+                client,
+                "shared_source",
+                target_spaces={"space_a_cdm", "space_b_cdm"},
+            )
+            mapper.register("node_a", "space_a_cdm")
+
+            assert set(mapper.get_destination_spaces(["shared_source"])) == {"space_a_cdm", "space_b_cdm"}
+
 
 class TestAssetCentricToRecord:
     CONTAINER_ID = ContainerId(space="my_stream_space", external_id="EventContainer")

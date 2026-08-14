@@ -621,19 +621,24 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         client: ToolkitClient,
         source_space: str,
         passthrough_space_mapping: Mapping[str, str] | None = None,
+        target_spaces: Iterable[str] | None = None,
     ) -> None:
         self._client = client
-        self._source_space = source_space
+        self.source_space = source_space
         self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
+        self._target_spaces = set(target_spaces or ())
         self._target_space_by_external_id: dict[str, str] = {}
 
     def register(self, external_id: str, target_space: str) -> None:
         self._target_space_by_external_id[external_id] = target_space
 
+    def get_registered_target_space(self, external_id: str) -> str | None:
+        return self._target_space_by_external_id.get(external_id)
+
     def resolve_target_space(self, external_id: str) -> str | None:
         if (target_space := self._target_space_by_external_id.get(external_id)) is not None:
             return target_space
-        matches = self._client.migration.instance_space_relocation_source.retrieve(self._source_space, [external_id])
+        matches = self._client.migration.instance_space_relocation_source.retrieve(self.source_space, [external_id])
         if len(matches) != 1:
             return None
         target_space = matches[0].space
@@ -641,7 +646,7 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         return target_space
 
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
-        if instance_id.space == self._source_space:
+        if instance_id.space == self.source_space:
             target_space = self.resolve_target_space(instance_id.external_id)
             if target_space is None:
                 raise InstanceMappingError(
@@ -657,15 +662,15 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
             )
         raise RuntimeError(
             f"Bug in Toolkit: instance {instance_id} is outside location-split source space "
-            f"{self._source_space!r} and passthrough spaces "
+            f"{self.source_space!r} and passthrough spaces "
             f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
         )
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         destinations: set[str] = set()
         for space in source_spaces:
-            if space == self._source_space:
-                destinations.update(self._target_space_by_external_id.values())
+            if space == self.source_space:
+                destinations.update(self._target_spaces)
             elif space in self._passthrough_space_mapping:
                 destinations.add(self._passthrough_space_mapping[space])
         return list(destinations)

@@ -6,8 +6,10 @@ from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ExternalId, NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import EdgeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -16,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
 )
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
 CDM_SPACE_SUFFIX = "_cdm"
@@ -47,12 +50,23 @@ REFERENCE_MEASUREMENTS_EDGE = EdgeTypeId(
 
 # Resolved from the node's own rootLocation.
 APP_DATA_ROOT_LOCATION_VIEWS = (TEMPLATE_VIEW, CHECKLIST_VIEW, OBSERVATION_VIEW)
-# Inherit target space from a parent found via an inbound edge.
+# Child views that inherit target space from a parent tagged in InstanceSpaceRelocationSource.
 APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
     TEMPLATE_ITEM_VIEW: REFERENCE_TEMPLATE_ITEMS_EDGE,
     CHECKLIST_ITEM_VIEW: REFERENCE_CHECKLIST_ITEMS_EDGE,
     MEASUREMENT_VIEW: REFERENCE_MEASUREMENTS_EDGE,
 }
+# Fetch these outbound edges once on the parent. The other end is written to
+# InstanceSpaceRelocationSource so children resolve by externalId + sourceSpace.
+APP_DATA_CHILD_EDGES_BY_VIEW: Mapping[ViewId, tuple[EdgeTypeId, ...]] = {
+    TEMPLATE_VIEW: (EdgeTypeId(type=REFERENCE_TEMPLATE_ITEMS_EDGE.type, direction="outwards"),),
+    CHECKLIST_VIEW: (EdgeTypeId(type=REFERENCE_CHECKLIST_ITEMS_EDGE.type, direction="outwards"),),
+    TEMPLATE_ITEM_VIEW: (EdgeTypeId(type=REFERENCE_MEASUREMENTS_EDGE.type, direction="outwards"),),
+    CHECKLIST_ITEM_VIEW: (EdgeTypeId(type=REFERENCE_MEASUREMENTS_EDGE.type, direction="outwards"),),
+}
+APP_DATA_CHILD_EDGE_TYPES = frozenset(
+    edge_type.type for edge_types in APP_DATA_CHILD_EDGES_BY_VIEW.values() for edge_type in edge_types
+)
 # Inherit target space from a parent referenced by a direct-relation property.
 APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
     CONDITIONAL_ACTION_VIEW: "parentObject",
@@ -278,6 +292,43 @@ class AssetExternalIdTargetSpaceResolver:
                 severity=Severity.failure,
             )
         return target_space
+
+
+_EDGE_NODE_IN_FILTER_LIMIT = 100
+
+
+def fetch_edges_of_type_connected_to_nodes(
+    client: ToolkitClient,
+    nodes: Sequence[NodeResponse],
+    edge_type: NodeId,
+) -> list[EdgeResponse]:
+    """List edges of ``edge_type`` that start or end at any of ``nodes``.
+
+    Used when the /sync chained subquery omits lineage edges needed to persist or resolve target space.
+    """
+    node_refs = [{"space": node.space, "externalId": node.external_id} for node in nodes]
+    edge_type_value = edge_type.dump(include_instance_type=False)
+    found: list[EdgeResponse] = []
+    for chunk in chunker_sequence(node_refs, _EDGE_NODE_IN_FILTER_LIMIT):
+        instance_filter = InstanceFilter(
+            instance_type="edge",
+            filter={
+                "and": [
+                    {"equals": {"property": ["edge", "type"], "value": edge_type_value}},
+                    {
+                        "or": [
+                            {"in": {"property": ["edge", "startNode"], "values": chunk}},
+                            {"in": {"property": ["edge", "endNode"], "values": chunk}},
+                        ]
+                    },
+                ]
+            },
+        )
+        for batch in client.tool.instances.iterate(instance_filter, limit=None, endpoint="query"):
+            for item in batch:
+                if isinstance(item, EdgeResponse):
+                    found.append(item)
+    return found
 
 
 def register_solution_tag_references(

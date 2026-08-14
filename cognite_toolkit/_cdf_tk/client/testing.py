@@ -180,6 +180,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
+        self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
@@ -198,6 +199,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
+        self.tool.instances.iterate.return_value = []
         self.tool.spaces = MagicMock(spec=SpacesAPI)
         self.tool.views = MagicMock(spec=ViewsAPI)
         self.tool.containers = MagicMock(spec=ContainersAPI)

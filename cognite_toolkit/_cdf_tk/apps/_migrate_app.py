@@ -74,6 +74,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     resolve_observation_view_id,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    APP_DATA_CHILD_EDGES_BY_VIEW,
     COGNITE_SOLUTION_TAG_VIEW_ID,
     LocationSplitKind,
     build_target_by_root_asset,
@@ -1706,6 +1707,9 @@ class MigrateApp(typer.Typer):
                 continue
             if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
                 solution_tag_mapping = mapping
+            edge_types = list(mapping.edge_mapping.keys()) if mapping.edge_mapping else []
+            if location_split_id_mapper is not None:
+                edge_types.extend(APP_DATA_CHILD_EDGES_BY_VIEW.get(mapping.source_view, ()))
             selectors.append(
                 InstanceViewSelector(
                     view=SelectedView(
@@ -1714,7 +1718,7 @@ class MigrateApp(typer.Typer):
                         version=mapping.source_view.version,
                     ),
                     instance_spaces=(source_space,),
-                    edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
+                    edge_types=tuple(dict.fromkeys(edge_types)) or None,
                     endpoint="sync",
                 )
             )
@@ -2208,13 +2212,17 @@ class MigrateApp(typer.Typer):
                 cdm_configs=cdm_configs,
                 target_kind=target_kind,
             )
+            target_spaces = set(target_by_root_asset.values())
             location_split_id_mapper = LocationSplitInstanceIdMapper(
-                client, source_space, passthrough_space_mapping=passthrough or None
+                client,
+                source_space,
+                passthrough_space_mapping=passthrough or None,
+                target_spaces=target_spaces,
             )
             return (
                 location_split_id_mapper,
                 location_split_id_mapper,
-                set(target_by_root_asset.values()),
+                target_spaces,
                 target_by_root_asset,
             )
         if target_space is None:
