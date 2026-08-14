@@ -93,8 +93,8 @@ class MigrationCommand(ToolkitCommand):
             # Charts are not creating any new nodes.
             if isinstance(data, RecordsMigrationIO):
                 self.validate_stream_capacity(data.stream, needed_capacity)
-            else:
-                self.validate_available_capacity(data.client, needed_capacity)
+            # else:
+            #     self.validate_available_capacity(data.client, needed_capacity)
 
         with (
             NDJsonWriter(

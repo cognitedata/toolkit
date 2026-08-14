@@ -1449,7 +1449,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapper = self._custom_instance_mappings[intersection_view_id]
+                custom_mapper.logger = self.logger
+                custom_mapper.dry_run = self.dry_run
+                custom_mapped = custom_mapper.map(source)
                 if self.dry_run:
                     for data_item in custom_mapped:
                         if isinstance(data_item.item, NodeRequest):
@@ -2247,6 +2250,49 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+class LocationSplitSolutionTagMapper(FDMtoCDMMapper):
+    """Copies each CogniteSolutionTag into every target space of a location split."""
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        mapping: ViewToViewMapping,
+        target_spaces: Iterable[str],
+    ) -> None:
+        super().__init__(client, [mapping], connection_creator)
+        self._target_spaces = sorted(set(target_spaces))
+
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        output: list[DataItem[NodeOrEdgeRequest]] = []
+        issues: list[InstanceConversionIssue] = []
+        for data_item in source:
+            node = data_item.item
+            if not isinstance(node, NodeResponse):
+                continue
+            for target_space in self._target_spaces:
+                new_id = NodeId(space=target_space, external_id=node.external_id)
+                sources, _, issue = self._create_instance_data(new_id, node, {})
+                if issue.has_issues:
+                    issues.append(issue)
+                output.append(
+                    DataItem(
+                        tracking_id=str(node.as_id()),
+                        item=NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources or None),
+                    )
+                )
+        if issues:
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="CogniteSolutionTag (legacy)", destination="CogniteSolutionTag (CDM)"
+                    )
+                    for issue in issues
+                ]
+            )
+        return output
 
 
 class Image360FDMtoCDMMapper(FDMtoCDMMapper):

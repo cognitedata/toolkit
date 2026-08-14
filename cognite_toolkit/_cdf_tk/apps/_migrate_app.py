@@ -58,6 +58,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     LocationSplitFDMtoCDMMapper,
+    LocationSplitSolutionTagMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
@@ -1705,9 +1706,6 @@ class MigrateApp(typer.Typer):
                 continue
             if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
                 solution_tag_mapping = mapping
-                if source_space in shared_legacy_spaces:
-                    # Copied into every target space separately below.
-                    continue
             selectors.append(
                 InstanceViewSelector(
                     view=SelectedView(
@@ -1747,7 +1745,12 @@ class MigrateApp(typer.Typer):
                 location_split_id_mapper,
                 target_by_root_asset,
                 custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings={InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: schedule_mapper},
+                custom_instance_mappings={
+                    InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: schedule_mapper,
+                    COGNITE_SOLUTION_TAG_VIEW_ID: LocationSplitSolutionTagMapper(
+                        client, connection_creator, solution_tag_mapping, target_spaces
+                    ),
+                },
             )
         else:
             mapper = FDMtoCDMMapper(
@@ -1768,36 +1771,6 @@ class MigrateApp(typer.Typer):
                 user_log_filestem="infield_data",
             )
         )
-        if source_space in shared_legacy_spaces:
-            # Copy every tag into every target space rather than tracking which spaces reference which tags.
-            solution_tag_selector = InstanceViewSelector(
-                view=SelectedView(
-                    space=solution_tag_mapping.source_view.space,
-                    external_id=solution_tag_mapping.source_view.external_id,
-                    version=solution_tag_mapping.source_view.version,
-                ),
-                instance_spaces=(source_space,),
-                endpoint="sync",
-            )
-            for tag_target_space in sorted(target_spaces):
-                tag_mapper = FDMtoCDMMapper(
-                    client,
-                    [solution_tag_mapping],
-                    connection_creator=ConnectionCreator(
-                        client, instance_id_mapper=SpaceMappingInstanceIdMapper({source_space: tag_target_space})
-                    ),
-                )
-                cmd.run(
-                    lambda tag_mapper=tag_mapper, tag_target_space=tag_target_space: cmd.migrate(
-                        selectors=[solution_tag_selector],
-                        data=InstanceIO(client),
-                        mapper=tag_mapper,
-                        log_dir=log_dir,
-                        dry_run=dry_run,
-                        verbose=verbose,
-                        user_log_filestem=f"infield_data_solution_tags_{tag_target_space}",
-                    )
-                )
 
     @staticmethod
     def infield_source_data(
