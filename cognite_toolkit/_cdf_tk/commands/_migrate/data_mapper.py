@@ -116,12 +116,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     InstanceConversionIssue,
     MigrationEntryV2,
+    TargetSpaceResolutionIssue,
     ThreeDModelMigrationIssue,
     instance_conversion_issue_as_migration_entry,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    APP_DATA_CHILD_EDGE_TYPES,
     APP_DATA_PARENT_EDGE_BY_VIEW,
+    APP_DATA_PARENT_EDGE_TYPES,
     APP_DATA_PARENT_PROPERTY_BY_VIEW,
     APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
@@ -1479,7 +1480,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     node, other_side_by_edge_type_and_direction_by_source[source_node_id]
                 )
             except InstanceMappingError as error:
-                issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
+                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issue_by_source_node_id[source_node_id] = issue_cls(
                     id=str(source_node_id),
                     errors=[str(error)],
                     severity=error.severity,
@@ -1801,14 +1803,6 @@ def _relocation_source(source_space: str) -> InstanceSource:
     )
 
 
-def _relocation_source_node(target_space: str, external_id: str, source_space: str) -> NodeRequest:
-    return NodeRequest(
-        space=target_space,
-        external_id=external_id,
-        sources=[_relocation_source(source_space)],
-    )
-
-
 def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
     return mapped_node.model_copy(update={"sources": [*(mapped_node.sources or []), _relocation_source(source_space)]})
 
@@ -1852,10 +1846,8 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 "assetExternalId",
                 root_internal_id_to_target_space(client, target_by_root_asset),
             )
-        self._relocation_stubs: list[NodeRequest] = []
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
-        self._relocation_stubs = []
         if self._notification_resolver is not None and self._notification_view is not None:
             matching_nodes = [
                 data_item.item
@@ -1866,16 +1858,24 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             if matching_nodes:
                 self._notification_resolver.prepare_page(matching_nodes)
         self._prefetch_relocation_tags(source)
-        mapped = list(super().map(source))
-        return self._with_relocation_stubs(mapped)
+        return list(super().map(source))
 
     def _prefetch_relocation_tags(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> None:
-        unregistered_external_ids = [
-            data_item.item.external_id
-            for data_item in source
-            if isinstance(data_item.item, NodeResponse)
-            and self._instance_id_mapper.get_registered_target_space(data_item.item.external_id) is None
-        ]
+        unregistered_external_ids: list[str] = []
+        seen: set[str] = set()
+        for data_item in source:
+            item = data_item.item
+            if isinstance(item, NodeResponse):
+                external_id = item.external_id
+            elif isinstance(item, EdgeResponse) and item.type in APP_DATA_PARENT_EDGE_TYPES:
+                external_id = item.start_node.external_id
+            else:
+                continue
+            if external_id in seen:
+                continue
+            seen.add(external_id)
+            if self._instance_id_mapper.get_registered_target_space(external_id) is None:
+                unregistered_external_ids.append(external_id)
         if not unregistered_external_ids:
             return
         matches = self.client.migration.instance_space_relocation_source.retrieve(
@@ -1883,40 +1883,6 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         )
         for match in matches:
             self._instance_id_mapper.register(match.external_id, match.space)
-
-    def _with_relocation_stubs(
-        self, mapped: Sequence[DataItem[NodeOrEdgeRequest]]
-    ) -> list[DataItem[NodeOrEdgeRequest]]:
-        if self.dry_run or not self._relocation_stubs:
-            return list(mapped)
-        existing_ids = {item.item.as_id() for item in mapped if isinstance(item.item, NodeRequest)}
-        extra: list[DataItem[NodeOrEdgeRequest]] = []
-        for stub in self._relocation_stubs:
-            if stub.as_id() in existing_ids:
-                continue
-            extra.append(DataItem(tracking_id=f"{stub.space}:{stub.external_id}", item=stub))
-            existing_ids.add(stub.as_id())
-        if not extra:
-            return list(mapped)
-        return [*mapped, *extra]
-
-    def _register_linked_instances(
-        self,
-        source_space: str,
-        target_space: str,
-        other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
-    ) -> None:
-        for edge_type, others in other_side_by_edge_type_and_direction.items():
-            if edge_type.direction != "outwards" or edge_type.type not in APP_DATA_CHILD_EDGE_TYPES:
-                continue
-            for other in others:
-                linked_external_id = other.other_side.external_id
-                self._instance_id_mapper.register(linked_external_id, target_space)
-                linked_id = NodeId(space=target_space, external_id=linked_external_id)
-                if self.dry_run:
-                    self._is_existing_by_node_id[linked_id] = True
-                    continue
-                self._relocation_stubs.append(_relocation_source_node(target_space, linked_external_id, source_space))
 
     def _map_single_node(
         self,
@@ -1927,7 +1893,6 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         if target_space is None:
             target_space = self._resolve_target_space(node, other_side_by_edge_type_and_direction)
         self._instance_id_mapper.register(node.external_id, target_space)
-        self._register_linked_instances(node.space, target_space, other_side_by_edge_type_and_direction)
         register_solution_tag_references(node, target_space, self._instance_id_mapper)
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
         if self.dry_run:
@@ -1964,13 +1929,18 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
     def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
         root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
         if root_location is None:
-            raise InstanceMappingError(f"{node.as_id()} is missing rootLocation.", severity=Severity.failure)
+            raise InstanceMappingError(
+                f"{node.as_id()} is missing rootLocation.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
             raise InstanceMappingError(
                 f"{node.as_id()} has rootLocation {root_location!r}, which does not match a location sharing this "
                 "legacy instance space.",
                 severity=Severity.failure,
+                is_target_space_resolution=True,
             )
         return target_space
 
@@ -1988,7 +1958,9 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         ]
         if not parents:
             raise InstanceMappingError(
-                f"{node.as_id()} has no inbound {parent_edge_type!s} edge to a parent.", severity=Severity.failure
+                f"{node.as_id()} has no inbound {parent_edge_type!s} edge to a parent.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
             )
         target_spaces: set[str] = set()
         for parent in parents:
@@ -1998,19 +1970,26 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         if len(target_spaces) != 1:
             reason = "unresolved" if not target_spaces else "disagree on target space"
             raise InstanceMappingError(
-                f"{node.as_id()}: parent(s) via {parent_edge_type!s} are {reason}.", severity=Severity.failure
+                f"{node.as_id()}: parent(s) via {parent_edge_type!s} are {reason}.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
             )
         return next(iter(target_spaces))
 
     def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
         parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
         if parent_external_id is None:
-            raise InstanceMappingError(f"{node.as_id()} is missing {parent_property}.", severity=Severity.failure)
+            raise InstanceMappingError(
+                f"{node.as_id()} is missing {parent_property}.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
         target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
         if target_space is None:
             raise InstanceMappingError(
                 f"{node.as_id()}: parent {parent_external_id!r} via {parent_property} is unresolved.",
                 severity=Severity.failure,
+                is_target_space_resolution=True,
             )
         return target_space
 
@@ -2125,7 +2104,10 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     try:
                         self._connection_creator.map_instance(item.as_id())
                     except InstanceMappingError as error:
-                        issues.append(InstanceConversionIssue(id=str(item.as_id()), errors=[str(error)]))
+                        issue_cls = (
+                            TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                        )
+                        issues.append(issue_cls(id=str(item.as_id()), errors=[str(error)]))
                         continue
                     schedule_hash = self._calculate_schedule_hash(schedule_properties)
                     schedules[schedule_hash].append(item)
@@ -2180,7 +2162,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             )
         target_space = location_split_id_mapper.resolve_target_space(template_node.external_id)
         if target_space is None:
-            return InstanceConversionIssue(
+            return TargetSpaceResolutionIssue(
                 id="schedules-page",
                 errors=[
                     f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
@@ -2211,12 +2193,12 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         if not duplicated_schedules:
             raise ValueError("At least one schedule is required to create a schedule mapping.")
         first = duplicated_schedules[0]
-        issue = InstanceConversionIssue(id=str(first.as_id()))
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            issue.errors.append(str(error))
-            return None, issue
+            issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+            return None, issue_cls(id=str(first.as_id()), errors=[str(error)])
+        issue = InstanceConversionIssue(id=str(first.as_id()))
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(
                 f"Destination view '{self._mapping.destination_view}' not found in view cache. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"

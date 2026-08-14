@@ -74,7 +74,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     resolve_observation_view_id,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    APP_DATA_CHILD_EDGES_BY_VIEW,
     COGNITE_SOLUTION_TAG_VIEW_ID,
     LocationSplitKind,
     build_target_by_root_asset,
@@ -1708,8 +1707,6 @@ class MigrateApp(typer.Typer):
             if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
                 solution_tag_mapping = mapping
             edge_types = list(mapping.edge_mapping.keys()) if mapping.edge_mapping else []
-            if location_split_id_mapper is not None:
-                edge_types.extend(APP_DATA_CHILD_EDGES_BY_VIEW.get(mapping.source_view, ()))
             selectors.append(
                 InstanceViewSelector(
                     view=SelectedView(

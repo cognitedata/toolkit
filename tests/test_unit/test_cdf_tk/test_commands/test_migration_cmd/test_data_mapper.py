@@ -1073,7 +1073,7 @@ class TestFDMtoCDMMapper:
             in mapped_node.sources
         )
 
-    def test_location_split_mapper_persists_linked_instances_in_relocation_view(self) -> None:
+    def test_location_split_mapper_does_not_tag_relocation_source_in_dry_run(self) -> None:
         node = NodeResponse(
             space=self.SOURCE_SPACE,
             external_id="template1",
@@ -1084,72 +1084,6 @@ class TestFDMtoCDMMapper:
                 TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}},
                 self.SOURCE_VIEW_ID: {"textProp": "37"},
             },
-        )
-        edge = EdgeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="edge1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
-            start_node=NodeId(space=self.SOURCE_SPACE, external_id="template1"),
-            end_node=NodeId(space=self.SOURCE_SPACE, external_id="item1"),
-        )
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
-            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
-            mapper = LocationSplitFDMtoCDMMapper(
-                client,
-                [mapping],
-                connection_creator,
-                instance_id_mapper,
-                {"ROOT_A": "target_space"},
-            )
-            mapper.prepare(MagicMock())
-
-            mapped_items = mapper.map(
-                [
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:template1", item=node),
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
-                ]
-            )
-
-        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
-        assert {node.external_id: node.space for node in mapped_nodes} == {
-            "template1": "target_space",
-            "item1": "target_space",
-        }
-        item_stub = next(node for node in mapped_nodes if node.external_id == "item1")
-        assert item_stub.sources == [
-            InstanceSource(
-                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID, properties={"sourceSpace": self.SOURCE_SPACE}
-            )
-        ]
-        assert instance_id_mapper.get_registered_target_space("item1") == "target_space"
-
-    def test_location_split_mapper_does_not_persist_linked_instances_in_dry_run(self) -> None:
-        node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="template1",
-            last_updated_time=1772522715000,
-            created_time=0,
-            version=1,
-            properties={
-                TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}},
-                self.SOURCE_VIEW_ID: {"textProp": "37"},
-            },
-        )
-        edge = EdgeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="edge1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
-            start_node=NodeId(space=self.SOURCE_SPACE, external_id="template1"),
-            end_node=NodeId(space=self.SOURCE_SPACE, external_id="item1"),
         )
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
@@ -1169,7 +1103,6 @@ class TestFDMtoCDMMapper:
             mapped_items = mapper.map(
                 [
                     DataItem(tracking_id=f"{self.SOURCE_SPACE}:template1", item=node),
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
                 ]
             )
 
@@ -1178,7 +1111,6 @@ class TestFDMtoCDMMapper:
         assert INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID not in {
             source.source for node in mapped_nodes for source in (node.sources or [])
         }
-        assert instance_id_mapper.get_registered_target_space("item1") == "target_space"
 
     def test_location_split_mapper_resolves_from_relocation_tagging(self) -> None:
         node = NodeResponse(
@@ -1205,51 +1137,6 @@ class TestFDMtoCDMMapper:
             mapper.prepare(MagicMock())
 
             mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node)])
-
-        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
-        assert len(mapped_nodes) == 1
-        assert mapped_nodes[0].space == "target_space"
-
-    def test_location_split_mapper_resolves_via_parent_edge_when_untagged(self) -> None:
-        node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="item1",
-            last_updated_time=1772522715000,
-            created_time=0,
-            version=1,
-            properties={TEMPLATE_ITEM_VIEW: {}, self.SOURCE_VIEW_ID: {"textProp": "37"}},
-        )
-        edge = EdgeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="edge1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
-            start_node=NodeId(space=self.SOURCE_SPACE, external_id="template1"),
-            end_node=NodeId(space=self.SOURCE_SPACE, external_id="item1"),
-        )
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
-            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
-            instance_id_mapper.register("template1", "target_space")
-            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
-            mapper = LocationSplitFDMtoCDMMapper(
-                client,
-                [mapping],
-                connection_creator,
-                instance_id_mapper,
-                {},
-            )
-            mapper.prepare(MagicMock())
-
-            mapped_items = mapper.map(
-                [
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node),
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
-                ]
-            )
 
         mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
         assert len(mapped_nodes) == 1

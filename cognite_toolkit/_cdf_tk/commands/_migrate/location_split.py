@@ -48,22 +48,13 @@ REFERENCE_MEASUREMENTS_EDGE = EdgeTypeId(
 # Resolved from the node's own rootLocation.
 APP_DATA_ROOT_LOCATION_VIEWS = (TEMPLATE_VIEW, CHECKLIST_VIEW, OBSERVATION_VIEW)
 # Child views that inherit target space from a parent tagged in InstanceSpaceRelocationSource.
+# Inbound edges are read on the child /sync page so a newly added child is picked up with its parent edge.
 APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
     TEMPLATE_ITEM_VIEW: REFERENCE_TEMPLATE_ITEMS_EDGE,
     CHECKLIST_ITEM_VIEW: REFERENCE_CHECKLIST_ITEMS_EDGE,
     MEASUREMENT_VIEW: REFERENCE_MEASUREMENTS_EDGE,
 }
-# Fetch these outbound edges once on the parent. The other end is written to
-# InstanceSpaceRelocationSource so children resolve by externalId + sourceSpace.
-APP_DATA_CHILD_EDGES_BY_VIEW: Mapping[ViewId, tuple[EdgeTypeId, ...]] = {
-    TEMPLATE_VIEW: (EdgeTypeId(type=REFERENCE_TEMPLATE_ITEMS_EDGE.type, direction="outwards"),),
-    CHECKLIST_VIEW: (EdgeTypeId(type=REFERENCE_CHECKLIST_ITEMS_EDGE.type, direction="outwards"),),
-    TEMPLATE_ITEM_VIEW: (EdgeTypeId(type=REFERENCE_MEASUREMENTS_EDGE.type, direction="outwards"),),
-    CHECKLIST_ITEM_VIEW: (EdgeTypeId(type=REFERENCE_MEASUREMENTS_EDGE.type, direction="outwards"),),
-}
-APP_DATA_CHILD_EDGE_TYPES = frozenset(
-    edge_type.type for edge_types in APP_DATA_CHILD_EDGES_BY_VIEW.values() for edge_type in edge_types
-)
+APP_DATA_PARENT_EDGE_TYPES = frozenset(edge_type.type for edge_type in APP_DATA_PARENT_EDGE_BY_VIEW.values())
 # Inherit target space from a parent referenced by a direct-relation property.
 APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
     CONDITIONAL_ACTION_VIEW: "parentObject",
