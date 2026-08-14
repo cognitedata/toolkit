@@ -10,14 +10,7 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import (
-    ContainerId,
-    EdgeId,
-    EdgeTypeId,
-    ExternalId,
-    InstanceId,
-    InternalId,
-)
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationPoint,
     AnnotationResponse,
@@ -128,14 +121,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     APP_DATA_CHILD_EDGE_TYPES,
-    APP_DATA_CHILD_EDGES_BY_VIEW,
     APP_DATA_PARENT_EDGE_BY_VIEW,
     APP_DATA_PARENT_PROPERTY_BY_VIEW,
     APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
     _as_external_id,
     _get_view_property,
-    fetch_edges_of_type_connected_to_nodes,
     register_solution_tag_references,
     root_internal_id_to_target_space,
 )
@@ -1872,56 +1863,8 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             if matching_nodes:
                 self._notification_resolver.prepare_page(matching_nodes)
         self._prefetch_relocation_tags(source)
-        source = self._with_lineage_edges(source)
         mapped = list(super().map(source))
         return self._with_relocation_stubs(mapped)
-
-    def _with_lineage_edges(
-        self, source: Sequence[DataItem[NodeOrEdgeResponse]]
-    ) -> Sequence[DataItem[NodeOrEdgeResponse]]:
-        if self._source_views is not None:
-            return source
-        seen_edge_ids = {data_item.item.as_id() for data_item in source if isinstance(data_item.item, EdgeResponse)}
-        extra: list[DataItem[NodeOrEdgeResponse]] = []
-        for view_id, child_edge_types in APP_DATA_CHILD_EDGES_BY_VIEW.items():
-            parent_nodes = [
-                data_item.item
-                for data_item in source
-                if isinstance(data_item.item, NodeResponse) and view_id in (data_item.item.properties or {})
-            ]
-            if not parent_nodes:
-                continue
-            for child_edge_type in child_edge_types:
-                extra.extend(self._extra_edge_items(parent_nodes, child_edge_type.type, seen_edge_ids))
-        for view_id, parent_edge_type in APP_DATA_PARENT_EDGE_BY_VIEW.items():
-            untagged_nodes = [
-                data_item.item
-                for data_item in source
-                if isinstance(data_item.item, NodeResponse)
-                and view_id in (data_item.item.properties or {})
-                and self._instance_id_mapper.get_registered_target_space(data_item.item.external_id) is None
-            ]
-            if not untagged_nodes:
-                continue
-            extra.extend(self._extra_edge_items(untagged_nodes, parent_edge_type.type, seen_edge_ids))
-        if not extra:
-            return source
-        return [*source, *extra]
-
-    def _extra_edge_items(
-        self,
-        nodes: Sequence[NodeResponse],
-        edge_type: NodeId,
-        seen_edge_ids: set[EdgeId],
-    ) -> list[DataItem[NodeOrEdgeResponse]]:
-        extra: list[DataItem[NodeOrEdgeResponse]] = []
-        for edge in fetch_edges_of_type_connected_to_nodes(self.client, nodes, edge_type):
-            edge_id = edge.as_id()
-            if edge_id in seen_edge_ids:
-                continue
-            seen_edge_ids.add(edge_id)
-            extra.append(DataItem(tracking_id=str(edge_id), item=edge))
-        return extra
 
     def _prefetch_relocation_tags(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> None:
         unregistered_external_ids = [

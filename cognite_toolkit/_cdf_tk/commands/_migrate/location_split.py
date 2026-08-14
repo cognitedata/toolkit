@@ -6,10 +6,8 @@ from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ExternalId, NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import EdgeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -18,7 +16,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
 )
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
 CDM_SPACE_SUFFIX = "_cdm"
@@ -292,43 +289,6 @@ class AssetExternalIdTargetSpaceResolver:
                 severity=Severity.failure,
             )
         return target_space
-
-
-_EDGE_NODE_IN_FILTER_LIMIT = 100
-
-
-def fetch_edges_of_type_connected_to_nodes(
-    client: ToolkitClient,
-    nodes: Sequence[NodeResponse],
-    edge_type: NodeId,
-) -> list[EdgeResponse]:
-    """List edges of ``edge_type`` that start or end at any of ``nodes``.
-
-    Used when the /sync chained subquery omits lineage edges needed to persist or resolve target space.
-    """
-    node_refs = [{"space": node.space, "externalId": node.external_id} for node in nodes]
-    edge_type_value = edge_type.dump(include_instance_type=False)
-    found: list[EdgeResponse] = []
-    for chunk in chunker_sequence(node_refs, _EDGE_NODE_IN_FILTER_LIMIT):
-        instance_filter = InstanceFilter(
-            instance_type="edge",
-            filter={
-                "and": [
-                    {"equals": {"property": ["edge", "type"], "value": edge_type_value}},
-                    {
-                        "or": [
-                            {"in": {"property": ["edge", "startNode"], "values": chunk}},
-                            {"in": {"property": ["edge", "endNode"], "values": chunk}},
-                        ]
-                    },
-                ]
-            },
-        )
-        for batch in client.tool.instances.iterate(instance_filter, limit=None, endpoint="query"):
-            for item in batch:
-                if isinstance(item, EdgeResponse):
-                    found.append(item)
-    return found
 
 
 def register_solution_tag_references(

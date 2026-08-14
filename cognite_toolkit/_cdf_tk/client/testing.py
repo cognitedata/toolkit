@@ -199,7 +199,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
-        self.tool.instances.iterate.return_value = []
         self.tool.spaces = MagicMock(spec=SpacesAPI)
         self.tool.views = MagicMock(spec=ViewsAPI)
         self.tool.containers = MagicMock(spec=ContainersAPI)
