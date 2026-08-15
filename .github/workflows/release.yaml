@@ -38,6 +38,9 @@ jobs:
   release-pypi-docker-hub:
     runs-on: ubuntu-latest
     environment: CD
+    permissions:
+      contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -49,8 +52,23 @@ jobs:
         run: |
           pip install uv
           uv sync --all-extras
-      - name: Dump last commit message to file
-        run: git log -1 --pretty=%B > last_git_message.txt
+      - name: Dump PR body to file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(git log -1 --pretty=%s | grep -oE '\(#[0-9]+\)' | grep -oE '[0-9]+' | head -1 || true)
+          if [ -n "${PR_NUMBER}" ]; then
+            gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.body // empty' > last_git_message.txt || true
+          fi
+          if [ ! -s last_git_message.txt ]; then
+            git log -1 --pretty=%B > last_git_message.txt
+          fi
+          echo "Using the following description for bump/changelog:"
+          echo "-----"
+          head -n 20 last_git_message.txt
+          echo "-----"
       - name: Dump last tag to file
         run: git describe --tags --abbrev=0 > last_version.txt
       - name: Bump Version

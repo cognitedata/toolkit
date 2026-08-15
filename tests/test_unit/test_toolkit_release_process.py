@@ -175,9 +175,57 @@ using `cdf download canvas`""",
         "0.5.17",
         id="Patch bump with co-author",
     )
+    yield pytest.param(
+        """# Description
+
+Case-insensitive headings with extra whitespace.
+
+##  bump
+
+- [x] Patch
+- [ ] Skip
+
+## changelog
+
+### Fixed
+
+- Fixed something.
+""",
+        "0.5.16",
+        """## Changelog
+
+### Fixed
+
+- Fixed something.""",
+        "0.5.17",
+        id="Case-insensitive bump and changelog headings",
+    )
 
 
 class TestReleaseProcess:
+    def test_bump_rejects_title_only_squash_message(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        last_git_message_file = MagicMock(spec=Path)
+        last_git_message_file.read_text.return_value = (
+            "[CDF-26932] Show CLI group help when no subcommand is given (#3150)\n"
+        )
+        last_version_file = MagicMock(spec=Path)
+        last_version_file.read_text.return_value = "0.5.16"
+        monkeypatch.setattr(dev, "LAST_GIT_MESSAGE_FILE", last_git_message_file)
+        monkeypatch.setattr(dev, "LAST_VERSION", last_version_file)
+        monkeypatch.setattr(dev, "VERSION_FILES", [])
+        monkeypatch.setattr(dev, "DOCKER_IMAGE_FILES", [])
+
+        with pytest.raises(SystemExit) as exc_info:
+            dev.bump()
+
+        assert exc_info.value.code == 1
+        output = capsys.readouterr().out
+        assert "No bump entry found in the last commit message." in output
+        assert "Expected a '## Bump' section." in output
+        assert "[CDF-26932] Show CLI group help when no subcommand is given (#3150)" in output
+
     def test_create_changelog_entry_rejects_test_plan_section(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
