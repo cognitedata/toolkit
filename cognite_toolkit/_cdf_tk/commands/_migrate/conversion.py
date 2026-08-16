@@ -580,6 +580,19 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
+    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        """Map an edge's own instance ID to its destination.
+
+        Args:
+            edge_id: The source edge's own instance ID.
+            owning_node_target_space: The already-resolved destination space of the node that owns this edge
+                (i.e. the node whose conversion is creating it). Mappers that place edges alongside their
+                owning node can use this instead of resolving the edge's own ID independently.
+
+        Defaults to mapping the edge like any other instance ID.
+        """
+        return self.map_instance_id(edge_id)
+
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         """Return the destination instance spaces corresponding to the given source spaces, for display purposes.
 
@@ -669,6 +682,11 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
             f"{self.source_space!r} and passthrough spaces "
             f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
         )
+
+    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        # Edges are stored alongside the node that owns them and are never referenced by external ID
+        # elsewhere, so they don't need (and can't use) the per-external-id resolution that nodes require.
+        return NodeId(space=owning_node_target_space, external_id=edge_id.external_id)
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         destinations: set[str] = set()
@@ -891,6 +909,10 @@ class ConnectionCreator:
         """Maps a source instance ID to the corresponding destination instance ID."""
         return self._instance_id_mapper.map_instance_id(instance_id)
 
+    def map_edge(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        """Maps a source edge's own instance ID to its destination, given its owning node's target space."""
+        return self._instance_id_mapper.map_edge_id(edge_id, owning_node_target_space)
+
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
         """Get the edge properties for a given view ID."""
         if view_id not in self.view_by_id:
@@ -1029,7 +1051,7 @@ class ConnectionCreator:
         new_edges: list[EdgeRequest] = []
         for edge in edges:
             try:
-                new_edge_id = self.map_instance(edge.edge_id)
+                new_edge_id = self.map_edge(edge.edge_id, source_id.space)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue
