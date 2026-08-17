@@ -271,8 +271,8 @@ CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW.as_id()
 
-# Defined here but not yet included in CONTAINERS/VIEWS, so `cdf migrate prepare` does not deploy it.
-# Kept out of the documented CogniteMigration model to remain hidden from users.
+VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
+
 COGNITE_MIGRATION_MODEL = DataModelRequest(
     space=SPACE.space,
     external_id="CogniteMigration",
@@ -281,7 +281,5 @@ COGNITE_MIGRATION_MODEL = DataModelRequest(
     description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
     views=[INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID, CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE_SOURCE_VIEW_ID],
 )
-
-VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
 
 MODEL_ID = COGNITE_MIGRATION_MODEL.as_id()
