@@ -148,7 +148,12 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--deployment-pack",
                 "-d",
-                help="Name of a specific module to download and install from the library without interactive prompts.",
+                help=(
+                    "Name of a specific package or module to download and install from the library "
+                    "without interactive prompts. If a module name exists in more than one package, "
+                    "use the '<package>:<module>' syntax to disambiguate, "
+                    "for example 'contextualization:cdf_entity_matching'."
+                ),
             ),
         ] = None,
         verbose: Annotated[
