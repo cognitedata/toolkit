@@ -10,6 +10,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, AssetCe
 INSTANCE_SOURCE_VIEW_ID = ViewId(space="cognite_migration", external_id="InstanceSource", version="v1")
 CREATED_SOURCE_SYSTEM_VIEW_ID = ViewId(space="cognite_migration", external_id="CreatedSourceSystem", version="v1")
 SPACE_SOURCE_VIEW_ID = ViewId(space="cognite_migration", external_id="SpaceSource", version="v1")
+INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID = ViewId(
+    space="cognite_migration", external_id="InstanceSpaceRelocationSource", version="v1"
+)
 
 
 class AssetCentricId(Identifier):
@@ -88,3 +91,16 @@ class SpaceSource(WrappedInstanceResponseOnly):
     instance_space: str
     data_set_id: int
     data_set_external_id: str | None = None
+
+
+class InstanceSpaceRelocationSource(WrappedInstanceResponseOnly):
+    """Pydantic model for reading InstanceSpaceRelocationSource nodes from the cognite_migration data model."""
+
+    VIEW_ID: ClassVar[ViewId] = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
+
+    instance_type: Literal["node"] = "node"
+
+    source_space: str
+
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
