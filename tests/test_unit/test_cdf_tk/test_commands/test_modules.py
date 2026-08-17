@@ -490,6 +490,9 @@ class TestModulesCommand:
             ("cherry_pkg:", [], "Invalid syntax"),  # missing module part
             (":mod_a", [], "Invalid syntax"),  # missing package part
             ("fixed_pkg:mod_locked", [], "does not support cherry-picking"),  # non-cherry-pickable package
+            ("dp:contextualization:cdf_entity_matching", [], "Invalid syntax"),  # more than one ':'
+            ("cherry_pk:mod_a", [], "Did you mean 'cherry_pkg'"),  # package typo, close match suggested
+            ("cherry_pkg:mod_bb", [], "Did you mean 'mod_b'"),  # module typo, close match suggested
         ],
     )
     def test_find_and_select_module_errors(

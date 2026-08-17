@@ -629,6 +629,11 @@ class ModulesCommand(ToolkitCommand):
         Returns:
             Packages: Selected package and module
         """
+        if package_and_module.count(":") != 1:
+            raise ToolkitError(
+                f"Invalid syntax '{package_and_module}'. Expected exactly one ':' separating "
+                f"'<package>:<module>', found {package_and_module.count(':')}."
+            )
         package_part, _, module_part = package_and_module.partition(":")
         if not package_part or not module_part:
             raise ToolkitError(f"Invalid syntax '{package_and_module}'. Expected format '<package>:<module>'.")
@@ -636,14 +641,19 @@ class ModulesCommand(ToolkitCommand):
         by_package = {name.casefold(): pkg for name, pkg in packages.items()}
         package = by_package.get(package_part.casefold())
         if package is None:
-            raise ToolkitError(f"Package '{package_part}' not found.")
+            close = difflib.get_close_matches(package_part.casefold(), list(by_package), n=1)
+            suggestion = f" Did you mean '{by_package[close[0]].name}'?" if close else ""
+            raise ToolkitError(f"Package '{package_part}' not found.{suggestion}")
         if not package.can_cherry_pick:
             raise ToolkitError(f"Package '{package.name}' does not support cherry-picking individual modules.")
 
         module_lower = module_part.casefold()
-        module = next((m for m in package.modules if m.name.casefold() == module_lower), None)
+        by_package_module = {m.name.casefold(): m for m in package.modules}
+        module = by_package_module.get(module_lower)
         if module is None:
-            raise ToolkitError(f"Module '{module_part}' not found in package '{package.name}'.")
+            close = difflib.get_close_matches(module_lower, list(by_package_module), n=1)
+            suggestion = f" Did you mean '{by_package_module[close[0]].name}'?" if close else ""
+            raise ToolkitError(f"Module '{module_part}' not found in package '{package.name}'.{suggestion}")
 
         if module.name in existing:
             raise ToolkitError(f"Module '{module.name}' is already installed in this project.")
