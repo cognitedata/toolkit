@@ -539,6 +539,14 @@ class ModulesCommand(ToolkitCommand):
 
         The module_name may use the '<package>:<module>' syntax to disambiguate a module
         that exists in more than one package.
+
+        Args:
+            packages (Packages): Available packages
+            module_name (str): Module name or package name
+            existing_module_names (list[str]): Already installed module names
+
+        Returns:
+            Packages: Selected package and module(s)
         """
         existing = set(existing_module_names)
 
