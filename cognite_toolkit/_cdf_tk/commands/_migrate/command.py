@@ -94,7 +94,7 @@ class MigrationCommand(ToolkitCommand):
             if isinstance(data, RecordsMigrationIO):
                 self.validate_stream_capacity(data.stream, needed_capacity)
             # else:
-            #     self.validate_available_capacity(data.client, needed_capacity)
+            #     self.validate_available_capacity(data.client, needed_capacity) # FIXME: Uncomment this before merge
 
         with (
             NDJsonWriter(
