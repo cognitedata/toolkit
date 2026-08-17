@@ -620,6 +620,14 @@ class ModulesCommand(ToolkitCommand):
         """
         Find a module in a specific package using the '<package>:<module>' syntax and
         return it as a Packages selection.
+
+        Args:
+            packages (Packages): Available packages
+            package_and_module (str): Package and module name
+            existing (set[str]): Installed module names
+
+        Returns:
+            Packages: Selected package and module
         """
         package_part, _, module_part = package_and_module.partition(":")
         if not package_part or not module_part:
