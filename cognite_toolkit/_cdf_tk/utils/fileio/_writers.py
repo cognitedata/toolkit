@@ -115,12 +115,6 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
             self._file_count_by_filename.clear()
             return None
 
-    def flush(self) -> None:
-        """Flush all open file handles to disk."""
-        with self._lock:
-            for writer in self._writer_by_filepath.values():
-                writer.flush()
-
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
         try:
@@ -194,6 +188,12 @@ class NDJsonWriter(FileWriter[TextIOWrapper]):
         writer.writelines(
             f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
+
+    def flush(self) -> None:
+        """Flush all open file handles to disk."""
+        with self._lock:
+            for writer in self._writer_by_filepath.values():
+                writer.flush()
 
 
 class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
