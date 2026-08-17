@@ -535,8 +535,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 log_entries.append(
                     MigrationEntryV2(
                         id=identifier,
-                        label="Missing timeseries IDs",
-                        message="One or more timeseries are missing internal IDs",
+                        label="Missing CogniteTimeSeries for ID",
+                        message="No migrated instance found for classic timeseries internal ID(s)",
                         severity=Severity.warning,
                         source=chart_src,
                         destination=chart_dest,
@@ -548,8 +548,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 log_entries.append(
                     MigrationEntryV2(
                         id=identifier,
-                        label="Missing timeseries external IDs",
-                        message="One or more timeseries are missing external IDs",
+                        label="Missing CogniteTimeSeries for external ID",
+                        message="No migrated instance found for classic timeseries external ID(s)",
                         severity=Severity.warning,
                         source=chart_src,
                         destination=chart_dest,

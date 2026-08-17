@@ -21,9 +21,28 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
+    ExternalDataSourceResponse,
+    OneLakeCredentialsRead,
+    OneLakeLocationDescription,
+    OneLakeSettingsRead,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    CustomFormat,
+    HostedExtractorJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingResponse,
+    JSONInput,
+    Mapping,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import MQTTSourceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -38,6 +57,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     ExtractionPipelineFinder,
     FunctionFinder,
     GroupFinder,
+    HostedExtractorFinder,
     LocationFilterFinder,
     ResourceViewMappingFinder,
     SearchConfigFinder,
@@ -45,12 +65,18 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     StreamlitFinder,
     TransformationFinder,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     DataSetsIO,
+    ExternalDataSourceIO,
     ExtractionPipelineIO,
     FunctionIO,
     GroupAllScopedCRUD,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
     LocationFilterIO,
     ResourceViewMappingIO,
     SearchConfigIO,
@@ -61,6 +87,48 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
+
+
+def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+    monkeypatch.setattr(
+        FeatureFlag,
+        "is_enabled",
+        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
+    )
+
+
+def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
+    transformation = TransformationResponse(
+        id=1,
+        external_id="transformationA",
+        name="OneLake transformation",
+        ignore_null_fields=True,
+        created_time=1,
+        last_updated_time=1,
+        query="select * from ext_onelake('fabric-prod', 'assets')",
+        is_public=True,
+        conflict_mode="upsert",
+        destination={"type": "assets"},
+        owner="test",
+        owner_is_current_user=True,
+        has_source_oidc_credentials=False,
+        has_destination_oidc_credentials=False,
+    )
+    external_source = ExternalDataSourceResponse(
+        external_id="fabric-prod",
+        format="one_lake",
+        created_time=1,
+        last_updated_time=1,
+        settings=OneLakeSettingsRead(
+            credentials=OneLakeCredentialsRead(client_id="id", tenant_id="tenant"),
+            location_description=OneLakeLocationDescription(
+                workspace_id="workspace-guid",
+                container_id="lakehouse-guid",
+            ),
+        ),
+    )
+    return transformation, external_source
 
 
 @pytest.fixture()
@@ -157,6 +225,21 @@ class TestDumpTransformations:
         assert len(filepaths) == 2
         items = [read_yaml_file(filepath) for filepath in filepaths]
         assert items == [loader.dump_resource(t) for t in three_transformations[1:]]
+
+    def test_dump_transformations_with_ext_onelake_sources(self, monkeypatch: MonkeyPatch) -> None:
+        _enable_external_data_sources(monkeypatch)
+        transformation, external_source = _onelake_transformation_and_source()
+        with monkeypatch_toolkit_client() as client:
+            finder = TransformationFinder(client, ("transformationA",))
+            client.tool.transformations.retrieve.return_value = [transformation]
+            client.tool.transformations.schedules.retrieve.return_value = []
+            client.tool.transformations.external_data_sources.list.return_value = [external_source]
+
+            batches = list(finder)
+
+        _, external_data_list, loader, _ = batches[2]
+        assert isinstance(loader, ExternalDataSourceIO)
+        assert external_data_list == [external_source]
 
 
 @pytest.fixture()
@@ -439,6 +522,147 @@ class TestDumpExtractionPipeline:
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             assert items == expected
+
+
+@pytest.fixture()
+def three_hosted_extractor_sources() -> list[MQTTSourceResponse]:
+    return [
+        MQTTSourceResponse(
+            type="mqtt5",
+            external_id=f"source{character}",
+            host="localhost",
+            created_time=1,
+            last_updated_time=1,
+        )
+        for character in ["A", "B", "C"]
+    ]
+
+
+class TestHostedExtractorFinder:
+    def test_select_hosted_extractor_sources(
+        self, three_hosted_extractor_sources: list[MQTTSourceResponse], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_sources(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_hosted_extractor_sources)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_sources]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(HostedExtractorFinder.__module__, monkeypatch, answers),
+        ):
+            client.tool.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
+            finder = HostedExtractorFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("sourceB", "sourceC")
+
+
+class TestDumpHostedExtractor:
+    def test_dump_hosted_extractor_with_related_resources(
+        self, three_hosted_extractor_sources: list[MQTTSourceResponse], tmp_path: Path
+    ) -> None:
+        selected_sources = three_hosted_extractor_sources[1:]
+        jobs = [
+            HostedExtractorJobResponse(
+                external_id="jobB",
+                destination_id="destB",
+                source_id="sourceB",
+                format=CustomFormat(mapping_id="mappingB"),
+                created_time=1,
+                last_updated_time=1,
+            ),
+            HostedExtractorJobResponse(
+                external_id="jobOther",
+                destination_id="destOther",
+                source_id="sourceA",
+                format=CustomFormat(mapping_id="mappingOther"),
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+        destinations = [
+            HostedExtractorDestinationResponse(external_id="destB", created_time=1, last_updated_time=1),
+        ]
+        mappings = [
+            HostedExtractorMappingResponse(
+                external_id="mappingB",
+                mapping=Mapping(expression="concat(['site', 'id'])"),
+                published=True,
+                input=JSONInput(),
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+        with monkeypatch_toolkit_client() as client:
+            client.tool.hosted_extractors.sources.retrieve.return_value = selected_sources
+            client.tool.hosted_extractors.jobs.list.return_value = jobs
+            client.tool.hosted_extractors.destinations.retrieve.return_value = destinations
+            client.tool.hosted_extractors.mappings.retrieve.return_value = mappings
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                HostedExtractorFinder(client, ("sourceB", "sourceC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            source_loader = HostedExtractorSourceIO(client, None, None)
+            job_loader = HostedExtractorJobIO(client, None, None)
+            dest_loader = HostedExtractorDestinationIO(client, None, None)
+            mapping_loader = HostedExtractorMappingIO(client, None, None)
+
+            source_items = [read_yaml_file(path) for path in source_loader.find_files(tmp_path)]
+            job_items = [read_yaml_file(path) for path in job_loader.find_files(tmp_path)]
+            dest_items = [read_yaml_file(path) for path in dest_loader.find_files(tmp_path)]
+            mapping_items = [read_yaml_file(path) for path in mapping_loader.find_files(tmp_path)]
+
+        assert sorted(source_items, key=lambda item: item["externalId"]) == [
+            source_loader.dump_resource(source) for source in selected_sources
+        ]
+        assert job_items == [job_loader.dump_resource(jobs[0])]
+        assert dest_items == [dest_loader.dump_resource(destinations[0])]
+        assert mapping_items == [mapping_loader.dump_resource(mappings[0])]
+        assert mapping_items[0]["mapping"]["expression"] == "concat(['site', 'id'])"
+
+    def test_dump_source_without_local_omits_metadata(self) -> None:
+        source = MQTTSourceResponse(
+            type="mqtt5",
+            external_id="sourceA",
+            host="localhost",
+            created_time=1,
+            last_updated_time=1,
+        )
+        with monkeypatch_toolkit_client() as client:
+            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(source)
+        assert dumped == {"type": "mqtt5", "externalId": "sourceA", "host": "localhost"}
+
+    def test_dump_source_with_local_returns_identifier(self) -> None:
+        source = MQTTSourceResponse(
+            type="mqtt5",
+            external_id="sourceA",
+            host="localhost",
+            created_time=1,
+            last_updated_time=1,
+        )
+        with monkeypatch_toolkit_client() as client:
+            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(
+                source, local={"externalId": "sourceA"}
+            )
+        assert dumped == {"externalId": "sourceA"}
+
+    def test_dump_destination_without_local_translates_dataset(self) -> None:
+        destination = HostedExtractorDestinationResponse(
+            external_id="destA",
+            target_data_set_id=123,
+            created_time=1,
+            last_updated_time=1,
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.data_sets.external_id.return_value = "ds_files"
+            dumped = HostedExtractorDestinationIO.create_loader(client).dump_resource(destination)
+        assert dumped == {"externalId": "destA", "targetDataSetExternalId": "ds_files"}
 
 
 @pytest.fixture()

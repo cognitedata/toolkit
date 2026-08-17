@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_organization import DataSetsIO
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
@@ -84,21 +85,23 @@ class ExternalDataSourceIO(
     def dump_resource(
         self, resource: ExternalDataSourceResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        dumped = resource.as_request_resource().dump()
-        local = local or {}
+        # Secrets cannot be compared (API never returns clientSecret). Dumping only the identifier
+        # when a local YAML exists makes deploy always upsert, matching hosted extractor sources.
+        if local:
+            HighSeverityWarning(
+                "External data sources that contain credentials are always considered as changed and will be redeployed every time"
+            ).print_warning(console=self.client.console)
+            return self.dump_id(self.get_id(resource))
+        dumped = resource.dump()
+        dumped.pop("createdTime", None)
+        dumped.pop("lastUpdatedTime", None)
+        dumped.pop("format", None)
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
-        dumped.pop("format", None)
-        local_settings = local.get("settings", {})
-        local_credentials = local_settings.get("credentials", {}) if isinstance(local_settings, dict) else {}
-        if local_credentials and "settings" in dumped and dumped["settings"]:
-            cdf_credentials = dumped["settings"].get("credentials", {})
-            if isinstance(cdf_credentials, dict) and "clientSecret" in local_credentials:
-                cdf_credentials["clientSecret"] = local_credentials["clientSecret"]
         return dumped
 
     def sensitive_strings(self, item: ExternalDataSourceRequest) -> Iterable[str]:
-        if item.settings and item.settings.credentials and item.settings.credentials.client_secret:
+        if item.settings and item.settings.credentials:
             yield item.settings.credentials.client_secret
 
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:

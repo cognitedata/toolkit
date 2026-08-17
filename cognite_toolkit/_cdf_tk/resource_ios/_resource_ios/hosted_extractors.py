@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
     HostedExtractorJobYAML,
@@ -81,6 +82,10 @@ class HostedExtractorSourceIO(
         return id.dump()
 
     @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorSourceRequestUnion]) -> ScopeDefinition:
         return AllScope()
 
@@ -116,10 +121,20 @@ class HostedExtractorSourceIO(
     def dump_resource(
         self, resource: HostedExtractorSourceResponseUnion, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        HighSeverityWarning(
-            "Sources will always be considered different, and thus will always be redeployed."
-        ).print_warning(console=self.client.console)
-        return self.dump_id(self.get_id(resource))
+        # Secrets and certificates cannot be compared (API never returns them). Dumping only
+        # the identifier when a local YAML exists makes deploy always upsert.
+        if local:
+            HighSeverityWarning(
+                "Sources that contain credentials are always considered as changed and will be redeployed every time"
+            ).print_warning(console=self.client.console)
+            return self.dump_id(self.get_id(resource))
+        dumped = resource.dump()
+        dumped.pop("createdTime", None)
+        dumped.pop("lastUpdatedTime", None)
+        # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
+        dumped.pop("caCertificate", None)
+        dumped.pop("authCertificate", None)
+        return dumped
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)
@@ -195,6 +210,10 @@ class HostedExtractorDestinationIO(
         return id.dump()
 
     @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorDestinationRequest]) -> ScopeDefinition:
         return AllScope()
 
@@ -243,10 +262,17 @@ class HostedExtractorDestinationIO(
     def dump_resource(
         self, resource: HostedExtractorDestinationResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
-        ).print_warning(console=self.client.console)
-        return self.dump_id(self.get_id(resource))
+        # Credentials cannot be compared (API never returns them). Dumping only the identifier
+        # when a local YAML exists makes deploy always upsert.
+        if local:
+            HighSeverityWarning(
+                "Destinations that contain credentials are always considered as changed and will be redeployed every time"
+            ).print_warning(console=self.client.console)
+            return self.dump_id(self.get_id(resource))
+        dumped = resource.as_request_resource().dump()
+        if data_set_id := dumped.pop("targetDataSetId", None):
+            dumped["targetDataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
 
     @classmethod
     def get_dependencies(
@@ -292,6 +318,10 @@ class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, Hos
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
@@ -375,6 +405,10 @@ class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequ
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorMappingRequest]) -> ScopeDefinition:

@@ -46,6 +46,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -59,17 +62,23 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     ContainerCRUD,
     DataModelIO,
     DataSetsIO,
+    ExternalDataSourceIO,
     ExtractionPipelineConfigIO,
     ExtractionPipelineIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
     LocationFilterIO,
     NodeCRUD,
     ResourceIO,
@@ -87,6 +96,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
@@ -353,6 +363,24 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_loader(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+            transformations = (
+                [t for t in self.transformations if t.external_id in self.identifier]
+                if self.transformations
+                else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
+            )
+            source_ids = {
+                source_id
+                for transformation in transformations
+                if transformation.query
+                for source_id in get_ext_onelake_source_ids(transformation.query)
+            }
+            if source_ids:
+                external_data_loader = ExternalDataSourceIO.create_loader(self.client)
+                external_data_list = external_data_loader.retrieve(
+                    [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
+                )
+                yield [], external_data_list, external_data_loader, None
         notification_loader = TransformationNotificationIO.create_loader(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
@@ -575,6 +603,65 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         config_loader = ExtractionPipelineConfigIO.create_loader(self.client)
         configs = list(config_loader.iterate(parent_ids=external_ids))
         yield [], configs, config_loader, None
+
+
+class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.sources: list[HostedExtractorSourceResponseUnion] | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.sources = self.client.tool.hosted_extractors.sources.list(limit=None)
+        if not self.sources:
+            raise ToolkitMissingResourceError("No hosted extractor sources found")
+        choices = [
+            Choice(f"{source.external_id} ({source.type})", value=source.external_id)
+            for source in sorted(self.sources, key=lambda s: s.external_id)
+        ]
+        selected_source_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which hosted extractor source(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one source.",
+        ).unsafe_ask()
+        if not selected_source_ids:
+            raise ToolkitValueError(
+                f"No hosted extractor sources selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}"
+            )
+        return tuple(selected_source_ids)
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
+        self.identifier = self._selected()
+        source_ids = set(self.identifier)
+        source_loader = HostedExtractorSourceIO.create_loader(self.client)
+        if self.sources:
+            selected_sources = [source for source in self.sources if source.external_id in source_ids]
+            yield [], selected_sources, source_loader, None
+        else:
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
+
+        jobs = [job for job in self.client.tool.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        if jobs:
+            yield [], jobs, HostedExtractorJobIO.create_loader(self.client), None
+
+        destination_ids = sorted({job.destination_id for job in jobs if job.destination_id})
+        if destination_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in destination_ids],
+                None,
+                HostedExtractorDestinationIO.create_loader(self.client),
+                None,
+            )
+
+        mapping_ids = sorted({mapping_id for job in jobs if (mapping_id := getattr(job.format, "mapping_id", None))})
+        if mapping_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in mapping_ids],
+                None,
+                HostedExtractorMappingIO.create_loader(self.client),
+                None,
+            )
 
 
 class DataSetFinder(ResourceFinder[tuple[str, ...]]):
@@ -948,4 +1035,7 @@ class DumpResourceCommand(ToolkitCommand):
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, StreamlitResponse):
                     finder.dump_code(resource, resource_folder)
                 dumped_ids.append(resource_id)
-        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
+        success_message = f"Dumped {humanize_collection(dumped_ids)}"
+        if dumped_ids:
+            success_message = f"{success_message}\nWritten to {output_dir.as_posix()}"
+        print(Panel(success_message, title="Success", style="green", expand=False))

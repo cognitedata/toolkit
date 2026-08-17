@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QueryResponseUntyped,
     QuerySelect,
     QuerySelectSource,
-    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, sanitize_filename
@@ -167,22 +166,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> QueryRequest:
         """Create a query from the instance filter"""
 
-        # We sort by space and externalId to get a stable sort order.
-        # This is also more performant than sorting by using the default sort, which will sort on
-        # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
-        # By sorting on space and externalId, we avoid this issue.
-        # Exception: when pinned to exactly one space, omit the sort so the server uses
-        # its internal-node-id order. This was observed to be provide a better performance
-        # compromise across different projects compared to the (space, externalId) sort.
-        filter_spaces = filter.space if filter is not None else None
-        space_ext_id_sort: list[QuerySortSpec] | None = None
-        if filter is None or filter_spaces is None or len(filter_spaces) > 1:
-            instance_type = filter.instance_type if filter is not None else None
-            instance_type = instance_type or "node"
-            space_ext_id_sort = [
-                QuerySortSpec(property=[instance_type, "space"], direction="ascending"),
-                QuerySortSpec(property=[instance_type, "externalId"], direction="ascending"),
-            ]
         sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = "twoPhase" if endpoint == "sync" else None
 
         if filter is None:
@@ -191,9 +174,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     "root": QueryNodeExpression(
                         limit=limit,
                         nodes=QueryNodeTableExpression(),
-                        sort=space_ext_id_sort,
                         mode=sync_mode,
-                        backfill_sort=space_ext_id_sort,
                     )
                 },
                 select={"root": QuerySelect()},
@@ -207,17 +188,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
                 limit=limit,
                 edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=space_ext_id_sort,
                 mode=sync_mode,
-                backfill_sort=space_ext_id_sort,
             )
         else:  # Node or none
             expression = QueryNodeExpression(
                 limit=limit,
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
-                sort=space_ext_id_sort,
                 mode=sync_mode,
-                backfill_sort=space_ext_id_sort,
             )
         sources: list[QuerySelectSource] = []
         if filter.source:

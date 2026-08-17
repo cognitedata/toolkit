@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -19,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     ExtractionPipelineFinder,
     FunctionFinder,
     GroupFinder,
+    HostedExtractorFinder,
     LocationFilterFinder,
     NodeFinder,
     ResourceViewMappingFinder,
@@ -31,6 +31,8 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
+from ._helpers import print_help_if_no_subcommand
 
 
 class DumpApp(typer.Typer):
@@ -46,6 +48,7 @@ class DumpApp(typer.Typer):
 
         self.command("location-filter")(DumpConfigApp.dump_location_filters)
         self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
+        self.command("hosted-extractor")(DumpConfigApp.dump_hosted_extractor)
         self.command("functions")(DumpConfigApp.dump_functions)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
@@ -59,9 +62,7 @@ class DumpApp(typer.Typer):
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dump --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
 
 class DumpConfigApp(typer.Typer):
@@ -77,6 +78,7 @@ class DumpConfigApp(typer.Typer):
         self.command("spaces")(self.dump_spaces)
         self.command("location-filters")(self.dump_location_filters)
         self.command("extraction-pipeline")(self.dump_extraction_pipeline)
+        self.command("hosted-extractor")(self.dump_hosted_extractor)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("functions")(self.dump_functions)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
@@ -88,9 +90,7 @@ class DumpConfigApp(typer.Typer):
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dump config --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def dump_datamodel_cmd(
@@ -518,6 +518,55 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 ExtractionPipelineFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_hosted_extractor(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the hosted extractor source(s) you want to dump. "
+                "Related jobs, destinations, and mappings are included. "
+                "If nothing is provided, an interactive prompt will be shown to select the source.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the hosted extractor files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the hosted extractor.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected hosted extractor source, plus related jobs, destinations, and mappings, as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand(client=client)
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                HostedExtractorFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

@@ -12,6 +12,8 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._helpers import print_help_if_no_subcommand
+
 CDF_TOML = CDFToml.load(Path.cwd())
 
 
@@ -33,8 +35,7 @@ class RunApp(typer.Typer):
         """Commands to execute processes in CDF."""
         if ctx.parent is None or ctx.parent.info_name != "dev":
             RunApp._print_deprecation_warning()
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf run --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def run_transformation(
@@ -131,8 +132,7 @@ class RunFunctionApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute function."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf run function --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def run_local(

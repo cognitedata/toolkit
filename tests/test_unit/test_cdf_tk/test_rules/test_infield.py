@@ -47,6 +47,11 @@ def both_cards_config() -> dict:
                 "version": "v2",
                 "externalId": "NotificationsCard",
             },
+            "assetDocumentsCardView": {
+                "space": "customer_idm",
+                "version": "v2",
+                "externalId": "DocumentsCard",
+            },
         },
     }
 
@@ -125,9 +130,11 @@ class TestInFieldCDMViewPropertiesRuleSet:
 
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
+        documents_id = ViewId(space="customer_idm", external_id="DocumentsCard", version="v2")
         view_map = {
             activities_id: mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCardView"]),
             notifications_id: mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
+            documents_id: mock_view(documents_id, _REQUIRED_PROPERTIES["assetDocumentsCardView"]),
         }
 
         mock_client = MagicMock()
@@ -222,16 +229,18 @@ class TestInFieldCDMViewPropertiesRuleSet:
 
         activities_id = ViewId(space="customer_idm", external_id="ActivitiesCard", version="v2")
         notifications_id = ViewId(space="customer_idm", external_id="NotificationsCard", version="v2")
+        documents_id = ViewId(space="customer_idm", external_id="DocumentsCard", version="v2")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [
             mock_view(activities_id, _REQUIRED_PROPERTIES["assetActivitiesCardView"]),
             mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
+            mock_view(documents_id, _REQUIRED_PROPERTIES["assetDocumentsCardView"]),
         ]
         rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
         list(rule.validate())
         mock_client.tool.views.retrieve.assert_called_once()
         call_view_ids = mock_client.tool.views.retrieve.call_args[0][0]
-        assert set(call_view_ids) == {activities_id, notifications_id}
+        assert set(call_view_ids) == {activities_id, notifications_id, documents_id}
 
     def test_observation_fields_config_keys_present(
         self,

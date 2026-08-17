@@ -58,31 +58,13 @@ class TestExternalDataSourceYAML:
                 },
             },
         }
-        loaded = ExternalDataSourceYAML.model_validate(data)
-        assert loaded.settings.credentials.client_secret is None
+        with pytest.raises(ValidationError):
+            ExternalDataSourceYAML.model_validate(data)
 
     def test_dump_client_secret(self) -> None:
         loaded = ExternalDataSourceYAML.model_validate(self.VALID)
         dumped = json.loads(loaded.model_dump_json(by_alias=True))
         assert dumped["settings"]["credentials"]["clientSecret"] == "azure-client-secret"
-
-    def test_dump_client_secret_none(self) -> None:
-        data = {
-            "externalId": "fabric-lakehouse-prod",
-            "settings": {
-                "credentials": {
-                    "clientId": "azure-client-id",
-                    "tenantId": "azure-tenant-id",
-                },
-                "locationDescription": {
-                    "workspaceId": "workspace-guid",
-                    "containerId": "lakehouse-guid",
-                },
-            },
-        }
-        loaded = ExternalDataSourceYAML.model_validate(data)
-        dumped = json.loads(loaded.model_dump_json(by_alias=True))
-        assert dumped["settings"]["credentials"].get("clientSecret") is None
 
     def test_as_id(self) -> None:
         loaded = ExternalDataSourceYAML.model_validate(self.VALID)
@@ -95,6 +77,23 @@ class TestExternalDataSourceYAML:
                 {"externalId": "fabric-lakehouse-prod"},
                 ["Missing required field: 'settings'"],
                 id="missing_settings",
+            ),
+            pytest.param(
+                {
+                    "externalId": "fabric-lakehouse-prod",
+                    "settings": {
+                        "credentials": {
+                            "clientId": "azure-client-id",
+                            "tenantId": "azure-tenant-id",
+                        },
+                        "locationDescription": {
+                            "workspaceId": "workspace-guid",
+                            "containerId": "lakehouse-guid",
+                        },
+                    },
+                },
+                ["In settings.credentials missing required field: 'clientSecret'"],
+                id="missing_client_secret",
             ),
         ],
     )
@@ -116,6 +115,10 @@ class TestExternalDataSourceResourceClasses:
     def test_request_rejects_invalid_format(self) -> None:
         with pytest.raises(ValidationError):
             ExternalDataSourceRequest(external_id="fabric-lakehouse-prod", format="invalid")
+
+    def test_write_credentials_require_client_secret(self) -> None:
+        with pytest.raises(ValidationError):
+            OneLakeCredentialsWrite(client_id="id", tenant_id="tenant")
 
     def test_request_as_id(self) -> None:
         request = ExternalDataSourceRequest(
