@@ -536,8 +536,15 @@ class ModulesCommand(ToolkitCommand):
         """
         Find a package or module by name and return it as a Packages selection.
         Raises ToolkitError if nothing is found or every matched module is already installed.
+
+        The module_name may use the '<package>:<module>' syntax to disambiguate a module
+        that exists in more than one package.
         """
         existing = set(existing_module_names)
+
+        if ":" in module_name:
+            return self._find_and_select_module_in_package(packages, module_name, existing)
+
         name_lower = module_name.casefold()
 
         by_package = {name.casefold(): pkg for name, pkg in packages.items()}
@@ -569,9 +576,10 @@ class ModulesCommand(ToolkitCommand):
             matches = by_module[name_lower]
             if len(matches) > 1:
                 pkg_names = ", ".join(f"'{pkg.name}'" for pkg, _ in matches)
+                examples = ", ".join(f"'{pkg.name}:{module_name}'" for pkg, _ in matches)
                 raise ToolkitError(
                     f"Module '{module_name}' exists in multiple packages: {pkg_names}. "
-                    f"Use the full package name instead."
+                    f"Use the '<package>:<module>' syntax to disambiguate, for example {examples}."
                 )
             found_package, found_module = matches[0]
             if found_module.name in existing:
@@ -594,6 +602,43 @@ class ModulesCommand(ToolkitCommand):
         raise ToolkitError(
             f"'{module_name}' not found as a package name or module name in any cherry-pickable package."
         )
+
+    @staticmethod
+    def _find_and_select_module_in_package(
+        packages: Packages,
+        package_and_module: str,
+        existing: set[str],
+    ) -> Packages:
+        """
+        Find a module in a specific package using the '<package>:<module>' syntax and
+        return it as a Packages selection.
+        """
+        package_part, _, module_part = package_and_module.partition(":")
+        if not package_part or not module_part:
+            raise ToolkitError(f"Invalid syntax '{package_and_module}'. Expected format '<package>:<module>'.")
+
+        by_package = {name.casefold(): pkg for name, pkg in packages.items()}
+        package = by_package.get(package_part.casefold())
+        if package is None:
+            raise ToolkitError(f"Package '{package_part}' not found.")
+
+        module_lower = module_part.casefold()
+        module = next((m for m in package.modules if m.name.casefold() == module_lower), None)
+        if module is None:
+            raise ToolkitError(f"Module '{module_part}' not found in package '{package.name}'.")
+
+        if module.name in existing:
+            raise ToolkitError(f"Module '{module.name}' is already installed in this project.")
+
+        print(f"[green]Selected module '{module.name}' from package '{package.name}'.[/]")
+        selected = Packages()
+        selected[package.name] = Package(
+            name=package.name,
+            title=package.title,
+            description=package.description,
+            modules=[module],
+        )
+        return selected
 
     @staticmethod
     def _verify_clean(modules_root_dir: Path, clean: bool) -> Literal["new", "clean"]:

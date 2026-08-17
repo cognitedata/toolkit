@@ -456,6 +456,9 @@ class TestModulesCommand:
             ("mod_a", "cherry_pkg", {"mod_a"}),
             ("MOD_A", "cherry_pkg", {"mod_a"}),
             ("mod_c", "other_cherry_pkg", {"mod_c"}),
+            ("cherry_pkg:mod_b", "cherry_pkg", {"mod_b"}),
+            ("other_cherry_pkg:mod_b", "other_cherry_pkg", {"mod_b"}),
+            ("CHERRY_PKG:MOD_B", "cherry_pkg", {"mod_b"}),
         ],
     )
     def test_find_and_select_module_lookup(
@@ -481,6 +484,11 @@ class TestModulesCommand:
             ("mod_b", [], "multiple packages"),  # ambiguous: exists in cherry_pkg and other_cherry_pkg
             ("cherry_pk", [], "Did you mean"),  # typo
             ("zzz_completely_unrelated_xyz", [], "not found"),
+            ("cherry_pkg:mod_b", ["mod_b"], "already installed"),
+            ("no_such_pkg:mod_a", [], "Package 'no_such_pkg' not found"),  # unknown package prefix
+            ("cherry_pkg:no_such_mod", [], "Module 'no_such_mod' not found in package 'cherry_pkg'"),
+            ("cherry_pkg:", [], "Invalid syntax"),  # missing module part
+            (":mod_a", [], "Invalid syntax"),  # missing package part
         ],
     )
     def test_find_and_select_module_errors(
@@ -528,3 +536,82 @@ class TestModulesCommand:
 
         with pytest.raises(ToolkitError, match="not found"):
             cmd.add(my_org, deployment_pack="nonexistent_module")
+
+    def test_add_with_deployment_pack_ambiguous_module_raises(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+
+        with pytest.raises(ToolkitError, match="multiple packages"):
+            cmd.add(my_org, deployment_pack="mod_b")
+
+    @pytest.mark.parametrize(
+        "deployment_pack, expected_pkg",
+        [
+            ("cherry_pkg:mod_b", "cherry_pkg"),
+            ("other_cherry_pkg:mod_b", "other_cherry_pkg"),
+        ],
+    )
+    def test_add_with_deployment_pack_package_prefix_disambiguates(
+        self,
+        lookup_packages: Packages,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+        deployment_pack: str,
+        expected_pkg: str,
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+        monkeypatch.setattr(cmd, "_get_download_data", lambda _: False)
+
+        captured: dict = {}
+
+        def capture_create(**kwargs: object) -> None:
+            captured.update(kwargs)
+
+        monkeypatch.setattr(cmd, "_create", capture_create)
+        cmd.add(my_org, deployment_pack=deployment_pack)
+
+        assert "selected_packages" in captured, "_create was not called"
+        assert expected_pkg in captured["selected_packages"]
+        assert len(captured["selected_packages"][expected_pkg].modules) == 1
+        assert captured["selected_packages"][expected_pkg].modules[0].name == "mod_b"
+
+    def test_add_with_deployment_pack_invalid_package_prefix_raises(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+
+        with pytest.raises(ToolkitError, match="Package 'no_such_pkg' not found"):
+            cmd.add(my_org, deployment_pack="no_such_pkg:mod_a")
+
+    def test_add_with_deployment_pack_invalid_module_in_package_raises(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+
+        with pytest.raises(ToolkitError, match="Module 'no_such_mod' not found in package 'cherry_pkg'"):
+            cmd.add(my_org, deployment_pack="cherry_pkg:no_such_mod")
