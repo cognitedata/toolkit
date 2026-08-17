@@ -152,7 +152,7 @@ class InstanceSourceAPI:
 
 
 class InstanceSpaceRelocationSourceAPI:
-    """Read-only lookup of instances tagged with the space they were relocated from. Do not delete through this view."""
+    """Read-only lookup of instances tagged with the space they were relocated from."""
 
     def __init__(self, instances_api: InstancesAPI) -> None:
         self._instances_api = instances_api
