@@ -489,6 +489,7 @@ class TestModulesCommand:
             ("cherry_pkg:no_such_mod", [], "Module 'no_such_mod' not found in package 'cherry_pkg'"),
             ("cherry_pkg:", [], "Invalid syntax"),  # missing module part
             (":mod_a", [], "Invalid syntax"),  # missing package part
+            ("fixed_pkg:mod_locked", [], "does not support cherry-picking"),  # non-cherry-pickable package
         ],
     )
     def test_find_and_select_module_errors(
@@ -615,3 +616,17 @@ class TestModulesCommand:
 
         with pytest.raises(ToolkitError, match="Module 'no_such_mod' not found in package 'cherry_pkg'"):
             cmd.add(my_org, deployment_pack="cherry_pkg:no_such_mod")
+
+    def test_add_with_deployment_pack_non_cherry_pickable_package_raises(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+
+        with pytest.raises(ToolkitError, match="does not support cherry-picking"):
+            cmd.add(my_org, deployment_pack="fixed_pkg:mod_locked")

@@ -621,6 +621,8 @@ class ModulesCommand(ToolkitCommand):
         package = by_package.get(package_part.casefold())
         if package is None:
             raise ToolkitError(f"Package '{package_part}' not found.")
+        if not package.can_cherry_pick:
+            raise ToolkitError(f"Package '{package.name}' does not support cherry-picking individual modules.")
 
         module_lower = module_part.casefold()
         module = next((m for m in package.modules if m.name.casefold() == module_lower), None)
