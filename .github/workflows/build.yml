@@ -2,6 +2,7 @@
 name: Lint and test
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 env:
   PYTHON_VERSION: '3.10'
@@ -192,6 +193,10 @@ jobs:
           script: |
             const fs = require('fs');
             const description = context.payload.pull_request.body;
+            if (!description) {
+              core.setFailed('PR description is empty. Fill in Bump and Changelog using the PR template.');
+              return;
+            }
             fs.writeFileSync('last_git_message.txt', description);
       - name: Validate Changelog section in PR description
         run: uv run python dev.py changelog
