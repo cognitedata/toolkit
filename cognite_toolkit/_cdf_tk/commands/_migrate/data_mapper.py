@@ -1937,8 +1937,12 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
             raise InstanceMappingError(
-                f"{node.as_id()} has rootLocation {root_location!r}, which does not match a location sharing this "
-                "legacy instance space.",
+                f"{node.as_id()} has rootLocation {root_location!r}, but Toolkit could not resolve a deployed "
+                f"CDM target space for it among the root location(s) sharing legacy instance space "
+                f"{self._instance_id_mapper.source_space!r}: "
+                f"{humanize_collection(self._target_by_root_asset) or 'none'}. This can happen if "
+                f"{root_location!r}'s asset has not yet been migrated to CDF, or if no deployed CDM InField "
+                "location config exists for it yet (see 'cdf migrate infield-configs').",
                 severity=Severity.failure,
                 is_target_space_resolution=True,
             )

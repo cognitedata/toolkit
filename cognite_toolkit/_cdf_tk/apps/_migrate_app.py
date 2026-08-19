@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from rich.console import Group
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -107,6 +108,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
@@ -1614,6 +1616,15 @@ class MigrateApp(typer.Typer):
                 "in the Infield location(s) that uses the relevant target space. ",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used when doing a location split) If set, no confirmation prompt will be shown before "
+                "proceeding with the resolved root location -> target instance space plan.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1667,6 +1678,13 @@ class MigrateApp(typer.Typer):
                 passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},  # users stay in this space
                 label="Infield data",
             )
+        )
+        MigrateApp._confirm_location_split_plan(
+            client,
+            source_space=source_space,
+            target_by_root_asset=target_by_root_asset,
+            label="Infield data",
+            auto_yes=auto_yes,
         )
         infield_mappings = create_infield_data_mappings()
         if skip_observations:
@@ -1817,6 +1835,15 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used when doing a location split) If set, no confirmation prompt will be shown before "
+                "proceeding with the resolved root location -> target instance space plan.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates APM_SourceData (work orders, operations, notifications) used by Infield from the legacy
         APM_SourceData data model to the cdf_idm CogniteMaintenanceOrder/CogniteOperation/CogniteNotification views
@@ -1869,6 +1896,13 @@ class MigrateApp(typer.Typer):
                 target_kind="source_data",
                 label="APM_SourceData",
             )
+        )
+        MigrateApp._confirm_location_split_plan(
+            client,
+            source_space=source_space,
+            target_by_root_asset=target_by_root_asset,
+            label="APM_SourceData",
+            auto_yes=auto_yes,
         )
 
         mappings = create_apm_source_data_mappings()
@@ -2189,6 +2223,39 @@ class MigrateApp(typer.Typer):
         )
 
     @staticmethod
+    def _confirm_location_split_plan(
+        client: ToolkitClient,
+        *,
+        source_space: str,
+        target_by_root_asset: Mapping[str, str],
+        label: str,
+        auto_yes: bool,
+    ) -> None:
+        """Show the resolved root-location -> target-space plan and require confirmation before proceeding."""
+        if not target_by_root_asset:
+            return
+        table = ToolkitTable("Root location", "Target instance space")
+        for root_asset, target_space in sorted(target_by_root_asset.items()):
+            table.add_row(root_asset, target_space)
+        client.console.print(
+            ToolkitPanel(
+                Group(
+                    f"Legacy instance space [bold]{source_space!r}[/] is shared by these root locations. "
+                    f"{label} will be split into the following target instance spaces:",
+                    table.as_panel_detail(),
+                ),
+                title="Location split plan",
+            )
+        )
+        if not auto_yes:
+            proceed = questionary.confirm(
+                "Do you want to proceed with this location split?", default=False
+            ).unsafe_ask()
+            if not proceed:
+                client.console.print("Migration aborted by user.")
+                raise typer.Abort()
+
+    @staticmethod
     def _infield_instance_id_mappers(
         client: ToolkitClient,
         *,
@@ -2264,15 +2331,7 @@ class MigrateApp(typer.Typer):
                 ],
             ).unsafe_ask()
             if source_space in shared_legacy_spaces:
-                client.console.print(
-                    Panel(
-                        f"Source space {source_space!r} is shared by multiple InField locations. "
-                        "Instances will be resolved to per-location target spaces automatically.",
-                        title="Location split detected",
-                        expand=False,
-                        border_style="cyan",
-                    )
-                )
+                # Cannot specify target space if this is a location split migration
                 target_space = None
             else:
                 target_stats = client.data_modeling.statistics.spaces.retrieve(list(target_candidates))
