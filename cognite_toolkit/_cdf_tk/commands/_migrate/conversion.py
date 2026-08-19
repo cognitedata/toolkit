@@ -1,3 +1,5 @@
+import sys
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
@@ -628,7 +630,16 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
     """Maps instances from a shared legacy source space to per-location CDM spaces.
 
     Target space is registered as each instance is resolved (from rootLocation or parent lineage).
-    Unregistered IDs fall back to the InstanceSpaceRelocationSource view (previous/interrupted runs).
+    Unregistered IDs fall back to the InstanceSpaceRelocationSource view. This fallback exists for
+    incremental/live-tailing re-runs: a ``sync`` cursor on an earlier tier only re-emits new or changed
+    instances, so a long-since-migrated parent that hasn't changed since the last run will not be
+    re-registered in-memory this run, even though its target space was already recorded in CDF.
+
+    IDs confirmed unresolvable (no match found) are cached negatively for the lifetime of this mapper,
+    since Toolkit always processes tiers in dependency order: once a tier that could produce a match has
+    already run (or been skipped as already completed) earlier in this same invocation, a "no match" answer
+    cannot change for the remainder of the run.
+
     ``passthrough_space_mapping`` keeps a fixed 1:1 mapping for cross-space relations (e.g. cognite_app_data).
     """
 
@@ -644,9 +655,18 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
         self._target_spaces = set(target_spaces or ())
         self._target_space_by_external_id: dict[str, str] = {}
+        self._unresolvable_external_ids: set[str] = set()
 
     def register(self, external_id: str, target_space: str) -> None:
         self._target_space_by_external_id[external_id] = target_space
+        self._unresolvable_external_ids.discard(external_id)
+
+    def mark_unresolvable(self, external_ids: Iterable[str]) -> None:
+        """Remember that the given external IDs have no target space, so they aren't queried again."""
+        self._unresolvable_external_ids.update(external_ids)
+
+    def is_known_unresolvable(self, external_id: str) -> bool:
+        return external_id in self._unresolvable_external_ids
 
     def get_registered_target_space(self, external_id: str) -> str | None:
         return self._target_space_by_external_id.get(external_id)
@@ -654,8 +674,20 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
     def resolve_target_space(self, external_id: str) -> str | None:
         if (target_space := self._target_space_by_external_id.get(external_id)) is not None:
             return target_space
+        if external_id in self._unresolvable_external_ids:
+            return None
+        # TEMPORARY: this is an unbatched, single-ID fallback network call. It should be rare after
+        # prefetching, so log it loudly if it still fires often. Remove once the slowness is resolved.
+        fallback_start = time.perf_counter()
         matches = self._client.migration.instance_space_relocation_source.retrieve(self.source_space, [external_id])
+        print(
+            f"[DEBUG-TIMING] resolve_target_space UNBATCHED fallback for {external_id!r}: "
+            f"{time.perf_counter() - fallback_start:.3f}s matches={len(matches)}",
+            file=sys.stderr,
+            flush=True,
+        )
         if len(matches) != 1:
+            self.mark_unresolvable([external_id])
             return None
         target_space = matches[0].space
         self.register(external_id, target_space)
