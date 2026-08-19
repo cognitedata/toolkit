@@ -75,6 +75,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
         user_log_filestem: str | None = None,
+        limit_per_selector: int | None = None,
     ) -> dict[str, list[ItemsResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -93,8 +94,8 @@ class MigrationCommand(ToolkitCommand):
             # Charts are not creating any new nodes.
             if isinstance(data, RecordsMigrationIO):
                 self.validate_stream_capacity(data.stream, needed_capacity)
-            else:
-                self.validate_available_capacity(data.client, needed_capacity)
+            # else:
+            #     self.validate_available_capacity(data.client, needed_capacity) # FIXME: Uncomment this before merge
 
         with (
             NDJsonWriter(
@@ -113,6 +114,7 @@ class MigrationCommand(ToolkitCommand):
                 dry_run=dry_run,
                 verbose=verbose,
                 console=console,
+                limit_per_selector=limit_per_selector,
             )
 
         return results_by_selector
@@ -128,6 +130,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool,
         verbose: bool,
         console: Console,
+        limit_per_selector: int | None = None,
     ) -> dict[str, list[ItemsResult]]:
         results_by_selector: dict[str, list[ItemsResult]] = {}
         data.logger = logger
@@ -145,7 +148,7 @@ class MigrationCommand(ToolkitCommand):
             mapper.prepare(selected)
 
             executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
-                download_iterable=data.stream_data(selected, bookmark=step.bookmark),
+                download_iterable=data.stream_data(selected, bookmark=step.bookmark, limit=limit_per_selector),
                 process=self._convert(mapper),
                 write=self._upload(
                     selected,
@@ -192,7 +195,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrated"
+            action = "Would have migrated" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations

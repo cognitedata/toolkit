@@ -67,7 +67,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container im
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+    CreatedSourceSystem,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -80,6 +83,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     SuffixInstanceIdMapper,
 )
@@ -99,6 +103,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    LocationSplitFDMtoCDMMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
 )
@@ -112,6 +117,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
+from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    CONDITIONAL_ACTION_VIEW,
+    TEMPLATE_ITEM_VIEW,
+    TEMPLATE_VIEW,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
@@ -1022,6 +1032,223 @@ class TestFDMtoCDMMapper:
         assert isinstance(mapped_items[0].item, NodeRequest)
         assert mapped_items[1].tracking_id == f"{self.SOURCE_SPACE}:node1"
         assert isinstance(mapped_items[1].item, EdgeRequest)
+
+    def test_location_split_mapper_tags_relocation_source_space(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={
+                TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}},
+                self.SOURCE_VIEW_ID: {"textProp": "37"},
+            },
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {"ROOT_A": "target_space"},
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+
+        assert len(mapped_items) == 1
+        mapped_node = mapped_items[0].item
+        assert isinstance(mapped_node, NodeRequest)
+        assert mapped_node.space == "target_space"
+        assert mapped_node.sources is not None
+        assert (
+            InstanceSource(
+                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID, properties={"sourceSpace": self.SOURCE_SPACE}
+            )
+            in mapped_node.sources
+        )
+
+    def test_location_split_mapper_does_not_tag_relocation_source_in_dry_run(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="template1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={
+                TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}},
+                self.SOURCE_VIEW_ID: {"textProp": "37"},
+            },
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {"ROOT_A": "target_space"},
+            )
+            mapper.dry_run = True
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map(
+                [
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:template1", item=node),
+                ]
+            )
+
+        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
+        assert [node.external_id for node in mapped_nodes] == ["template1"]
+        assert INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID not in {
+            source.source for node in mapped_nodes for source in (node.sources or [])
+        }
+
+    def test_location_split_mapper_resolves_from_relocation_tagging(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="item1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={TEMPLATE_ITEM_VIEW: {}, self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            instance_id_mapper.register("item1", "target_space")
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {},
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node)])
+
+        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
+        assert len(mapped_nodes) == 1
+        assert mapped_nodes[0].space == "target_space"
+
+    def test_location_split_mapper_resolves_via_parent_edge_when_untagged(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="item1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={TEMPLATE_ITEM_VIEW: {}, self.SOURCE_VIEW_ID: {"textProp": "37"}},
+        )
+        edge = EdgeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="edge1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
+            start_node=NodeId(space=self.SOURCE_SPACE, external_id="template1"),
+            end_node=NodeId(space=self.SOURCE_SPACE, external_id="item1"),
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            instance_id_mapper.register("template1", "target_space")
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {},
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map(
+                [
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node),
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+                ]
+            )
+
+        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
+        assert len(mapped_nodes) == 1
+        assert mapped_nodes[0].space == "target_space"
+
+    def test_location_split_mapper_resolves_via_parent_property(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={
+                CONDITIONAL_ACTION_VIEW: {
+                    "parentObject": {"space": self.SOURCE_SPACE, "externalId": "parent1"},
+                },
+                self.SOURCE_VIEW_ID: {"textProp": "37"},
+            },
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            instance_id_mapper.register("parent1", "target_space")
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {},
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+
+        assert len(mapped_items) == 1
+        mapped_node = mapped_items[0].item
+        assert isinstance(mapped_node, NodeRequest)
+        assert mapped_node.space == "target_space"
+
+    def test_location_split_mapper_reports_unresolved_parent_property_as_issue(self) -> None:
+        node = NodeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="node1",
+            last_updated_time=1772522715000,
+            created_time=0,
+            version=1,
+            properties={CONDITIONAL_ACTION_VIEW: {"textProp": "37"}},
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+            instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=instance_id_mapper)
+            mapper = LocationSplitFDMtoCDMMapper(
+                client,
+                [mapping],
+                connection_creator,
+                instance_id_mapper,
+                {},
+            )
+            mapper.prepare(MagicMock())
+
+            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+
+        assert mapped_items == []
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",
