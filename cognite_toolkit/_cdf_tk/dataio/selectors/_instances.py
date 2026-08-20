@@ -89,6 +89,10 @@ class InstanceViewSelector(InstanceSelector):
             message += f" in {space_label} {humanize_collection(self.instance_spaces)}"
         return message
 
+    @property
+    def type_label(self) -> str:
+        return f"{self.instance_type}s from view {self.view!s}"
+
 
 class InstanceSpaceSelector(InstanceSelector):
     """This is used for purge"""
@@ -189,6 +193,9 @@ class InstanceQuerySelector(InstanceSelector):
             False when the root is only selected to make the query endpoint emit a cursor for it (needed for
             pagination), and its items are not actual migration targets, e.g. because they are downloaded
             separately by another selector.
+        label: A human-readable description of what this query selects, shown in progress output (e.g.
+            "Downloading <label>") and in the migration plan overview table. Falls back to a generic
+            description based on ``root``/``subselections`` if not set.
     """
 
     type: Literal["instanceQuery"] = "instanceQuery"
@@ -197,6 +204,7 @@ class InstanceQuerySelector(InstanceSelector):
     root: str
     subselections: tuple[str, ...]
     include_root: bool = True
+    label: str | None = None
 
     def get_schema_spaces(self) -> list[str] | None:
         return None
@@ -206,6 +214,16 @@ class InstanceQuerySelector(InstanceSelector):
 
     def __str__(self) -> str:
         return f"query_{self.root}_{'_'.join(self.subselections)}"
+
+    @property
+    def display_name(self) -> str:
+        if self.label is not None:
+            return self.label
+        return f"{self.root} and {humanize_collection(self.subselections)}"
+
+    @property
+    def type_label(self) -> str:
+        return self.display_name
 
     def create_query(self) -> QueryRequest:
         data = json.loads(self.query)

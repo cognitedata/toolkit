@@ -2130,34 +2130,27 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
-        dict[str, list[NodeResponse]],
+        dict[tuple[NodeId | None, str], list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        """Builds the schedule dedup groups and the edge lookups needed to reconstruct direct relations.
+
+        A single call to ``map()`` may contain schedules belonging to multiple templates (the query batches
+        several template roots together), so schedules are grouped by ``(owning template, content hash)``
+        rather than by content hash alone. This prevents unrelated templates that happen to share an
+        identical schedule configuration (e.g. "daily at 08:00") from being collapsed into one node.
+        """
+        schedule_nodes: list[NodeResponse] = []
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
-        if self._location_split_id_mapper is not None:
-            location_split_issue = self._register_location_split_schedules(source)
-            if location_split_issue is not None:
-                return {}, {}, {}, [location_split_issue]
         for item in source:
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
-                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
-                    # Fail unresolved schedules individually so they are not grouped with resolvable duplicates.
-                    try:
-                        self._connection_creator.map_instance(item.as_id())
-                    except InstanceMappingError as error:
-                        issue_cls = (
-                            TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
-                        )
-                        issues.append(issue_cls(id=str(item.as_id()), errors=[str(error)]))
-                        continue
-                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
-                    schedules[schedule_hash].append(item)
+                if self.SCHEDULE_VIEW in item_properties:
+                    schedule_nodes.append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
                     # The template nodes are included to do pagination correctly (one page per template),
                     # but we do not need the templates, so we can safely ignore them.
@@ -2189,36 +2182,79 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                             ],
                         )
                     )
+        if self._location_split_id_mapper is not None:
+            location_split_issue = self._register_location_split_schedules(
+                schedule_nodes, template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            if location_split_issue is not None:
+                return {}, {}, {}, [location_split_issue]
+
+        schedules: dict[tuple[NodeId | None, str], list[NodeResponse]] = defaultdict(list)
+        for schedule in schedule_nodes:
+            # Fail unresolved schedules individually so they are not grouped with resolvable duplicates.
+            try:
+                self._connection_creator.map_instance(schedule.as_id())
+            except InstanceMappingError as error:
+                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issues.append(issue_cls(id=str(schedule.as_id()), errors=[str(error)]))
+                continue
+            template_id = self._resolve_schedule_template(
+                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            schedule_properties = (schedule.properties or {}).get(self.SCHEDULE_VIEW, {})
+            schedule_hash = self._calculate_schedule_hash(schedule_properties)
+            schedules[(template_id, schedule_hash)].append(schedule)
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
+    def _resolve_schedule_template(
+        self,
+        schedule_id: NodeId,
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> NodeId | None:
+        """Finds the Template a schedule belongs to by following Schedule -> TemplateItem -> Template edges.
+
+        In normal InField usage, a Schedule node is only ever referenced by TemplateItems on a single
+        Template. If that is somehow not the case (e.g. data written outside the app), we deterministically
+        pick one template and rely on the caller to have logged/flagged the ambiguity if relevant.
+        """
+        templates = {
+            template_edge.other_side
+            for item_edge in template_item_edges_by_schedule_id.get(schedule_id, [])
+            for template_edge in template_edges_by_item_id.get(item_edge.other_side, [])
+        }
+        if not templates:
+            return None
+        return min(templates, key=str)
+
     def _register_location_split_schedules(
-        self, source: Sequence[NodeOrEdgeResponse]
+        self,
+        schedule_nodes: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
     ) -> InstanceConversionIssue | None:
         location_split_id_mapper = self._location_split_id_mapper
         if location_split_id_mapper is None:
             return None
-        template_node: NodeResponse | None = None
-        for item in source:
-            if isinstance(item, NodeResponse) and self.TEMPLATE_VIEW in (item.properties or {}):
-                template_node = item
-                break
-        if template_node is None:
-            return InstanceConversionIssue(
-                id="schedules-page",
-                errors=["Could not resolve target space for this page of schedules: expected a Template node."],
+        for schedule in schedule_nodes:
+            template_id = self._resolve_schedule_template(
+                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
             )
-        target_space = location_split_id_mapper.resolve_target_space(template_node.external_id)
-        if target_space is None:
-            return TargetSpaceResolutionIssue(
-                id="schedules-page",
-                errors=[
-                    f"Could not resolve target space for schedules under Template {template_node.as_id()}: "
-                    "the Template has not been resolved to a target space."
-                ],
-            )
-        for item in source:
-            if isinstance(item, NodeResponse) and self.SCHEDULE_VIEW in (item.properties or {}):
-                location_split_id_mapper.register(item.external_id, target_space)
+            if template_id is None:
+                return InstanceConversionIssue(
+                    id="schedules-page",
+                    errors=[f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."],
+                )
+            target_space = location_split_id_mapper.resolve_target_space(template_id.external_id)
+            if target_space is None:
+                return TargetSpaceResolutionIssue(
+                    id="schedules-page",
+                    errors=[
+                        f"Could not resolve target space for schedules under Template {template_id}: "
+                        "the Template has not been resolved to a target space."
+                    ],
+                )
+            location_split_id_mapper.register(schedule.external_id, target_space)
         return None
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:

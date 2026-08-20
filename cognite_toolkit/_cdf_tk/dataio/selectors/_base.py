@@ -70,6 +70,16 @@ class DataSelector(SelectorObject, ABC):
         """A human-readable name for the selector."""
         return to_sentence_case(self.kind)
 
+    @property
+    def type_label(self) -> str:
+        """A short, human-readable description of the data type this selector selects.
+
+        Unlike ``display_name``, this omits selector-specific context (e.g. instance spaces) that is
+        useful in a one-off progress message but repetitive/noisy when listed alongside other selectors,
+        e.g. in the migration plan overview table.
+        """
+        return str(self)
+
     def __str__(self) -> str:
         # We want to force subclasses to implement __str__
         raise NotImplementedError()

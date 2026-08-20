@@ -124,7 +124,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
         query=QueryRequest(
             with_={
                 "template": QueryNodeExpression(
-                    limit=1,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     nodes=QueryNodeTableExpression(filter=template_filter),
                 ),
                 "templateEdges": QueryEdgeExpression(
@@ -182,4 +182,5 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
         ).model_dump_json(exclude_none=True),
         root="template",
         subselections=tuple(["schedules", "templateItemEdges", "templateEdges"]),
+        label="Schedules (via Template/TemplateItem)",
     )
