@@ -189,6 +189,12 @@ class NDJsonWriter(FileWriter[TextIOWrapper]):
             f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
 
+    def flush(self) -> None:
+        """Flush all open file handles to disk."""
+        with self._lock:
+            for writer in self._writer_by_filepath.values():
+                writer.flush()
+
 
 class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
