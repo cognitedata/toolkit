@@ -173,6 +173,7 @@ class MigrationCommand(ToolkitCommand):
                 logger.force_write()
 
             items_results = logger.finalize(dry_run)
+            logger.force_write()
             results_by_selector[str(selected)] = items_results
 
             display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
@@ -192,7 +193,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrated"
+            action = "Would have migrated" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
