@@ -51,6 +51,19 @@ class TestModuleSourceParser:
                 [],
                 id="Single module with multiple valid YAML files and one excluded file",
             ),
+            pytest.param(
+                [
+                    "modules/moduleA/functions/my_function.Function.yaml",
+                    "modules/moduleA/functions/my_function/function_config.yaml",
+                ],
+                {
+                    "modules/moduleA": {
+                        "functions": ["modules/moduleA/functions/my_function.Function.yaml"],
+                    },
+                },
+                [],
+                id="Function code folder YAML is not resource-classified",
+            ),
         ],
     )
     def test_find_modules(
@@ -182,6 +195,40 @@ class TestModuleSourceParser:
         assert actual_error_messages == error_messages
         actual_variables = {path.as_posix(): iteration_dict for path, iteration_dict in build_variables.items()}
         assert actual_variables == expected_variables
+
+
+class TestIsInCodeBundleSubdirectory:
+    @pytest.mark.parametrize(
+        "yaml_file, resource_folder, expected",
+        [
+            pytest.param(
+                Path("modules/moduleA/functions/my_function/function_config.yaml"),
+                "functions",
+                True,
+                id="function_config in function code folder",
+            ),
+            pytest.param(
+                Path("modules/moduleA/functions/my_function.Function.yaml"),
+                "functions",
+                False,
+                id="function resource definition",
+            ),
+            pytest.param(
+                Path("modules/moduleA/data_modeling/containers/my.Container.yaml"),
+                "data_modeling",
+                False,
+                id="data modeling subfolder is still a resource path",
+            ),
+            pytest.param(
+                Path("modules/moduleA/apps/my_app/config.yaml"),
+                "apps",
+                True,
+                id="yaml in app code folder",
+            ),
+        ],
+    )
+    def test_is_in_code_bundle_subdirectory(self, yaml_file: Path, resource_folder: str, expected: bool) -> None:
+        assert ModuleParser._is_in_code_bundle_subdirectory(yaml_file, resource_folder) is expected
 
 
 class TestGetModulePathFromResourceFilePath:

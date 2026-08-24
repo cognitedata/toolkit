@@ -183,9 +183,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         """
         self.console.print()
         columns = self._get_progress_columns()
-        with ProgressWithFooter(
-            *columns, console=self.console, expand=True, footer="Press 'q' to stop."
-        ) as progress:
+        with ProgressWithFooter(*columns, console=self.console, expand=True, footer="Press 'q' to stop.") as progress:
             task_args: dict[str, Any] = (
                 {"item_count": start_item, "total": None}
                 if self.total_item_count is None

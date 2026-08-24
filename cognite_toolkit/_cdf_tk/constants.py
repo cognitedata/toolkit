@@ -57,6 +57,9 @@ DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 DEFAULT_ENV = "dev"
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
+# Resource folders that ship code in subdirectories (e.g. functions/<externalId>/handler.py).
+# YAML files in those subdirectories are code artifacts, not CDF resource definitions.
+RESOURCE_FOLDERS_WITH_CODE_BUNDLES = frozenset({"functions", "apps", "streamlit"})
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])

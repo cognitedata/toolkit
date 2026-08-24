@@ -176,6 +176,7 @@ class MigrationCommand(ToolkitCommand):
                 logger.force_write()
 
             items_results = logger.finalize(dry_run)
+            logger.force_write()
             results_by_selector[str(selected)] = items_results
 
             display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
