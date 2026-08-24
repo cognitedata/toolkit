@@ -1,5 +1,3 @@
-import sys
-import time
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
@@ -430,20 +428,12 @@ class InstanceIO(
         debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            page_start = time.perf_counter()
             page = self.client.tool.instances.paginate(
                 instance_filter,
                 limit=page_limit,
                 cursor=cursor,
                 endpoint=selector.endpoint,
                 debug_writer=debug_writer,
-            )
-            view_label = selector.view.external_id if selector.view is not None else str(selector)
-            print(
-                f"[DEBUG-TIMING] download page [{view_label}]: "
-                f"{time.perf_counter() - page_start:.3f}s items={len(page.items)}",
-                file=sys.stderr,
-                flush=True,
             )
             total += len(page.items)
             if page:

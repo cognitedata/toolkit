@@ -1,7 +1,5 @@
 import json
 import math
-import sys
-import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -1468,20 +1466,13 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             raise NotImplementedError(
                 "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
             )
-        update_cache_start = time.perf_counter()
         self._connection_creator.update_cache(raw_items)
-        _debug_timing(
-            f"update_cache [{self._current_issue_source}]",
-            time.perf_counter() - update_cache_start,
-            items=len(raw_items),
-        )
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(raw_items)
         output: list[DataItem[NodeOrEdgeRequest]] = []
         mapped_instances: list[NodeOrEdgeRequest] = []
         issue_by_source_node_id: dict[NodeId, InstanceConversionIssue] = {}
         source_id_by_target_id: dict[NodeId, NodeId] = {}
         target_view_ids: set[ViewId] = set()
-        node_loop_start = time.perf_counter()
         for node in nodes:
             source_node_id = node.as_id()
             try:
@@ -1509,9 +1500,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
             for edge in edges:
                 output.append(DataItem(tracking_id=str(node.as_id()), item=edge))
                 mapped_instances.append(edge)
-        _debug_timing(
-            f"node loop [{self._current_issue_source}]", time.perf_counter() - node_loop_start, nodes=len(nodes)
-        )
 
         # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
@@ -1808,12 +1796,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     yield node.as_id(), constraint_by_prop_id, source
 
 
-def _debug_timing(label: str, elapsed_seconds: float, **extra: object) -> None:
-    """TEMPORARY: print timing info while investigating slow location-split conversions. Remove once resolved."""
-    extras = " ".join(f"{key}={value}" for key, value in extra.items())
-    print(f"[DEBUG-TIMING] {label}: {elapsed_seconds:.3f}s {extras}", file=sys.stderr, flush=True)
-
-
 def _relocation_source(source_space: str) -> InstanceSource:
     return InstanceSource(
         source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
@@ -1903,31 +1885,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         return candidates
 
     def _prefetch_relocation_tags(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> None:
-        unregistered_external_ids = [
-            external_id
-            for external_id in dict.fromkeys(self._relocation_tag_candidates(source))
-            if self._instance_id_mapper.get_registered_target_space(external_id) is None
-            and not self._instance_id_mapper.is_known_unresolvable(external_id)
-        ]
-        if not unregistered_external_ids:
-            return
-        retrieve_start = time.perf_counter()
-        matches = self.client.migration.instance_space_relocation_source.retrieve(
-            self._instance_id_mapper.source_space, unregistered_external_ids
-        )
-        _debug_timing(
-            f"prefetch_relocation_tags retrieve [{self._current_issue_source}]",
-            time.perf_counter() - retrieve_start,
-            candidates=len(unregistered_external_ids),
-            matches=len(matches),
-        )
-        matched_external_ids: set[str] = set()
-        for match in matches:
-            self._instance_id_mapper.register(match.external_id, match.space)
-            matched_external_ids.add(match.external_id)
-        self._instance_id_mapper.mark_unresolvable(
-            external_id for external_id in unregistered_external_ids if external_id not in matched_external_ids
-        )
+        self._instance_id_mapper.prefetch(self._relocation_tag_candidates(source))
 
     def _map_single_node(
         self,
@@ -2238,6 +2196,8 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         location_split_id_mapper = self._location_split_id_mapper
         if location_split_id_mapper is None:
             return None
+        template_id_by_schedule_id: dict[NodeId, NodeId] = {}
+        referenced_item_external_ids: set[str] = set()
         for schedule in schedule_nodes:
             template_id = self._resolve_schedule_template(
                 schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
@@ -2249,6 +2209,21 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                         f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."
                     ],
                 )
+            template_id_by_schedule_id[schedule.as_id()] = template_id
+            referenced_item_external_ids.update(
+                item_edge.other_side.external_id
+                for item_edge in template_item_edges_by_schedule_id.get(schedule.as_id(), [])
+            )
+        # Resolve every template and template item referenced by this page's schedules in a single batched
+        # lookup. Templates are needed for the schedule's own target space and its `template` direct
+        # relation; template items are needed for the `templateItems` direct relation created later in
+        # `_create_direct_relation`, which would otherwise fall back to a per-item network call.
+        location_split_id_mapper.prefetch(
+            [template_id.external_id for template_id in template_id_by_schedule_id.values()]
+            + list(referenced_item_external_ids)
+        )
+        for schedule in schedule_nodes:
+            template_id = template_id_by_schedule_id[schedule.as_id()]
             target_space = location_split_id_mapper.resolve_target_space(template_id.external_id)
             if target_space is None:
                 return TargetSpaceResolutionIssue(

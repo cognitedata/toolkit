@@ -1,5 +1,3 @@
-import sys
-import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
@@ -630,10 +628,12 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
     """Maps instances from a shared legacy source space to per-location CDM spaces.
 
     Target space is registered as each instance is resolved (from rootLocation or parent lineage).
-    Unregistered IDs fall back to the InstanceSpaceRelocationSource view. This fallback exists for
-    incremental/live-tailing re-runs: a ``sync`` cursor on an earlier tier only re-emits new or changed
-    instances, so a long-since-migrated parent that hasn't changed since the last run will not be
-    re-registered in-memory this run, even though its target space was already recorded in CDF.
+    Unregistered IDs must be resolved via ``prefetch()`` against the InstanceSpaceRelocationSource view
+    before they can be looked up with ``resolve_target_space()`` - see that method's docstring. This
+    fallback exists for incremental/live-tailing re-runs: a ``sync`` cursor on an earlier tier only
+    re-emits new or changed instances, so a long-since-migrated parent that hasn't changed since the last
+    run will not be re-registered in-memory this run, even though its target space was already recorded
+    in CDF.
 
     IDs confirmed unresolvable (no match found) are cached negatively for the lifetime of this mapper,
     since Toolkit always processes tiers in dependency order: once a tier that could produce a match has
@@ -671,27 +671,49 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
     def get_registered_target_space(self, external_id: str) -> str | None:
         return self._target_space_by_external_id.get(external_id)
 
+    def prefetch(self, external_ids: Iterable[str]) -> None:
+        """Batch-resolve target spaces for ``external_ids`` from the InstanceSpaceRelocationSource view.
+
+        IDs already registered or already known unresolvable are skipped. This is the only method on this
+        class that makes a network call, and it must be called with every ID a caller will need resolved
+        *before* resolving any of them individually via ``resolve_target_space``, so that at most one call
+        is made per batch of work (e.g. a page of instances), regardless of how many IDs need a fallback
+        lookup. See the class docstring for why this fallback is needed.
+        """
+        unresolved_external_ids = [
+            external_id
+            for external_id in dict.fromkeys(external_ids)
+            if external_id not in self._target_space_by_external_id
+            and external_id not in self._unresolvable_external_ids
+        ]
+        if not unresolved_external_ids:
+            return
+        matches = self._client.migration.instance_space_relocation_source.retrieve(
+            self.source_space, unresolved_external_ids
+        )
+        matched_external_ids: set[str] = set()
+        for match in matches:
+            self.register(match.external_id, match.space)
+            matched_external_ids.add(match.external_id)
+        self.mark_unresolvable(
+            external_id for external_id in unresolved_external_ids if external_id not in matched_external_ids
+        )
+
     def resolve_target_space(self, external_id: str) -> str | None:
+        """Cache-only lookup: returns the target space, or ``None`` if confirmed unresolvable.
+
+        Never makes a network call. Raises if ``external_id`` was never passed to ``prefetch`` (or
+        ``register``/``mark_unresolvable`` directly) - that is a bug in the caller, not something this
+        method should silently paper over with a one-off lookup.
+        """
         if (target_space := self._target_space_by_external_id.get(external_id)) is not None:
             return target_space
         if external_id in self._unresolvable_external_ids:
             return None
-        # TEMPORARY: this is an unbatched, single-ID fallback network call. It should be rare after
-        # prefetching, so log it loudly if it still fires often. Remove once the slowness is resolved.
-        fallback_start = time.perf_counter()
-        matches = self._client.migration.instance_space_relocation_source.retrieve(self.source_space, [external_id])
-        print(
-            f"[DEBUG-TIMING] resolve_target_space UNBATCHED fallback for {external_id!r}: "
-            f"{time.perf_counter() - fallback_start:.3f}s matches={len(matches)}",
-            file=sys.stderr,
-            flush=True,
+        raise RuntimeError(
+            f"Bug in Toolkit: target space for {external_id!r} was requested without prefetching it first. "
+            "Call prefetch() with every external ID a caller will need before resolving any of them."
         )
-        if len(matches) != 1:
-            self.mark_unresolvable([external_id])
-            return None
-        target_space = matches[0].space
-        self.register(external_id, target_space)
-        return target_space
 
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         if instance_id.space == self.source_space:

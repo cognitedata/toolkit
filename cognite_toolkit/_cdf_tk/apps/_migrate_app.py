@@ -1625,15 +1625,6 @@ class MigrateApp(typer.Typer):
                 "proceeding with the resolved root location -> target instance space plan.",
             ),
         ] = False,
-        limit_per_view: Annotated[
-            int | None,
-            typer.Option(
-                "--limit-per-view",
-                hidden=True,
-                help="TEMPORARY/testing only: cap the number of instances downloaded per view before moving on to "
-                "the next one. Intended for testing against projects with limited instance capacity.",
-            ),
-        ] = None,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1798,7 +1789,6 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_data",
-                limit_per_selector=limit_per_view,
             )
         )
 
@@ -1854,15 +1844,6 @@ class MigrateApp(typer.Typer):
                 "proceeding with the resolved root location -> target instance space plan.",
             ),
         ] = False,
-        limit_per_view: Annotated[
-            int | None,
-            typer.Option(
-                "--limit-per-view",
-                hidden=True,
-                help="TEMPORARY/testing only: cap the number of instances downloaded per view before moving on to "
-                "the next one. Intended for testing against projects with limited instance capacity.",
-            ),
-        ] = None,
     ) -> None:
         """Migrates APM_SourceData (work orders, operations, notifications) used by Infield from the legacy
         APM_SourceData data model to the cdf_idm CogniteMaintenanceOrder/CogniteOperation/CogniteNotification views
@@ -2015,7 +1996,6 @@ class MigrateApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 user_log_filestem="infield_source_data",
-                limit_per_selector=limit_per_view,
             )
         )
 

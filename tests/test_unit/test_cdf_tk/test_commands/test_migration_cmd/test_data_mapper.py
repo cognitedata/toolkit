@@ -70,6 +70,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
     INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
     CreatedSourceSystem,
+    InstanceSpaceRelocationSource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -1948,6 +1949,129 @@ class TestInFieldLegacyToCDMScheduleMapper:
         assert len(mapped_schedules) == 2
         templates = {item.sources[0].properties["template"] for item in mapped_schedules}
         assert len(templates) == 2
+
+    def test_location_split_batches_template_lookups_in_single_call(self) -> None:
+        """Schedules belonging to several not-yet-resolved templates (e.g. because those templates were
+        migrated and completed in an earlier, now-skipped run) must have their target spaces resolved with
+        one batched lookup, not one lookup per template."""
+        dest_view = ViewResponse(
+            space=self.DEST_VIEW_ID.space,
+            external_id=self.DEST_VIEW_ID.external_id,
+            version=self.DEST_VIEW_ID.version,
+            **self.DEFAULT_VIEW_ARGS,
+            properties={
+                **{
+                    prop: ViewCorePropertyResponse(
+                        constraint_state=ConstraintOrIndexState(),
+                        type=TextProperty(),
+                        container_property_identifier=prop,
+                        container=self.CONTAINER_ID,
+                        nullable=True,
+                    )
+                    for prop in ["until", "freq", "interval", "timezone", "status", "startTime", "endTime"]
+                },
+                "template": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier="template",
+                    container=self.CONTAINER_ID,
+                ),
+                "templateItems": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(list=True),
+                    container_property_identifier="templateItems",
+                    container=self.CONTAINER_ID,
+                ),
+            },
+        )
+        template_ids = [NodeId(space=self.SOURCE_SPACE, external_id=f"template_{i}") for i in (1, 2)]
+        item_ids = [NodeId(space=self.SOURCE_SPACE, external_id=f"item_{i}") for i in (1, 2)]
+        schedule_ids = [NodeId(space=self.SOURCE_SPACE, external_id=f"schedule_{i}") for i in (1, 2)]
+        source: list[InstanceResponse] = []
+        for template_id, item_id, schedule_id, props in zip(
+            template_ids, item_ids, schedule_ids, [self.GROUP_A_PROPS, self.GROUP_B_PROPS]
+        ):
+            source.append(
+                NodeResponse(
+                    space=schedule_id.space,
+                    external_id=schedule_id.external_id,
+                    created_time=100,
+                    last_updated_time=200,
+                    version=1,
+                    properties={self.SCHEDULE_VIEW: props.copy()},
+                )
+            )
+            source.append(
+                EdgeResponse(
+                    space=self.SOURCE_SPACE,
+                    external_id=f"edge_template_{item_id.external_id}",
+                    created_time=0,
+                    last_updated_time=0,
+                    version=1,
+                    type=self.TEMPLATE_EDGE_TYPE,
+                    start_node=template_id,
+                    end_node=item_id,
+                )
+            )
+            source.append(
+                EdgeResponse(
+                    space=self.SOURCE_SPACE,
+                    external_id=f"edge_item_{schedule_id.external_id}",
+                    created_time=0,
+                    last_updated_time=0,
+                    version=1,
+                    type=self.TEMPLATE_ITEM_EDGE_TYPE,
+                    start_node=item_id,
+                    end_node=schedule_id,
+                )
+            )
+
+        mapping = ViewToViewMapping(
+            external_id="InFieldScheduleMapping",
+            source_view=self.SCHEDULE_VIEW,
+            destination_view=self.DEST_VIEW_ID,
+            map_identical_id_properties=True,
+            container_mapping={
+                "node.createdTime": "sourceCreatedTime",
+                "node.lastUpdatedTime": "sourceUpdatedTime",
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [dest_view]
+            client.migration.instance_space_relocation_source.retrieve.return_value = [
+                InstanceSpaceRelocationSource(
+                    space="target_1",
+                    external_id="template_1",
+                    source_space=self.SOURCE_SPACE,
+                    version=1,
+                    created_time=0,
+                    last_updated_time=0,
+                ),
+                InstanceSpaceRelocationSource(
+                    space="target_2",
+                    external_id="template_2",
+                    source_space=self.SOURCE_SPACE,
+                    version=1,
+                    created_time=0,
+                    last_updated_time=0,
+                ),
+            ]
+            location_split_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
+            connection_creator = ConnectionCreator(client, instance_id_mapper=location_split_id_mapper)
+            mapper = InFieldLegacyToCDMScheduleMapper(
+                client, connection_creator, mapping, location_split_id_mapper=location_split_id_mapper
+            )
+            mapper.prepare(MagicMock())
+
+            result = mapper.map([DataItem(tracking_id=str(i), item=item) for i, item in enumerate(source)])
+
+        retrieve_mock = client.migration.instance_space_relocation_source.retrieve
+        retrieve_mock.assert_called_once()
+        assert sorted(retrieve_mock.call_args.args[1]) == ["item_1", "item_2", "template_1", "template_2"]
+
+        mapped_schedules = [data_item.item for data_item in result]
+        assert {node.space for node in mapped_schedules} == {"target_1", "target_2"}
 
 
 def _make_record_property_mapping(external_id: str, container_id: ContainerId) -> RecordPropertyMapping:

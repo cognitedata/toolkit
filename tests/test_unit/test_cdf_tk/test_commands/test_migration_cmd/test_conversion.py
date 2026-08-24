@@ -1908,26 +1908,42 @@ class TestLocationSplitInstanceIdMapper:
         assert result == NodeId(space="space_b", external_id="node_a")
         client.migration.instance_space_relocation_source.retrieve.assert_not_called()
 
-    def test_falls_back_to_hidden_view_when_not_registered(self) -> None:
+    def test_resolves_via_prefetch_when_not_registered(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.instance_space_relocation_source.retrieve.return_value = [
                 _relocation_source("space_b", "node_a", "shared_source")
             ]
             mapper = self._mapper(client)
+            mapper.prefetch(["node_a"])
 
             result = mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a"))
 
         assert result == NodeId(space="space_b", external_id="node_a")
+        client.migration.instance_space_relocation_source.retrieve.assert_called_once_with(
+            "shared_source", ["node_a"]
+        )
 
     def test_reports_unresolved_instance_as_failure(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.instance_space_relocation_source.retrieve.return_value = []
             mapper = self._mapper(client)
+            mapper.prefetch(["missing"])
 
             with pytest.raises(InstanceMappingError, match="could not be assigned to a target space") as exc_info:
                 mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
 
         assert exc_info.value.severity == Severity.failure
+
+    def test_resolve_target_space_raises_if_not_prefetched(self) -> None:
+        """resolve_target_space must never silently fall back to a network call: forgetting to prefetch is a
+        bug in the caller, not something to paper over with a one-off lookup."""
+        with monkeypatch_toolkit_client() as client:
+            mapper = self._mapper(client)
+
+            with pytest.raises(RuntimeError, match="without prefetching it first"):
+                mapper.resolve_target_space("node_a")
+
+        client.migration.instance_space_relocation_source.retrieve.assert_not_called()
 
     def test_passthrough_space(self) -> None:
         with monkeypatch_toolkit_client() as client:
