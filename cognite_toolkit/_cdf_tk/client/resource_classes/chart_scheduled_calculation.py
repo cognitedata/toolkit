@@ -19,8 +19,8 @@ DAY_MS = HOUR_MS * 24
 
 class CalculationInput(BaseModelObject):
     # The literal is to show typical values of type.
-    type: Literal["ts", "const", "result"] | str
-    value: str | float | int | NodeUntypedId | JsonValue
+    type: Literal["ts", "const", "result"] | str | None = None
+    value: str | float | int | NodeUntypedId | JsonValue | None = None
     param: JsonValue | None = None
 
 

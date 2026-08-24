@@ -1181,6 +1181,25 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == list_expected
 
+    def test_chart_scheduled_calculations_api_retrieve_incomplete_step_input(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        """An input on a calculation step may only have "param" set, e.g. an incomplete PASSTHROUGH
+        (output) step that is not wired to a source."""
+        resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+        resource["graph"]["steps"][0]["inputs"] = [{"param": "series"}]
+        config = toolkit_config
+        api = ChartScheduledCalculationsAPI(HTTPClient(config))
+
+        respx_mock.post(config.create_api_url("/calculations/schedules/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([ExternalId(external_id=resource["externalId"])])
+        assert len(retrieved) == 1
+        assert retrieved[0].graph.steps[0].inputs[0].param == "series"
+        assert retrieved[0].graph.steps[0].inputs[0].type is None
+        assert retrieved[0].graph.steps[0].inputs[0].value is None
+
     def test_alert_channels_api_list_method(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
