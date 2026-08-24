@@ -1471,7 +1471,9 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         update_cache_start = time.perf_counter()
         self._connection_creator.update_cache(raw_items)
         _debug_timing(
-            f"update_cache [{self._current_issue_source}]", time.perf_counter() - update_cache_start, items=len(raw_items)
+            f"update_cache [{self._current_issue_source}]",
+            time.perf_counter() - update_cache_start,
+            items=len(raw_items),
         )
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(raw_items)
         output: list[DataItem[NodeOrEdgeRequest]] = []
@@ -1882,14 +1884,14 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         return {self._source_views["operation"]: "parentActivityId"}
 
     def _relocation_tag_candidates(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> list[str]:
-        """Collect external IDs (own IDs and referenced parent IDs) that may need their target space
-        prefetched from the InstanceSpaceRelocationSource view before mapping the given page."""
+        """Collect referenced parent external IDs that may need their target space prefetched from the
+        InstanceSpaceRelocationSource view before mapping the given page.
+        """
         parent_property_by_view = self._parent_property_by_view()
         candidates: list[str] = []
         for data_item in source:
             item = data_item.item
             if isinstance(item, NodeResponse):
-                candidates.append(item.external_id)
                 properties = item.properties or {}
                 for view_id, parent_property in parent_property_by_view.items():
                     if view_id in properties:
@@ -2243,7 +2245,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             if template_id is None:
                 return InstanceConversionIssue(
                     id="schedules-page",
-                    errors=[f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."],
+                    errors=[
+                        f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."
+                    ],
                 )
             target_space = location_split_id_mapper.resolve_target_space(template_id.external_id)
             if target_space is None:
