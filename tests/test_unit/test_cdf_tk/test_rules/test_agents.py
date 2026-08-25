@@ -63,67 +63,80 @@ class TestAgentRules:
         )
 
     @staticmethod
-    def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRules:
+    def _create_rule_with_client(service_availability: ServicesAvailability, raises: bool = False) -> AgentRules:
         """Create an AgentRules with a mocked client."""
         mock_client = MagicMock()
-        mock_client.tool.agents.service_availability.return_value = service_availability
+        if raises:
+            mock_client.tool.agents.service_availability.side_effect = Exception("boom")
+        else:
+            mock_client.tool.agents.service_availability.return_value = service_availability
         return AgentRules(modules=[], client=mock_client)
 
-    def test_get_status_with_client(self, service_availability: ServicesAvailability) -> None:
-        rule = self._create_rule_with_client(service_availability)
-        status = rule.get_status()
-        assert status.code == "ready"
-        assert "validate agent models" in status.message.lower()
-
-    def test_get_status_without_client(self) -> None:
-        rule = AgentRules(modules=[])
-        status = rule.get_status()
-        assert status.code == "reduced"
-        assert "requires a client" in status.message.lower()
-
-    def test_get_status_when_endpoint_unavailable(self) -> None:
-        mock_client = MagicMock()
-        mock_client.tool.agents.service_availability.side_effect = Exception("boom")
-        rule = AgentRules(modules=[], client=mock_client)
-        status = rule.get_status()
-        assert status.code == "reduced"
-        assert "could not fetch" in status.message.lower()
-
-    def test_validate_agent_unknown_model(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {"externalId": "my_agent", "name": "My Agent", "model": "gcp/claude-5-opus"},
+    @pytest.mark.parametrize(
+        "with_client, availability_raises, expected_code, expected_message_part",
+        [
+            pytest.param(False, False, "reduced", "requires a client", id="no-client"),
+            pytest.param(True, True, "reduced", "could not fetch", id="endpoint-unavailable"),
+            pytest.param(True, False, "ready", "validate agent models", id="client-and-availability-ok"),
+        ],
+    )
+    def test_get_status(
+        self,
+        service_availability: ServicesAvailability,
+        with_client: bool,
+        availability_raises: bool,
+        expected_code: str,
+        expected_message_part: str,
+    ) -> None:
+        rule = (
+            self._create_rule_with_client(service_availability, raises=availability_raises)
+            if with_client
+            else AgentRules(modules=[])
         )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 1
-        assert isinstance(errors[0], ConsistencyError)
-        assert errors[0].code == "AGENT-MODEL"
-        assert "gcp/claude-5-opus" in errors[0].message
+        status = rule.get_status()
+        assert status.code == expected_code
+        assert expected_message_part in status.message.lower()
 
-    def test_validate_agent_known_model(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {"externalId": "my_agent", "name": "My Agent", "model": "azure/gpt-4.1"},
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 0
+    @pytest.mark.parametrize(
+        "with_client, raises",
+        [
+            pytest.param(False, False, id="no-client"),
+            pytest.param(True, True, id="client-raises"),
+        ],
+    )
+    def test_service_availability_returns_none(
+        self, service_availability: ServicesAvailability, with_client: bool, raises: bool
+    ) -> None:
+        rule = self._create_rule_with_client(service_availability, raises=raises) if with_client else AgentRules(modules=[])
+        assert rule.service_availability is None
 
-    def test_validate_agent_no_client_allows_any_model(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "model, with_client, expected_codes",
+        [
+            pytest.param("gcp/claude-5-opus", True, ["AGENT-MODEL"], id="unknown-model"),
+            pytest.param("azure/gpt-4.1", True, [], id="known-model"),
+            pytest.param(None, True, [], id="unset-model-is-allowed"),
+            pytest.param("some-brand-new-model", False, [], id="no-client-allows-any-model"),
+        ],
+    )
+    def test_validate_agent_model(
+        self,
+        tmp_path: Path,
+        service_availability: ServicesAvailability,
+        model: str | None,
+        with_client: bool,
+        expected_codes: list[str],
+    ) -> None:
+        content = {"externalId": "my_agent", "name": "My Agent"}
+        if model is not None:
+            content["model"] = model
         yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {"externalId": "my_agent", "name": "My Agent", "model": "some-brand-new-model"},
-        )
+        self._write_agent_yaml(yaml_file, content)
         resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = AgentRules(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
         errors = list(rule._validate_agent(resource))
-        assert len(errors) == 0
+        assert [error.code for error in errors] == expected_codes
+        assert all(isinstance(error, ConsistencyError) for error in errors)
 
     def test_validate_agent_too_many_tools(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
         yaml_file = tmp_path / "agents" / "agent.yaml"
@@ -146,8 +159,43 @@ class TestAgentRules:
         assert len(errors) == 1
         assert errors[0].code == "AGENT-TOOLS-LIMIT"
 
-    def test_validate_agent_subagents_unsupported_runtime_version(
-        self, tmp_path: Path, service_availability: ServicesAvailability
+    @pytest.mark.parametrize(
+        "runtime_version, extra_fields, with_client, expected_codes",
+        [
+            pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
+            pytest.param("9.9.9", {}, True, ["AGENT-RUNTIME-VERSION"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
+            pytest.param(
+                "1.0.0",
+                {"subagents": [{"agentExternalId": "specialist"}]},
+                True,
+                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                id="subagents-unsupported-runtime-version",
+            ),
+            pytest.param(
+                "1.3.0",
+                {"subagents": [{"agentExternalId": "specialist"}]},
+                True,
+                [],
+                id="subagents-supported-runtime-version",
+            ),
+            pytest.param(
+                "1.0.0",
+                {"skills": ["my_skill"]},
+                True,
+                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                id="skills-unsupported-runtime-version",
+            ),
+        ],
+    )
+    def test_validate_agent_runtime_version_and_capabilities(
+        self,
+        tmp_path: Path,
+        service_availability: ServicesAvailability,
+        runtime_version: str,
+        extra_fields: dict,
+        with_client: bool,
+        expected_codes: list[str],
     ) -> None:
         yaml_file = tmp_path / "agents" / "agent.yaml"
         self._write_agent_yaml(
@@ -156,108 +204,11 @@ class TestAgentRules:
                 "externalId": "supervisor",
                 "name": "Supervisor",
                 "model": "azure/gpt-4.1",
-                "runtimeVersion": "1.0.0",
-                "subagents": [{"agentExternalId": "specialist"}],
+                "runtimeVersion": runtime_version,
+                **extra_fields,
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability)
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
         errors = list(rule._validate_agent(resource))
-        assert len(errors) == 1
-        assert errors[0].code == "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"
-
-    def test_validate_agent_subagents_supported_runtime_version(
-        self, tmp_path: Path, service_availability: ServicesAvailability
-    ) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {
-                "externalId": "supervisor",
-                "name": "Supervisor",
-                "model": "azure/gpt-4.1",
-                "runtimeVersion": "1.3.0",
-                "subagents": [{"agentExternalId": "specialist"}],
-            },
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 0
-
-    def test_validate_agent_unknown_runtime_version_is_flagged(
-        self, tmp_path: Path, service_availability: ServicesAvailability
-    ) -> None:
-        """A runtime version not present in the availability response should be flagged directly."""
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {
-                "externalId": "supervisor",
-                "name": "Supervisor",
-                "model": "azure/gpt-4.1",
-                "runtimeVersion": "9.9.9",
-                "subagents": [{"agentExternalId": "specialist"}],
-            },
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 1
-        assert errors[0].code == "AGENT-RUNTIME-VERSION"
-        assert "9.9.9" in errors[0].message
-
-    def test_validate_agent_known_runtime_version(
-        self, tmp_path: Path, service_availability: ServicesAvailability
-    ) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {"externalId": "my_agent", "name": "My Agent", "model": "azure/gpt-4.1", "runtimeVersion": "1.0.0"},
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 0
-
-    def test_validate_agent_no_client_allows_any_runtime_version(self, tmp_path: Path) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {"externalId": "my_agent", "name": "My Agent", "runtimeVersion": "9.9.9"},
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = AgentRules(modules=[])
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 0
-
-    def test_validate_agent_skills_unsupported_runtime_version(
-        self, tmp_path: Path, service_availability: ServicesAvailability
-    ) -> None:
-        yaml_file = tmp_path / "agents" / "agent.yaml"
-        self._write_agent_yaml(
-            yaml_file,
-            {
-                "externalId": "my_agent",
-                "name": "My Agent",
-                "model": "azure/gpt-4.1",
-                "runtimeVersion": "1.0.0",
-                "skills": ["my_skill"],
-            },
-        )
-        resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
-        assert len(errors) == 1
-        assert errors[0].code == "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"
-        assert "skills" in errors[0].message
-
-    def test_service_availability_returns_none_without_client(self) -> None:
-        rule = AgentRules(modules=[])
-        assert rule.service_availability is None
-
-    def test_service_availability_returns_none_on_error(self) -> None:
-        mock_client = MagicMock()
-        mock_client.tool.agents.service_availability.side_effect = Exception("boom")
-        rule = AgentRules(modules=[], client=mock_client)
-        assert rule.service_availability is None
+        assert [error.code for error in errors] == expected_codes
