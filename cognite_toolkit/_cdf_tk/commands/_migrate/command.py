@@ -264,7 +264,7 @@ class MigrationCommand(ToolkitCommand):
             total_count += step.total_count if step.total_count is not None else 0
             total_completed += step.completed_count if step.completed_count is not None else 0
             item_count = f"{step.total_count:,}" if step.total_count is not None else "Unknown"
-            table.add_row(str(step.selector), f"{step.completed_count:,}", item_count)
+            table.add_row(step.selector.display_name, f"{step.completed_count:,}", item_count)
 
         table.add_section()
         table.add_row("Total", f"{total_completed:,}", f"{total_count:,}")
