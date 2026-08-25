@@ -1618,6 +1618,109 @@ class TestInFieldLegacyToCDMScheduleMapper:
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
 
+    def test_map_does_not_merge_identical_schedules_across_different_templates(self) -> None:
+        """A single call to map() may contain schedules from several templates (the query batches multiple
+        template roots together for efficiency). Two different templates that happen to share an identical
+        schedule configuration must not be collapsed into a single output node.
+        """
+        dest_view = ViewResponse(
+            space=self.DEST_VIEW_ID.space,
+            external_id=self.DEST_VIEW_ID.external_id,
+            version=self.DEST_VIEW_ID.version,
+            **self.DEFAULT_VIEW_ARGS,
+            properties={
+                **{
+                    prop: ViewCorePropertyResponse(
+                        constraint_state=ConstraintOrIndexState(),
+                        type=TextProperty(),
+                        container_property_identifier=prop,
+                        container=self.CONTAINER_ID,
+                        nullable=True,
+                    )
+                    for prop in ["until", "freq", "interval", "timezone", "status", "startTime", "endTime"]
+                },
+                "template": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier="template",
+                    container=self.CONTAINER_ID,
+                ),
+                "templateItems": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(list=True),
+                    container_property_identifier="templateItems",
+                    container=self.CONTAINER_ID,
+                ),
+            },
+        )
+
+        def _schedule_group(template: str, item: str, schedule: str) -> list[InstanceResponse]:
+            template_id = NodeId(space=self.SOURCE_SPACE, external_id=template)
+            item_id = NodeId(space=self.SOURCE_SPACE, external_id=item)
+            schedule_id = NodeId(space=self.SOURCE_SPACE, external_id=schedule)
+            return [
+                NodeResponse(
+                    space=self.SOURCE_SPACE,
+                    external_id=schedule,
+                    created_time=100,
+                    last_updated_time=200,
+                    version=1,
+                    properties={self.SCHEDULE_VIEW: self.GROUP_A_PROPS.copy()},
+                ),
+                EdgeResponse(
+                    space=self.SOURCE_SPACE,
+                    external_id=f"edge_template_{item}",
+                    created_time=0,
+                    last_updated_time=0,
+                    version=1,
+                    type=self.TEMPLATE_EDGE_TYPE,
+                    start_node=template_id,
+                    end_node=item_id,
+                ),
+                EdgeResponse(
+                    space=self.SOURCE_SPACE,
+                    external_id=f"edge_item_{schedule}",
+                    created_time=0,
+                    last_updated_time=0,
+                    version=1,
+                    type=self.TEMPLATE_ITEM_EDGE_TYPE,
+                    start_node=item_id,
+                    end_node=schedule_id,
+                ),
+            ]
+
+        # Two unrelated templates, each with a single item and an identically-configured schedule.
+        source = _schedule_group("template_1", "item_1", "schedule_1") + _schedule_group(
+            "template_2", "item_2", "schedule_2"
+        )
+
+        mapping = ViewToViewMapping(
+            external_id="InFieldScheduleMapping",
+            source_view=self.SCHEDULE_VIEW,
+            destination_view=self.DEST_VIEW_ID,
+            map_identical_id_properties=True,
+            container_mapping={
+                "node.createdTime": "sourceCreatedTime",
+                "node.lastUpdatedTime": "sourceUpdatedTime",
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [dest_view]
+
+            connection_creator = ConnectionCreator(
+                client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
+            )
+            mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
+            mapper.prepare(MagicMock())
+
+            result = mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(source)])
+
+        mapped_schedules = [data_item.item for data_item in result]
+        assert len(mapped_schedules) == 2
+        templates = {str(item.sources[0].properties["template"]) for item in mapped_schedules}
+        assert len(templates) == 2
+
 
 def _make_record_property_mapping(external_id: str, container_id: ContainerId) -> RecordPropertyMapping:
     return RecordPropertyMapping(

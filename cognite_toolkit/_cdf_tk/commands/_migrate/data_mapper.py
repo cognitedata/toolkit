@@ -1853,21 +1853,27 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
-        dict[str, list[NodeResponse]],
+        dict[tuple[NodeId | None, str], list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        """Builds the schedule dedup groups and the edge lookups needed to reconstruct direct relations.
+
+        A single call to ``map()`` may contain schedules belonging to multiple templates (the query batches
+        several template roots together), so schedules are grouped by ``(owning template, content hash)``
+        rather than by content hash alone. This prevents unrelated templates that happen to share an
+        identical schedule configuration (e.g. "daily at 08:00") from being collapsed into one node.
+        """
+        schedule_nodes: list[NodeResponse] = []
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
         for item in source:
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
-                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
-                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
-                    schedules[schedule_hash].append(item)
+                if self.SCHEDULE_VIEW in item_properties:
+                    schedule_nodes.append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
                     # The template nodes are included to do pagination correctly (one page per template),
                     # but we do not need the templates, so we can safely ignore them.
@@ -1899,7 +1905,31 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                             ],
                         )
                     )
+        schedules: dict[tuple[NodeId | None, str], list[NodeResponse]] = defaultdict(list)
+        for schedule in schedule_nodes:
+            template_id = self._resolve_schedule_template(
+                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            schedule_properties = (schedule.properties or {}).get(self.SCHEDULE_VIEW, {})
+            schedule_hash = self._calculate_schedule_hash(schedule_properties)
+            schedules[(template_id, schedule_hash)].append(schedule)
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
+
+    def _resolve_schedule_template(
+        self,
+        schedule_id: NodeId,
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> NodeId | None:
+        """Finds the Template a schedule belongs to by following Schedule -> TemplateItem -> Template edges.
+
+        A schedule referencing more than one distinct template is a data anomaly already caught when the
+        ``template`` direct relation itself is created (a to-one relation with more than one target).
+        """
+        for item_edge in template_item_edges_by_schedule_id.get(schedule_id, []):
+            for template_edge in template_edges_by_item_id.get(item_edge.other_side, []):
+                return template_edge.other_side
+        return None
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:
         relevant_properties: dict[str, Any] = {}
