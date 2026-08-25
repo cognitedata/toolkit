@@ -335,6 +335,11 @@ class ServicesAvailability(AgentObject):
         limit = agent_service.additional_parameters.get("maxToolsPerAgentLimit")
         return limit if isinstance(limit, int) else None
 
+    @property
+    def default_agent_runtime_version(self) -> str | None:
+        agent_service = self.agent_service
+        return agent_service.default_runtime_version if agent_service else None
+
     def runtime_version_has_capability(self, runtime_version: str, capability: str) -> bool | None:
         """Returns whether the given runtime version has the given capability, or None if unknown.
 

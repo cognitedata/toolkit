@@ -44,11 +44,6 @@ class AgentRules(ToolkitGlobalRuleSet):
                     "Provide client credentials to validate these against the CDF project's AI service availability."
                 ),
             )
-        if self.service_availability is None:
-            return RuleSetStatus(
-                code="reduced",
-                message="Could not fetch AI service availability for the CDF project. Will allow any model and runtime version.",
-            )
         return RuleSetStatus(
             code="ready",
             message="Will validate agent models and runtime versions against the CDF project's AI service availability.",
@@ -114,16 +109,20 @@ class AgentRules(ToolkitGlobalRuleSet):
                     source_file=source_file,
                 )
 
+        # If no runtime version is set, the agent runs on the project's default, so capabilities
+        # must be checked against that rather than skipped.
+        effective_runtime_version = agent_def.runtime_version or availability.default_agent_runtime_version
+        if effective_runtime_version:
             for requirement in RUNTIME_CAPABILITY_REQUIREMENTS:
                 if not requirement.is_used(agent_def):
                     continue
                 has_capability = availability.runtime_version_has_capability(
-                    agent_def.runtime_version, requirement.capability
+                    effective_runtime_version, requirement.capability
                 )
                 if has_capability is False:
                     yield ConsistencyError(
                         message=(
-                            f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} "
+                            f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
                             f"does not support the '{requirement.field_name}' field."
                         ),
                         code=f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY",
@@ -150,7 +149,4 @@ class AgentRules(ToolkitGlobalRuleSet):
     def service_availability(self) -> ServicesAvailability | None:
         if not self.client:
             return None
-        try:
-            return self.client.tool.agents.service_availability()
-        except Exception:
-            return None
+        return self.client.tool.agents.service_availability()

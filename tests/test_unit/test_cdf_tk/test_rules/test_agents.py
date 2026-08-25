@@ -32,6 +32,7 @@ class TestAgentRules:
                     available=True,
                     supported_language_models=["azure/gpt-4.1", "gcp/claude-5-sonnet"],
                     additional_parameters={"maxToolsPerAgentLimit": 2},
+                    default_runtime_version="1.0.0",
                     agent_runtime_versions=[
                         AgentRuntimeVersionInfo(version="1.0.0", release_stage="stable", capabilities=[]),
                         AgentRuntimeVersionInfo(version="1.3.0", release_stage="preview", capabilities=["SUBAGENTS"]),
@@ -63,51 +64,33 @@ class TestAgentRules:
         )
 
     @staticmethod
-    def _create_rule_with_client(service_availability: ServicesAvailability, raises: bool = False) -> AgentRules:
+    def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRules:
         """Create an AgentRules with a mocked client."""
         mock_client = MagicMock()
-        if raises:
-            mock_client.tool.agents.service_availability.side_effect = Exception("boom")
-        else:
-            mock_client.tool.agents.service_availability.return_value = service_availability
+        mock_client.tool.agents.service_availability.return_value = service_availability
         return AgentRules(modules=[], client=mock_client)
 
     @pytest.mark.parametrize(
-        "with_client, availability_raises, expected_code, expected_message_part",
+        "with_client, expected_code, expected_message_part",
         [
-            pytest.param(False, False, "reduced", "requires a client", id="no-client"),
-            pytest.param(True, True, "reduced", "could not fetch", id="endpoint-unavailable"),
-            pytest.param(True, False, "ready", "validate agent models", id="client-and-availability-ok"),
+            pytest.param(False, "reduced", "requires a client", id="no-client"),
+            pytest.param(True, "ready", "validate agent models", id="with-client"),
         ],
     )
     def test_get_status(
         self,
         service_availability: ServicesAvailability,
         with_client: bool,
-        availability_raises: bool,
         expected_code: str,
         expected_message_part: str,
     ) -> None:
-        rule = (
-            self._create_rule_with_client(service_availability, raises=availability_raises)
-            if with_client
-            else AgentRules(modules=[])
-        )
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
         status = rule.get_status()
         assert status.code == expected_code
         assert expected_message_part in status.message.lower()
 
-    @pytest.mark.parametrize(
-        "with_client, raises",
-        [
-            pytest.param(False, False, id="no-client"),
-            pytest.param(True, True, id="client-raises"),
-        ],
-    )
-    def test_service_availability_returns_none(
-        self, service_availability: ServicesAvailability, with_client: bool, raises: bool
-    ) -> None:
-        rule = self._create_rule_with_client(service_availability, raises=raises) if with_client else AgentRules(modules=[])
+    def test_service_availability_returns_none_without_client(self) -> None:
+        rule = AgentRules(modules=[])
         assert rule.service_availability is None
 
     @pytest.mark.parametrize(
@@ -186,13 +169,27 @@ class TestAgentRules:
                 ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
                 id="skills-unsupported-runtime-version",
             ),
+            pytest.param(
+                None,
+                {"subagents": [{"agentExternalId": "specialist"}]},
+                True,
+                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                id="unset-runtime-version-falls-back-to-unsupported-default",
+            ),
+            pytest.param(
+                None,
+                {},
+                True,
+                [],
+                id="unset-runtime-version-no-gated-fields",
+            ),
         ],
     )
     def test_validate_agent_runtime_version_and_capabilities(
         self,
         tmp_path: Path,
         service_availability: ServicesAvailability,
-        runtime_version: str,
+        runtime_version: str | None,
         extra_fields: dict,
         with_client: bool,
         expected_codes: list[str],
