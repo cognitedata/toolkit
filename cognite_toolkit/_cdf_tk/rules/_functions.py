@@ -23,13 +23,13 @@ class FunctionRules(ToolkitGlobalRuleSet):
                 message=(
                     "Function limits validation requires a client. "
                     "Provide client credentials to validate function CPU and MEMORY limits."
-                    "Will only validate the requirement txt."
+                    "Will only validate the requirements.txt."
                 ),
             )
 
         return RuleSetStatus(
             code="ready",
-            message="Will validate function limits, runtime, and requirement txt.",
+            message="Will validate function limits, runtime, and requirements.txt.",
         )
 
     def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
