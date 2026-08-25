@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from functools import cached_property
+from typing import NamedTuple
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvailability
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
@@ -9,6 +10,24 @@ from cognite_toolkit._cdf_tk.resource_ios import AgentIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
+
+
+class RuntimeCapabilityRequirement(NamedTuple):
+    """An AgentYAML field that is gated behind a runtime version capability."""
+
+    field_name: str
+    capability: str
+
+    def is_used(self, agent_def: AgentYAML) -> bool:
+        return bool(getattr(agent_def, self.field_name))
+
+
+# Fields whose usage requires the runtime version to advertise the matching capability. Add
+# to this list as the API exposes more per-field capabilities under agentRuntimeVersions[].capabilities.
+RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
+    RuntimeCapabilityRequirement(field_name="subagents", capability="SUBAGENTS"),
+    RuntimeCapabilityRequirement(field_name="skills", capability="SKILLS"),
+)
 
 
 class AgentRules(ToolkitGlobalRuleSet):
@@ -87,18 +106,26 @@ class AgentRules(ToolkitGlobalRuleSet):
                 source_file=source_file,
             )
 
-        if agent_def.subagents and agent_def.runtime_version:
-            supports_subagents = availability.runtime_version_supports_subagents(agent_def.runtime_version)
-            if supports_subagents is False:
-                yield ConsistencyError(
-                    message=(
-                        f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} "
-                        "does not support subagents."
-                    ),
-                    code=f"{self.CODE_PREFIX}-SUBAGENTS-RUNTIME-VERSION",
-                    fix="Use a runtime version that supports subagents, or remove the 'subagents' field.",
-                    source_file=source_file,
+        if agent_def.runtime_version:
+            for requirement in RUNTIME_CAPABILITY_REQUIREMENTS:
+                if not requirement.is_used(agent_def):
+                    continue
+                has_capability = availability.runtime_version_has_capability(
+                    agent_def.runtime_version, requirement.capability
                 )
+                if has_capability is False:
+                    yield ConsistencyError(
+                        message=(
+                            f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} "
+                            f"does not support the '{requirement.field_name}' field."
+                        ),
+                        code=f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY",
+                        fix=(
+                            f"Use a runtime version that supports '{requirement.field_name}', "
+                            f"or remove the '{requirement.field_name}' field."
+                        ),
+                        source_file=source_file,
+                    )
 
         max_tools = availability.max_tools_per_agent
         if agent_def.tools is not None and max_tools is not None and len(agent_def.tools) > max_tools:

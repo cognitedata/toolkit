@@ -310,7 +310,6 @@ class ServicesAvailability(AgentObject):
     language_models: list[AILanguageModel]
 
     AGENT_CRUD_SERVICE_NAME: ClassVar[str] = "Agent CRUD"
-    SUBAGENTS_CAPABILITY: ClassVar[str] = "SUBAGENTS"
 
     @property
     def agent_service(self) -> AIServiceAvailability | None:
@@ -329,12 +328,17 @@ class ServicesAvailability(AgentObject):
         limit = agent_service.additional_parameters.get("maxToolsPerAgentLimit")
         return limit if isinstance(limit, int) else None
 
-    def runtime_version_supports_subagents(self, runtime_version: str) -> bool | None:
-        """Returns whether the given runtime version supports subagents, or None if unknown."""
+    def runtime_version_has_capability(self, runtime_version: str, capability: str) -> bool | None:
+        """Returns whether the given runtime version has the given capability, or None if unknown.
+
+        Args:
+            runtime_version: The agent runtime version to check, e.g. "1.3.0".
+            capability: The capability to check for, e.g. "SUBAGENTS" or "SKILLS".
+        """
         agent_service = self.agent_service
         if agent_service is None:
             return None
         for version_info in agent_service.agent_runtime_versions:
             if version_info.version == runtime_version:
-                return self.SUBAGENTS_CAPABILITY in version_info.capabilities
+                return capability in version_info.capabilities
         return None

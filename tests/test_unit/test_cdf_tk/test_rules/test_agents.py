@@ -164,7 +164,7 @@ class TestAgentRules:
         rule = self._create_rule_with_client(service_availability)
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 1
-        assert errors[0].code == "AGENT-SUBAGENTS-RUNTIME-VERSION"
+        assert errors[0].code == "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"
 
     def test_validate_agent_subagents_supported_runtime_version(
         self, tmp_path: Path, service_availability: ServicesAvailability
@@ -204,6 +204,27 @@ class TestAgentRules:
         rule = self._create_rule_with_client(service_availability)
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 0
+
+    def test_validate_agent_skills_unsupported_runtime_version(
+        self, tmp_path: Path, service_availability: ServicesAvailability
+    ) -> None:
+        yaml_file = tmp_path / "agents" / "agent.yaml"
+        self._write_agent_yaml(
+            yaml_file,
+            {
+                "externalId": "my_agent",
+                "name": "My Agent",
+                "model": "azure/gpt-4.1",
+                "runtimeVersion": "1.0.0",
+                "skills": ["my_skill"],
+            },
+        )
+        resource = self._create_built_resource(yaml_file, yaml_file)
+        rule = self._create_rule_with_client(service_availability)
+        errors = list(rule._validate_agent(resource))
+        assert len(errors) == 1
+        assert errors[0].code == "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"
+        assert "skills" in errors[0].message
 
     def test_service_availability_returns_none_without_client(self) -> None:
         rule = AgentRules(modules=[])
