@@ -1,3 +1,4 @@
+from ._agents import AgentRules
 from ._auth import CheckDataSetMissing
 from ._base import ToolkitGlobalRuleSet, ToolkitLocalRule
 from ._dependencies import DependencyRuleSet
@@ -7,6 +8,7 @@ from ._neat import NeatRuleSet
 from ._orchestrator import LocalRulesOrchestrator, get_global_rules_registry
 
 __all__ = [
+    "AgentRules",
     "CheckDataSetMissing",
     "DependencyRuleSet",
     "FunctionRules",

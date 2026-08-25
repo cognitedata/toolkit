@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator, ConfigDict, Field
 
@@ -267,3 +267,74 @@ class AgentResponse(Agent, ResponseResource[AgentRequest]):
     @classmethod
     def request_cls(cls) -> type[AgentRequest]:
         return AgentRequest
+
+
+class AgentRuntimeVersionInfo(AgentObject):
+    """A single agent runtime version and the capabilities it supports."""
+
+    version: str
+    release_stage: Literal["stable", "preview"] | str
+    visibility: Literal["hidden", "public"] | str | None = None
+    capabilities: list[str] = Field(default_factory=list)
+
+
+class AIServiceAvailability(AgentObject):
+    """A single AI service (e.g. Agent CRUD, Chat completions) and its availability in the CDF project."""
+
+    name: str
+    path: str
+    available: bool
+    supported_language_models: list[str] = Field(default_factory=list)
+    default_language_model: str | None = None
+    default_advanced_language_model: str | None = None
+    default_fast_language_model: str | None = None
+    agent_runtime_versions: list[AgentRuntimeVersionInfo] = Field(default_factory=list)
+    default_runtime_version: str | None = None
+    additional_parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class AILanguageModel(AgentObject):
+    """A language model available in the CDF project, independent of which AI service supports it."""
+
+    name: str
+    native: bool
+    max_tokens: int | None = None
+    max_output_tokens: int | None = None
+    earliest_retirement_date: int | None = None
+
+
+class ServicesAvailability(AgentObject):
+    """Response of the `/ai/services/availability` endpoint."""
+
+    items: list[AIServiceAvailability]
+    language_models: list[AILanguageModel]
+
+    AGENT_CRUD_SERVICE_NAME: ClassVar[str] = "Agent CRUD"
+    SUBAGENTS_CAPABILITY: ClassVar[str] = "SUBAGENTS"
+
+    @property
+    def agent_service(self) -> AIServiceAvailability | None:
+        return next((item for item in self.items if item.name == self.AGENT_CRUD_SERVICE_NAME), None)
+
+    @property
+    def supported_agent_models(self) -> list[str] | None:
+        agent_service = self.agent_service
+        return agent_service.supported_language_models if agent_service else None
+
+    @property
+    def max_tools_per_agent(self) -> int | None:
+        agent_service = self.agent_service
+        if agent_service is None:
+            return None
+        limit = agent_service.additional_parameters.get("maxToolsPerAgentLimit")
+        return limit if isinstance(limit, int) else None
+
+    def runtime_version_supports_subagents(self, runtime_version: str) -> bool | None:
+        """Returns whether the given runtime version supports subagents, or None if unknown."""
+        agent_service = self.agent_service
+        if agent_service is None:
+            return None
+        for version_info in agent_service.agent_runtime_versions:
+            if version_info.version == runtime_version:
+                return self.SUBAGENTS_CAPABILITY in version_info.capabilities
+        return None

@@ -7,7 +7,7 @@ import pytest
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses, literal_string_values_from_annotation
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     EXAMPLE_QUESTIONS_MAX_LENGTH,
@@ -19,17 +19,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     AgentTool,
     AgentToolDefinition,
     AgentYAML,
-    Model,
 )
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
-
-
-def _model_literal_error_message(invalid_value: object) -> str:
-    models = literal_string_values_from_annotation(Model)
-    quoted = ", ".join(f"'{model}'" for model in models[:-1])
-    options = f"{quoted} or '{models[-1]}'" if len(models) > 1 else f"'{models[0]}'"
-    return f"In field model input should be {options}. Got {invalid_value!r}."
 
 
 def invalid_test_cases() -> Iterable:
@@ -45,15 +37,11 @@ def invalid_test_cases() -> Iterable:
             "externalId": "",  # Empty string - violates min_length=1
             "name": "",  # Empty string - violates min_length=1
             "description": "a" * 1025,  # Too long - violates max_length=1024
-            "model": "invalid-model",  # Not in Model literal enum
-            "tools": [{"type": "invalid"}] * 21,  # Too many tools - violates max_length=20
         },
         {
             "In field description string should have at most 1024 characters",
             "In field externalId string should have at least 1 character",
-            _model_literal_error_message("invalid-model"),
             "In field name string should have at least 1 character",
-            "In field tools list should have at most 20 items after validation, not 21",
         },
         id="multiple-validation-errors",
     )
@@ -146,7 +134,7 @@ def invalid_test_cases() -> Iterable:
             "name": None,  # Wrong type - should be string
             "description": 456,  # Wrong type - should be string or None
             "instructions": [],  # Wrong type - should be string or None
-            "model": True,  # Wrong type - should be Model literal
+            "model": True,  # Wrong type - should be a string
             "tools": "not_a_list",  # Wrong type - should be list
         },
         {
@@ -154,7 +142,8 @@ def invalid_test_cases() -> Iterable:
             "Hint: Use double quotes to force string.",
             "In field instructions input should be a valid string. Got [] of type list. "
             "Hint: Use double quotes to force string.",
-            _model_literal_error_message(True),
+            "In field model input should be a valid string. Got True of type bool. "
+            "Hint: Use double quotes to force string.",
             "In field name input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
             "In field tools input should be a valid list. Got 'not_a_list'.",
@@ -337,17 +326,6 @@ class TestAgentYAML:
                 },
                 "In subagents[1].agentExternalId string should have at least 1 character",
                 id="empty-subagent-external-id",
-            ),
-            pytest.param(
-                {
-                    "externalId": "supervisor",
-                    "name": "Supervisor",
-                    "runtimeVersion": "1.0.0",
-                    "subagents": [{"agentExternalId": "weather-specialist"}],
-                },
-                "Runtime version '1.0.0' does not support subagents. "
-                "Use a runtime version where supports_subagents is enabled, or remove the 'subagents' field.",
-                id="unsupported-runtime-version",
             ),
             pytest.param(
                 {
