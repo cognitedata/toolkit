@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -45,8 +43,13 @@ class FunctionsYAML(ToolkitResource):
     )
     cpu: float | None = Field(default=None, description="Number of CPU cores per function.")
     memory: float | None = Field(default=None, description="Memory per function measured in GB.")
-    runtime: Literal["py39", "py310", "py311", "py312", "py313", "py314"] | None = Field(
-        default="py311", description="Runtime of the function."
+    runtime: str | None = Field(
+        default=None,
+        description=(
+            "Runtime of the function. Defaults to the CDF project's default runtime if not set. "
+            "The set of valid runtimes is validated dynamically against the CDF project's function "
+            "limits, since it may change over time."
+        ),
     )
     metadata: dict[str, str] | None = Field(
         default=None, description="Custom, application-specific metadata.", max_length=16
