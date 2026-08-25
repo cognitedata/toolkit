@@ -15,6 +15,17 @@ def invalid_function_test_cases() -> Iterable:
         {"Missing required field: 'externalId'"},
         id="Missing externalId",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_function",
+            "name": "my_function",
+            "secrets": {f"secret_name{i}": f"super_secret{i}" for i in range(31)},
+        },
+        {
+            "In field secrets dictionary should have at most 30 items after validation, not 31",
+        },
+        id="Too many secrets",
+    )
 
 
 class TestFunctionsYAML:
