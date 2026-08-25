@@ -597,6 +597,25 @@ class TestMigrationCommand:
                 json={"items": [annotation.dump() for annotation in annotations]},
             )
         )
+        # None of the referenced files carry a native instanceId, so resolution falls back to the
+        # InstanceSource lookup below.
+        respx_mock.post(config.create_api_url("/files/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "id": file_id,
+                            "name": f"file_{file_id}",
+                            "uploaded": True,
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                        }
+                        for file_id in (3000, 3001, 5000)
+                    ]
+                },
+            )
+        )
         # Lookup asset and file instance ID
         query_responses = []
         for items in [
