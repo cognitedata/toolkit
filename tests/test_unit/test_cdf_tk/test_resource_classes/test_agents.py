@@ -110,7 +110,7 @@ def invalid_test_cases() -> Iterable:
                                 "space": "invalid space!",  # Invalid pattern - contains space and special char
                                 "external_id": "123invalid",  # Invalid pattern - starts with number
                                 "version": "v@1",  # Invalid pattern - contains special char
-                                "viewExternalIds": ["valid_view"] * 11,  # Too many items - violates max_length=10
+                                "viewExternalIds": ["valid_view"] * 21,  # Too many items - violates max_length=20
                             }
                         ]
                         * 81,  # Too many data models - violates max_length=80

@@ -103,7 +103,9 @@ class AgentDataModel(AgentToolModelResource):
         max_length=43,
         pattern=DM_VERSION_PATTERN,
     )
-    view_external_ids: list[str] = Field(description="The views of the data model.", min_length=1, max_length=10)
+    view_external_ids: list[str] | None = Field(
+        None, description="The views of the data model.", min_length=1, max_length=20
+    )
 
 
 class AgentInstanceSpacesDefinition(AgentToolModelResource):
