@@ -185,10 +185,10 @@ class TestAgentRules:
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 0
 
-    def test_validate_agent_subagents_unknown_runtime_version_is_allowed(
+    def test_validate_agent_unknown_runtime_version_is_flagged(
         self, tmp_path: Path, service_availability: ServicesAvailability
     ) -> None:
-        """A runtime version not present in the availability response should not be blocked."""
+        """A runtime version not present in the availability response should be flagged directly."""
         yaml_file = tmp_path / "agents" / "agent.yaml"
         self._write_agent_yaml(
             yaml_file,
@@ -202,6 +202,32 @@ class TestAgentRules:
         )
         resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
         rule = self._create_rule_with_client(service_availability)
+        errors = list(rule._validate_agent(resource))
+        assert len(errors) == 1
+        assert errors[0].code == "AGENT-RUNTIME-VERSION"
+        assert "9.9.9" in errors[0].message
+
+    def test_validate_agent_known_runtime_version(
+        self, tmp_path: Path, service_availability: ServicesAvailability
+    ) -> None:
+        yaml_file = tmp_path / "agents" / "agent.yaml"
+        self._write_agent_yaml(
+            yaml_file,
+            {"externalId": "my_agent", "name": "My Agent", "model": "azure/gpt-4.1", "runtimeVersion": "1.0.0"},
+        )
+        resource = self._create_built_resource(yaml_file, yaml_file)
+        rule = self._create_rule_with_client(service_availability)
+        errors = list(rule._validate_agent(resource))
+        assert len(errors) == 0
+
+    def test_validate_agent_no_client_allows_any_runtime_version(self, tmp_path: Path) -> None:
+        yaml_file = tmp_path / "agents" / "agent.yaml"
+        self._write_agent_yaml(
+            yaml_file,
+            {"externalId": "my_agent", "name": "My Agent", "runtimeVersion": "9.9.9"},
+        )
+        resource = self._create_built_resource(yaml_file, yaml_file)
+        rule = AgentRules(modules=[])
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 0
 

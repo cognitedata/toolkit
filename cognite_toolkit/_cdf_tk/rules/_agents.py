@@ -107,6 +107,18 @@ class AgentRules(ToolkitGlobalRuleSet):
             )
 
         if agent_def.runtime_version:
+            supported_runtime_versions = availability.supported_agent_runtime_versions
+            if supported_runtime_versions is not None and agent_def.runtime_version not in supported_runtime_versions:
+                yield ConsistencyError(
+                    message=(
+                        f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
+                        f"available in this CDF project. Available runtime versions: {sorted(supported_runtime_versions)}."
+                    ),
+                    code=f"{self.CODE_PREFIX}-RUNTIME-VERSION",
+                    fix="Use one of the available runtime versions for this CDF project.",
+                    source_file=source_file,
+                )
+
             for requirement in RUNTIME_CAPABILITY_REQUIREMENTS:
                 if not requirement.is_used(agent_def):
                     continue

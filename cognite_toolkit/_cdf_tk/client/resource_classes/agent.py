@@ -321,6 +321,13 @@ class ServicesAvailability(AgentObject):
         return agent_service.supported_language_models if agent_service else None
 
     @property
+    def supported_agent_runtime_versions(self) -> list[str] | None:
+        agent_service = self.agent_service
+        if agent_service is None:
+            return None
+        return [version_info.version for version_info in agent_service.agent_runtime_versions]
+
+    @property
     def max_tools_per_agent(self) -> int | None:
         agent_service = self.agent_service
         if agent_service is None:
