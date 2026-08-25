@@ -485,7 +485,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         if isinstance(response, FailedResponse) and response.status_code == 408:
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
-                    f"Request failed with status code {response.status_code}: {response.error.message}",
+                    f"Request failed with status code {response.status_code}: {response.error.full_message}",
                     missing=response.error.missing,  # type: ignore[arg-type]
                     duplicated=response.error.duplicated,  # type: ignore[arg-type]
                     code=response.error.code,
