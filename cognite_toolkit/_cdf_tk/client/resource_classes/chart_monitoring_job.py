@@ -78,7 +78,13 @@ class ChartMonitoringJobResponse(ChartMonitoringJob, ResponseResource[ChartMonit
         return ChartMonitoringJobRequest
 
     def as_request_resource(self) -> ChartMonitoringJobRequest:
-        dump = self.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"user_identifier"})
+        # status is server-computed execution status and not valid on create/update.
+        dump = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude={"user_identifier", "status"},
+        )
         dump["nonce"] = MISSING_NONCE
         dump["id"] = self.id
         return ChartMonitoringJobRequest.model_validate(dump, extra="allow")
