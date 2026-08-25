@@ -1950,6 +1950,23 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         result = convert_container_properties(source_properties, context)
         created_properties = result.container_properties
 
+        for schedule in duplicated_schedules:
+            incoming_item_edges = template_item_edges_by_schedule_id.get(schedule.as_id(), [])
+            distinct_items = {edge.other_side for edge in incoming_item_edges}
+            if len(distinct_items) > 1:
+                issue.errors.append(
+                    f"Schedule {schedule.as_id()!s} has incoming referenceSchedules edges from "
+                    f"{len(distinct_items)} distinct template items {humanize_collection([str(item) for item in distinct_items])}, expected exactly 1."
+                )
+            elif len(incoming_item_edges) > 1:
+                # Same template item, multiple edge instances. Logging edge_ids (rather than
+                # other_side, which would be identical) to determine whether this is a genuine
+                # duplicate edge in the source data, or the same edge being read twice.
+                issue.errors.append(
+                    f"Schedule {schedule.as_id()!s} has {len(incoming_item_edges)} incoming referenceSchedules "
+                    f"edges {humanize_collection([str(edge.edge_id) for edge in incoming_item_edges])} from the same template item, expected exactly 1."
+                )
+
         template_edges, template_item_edges = self._find_schedule_edges(
             duplicated_schedules, template_edges_by_item_id, template_item_edges_by_schedule_id
         )
@@ -1980,7 +1997,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 template_item_edges.append(template_item_edge)
                 for template_edge in template_edges_by_item_id.get(template_item_edge.other_side, []):
                     template_edges.append(template_edge)
-        return template_edges, template_item_edges
+        # Deduplicate by target: multiple edges to the same template/template item is expected
+        # and not a real conversion ambiguity.
+        deduped_template_edges = list({edge.other_side: edge for edge in template_edges}.values())
+        deduped_template_item_edges = list({edge.other_side: edge for edge in template_item_edges}.values())
+        return deduped_template_edges, deduped_template_item_edges
 
     def _create_template_relations(
         self,
