@@ -19,6 +19,7 @@ class Plugins(Enum):
     dump = Plugin("dump", "plugin for Dump command to retrieve Asset resources from CDF")
     dev = Plugin("dev", "plugin for commands to develop modules in CDF")
     data = Plugin("data", "plugin for Data command to manage data in CDF")
+    agent = Plugin("agent", "plugin for the 'cdf .' agent that turns a prompt into Toolkit actions")
 
     @staticmethod
     def list() -> dict[str, bool]:
