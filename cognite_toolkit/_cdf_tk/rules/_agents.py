@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
 
@@ -31,13 +32,6 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 
 
 class AgentRules(ToolkitGlobalRuleSet):
-    """Validate agent definitions against the CDF project's AI service availability.
-
-    The availability endpoint is used on a best-effort basis: if it cannot be reached, e.g. because
-    no client is available or the endpoint is not yet enabled for the project, any model and runtime
-    version is accepted rather than falling back to a hardcoded list that would go stale over time.
-    """
-
     CODE_PREFIX = "AGENT"
     DISPLAY_NAME = "Agents checks"
 
@@ -99,7 +93,7 @@ class AgentRules(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 message=(
                     f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
-                    f"CDF project. Available models: {sorted(supported_models)}."
+                    f"CDF project. Available models: {humanize_collection(supported_models)}."
                 ),
                 code=f"{self.CODE_PREFIX}-MODEL",
                 fix="Use one of the available models for this CDF project.",
@@ -112,7 +106,8 @@ class AgentRules(ToolkitGlobalRuleSet):
                 yield ConsistencyError(
                     message=(
                         f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
-                        f"available in this CDF project. Available runtime versions: {sorted(supported_runtime_versions)}."
+                        f"available in this CDF project. "
+                        f"Available runtime versions: {humanize_collection(supported_runtime_versions)}."
                     ),
                     code=f"{self.CODE_PREFIX}-RUNTIME-VERSION",
                     fix="Use one of the available runtime versions for this CDF project.",
