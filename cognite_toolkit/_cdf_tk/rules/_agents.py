@@ -89,7 +89,7 @@ class AgentRules(ToolkitGlobalRuleSet):
             return
 
         supported_models = availability.supported_agent_models
-        if supported_models is not None and agent_def.model not in supported_models:
+        if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
             yield ConsistencyError(
                 message=(
                     f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "

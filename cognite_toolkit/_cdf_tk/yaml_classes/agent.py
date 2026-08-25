@@ -286,8 +286,8 @@ class AgentYAML(ToolkitResource):
         "the agent's goals and how to achieve them.",
         max_length=32000,
     )
-    model: str = Field(
-        "azure/gpt-4o-mini", description="The name of the model to use. Defaults to your CDF project's default model."
+    model: str | None = Field(
+        None, description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.")
     subagents: list[SubagentConfig] | None = Field(
