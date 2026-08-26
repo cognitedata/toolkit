@@ -133,7 +133,7 @@ class BuiltModule(BaseModel):
             for failed_extra in resource.failed_extra:
                 insights.append(
                     FileReadError(
-                        message=f"In {display_path.as_posix()!r}: {failed_extra.error}",
+                        message=f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}",
                         code=failed_extra.code,
                         source_file=format_insight_source_file(resource.source_path),
                     )
@@ -156,7 +156,7 @@ class BuiltModule(BaseModel):
             insights.append(
                 FileReadError(
                     code=failed_file.code,
-                    message=f"In {display_path.as_posix()!r}: {failed_file.error}",
+                    message=f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}",
                     source_file=format_insight_source_file(failed_file.source_path),
                 )
             )
