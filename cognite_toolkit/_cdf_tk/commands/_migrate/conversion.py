@@ -68,9 +68,12 @@ from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 class InstanceMappingError(ToolkitError):
     """Raised when an instance ID cannot be mapped to a destination instance ID."""
 
-    def __init__(self, message: str, severity: Severity = Severity.warning) -> None:
+    def __init__(
+        self, message: str, severity: Severity = Severity.warning, is_target_space_resolution: bool = False
+    ) -> None:
         super().__init__(message)
         self.severity = severity
+        self.is_target_space_resolution = is_target_space_resolution
 
 
 class DirectRelationCache:
@@ -606,6 +609,19 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
+    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        """Map an edge's own instance ID to its destination.
+
+        Args:
+            edge_id: The source edge's own instance ID.
+            owning_node_target_space: The already-resolved destination space of the node that owns this edge
+                (i.e. the node whose conversion is creating it). Mappers that place edges alongside their
+                owning node can use this instead of resolving the edge's own ID independently.
+
+        Defaults to mapping the edge like any other instance ID.
+        """
+        return self.map_instance_id(edge_id)
+
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         """Return the destination instance spaces corresponding to the given source spaces, for display purposes.
 
@@ -635,6 +651,134 @@ class SpaceMappingInstanceIdMapper(InstanceIdMapper):
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         return list({self._space_mapping[space] for space in source_spaces if space in self._space_mapping})
+
+
+class LocationSplitInstanceIdMapper(InstanceIdMapper):
+    """Maps instances from a shared legacy source space to per-location CDM spaces.
+
+    Target space is registered as each instance is resolved (from rootLocation or parent lineage).
+    Unregistered IDs must be resolved via ``prefetch()`` against the InstanceSpaceRelocationSource view
+    before they can be looked up with ``resolve_target_space()`` - see that method's docstring. This
+    fallback exists for incremental/live-tailing re-runs: a ``sync`` cursor on an earlier tier only
+    re-emits new or changed instances, so a long-since-migrated parent that hasn't changed since the last
+    run will not be re-registered in-memory this run, even though its target space was already recorded
+    in CDF.
+
+    IDs confirmed unresolvable (no match found) are cached negatively for the lifetime of this mapper,
+    since Toolkit always processes tiers in dependency order: once a tier that could produce a match has
+    already run (or been skipped as already completed) earlier in this same invocation, a "no match" answer
+    cannot change for the remainder of the run.
+
+    ``passthrough_space_mapping`` keeps a fixed 1:1 mapping for cross-space relations (e.g. cognite_app_data).
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        source_space: str,
+        passthrough_space_mapping: Mapping[str, str] | None = None,
+        target_spaces: Iterable[str] | None = None,
+    ) -> None:
+        self._client = client
+        self.source_space = source_space
+        self._passthrough_space_mapping = dict(passthrough_space_mapping or {})
+        self._target_spaces = set(target_spaces or ())
+        self._target_space_by_external_id: dict[str, str] = {}
+        self._unresolvable_external_ids: set[str] = set()
+
+    def register(self, external_id: str, target_space: str) -> None:
+        self._target_space_by_external_id[external_id] = target_space
+        self._unresolvable_external_ids.discard(external_id)
+
+    def mark_unresolvable(self, external_ids: Iterable[str]) -> None:
+        """Remember that the given external IDs have no target space, so they aren't queried again."""
+        self._unresolvable_external_ids.update(external_ids)
+
+    def is_known_unresolvable(self, external_id: str) -> bool:
+        return external_id in self._unresolvable_external_ids
+
+    def get_registered_target_space(self, external_id: str) -> str | None:
+        return self._target_space_by_external_id.get(external_id)
+
+    def prefetch(self, external_ids: Iterable[str]) -> None:
+        """Batch-resolve target spaces for ``external_ids`` from the InstanceSpaceRelocationSource view.
+
+        IDs already registered or already known unresolvable are skipped. This is the only method on this
+        class that makes a network call, and it must be called with every ID a caller will need resolved
+        *before* resolving any of them individually via ``resolve_target_space``, so that at most one call
+        is made per batch of work (e.g. a page of instances), regardless of how many IDs need a fallback
+        lookup. See the class docstring for why this fallback is needed.
+        """
+        unresolved_external_ids = [
+            external_id
+            for external_id in dict.fromkeys(external_ids)
+            if external_id not in self._target_space_by_external_id
+            and external_id not in self._unresolvable_external_ids
+        ]
+        if not unresolved_external_ids:
+            return
+        matches = self._client.migration.instance_space_relocation_source.retrieve(
+            self.source_space, unresolved_external_ids
+        )
+        matched_external_ids: set[str] = set()
+        for match in matches:
+            self.register(match.external_id, match.space)
+            matched_external_ids.add(match.external_id)
+        self.mark_unresolvable(
+            external_id for external_id in unresolved_external_ids if external_id not in matched_external_ids
+        )
+
+    def resolve_target_space(self, external_id: str) -> str | None:
+        """Cache-only lookup: returns the target space, or ``None`` if confirmed unresolvable.
+
+        Never makes a network call. Raises if ``external_id`` was never passed to ``prefetch`` (or
+        ``register``/``mark_unresolvable`` directly) - that is a bug in the caller, not something this
+        method should silently paper over with a one-off lookup.
+        """
+        if (target_space := self._target_space_by_external_id.get(external_id)) is not None:
+            return target_space
+        if external_id in self._unresolvable_external_ids:
+            return None
+        raise RuntimeError(
+            f"Bug in Toolkit: target space for {external_id!r} was requested without prefetching it first. "
+            "Call prefetch() with every external ID a caller will need before resolving any of them."
+        )
+
+    def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
+        if instance_id.space == self.source_space:
+            target_space = self.resolve_target_space(instance_id.external_id)
+            if target_space is None:
+                raise InstanceMappingError(
+                    f"Instance {instance_id} could not be assigned to a target space: it has not been resolved "
+                    "to a location (directly, or through its lineage) sharing this legacy instance space.",
+                    severity=Severity.failure,
+                    is_target_space_resolution=True,
+                )
+            return NodeId(space=target_space, external_id=instance_id.external_id)
+        if instance_id.space in self._passthrough_space_mapping:
+            return NodeId(
+                space=self._passthrough_space_mapping[instance_id.space],
+                external_id=instance_id.external_id,
+            )
+        raise RuntimeError(
+            f"Bug in Toolkit: instance {instance_id} is outside location-split source space "
+            f"{self.source_space!r} and passthrough spaces "
+            f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
+        )
+
+    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        # Edges are stored alongside the node that owns them and are never referenced by external ID
+        # elsewhere, so they don't need (and can't use) the per-external-id resolution that nodes require.
+        return NodeId(space=owning_node_target_space, external_id=edge_id.external_id)
+
+    def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
+        destinations: set[str] = set()
+        for space in source_spaces:
+            if space == self.source_space:
+                destinations.update(self._target_spaces)
+            elif space in self._passthrough_space_mapping:
+                destinations.add(self._passthrough_space_mapping[space])
+        return list(destinations)
 
 
 class SuffixInstanceIdMapper(InstanceIdMapper):
@@ -848,6 +992,10 @@ class ConnectionCreator:
         """Maps a source instance ID to the corresponding destination instance ID."""
         return self._instance_id_mapper.map_instance_id(instance_id)
 
+    def map_edge(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
+        """Maps a source edge's own instance ID to its destination, given its owning node's target space."""
+        return self._instance_id_mapper.map_edge_id(edge_id, owning_node_target_space)
+
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
         """Get the edge properties for a given view ID."""
         if view_id not in self.view_by_id:
@@ -986,7 +1134,7 @@ class ConnectionCreator:
         new_edges: list[EdgeRequest] = []
         for edge in edges:
             try:
-                new_edge_id = self.map_instance(edge.edge_id)
+                new_edge_id = self.map_edge(edge.edge_id, source_id.space)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue
@@ -1293,20 +1441,20 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId | str]):
 
 
 class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
-    """Custom case for the APM_SourceData migration.
-
-    APM_Operation stores its reference to the parent APM_Activity as a plain ``parentActivityId`` text
-    property (the classic ``externalId`` of the APM_Activity node). The migrated CogniteMaintenanceOrder
-    keeps this same external ID, only moving it into the target instance space, so the destination NodeId
-    can be derived directly without any lookup.
-    """
+    """Maps APM_Operation.parentActivityId (a text external ID) through the InstanceIdMapper."""
 
     VIEW_PROPERTIES = frozenset(
         {(ViewId(space="APM_SourceData", external_id="APM_Operation", version="1"), "parentActivityId")}
     )
 
-    def __init__(self, target_space: str, resolved_operation_view: ViewId | None = None) -> None:
-        self._target_space = target_space
+    def __init__(
+        self,
+        source_space: str,
+        instance_id_mapper: InstanceIdMapper,
+        resolved_operation_view: ViewId | None = None,
+    ) -> None:
+        self._source_space = source_space
+        self._instance_id_mapper = instance_id_mapper
         self._extra_view_properties: frozenset[tuple[ViewId, str]] = (
             frozenset({(resolved_operation_view, "parentActivityId")})
             if resolved_operation_view is not None
@@ -1317,7 +1465,7 @@ class APMSourceDataMaintenanceOrderMapping(CustomConnectionMapping[str]):
         return self.VIEW_PROPERTIES | self._extra_view_properties
 
     def __getitem__(self, item: str) -> NodeId:
-        return NodeId(space=self._target_space, external_id=item)
+        return self._instance_id_mapper.map_instance_id(NodeId(space=self._source_space, external_id=item))
 
     def update(self, items: Iterable[str]) -> None:
         pass

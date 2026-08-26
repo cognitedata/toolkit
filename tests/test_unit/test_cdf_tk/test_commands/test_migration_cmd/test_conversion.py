@@ -39,7 +39,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    AssetCentricId,
+    CreatedSourceSystem,
+    InstanceSpaceRelocationSource,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -54,6 +58,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldAssetMapping,
     InstanceMappingError,
+    LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
@@ -67,6 +72,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     FailedConversion,
     InvalidPropertyDataType,
 )
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 
 
 @pytest.fixture(scope="module")
@@ -1943,16 +1949,108 @@ class TestInFieldAssetMapping:
 
 
 class TestAPMSourceDataMaintenanceOrderMapping:
-    def test_getitem_derives_node_id_from_target_space(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+    def test_getitem_derives_node_id_via_instance_id_mapper(self) -> None:
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         assert mapping["activity_123"] == NodeId(space="sp_target", external_id="activity_123")
 
     def test_update_is_a_no_op(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         # No lookup is needed, so this should simply not raise.
         mapping.update(["activity_123"])
+
+
+def _relocation_source(space: str, external_id: str, source_space: str) -> InstanceSpaceRelocationSource:
+    return InstanceSpaceRelocationSource(
+        space=space,
+        external_id=external_id,
+        source_space=source_space,
+        version=1,
+        created_time=0,
+        last_updated_time=0,
+    )
+
+
+class TestLocationSplitInstanceIdMapper:
+    def _mapper(self, client: ToolkitClient, source_space: str = "shared_source") -> LocationSplitInstanceIdMapper:
+        return LocationSplitInstanceIdMapper(client, source_space)
+
+    def test_maps_registered_instance(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            mapper = self._mapper(client)
+            mapper.register("node_a", "space_b")
+
+            result = mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a"))
+
+        assert result == NodeId(space="space_b", external_id="node_a")
+        client.migration.instance_space_relocation_source.retrieve.assert_not_called()
+
+    def test_resolves_via_prefetch_when_not_registered(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.migration.instance_space_relocation_source.retrieve.return_value = [
+                _relocation_source("space_b", "node_a", "shared_source")
+            ]
+            mapper = self._mapper(client)
+            mapper.prefetch(["node_a"])
+
+            result = mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a"))
+
+        assert result == NodeId(space="space_b", external_id="node_a")
+        client.migration.instance_space_relocation_source.retrieve.assert_called_once_with(
+            "shared_source", ["node_a"]
+        )
+
+    def test_reports_unresolved_instance_as_failure(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.migration.instance_space_relocation_source.retrieve.return_value = []
+            mapper = self._mapper(client)
+            mapper.prefetch(["missing"])
+
+            with pytest.raises(InstanceMappingError, match="could not be assigned to a target space") as exc_info:
+                mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+
+        assert exc_info.value.severity == Severity.failure
+
+    def test_resolve_target_space_raises_if_not_prefetched(self) -> None:
+        """resolve_target_space must never silently fall back to a network call: forgetting to prefetch is a
+        bug in the caller, not something to paper over with a one-off lookup."""
+        with monkeypatch_toolkit_client() as client:
+            mapper = self._mapper(client)
+
+            with pytest.raises(RuntimeError, match="without prefetching it first"):
+                mapper.resolve_target_space("node_a")
+
+        client.migration.instance_space_relocation_source.retrieve.assert_not_called()
+
+    def test_passthrough_space(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            mapper = LocationSplitInstanceIdMapper(
+                client,
+                "shared_source",
+                passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
+            )
+
+            result = mapper.map_instance_id(NodeId(space="cognite_app_data", external_id="user1"))
+
+        assert result == NodeId(space="cognite_app_data", external_id="user1")
+
+    def test_get_destination_spaces_uses_configured_targets_not_registry(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            mapper = LocationSplitInstanceIdMapper(
+                client,
+                "shared_source",
+                target_spaces={"space_a_cdm", "space_b_cdm"},
+            )
+            mapper.register("node_a", "space_a_cdm")
+
+            assert set(mapper.get_destination_spaces(["shared_source"])) == {"space_a_cdm", "space_b_cdm"}
 
 
 class TestAssetCentricToRecord:

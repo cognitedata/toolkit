@@ -1853,7 +1853,8 @@ class MigrateApp(typer.Typer):
                 ],
             ),
             APMSourceDataMaintenanceOrderMapping(
-                target_space,
+                source_space,
+                SpaceMappingInstanceIdMapper(space_mapping),
                 resolved_operation_view=source_views.get("operation"),
             ),
         ]
