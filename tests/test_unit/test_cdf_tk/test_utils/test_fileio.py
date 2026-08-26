@@ -179,6 +179,14 @@ class TestFileWriter:
             FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", Uncompressed)
         assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
 
+    def test_flush_makes_writes_visible_before_close(self, tmp_path: Path) -> None:
+        writer = NDJsonWriter(tmp_path, "test", Uncompressed)
+        with writer:
+            writer.write_chunks([{"id": "visible"}])
+            writer.flush()
+            written_file = next(tmp_path.glob("*.ndjson"))
+            assert json.loads(written_file.read_text(encoding="utf-8-sig")) == {"id": "visible"}
+
 
 class TestFileWriterThreadSafety:
     """Test thread safety of FileWriter implementations."""

@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
-    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
     EdgeResponse,
@@ -42,7 +41,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableDataIO, DataItem, Page, TableDataIO, TableUploadableDataIO
-from .logger import LogEntryV2, Severity
+from .logger import FileWithAggregationLogger, LogEntryV2, Severity
 from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
@@ -346,19 +345,6 @@ class InstanceIO(
         if not isinstance(view_id, ViewId):
             raise ToolkitValueError("ViewId is required for InstanceViewSelector")
         root = "nodes"
-        # Sort to ensure performance. If you do not sort, you get the internal index,
-        # which includes all deleted instances as well.
-        # Exception: when pinned to exactly one space, omit the sort so the server uses
-        # its internal-node-id order. This was observed to be provide a better performance
-        # compromise across different projects compared to the (space, externalId) sort.
-        node_sort: list[QuerySortSpec] | None = [
-            QuerySortSpec(property=["node", "space"]),
-            QuerySortSpec(property=["node", "externalId"]),
-        ]
-        if selector.instance_spaces and len(selector.instance_spaces) == 1:
-            node_sort = None
-        # /sync needs twoPhase with a backfillSort matching the forward-stream sort, otherwise
-        # the server falls back to an expensive full-container scan/heapsort for the backfill.
         sync_mode: Literal["onePhase", "twoPhase", "noBackfill"] | None = (
             "twoPhase" if selector.endpoint == "sync" else None
         )
@@ -366,9 +352,7 @@ class InstanceIO(
             root: QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
                 nodes=QueryNodeTableExpression(filter=instance_filter),
-                sort=node_sort,
                 mode=sync_mode,
-                backfill_sort=node_sort if sync_mode == "twoPhase" else None,
             )
         }
         select: dict[str, QuerySelect] = {
@@ -409,12 +393,14 @@ class InstanceIO(
             query.cursors = {query.root: init_cursor}
 
         included_groups = [group for group in query.with_ if include_root or group != query.root]
+        debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         for batch in self.client.tool.instances.query_iterate(
             query,
             type_results=True,
             exhaust_sub_selections=True,
             limit=limit,
             endpoint=endpoint,
+            debug_writer=debug_writer,
         ):
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
@@ -439,10 +425,15 @@ class InstanceIO(
         instance_filter = self._build_list_filter(selector)
         total = 0
         cursor: str | None = init_cursor
+        debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             page = self.client.tool.instances.paginate(
-                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint
+                instance_filter,
+                limit=page_limit,
+                cursor=cursor,
+                endpoint=selector.endpoint,
+                debug_writer=debug_writer,
             )
             total += len(page.items)
             if page:

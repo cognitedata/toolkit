@@ -7,6 +7,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._import_cmd import ImportTransformationCLI
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._helpers import print_help_if_no_subcommand
+
 
 class ImportApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -16,9 +18,7 @@ class ImportApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """PREVIEW FEATURE Import resources into Cognite-Toolkit."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf-tk import --help[/] for more information.")
-        return None
+        print_help_if_no_subcommand(ctx)
 
     @staticmethod
     def transformation_cli(

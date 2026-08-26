@@ -1,4 +1,3 @@
-import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,7 +47,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.file import add_top_level_comment_in_yaml, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import add_top_level_comment_in_yaml, create_logfile_stem, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
@@ -79,7 +78,7 @@ class MigrationCommand(ToolkitCommand):
     ) -> dict[str, list[ItemsResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_filestem = self._create_logfile_stem(log_dir, user_log_filestem, data.KIND)
+        log_filestem = create_logfile_stem(log_dir, user_log_filestem or data.KIND)
 
         console = data.client.console
 
@@ -174,6 +173,7 @@ class MigrationCommand(ToolkitCommand):
                 logger.force_write()
 
             items_results = logger.finalize(dry_run)
+            logger.force_write()
             results_by_selector[str(selected)] = items_results
 
             display_item_results(items_results, title=f"Finished {selected.display_name}", console=console)
@@ -193,7 +193,7 @@ class MigrationCommand(ToolkitCommand):
             else:
                 executor.raise_on_error()
 
-            action = "Would migrate" if dry_run else "Migrated"
+            action = "Would have migrated" if dry_run else "Migrated"
             target = "records" if isinstance(data, RecordsMigrationIO) else "instances"
             # Here we use logger totals instead of the actual number of downladed items. For some selectors,
             # download pages can include auxiliary edges that are, for example, converted to direct relations
@@ -264,35 +264,12 @@ class MigrationCommand(ToolkitCommand):
             total_count += step.total_count if step.total_count is not None else 0
             total_completed += step.completed_count if step.completed_count is not None else 0
             item_count = f"{step.total_count:,}" if step.total_count is not None else "Unknown"
-            table.add_row(str(step.selector), f"{step.completed_count:,}", item_count)
+            table.add_row(step.selector.display_name, f"{step.completed_count:,}", item_count)
 
         table.add_section()
         table.add_row("Total", f"{total_completed:,}", f"{total_count:,}")
         console.print(table)
         return None
-
-    @staticmethod
-    def _create_logfile_stem(log_dir: Path, user_log_filestem: str | None, data_kind: str) -> str:
-        """Create a filestem for the log file that does not conflict with existing files in the log directory."""
-        base_logstem = user_log_filestem or data_kind
-        if not base_logstem.endswith("-"):
-            base_logstem += "-"
-
-        existing_files = list(log_dir.glob(f"{base_logstem}*"))
-        if not existing_files:
-            return base_logstem
-
-        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
-        max_run = 0
-        for f in existing_files:
-            match = run_pattern.match(f.name)
-            if match:
-                max_run = max(max_run, int(match.group(1)))
-
-        # If max_run is 0, it means files with base_logstem exist, but none have 'runX'.
-        next_run = max(2, max_run + 1)
-
-        return f"{base_logstem}run{next_run}-"
 
     def _print_txt(self, results: list[ItemsResult], log_dir: Path, filestem: str, console: Console) -> None:
         summary_file = log_dir / f"{filestem}_migration_summary.txt"
@@ -358,7 +335,7 @@ class MigrationCommand(ToolkitCommand):
                                 id=id_,
                                 severity=Severity.failure,
                                 label=f"Failed to write to CDF: {error.code}",
-                                message=error.message,
+                                message=error.full_message,
                                 source=str(selected),
                                 destination=destination,
                             )

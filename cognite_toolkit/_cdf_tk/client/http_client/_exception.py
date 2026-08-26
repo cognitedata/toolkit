@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,6 +17,8 @@ class ToolkitAPIError(Exception):
         is_auto_retryable: bool | None = None,
         request: "RequestMessage | None " = None,
         response: "FailedResponse | None " = None,
+        debug_file: Path | None = None,
+        x_request_id: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -25,6 +28,10 @@ class ToolkitAPIError(Exception):
         self.is_auto_retryable = is_auto_retryable
         self.request = request
         self.response = response
+        # Path to a file with additional debug information (e.g. a query plan/profile) written to disk,
+        # for errors too large to include in a log message directly.
+        self.debug_file = debug_file
+        self.x_request_id = x_request_id
 
     def as_debug_dict(self) -> dict[str, Any]:
         debug_info: dict[str, Any] = {}

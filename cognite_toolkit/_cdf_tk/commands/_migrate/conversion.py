@@ -173,16 +173,45 @@ class DirectRelationCache:
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
-        if file_ids:
-            self._update_cache(self._client.migration.lookup.files(id=list(file_ids)), self.TableName.FILE_ID)
+        if file_ids or file_external_ids:
+            self._update_file_cache(file_ids, file_external_ids)
         if asset_external_ids:
             self._update_cache(
                 self._client.migration.lookup.assets(external_id=list(asset_external_ids)),
                 self.TableName.ASSET_EXTERNAL_ID,
             )
-        if file_external_ids:
+
+    def _update_file_cache(self, file_ids: set[int], file_external_ids: set[str]) -> None:
+        """Resolve file references (by id and/or external ID) to NodeIds.
+
+        Files that are (or have been migrated to) a CogniteFile carry their instance ID directly on
+        the classic FileMetadata response (hybrid dual-write), so we try that first. This works even
+        when the file was never migrated through Toolkit's own asset-centric migration, e.g. for
+        CogniteFile instances created natively. Only files without a native instance ID need to fall
+        back to the Toolkit-tracked InstanceSource migration mapping.
+        """
+        unresolved_ids = set(file_ids)
+        unresolved_external_ids = set(file_external_ids)
+        if unresolved_ids or unresolved_external_ids:
+            items: list[InternalId | ExternalId] = [
+                *(InternalId(id=id_) for id_ in unresolved_ids),
+                *(ExternalId(external_id=ext_id) for ext_id in unresolved_external_ids),
+            ]
+            id_cache = cast(dict[int, NodeId], self._cache_map[self.TableName.FILE_ID])
+            external_id_cache = cast(dict[str, NodeId], self._cache_map[self.TableName.FILE_EXTERNAL_ID])
+            for file in self._client.tool.filemetadata.retrieve(items, ignore_unknown_ids=True):
+                if file.instance_id is None:
+                    continue
+                id_cache[file.id] = file.instance_id
+                unresolved_ids.discard(file.id)
+                if file.external_id is not None:
+                    external_id_cache[file.external_id] = file.instance_id
+                    unresolved_external_ids.discard(file.external_id)
+        if unresolved_ids:
+            self._update_cache(self._client.migration.lookup.files(id=list(unresolved_ids)), self.TableName.FILE_ID)
+        if unresolved_external_ids:
             self._update_cache(
-                self._client.migration.lookup.files(external_id=list(file_external_ids)),
+                self._client.migration.lookup.files(external_id=list(unresolved_external_ids)),
                 self.TableName.FILE_EXTERNAL_ID,
             )
 
@@ -1312,10 +1341,9 @@ def convert_container_properties(
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
-        dest_prop_id = context.mapping.get_destination_property(source_prop_id)
-        if not dest_prop_id or (
-            dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
-        ):
+        dest_prop_ids = context.mapping.get_destination_properties(source_prop_id)
+        is_explicit_mapping = source_prop_id in context.mapping.container_mapping
+        if not is_explicit_mapping and (not dest_prop_ids or dest_prop_ids[0] not in context.destination_properties):
             # We do not warn about the node properties, as they are typically ignored, nor about
             # source properties that are explicitly marked as intentionally unmapped.
             if (
@@ -1324,56 +1352,61 @@ def convert_container_properties(
             ):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
-        if dest_prop_id not in context.destination_properties:
-            errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
-            continue
 
-        dm_prop = context.destination_properties[dest_prop_id]
-        if isinstance(dm_prop, EdgeProperty):
-            try:
-                created_edges, issues = context.connection_creator.create_edges(
-                    value,
-                    dm_prop,
-                    source_prop_id,
-                    context.source_view_id,
-                    context.new_id,
-                )
-            except ValueError as e:
+        for dest_prop_id in dest_prop_ids:
+            if dest_prop_id not in context.destination_properties:
                 if source_prop_id not in context.mapping.ignore_source_properties:
-                    errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
+                    errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
                 continue
-            edges.extend(created_edges)
-            errors.extend(issues)
-        elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
-            try:
-                created_connection, issues = context.connection_creator.create_direct_relation(
-                    value,
-                    dm_prop.type,
-                    source_prop_id,
-                    context.source_view_id,
-                )
-            except ValueError as e:
-                if source_prop_id not in context.mapping.ignore_source_properties:
-                    errors.append(
-                        f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+
+            dm_prop = context.destination_properties[dest_prop_id]
+            if isinstance(dm_prop, EdgeProperty):
+                try:
+                    created_edges, issues = context.connection_creator.create_edges(
+                        value,
+                        dm_prop,
+                        source_prop_id,
+                        context.source_view_id,
+                        context.new_id,
                     )
-                continue
-            if source_prop_id not in context.mapping.ignore_source_properties:
+                except ValueError as e:
+                    if source_prop_id not in context.mapping.ignore_source_properties:
+                        errors.append(
+                            f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}"
+                        )
+                    continue
+                edges.extend(created_edges)
                 errors.extend(issues)
-            if created_connection is not None:
-                created_properties[dest_prop_id] = created_connection
-        elif isinstance(dm_prop, ViewCorePropertyResponse):
-            try:
-                created_value = convert_to_primary_property_with_special_cases(
-                    value,
-                    dm_prop.type,
-                    dm_prop.nullable if dm_prop.nullable is not None else True,
-                    destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
-                )
-                created_properties[dest_prop_id] = serialize_dms(created_value)
-            except (ValueError, TypeError, NotImplementedError) as e:
-                errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
-        # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
+            elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
+                try:
+                    created_connection, issues = context.connection_creator.create_direct_relation(
+                        value,
+                        dm_prop.type,
+                        source_prop_id,
+                        context.source_view_id,
+                    )
+                except ValueError as e:
+                    if source_prop_id not in context.mapping.ignore_source_properties:
+                        errors.append(
+                            f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+                        )
+                    continue
+                if source_prop_id not in context.mapping.ignore_source_properties:
+                    errors.extend(issues)
+                if created_connection is not None:
+                    created_properties[dest_prop_id] = created_connection
+            elif isinstance(dm_prop, ViewCorePropertyResponse):
+                try:
+                    created_value = convert_to_primary_property_with_special_cases(
+                        value,
+                        dm_prop.type,
+                        dm_prop.nullable if dm_prop.nullable is not None else True,
+                        destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
+                    )
+                    created_properties[dest_prop_id] = serialize_dms(created_value)
+                except (ValueError, TypeError, NotImplementedError) as e:
+                    errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
+            # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
     return ConversionResult(container_properties=created_properties, edges=edges, errors=errors)
 

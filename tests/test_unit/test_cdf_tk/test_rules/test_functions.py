@@ -158,6 +158,40 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
         assert len(errors) == 0
 
+    def test_validate_function_unsupported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
+        """Test validation error when runtime is not in the project's available runtimes."""
+        yaml_file = tmp_path / "functions" / "func.yaml"
+        self._write_function_yaml(
+            yaml_file,
+            {
+                "externalId": "my_function",
+                "name": "My Function",
+                "runtime": "py314",
+            },
+        )
+        resource = self._create_built_resource(yaml_file, yaml_file)
+        rule = self._create_rule_with_client(function_limits)
+        errors = list(rule._validate_function(resource))
+        assert len(errors) == 1
+        assert errors[0].code == "FUNCTION-RUNTIME"
+        assert "py314" in errors[0].message
+
+    def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
+        """Test no error when runtime is in the project's available runtimes."""
+        yaml_file = tmp_path / "functions" / "func.yaml"
+        self._write_function_yaml(
+            yaml_file,
+            {
+                "externalId": "my_function",
+                "name": "My Function",
+                "runtime": "py312",
+            },
+        )
+        resource = self._create_built_resource(yaml_file, yaml_file)
+        rule = self._create_rule_with_client(function_limits)
+        errors = list(rule._validate_function(resource))
+        assert len(errors) == 0
+
     def test_validate_function_none_resources(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
         """Test no errors when resources are not specified."""
         yaml_file = tmp_path / "functions" / "func.yaml"

@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Sequence
@@ -112,13 +113,19 @@ class ItemsResult:
 
 class FileWithAggregationLogger(DataLogger):
     BATCH_SIZE: int = 1000
+    FLUSH_INTERVAL_SECONDS: float = 30.0
     NO_WARNINGS: int = 0
 
     def __init__(self, writer: NDJsonWriter) -> None:
         self._writer = writer
         self._lock = Lock()
         self._batch: list[LogEntryV2] = []
+        self._last_flush = time.monotonic()
         self.aggregations_by_ids: dict[str, list[LogAggregation]] = {}
+
+    @property
+    def writer(self) -> NDJsonWriter:
+        return self._writer
 
     def __enter__(self) -> "FileWithAggregationLogger":
         return self
@@ -169,7 +176,9 @@ class FileWithAggregationLogger(DataLogger):
         entries = list(entry) if isinstance(entry, Sequence) else [entry]
         self._update_aggregation_unlocked(entries)
         self._batch.extend(entries)
-        if len(self._batch) >= self.BATCH_SIZE:
+        if len(self._batch) >= self.BATCH_SIZE or (
+            self._batch and time.monotonic() - self._last_flush >= self.FLUSH_INTERVAL_SECONDS
+        ):
             self._write_to_file_unlocked()
 
     def log(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
@@ -181,6 +190,8 @@ class FileWithAggregationLogger(DataLogger):
         if self._batch:
             self._writer.write_chunks([e.model_dump(by_alias=True, mode="json") for e in self._batch])
             self._batch.clear()
+        self._writer.flush()
+        self._last_flush = time.monotonic()
 
     def _write_to_file(self) -> None:
         with self._lock:

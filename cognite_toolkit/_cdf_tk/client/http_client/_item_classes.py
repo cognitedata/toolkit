@@ -39,7 +39,7 @@ class ItemsFailedResponse(ItemsResultMessage):
 
     @property
     def error_message(self) -> str:
-        return self.error.message
+        return self.error.full_message
 
 
 def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
@@ -54,6 +54,9 @@ class ItemsRequest(BaseRequestMessage):
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
+    # The error message from the parent batch this request was split out from, if any. Used to propagate
+    # the error causing this batch to potentially be skipped without being attempted, if that should happen.
+    parent_error_message: str | None = Field(init=False, default=None, exclude=True)
 
     @property
     def content(self) -> str | bytes | None:
@@ -65,7 +68,7 @@ class ItemsRequest(BaseRequestMessage):
             return gzip.compress(res)
         return res
 
-    def split(self, status_attempts: int) -> list["ItemsRequest"]:
+    def split(self, status_attempts: int, error_message: str | None = None) -> list["ItemsRequest"]:
         """Split the request into multiple requests with a single item each."""
         mid = len(self.items) // 2
         if mid == 0:
@@ -75,6 +78,7 @@ class ItemsRequest(BaseRequestMessage):
         for part in (self.items[:mid], self.items[mid:]):
             new_request = self.model_copy(update={"items": part, "status_attempt": status_attempts})
             new_request.tracker = self.tracker
+            new_request.parent_error_message = error_message
             messages.append(new_request)
         return messages
 
@@ -93,7 +97,7 @@ class ItemsResultList(UserList[ItemsResultMessage]):
         failed_requests = [resp for resp in self.data if isinstance(resp, ItemsFailedRequest)]
         if not failed_responses and not failed_requests:
             return
-        error_messages = "; ".join(f"Status {err.status_code}: {err.error.message}" for err in failed_responses)
+        error_messages = "; ".join(f"Status {err.status_code}: {err.error.full_message}" for err in failed_responses)
         if failed_requests:
             if error_messages:
                 error_messages += "; "

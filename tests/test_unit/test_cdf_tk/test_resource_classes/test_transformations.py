@@ -53,6 +53,24 @@ def transformation_destination_cases() -> Iterable:
                     "type": "nodes",
                     "view": {"externalId": "my_view", "version": "1", "space": "my_space"},
                     "edgeType": {"externalId": "my_edge_type", "space": "my_space"},
+                    "autoCreate": {"directRelations": False},
+                },
+            }
+        },
+        {
+            "DataModelSourceWithAutoCreate": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {
+                    "type": "instances",
+                    "dataModel": {
+                        "externalId": "my_data_model",
+                        "version": "1",
+                        "space": "my_space",
+                        "destinationType": "my_view",
+                    },
+                    "autoCreate": {"directRelations": False, "startNodes": False},
                 },
             }
         },

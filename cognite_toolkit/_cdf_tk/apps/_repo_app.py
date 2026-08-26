@@ -3,13 +3,14 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import RepoCommand
 from cognite_toolkit._cdf_tk.commands.repo import REPOSITORY_HOSTING
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
+from ._helpers import print_help_if_no_subcommand
 
 
 class RepoApp(typer.Typer):
@@ -20,8 +21,7 @@ class RepoApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to repo management"""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf repo --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     def init(
         self,

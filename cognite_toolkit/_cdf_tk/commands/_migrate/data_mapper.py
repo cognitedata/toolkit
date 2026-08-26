@@ -521,8 +521,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 log_entries.append(
                     MigrationEntryV2(
                         id=identifier,
-                        label="Missing timeseries IDs",
-                        message="One or more timeseries are missing internal IDs",
+                        label="Missing CogniteTimeSeries for ID",
+                        message="No migrated instance found for classic timeseries internal ID(s)",
                         severity=Severity.warning,
                         source=chart_src,
                         destination=chart_dest,
@@ -534,8 +534,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 log_entries.append(
                     MigrationEntryV2(
                         id=identifier,
-                        label="Missing timeseries external IDs",
-                        message="One or more timeseries are missing external IDs",
+                        label="Missing CogniteTimeSeries for external ID",
+                        message="No migrated instance found for classic timeseries external ID(s)",
                         severity=Severity.warning,
                         source=chart_src,
                         destination=chart_dest,
@@ -705,7 +705,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         )
         mapped_chart = ChartRequest.model_validate(dumped_response, extra="allow", by_alias=True)
 
-        mapped_chart.data.core_timeseries_collection = timeseries_core_collection
+        mapped_chart.data.core_timeseries_collection = (
+            mapped_chart.data.core_timeseries_collection or []
+        ) + timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
         if updated_threshold_collection:
@@ -1390,14 +1392,17 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
     def process_description(self, source_selector: InstanceSelector) -> str:
         destination_view = self._get_destination_view(source_selector)
-        if destination_view is None:
+        if destination_view is None or not isinstance(source_selector, InstanceViewSelector):
             return "Converting"
-        message = f"Converting into view {destination_view!s}"
+        message = f"Converting into {source_selector.instance_type}s"
         source_spaces = source_selector.get_instance_spaces()
         if source_spaces:
             destination_spaces = self._connection_creator.get_destination_spaces(source_spaces)
-            if destination_spaces:
-                message += f" with {humanize_collection(destination_spaces)} instance spaces"
+            if len(destination_spaces) == 1:
+                message += f" in instance space {destination_spaces[0]}"
+            elif len(destination_spaces) > 1:
+                message += f" in {len(destination_spaces)} instance spaces"
+        message += f" in view {destination_view!s}"
         return message
 
     def _get_destination_view(self, source_selector: InstanceSelector) -> ViewId | None:
@@ -1435,7 +1440,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         ):
             if len(intersecting_view_ids) == 1:
                 intersection_view_id = next(iter(intersecting_view_ids))
-                custom_mapped = self._custom_instance_mappings[intersection_view_id].map(source)
+                custom_mapper = self._custom_instance_mappings[intersection_view_id]
+                custom_mapper.logger = self.logger
+                custom_mapper.dry_run = self.dry_run
+                custom_mapped = custom_mapper.map(source)
                 if self.dry_run:
                     for data_item in custom_mapped:
                         if isinstance(data_item.item, NodeRequest):
@@ -1972,7 +1980,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 template_item_edges.append(template_item_edge)
                 for template_edge in template_edges_by_item_id.get(template_item_edge.other_side, []):
                     template_edges.append(template_edge)
-        return template_edges, template_item_edges
+        # Deduplicate by target: multiple edges to the same template/template item is expected
+        # and not a real conversion ambiguity.
+        deduped_template_edges = list({edge.other_side: edge for edge in template_edges}.values())
+        deduped_template_item_edges = list({edge.other_side: edge for edge in template_item_edges}.values())
+        return deduped_template_edges, deduped_template_item_edges
 
     def _create_template_relations(
         self,
@@ -2054,23 +2066,6 @@ class Image360FDMtoCDMMapper(FDMtoCDMMapper):
             custom_properties_mappings=custom_properties_mappings,
             custom_instance_mappings=custom_instance_mappings,
         )
-
-    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
-        self._populate_cache([data_item.item for data_item in source])
-        return super().map(source)
-
-    def _populate_cache(self, source: Sequence[NodeOrEdgeResponse]) -> None:
-        file_external_ids: list[str] = []
-        for item in source:
-            if not isinstance(item, NodeResponse):
-                continue
-            image_props = (item.properties or {}).get(LEGACY_IMAGE360_SOURCE_VIEW) or {}
-            for source_property in CUBEMAP_SOURCE_TO_DESTINATION_PROPERTY:
-                value = image_props.get(source_property)
-                if isinstance(value, str):
-                    file_external_ids.append(value)
-        if file_external_ids:
-            self.client.migration.lookup.files(external_id=file_external_ids)
 
     @staticmethod
     def missing_cubemap_face_file_external_ids(

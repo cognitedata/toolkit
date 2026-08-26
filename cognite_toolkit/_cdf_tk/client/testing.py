@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfiguration
 from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
@@ -73,6 +74,7 @@ from .api.lookup import (
 from .api.migration import (
     CreatedSourceSystemAPI,
     InstanceSourceAPI,
+    InstanceSpaceRelocationSourceAPI,
     LookupAPI,
     MigrationAPI,
     MigrationLookupAPI,
@@ -177,6 +179,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
+        self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
+        self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
@@ -242,6 +246,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.token = MagicMock(spec=ToolkitTokenAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
+        self.tool.transformations.external_data_sources = MagicMock(spec=TransformationExternalDataSourcesAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)

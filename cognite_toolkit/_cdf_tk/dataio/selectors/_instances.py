@@ -83,9 +83,10 @@ class InstanceViewSelector(InstanceSelector):
 
     @property
     def display_name(self) -> str:
-        message = f"{self.instance_type}s in view {self.view!s}"
+        message = f"{self.instance_type}s from view {self.view!s}"
         if self.instance_spaces:
-            message += f" with {humanize_collection(self.instance_spaces)} instance spaces"
+            space_label = "instance space" if len(self.instance_spaces) == 1 else "instance spaces"
+            message += f" in {space_label} {humanize_collection(self.instance_spaces)}"
         return message
 
 
@@ -205,6 +206,11 @@ class InstanceQuerySelector(InstanceSelector):
 
     def __str__(self) -> str:
         return f"query_{self.root}_{'_'.join(self.subselections)}"
+
+    @property
+    def display_name(self) -> str:
+        selections = (self.root, *self.subselections)
+        return f"instances from a query selecting {humanize_collection(selections)}"
 
     def create_query(self) -> QueryRequest:
         data = json.loads(self.query)

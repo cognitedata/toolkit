@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
-from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
+from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
@@ -26,13 +26,13 @@ class FunctionRules(ToolkitGlobalRuleSet):
                 message=(
                     "Function limits validation requires a client. "
                     "Provide client credentials to validate function CPU and MEMORY limits."
-                    "Will only validate the requirement txt."
+                    "Will only validate the requirements.txt."
                 ),
             )
 
         return RuleSetStatus(
             code="ready",
-            message="Will validate function limits and requirement txt.",
+            message="Will validate function limits, runtime, and requirements.txt.",
         )
 
     def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:
@@ -95,6 +95,20 @@ class FunctionRules(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
                     fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
+                    source_file=source_file,
+                )
+
+        # Validate runtime
+        if function_def.runtime is not None and limits is not None:
+            if function_def.runtime not in limits.runtimes:
+                yield ConsistencyError(
+                    message=(
+                        f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
+                        f"available in this CDF project. "
+                        f"Available runtimes: {humanize_collection(limits.runtimes)}."
+                    ),
+                    code=f"{self.CODE_PREFIX}-RUNTIME",
+                    fix=f"Use one of the available runtimes: {humanize_collection(limits.runtimes)}.",
                     source_file=source_file,
                 )
 

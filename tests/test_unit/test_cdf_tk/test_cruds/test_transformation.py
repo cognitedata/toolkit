@@ -14,14 +14,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    AutoCreateOptions,
     NonceCredentials,
     TransformationRequest,
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
+    ExternalDataSourceIO,
     RawDatabaseCRUD,
     RawTableCRUD,
     ResourceIO,
@@ -31,11 +34,33 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 def _return_none(*args, **kwargs) -> str | None:
     return None
+
+
+def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+    monkeypatch.setattr(
+        FeatureFlag,
+        "is_enabled",
+        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
+    )
+
+
+def _ext_onelake_transformation_yaml() -> TransformationYAML:
+    return TransformationYAML.model_validate(
+        {
+            "externalId": "my_transformation",
+            "name": "my_transformation",
+            "ignoreNullFields": True,
+            "query": "select * from ext_onelake('fabric-prod', 'assets')",
+            "destination": {"type": "assets"},
+        }
+    )
 
 
 class TestTransformationCRUD:
@@ -212,12 +237,27 @@ authentication:
                 ],
                 id="Transformation to RAW table",
             ),
+            pytest.param(
+                {"query": "select * from ext_onelake('fabric-prod', 'assets')"},
+                [(ExternalDataSourceIO, ExternalId(external_id="fabric-prod"))],
+                id="Transformation with ext_onelake source",
+            ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
+    def test_get_dependent_items(
+        self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]], monkeypatch: MonkeyPatch
+    ) -> None:
+        if any(loader is ExternalDataSourceIO for loader, _ in expected):
+            _enable_external_data_sources(monkeypatch)
         actual = TransformationIO.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
+        _enable_external_data_sources(monkeypatch)
+        resource = _ext_onelake_transformation_yaml()
+        deps = list(TransformationIO.get_dependencies(resource))
+        assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
@@ -264,3 +304,105 @@ authentication:
             created = crud.create(transformations)
 
             assert [t.external_id for t in created] == [t.external_id for t in transformations]
+
+    def test_load_resource_with_auto_create(self) -> None:
+        resource = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {"directRelations": False},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            loaded = loader.load_resource(resource)
+
+        assert loaded.destination is not None
+        assert loaded.destination.auto_create == AutoCreateOptions(direct_relations=False)
+
+    def test_dump_resource_strips_default_auto_create(self) -> None:
+        cdf_transformation = TransformationResponse(
+            id=1,
+            name="Nodes transformation",
+            external_id="tr_nodes",
+            query="SELECT 1",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            is_public=True,
+            conflict_mode="upsert",
+            destination={
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {
+                    "startNodes": True,
+                    "endNodes": True,
+                    "directRelations": True,
+                },
+            },
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        )
+        local_dumped = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            dumped = loader.dump_resource(cdf_transformation, local_dumped)
+
+        assert "autoCreate" not in dumped["destination"]
+
+    def test_dump_resource_keeps_non_default_auto_create(self) -> None:
+        cdf_transformation = TransformationResponse(
+            id=1,
+            name="Nodes transformation",
+            external_id="tr_nodes",
+            query="SELECT 1",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            is_public=True,
+            conflict_mode="upsert",
+            destination={
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {
+                    "startNodes": True,
+                    "endNodes": True,
+                    "directRelations": False,
+                },
+            },
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        )
+        local_dumped = {
+            "externalId": "tr_nodes",
+            "name": "Nodes transformation",
+            "ignoreNullFields": True,
+            "destination": {
+                "type": "nodes",
+                "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                "autoCreate": {"directRelations": False},
+            },
+            "query": "SELECT 1",
+        }
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationIO(client, None, None)
+            dumped = loader.dump_resource(cdf_transformation, local_dumped)
+
+        assert dumped["destination"]["autoCreate"] == {"directRelations": False}

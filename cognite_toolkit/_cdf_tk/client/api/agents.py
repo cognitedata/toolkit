@@ -9,9 +9,9 @@ Note: This is an alpha API and may change in future releases.
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, ServicesAvailability
 
 
 class AgentsAPI(CDFResourceAPI[AgentResponse]):
@@ -104,3 +104,19 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
             List of AgentResponse objects.
         """
         return self._list(limit=limit)
+
+    def service_availability(self) -> ServicesAvailability:
+        """Get the availability of AI services in the CDF project.
+
+        This includes which language models and agent runtime version capabilities are available.
+
+        Returns:
+            ServicesAvailability object describing the AI services available in the project.
+        """
+        request = RequestMessage(
+            endpoint_url=self._make_url("/ai/services/availability"),
+            method="GET",
+            api_version="20230101-alpha",
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return ServicesAvailability.model_validate_json(response.body)

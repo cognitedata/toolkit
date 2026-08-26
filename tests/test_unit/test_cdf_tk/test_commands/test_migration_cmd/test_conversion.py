@@ -77,6 +77,8 @@ def direct_relation_cache() -> DirectRelationCache:
             1: NodeId(space="instance_space", external_id="MyFirstAsset"),
         }
         client.migration.lookup.files.return_value = {42: NodeId(space="test_space", external_id="file_456_instance")}
+        # No native instance ID on the classic file, so resolution falls back to the InstanceSource lookup above.
+        client.tool.filemetadata.retrieve.return_value = []
         client.migration.created_source_system.retrieve.return_value = [
             CreatedSourceSystem(
                 space="test_space",
@@ -116,6 +118,88 @@ def direct_relation_cache() -> DirectRelationCache:
             ]
         )
     return cache
+
+
+class TestDirectRelationCacheFileResolution:
+    """Resolving file references should prefer the native instanceId on the classic FileMetadata
+    response, only falling back to the Toolkit-tracked InstanceSource lookup when it is unset."""
+
+    def test_resolves_file_via_native_instance_id_without_instance_source_lookup(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=1,
+                    external_id="my_file",
+                    name="file.txt",
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                    instance_id=NodeId(space="my_space", external_id="my_file_node"),
+                )
+            ]
+            cache = DirectRelationCache(client)
+            cache.update(
+                [
+                    AnnotationResponse(
+                        annotation_type="diagrams.FileLink",
+                        data={},
+                        status="approved",
+                        creating_app="app",
+                        creating_app_version="app-version",
+                        creating_user="me",
+                        annotated_resource_type="file",
+                        annotated_resource_id=1,
+                        id=99,
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ]
+            )
+
+            assert cache.get_cache("annotation", "annotatedResourceId") == {
+                1: NodeId(space="my_space", external_id="my_file_node")
+            }
+            client.migration.lookup.files.assert_not_called()
+
+    def test_falls_back_to_instance_source_lookup_when_file_has_no_native_instance_id(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=2,
+                    external_id="classic_file",
+                    name="file.txt",
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                )
+            ]
+            client.migration.lookup.files.return_value = {
+                2: NodeId(space="migrated_space", external_id="migrated_file")
+            }
+            cache = DirectRelationCache(client)
+            cache.update(
+                [
+                    AnnotationResponse(
+                        annotation_type="diagrams.FileLink",
+                        data={},
+                        status="approved",
+                        creating_app="app",
+                        creating_app_version="app-version",
+                        creating_user="me",
+                        annotated_resource_type="file",
+                        annotated_resource_id=2,
+                        id=100,
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ]
+            )
+
+            assert cache.get_cache("annotation", "annotatedResourceId") == {
+                2: NodeId(space="migrated_space", external_id="migrated_file")
+            }
+            client.migration.lookup.files.assert_called_once()
+            assert client.migration.lookup.files.call_args.kwargs == {"id": [2]}
 
 
 class TestCreateProperties:
@@ -1414,6 +1498,12 @@ class TestInstanceToInstanceConversion:
             type=TimestampProperty(),
             **DEFAULT_ARGS,
         ),
+        "startTime": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="startTime",
+            type=TimestampProperty(),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1571,6 +1661,55 @@ class TestInstanceToInstanceConversion:
         )
 
         results = convert_container_properties(source_properties, context)
+
+        assert results.container_properties == expected_properties
+        assert results.errors == expected_errors
+
+    @pytest.mark.parametrize(
+        "container_mapping, ignore_source_properties, expected_properties, expected_errors",
+        [
+            pytest.param(
+                {"epoch": ["timestamp", "startTime"]},
+                set(),
+                {"timestamp": "2023-11-14T22:13:20Z", "startTime": "2023-11-14T22:13:20Z"},
+                [],
+                id="maps_to_multiple_destinations",
+            ),
+            pytest.param(
+                {"epoch": ["timestamp", "missingProp"]},
+                set(),
+                {"timestamp": "2023-11-14T22:13:20Z"},
+                ["Destination instance is missing property 'missingProp'."],
+                id="missing_dest_errors",
+            ),
+            pytest.param(
+                {"epoch": ["timestamp", "missingProp"]},
+                {"epoch"},
+                {"timestamp": "2023-11-14T22:13:20Z"},
+                [],
+                id="missing_dest_ignored",
+            ),
+        ],
+    )
+    def test_convert_container_properties_multiple_destinations(
+        self,
+        container_mapping: dict[str, str | list[str]],
+        ignore_source_properties: set[str],
+        expected_properties: dict[str, str],
+        expected_errors: list[str],
+    ) -> None:
+        mapping = self.MAPPING.model_copy(
+            update={"container_mapping": container_mapping, "ignore_source_properties": ignore_source_properties},
+        )
+        context = ConversionContext(
+            mapping=mapping,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
+        )
+
+        results = convert_container_properties({"epoch": 1700000000000}, context)
 
         assert results.container_properties == expected_properties
         assert results.errors == expected_errors

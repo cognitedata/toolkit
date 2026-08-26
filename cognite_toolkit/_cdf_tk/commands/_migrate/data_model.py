@@ -15,6 +15,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
 )
 
+_NEVER_DELETE_WARNING = (
+    "Internal Toolkit bookkeeping. Do NOT delete instances from this view: each instance shares its "
+    "(space, externalId) identity with a real migrated instance, so deleting it here deletes that "
+    "instance entirely, including all data from every other view attached to it."
+)
+
 SPACE = SpaceRequest(
     space="cognite_migration",
     description="Space for the asset-centric to data modeling migration",
@@ -130,6 +136,22 @@ SPACE_SOURCE = ContainerRequest(
     },
 )
 
+INSTANCE_SPACE_RELOCATION_SOURCE = ContainerRequest(
+    space=SPACE.space,
+    external_id="InstanceSpaceRelocationSource",
+    description=_NEVER_DELETE_WARNING,
+    used_for="node",
+    properties={
+        "sourceSpace": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=64),
+            nullable=False,
+        ),
+    },
+    indexes={
+        "sourceSpace": BtreeIndex(properties=["sourceSpace"], cursorable=True),
+    },
+)
+
 CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER, CREATED_SOURCE_SYSTEM, SPACE_SOURCE]
 
 RESOURCE_VIEW_MAPPING_VIEW = ViewRequest(
@@ -228,10 +250,26 @@ SPACE_SOURCE_VIEW = ViewRequest(
     },
 )
 
+INSTANCE_SPACE_RELOCATION_SOURCE_VIEW = ViewRequest(
+    space=SPACE.space,
+    external_id="InstanceSpaceRelocationSource",
+    version="v1",
+    name="InstanceSpaceRelocationSource",
+    description=_NEVER_DELETE_WARNING,
+    properties={
+        "sourceSpace": ViewCorePropertyRequest(
+            container=INSTANCE_SPACE_RELOCATION_SOURCE.as_id(),
+            container_property_identifier="sourceSpace",
+            description="The space this instance was relocated from.",
+        ),
+    },
+)
+
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
+INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW.as_id()
 
 VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
 

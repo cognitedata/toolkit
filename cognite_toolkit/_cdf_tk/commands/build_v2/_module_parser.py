@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     MisplacedModule,
     NonExistingModuleName,
 )
-from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
 from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
@@ -104,6 +104,8 @@ class ModuleParser:
                 continue
             relative_module_path, resource_folder = cls._get_module_path_from_resource_file_path(yaml_file)
             if relative_module_path and resource_folder:
+                if cls._is_in_code_bundle_subdirectory(yaml_file, resource_folder):
+                    continue
                 if relative_module_path not in source_by_module_id:
                     source_by_module_id[relative_module_path] = ModuleSource(
                         path=organization_dir / relative_module_path,
@@ -116,6 +118,20 @@ class ModuleParser:
             else:
                 orphan_files.append(yaml_file)
         return source_by_module_id, orphan_files
+
+    @staticmethod
+    def _is_in_code_bundle_subdirectory(yaml_file: Path, resource_folder: ResourceTypes) -> bool:
+        """Return True when YAML lives inside a code-bundle subdirectory of a resource folder.
+
+        For example, ``function_config.yaml`` under ``functions/<externalId>/`` is function code,
+        not a CDF resource definition.
+        """
+        if resource_folder not in RESOURCE_FOLDERS_WITH_CODE_BUNDLES:
+            return False
+        for parent in yaml_file.parents:
+            if parent.name == resource_folder:
+                return yaml_file.parent != parent
+        return False
 
     @staticmethod
     def _get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:

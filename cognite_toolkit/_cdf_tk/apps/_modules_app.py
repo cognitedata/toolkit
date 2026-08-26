@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -12,6 +11,8 @@ from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
+
+from ._helpers import print_help_if_no_subcommand
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -33,8 +34,7 @@ class ModulesApp(typer.Typer):
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf modules --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     def init(
         self,
@@ -148,7 +148,12 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--deployment-pack",
                 "-d",
-                help="Name of a specific module to download and install from the library without interactive prompts.",
+                help=(
+                    "Name of a specific package or module to download and install from the library "
+                    "without interactive prompts. If a module name exists in more than one package, "
+                    "use the '<package>:<module>' syntax to disambiguate, "
+                    "for example 'contextualization:cdf_entity_matching'."
+                ),
             ),
         ] = None,
         verbose: Annotated[

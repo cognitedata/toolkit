@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.entity_matching import EntityMatchingCommand
+
+from ._helpers import print_help_if_no_subcommand
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -19,8 +20,7 @@ class EntityMatchingApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands for entity matching."""
-        if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dev entity-matching --help[/] for more information.")
+        print_help_if_no_subcommand(ctx)
 
     def generate_aliasing_workflow(
         self,

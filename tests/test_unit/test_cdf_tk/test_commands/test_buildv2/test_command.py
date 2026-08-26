@@ -386,8 +386,9 @@ class TestReadFileSystem:
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)
 
-        assert "Unrecognized value for environment.validation-type: Expected one of 'dev' or 'prod'. Got 'invalid_type'." in str(
-            exc_info.value
+        assert (
+            "Unrecognized value for environment.validation-type: Expected one of 'dev' or 'prod'. Got 'invalid_type'."
+            in str(exc_info.value)
         )
 
     @pytest.mark.parametrize(
@@ -722,6 +723,15 @@ functionExternalId: fn_first_function
 """,
                 [],
                 id="No unresolved variables",
+            ),
+            pytest.param(
+                """space: '{{ space }}'
+views:
+  - space: '{{ space }}'
+    version: '{{ dm_version }}'
+""",
+                ["space", "dm_version"],
+                id="Duplicate unresolved variables are deduplicated",
             ),
         ],
     )
