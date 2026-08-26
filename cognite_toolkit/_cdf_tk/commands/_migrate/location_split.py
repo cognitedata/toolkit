@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRe
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    InstanceMappingError,
     LocationSplitInstanceIdMapper,
+    TargetSpaceResolutionError,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
@@ -265,16 +265,18 @@ class AssetExternalIdTargetSpaceResolver:
     def resolve(self, node: NodeResponse) -> str:
         asset_external_id = _as_external_id(_get_view_property(node, self._view_id, self._property_id))
         if asset_external_id is None:
-            raise InstanceMappingError(f"{node.as_id()} is missing {self._property_id}.", severity=Severity.failure)
+            raise TargetSpaceResolutionError(
+                f"{node.as_id()} is missing {self._property_id}.", severity=Severity.failure
+            )
         root_id = self._root_id_by_asset_external_id.get(asset_external_id)
         if root_id is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"{node.as_id()}: asset {asset_external_id!r} referenced via {self._property_id} was not found.",
                 severity=Severity.failure,
             )
         target_space = self._root_id_to_target_space.get(root_id)
         if target_space is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"{node.as_id()}: asset {asset_external_id!r} root asset does not match a location sharing this "
                 "source space.",
                 severity=Severity.failure,
