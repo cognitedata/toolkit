@@ -49,10 +49,10 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         # data model. So an unresolved variable (e.g. "{{space}}") in a view or container from any module,
         # not just the data model's own module, will pollute every data model Neat validates.
         has_unresolved_data_model_variables = any(
-            resource.type.resource_folder == data_model_type.resource_folder
-            and resource.source_path in other_module.unresolved_variables_by_source
+            other_resource.type.resource_folder == data_model_type.resource_folder
+            and other_resource.source_path in other_module.unresolved_variables_by_source
             for other_module in self.modules
-            for resource in other_module.resources
+            for other_resource in other_module.resources
         )
         for module in self.modules:
             for resource in module.resources:

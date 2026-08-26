@@ -453,9 +453,11 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
             for data_filter in data_filters.values():
                 if not isinstance(data_filter, dict):
                     continue
-                for instance_space in data_filter.get("instanceSpaces") or []:
-                    if isinstance(instance_space, str):
-                        yield (SpaceCRUD, SpaceId(space=instance_space))
+                instance_spaces = data_filter.get("instanceSpaces")
+                if isinstance(instance_spaces, list):
+                    for instance_space in instance_spaces:
+                        if isinstance(instance_space, str):
+                            yield (SpaceCRUD, SpaceId(space=instance_space))
         data_storage = item.get("dataStorage")
         if isinstance(data_storage, dict):
             root_location = data_storage.get("rootLocation")
