@@ -180,7 +180,9 @@ def invalid_transformation_test_cases() -> Iterable:
             "ignoreNullFields": True,
             "conflictMode": "replace",
         },
-        {"Unrecognized value for conflictMode: Expected one of 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."},
+        {
+            "Unrecognized value for conflictMode: Expected one of 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."
+        },
         id="Invalid conflict_mode value",
     )
     yield pytest.param(

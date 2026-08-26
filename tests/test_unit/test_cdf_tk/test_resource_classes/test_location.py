@@ -131,7 +131,9 @@ def invalid_location_filters_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "my_location", "name": "Location 1", "dataModelingType": "ASSET_CENTRIC_ONLY"},
-        {"Unrecognized value for dataModelingType: Expected one of 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."},
+        {
+            "Unrecognized value for dataModelingType: Expected one of 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."
+        },
         id="Invalid dataModelingType value",
     )
     yield pytest.param(

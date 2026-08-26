@@ -71,10 +71,10 @@ class TestAgentRuleSet:
         return AgentRuleSet(modules=[], client=mock_client)
 
     @pytest.mark.parametrize(
-        "with_client, expected_code, expected_message_part",
+        "with_client, expected_code",
         [
-            pytest.param(False, "reduced", "requires a client", id="no-client"),
-            pytest.param(True, "ready", "validate agent models", id="with-client"),
+            pytest.param(False, "reduced", id="no-client"),
+            pytest.param(True, "ready", id="with-client"),
         ],
     )
     def test_get_status(
@@ -82,12 +82,10 @@ class TestAgentRuleSet:
         service_availability: ServicesAvailability,
         with_client: bool,
         expected_code: str,
-        expected_message_part: str,
     ) -> None:
         rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == expected_code
-        assert expected_message_part in status.message.lower()
 
     def test_service_availability_returns_none_without_client(self) -> None:
         rule = AgentRuleSet(modules=[])

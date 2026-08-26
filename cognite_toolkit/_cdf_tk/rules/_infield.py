@@ -1,5 +1,7 @@
 from collections.abc import Iterable
 
+from pydantic.alias_generators import to_camel
+
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
@@ -10,9 +12,7 @@ from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRule
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
-from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
-    INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY,
-)
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
 _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
@@ -100,7 +100,8 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         field_refs: list[_FieldConfigRef] = []
 
         if config.data_exploration_config:
-            for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
+            for attr in INFIELD_CDM_CARD_VIEW_ATTRS:
+                card_key = to_camel(attr)
                 mapping: ViewReference | None = getattr(config.data_exploration_config, attr, None)
                 if mapping is None:
                     continue

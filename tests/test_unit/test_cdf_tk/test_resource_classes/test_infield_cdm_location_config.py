@@ -213,7 +213,9 @@ def invalid_test_cases() -> Iterable:
                 },
             },
         },
-        {"Invalid value at viewMappings.asset.externalId: String should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"},
+        {
+            "Invalid value at viewMappings.asset.externalId: String should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"
+        },
         id="Invalid externalId pattern in viewMappings.asset",
     )
     yield pytest.param(
@@ -318,7 +320,9 @@ def invalid_test_cases() -> Iterable:
                 ],
             },
         },
-        {"Invalid value at viewMappings.observation[1].fieldsConfig.assets.orderNumber: Input should be greater than or equal to 0"},
+        {
+            "Invalid value at viewMappings.observation[1].fieldsConfig.assets.orderNumber: Input should be greater than or equal to 0"
+        },
         id="Negative orderNumber in viewMappings.observation.fieldsConfig",
     )
     yield pytest.param(

@@ -81,7 +81,9 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"Invalid value at triggerRule.batchSize: Input should be a valid integer, unable to parse string as an integer"},
+        {
+            "Invalid value at triggerRule.batchSize: Input should be a valid integer, unable to parse string as an integer"
+        },
         id="Wrong type for batchSize in dataModeling trigger",
     )
     # Invalid value for batch_timeout (too low)
