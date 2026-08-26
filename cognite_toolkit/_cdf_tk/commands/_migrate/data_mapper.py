@@ -88,6 +88,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldUserMapping,
     InstanceMappingError,
     LocationSplitInstanceIdMapper,
+    TargetSpaceResolutionError,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -1480,7 +1481,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     node, other_side_by_edge_type_and_direction_by_source[source_node_id]
                 )
             except InstanceMappingError as error:
-                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issue_cls = (
+                    TargetSpaceResolutionIssue
+                    if isinstance(error, TargetSpaceResolutionError)
+                    else InstanceConversionIssue
+                )
                 issue_by_source_node_id[source_node_id] = issue_cls(
                     id=str(source_node_id),
                     errors=[str(error)],
@@ -1932,14 +1937,13 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
     def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
         root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
         if root_location is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 "rootLocation is missing.",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"rootLocation is {root_location!r}, but Toolkit could not resolve a deployed "
                 f"CDM target space for it among the root location(s) sharing legacy instance space "
                 f"{self._instance_id_mapper.source_space!r}: "
@@ -1947,7 +1951,6 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 f"the asset representing {root_location!r} has not yet been migrated to CDF, or if no deployed CDM InField "
                 "location config exists for it yet (see 'cdf migrate infield-configs').",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         return target_space
 
@@ -1964,10 +1967,9 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             ),
         ]
         if not parents:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"Has no inbound {parent_edge_type!s} edge to a parent.",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         target_spaces: set[str] = set()
         for parent in parents:
@@ -1976,27 +1978,24 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 target_spaces.add(target_space)
         if len(target_spaces) != 1:
             reason = "unresolved" if not target_spaces else "disagree on target space"
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"Parent(s) via {parent_edge_type!s} are {reason}.",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         return next(iter(target_spaces))
 
     def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
         parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
         if parent_external_id is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"Is missing {parent_property}.",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
         if target_space is None:
-            raise InstanceMappingError(
+            raise TargetSpaceResolutionError(
                 f"Parent {parent_external_id!r} via {parent_property} is unresolved.",
                 severity=Severity.failure,
-                is_target_space_resolution=True,
             )
         return target_space
 
@@ -2155,7 +2154,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             try:
                 self._connection_creator.map_instance(schedule.as_id())
             except InstanceMappingError as error:
-                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issue_cls = (
+                    TargetSpaceResolutionIssue
+                    if isinstance(error, TargetSpaceResolutionError)
+                    else InstanceConversionIssue
+                )
                 issues.append(issue_cls(id=str(schedule.as_id()), errors=[str(error)]))
                 continue
             template_id = self._resolve_schedule_template(
@@ -2258,7 +2261,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+            issue_cls = (
+                TargetSpaceResolutionIssue
+                if isinstance(error, TargetSpaceResolutionError)
+                else InstanceConversionIssue
+            )
             return None, issue_cls(id=str(first.as_id()), errors=[str(error)])
         issue = InstanceConversionIssue(id=str(first.as_id()))
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
