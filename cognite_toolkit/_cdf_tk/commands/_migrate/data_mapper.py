@@ -127,10 +127,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     APP_DATA_PARENT_PROPERTY_BY_VIEW,
     APP_DATA_ROOT_LOCATION_VIEWS,
     AssetExternalIdTargetSpaceResolver,
-    _as_external_id,
-    _get_view_property,
+    as_external_id,
+    get_view_property,
     register_solution_tag_references,
-    root_internal_id_to_target_space,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
@@ -1849,7 +1848,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 client,
                 self._notification_view,
                 "assetExternalId",
-                root_internal_id_to_target_space(client, target_by_root_asset),
+                target_by_root_asset,
             )
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
@@ -1882,7 +1881,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 properties = item.properties or {}
                 for view_id, parent_property in parent_property_by_view.items():
                     if view_id in properties:
-                        parent_external_id = _as_external_id(_get_view_property(item, view_id, parent_property))
+                        parent_external_id = as_external_id(get_view_property(item, view_id, parent_property))
                         if parent_external_id is not None:
                             candidates.append(parent_external_id)
             elif isinstance(item, EdgeResponse) and item.type in APP_DATA_PARENT_EDGE_TYPES:
@@ -1935,7 +1934,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
 
     def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
-        root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
+        root_location = as_external_id(get_view_property(node, view_id, "rootLocation"))
         if root_location is None:
             raise TargetSpaceResolutionError(
                 "rootLocation is missing.",
@@ -1985,7 +1984,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         return next(iter(target_spaces))
 
     def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
-        parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
+        parent_external_id = as_external_id(get_view_property(node, view_id, parent_property))
         if parent_external_id is None:
             raise TargetSpaceResolutionError(
                 f"Is missing {parent_property}.",

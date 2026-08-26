@@ -118,11 +118,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     create_360_image_selectors,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationEntryV2
-from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    CONDITIONAL_ACTION_VIEW,
-    TEMPLATE_ITEM_VIEW,
-    TEMPLATE_VIEW,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360AnnotationSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
@@ -130,6 +125,10 @@ from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, Inst
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
+
+TEMPLATE_VIEW = ViewId(space="cdf_apm", external_id="Template", version="v8")
+TEMPLATE_ITEM_VIEW = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
+CONDITIONAL_ACTION_VIEW = ViewId(space="cdf_apm", external_id="ConditionalAction", version="v1")
 
 
 class TestAssetCentricToInstanceMapper:
