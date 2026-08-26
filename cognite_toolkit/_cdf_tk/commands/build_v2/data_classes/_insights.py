@@ -82,8 +82,8 @@ Insight: TypeAlias = (
 
 
 def _normalize_csv_cell(text: str) -> str:
-    """Flattens multi-line text into a single line so each insight stays on one physical CSV row."""
-    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "; ")
+    """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 class InsightList(UserList[Insight]):
@@ -134,8 +134,9 @@ class InsightList(UserList[Insight]):
     def to_csv(self) -> str:
         """Returns a CSV formatted string representation of the insights.
 
-        Uses a Unix-style CSV dialect (LF-only record separators, all fields quoted). Newlines in
-        ``message`` and ``fix`` are flattened to keep each insight on a single physical CSV row.
+        Uses a Unix-style CSV dialect (LF-only record separators, all fields quoted) so
+        ``message`` and ``fix`` may contain newlines without corrupting row boundaries.
+        Carriage returns inside cells are normalized to LF newlines.
 
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
