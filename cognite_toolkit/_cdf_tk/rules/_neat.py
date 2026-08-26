@@ -44,12 +44,21 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         data_model_type = ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind)
+        # All 'data_modeling' resources (data models, views, containers, spaces, nodes) across every module
+        # are built into a single shared folder, and Neat's importer loads that entire folder as one merged
+        # data model. So an unresolved variable (e.g. "{{space}}") in a view or container from any module,
+        # not just the data model's own module, will pollute every data model Neat validates.
+        has_unresolved_data_model_variables = any(
+            resource.type.resource_folder == data_model_type.resource_folder
+            and resource.source_path in other_module.unresolved_variables_by_source
+            for other_module in self.modules
+            for resource in other_module.resources
+        )
         for module in self.modules:
             for resource in module.resources:
                 if resource.type == data_model_type:
-                    if resource.source_path in module.unresolved_variables_by_source:
-                        # The file still contains unresolved variables (e.g. "{{space}}"), which is already
-                        # reported as its own insight. Running Neat against it would only produce a flood of
+                    if has_unresolved_data_model_variables:
+                        # Already reported as its own insight; running Neat would only produce a flood of
                         # confusing, unrelated validation errors.
                         continue
                     data_model_file = resource.build_path

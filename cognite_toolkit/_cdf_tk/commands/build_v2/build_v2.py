@@ -503,12 +503,18 @@ class BuildV2Command(ToolkitCommand):
                         syntax_errors_by_source={
                             file.source_path: file.syntax_error
                             for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_error is not None
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                            and file.syntax_error is not None
+                            # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
+                            # almost certainly caused by that and is already reported as its own insight.
+                            and not file.unresolved_variables
                         },
                         syntax_warnings_by_source={
                             file.source_path: file.syntax_warning
                             for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                            and file.syntax_warning is not None
+                            and not file.unresolved_variables
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
                         ignored_files=module.ignored_files,
