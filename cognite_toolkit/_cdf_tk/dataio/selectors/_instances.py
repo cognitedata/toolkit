@@ -217,13 +217,8 @@ class InstanceQuerySelector(InstanceSelector):
 
     @property
     def display_name(self) -> str:
-        if self.label is not None:
-            return self.label
-        return f"{self.root} and {humanize_collection(self.subselections)}"
-
-    @property
-    def type_label(self) -> str:
-        return self.display_name
+        selections = (self.root, *self.subselections)
+        return f"instances from a query selecting {humanize_collection(selections)}"
 
     def create_query(self) -> QueryRequest:
         data = json.loads(self.query)

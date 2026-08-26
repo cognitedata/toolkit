@@ -2312,7 +2312,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 template_item_edges.append(template_item_edge)
                 for template_edge in template_edges_by_item_id.get(template_item_edge.other_side, []):
                     template_edges.append(template_edge)
-        return template_edges, template_item_edges
+        # Deduplicate by target: multiple edges to the same template/template item is expected
+        # and not a real conversion ambiguity.
+        deduped_template_edges = list({edge.other_side: edge for edge in template_edges}.values())
+        deduped_template_item_edges = list({edge.other_side: edge for edge in template_item_edges}.values())
+        return deduped_template_edges, deduped_template_item_edges
 
     def _create_template_relations(
         self,

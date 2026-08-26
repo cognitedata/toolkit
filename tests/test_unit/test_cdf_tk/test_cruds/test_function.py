@@ -172,6 +172,63 @@ secrets:
         assert "indexUrl" in dumped
         assert dumped["indexUrl"] == "http://my-index-url"
 
+    def test_dump_resource_strips_runtime_not_set_locally(
+        self, env_vars_with_client: EnvironmentVariables, tmp_path: Path
+    ) -> None:
+        """The server-applied default runtime should not be treated as a diff when not set locally."""
+        local_dict = FunctionWrite(
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+        ).dump()
+        cdf_function = FunctionResponse(
+            id=123,
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+            created_time=0,
+            runtime="py314",
+            metadata={
+                FunctionIO._MetadataKey.function_hash: calculate_directory_hash(
+                    tmp_path / "my_function", exclude_prefixes={".DS_Store"}
+                ),
+            },
+        )
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+
+        dumped = loader.dump_resource(cdf_function, local_dict)
+
+        assert "runtime" not in dumped
+
+    def test_dump_resource_keeps_runtime_set_locally(
+        self, env_vars_with_client: EnvironmentVariables, tmp_path: Path
+    ) -> None:
+        """A runtime explicitly set locally should still be compared against the server value."""
+        local_dict = FunctionWrite(
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+            runtime="py311",
+        ).dump()
+        cdf_function = FunctionResponse(
+            id=123,
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+            created_time=0,
+            runtime="py311",
+            metadata={
+                FunctionIO._MetadataKey.function_hash: calculate_directory_hash(
+                    tmp_path / "my_function", exclude_prefixes={".DS_Store"}
+                ),
+            },
+        )
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+
+        dumped = loader.dump_resource(cdf_function, local_dict)
+
+        assert dumped["runtime"] == "py311"
+
     def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
         loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}

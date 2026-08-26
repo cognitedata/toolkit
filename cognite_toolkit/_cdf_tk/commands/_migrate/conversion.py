@@ -176,16 +176,45 @@ class DirectRelationCache:
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
-        if file_ids:
-            self._update_cache(self._client.migration.lookup.files(id=list(file_ids)), self.TableName.FILE_ID)
+        if file_ids or file_external_ids:
+            self._update_file_cache(file_ids, file_external_ids)
         if asset_external_ids:
             self._update_cache(
                 self._client.migration.lookup.assets(external_id=list(asset_external_ids)),
                 self.TableName.ASSET_EXTERNAL_ID,
             )
-        if file_external_ids:
+
+    def _update_file_cache(self, file_ids: set[int], file_external_ids: set[str]) -> None:
+        """Resolve file references (by id and/or external ID) to NodeIds.
+
+        Files that are (or have been migrated to) a CogniteFile carry their instance ID directly on
+        the classic FileMetadata response (hybrid dual-write), so we try that first. This works even
+        when the file was never migrated through Toolkit's own asset-centric migration, e.g. for
+        CogniteFile instances created natively. Only files without a native instance ID need to fall
+        back to the Toolkit-tracked InstanceSource migration mapping.
+        """
+        unresolved_ids = set(file_ids)
+        unresolved_external_ids = set(file_external_ids)
+        if unresolved_ids or unresolved_external_ids:
+            items: list[InternalId | ExternalId] = [
+                *(InternalId(id=id_) for id_ in unresolved_ids),
+                *(ExternalId(external_id=ext_id) for ext_id in unresolved_external_ids),
+            ]
+            id_cache = cast(dict[int, NodeId], self._cache_map[self.TableName.FILE_ID])
+            external_id_cache = cast(dict[str, NodeId], self._cache_map[self.TableName.FILE_EXTERNAL_ID])
+            for file in self._client.tool.filemetadata.retrieve(items, ignore_unknown_ids=True):
+                if file.instance_id is None:
+                    continue
+                id_cache[file.id] = file.instance_id
+                unresolved_ids.discard(file.id)
+                if file.external_id is not None:
+                    external_id_cache[file.external_id] = file.instance_id
+                    unresolved_external_ids.discard(file.external_id)
+        if unresolved_ids:
+            self._update_cache(self._client.migration.lookup.files(id=list(unresolved_ids)), self.TableName.FILE_ID)
+        if unresolved_external_ids:
             self._update_cache(
-                self._client.migration.lookup.files(external_id=list(file_external_ids)),
+                self._client.migration.lookup.files(external_id=list(unresolved_external_ids)),
                 self.TableName.FILE_EXTERNAL_ID,
             )
 

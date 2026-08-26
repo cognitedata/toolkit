@@ -83,6 +83,8 @@ def direct_relation_cache() -> DirectRelationCache:
             1: NodeId(space="instance_space", external_id="MyFirstAsset"),
         }
         client.migration.lookup.files.return_value = {42: NodeId(space="test_space", external_id="file_456_instance")}
+        # No native instance ID on the classic file, so resolution falls back to the InstanceSource lookup above.
+        client.tool.filemetadata.retrieve.return_value = []
         client.migration.created_source_system.retrieve.return_value = [
             CreatedSourceSystem(
                 space="test_space",
@@ -122,6 +124,88 @@ def direct_relation_cache() -> DirectRelationCache:
             ]
         )
     return cache
+
+
+class TestDirectRelationCacheFileResolution:
+    """Resolving file references should prefer the native instanceId on the classic FileMetadata
+    response, only falling back to the Toolkit-tracked InstanceSource lookup when it is unset."""
+
+    def test_resolves_file_via_native_instance_id_without_instance_source_lookup(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=1,
+                    external_id="my_file",
+                    name="file.txt",
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                    instance_id=NodeId(space="my_space", external_id="my_file_node"),
+                )
+            ]
+            cache = DirectRelationCache(client)
+            cache.update(
+                [
+                    AnnotationResponse(
+                        annotation_type="diagrams.FileLink",
+                        data={},
+                        status="approved",
+                        creating_app="app",
+                        creating_app_version="app-version",
+                        creating_user="me",
+                        annotated_resource_type="file",
+                        annotated_resource_id=1,
+                        id=99,
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ]
+            )
+
+            assert cache.get_cache("annotation", "annotatedResourceId") == {
+                1: NodeId(space="my_space", external_id="my_file_node")
+            }
+            client.migration.lookup.files.assert_not_called()
+
+    def test_falls_back_to_instance_source_lookup_when_file_has_no_native_instance_id(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.retrieve.return_value = [
+                FileMetadataResponse(
+                    id=2,
+                    external_id="classic_file",
+                    name="file.txt",
+                    uploaded=True,
+                    created_time=0,
+                    last_updated_time=0,
+                )
+            ]
+            client.migration.lookup.files.return_value = {
+                2: NodeId(space="migrated_space", external_id="migrated_file")
+            }
+            cache = DirectRelationCache(client)
+            cache.update(
+                [
+                    AnnotationResponse(
+                        annotation_type="diagrams.FileLink",
+                        data={},
+                        status="approved",
+                        creating_app="app",
+                        creating_app_version="app-version",
+                        creating_user="me",
+                        annotated_resource_type="file",
+                        annotated_resource_id=2,
+                        id=100,
+                        created_time=0,
+                        last_updated_time=0,
+                    )
+                ]
+            )
+
+            assert cache.get_cache("annotation", "annotatedResourceId") == {
+                2: NodeId(space="migrated_space", external_id="migrated_file")
+            }
+            client.migration.lookup.files.assert_called_once()
+            assert client.migration.lookup.files.call_args.kwargs == {"id": [2]}
 
 
 class TestCreateProperties:

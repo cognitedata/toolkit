@@ -20,8 +20,6 @@ class ToolkitAPIError(Exception):
         debug_file: Path | None = None,
         x_request_id: str | None = None,
     ) -> None:
-        if x_request_id is not None and x_request_id not in message:
-            message = f"{message} | X-Request-ID: {x_request_id}"
         super().__init__(message)
         self.message = message
         self.missing = missing
