@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     InFieldAssetMapping,
     InstanceMappingError,
     LocationSplitInstanceIdMapper,
+    TargetSpaceResolutionError,
     SpaceMappingInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
@@ -2013,7 +2014,7 @@ class TestLocationSplitInstanceIdMapper:
             mapper = self._mapper(client)
             mapper.prefetch(["missing"])
 
-            with pytest.raises(InstanceMappingError, match="could not be assigned to a target space") as exc_info:
+            with pytest.raises(TargetSpaceResolutionError, match="could not be assigned to a target space") as exc_info:
                 mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
 
         assert exc_info.value.severity == Severity.failure

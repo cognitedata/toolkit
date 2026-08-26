@@ -68,12 +68,13 @@ from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 class InstanceMappingError(ToolkitError):
     """Raised when an instance ID cannot be mapped to a destination instance ID."""
 
-    def __init__(
-        self, message: str, severity: Severity = Severity.warning, is_target_space_resolution: bool = False
-    ) -> None:
+    def __init__(self, message: str, severity: Severity = Severity.warning) -> None:
         super().__init__(message)
         self.severity = severity
-        self.is_target_space_resolution = is_target_space_resolution
+
+
+class TargetSpaceResolutionError(InstanceMappingError):
+    """Raised when an instance cannot be assigned a target space during a location split."""
 
 
 class DirectRelationCache:
@@ -748,11 +749,10 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         if instance_id.space == self.source_space:
             target_space = self.resolve_target_space(instance_id.external_id)
             if target_space is None:
-                raise InstanceMappingError(
+                raise TargetSpaceResolutionError(
                     f"Instance {instance_id} could not be assigned to a target space: it has not been resolved "
                     "to a location (directly, or through its lineage) sharing this legacy instance space.",
                     severity=Severity.failure,
-                    is_target_space_resolution=True,
                 )
             return NodeId(space=target_space, external_id=instance_id.external_id)
         if instance_id.space in self._passthrough_space_mapping:
