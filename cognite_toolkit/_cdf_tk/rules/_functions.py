@@ -107,7 +107,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                         f"available in this CDF project. "
                         f"Available runtimes: {humanize_collection(limits.runtimes)}."
                     ),
-                    code=f"{self.CODE_PREFIX}-RUNTIME",
+                    code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix=f"Use one of the available runtimes: {humanize_collection(limits.runtimes)}.",
                     source_file=source_file,
                 )

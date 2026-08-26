@@ -107,7 +107,7 @@ class AgentRules(ToolkitGlobalRuleSet):
                         f"available in this CDF project. "
                         f"Available runtime versions: {humanize_collection(supported_runtime_versions)}."
                     ),
-                    code=f"{self.CODE_PREFIX}-RUNTIME-VERSION",
+                    code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix="Use one of the available runtime versions for this CDF project.",
                     source_file=source_file,
                 )

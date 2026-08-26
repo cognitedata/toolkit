@@ -146,7 +146,7 @@ class TestAgentRules:
         "runtime_version, extra_fields, with_client, expected_codes",
         [
             pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
-            pytest.param("9.9.9", {}, True, ["AGENT-RUNTIME-VERSION"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, True, ["AGENT-UNKNOWN-RUNTIME"], id="unknown-runtime-version"),
             pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
             pytest.param(
                 "1.0.0",

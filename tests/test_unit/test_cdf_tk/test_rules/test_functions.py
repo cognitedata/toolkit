@@ -173,7 +173,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-RUNTIME"
+        assert errors[0].code == "FUNCTION-UNKNOWN-RUNTIME"
         assert "py314" in errors[0].message
 
     def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
