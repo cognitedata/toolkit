@@ -43,7 +43,6 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         return RuleSetStatus(code="unavailable", message=message)
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        # TEMPORARY: blanket unresolved-variable suppression removed for manual testing.
         data_model_type = ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind)
         for module in self.modules:
             for resource in module.resources:
