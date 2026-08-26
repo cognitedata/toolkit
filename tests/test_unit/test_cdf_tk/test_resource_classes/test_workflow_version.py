@@ -110,8 +110,8 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1].functionApp.parameters.functionApp.parameters "
-            "dictionary should have at most 10 items after validation, not 11"
+            "Invalid value at workflowDefinition.tasks[1].functionApp.parameters.functionApp.parameters: "
+            "Dictionary should have at most 10 items after validation, not 11"
         },
         id="functionApp parameters exceeds max 10 entries",
     )

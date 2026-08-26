@@ -39,9 +39,9 @@ def invalid_test_cases() -> Iterable:
             "description": "a" * 1025,  # Too long - violates max_length=1024
         },
         {
-            "In field description string should have at most 1024 characters",
-            "In field externalId string should have at least 1 character",
-            "In field name string should have at least 1 character",
+            "Invalid value for description: String should have at most 1024 characters",
+            "Invalid value for externalId: String should have at least 1 character",
+            "Invalid value for name: String should have at least 1 character",
         },
         id="multiple-validation-errors",
     )
@@ -142,9 +142,9 @@ def invalid_test_cases() -> Iterable:
             "Hint: Use double quotes to force string.",
             "Invalid value for instructions: Input should be a valid string. Got [] of type list. "
             "Hint: Use double quotes to force string.",
-            "In field model input should be a valid string. Got True of type bool. "
+            "Invalid value for model: Input should be a valid string. Got True of type bool. "
             "Hint: Use double quotes to force string.",
-            "In field name input should be a valid string. Got None of type NoneType. "
+            "Invalid value for name: Input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
             "Invalid value for tools: Input should be a valid list. Got 'not_a_list'.",
             "Missing required field: 'externalId'",

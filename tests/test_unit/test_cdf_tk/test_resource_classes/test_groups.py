@@ -54,7 +54,10 @@ capabilities:
      scope:
        all: {}
 """,
-        {"In item [2].capabilities[1].actions[1] input should be 'READ' or 'WRITE'. Got 'WRITE-KING'."},
+        {
+            "Unrecognized value for item [2].capabilities[1].actions[1]: Expected one of 'READ' or 'WRITE'. "
+            "Got 'WRITE-KING'."
+        },
         id="Error in second group",
     )
 
