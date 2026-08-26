@@ -5,7 +5,10 @@ from typing import NamedTuple
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvailability
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    InternalValidatorException,
+)
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -49,7 +52,7 @@ class AgentRules(ToolkitGlobalRuleSet):
             message="Will validate agent models and runtime versions against the CDF project's AI service availability.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
+    def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:
         agent_type = ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -60,7 +63,7 @@ class AgentRules(ToolkitGlobalRuleSet):
                     try:
                         yield from self._validate_agent(resource)
                     except Exception as e:
-                        yield FailedValidation(
+                        yield InternalValidatorException(
                             message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
                             source=str(resource.identifier),
                             source_file=format_insight_source_file(resource.source_path),
