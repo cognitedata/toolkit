@@ -64,6 +64,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -86,6 +87,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldUserMapping,
     InstanceMappingError,
+    LocationSplitInstanceIdMapper,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -114,8 +116,20 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     InstanceConversionIssue,
     MigrationEntryV2,
+    TargetSpaceResolutionIssue,
     ThreeDModelMigrationIssue,
     instance_conversion_issue_as_migration_entry,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
+    APP_DATA_PARENT_EDGE_BY_VIEW,
+    APP_DATA_PARENT_EDGE_TYPES,
+    APP_DATA_PARENT_PROPERTY_BY_VIEW,
+    APP_DATA_ROOT_LOCATION_VIEWS,
+    AssetExternalIdTargetSpaceResolver,
+    _as_external_id,
+    _get_view_property,
+    register_solution_tag_references,
+    root_internal_id_to_target_space,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
@@ -1466,7 +1480,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     node, other_side_by_edge_type_and_direction_by_source[source_node_id]
                 )
             except InstanceMappingError as error:
-                issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
+                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issue_by_source_node_id[source_node_id] = issue_cls(
                     id=str(source_node_id),
                     errors=[str(error)],
                     severity=error.severity,
@@ -1752,8 +1767,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 if source.properties is None or not isinstance(source.source, ViewId):
                     continue
                 if source.source not in self._constrained_properties_by_view_id:
-                    # We have already populated the view_by_id cache, so we should have the view.
-                    view = self._connection_creator.view_by_id[source.source]
+                    view = self._connection_creator.view_by_id.get(source.source)
+                    if view is None:
+                        # Subclasses may tag instances with an extra source view (e.g. a bookkeeping
+                        # view) that was never added to the connection creator's view cache. Such
+                        # views are not part of the mapping, so they cannot have constrained direct
+                        # relations to check.
+                        self._constrained_properties_by_view_id[source.source] = {}
+                        continue
                     self._constrained_properties_by_view_id[source.source] = {
                         prop_id: prop.type.container
                         for prop_id, prop in view.properties.items()
@@ -1773,6 +1794,211 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         for prop_id in property_ids
                     }
                     yield node.as_id(), constraint_by_prop_id, source
+
+
+def _relocation_source(source_space: str) -> InstanceSource:
+    return InstanceSource(
+        source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+        properties={"sourceSpace": source_space},
+    )
+
+
+def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
+    return mapped_node.model_copy(update={"sources": [*(mapped_node.sources or []), _relocation_source(source_space)]})
+
+
+class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
+    """FDMtoCDMMapper that assigns each node a per-location target space and tags it with its legacy space.
+
+    App-data views are hardcoded. Pass ``source_views`` (activity / operation / notification) for APM_SourceData.
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        mappings: Sequence[ViewToViewMapping],
+        connection_creator: ConnectionCreator,
+        instance_id_mapper: LocationSplitInstanceIdMapper,
+        target_by_root_asset: Mapping[str, str],
+        *,
+        source_views: Mapping[str, ViewId] | None = None,
+        custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]]
+        | None = None,
+    ) -> None:
+        super().__init__(
+            client,
+            mappings,
+            connection_creator,
+            custom_properties_mappings=custom_properties_mappings,
+            custom_instance_mappings=custom_instance_mappings,
+        )
+        self._instance_id_mapper = instance_id_mapper
+        self._target_by_root_asset = target_by_root_asset
+        self._source_views = dict(source_views) if source_views is not None else None
+        self._notification_view: ViewId | None = None
+        self._notification_resolver: AssetExternalIdTargetSpaceResolver | None = None
+        if self._source_views is not None:
+            self._notification_view = self._source_views["notification"]
+            self._notification_resolver = AssetExternalIdTargetSpaceResolver(
+                client,
+                self._notification_view,
+                "assetExternalId",
+                root_internal_id_to_target_space(client, target_by_root_asset),
+            )
+
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        if self._notification_resolver is not None and self._notification_view is not None:
+            matching_nodes = [
+                data_item.item
+                for data_item in source
+                if isinstance(data_item.item, NodeResponse)
+                and self._notification_view in (data_item.item.properties or {})
+            ]
+            if matching_nodes:
+                self._notification_resolver.prepare_page(matching_nodes)
+        self._prefetch_relocation_tags(source)
+        return list(super().map(source))
+
+    def _parent_property_by_view(self) -> Mapping[ViewId, str]:
+        if self._source_views is None:
+            return APP_DATA_PARENT_PROPERTY_BY_VIEW
+        return {self._source_views["operation"]: "parentActivityId"}
+
+    def _relocation_tag_candidates(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> list[str]:
+        """Collect referenced parent external IDs that may need their target space prefetched from the
+        InstanceSpaceRelocationSource view before mapping the given page.
+        """
+        parent_property_by_view = self._parent_property_by_view()
+        candidates: list[str] = []
+        for data_item in source:
+            item = data_item.item
+            if isinstance(item, NodeResponse):
+                properties = item.properties or {}
+                for view_id, parent_property in parent_property_by_view.items():
+                    if view_id in properties:
+                        parent_external_id = _as_external_id(_get_view_property(item, view_id, parent_property))
+                        if parent_external_id is not None:
+                            candidates.append(parent_external_id)
+            elif isinstance(item, EdgeResponse) and item.type in APP_DATA_PARENT_EDGE_TYPES:
+                candidates.append(item.start_node.external_id)
+        return candidates
+
+    def _prefetch_relocation_tags(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> None:
+        self._instance_id_mapper.prefetch(self._relocation_tag_candidates(source))
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
+    ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
+        target_space = self._instance_id_mapper.get_registered_target_space(node.external_id)
+        if target_space is None:
+            target_space = self._resolve_target_space(node, other_side_by_edge_type_and_direction)
+        self._instance_id_mapper.register(node.external_id, target_space)
+        register_solution_tag_references(node, target_space, self._instance_id_mapper)
+        mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
+        if self.dry_run:
+            return mapped_node, new_edges, issue
+        return _attach_relocation_source(mapped_node, node.space), new_edges, issue
+
+    def _resolve_target_space(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
+    ) -> str:
+        properties = node.properties or {}
+        if self._source_views is None:
+            for view_id in APP_DATA_ROOT_LOCATION_VIEWS:
+                if view_id in properties:
+                    return self._target_space_from_root_location(node, view_id)
+            for view_id, parent_edge in APP_DATA_PARENT_EDGE_BY_VIEW.items():
+                if view_id in properties:
+                    return self._target_space_from_parent_edge(node, parent_edge, other_side_by_edge_type_and_direction)
+            for view_id, parent_property in APP_DATA_PARENT_PROPERTY_BY_VIEW.items():
+                if view_id in properties:
+                    return self._target_space_from_parent_property(node, view_id, parent_property)
+        else:
+            activity_view = self._source_views["activity"]
+            operation_view = self._source_views["operation"]
+            if activity_view in properties:
+                return self._target_space_from_root_location(node, activity_view)
+            if operation_view in properties:
+                return self._target_space_from_parent_property(node, operation_view, "parentActivityId")
+            if self._notification_resolver is not None and self._notification_view in properties:
+                return self._notification_resolver.resolve(node)
+        raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
+
+    def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
+        root_location = _as_external_id(_get_view_property(node, view_id, "rootLocation"))
+        if root_location is None:
+            raise InstanceMappingError(
+                "rootLocation is missing.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        target_space = self._target_by_root_asset.get(root_location)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"rootLocation is {root_location!r}, but Toolkit could not resolve a deployed "
+                f"CDM target space for it among the root location(s) sharing legacy instance space "
+                f"{self._instance_id_mapper.source_space!r}: "
+                f"{humanize_collection(self._target_by_root_asset) or 'none'}. This can happen if "
+                f"the asset representing {root_location!r} has not yet been migrated to CDF, or if no deployed CDM InField "
+                "location config exists for it yet (see 'cdf migrate infield-configs').",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        return target_space
+
+    def _target_space_from_parent_edge(
+        self,
+        node: NodeResponse,
+        parent_edge_type: EdgeTypeId,
+        other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
+    ) -> str:
+        parents = [
+            *other_side_by_edge_type_and_direction.get(parent_edge_type, []),
+            *other_side_by_edge_type_and_direction.get(
+                EdgeTypeId(type=parent_edge_type.type, direction="outwards"), []
+            ),
+        ]
+        if not parents:
+            raise InstanceMappingError(
+                f"Has no inbound {parent_edge_type!s} edge to a parent.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        target_spaces: set[str] = set()
+        for parent in parents:
+            target_space = self._instance_id_mapper.resolve_target_space(parent.other_side.external_id)
+            if target_space is not None:
+                target_spaces.add(target_space)
+        if len(target_spaces) != 1:
+            reason = "unresolved" if not target_spaces else "disagree on target space"
+            raise InstanceMappingError(
+                f"Parent(s) via {parent_edge_type!s} are {reason}.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        return next(iter(target_spaces))
+
+    def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
+        parent_external_id = _as_external_id(_get_view_property(node, view_id, parent_property))
+        if parent_external_id is None:
+            raise InstanceMappingError(
+                f"Is missing {parent_property}.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
+        if target_space is None:
+            raise InstanceMappingError(
+                f"Parent {parent_external_id!r} via {parent_property} is unresolved.",
+                severity=Severity.failure,
+                is_target_space_resolution=True,
+            )
+        return target_space
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]):
@@ -1816,11 +2042,16 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     )
 
     def __init__(
-        self, client: ToolkitClient, connection_creator: ConnectionCreator, mapping: ViewToViewMapping
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        mapping: ViewToViewMapping,
+        location_split_id_mapper: LocationSplitInstanceIdMapper | None = None,
     ) -> None:
         super().__init__(client)
         self._connection_creator = connection_creator
         self._mapping = mapping
+        self._location_split_id_mapper = location_split_id_mapper
         if self._mapping.source_view != self.SCHEDULE_VIEW:
             raise ValueError(
                 f"Invalid mapping for InFieldLegacyToCDMScheduleMapper. Expected source view {self.SCHEDULE_VIEW}, got {self._mapping.source_view}"
@@ -1859,21 +2090,27 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
-        dict[str, list[NodeResponse]],
+        dict[tuple[NodeId | None, str], list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        """Builds the schedule dedup groups and the edge lookups needed to reconstruct direct relations.
+
+        A single call to ``map()`` may contain schedules belonging to multiple templates (the query batches
+        several template roots together), so schedules are grouped by ``(owning template, content hash)``
+        rather than by content hash alone. This prevents unrelated templates that happen to share an
+        identical schedule configuration (e.g. "daily at 08:00") from being collapsed into one node.
+        """
+        schedule_nodes: list[NodeResponse] = []
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
         for item in source:
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
-                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
-                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
-                    schedules[schedule_hash].append(item)
+                if self.SCHEDULE_VIEW in item_properties:
+                    schedule_nodes.append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
                     # The template nodes are included to do pagination correctly (one page per template),
                     # but we do not need the templates, so we can safely ignore them.
@@ -1905,7 +2142,99 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                             ],
                         )
                     )
+        if self._location_split_id_mapper is not None:
+            location_split_issue = self._register_location_split_schedules(
+                schedule_nodes, template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            if location_split_issue is not None:
+                return {}, {}, {}, [location_split_issue]
+
+        schedules: dict[tuple[NodeId | None, str], list[NodeResponse]] = defaultdict(list)
+        for schedule in schedule_nodes:
+            # Fail unresolved schedules individually so they are not grouped with resolvable duplicates.
+            try:
+                self._connection_creator.map_instance(schedule.as_id())
+            except InstanceMappingError as error:
+                issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+                issues.append(issue_cls(id=str(schedule.as_id()), errors=[str(error)]))
+                continue
+            template_id = self._resolve_schedule_template(
+                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            schedule_properties = (schedule.properties or {}).get(self.SCHEDULE_VIEW, {})
+            schedule_hash = self._calculate_schedule_hash(schedule_properties)
+            schedules[(template_id, schedule_hash)].append(schedule)
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
+
+    def _resolve_schedule_template(
+        self,
+        schedule_id: NodeId,
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> NodeId | None:
+        """Finds the Template a schedule belongs to by following Schedule -> TemplateItem -> Template edges.
+
+        In normal InField usage, a Schedule node is only ever referenced by TemplateItems on a single
+        Template. If that is somehow not the case (e.g. data written outside the app), we deterministically
+        pick one template and rely on the caller to have logged/flagged the ambiguity if relevant.
+        """
+        templates = {
+            template_edge.other_side
+            for item_edge in template_item_edges_by_schedule_id.get(schedule_id, [])
+            for template_edge in template_edges_by_item_id.get(item_edge.other_side, [])
+        }
+        if not templates:
+            return None
+        return min(templates, key=str)
+
+    def _register_location_split_schedules(
+        self,
+        schedule_nodes: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> InstanceConversionIssue | None:
+        location_split_id_mapper = self._location_split_id_mapper
+        if location_split_id_mapper is None:
+            return None
+        template_id_by_schedule_id: dict[NodeId, NodeId] = {}
+        referenced_item_external_ids: set[str] = set()
+        for schedule in schedule_nodes:
+            template_id = self._resolve_schedule_template(
+                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
+            )
+            if template_id is None:
+                return InstanceConversionIssue(
+                    id="schedules-page",
+                    errors=[
+                        f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."
+                    ],
+                )
+            template_id_by_schedule_id[schedule.as_id()] = template_id
+            referenced_item_external_ids.update(
+                item_edge.other_side.external_id
+                for item_edge in template_item_edges_by_schedule_id.get(schedule.as_id(), [])
+            )
+        # Resolve every template and template item referenced by this page's schedules in a single batched
+        # lookup. Templates are needed for the schedule's own target space and its `template` direct
+        # relation; template items are needed for the `templateItems` direct relation created later in
+        # `_create_direct_relation`, which would otherwise fall back to a per-item network call.
+        location_split_id_mapper.prefetch(
+            [template_id.external_id for template_id in template_id_by_schedule_id.values()]
+            + list(referenced_item_external_ids)
+        )
+        for schedule in schedule_nodes:
+            template_id = template_id_by_schedule_id[schedule.as_id()]
+            target_space = location_split_id_mapper.resolve_target_space(template_id.external_id)
+            if target_space is None:
+                return TargetSpaceResolutionIssue(
+                    id="schedules-page",
+                    errors=[
+                        f"Could not resolve target space for schedules under Template {template_id}: "
+                        "the Template has not been resolved to a target space."
+                    ],
+                )
+            location_split_id_mapper.register(schedule.external_id, target_space)
+        return None
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:
         relevant_properties: dict[str, Any] = {}
@@ -1926,12 +2255,12 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         if not duplicated_schedules:
             raise ValueError("At least one schedule is required to create a schedule mapping.")
         first = duplicated_schedules[0]
-        issue = InstanceConversionIssue(id=str(first.as_id()))
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            issue.errors.append(str(error))
-            return None, issue
+            issue_cls = TargetSpaceResolutionIssue if error.is_target_space_resolution else InstanceConversionIssue
+            return None, issue_cls(id=str(first.as_id()), errors=[str(error)])
+        issue = InstanceConversionIssue(id=str(first.as_id()))
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(
                 f"Destination view '{self._mapping.destination_view}' not found in view cache. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
@@ -1961,11 +2290,14 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         issue.errors.extend(special_properties.errors)
         created_properties.update(special_properties.container_properties)
 
-        return NodeRequest(
+        mapped_item = NodeRequest(
             space=new_id.space,
             external_id=new_id.external_id,
             sources=[InstanceSource(source=self._mapping.destination_view, properties=created_properties)],
-        ), issue
+        )
+        if self._location_split_id_mapper is not None and not self.dry_run:
+            mapped_item = _attach_relocation_source(mapped_item, first.space)
+        return mapped_item, issue
 
     def _find_schedule_edges(
         self,
@@ -2041,6 +2373,49 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
             )
         return None
+
+
+class LocationSplitSolutionTagMapper(FDMtoCDMMapper):
+    """Copies each CogniteSolutionTag into every target space of a location split."""
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        connection_creator: ConnectionCreator,
+        mapping: ViewToViewMapping,
+        target_spaces: Iterable[str],
+    ) -> None:
+        super().__init__(client, [mapping], connection_creator)
+        self._target_spaces = sorted(set(target_spaces))
+
+    def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
+        output: list[DataItem[NodeOrEdgeRequest]] = []
+        issues: list[InstanceConversionIssue] = []
+        for data_item in source:
+            node = data_item.item
+            if not isinstance(node, NodeResponse):
+                continue
+            for target_space in self._target_spaces:
+                new_id = NodeId(space=target_space, external_id=node.external_id)
+                sources, _, issue = self._create_instance_data(new_id, node, {})
+                if issue.has_issues:
+                    issues.append(issue)
+                output.append(
+                    DataItem(
+                        tracking_id=str(node.as_id()),
+                        item=NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources or None),
+                    )
+                )
+        if issues:
+            self.logger.log(
+                [
+                    instance_conversion_issue_as_migration_entry(
+                        issue, source="CogniteSolutionTag (legacy)", destination="CogniteSolutionTag (CDM)"
+                    )
+                    for issue in issues
+                ]
+            )
+        return output
 
 
 class Image360FDMtoCDMMapper(FDMtoCDMMapper):
