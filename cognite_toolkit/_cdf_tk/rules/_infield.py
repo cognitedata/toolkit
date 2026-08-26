@@ -47,7 +47,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             )
         return RuleSetStatus(
             code="ready",
-            message="Will validate InField CDM card views and field configs against CDF view properties.",
+            message="Will validate InField CDM location configurations.",
         )
 
     def validate(self) -> Iterable[ConsistencyError]:

@@ -4,7 +4,7 @@ import json
 from collections import UserList, defaultdict
 from typing import ClassVar, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class InsightDefinition(BaseModel):
@@ -58,6 +58,17 @@ class InternalValidatorException(InsightDefinition):
     fix: str | None = (
         "This is an unexpected error in the validator. It does not necessarily indicate an issue with your resource, only that we failed to validate it. Please report this as a bug."
     )
+
+    MAX_MESSAGE_LENGTH: ClassVar[int] = 2000
+
+    @field_validator("message", mode="after")
+    @classmethod
+    def _truncate_message(cls, message: str) -> str:
+        """The wrapped exception's string representation can be arbitrarily long (e.g. a large stack
+        dump from a third-party library). Truncate it so a single insight can't blow up the output."""
+        if len(message) <= cls.MAX_MESSAGE_LENGTH:
+            return message
+        return message[: cls.MAX_MESSAGE_LENGTH] + "... (truncated)"
 
 
 class IgnoredFileWarning(InsightDefinition):
