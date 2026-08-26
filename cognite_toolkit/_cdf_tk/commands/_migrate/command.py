@@ -335,7 +335,7 @@ class MigrationCommand(ToolkitCommand):
                                 id=id_,
                                 severity=Severity.failure,
                                 label=f"Failed to write to CDF: {error.code}",
-                                message=error.message,
+                                message=error.full_message,
                                 source=str(selected),
                                 destination=destination,
                             )
