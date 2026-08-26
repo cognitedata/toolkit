@@ -1980,44 +1980,89 @@ def _relocation_source(space: str, external_id: str, source_space: str) -> Insta
 
 
 class TestLocationSplitInstanceIdMapper:
-    def _mapper(self, client: ToolkitClient, source_space: str = "shared_source") -> LocationSplitInstanceIdMapper:
-        return LocationSplitInstanceIdMapper(client, source_space)
+    SOURCE_SPACE = "shared_source"
 
-    def test_maps_registered_instance(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._mapper(client)
-            mapper.register("node_a", "space_b")
-
-            result = mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a"))
-
-        assert result == NodeId(space="space_b", external_id="node_a")
-        client.migration.instance_space_relocation_source.retrieve.assert_not_called()
-
-    def test_resolves_via_prefetch_when_not_registered(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.migration.instance_space_relocation_source.retrieve.return_value = [
-                _relocation_source("space_b", "node_a", "shared_source")
-            ]
-            mapper = self._mapper(client)
-            mapper.prefetch(["node_a"])
-
-            result = mapper.map_instance_id(NodeId(space="shared_source", external_id="node_a"))
-
-        assert result == NodeId(space="space_b", external_id="node_a")
-        client.migration.instance_space_relocation_source.retrieve.assert_called_once_with(
-            "shared_source", ["node_a"]
+    def _mapper(
+        self,
+        client: ToolkitClient,
+        passthrough_space_mapping: Mapping[str, str] | None = None,
+        target_spaces: set[str] | None = None,
+    ) -> LocationSplitInstanceIdMapper:
+        return LocationSplitInstanceIdMapper(
+            client,
+            self.SOURCE_SPACE,
+            passthrough_space_mapping=passthrough_space_mapping,
+            target_spaces=target_spaces,
         )
 
-    def test_reports_unresolved_instance_as_failure(self) -> None:
+    @pytest.mark.parametrize(
+        "instance_id, registered_target, retrieve_matches, passthrough, expected",
+        [
+            pytest.param(
+                NodeId(space="shared_source", external_id="node_a"),
+                "space_b",
+                None,
+                None,
+                NodeId(space="space_b", external_id="node_a"),
+                id="registered",
+            ),
+            pytest.param(
+                NodeId(space="shared_source", external_id="node_a"),
+                None,
+                [_relocation_source("space_b", "node_a", "shared_source")],
+                None,
+                NodeId(space="space_b", external_id="node_a"),
+                id="prefetch",
+            ),
+            pytest.param(
+                NodeId(space="cognite_app_data", external_id="user1"),
+                None,
+                None,
+                {"cognite_app_data": "cognite_app_data"},
+                NodeId(space="cognite_app_data", external_id="user1"),
+                id="passthrough",
+            ),
+            pytest.param(
+                NodeId(space="shared_source", external_id="missing"),
+                None,
+                [],
+                None,
+                None,
+                id="unresolved",
+            ),
+        ],
+    )
+    def test_map_instance_id(
+        self,
+        instance_id: NodeId,
+        registered_target: str | None,
+        retrieve_matches: list[InstanceSpaceRelocationSource] | None,
+        passthrough: dict[str, str] | None,
+        expected: NodeId | None,
+    ) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.migration.instance_space_relocation_source.retrieve.return_value = []
-            mapper = self._mapper(client)
-            mapper.prefetch(["missing"])
+            retrieve = client.migration.instance_space_relocation_source.retrieve
+            if retrieve_matches is not None:
+                retrieve.return_value = retrieve_matches
+            mapper = self._mapper(client, passthrough_space_mapping=passthrough)
+            if registered_target is not None:
+                mapper.register(instance_id.external_id, registered_target)
+            if retrieve_matches is not None:
+                mapper.prefetch([instance_id.external_id])
 
-            with pytest.raises(TargetSpaceResolutionError, match="could not be assigned to a target space") as exc_info:
-                mapper.map_instance_id(NodeId(space="shared_source", external_id="missing"))
+            if expected is None:
+                with pytest.raises(
+                    TargetSpaceResolutionError, match="could not be assigned to a target space"
+                ) as exc_info:
+                    mapper.map_instance_id(instance_id)
+                assert exc_info.value.severity == Severity.failure
+            else:
+                assert mapper.map_instance_id(instance_id) == expected
 
-        assert exc_info.value.severity == Severity.failure
+            if retrieve_matches is None:
+                retrieve.assert_not_called()
+            else:
+                retrieve.assert_called_once_with(self.SOURCE_SPACE, [instance_id.external_id])
 
     def test_resolve_target_space_raises_if_not_prefetched(self) -> None:
         """resolve_target_space must never silently fall back to a network call: forgetting to prefetch is a
@@ -2030,25 +2075,9 @@ class TestLocationSplitInstanceIdMapper:
 
         client.migration.instance_space_relocation_source.retrieve.assert_not_called()
 
-    def test_passthrough_space(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            mapper = LocationSplitInstanceIdMapper(
-                client,
-                "shared_source",
-                passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},
-            )
-
-            result = mapper.map_instance_id(NodeId(space="cognite_app_data", external_id="user1"))
-
-        assert result == NodeId(space="cognite_app_data", external_id="user1")
-
     def test_get_destination_spaces_uses_configured_targets_not_registry(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            mapper = LocationSplitInstanceIdMapper(
-                client,
-                "shared_source",
-                target_spaces={"space_a_cdm", "space_b_cdm"},
-            )
+            mapper = self._mapper(client, target_spaces={"space_a_cdm", "space_b_cdm"})
             mapper.register("node_a", "space_a_cdm")
 
             assert set(mapper.get_destination_spaces(["shared_source"])) == {"space_a_cdm", "space_b_cdm"}
