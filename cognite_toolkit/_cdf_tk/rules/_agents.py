@@ -49,7 +49,7 @@ class AgentRules(ToolkitGlobalRuleSet):
             )
         return RuleSetStatus(
             code="ready",
-            message="Will validate agent models and runtime versions against the CDF project's AI service availability.",
+            message="Will validate Atlas AI agent configuration.",
         )
 
     def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:

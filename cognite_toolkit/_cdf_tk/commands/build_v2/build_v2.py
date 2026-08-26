@@ -815,17 +815,13 @@ class BuildV2Command(ToolkitCommand):
         return plan
 
     def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
-        ready_count = sum(1 for step in plan if step.status.code == "ready")
         skip_count = sum(1 for step in plan if step.status.code == "skip")
         unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
 
-        summary_lines = [f"[green]✓[/] [bold]{ready_count}[/] validations ready to run"]
         border_color = 0
         if skip_count:
-            summary_lines.append(f"[yellow]![/] [bold]{skip_count}[/] validations skipped")
             border_color = max(border_color, 1)
         if unavailable_count:
-            summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
         table = ToolkitTable(*["Validation", "Status", "Message"])
@@ -833,20 +829,15 @@ class BuildV2Command(ToolkitCommand):
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
             ]
-            status_display = f"[{status_style}]{step.status.code}[/]"
+            status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-
-        validation_sections = [
-            ToolkitPanelSection(title="Planned", content=summary_lines),
-            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
-        ]
 
         border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
 
         console.print(
             ToolkitPanel(
-                Group(*validation_sections),
+                table,
                 title="Planning validation",
                 border_style=border_style,
             )
