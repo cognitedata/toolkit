@@ -207,6 +207,11 @@ class InstanceQuerySelector(InstanceSelector):
     def __str__(self) -> str:
         return f"query_{self.root}_{'_'.join(self.subselections)}"
 
+    @property
+    def display_name(self) -> str:
+        selections = (self.root, *self.subselections)
+        return f"instances from a query selecting {humanize_collection(selections)}"
+
     def create_query(self) -> QueryRequest:
         data = json.loads(self.query)
         data["root"] = self.root
