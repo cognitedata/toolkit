@@ -74,6 +74,7 @@ from .api.lookup import (
 from .api.migration import (
     CreatedSourceSystemAPI,
     InstanceSourceAPI,
+    InstanceSpaceRelocationSourceAPI,
     LookupAPI,
     MigrationAPI,
     MigrationLookupAPI,
@@ -178,6 +179,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
+        self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
+        self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
