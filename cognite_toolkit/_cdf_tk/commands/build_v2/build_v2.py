@@ -734,7 +734,6 @@ class BuildV2Command(ToolkitCommand):
 
         syntax_error = None
         if error_messages:
-            # The insight type already communicates this is a syntax error, so we skip a generic intro line.
             syntax_error = ModelSyntaxError(
                 code="MODEL-SYNTAX-ERROR",
                 message="\n".join(error_messages),
