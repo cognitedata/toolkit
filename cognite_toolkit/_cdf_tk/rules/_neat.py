@@ -57,6 +57,10 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         for module in self.modules:
             for resource in module.resources:
                 if resource.type == data_model_type:
+                    if not resource.can_verify:
+                        # The data model itself has a syntax error or failed extra file, unrelated to
+                        # unresolved variables. Already reported as its own insight.
+                        continue
                     if has_unresolved_data_model_variables:
                         # Already reported as its own insight; running Neat would only produce a flood of
                         # confusing, unrelated validation errors.
@@ -67,7 +71,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
-                            code=f"{self.CODE_PREFIX}-VALIDATOR-INTERNAL-EXCEPTION",
+                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                         )
 

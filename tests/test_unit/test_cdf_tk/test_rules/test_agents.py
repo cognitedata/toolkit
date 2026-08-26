@@ -15,11 +15,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO
-from cognite_toolkit._cdf_tk.rules._agents import AgentRules
+from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
 
 
-class TestAgentRules:
-    """Test suite for AgentRules validation."""
+class TestAgentRuleSet:
+    """Test suite for AgentRuleSet validation."""
 
     @pytest.fixture
     def service_availability(self) -> ServicesAvailability:
@@ -64,11 +64,11 @@ class TestAgentRules:
         )
 
     @staticmethod
-    def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRules:
-        """Create an AgentRules with a mocked client."""
+    def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRuleSet:
+        """Create an AgentRuleSet with a mocked client."""
         mock_client = MagicMock()
         mock_client.tool.agents.service_availability.return_value = service_availability
-        return AgentRules(modules=[], client=mock_client)
+        return AgentRuleSet(modules=[], client=mock_client)
 
     @pytest.mark.parametrize(
         "with_client, expected_code, expected_message_part",
@@ -84,13 +84,13 @@ class TestAgentRules:
         expected_code: str,
         expected_message_part: str,
     ) -> None:
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == expected_code
         assert expected_message_part in status.message.lower()
 
     def test_service_availability_returns_none_without_client(self) -> None:
-        rule = AgentRules(modules=[])
+        rule = AgentRuleSet(modules=[])
         assert rule.service_availability is None
 
     @pytest.mark.parametrize(
@@ -116,7 +116,7 @@ class TestAgentRules:
         yaml_file = tmp_path / "agents" / "agent.yaml"
         self._write_agent_yaml(yaml_file, content)
         resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes
         assert all(isinstance(error, ConsistencyError) for error in errors)
@@ -206,6 +206,6 @@ class TestAgentRules:
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRules(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes

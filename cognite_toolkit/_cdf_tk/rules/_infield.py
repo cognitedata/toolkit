@@ -32,7 +32,7 @@ _FieldConfigRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
 _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
 
 
-class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
+class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "INFIELD"
     DISPLAY_NAME = "Infield CDM checks"
 
@@ -113,7 +113,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     (
                         resource,
                         "assetPropertiesCardConfig",
-                        InFieldCDMViewPropertiesRuleSet._asset_view_id_for_card_config(config),
+                        InFieldCDMRuleSet._asset_view_id_for_card_config(config),
                         frozenset(card_config.keys()),
                     )
                 )

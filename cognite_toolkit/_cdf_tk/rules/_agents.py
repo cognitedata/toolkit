@@ -34,7 +34,7 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 )
 
 
-class AgentRules(ToolkitGlobalRuleSet):
+class AgentRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "AGENT"
     DISPLAY_NAME = "Agents checks"
 
@@ -65,6 +65,7 @@ class AgentRules(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
+                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                             source_file=format_insight_source_file(resource.source_path),
                         )

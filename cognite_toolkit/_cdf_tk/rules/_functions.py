@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
-class FunctionRules(ToolkitGlobalRuleSet):
+class FunctionRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions checks"
 
@@ -48,7 +48,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Function limits validator failed for function definition {resource.build_path.name!r}: {e}",
-                            code=f"{self.CODE_PREFIX}-VALIDATOR-INTERNAL-EXCEPTION",
+                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                             source_file=format_insight_source_file(resource.source_path),
                         )
