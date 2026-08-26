@@ -98,6 +98,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
@@ -126,6 +127,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
@@ -146,12 +148,12 @@ class TestInFieldCDMLocationConfigCRUD:
                         },
                     },
                 },
-                set(),
+                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
                 id="asset-properties-card-config-is-not-a-view",
             ),
             pytest.param(
                 {"space": "sp_instance", "externalId": "my_location_config"},
-                set(),
+                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
                 id="no-data-exploration-config",
             ),
             pytest.param(
@@ -164,6 +166,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
                     (ViewIO.__name__, ViewId(space="cdf_idm", external_id="CogniteOperation", version="v1")),
                 },
@@ -183,6 +186,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
                     (SpaceCRUD.__name__, SpaceId(space="APM_SourceData_3_LOR_NORWAY_cdm")),
                     (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
@@ -220,6 +224,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
@@ -248,6 +253,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
@@ -280,6 +286,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
@@ -303,6 +310,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
                     (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
                     (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
                     (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),

@@ -404,6 +404,7 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=resource.space)
         if resource.data_exploration_config is not None:
             for value in vars(resource.data_exploration_config).values():
                 if isinstance(value, ViewReference):
@@ -428,6 +429,8 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if isinstance(space := item.get("space"), str):
+            yield (SpaceCRUD, SpaceId(space=space))
         data_exploration_config = item.get("dataExplorationConfig")
         if isinstance(data_exploration_config, dict):
             for value in data_exploration_config.values():
