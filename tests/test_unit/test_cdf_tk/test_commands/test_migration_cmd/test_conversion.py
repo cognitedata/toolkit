@@ -1986,13 +1986,11 @@ class TestLocationSplitInstanceIdMapper:
         self,
         client: ToolkitClient,
         passthrough_space_mapping: Mapping[str, str] | None = None,
-        target_spaces: set[str] | None = None,
     ) -> LocationSplitInstanceIdMapper:
         return LocationSplitInstanceIdMapper(
             client,
             self.SOURCE_SPACE,
             passthrough_space_mapping=passthrough_space_mapping,
-            target_spaces=target_spaces,
         )
 
     @pytest.mark.parametrize(
@@ -2074,13 +2072,6 @@ class TestLocationSplitInstanceIdMapper:
                 mapper.resolve_target_space("node_a")
 
         client.migration.instance_space_relocation_source.retrieve.assert_not_called()
-
-    def test_get_destination_spaces_uses_configured_targets_not_registry(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._mapper(client, target_spaces={"space_a_cdm", "space_b_cdm"})
-            mapper.register("node_a", "space_a_cdm")
-
-            assert set(mapper.get_destination_spaces(["shared_source"])) == {"space_a_cdm", "space_b_cdm"}
 
 
 class TestAssetCentricToRecord:
