@@ -172,4 +172,7 @@ def _find_cdm_target_space(
     assert data_storage is not None
     if target_kind == "app_data":
         return data_storage.app_instance_space
+    # For source-data migration: choose arbitrarily one of maintenanceOrder,
+    # operation or notification's instance space as target space,
+    # as they per the docs are expected to be the same space.
     return get_first_instance_space(config.data_filters, "maintenanceOrder")
