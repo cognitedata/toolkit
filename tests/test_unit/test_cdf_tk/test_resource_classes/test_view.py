@@ -2,6 +2,7 @@ from collections.abc import Iterable
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.utils import find_resources
 
@@ -256,12 +257,18 @@ class TestViewYAML:
         with pytest.raises(ValueError):
             ViewYAML.model_validate(invalid_data)
 
-    def test_load_valid_record_view_with_stream_id(self) -> None:
+    def test_load_valid_record_view_with_stream_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        original = FeatureFlag.is_enabled
+        monkeypatch.setattr(
+            FeatureFlag,
+            "is_enabled",
+            lambda flag: flag is Flags.RECORD_VIEWS or original(flag),
+        )
         data = {
             "space": "my_space",
             "externalId": "my_record_view",
             "version": "1",
-            "streamId": "my_stream",
+            "streamId": ["my_stream"],
             "properties": {
                 "name": {
                     "container": {"type": "container", "space": "my_space", "externalId": "my_container"},

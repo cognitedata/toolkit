@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     ResourceIO,
@@ -30,6 +31,16 @@ from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
+
+
+@pytest.fixture
+def enable_record_views(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+
+    def is_enabled(flag: Flags) -> bool:
+        return flag is Flags.RECORD_VIEWS or original(flag)
+
+    monkeypatch.setattr(FeatureFlag, "is_enabled", is_enabled)
 
 
 def _record_view_response() -> ViewResponse:
@@ -49,7 +60,7 @@ def _record_view_response() -> ViewResponse:
         filter=None,
         implements=None,
         mapped_containers=[],
-        stream_id="my_stream",
+        stream_id=["my_stream"],
     )
 
 
@@ -391,16 +402,26 @@ class TestViewLoader:
 
 
 class TestRecordViewSupport:
-    def test_record_view_response_round_trip(self) -> None:
+    def test_record_view_response_round_trip(self, enable_record_views: None) -> None:
         view = _record_view_response()
         request = view.as_request_resource()
-        assert request.stream_id == "my_stream"
-        assert request.dump()["streamId"] == "my_stream"
+        assert request.stream_id == ["my_stream"]
+        assert request.dump()["streamId"] == ["my_stream"]
 
-    def test_dump_resource_preserves_stream_id(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+    def test_dump_resource_preserves_stream_id(
+        self, toolkit_client_approval: ApprovalToolkitClient, enable_record_views: None
+    ) -> None:
         loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
         dumped = loader.dump_resource(_record_view_response())
-        assert dumped["streamId"] == "my_stream"
+        assert dumped["streamId"] == ["my_stream"]
+
+    def test_dump_resource_strips_stream_id_without_alpha_flag(
+        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        dumped = loader.dump_resource(_record_view_response())
+        assert "streamId" not in dumped
 
 
 class TestContainerCRUDGetDependencies:
@@ -586,14 +607,14 @@ class TestViewCRUDGetDependencies:
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps
 
-    def test_view_with_stream_id(self) -> None:
+    def test_view_with_stream_id(self, enable_record_views: None) -> None:
         """Test View with stream dependency for record-backed views."""
         view = ViewYAML.model_validate(
             {
                 "space": "my_space",
                 "externalId": "my_record_view",
                 "version": "1",
-                "streamId": "my_stream",
+                "streamId": ["my_stream"],
             }
         )
 
@@ -601,3 +622,15 @@ class TestViewCRUDGetDependencies:
         assert len(deps) == 2
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (StreamIO, ExternalId(external_id="my_stream")) in deps
+
+    def test_view_with_stream_id_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
+        with pytest.raises(ValueError, match="record_views alpha flag"):
+            ViewYAML.model_validate(
+                {
+                    "space": "my_space",
+                    "externalId": "my_record_view",
+                    "version": "1",
+                    "streamId": ["my_stream"],
+                }
+            )

@@ -99,6 +99,7 @@ from cognite_toolkit._cdf_tk.constants import (
     VIEW_UPSERT_BATCH_LIMIT,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -715,8 +716,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
-        if resource.stream_id:
-            yield StreamIO, ExternalId(external_id=resource.stream_id)
+        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) and resource.stream_id:
+            yield StreamIO, ExternalId(external_id=resource.stream_id[0])
 
         for implement in resource.implements or []:
             yield ViewIO, implement.as_id()
@@ -747,8 +748,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
-        if stream_id := item.get("streamId"):
-            yield StreamIO, ExternalId(external_id=stream_id)
+        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) and (stream_ids := item.get("streamId")):
+            if isinstance(stream_ids, list) and stream_ids:
+                yield StreamIO, ExternalId(external_id=stream_ids[0])
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
                 if not isinstance(parent, dict):
@@ -795,6 +797,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
     def dump_resource(self, resource: ViewResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
+        if not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+            dumped.pop("streamId", None)
         if not dumped.get("properties") and not local.get("properties"):
             if "properties" in local:
                 # In case the properties is an empty dict, we still want to keep it in the dump.
