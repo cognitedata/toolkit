@@ -1,13 +1,11 @@
 ---
 name: start-it
 description: >-
-  Fetch Jira via acli, branch, plan, code.
+  Fetch Jira via Atlassian MCP (server user-atlassian), branch, plan, code.
   Use when the user says "start it" or "start" with a Jira URL.
 ---
 
 # Start It
-
-Read `.cursor/skills/acli-atlassian/SKILL.md` first. **Do not use the `user-atlassian` MCP.**
 
 When the user says **"start it"** (or **"start"** with a Jira URL):
 
@@ -19,21 +17,14 @@ When the user says **"start it"** (or **"start"** with a Jira URL):
 
 ## 2. Fetch task details
 
-- Use **`acli`** via the Shell tool:
-
-  ```bash
-  acli jira workitem view CDF-1234 --json
-  ```
-
-  Or, for a narrower field set:
-
-  ```bash
-  acli jira workitem view CDF-1234 --fields summary,description,status,issuetype,components,comment
-  ```
-
+- Use the **Atlassian MCP** server. In Cursor the server id is typically **`user-atlassian`**
+  (not `atlassian`). Read the MCP tool schema if invocation fails.
+- **Flow:**
+  1. Call **`getAccessibleAtlassianResources`** on `user-atlassian` and pick the site’s **`id`**
+     as `cloudId` (e.g. Cognite: `cognitedata.atlassian.net`).
+  2. Call **`getJiraIssue`** with `cloudId` and `issueIdOrKey` set to the ticket key (e.g. `CDF-1234`).
 - Use the response for summary, description, status, parent epic, components, subtasks, and comments.
 - Present a brief summary so the user can confirm it is the right ticket.
-- If the command returns `unauthorized`, stop and tell the user to run `acli auth login`. Do not fall back to the Atlassian MCP.
 
 ## 3. Create a working branch
 
