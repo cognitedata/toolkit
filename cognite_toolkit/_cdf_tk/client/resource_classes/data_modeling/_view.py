@@ -18,13 +18,6 @@ from ._view_property import (
 )
 
 
-# streamId is a single-element array in v1; resolve the one backing stream for deploy deps.
-def primary_stream_external_id(stream_id: list[str] | None) -> str | None:
-    if not stream_id:
-        return None
-    return stream_id[0]
-
-
 class View(BaseModelObject, ABC):
     space: str
     external_id: str
@@ -42,9 +35,6 @@ class View(BaseModelObject, ABC):
         min_length=1,
         max_length=1,
     )
-
-    def primary_stream_external_id(self) -> str | None:
-        return primary_stream_external_id(self.stream_id)
 
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)

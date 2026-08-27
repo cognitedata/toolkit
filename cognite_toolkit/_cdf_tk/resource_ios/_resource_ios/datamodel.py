@@ -73,7 +73,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     RequiresConstraintDefinition as ClientRequiresConstraintDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import primary_stream_external_id
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
     EdgeProperty,
     ReverseDirectRelationProperty,
@@ -717,8 +716,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) and (stream_id := resource.primary_stream_external_id()):
-            yield StreamIO, ExternalId(external_id=stream_id)
+        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+            for stream_id in resource.stream_id or []:
+                yield StreamIO, ExternalId(external_id=stream_id)
 
         for implement in resource.implements or []:
             yield ViewIO, implement.as_id()
@@ -750,8 +750,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
-            stream_ids = item.get("streamId")
-            if isinstance(stream_ids, list) and (stream_id := primary_stream_external_id(stream_ids)):
+            for stream_id in item.get("streamId") or []:
                 yield StreamIO, ExternalId(external_id=stream_id)
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
