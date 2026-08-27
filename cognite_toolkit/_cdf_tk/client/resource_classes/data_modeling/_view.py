@@ -18,6 +18,12 @@ from ._view_property import (
 )
 
 
+def primary_stream_external_id(stream_id: list[str] | None) -> str | None:
+    if not stream_id:
+        return None
+    return stream_id[0]
+
+
 class View(BaseModelObject, ABC):
     space: str
     external_id: str
@@ -37,9 +43,7 @@ class View(BaseModelObject, ABC):
     )
 
     def primary_stream_external_id(self) -> str | None:
-        if self.stream_id is None:
-            return None
-        return self.stream_id[0]
+        return primary_stream_external_id(self.stream_id)
 
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)

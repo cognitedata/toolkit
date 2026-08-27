@@ -11,6 +11,7 @@ else:
     from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import primary_stream_external_id
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -79,6 +80,9 @@ class ViewYAML(ToolkitResource):
 
     def as_id(self) -> ViewReferenceId:
         return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
+
+    def primary_stream_external_id(self) -> str | None:
+        return primary_stream_external_id(self.stream_id)
 
     @field_validator("stream_id")
     @classmethod
