@@ -18,6 +18,7 @@ from ._view_property import (
 )
 
 
+# streamId is a single-element array in v1; resolve the one backing stream for deploy deps.
 def primary_stream_external_id(stream_id: list[str] | None) -> str | None:
     if not stream_id:
         return None
