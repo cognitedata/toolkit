@@ -26,6 +26,7 @@ class View(BaseModelObject, ABC):
     description: str | None = None
     filter: JsonValue | None = None
     implements: list[ViewId] | None = None
+    stream_id: str | None = None
 
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)
@@ -92,7 +93,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     last_updated_time: int
     writable: bool
     queryable: bool
-    used_for: Literal["node", "edge", "all"]
+    used_for: Literal["node", "edge", "record", "all"]
     is_global: bool
     mapped_containers: list[ContainerId]
 

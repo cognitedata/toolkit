@@ -255,3 +255,19 @@ class TestViewYAML:
 
         with pytest.raises(ValueError):
             ViewYAML.model_validate(invalid_data)
+
+    def test_load_valid_record_view_with_stream_id(self) -> None:
+        data = {
+            "space": "my_space",
+            "externalId": "my_record_view",
+            "version": "1",
+            "streamId": "my_stream",
+            "properties": {
+                "name": {
+                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                    "containerPropertyIdentifier": "name",
+                }
+            },
+        }
+        loaded = ViewYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data

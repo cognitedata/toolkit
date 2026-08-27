@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerId,
@@ -25,9 +26,31 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SpaceCRUD,
     ViewIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
+
+
+def _record_view_response() -> ViewResponse:
+    return ViewResponse(
+        space="my_space",
+        external_id="my_record_view",
+        version="v1",
+        properties={},
+        last_updated_time=1,
+        created_time=1,
+        is_global=False,
+        used_for="record",
+        writable=True,
+        queryable=True,
+        description=None,
+        name=None,
+        filter=None,
+        implements=None,
+        mapped_containers=[],
+        stream_id="my_stream",
+    )
 
 
 def _create_test_container(
@@ -367,6 +390,19 @@ class TestViewLoader:
         assert readonly_props == expected_readonly_props
 
 
+class TestRecordViewSupport:
+    def test_record_view_response_round_trip(self) -> None:
+        view = _record_view_response()
+        request = view.as_request_resource()
+        assert request.stream_id == "my_stream"
+        assert request.dump()["streamId"] == "my_stream"
+
+    def test_dump_resource_preserves_stream_id(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        dumped = loader.dump_resource(_record_view_response())
+        assert dumped["streamId"] == "my_stream"
+
+
 class TestContainerCRUDGetDependencies:
     """Test get_dependencies method for ContainerCRUD."""
 
@@ -549,3 +585,19 @@ class TestViewCRUDGetDependencies:
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps
+
+    def test_view_with_stream_id(self) -> None:
+        """Test View with stream dependency for record-backed views."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_record_view",
+                "version": "1",
+                "streamId": "my_stream",
+            }
+        )
+
+        deps = list(ViewIO.get_dependencies(view))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (StreamIO, ExternalId(external_id="my_stream")) in deps

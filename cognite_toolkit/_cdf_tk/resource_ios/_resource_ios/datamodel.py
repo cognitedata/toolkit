@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     DataModelId,
     EdgeId,
+    ExternalId,
     NodeId,
     SpaceId,
     ViewId,
@@ -713,6 +714,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
+        if resource.stream_id:
+            yield StreamIO, ExternalId(external_id=resource.stream_id)
+
         for implement in resource.implements or []:
             yield ViewIO, implement.as_id()
 
@@ -740,6 +744,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
+        if stream_id := item.get("streamId"):
+            yield StreamIO, ExternalId(external_id=stream_id)
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
                 if not isinstance(parent, dict):
@@ -1806,3 +1812,6 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
         if json_path == ("sources",):
             return diff_list_identifiable(local, cdf, get_identifier=lambda x: dm_identifier(x["source"]))
         return super().diff_list(local, cdf, json_path)
+
+
+from .streams import StreamIO  # noqa: E402  # ContainerCRUD must be defined before streams imports datamodel

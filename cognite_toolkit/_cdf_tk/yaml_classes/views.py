@@ -57,6 +57,12 @@ class ViewYAML(ToolkitResource):
         default=None,
         description="References to the views from where this view will inherit properties.",
     )
+    stream_id: str | None = Field(
+        default=None,
+        description="External ID of the stream for record-backed views.",
+        min_length=1,
+        max_length=255,
+    )
     properties: dict[str, ViewProperty] | None = Field(
         default=None, description="Set of properties to apply to the View."
     )
