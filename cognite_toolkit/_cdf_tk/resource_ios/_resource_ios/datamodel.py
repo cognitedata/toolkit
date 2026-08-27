@@ -711,6 +711,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
     @classmethod
     def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        from .streams import StreamIO
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
@@ -742,6 +743,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        from .streams import StreamIO
+
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
         if stream_id := item.get("streamId"):
@@ -1812,6 +1815,3 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
         if json_path == ("sources",):
             return diff_list_identifiable(local, cdf, get_identifier=lambda x: dm_identifier(x["source"]))
         return super().diff_list(local, cdf, json_path)
-
-
-from .streams import StreamIO  # noqa: E402  # ContainerCRUD must be defined before streams imports datamodel
