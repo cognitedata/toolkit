@@ -38,8 +38,10 @@ def _parse_chunk_count(value: str) -> int | None:
 
 def _ensure_store(store_name: str | None = None) -> None:
     global _store_name
-    target = store_name or _platform_store_name()
     with _store_lock:
+        if store_name is None and _store_name is not None:
+            return
+        target = store_name or _platform_store_name()
         if _store_name == target:
             return
         if _store_name is not None:
