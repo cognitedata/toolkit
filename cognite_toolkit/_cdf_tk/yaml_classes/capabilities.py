@@ -486,6 +486,18 @@ class HostedExtractorsAcl(Capability):
     scope: AllScope
 
 
+class IntegrationConfigsAcl(Capability):
+    _capability_name = "integrationConfigsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class IntegrationsAcl(Capability):
+    _capability_name = "integrationsAcl"
+    actions: list[Literal["READ", "WRITE", "USE"]]
+    scope: AllScope
+
+
 class VisionModelAcl(Capability):
     _capability_name = "visionModelAcl"
     actions: list[Literal["READ", "WRITE"]]

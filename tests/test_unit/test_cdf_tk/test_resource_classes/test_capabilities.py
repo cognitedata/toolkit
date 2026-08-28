@@ -81,6 +81,8 @@ def all_acls() -> Iterable:
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
