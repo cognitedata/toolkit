@@ -40,6 +40,7 @@ dependencies = [
     # Pip is used in the cognite run function local
     "pip>=25.0.1",
     "filelock>=3.18.0",
+    "rust-native-keyring>=0.2.0",
 ]
 
 [project.urls]
