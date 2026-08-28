@@ -1249,7 +1249,7 @@ API_RESOURCES = [
         resource_cls=ExternalDataSourceResponse,
         _write_cls=ExternalDataSourceRequest,
         methods={
-            "create": [Method(api_class_method="upsert", mock_class_method="upsert")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
             ],
