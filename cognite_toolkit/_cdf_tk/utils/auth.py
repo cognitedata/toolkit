@@ -27,6 +27,11 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "in
 VALID_PROVIDERS = get_args(Provider)
 VALID_LOGIN_FLOWS = get_args(LoginFlow)
 
+COGIDP_PROD_TOKEN_URL = "https://auth.cognite.com/oauth2/token"
+COGIDP_DEV_TOKEN_URL = "https://auth-dev.cognitedata-development.cognite.ai/oauth2/token"
+# Clusters whose names contain this substring route to CogIdP dev.
+_DEV_CLUSTER_MARKER = "-dev"
+
 CLIENT_NAME = f"CDF-Toolkit:{__version__}"
 PROVIDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
@@ -197,9 +202,13 @@ class EnvironmentVariables:
         raise ToolkitMissingValueError("IDP_TENANT_ID is missing", "IDP_TENANT_ID")
 
     @property
+    def _is_dev_cluster(self) -> bool:
+        return _DEV_CLUSTER_MARKER in self.CDF_CLUSTER.lower()
+
+    @property
     def idp_token_url(self) -> str:
         if self.PROVIDER == "cdf":
-            return "https://auth.cognite.com/oauth2/token"
+            return COGIDP_DEV_TOKEN_URL if self._is_dev_cluster else COGIDP_PROD_TOKEN_URL
         if self.IDP_TOKEN_URL:
             return self.IDP_TOKEN_URL
         if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
