@@ -712,7 +712,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
     @classmethod
     def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        from .streams import StreamIO
+        from .streams import StreamIO  # local import avoids circular import with streams.py
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 
@@ -745,7 +745,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        from .streams import StreamIO
+        from .streams import StreamIO  # local import avoids circular import with streams.py
 
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])

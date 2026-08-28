@@ -11,6 +11,7 @@ else:
     from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -64,7 +65,7 @@ class ViewYAML(ToolkitResource):
         default=None,
         description="References to the views from where this view will inherit properties.",
     )
-    stream_id: list[str] | None = Field(
+    stream_id: list[StreamExternalId] | None = Field(
         default=None,
         description=(
             "External ids of the records streams this view targets. "
@@ -79,16 +80,6 @@ class ViewYAML(ToolkitResource):
 
     def as_id(self) -> ViewReferenceId:
         return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
-
-    @field_validator("stream_id")
-    @classmethod
-    def validate_stream_id_entries(cls, val: list[str] | None) -> list[str] | None:
-        if val is None:
-            return val
-        for stream_id in val:
-            if not 1 <= len(stream_id) <= 100:
-                raise ValueError("Each streamId entry must be between 1 and 100 characters.")
-        return val
 
     @model_validator(mode="after")
     def validate_record_view_alpha_flag(self) -> Self:

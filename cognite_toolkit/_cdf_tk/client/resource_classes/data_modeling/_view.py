@@ -1,11 +1,12 @@
 from abc import ABC
 from typing import Any, Literal
 
-from pydantic import Field, JsonValue, field_serializer, field_validator, model_validator
+from pydantic import Field, JsonValue, field_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
 
 from ._data_types import DirectNodeRelation
 from ._view_property import (
@@ -26,7 +27,7 @@ class View(BaseModelObject, ABC):
     description: str | None = None
     filter: JsonValue | None = None
     implements: list[ViewId] | None = None
-    stream_id: list[str] | None = Field(
+    stream_id: list[StreamExternalId] | None = Field(
         default=None,
         description=(
             "External ids of the records streams this view targets. "
@@ -64,16 +65,6 @@ class View(BaseModelObject, ABC):
             return new_data
 
         return data
-
-    @field_validator("stream_id")
-    @classmethod
-    def validate_stream_id_entries(cls, val: list[str] | None) -> list[str] | None:
-        if val is None:
-            return val
-        for stream_id in val:
-            if not 1 <= len(stream_id) <= 100:
-                raise ValueError("Each streamId entry must be between 1 and 100 characters.")
-        return val
 
     @field_serializer("implements", mode="plain")
     @classmethod

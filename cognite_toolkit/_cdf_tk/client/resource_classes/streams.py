@@ -1,10 +1,12 @@
 import builtins
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+
+StreamExternalId = Annotated[str, Field(min_length=1, max_length=100)]
 
 
 class StreamsModelObject(BaseModelObject):
