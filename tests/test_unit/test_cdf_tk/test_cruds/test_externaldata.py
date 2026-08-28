@@ -117,7 +117,7 @@ class TestExternalDataSourceIO:
             "unchanged": len(resources.unchanged),
         } == {"create": 1, "changed": 0, "delete": 0, "unchanged": 0}
 
-    def test_prepare_resources_existing_always_updates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+    def test_prepare_resources_existing_recreates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         toolkit_client_approval.append(ExternalDataSourceResponse, _make_response())
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = _YAML
@@ -129,7 +129,7 @@ class TestExternalDataSourceIO:
             "changed": len(resources.to_update),
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
-        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
+        } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
 
     def test_get_dependent_items_dataset(self) -> None:
         deps = list(
@@ -205,17 +205,16 @@ class TestExternalDataSourceIO:
             )
         assert loaded.data_set_id == 42
 
-    def test_create_update_retrieve_delete(self) -> None:
+    def test_create_retrieve_delete(self) -> None:
         with monkeypatch_toolkit_client() as client:
             loader = ExternalDataSourceIO.create_loader(client)
             item = _make_request()
             response = _make_response()
             api = client.tool.transformations.external_data_sources
-            api.upsert.return_value = [response]
+            api.create.return_value = [response]
             api.list.return_value = [response]
 
             assert loader.create([item]) == [response]
-            assert loader.update([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
             assert loader.retrieve([]) == []
             assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == 1

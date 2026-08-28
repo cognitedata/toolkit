@@ -33,7 +33,9 @@ class ExternalDataSourceIO(
     kind = "ExternalDataSource"
     yaml_cls = ExternalDataSourceYAML
     dependencies = frozenset({DataSetsIO})
-    _doc_url = "Transformations-External-Data-Sources/operation/upsertExternalDataSources"
+    _doc_url = "Transformations-External-Data-Sources/operation/createExternalDataSources"
+
+    support_update = False
 
     @property
     def display_name(self) -> str:
@@ -86,10 +88,13 @@ class ExternalDataSourceIO(
         self, resource: ExternalDataSourceResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         # Secrets cannot be compared (API never returns clientSecret). Dumping only the identifier
-        # when a local YAML exists makes deploy always upsert, matching hosted extractor sources.
+        # when a local YAML exists makes deploy always consider the resource changed. Since the API
+        # is create-only (support_update = False), an always-changed resource is deleted and
+        # recreated on every deploy, not upserted.
         if local:
             HighSeverityWarning(
-                "External data sources that contain credentials are always considered as changed and will be redeployed every time"
+                "External data sources will always be considered different, and thus will always be "
+                "deleted and re-created on deploy."
             ).print_warning(console=self.client.console)
             return self.dump_id(self.get_id(resource))
         dumped = resource.dump()
@@ -105,10 +110,7 @@ class ExternalDataSourceIO(
             yield item.settings.credentials.client_secret
 
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self.client.tool.transformations.external_data_sources.upsert(list(items))
-
-    def update(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self.client.tool.transformations.external_data_sources.upsert(list(items))
+        return self.client.tool.transformations.external_data_sources.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExternalDataSourceResponse]:
         if not ids:
