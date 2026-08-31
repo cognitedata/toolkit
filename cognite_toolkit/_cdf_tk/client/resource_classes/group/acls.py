@@ -309,6 +309,22 @@ class HostedExtractorsAcl(Acl):
     scope: AllScope
 
 
+class IntegrationConfigsAcl(Acl):
+    """ACL for Integration Configs resources."""
+
+    acl_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class IntegrationsAcl(Acl):
+    """ACL for Integrations resources."""
+
+    acl_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE", "USE"]]
+    scope: AllScope
+
+
 class LabelsAcl(Acl):
     """ACL for Labels resources."""
 
@@ -675,6 +691,8 @@ AclType: TypeAlias = Annotated[
         | GeospatialCrsAcl
         | GroupsAcl
         | HostedExtractorsAcl
+        | IntegrationConfigsAcl
+        | IntegrationsAcl
         | LabelsAcl
         | LegacyGenericsAcl
         | LegacyModelHostingAcl

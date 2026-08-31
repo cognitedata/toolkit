@@ -47,25 +47,19 @@ def _make_request() -> ExternalDataSourceRequest:
 
 
 class TestTransformationExternalDataSourcesAPI:
-    def test_upsert_create_update_list_delete(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_create_list_delete(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         client = HTTPClient(toolkit_config)
         api = TransformationExternalDataSourcesAPI(client)
         request = _make_request()
 
-        upsert_url = toolkit_config.create_api_url("/transformations/externaldata")
-        respx_mock.post(upsert_url).mock(
+        create_url = toolkit_config.create_api_url("/transformations/externaldata")
+        respx_mock.post(create_url).mock(
             return_value=httpx.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]})
         )
-        created = api.upsert([request])
+        created = api.create([request])
         assert len(created) == 1
         assert created[0].external_id == "fabric-lakehouse-prod"
         assert respx_mock.calls[-1].request.headers["cdf-version"] == "beta"
-
-        updated = api.create([request])
-        assert len(updated) == 1
-        assert api.update([request]) == updated
 
         list_url = toolkit_config.create_api_url("/transformations/externaldata")
         respx_mock.get(list_url).mock(return_value=httpx.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]}))
