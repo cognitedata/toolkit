@@ -16,6 +16,7 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -899,7 +900,13 @@ class BuildV2Command(ToolkitCommand):
                 message = self._truncate_for_terminal(insight.message)
                 content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
                 if insight.fix:
-                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
+                    content.append(
+                        hanging_indent(
+                            "→",
+                            Text(f"Fix: {insight.fix}"),
+                            marker_style=AuraColor.GREEN.rich,
+                        )
+                    )
                 insight_subsections.append(
                     ToolkitPanelSection(
                         title=self._insight_section_title(insight),
@@ -942,12 +949,16 @@ class BuildV2Command(ToolkitCommand):
     _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
 
     @classmethod
-    def _truncate_for_terminal(cls, message: str) -> str:
-        """Truncates a message for terminal display."""
+    def _truncate_for_terminal(cls, message: str) -> RenderableType:
+        """Truncates a message for terminal display only."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
-            return message
-        truncated_notice = "[dim italic](truncated, see insights file for more details)[/]"
-        return f"{message[: cls._MAX_TERMINAL_MESSAGE_LENGTH]}... {truncated_notice}"
+            return Text(message)
+        truncated_notice = Text.from_markup("[dim italic](truncated, see insights file for more details)[/]")
+        return Text.assemble(
+            message[: cls._MAX_TERMINAL_MESSAGE_LENGTH],
+            "... ",
+            truncated_notice,
+        )
 
     @staticmethod
     def _humanize_insight_code(code: str | None) -> str:
