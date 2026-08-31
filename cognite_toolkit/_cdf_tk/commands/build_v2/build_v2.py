@@ -939,14 +939,14 @@ class BuildV2Command(ToolkitCommand):
             )
         )
 
-    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 1000
+    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
 
     @classmethod
     def _truncate_for_terminal(cls, message: str) -> str:
-        """Truncates a message for terminal display only; the full message is always written to the insights file."""
+        """Truncates a message for terminal display."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
             return message
-        truncated_notice = "[dim italic](truncated, see full message in the insights file)[/]"
+        truncated_notice = "[dim italic](truncated, see insights file for more details)[/]"
         return f"{message[: cls._MAX_TERMINAL_MESSAGE_LENGTH]}... {truncated_notice}"
 
     @staticmethod
