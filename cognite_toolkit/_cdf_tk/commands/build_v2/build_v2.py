@@ -15,7 +15,6 @@ import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
-from rich.markup import escape
 from rich.progress import Progress
 from rich.text import Text
 
@@ -872,7 +871,7 @@ class BuildV2Command(ToolkitCommand):
                     content.append(
                         hanging_indent(
                             "→",
-                            Text.from_markup(escape(f"Fix: {insight.fix}")),
+                            Text(f"Fix: {insight.fix}"),
                             marker_style=AuraColor.GREEN.rich,
                         )
                     )
@@ -919,13 +918,13 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _format_insight_message_for_terminal(cls, message: str) -> RenderableType:
-        """Formats an insight message for terminal display, escaping Rich markup in user-facing text."""
+        """Formats an insight message for terminal display as plain text."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
-            return Text.from_markup(escape(message))
+            return Text(message)
         truncated_notice = Text.from_markup("[dim italic](truncated, see full message in the insights file)[/]")
         return Text.assemble(
-            Text.from_markup(escape(message[: cls._MAX_TERMINAL_MESSAGE_LENGTH])),
-            Text("... "),
+            message[: cls._MAX_TERMINAL_MESSAGE_LENGTH],
+            "... ",
             truncated_notice,
         )
 
