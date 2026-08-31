@@ -21,7 +21,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
-from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -137,7 +136,7 @@ class ReadResource(Generic[T_RequestResource]):
 
 
 @dataclass
-class DeploymentStep:
+class DeploymentStep(Generic[T_RequestResource]):
     """A deployment step
 
     Args:
@@ -145,12 +144,14 @@ class DeploymentStep:
         files: The files to deploy in this step, all of which should be of the same structure.
         skipped_cruds: Resource types that this step depends on but are skipped due to the include filter.
             This is used to warn the user about potential issues with the deployment.
+        read_resources: Resources that are given directly in their request form, rather than being read from files.
 
     """
 
     crud_cls: type[ResourceIO]
     files: list[Path]
     skipped_cruds: Set[type[ResourceIO]] = field(default_factory=set)
+    read_resources: list[T_RequestResource] | None = None
 
 
 @dataclass
@@ -257,6 +258,9 @@ class DeployV2Command(ToolkitCommand):
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
+            # To aviod circular imports, we import UploadCommand here.
+            from cognite_toolkit._cdf_tk.commands import UploadCommand
+
             self._display_deprecation_warning(raw_files, client.console)
             UploadCommand.upload_data(
                 raw_files,  # type: ignore[arg-type]
@@ -689,7 +693,16 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resource_by_id = cls._read_resource_files(crud, step.files, options)
+                if step.files:
+                    resource_by_id = cls._read_resource_files(crud, step.files, options)
+                else:
+                    resource_by_id = {}
+                resource_by_id.update(
+                    {
+                        crud.get_id(read.request): ReadResource(request=read, raw_dict=read.dump())
+                        for read in (step.read_resources or [])
+                    }
+                )
                 if not resource_by_id:
                     # If the CRUD is a GroupScoped and the resources are all scoped.
                     progress.update(task_id, advance=len(step.files))
