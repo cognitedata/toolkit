@@ -4,7 +4,10 @@ from functools import cached_property
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, FailedValidation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    InternalValidatorException,
+)
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
@@ -12,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
-class FunctionRules(ToolkitGlobalRuleSet):
+class FunctionRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions checks"
 
@@ -32,7 +35,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
             message="Will validate function limits, runtime, and requirements.txt.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | FailedValidation]:
+    def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -43,8 +46,9 @@ class FunctionRules(ToolkitGlobalRuleSet):
                     try:
                         yield from self._validate_function(resource)
                     except Exception as e:
-                        yield FailedValidation(
-                            message=f"Function limits validation failed for function definition {resource.build_path.name!r}: {e}",
+                        yield InternalValidatorException(
+                            message=f"Function limits validator failed for function definition {resource.build_path.name!r}: {e}",
+                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                             source_file=format_insight_source_file(resource.source_path),
                         )
@@ -76,7 +80,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                         f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                         f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                     ),
-                    code=f"{self.CODE_PREFIX}-CPU",
+                    code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
                     fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                     source_file=source_file,
                 )
@@ -89,7 +93,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
                         f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                         f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                     ),
-                    code=f"{self.CODE_PREFIX}-MEMORY",
+                    code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
                     fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                     source_file=source_file,
                 )
@@ -97,14 +101,15 @@ class FunctionRules(ToolkitGlobalRuleSet):
         # Validate runtime
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
+                quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
                 yield ConsistencyError(
                     message=(
                         f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
                         f"available in this CDF project. "
-                        f"Available runtimes: {humanize_collection(limits.runtimes)}."
+                        f"Available runtimes: {quoted_runtimes}."
                     ),
-                    code=f"{self.CODE_PREFIX}-RUNTIME",
-                    fix=f"Use one of the available runtimes: {humanize_collection(limits.runtimes)}.",
+                    code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
+                    fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=source_file,
                 )
 
@@ -116,7 +121,7 @@ class FunctionRules(ToolkitGlobalRuleSet):
             if not pip_result.success:
                 yield ConsistencyError(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code=f"{self.CODE_PREFIX}-REQUIREMENTS-TXT",
+                    code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=source_file,
                 )

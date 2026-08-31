@@ -9,12 +9,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     Insight,
-    ModelSyntaxWarning,
+    ModelSyntaxError,
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
 
 if TYPE_CHECKING:
     from cognite.neat._toolkit_adapter import NeatClient, NeatIssueList, SchemaLimits, SchemaSnapshot
@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 
 class NeatRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "NEAT"
-    DISPLAY_NAME = "Neat (data modeling)"
+    DISPLAY_NAME = "Data modeling checks"
 
     def get_status(self) -> RuleSetStatus:
         if self.installed():
             if self.client:
                 return RuleSetStatus(
                     code="ready",
-                    message="Neat is installed and will validate data models. Fetching the full CDF snapshot may take a while.",
+                    message="Neat is installed and will validate data models. Note: this validation may take a while to complete.",
                 )
             return RuleSetStatus(
                 code="unavailable",
@@ -37,27 +37,27 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             )
 
         install_command = package_install_command("cognite-neat")
-        message = f"Neat is not installed. Install with `{install_command}`."
+        message = f"Requires the `cognite-neat` package to be installed. Install with `{install_command}`."
         if not self.client:
             message += " Then run `cdf auth init` to authenticate the Toolkit client."
         return RuleSetStatus(code="unavailable", message=message)
 
-    def validate(self) -> Iterable[Insight | FailedValidation]:
+    def validate(self) -> Iterable[Insight | InternalValidatorException]:
         data_model_type = ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind)
         for module in self.modules:
             for resource in module.resources:
                 if resource.type == data_model_type:
-                    if resource.source_path in module.unresolved_variables_by_source:
-                        # The file still contains unresolved variables (e.g. "{{space}}"), which is already
-                        # reported as its own insight. Running Neat against it would only produce a flood of
-                        # confusing, unrelated validation errors.
+                    if not resource.can_verify:
+                        # The data model itself has a syntax error or failed extra file, unrelated to
+                        # unresolved variables. Already reported as its own insight.
                         continue
                     data_model_file = resource.build_path
                     try:
                         yield from self._validate_model(data_model_file.parent, data_model_file)
                     except Exception as e:
-                        yield FailedValidation(
+                        yield InternalValidatorException(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
+                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                         )
 
@@ -130,7 +130,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
 
         for issue in issues:
             if isinstance(issue, NeatModelSyntaxError):
-                yield ModelSyntaxWarning.model_validate(issue.model_dump())
+                yield ModelSyntaxError.model_validate(issue.model_dump())
             elif isinstance(issue, NeatRecommendation):
                 yield Recommendation.model_validate(issue.model_dump())
             elif isinstance(issue, NeatConsistencyError):

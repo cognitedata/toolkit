@@ -49,7 +49,7 @@ class PipValidationResult:
 
     def create_message(self, resource_type: str, identifier: str) -> str:
         message = (
-            f"{resource_type} [bold]{identifier}[/bold] requirements.txt validation failed."
+            f"{resource_type} '{identifier}' requirements.txt validation failed."
             f"Packages could not be resolved: {self.error_message}"
         )
         if self.is_credential_error:

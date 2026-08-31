@@ -38,7 +38,8 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     InfieldLocationConfigYAML,
     InfieldV1YAML,
 )
-from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
 from .auth import GroupAllScopedCRUD
 from .classic import AssetIO
@@ -403,54 +404,80 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=resource.space)
         if resource.data_exploration_config is not None:
-            for card_attr in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY:
-                card_mapping = getattr(resource.data_exploration_config, card_attr, None)
-                if card_mapping is None:
-                    continue
-                yield (ViewIO, card_mapping.as_id())
-        if resource.view_mappings and resource.view_mappings.observation:
-            for obs_config in resource.view_mappings.observation:
-                yield (ViewIO, obs_config.view.as_id())
+            for value in vars(resource.data_exploration_config).values():
+                if isinstance(value, ViewReference):
+                    yield (ViewIO, value.as_id())
+        if resource.view_mappings is not None:
+            for attr, value in vars(resource.view_mappings).items():
+                if attr == "observation":
+                    for obs_config in value or []:
+                        yield (ViewIO, obs_config.view.as_id())
+                elif isinstance(value, ViewReference):
+                    yield (ViewIO, value.as_id())
+        if resource.data_filters is not None:
+            for data_filter in vars(resource.data_filters).values():
+                if isinstance(data_filter, DataFilter):
+                    for instance_space in data_filter.instance_spaces or []:
+                        yield (SpaceCRUD, SpaceId(space=instance_space))
+        if resource.data_storage is not None:
+            if resource.data_storage.root_location is not None:
+                yield (SpaceCRUD, SpaceId(space=resource.data_storage.root_location.space))
+            if resource.data_storage.app_instance_space is not None:
+                yield (SpaceCRUD, SpaceId(space=resource.data_storage.app_instance_space))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        if isinstance(space := item.get("space"), str):
+            yield (SpaceCRUD, SpaceId(space=space))
         data_exploration_config = item.get("dataExplorationConfig")
         if isinstance(data_exploration_config, dict):
-            for json_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.values():
-                card_mapping = data_exploration_config.get(json_key)
-                if not isinstance(card_mapping, dict):
-                    continue
-                if not in_dict(("space", "externalId", "version"), card_mapping):
-                    continue
-                yield (
-                    ViewIO,
-                    ViewId(
-                        space=card_mapping["space"],
-                        external_id=card_mapping["externalId"],
-                        version=str(card_mapping["version"]),
-                    ),
-                )
+            for value in data_exploration_config.values():
+                if isinstance(value, dict):
+                    yield from cls._view_dependent_items(value)
         view_mappings = item.get("viewMappings")
         if isinstance(view_mappings, dict):
-            observations = view_mappings.get("observation")
-            if isinstance(observations, list):
-                for obs_config in observations:
-                    if not isinstance(obs_config, dict):
-                        continue
-                    view = obs_config.get("view")
-                    if not isinstance(view, dict):
-                        continue
-                    if not in_dict(("space", "externalId", "version"), view):
-                        continue
-                    yield (
-                        ViewIO,
-                        ViewId(
-                            space=view["space"],
-                            external_id=view["externalId"],
-                            version=str(view["version"]),
-                        ),
-                    )
+            for key, value in view_mappings.items():
+                if key == "observation" and isinstance(value, list):
+                    for obs_config in value:
+                        if not isinstance(obs_config, dict):
+                            continue
+                        view = obs_config.get("view")
+                        if isinstance(view, dict):
+                            yield from cls._view_dependent_items(view)
+                elif isinstance(value, dict):
+                    yield from cls._view_dependent_items(value)
+        data_filters = item.get("dataFilters")
+        if isinstance(data_filters, dict):
+            for data_filter in data_filters.values():
+                if not isinstance(data_filter, dict):
+                    continue
+                instance_spaces = data_filter.get("instanceSpaces")
+                if isinstance(instance_spaces, list):
+                    for instance_space in instance_spaces:
+                        if isinstance(instance_space, str):
+                            yield (SpaceCRUD, SpaceId(space=instance_space))
+        data_storage = item.get("dataStorage")
+        if isinstance(data_storage, dict):
+            root_location = data_storage.get("rootLocation")
+            if isinstance(root_location, dict) and isinstance(root_location.get("space"), str):
+                yield (SpaceCRUD, SpaceId(space=root_location["space"]))
+            if isinstance(app_instance_space := data_storage.get("appInstanceSpace"), str):
+                yield (SpaceCRUD, SpaceId(space=app_instance_space))
+
+    @staticmethod
+    def _view_dependent_items(candidate: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
+        """Yields a ViewIO dependency if the given dict looks like a view reference."""
+        if in_dict(("space", "externalId", "version"), candidate):
+            yield (
+                ViewIO,
+                ViewId(
+                    space=candidate["space"],
+                    external_id=candidate["externalId"],
+                    version=str(candidate["version"]),
+                ),
+            )
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:

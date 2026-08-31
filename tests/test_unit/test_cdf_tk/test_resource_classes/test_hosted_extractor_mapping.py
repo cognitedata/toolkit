@@ -13,7 +13,7 @@ def invalid_hosted_extractor_mapping_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "myMapping", "mapping": "var->to->other", "published": True},
         {
-            "In field mapping input must be an object of type Mapping. Got 'var->to->other' of type str.",
+            "Invalid value for mapping: Input should be a valid Mapping object. Got 'var->to->other' of type str.",
         },
         id="Incorrect variables type ",
     )
@@ -27,7 +27,7 @@ def invalid_hosted_extractor_mapping_test_cases() -> Iterable:
                 "delimiter": ":,",
             },
         },
-        {"In input.delimiter string should have at most 1 character"},
+        {"Invalid value at input.delimiter: String should have at most 1 character"},
         id="Invalid delimiter in CSV input",
     )
 

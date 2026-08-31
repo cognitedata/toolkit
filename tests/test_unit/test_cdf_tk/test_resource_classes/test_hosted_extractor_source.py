@@ -100,7 +100,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"In authentication missing required field: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="RESTSource BasicAuthentication missing password",
     )
     # RESTSource with ClientCredentials (missing client_secret)
@@ -118,11 +118,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "In authentication missing required field: 'clientId'",
-            "In authentication missing required field: 'clientSecret'",
-            "In authentication missing required field: 'tokenUrl'",
-            "In authentication unknown field: 'client_id'",
-            "In authentication unknown field: 'token_url'",
+            "Missing required fields in authentication: 'clientId', 'clientSecret' and 'tokenUrl'",
+            "Unrecognized fields in authentication: 'client_id' and 'token_url'. ",
         },
         id="RESTSource ClientCredentials missing client_secret",
     )
@@ -138,7 +135,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing value
             },
         },
-        {"In authentication missing required field: 'value'"},
+        {"Missing required field in authentication: 'value'"},
         id="RESTSource QueryCredentials missing value",
     )
     # RESTSource with HeaderCredentials (missing value)
@@ -153,7 +150,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing value
             },
         },
-        {"In authentication missing required field: 'value'"},
+        {"Missing required field in authentication: 'value'"},
         id="RESTSource HeaderCredentials missing value",
     )
     # RESTSource with ScramSha256 (invalid type)
@@ -170,7 +167,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "In field authentication invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
+            "Invalid value for authentication: Invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
         },
         id="RESTSource with invalid auth type",
     )
@@ -186,7 +183,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"In authentication missing required field: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="KafkaSource ScramSha256 missing password",
     )
     # KafkaSource with BasicAuthentication (missing password)
@@ -201,7 +198,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing password
             },
         },
-        {"In authentication missing required field: 'password'"},
+        {"Missing required field in authentication: 'password'"},
         id="KafkaSource BasicAuthentication missing password",
     )
     # KafkaSource with ClientCredentials (missing client_secret)
@@ -218,7 +215,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
                 # missing client_secret
             },
         },
-        {"In authentication missing required field: 'clientSecret'"},
+        {"Missing required field in authentication: 'clientSecret'"},
         id="KafkaSource ClientCredentials missing client_secret",
     )
     # KafkaSource with QueryCredentials (invalid type)
@@ -234,7 +231,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "In field authentication invalid authentication type 'query' for Kafka source. Expected one of basic, clientCredentials, scramSha256 or scramSha512"
+            "Invalid value for authentication: Invalid authentication type 'query' for Kafka source. Expected one of basic, clientCredentials, scramSha256 or scramSha512"
         },
         id="KafkaSource QueryCredentials invalid type for Kafka",
     )

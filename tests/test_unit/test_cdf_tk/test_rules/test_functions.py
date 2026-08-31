@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
-from cognite_toolkit._cdf_tk.rules._functions import FunctionRules
+from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
 
 
@@ -51,11 +51,11 @@ class TestFunctionLimitsRule:
         )
 
     @staticmethod
-    def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionRules:
+    def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionRuleSet:
         """Create a FunctionLimitsRule with mocked client."""
         mock_client = MagicMock()
         mock_client.tool.functions.limits.return_value = function_limits
-        rule = FunctionRules(modules=[], client=mock_client)
+        rule = FunctionRuleSet(modules=[], client=mock_client)
         return rule
 
     def test_get_status_with_client(self, function_limits: FunctionLimits) -> None:
@@ -67,7 +67,7 @@ class TestFunctionLimitsRule:
 
     def test_get_status_without_client(self) -> None:
         """Test get_status returns reduced when no client is provided."""
-        rule = FunctionRules(modules=[])
+        rule = FunctionRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == "reduced"
         assert "requirement" in status.message.lower()
@@ -173,7 +173,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-RUNTIME"
+        assert errors[0].code == "FUNCTION-UNKNOWN-RUNTIME"
         assert "py314" in errors[0].message
 
     def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -242,13 +242,13 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
         error = errors[0]
-        assert error.code == "FUNCTION-CPU"
+        assert error.code == "FUNCTION-CPU-OUT-OF-RANGE"
         assert error.message is not None
         assert error.fix is not None
 
     def test_limits_property_returns_none_without_client(self) -> None:
         """Test that limits property returns None when no client is available."""
-        rule = FunctionRules(modules=[])
+        rule = FunctionRuleSet(modules=[])
         assert rule.limits is None
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")
@@ -277,7 +277,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
 
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-REQUIREMENTS-TXT"
+        assert errors[0].code == "FUNCTION-INVALID-REQUIREMENTS"
         mock_validate_pip.assert_called_once()
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")

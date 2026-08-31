@@ -7,12 +7,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_if_possible
 
-from ._base import FailedValidation, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "MISSING-DEPENDENCY"
-    DISPLAY_NAME = "dependencies"
+    DISPLAY_NAME = "Dependency checks"
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -21,7 +20,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             message = "Will validate dependencies against CDF."
         return RuleSetStatus(code="ready", message=message)
 
-    def validate(self) -> Iterable[Insight | FailedValidation]:
+    def validate(self) -> Iterable[Insight | InternalValidatorException]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceIO], Identifier]] = {
             (resource.crud_cls, resource.identifier) for module in self.modules for resource in module.resources
@@ -46,8 +45,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for identifier in missing:
                         referencing_resources = expected_by_identifier[identifier]
                         yield ConsistencyError(
-                            code=f"{self.CODE_PREFIX}-CDF",
-                            message=f"Broken reference to {display_name} with id [bold]{identifier}[/]",
+                            code="UNKNOWN-REFERENCE",
+                            message=f"Unknown reference to {display_name} with id '{identifier}'",
                             fix=f"Ensure that {display_name} exists or remove the reference to it.",
                             source_file=self._source_files_for_resources(referencing_resources),
                         )
@@ -57,9 +56,9 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 for identifier, expected_resources in expected_by_identifier.items():
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
-                        code=f"{self.CODE_PREFIX}-LOCAL",
-                        message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
-                        fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
+                        code="UNVERIFIED-REFERENCE",
+                        message=f"Missing {resource_type_name} '{identifier}'. It is referenced by {referenced_str}.",
+                        fix=f"Provide credentials to enable CDF verification. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                         source_file=self._source_files_for_resources(expected_resources),
                     )
