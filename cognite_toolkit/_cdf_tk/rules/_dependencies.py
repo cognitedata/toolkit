@@ -58,7 +58,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     yield ConsistencyError(
                         code="UNVERIFIED-REFERENCE",
                         message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
-                        fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
+                        fix=f"Provide credentials to enable CDF verification. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                         source_file=self._source_files_for_resources(expected_resources),
                     )

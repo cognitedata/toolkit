@@ -727,7 +727,7 @@ class BuildV2Command(ToolkitCommand):
         self, error: ValidationError
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
         categorized_errors = humanize_validation_error_categorized(error) or [
-            ("The resource definition has syntax errors.", "error")
+            ("The YAML doesn't follow the required format.", "error")
         ]
         warning_messages = [message for message, category in categorized_errors if category == "warning"]
         error_messages = [message for message, category in categorized_errors if category == "error"]
@@ -737,7 +737,7 @@ class BuildV2Command(ToolkitCommand):
             syntax_error = ModelSyntaxError(
                 code="MODEL-SYNTAX-ERROR",
                 message="\n".join(error_messages),
-                fix="Make sure the resource YAML content is valid and follows the expected structure.",
+                fix="Compare the YAML with reference documentation and make sure it is valid.",
             )
 
         syntax_warning = None
@@ -745,8 +745,7 @@ class BuildV2Command(ToolkitCommand):
             syntax_warning = ModelSyntaxWarning(
                 code="MODEL-SYNTAX-WARNING",
                 message="\n".join(warning_messages),
-                fix="This could be a typo, or something Toolkit does not yet recognize. It will still "
-                "be included when the resource is deployed, but may be ignored or rejected by CDF.",
+                fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
             )
         return syntax_error, syntax_warning
 
