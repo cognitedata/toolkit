@@ -143,7 +143,7 @@ class NamingConventionWarning(YAMLFileWarning):
 
     def get_message(self) -> str:
         message = (
-            f"The {self.ext_id_type} identifier [bold]{self.external_id!r}[/bold] of the resource {self.resource} "
+            f"The {self.ext_id_type} identifier {self.external_id!r} of the resource {self.resource} "
             f"does not follow the recommended naming convention {self.recommendation}"
         )
         return message
@@ -247,8 +247,10 @@ class EnvironmentVariableMissingWarning(FileReadWarning):
         from cognite_toolkit._cdf_tk.utils import humanize_collection
 
         suffix = "s are" if len(self.variables) > 1 else " is"
-        variables = humanize_collection(self.variables, sort=True, bind_word="and")
-        return f"The environment variable{suffix} missing: {variables}"
+        quoted_variables = humanize_collection(
+            [f"{variable!r}" for variable in self.variables], sort=True, bind_word="and"
+        )
+        return f"The environment variable{suffix} missing: {quoted_variables}"
 
 
 @dataclass(frozen=True)
@@ -272,7 +274,7 @@ class RequirementsTXTValidationWarning(FileReadWarning):
 
     def get_message(self) -> str:
         message = (
-            f"{self.resource.title()} [bold]{self.external_id}[/bold] requirements.txt validation failed. "
+            f"{self.resource.title()} '{self.external_id}' requirements.txt validation failed. "
             f"Packages could not be resolved: {self.error_details}"
         )
         if self.is_credential_error:

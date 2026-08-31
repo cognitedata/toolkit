@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildSourceFiles,
-    ModelSyntaxWarning,
+    ModelSyntaxError,
     ModuleSource,
     RelativeDirPath,
     RelativeFilePath,
@@ -218,7 +218,7 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                error=ModelSyntaxWarning(
+                                error=ModelSyntaxError(
                                     code=cls.VARIABLE_ERROR_CODE,
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
@@ -243,7 +243,7 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                error=ModelSyntaxWarning(
+                                error=ModelSyntaxError(
                                     code=cls.VARIABLE_ERROR_CODE,
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",

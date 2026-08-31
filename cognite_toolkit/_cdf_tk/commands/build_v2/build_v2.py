@@ -16,6 +16,7 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -36,7 +37,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    Insight,
+    ModelSyntaxError,
+    ModelSyntaxWarning,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
@@ -70,7 +75,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_rmtree,
     yaml_safe_dump,
 )
-from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error, humanize_validation_error_categorized
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
@@ -496,10 +501,21 @@ class BuildV2Command(ToolkitCommand):
                         module_id=module.id,
                         resources=built_resources,
                         insights=insights,
+                        syntax_errors_by_source={
+                            file.source_path: file.syntax_error
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                            and file.syntax_error is not None
+                            # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
+                            # almost certainly caused by that and is already reported as its own insight.
+                            and not file.unresolved_variables
+                        },
                         syntax_warnings_by_source={
                             file.source_path: file.syntax_warning
                             for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warning is not None
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                            and file.syntax_warning is not None
+                            and not file.unresolved_variables
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
                         ignored_files=module.ignored_files,
@@ -579,9 +595,10 @@ class BuildV2Command(ToolkitCommand):
             parsed_yaml = read_yaml_content(substituted_content)
         except yaml.YAMLError as yaml_error:
             if unresolved_variables:
+                quoted_variables = humanize_collection([f"{variable!r}" for variable in unresolved_variables])
                 error = (
                     f"Failed to parse YAML content. "
-                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}.\n"
+                    f"This is likely due to unresolved variables: {quoted_variables}.\n"
                     f"Error: {yaml_error!s}"
                 )
             else:
@@ -596,7 +613,7 @@ class BuildV2Command(ToolkitCommand):
         if parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="EMPTY-YAML",
+                code="EMPTY-FILE",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
@@ -611,16 +628,18 @@ class BuildV2Command(ToolkitCommand):
 
         if isinstance(parsed_yaml, dict):
             toolkit_resource: ToolkitResource | None = None
+            syntax_error: ModelSyntaxError | None = None
             syntax_warning: ModelSyntaxWarning | None = None
             try:
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
             except ValidationError as errors:
-                syntax_warning = self._create_syntax_warning(errors)
+                syntax_error, syntax_warning = self._create_syntax_warning(errors)
                 try:
                     identifier = crud_class.get_id(parsed_yaml)
                 except KeyError:
                     return SuccessfulReadYAMLFile(
+                        syntax_error=syntax_error,
                         syntax_warning=syntax_warning,
                         resources=[],
                         **args,
@@ -631,6 +650,7 @@ class BuildV2Command(ToolkitCommand):
             )
 
             return SuccessfulReadYAMLFile(
+                syntax_error=syntax_error,
                 syntax_warning=syntax_warning,
                 resources=[
                     ReadResource(
@@ -645,11 +665,12 @@ class BuildV2Command(ToolkitCommand):
         # and thus not available to te static type checker.
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
+        syntax_error = None
         syntax_warning = None
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_warning = self._create_syntax_warning(errors)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors)
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
@@ -671,7 +692,11 @@ class BuildV2Command(ToolkitCommand):
                 )
             )
         return SuccessfulReadYAMLFile(
-            syntax_warning=syntax_warning, resources=read_resources, **args, unresolved_variables=unresolved_variables
+            syntax_error=syntax_error,
+            syntax_warning=syntax_warning,
+            resources=read_resources,
+            **args,
+            unresolved_variables=unresolved_variables,
         )
 
     @classmethod
@@ -700,14 +725,31 @@ class BuildV2Command(ToolkitCommand):
             output.append(extra_file)
         return output
 
-    def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
-        errors = humanize_validation_error(error)
-        error_str = " - ".join(errors)
-        return ModelSyntaxWarning(
-            code="MODEL-SYNTAX-WARNING",
-            message=f"The resource definition has syntax errors:\n{error_str}",
-            fix="Make sure the resource YAML content is valid and follows the expected structure.",
-        )
+    def _create_syntax_warning(
+        self, error: ValidationError
+    ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
+        categorized_errors = humanize_validation_error_categorized(error) or [
+            ("The YAML doesn't follow the required format.", "error")
+        ]
+        warning_messages = [message for message, category in categorized_errors if category == "warning"]
+        error_messages = [message for message, category in categorized_errors if category == "error"]
+
+        syntax_error = None
+        if error_messages:
+            syntax_error = ModelSyntaxError(
+                code="MODEL-SYNTAX-ERROR",
+                message="\n".join(error_messages),
+                fix="Compare the YAML with reference documentation and make sure it is valid.",
+            )
+
+        syntax_warning = None
+        if warning_messages:
+            syntax_warning = ModelSyntaxWarning(
+                code="MODEL-SYNTAX-WARNING",
+                message="\n".join(warning_messages),
+                fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+            )
+        return syntax_error, syntax_warning
 
     def _export_resources(
         self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
@@ -779,17 +821,13 @@ class BuildV2Command(ToolkitCommand):
         return plan
 
     def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
-        ready_count = sum(1 for step in plan if step.status.code == "ready")
         skip_count = sum(1 for step in plan if step.status.code == "skip")
         unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
 
-        summary_lines = [f"[green]✓[/] [bold]{ready_count}[/] validations ready to run"]
         border_color = 0
         if skip_count:
-            summary_lines.append(f"[yellow]![/] [bold]{skip_count}[/] validations skipped")
             border_color = max(border_color, 1)
         if unavailable_count:
-            summary_lines.append(f"[yellow]![/] [bold]{unavailable_count}[/] validations unavailable")
             border_color = max(border_color, 1)
 
         table = ToolkitTable(*["Validation", "Status", "Message"])
@@ -797,20 +835,15 @@ class BuildV2Command(ToolkitCommand):
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
             ]
-            status_display = f"[{status_style}]{step.status.code}[/]"
+            status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
             message = step.status.message or "-"
             table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-
-        validation_sections = [
-            ToolkitPanelSection(title="Planned", content=summary_lines),
-            ToolkitPanelSection(title="Validation Steps", content=[table.as_panel_detail()]),
-        ]
 
         border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
 
         console.print(
             ToolkitPanel(
-                Group(*validation_sections),
+                table,
                 title="Planning validation",
                 border_style=border_style,
             )
@@ -826,7 +859,7 @@ class BuildV2Command(ToolkitCommand):
                 if step.status.code != "ready":
                     continue
                 display_name = step.rule.DISPLAY_NAME
-                progress.update(validating_task, description=f"Checking {display_name}...")
+                progress.update(validating_task, description=f"Running '{display_name}'...")
 
                 insights: list[Insight] = list(step.rule.validate())
 
@@ -842,7 +875,8 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
-            "FailedValidation": (AuraColor.RED.rich, "✗"),
+            "InternalValidatorException": (AuraColor.AMBER.rich, "!"),
+            "ModelSyntaxError": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "*"),
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
@@ -867,7 +901,13 @@ class BuildV2Command(ToolkitCommand):
                 message = self._truncate_for_terminal(insight.message)
                 content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
                 if insight.fix:
-                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
+                    content.append(
+                        hanging_indent(
+                            "→",
+                            Text(f"Fix: {insight.fix}"),
+                            marker_style=AuraColor.GREEN.rich,
+                        )
+                    )
                 insight_subsections.append(
                     ToolkitPanelSection(
                         title=self._insight_section_title(insight),
@@ -893,9 +933,9 @@ class BuildV2Command(ToolkitCommand):
         insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
 
         match max_border_severity:
-            case severity if severity <= 15:
+            case severity if severity < 15:
                 border_style = AuraColor.GREEN.rich
-            case severity if 15 < severity <= 35:
+            case severity if 15 <= severity <= 35:
                 border_style = AuraColor.AMBER.rich
             case _:
                 border_style = AuraColor.RED.rich
@@ -907,15 +947,19 @@ class BuildV2Command(ToolkitCommand):
             )
         )
 
-    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 1000
+    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
 
     @classmethod
-    def _truncate_for_terminal(cls, message: str) -> str:
-        """Truncates a message for terminal display only; the full message is always written to the insights file."""
+    def _truncate_for_terminal(cls, message: str) -> RenderableType:
+        """Truncates a message for terminal display only."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
-            return message
-        truncated_notice = "[dim italic](truncated, see full message in the insights file)[/]"
-        return f"{message[: cls._MAX_TERMINAL_MESSAGE_LENGTH]}... {truncated_notice}"
+            return Text(message)
+        truncated_notice = Text.from_markup("[dim italic](truncated, see insights file for more details)[/]")
+        return Text.assemble(
+            message[: cls._MAX_TERMINAL_MESSAGE_LENGTH],
+            "... ",
+            truncated_notice,
+        )
 
     @staticmethod
     def _humanize_insight_code(code: str | None) -> str:
@@ -969,9 +1013,9 @@ class BuildV2Command(ToolkitCommand):
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
             match severity:
-                case severity if severity <= 15:
+                case severity if severity < 15:
                     insight_style = "[green]✓[/]"
-                case severity if 15 < severity <= 35:
+                case severity if 15 <= severity <= 35:
                     insight_style = "[yellow]![/]"
                 case _:
                     insight_style = "[red]✗[/]"
@@ -983,13 +1027,13 @@ class BuildV2Command(ToolkitCommand):
             build_dir_display = f"{build_dir_display}/"
 
         match max_severity:
-            case severity if severity <= 15:
+            case severity if severity < 15:
                 border_color = AuraColor.GREEN.rich
                 recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
-            case severity if 15 < severity <= 35:
+            case severity if 15 <= severity <= 35:
                 recommendation = (
                     "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
-                    "There are model syntax warnings. Deployment may fail for some resources."
+                    "There are warnings that should be reviewed. Deployment may potentially fail for some resources."
                 )
                 border_color = AuraColor.AMBER.rich
             case _:

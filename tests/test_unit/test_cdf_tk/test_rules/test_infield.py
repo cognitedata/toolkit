@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     RelativeDirPath,
 )
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
-from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMViewPropertiesRuleSet
+from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
@@ -103,14 +103,14 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
     return _create
 
 
-class TestInFieldCDMViewPropertiesRuleSet:
+class TestInFieldCDMRuleSet:
     def test_get_status_with_client(self) -> None:
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[], client=MagicMock())
+        rule = InFieldCDMRuleSet(modules=[], client=MagicMock())
         status = rule.get_status()
         assert status.code == "ready"
 
     def test_get_status_without_client(self) -> None:
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[])
+        rule = InFieldCDMRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == "reduced"
 
@@ -139,7 +139,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
 
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.side_effect = lambda ids, **_: [view_map[v] for v in ids if v in view_map]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         results = list(rule.validate())
         assert results == []
         mock_client.tool.views.retrieve.assert_called_once()
@@ -173,10 +173,10 @@ class TestInFieldCDMViewPropertiesRuleSet:
         activities_required = _REQUIRED_PROPERTIES["assetActivitiesCardView"]
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(activities_id, activities_required - {"mainAsset"})]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
+        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
         assert "mainAsset" in errors[0].message
 
     def test_view_not_found_in_cdf_skips_property_check(
@@ -205,7 +205,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = []
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_retrieve_called_once_for_multiple_resources(
@@ -236,7 +236,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
             mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
             mock_view(documents_id, _REQUIRED_PROPERTIES["assetDocumentsCardView"]),
         ]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         list(rule.validate())
         mock_client.tool.views.retrieve.assert_called_once()
         call_view_ids = mock_client.tool.views.retrieve.call_args[0][0]
@@ -278,7 +278,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets", "files"}))]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_observation_fields_config_unknown_property(
@@ -317,10 +317,10 @@ class TestInFieldCDMViewPropertiesRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets"}))]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
         assert "files" in errors[0].message
         assert errors[0].source_file == format_insight_source_file(yaml_file)
 
@@ -353,7 +353,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         resource = create_built_resource(yaml_file, yaml_file)
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
         mock_client.tool.views.retrieve.assert_not_called()
 
@@ -391,7 +391,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name", "description"}))]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_asset_properties_card_config_unknown_property(
@@ -428,10 +428,10 @@ class TestInFieldCDMViewPropertiesRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name"}))]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMViewPropertiesRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
         assert "unknownField" in errors[0].message
         assert errors[0].source_file == format_insight_source_file(yaml_file)
 
@@ -461,7 +461,7 @@ class TestInFieldCDMViewPropertiesRuleSet:
         default_asset_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.return_value = [mock_view(default_asset_id, frozenset({"name"}))]
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         assert list(rule.validate()) == []
         mock_client.tool.views.retrieve.assert_called_once_with([default_asset_id], include_inherited_properties=True)
 
@@ -479,6 +479,6 @@ class TestInFieldCDMViewPropertiesRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.tool.views.retrieve.side_effect = ToolkitAPIError("Server error", code=500)
-        rule = InFieldCDMViewPropertiesRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         with pytest.raises(ToolkitAPIError, match="Server error"):
             list(rule.validate())

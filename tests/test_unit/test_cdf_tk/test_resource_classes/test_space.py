@@ -18,7 +18,7 @@ def invalid_space_test_cases() -> Iterable:
     yield pytest.param(
         {"space": "space"},
         {
-            "In field space 'space' is a reserved space. Reserved Spaces: cdf, dms, edge, "
+            "Invalid value for space: 'space' is a reserved space. Reserved Spaces: cdf, dms, edge, "
             "node, pg3, shared, space and system"
         },
         id="Reserved name",
@@ -27,7 +27,7 @@ def invalid_space_test_cases() -> Iterable:
         {
             "space": "invalid<characters>",
         },
-        {"In field space string should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
+        {"Invalid value for space: String should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
         id="Invalid characters in space name",
     )
 

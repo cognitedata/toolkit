@@ -182,13 +182,27 @@ class InstanceConversionIssue(MigrationIssue):
         """Check if there are any issues recorded in this InstanceConversionIssue."""
         return bool(self.errors)
 
+    @property
+    def label(self) -> str:
+        return "Instance conversion"
+
+
+class TargetSpaceResolutionIssue(InstanceConversionIssue):
+    """Represents a location-split issue where an instance's target space could not be resolved."""
+
+    type: Literal["targetSpaceResolution"] = "targetSpaceResolution"  # type: ignore[assignment]
+
+    @property
+    def label(self) -> str:
+        return "Target space resolution"
+
 
 def instance_conversion_issue_as_migration_entry(
     issue: InstanceConversionIssue, *, source: str, destination: str
 ) -> MigrationEntryV2:
     return MigrationEntryV2(
         id=issue.id,
-        label="Instance conversion",
+        label=issue.label,
         message="; ".join(issue.errors) if issue.errors else "Conversion issue",
         severity=issue.severity,
         source=source,
