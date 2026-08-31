@@ -265,7 +265,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         return csv_writer
 
 
-class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
+class ParquetWriter(TableWriter["pq.ParquetWriter"]):
     FORMAT = ".parquet"
 
     def __init__(
