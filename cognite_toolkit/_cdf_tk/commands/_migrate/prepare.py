@@ -35,11 +35,11 @@ class MigrationPrepareCommand(ToolkitCommand):
         print(f"{verb} {MODEL_ID!r}")
 
         plan: list[DeploymentStep[Any]] = [
-            DeploymentStep(SpaceCRUD, [], read_resources=[SPACE]),
-            DeploymentStep(ContainerCRUD, [], read_resources=CONTAINERS),
-            DeploymentStep(ViewIO, [], read_resources=VIEWS),
-            DeploymentStep(DataModelIO, [], read_resources=[COGNITE_MIGRATION_MODEL]),
-            DeploymentStep(ResourceViewMappingIO, [], read_resources=create_default_mappings()),
+            DeploymentStep(SpaceCRUD, [], resource_requests=[SPACE]),
+            DeploymentStep(ContainerCRUD, [], resource_requests=CONTAINERS),
+            DeploymentStep(ViewIO, [], resource_requests=VIEWS),
+            DeploymentStep(DataModelIO, [], resource_requests=[COGNITE_MIGRATION_MODEL]),
+            DeploymentStep(ResourceViewMappingIO, [], resource_requests=create_default_mappings()),
         ]
 
         results = deploy_cmd.apply_plan(

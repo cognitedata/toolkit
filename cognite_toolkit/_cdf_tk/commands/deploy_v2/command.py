@@ -144,14 +144,14 @@ class DeploymentStep(Generic[T_RequestResource]):
         files: The files to deploy in this step, all of which should be of the same structure.
         skipped_cruds: Resource types that this step depends on but are skipped due to the include filter.
             This is used to warn the user about potential issues with the deployment.
-        read_resources: Resources that are given directly in their request form, rather than being read from files.
+        resource_requests: Resources that are given directly in their request form, rather than being read from files.
 
     """
 
     crud_cls: type[ResourceIO]
     files: list[Path]
     skipped_cruds: Set[type[ResourceIO]] = field(default_factory=set)
-    read_resources: list[T_RequestResource] | None = None
+    resource_requests: list[T_RequestResource] | None = None
 
 
 @dataclass
@@ -699,8 +699,8 @@ class DeployV2Command(ToolkitCommand):
                     resource_by_id = {}
                 resource_by_id.update(
                     {
-                        crud.get_id(read.request): ReadResource(request=read, raw_dict=read.dump())
-                        for read in (step.read_resources or [])
+                        crud.get_id(request): ReadResource(request=request, raw_dict=request.dump())
+                        for request in (step.resource_requests or [])
                     }
                 )
                 if not resource_by_id:
