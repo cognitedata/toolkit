@@ -567,6 +567,26 @@ class TestDisplayInsightsOutput:
         assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unknown field: 'Name'" in rendered
 
+    def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        pattern = "^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$"
+        insights = InsightList(
+            [
+                ModelSyntaxWarning(
+                    code="MODEL-SYNTAX-WARNING",
+                    message=f"In field externalId string should match pattern '{pattern}'",
+                    fix="Make sure the resource YAML content is valid and follows the expected structure.",
+                    source_file="modules/quality/data_products/Quality.DataProduct.yaml",
+                )
+            ]
+        )
+
+        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+
+        rendered = output.getvalue()
+        assert pattern in rendered
+        assert "^({0,98})?$" not in rendered
+
 
 def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
     if isinstance(result, FailedReadYAMLFile):
