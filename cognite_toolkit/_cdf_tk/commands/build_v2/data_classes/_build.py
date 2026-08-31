@@ -143,11 +143,12 @@ class BuiltModule(BaseModel):
         for path, warning in self.syntax_warnings_by_source.items():
             insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
         for path, variables in self.unresolved_variables_by_source.items():
+            quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
             insights.append(
                 ConsistencyError(
                     code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} [bold]{humanize_collection(variables)}[/]",
-                    fix="Make sure to define the variables in the 'config YAML' file and that they are "
+                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
+                    fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
                     "correctly placed in the variables section matching the file path",
                     source_file=format_insight_source_file(path),
                 )

@@ -101,14 +101,15 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         # Validate runtime
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
+                quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
                 yield ConsistencyError(
                     message=(
                         f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
                         f"available in this CDF project. "
-                        f"Available runtimes: {humanize_collection(limits.runtimes)}."
+                        f"Available runtimes: {quoted_runtimes}."
                     ),
                     code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
-                    fix=f"Use one of the available runtimes: {humanize_collection(limits.runtimes)}.",
+                    fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=source_file,
                 )
 

@@ -46,7 +46,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         referencing_resources = expected_by_identifier[identifier]
                         yield ConsistencyError(
                             code="UNKNOWN-REFERENCE",
-                            message=f"Unknown reference to {display_name} with id [bold]{identifier}[/]",
+                            message=f"Unknown reference to {display_name} with id '{identifier}'",
                             fix=f"Ensure that {display_name} exists or remove the reference to it.",
                             source_file=self._source_files_for_resources(referencing_resources),
                         )
@@ -57,7 +57,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     referenced_str = self._create_reference_string(expected_resources)
                     yield ConsistencyError(
                         code="UNVERIFIED-REFERENCE",
-                        message=f"Missing {resource_type_name} [bold]{identifier}[/]. It is referenced by {referenced_str}.",
+                        message=f"Missing {resource_type_name} '{identifier}'. It is referenced by {referenced_str}.",
                         fix=f"Provide credentials to enable CDF verification. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
                         source_file=self._source_files_for_resources(expected_resources),

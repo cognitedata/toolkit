@@ -89,10 +89,11 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
 
         supported_models = availability.supported_agent_models
         if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
+            quoted_models = humanize_collection([f"{model!r}" for model in supported_models])
             yield ConsistencyError(
                 message=(
                     f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
-                    f"CDF project. Available models: {humanize_collection(supported_models)}."
+                    f"CDF project. Available models: {quoted_models}."
                 ),
                 code=f"{self.CODE_PREFIX}-MODEL",
                 fix="Use one of the available models for this CDF project.",
@@ -102,11 +103,14 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         if agent_def.runtime_version:
             supported_runtime_versions = availability.supported_agent_runtime_versions
             if supported_runtime_versions is not None and agent_def.runtime_version not in supported_runtime_versions:
+                quoted_runtime_versions = humanize_collection(
+                    [f"{runtime_version!r}" for runtime_version in supported_runtime_versions]
+                )
                 yield ConsistencyError(
                     message=(
                         f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
                         f"available in this CDF project. "
-                        f"Available runtime versions: {humanize_collection(supported_runtime_versions)}."
+                        f"Available runtime versions: {quoted_runtime_versions}."
                     ),
                     code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix="Use one of the available runtime versions for this CDF project.",

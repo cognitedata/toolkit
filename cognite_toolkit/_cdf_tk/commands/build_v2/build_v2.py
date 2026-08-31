@@ -595,9 +595,10 @@ class BuildV2Command(ToolkitCommand):
             parsed_yaml = read_yaml_content(substituted_content)
         except yaml.YAMLError as yaml_error:
             if unresolved_variables:
+                quoted_variables = humanize_collection([f"{variable!r}" for variable in unresolved_variables])
                 error = (
                     f"Failed to parse YAML content. "
-                    f"This is likely due to unresolved variables: {humanize_collection(unresolved_variables)!s}.\n"
+                    f"This is likely due to unresolved variables: {quoted_variables}.\n"
                     f"Error: {yaml_error!s}"
                 )
             else:

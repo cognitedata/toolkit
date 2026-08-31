@@ -148,13 +148,13 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
 
         missing = required - set(view.properties.keys())
         if missing:
+            quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
                 message=(
-                    f"View {view_id!s} used as {card_key!r} "
-                    f"is missing required properties: {humanize_collection(sorted(missing))}."
+                    f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
                 ),
-                fix=f"Ensure the view has these properties: {humanize_collection(sorted(missing))}.",
+                fix=f"Ensure the view has these properties: {quoted_missing}.",
                 source_file=format_insight_source_file(resource.source_path),
             )
 
@@ -172,12 +172,12 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
 
         unknown = field_keys - set(view.properties.keys())
         if unknown:
+            quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY",
                 message=(
-                    f"View {view_id!s} used for {config_key!r} "
-                    f"does not have properties: {humanize_collection(sorted(unknown))}."
+                    f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."
                 ),
-                fix=f"Use property names that exist on the view: {humanize_collection(sorted(unknown))}.",
+                fix=f"Use property names that exist on the view: {quoted_unknown}.",
                 source_file=format_insight_source_file(resource.source_path),
             )
