@@ -177,7 +177,7 @@ def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHan
                 response.raise_for_status()
                 context.result = {"tokens": response.json()}
                 self._respond_html(
-                    "Login Successful",
+                    "Toolkit login successful",
                     "You can close this window and return to the terminal.",
                     success=True,
                 )
