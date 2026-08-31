@@ -865,7 +865,7 @@ class BuildV2Command(ToolkitCommand):
 
             insight_subsections: list[RenderableType] = []
             for insight in insight_content:
-                message = self._format_insight_message_for_terminal(insight.message)
+                message = self._truncate_for_terminal(insight.message)
                 content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
                 if insight.fix:
                     content.append(
@@ -917,8 +917,8 @@ class BuildV2Command(ToolkitCommand):
     _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 1000
 
     @classmethod
-    def _format_insight_message_for_terminal(cls, message: str) -> RenderableType:
-        """Formats an insight message for terminal display as plain text."""
+    def _truncate_for_terminal(cls, message: str) -> RenderableType:
+        """Truncates a message for terminal display only; the full message is always written to the insights file."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
             return Text(message)
         truncated_notice = Text.from_markup("[dim italic](truncated, see full message in the insights file)[/]")
