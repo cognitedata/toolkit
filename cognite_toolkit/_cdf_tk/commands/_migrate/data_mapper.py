@@ -1800,15 +1800,18 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     yield node.as_id(), constraint_by_prop_id, source
 
 
-def _relocation_source(source_space: str) -> InstanceSource:
-    return InstanceSource(
-        source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
-        properties={"sourceSpace": source_space},
-    )
-
-
 def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
-    return mapped_node.model_copy(update={"sources": [*(mapped_node.sources or []), _relocation_source(source_space)]})
+    return mapped_node.model_copy(
+        update={
+            "sources": [
+                *(mapped_node.sources or []),
+                InstanceSource(
+                    source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+                    properties={"sourceSpace": source_space},
+                ),
+            ]
+        }
+    )
 
 
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
@@ -1840,40 +1843,36 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         self._instance_id_mapper = instance_id_mapper
         self._target_by_root_asset = target_by_root_asset
         self._source_views = dict(source_views) if source_views is not None else None
-        self._notification_view: ViewId | None = None
         self._notification_resolver: AssetExternalIdTargetSpaceResolver | None = None
-        if self._source_views is not None:
-            self._notification_view = self._source_views["notification"]
+        if self._source_views is None:
+            self._parent_property_by_view: Mapping[ViewId, str] = APP_DATA_PARENT_PROPERTY_BY_VIEW
+        else:
+            self._parent_property_by_view = {self._source_views["operation"]: "parentActivityId"}
             self._notification_resolver = AssetExternalIdTargetSpaceResolver(
                 client,
-                self._notification_view,
+                self._source_views["notification"],
                 "assetExternalId",
                 target_by_root_asset,
             )
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
-        if self._notification_resolver is not None and self._notification_view is not None:
+        source_views = self._source_views
+        resolver = self._notification_resolver
+        if source_views is not None and resolver is not None:
+            notification_view = source_views["notification"]
             matching_nodes = [
                 data_item.item
                 for data_item in source
                 if isinstance(data_item.item, NodeResponse)
-                and self._notification_view in (data_item.item.properties or {})
+                and notification_view in (data_item.item.properties or {})
             ]
             if matching_nodes:
-                self._notification_resolver.prepare_page(matching_nodes)
-        self._prefetch_relocation_tags(source)
+                resolver.prepare_page(matching_nodes)
+        self._instance_id_mapper.prefetch(self._relocation_tag_candidates(source))
         return list(super().map(source))
 
-    def _parent_property_by_view(self) -> Mapping[ViewId, str]:
-        if self._source_views is None:
-            return APP_DATA_PARENT_PROPERTY_BY_VIEW
-        return {self._source_views["operation"]: "parentActivityId"}
-
     def _relocation_tag_candidates(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> list[str]:
-        """Collect referenced parent external IDs that may need their target space prefetched from the
-        InstanceSpaceRelocationSource view before mapping the given page.
-        """
-        parent_property_by_view = self._parent_property_by_view()
+        parent_property_by_view = self._parent_property_by_view
         candidates: list[str] = []
         for data_item in source:
             item = data_item.item
@@ -1887,9 +1886,6 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             elif isinstance(item, EdgeResponse) and item.type in APP_DATA_PARENT_EDGE_TYPES:
                 candidates.append(item.start_node.external_id)
         return candidates
-
-    def _prefetch_relocation_tags(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> None:
-        self._instance_id_mapper.prefetch(self._relocation_tag_candidates(source))
 
     def _map_single_node(
         self,
@@ -1929,7 +1925,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                 return self._target_space_from_root_location(node, activity_view)
             if operation_view in properties:
                 return self._target_space_from_parent_property(node, operation_view, "parentActivityId")
-            if self._notification_resolver is not None and self._notification_view in properties:
+            if self._notification_resolver is not None and self._source_views["notification"] in properties:
                 return self._notification_resolver.resolve(node)
         raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
 
@@ -1943,12 +1939,8 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
             raise TargetSpaceResolutionError(
-                f"rootLocation is {root_location!r}, but Toolkit could not resolve a deployed "
-                f"CDM target space for it among the root location(s) sharing legacy instance space "
-                f"{self._instance_id_mapper.source_space!r}: "
-                f"{humanize_collection(self._target_by_root_asset) or 'none'}. This can happen if "
-                f"the asset representing {root_location!r} has not yet been migrated to CDF, or if no deployed CDM InField "
-                "location config exists for it yet (see 'cdf migrate infield-configs').",
+                f"rootLocation {root_location!r} has no CDM target space among "
+                f"{humanize_collection(self._target_by_root_asset) or 'none'}.",
                 severity=Severity.failure,
             )
         return target_space
@@ -1959,12 +1951,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         parent_edge_type: EdgeTypeId,
         other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
     ) -> str:
-        parents = [
-            *other_side_by_edge_type_and_direction.get(parent_edge_type, []),
-            *other_side_by_edge_type_and_direction.get(
-                EdgeTypeId(type=parent_edge_type.type, direction="outwards"), []
-            ),
-        ]
+        parents = list(other_side_by_edge_type_and_direction.get(parent_edge_type, []))
         if not parents:
             raise TargetSpaceResolutionError(
                 f"Has no inbound {parent_edge_type!s} edge to a parent.",

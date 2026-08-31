@@ -611,16 +611,7 @@ class InstanceIdMapper(ABC):
         raise NotImplementedError
 
     def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
-        """Map an edge's own instance ID to its destination.
-
-        Args:
-            edge_id: The source edge's own instance ID.
-            owning_node_target_space: The already-resolved destination space of the node that owns this edge
-                (i.e. the node whose conversion is creating it). Mappers that place edges alongside their
-                owning node can use this instead of resolving the edge's own ID independently.
-
-        Defaults to mapping the edge like any other instance ID.
-        """
+        """Map an edge into the owning node's target space. Defaults to ``map_instance_id``."""
         return self.map_instance_id(edge_id)
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:

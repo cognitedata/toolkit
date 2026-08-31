@@ -193,7 +193,6 @@ _CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1"
 _ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
 
 COGNITE_SOLUTION_TAG_VIEW_ID = ViewId(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
-_SOLUTION_TAGS_PROPERTY_ID = "solutionTags"
 
 # Resolved from the node's own rootLocation.
 APP_DATA_ROOT_LOCATION_VIEWS = (_TEMPLATE_VIEW, _CHECKLIST_VIEW, _OBSERVATION_VIEW)
@@ -265,13 +264,11 @@ class AssetExternalIdTargetSpaceResolver:
         self._root_id_by_asset_external_id: dict[str, int | None] = {}
 
     def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
-        asset_external_ids = {
-            asset_external_id
-            for node in nodes
-            if (asset_external_id := as_external_id(get_view_property(node, self._view_id, self._property_id)))
-            is not None
-            and asset_external_id not in self._root_id_by_asset_external_id
-        }
+        asset_external_ids: set[str] = set()
+        for node in nodes:
+            asset_external_id = as_external_id(get_view_property(node, self._view_id, self._property_id))
+            if asset_external_id is not None and asset_external_id not in self._root_id_by_asset_external_id:
+                asset_external_ids.add(asset_external_id)
         if not asset_external_ids:
             return
         assets = self._client.tool.assets.retrieve(
@@ -312,7 +309,7 @@ def register_solution_tag_references(
     for properties in (node.properties or {}).values():
         if not isinstance(properties, dict):
             continue
-        value = properties.get(_SOLUTION_TAGS_PROPERTY_ID)
+        value = properties.get("solutionTags")
         if not isinstance(value, list):
             continue
         for item in value:
