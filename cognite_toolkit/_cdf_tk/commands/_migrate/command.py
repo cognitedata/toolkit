@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic
 
-from rich import print
 from rich.console import Console
 from rich.table import Table
 

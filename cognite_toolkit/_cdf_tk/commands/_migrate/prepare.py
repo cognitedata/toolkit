@@ -1,8 +1,6 @@
 from collections.abc import Sequence
 from typing import Any
 
-from rich import print
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (

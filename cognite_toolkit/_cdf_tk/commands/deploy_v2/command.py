@@ -699,7 +699,7 @@ class DeployV2Command(ToolkitCommand):
                     resource_by_id = {}
                 resource_by_id.update(
                     {
-                        crud.get_id(request): ReadResource(request=request, raw_dict=request.dump())
+                        crud.get_id(request): ReadResource(request=request, raw_dict=request.dump(context="toolkit"))
                         for request in (step.resource_requests or [])
                     }
                 )

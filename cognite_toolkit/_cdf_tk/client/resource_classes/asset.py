@@ -48,7 +48,11 @@ class AssetResponse(Asset, ResponseResource[AssetRequest]):
         return AssetRequest
 
     def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, unpack_aggregates: bool = False
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+        unpack_aggregates: bool = False,
     ) -> dict[str, Any]:
         dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
         if unpack_aggregates and self.aggregates is not None:

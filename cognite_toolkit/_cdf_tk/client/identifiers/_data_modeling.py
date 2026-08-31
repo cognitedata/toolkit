@@ -29,7 +29,13 @@ class SpaceId(Identifier):
 class DataModelingId(Identifier, ABC):
     type: str
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_type: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+        include_type: bool = False,
+    ) -> dict[str, Any]:
         """Dumps the identifier to a dictionary.
 
         Args:
@@ -167,7 +173,11 @@ class InstanceDefinitionId(Identifier):
         return f"{self.space}.{self.external_id}"
 
     def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, include_instance_type: bool = True
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+        include_instance_type: bool = True,
     ) -> dict[str, Any]:
         """Dumps the identifier to a dictionary.
 

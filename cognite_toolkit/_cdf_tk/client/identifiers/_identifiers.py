@@ -105,7 +105,9 @@ class RawDatabaseId(Identifier):
             return f"name-{self.name}"
         return self.name
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         Args:
