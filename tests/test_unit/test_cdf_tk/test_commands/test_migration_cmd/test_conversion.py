@@ -39,7 +39,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    AssetCentricId,
+    CreatedSourceSystem,
+    InstanceSpaceRelocationSource,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -54,7 +58,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     EdgeOtherSide,
     InFieldAssetMapping,
     InstanceMappingError,
+    LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
+    TargetSpaceResolutionError,
     asset_centric_to_dm,
     asset_centric_to_record,
     convert_container_properties,
@@ -67,6 +73,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     FailedConversion,
     InvalidPropertyDataType,
 )
+from cognite_toolkit._cdf_tk.dataio.logger import Severity
 
 
 @pytest.fixture(scope="module")
@@ -1943,16 +1950,128 @@ class TestInFieldAssetMapping:
 
 
 class TestAPMSourceDataMaintenanceOrderMapping:
-    def test_getitem_derives_node_id_from_target_space(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+    def test_getitem_derives_node_id_via_instance_id_mapper(self) -> None:
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         assert mapping["activity_123"] == NodeId(space="sp_target", external_id="activity_123")
 
     def test_update_is_a_no_op(self) -> None:
-        mapping = APMSourceDataMaintenanceOrderMapping(target_space="sp_target")
+        mapping = APMSourceDataMaintenanceOrderMapping(
+            source_space="sp_source",
+            instance_id_mapper=SpaceMappingInstanceIdMapper({"sp_source": "sp_target"}),
+        )
 
         # No lookup is needed, so this should simply not raise.
         mapping.update(["activity_123"])
+
+
+def _relocation_source(space: str, external_id: str, source_space: str) -> InstanceSpaceRelocationSource:
+    return InstanceSpaceRelocationSource(
+        space=space,
+        external_id=external_id,
+        source_space=source_space,
+        version=1,
+        created_time=0,
+        last_updated_time=0,
+    )
+
+
+class TestLocationSplitInstanceIdMapper:
+    SOURCE_SPACE = "shared_source"
+
+    def _mapper(
+        self,
+        client: ToolkitClient,
+        passthrough_space_mapping: Mapping[str, str] | None = None,
+    ) -> LocationSplitInstanceIdMapper:
+        return LocationSplitInstanceIdMapper(
+            client,
+            self.SOURCE_SPACE,
+            passthrough_space_mapping=passthrough_space_mapping,
+        )
+
+    @pytest.mark.parametrize(
+        "instance_id, registered_target, retrieve_matches, passthrough, expected",
+        [
+            pytest.param(
+                NodeId(space="shared_source", external_id="node_a"),
+                "space_b",
+                None,
+                None,
+                NodeId(space="space_b", external_id="node_a"),
+                id="registered",
+            ),
+            pytest.param(
+                NodeId(space="shared_source", external_id="node_a"),
+                None,
+                [_relocation_source("space_b", "node_a", "shared_source")],
+                None,
+                NodeId(space="space_b", external_id="node_a"),
+                id="prefetch",
+            ),
+            pytest.param(
+                NodeId(space="cognite_app_data", external_id="user1"),
+                None,
+                None,
+                {"cognite_app_data": "cognite_app_data"},
+                NodeId(space="cognite_app_data", external_id="user1"),
+                id="passthrough",
+            ),
+            pytest.param(
+                NodeId(space="shared_source", external_id="missing"),
+                None,
+                [],
+                None,
+                None,
+                id="unresolved",
+            ),
+        ],
+    )
+    def test_map_instance_id(
+        self,
+        instance_id: NodeId,
+        registered_target: str | None,
+        retrieve_matches: list[InstanceSpaceRelocationSource] | None,
+        passthrough: dict[str, str] | None,
+        expected: NodeId | None,
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            retrieve = client.migration.instance_space_relocation_source.retrieve
+            if retrieve_matches is not None:
+                retrieve.return_value = retrieve_matches
+            mapper = self._mapper(client, passthrough_space_mapping=passthrough)
+            if registered_target is not None:
+                mapper.register(instance_id.external_id, registered_target)
+            if retrieve_matches is not None:
+                mapper.prefetch([instance_id.external_id])
+
+            if expected is None:
+                with pytest.raises(
+                    TargetSpaceResolutionError, match="could not be assigned to a target space"
+                ) as exc_info:
+                    mapper.map_instance_id(instance_id)
+                assert exc_info.value.severity == Severity.failure
+            else:
+                assert mapper.map_instance_id(instance_id) == expected
+
+            if retrieve_matches is None:
+                retrieve.assert_not_called()
+            else:
+                retrieve.assert_called_once_with(self.SOURCE_SPACE, [instance_id.external_id])
+
+    def test_resolve_target_space_raises_if_not_prefetched(self) -> None:
+        """resolve_target_space must never silently fall back to a network call: forgetting to prefetch is a
+        bug in the caller, not something to paper over with a one-off lookup."""
+        with monkeypatch_toolkit_client() as client:
+            mapper = self._mapper(client)
+
+            with pytest.raises(RuntimeError, match="without prefetching it first"):
+                mapper.resolve_target_space("node_a")
+
+        client.migration.instance_space_relocation_source.retrieve.assert_not_called()
 
 
 class TestAssetCentricToRecord:
