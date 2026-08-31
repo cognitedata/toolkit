@@ -223,6 +223,7 @@ class UploadCommand(ToolkitCommand):
                 user_build_dir=resource_dir,
                 options=DeployOptions(operation="deploy", cdf_project=cdf_project, dry_run=dry_run, verbose=verbose),
             )
+            self.warning_list.extend(deploy_cmd.warning_list)
         elif deploy_resources:
             self.warn(
                 MediumSeverityWarning(

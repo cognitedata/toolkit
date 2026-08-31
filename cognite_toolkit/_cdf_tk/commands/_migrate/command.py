@@ -469,7 +469,7 @@ class MigrationCommand(ToolkitCommand):
             crud_cls = to_create.crud_cls
             if deploy and to_create.resources:
                 verb = "Would deploy" if dry_run else "Deploying"
-                print(f"{verb} {to_create.display_name!r}")
+                self.console(f"{verb} {to_create.display_name!r}")
 
                 plan: list[DeploymentStep[Any]] = [
                     DeploymentStep(

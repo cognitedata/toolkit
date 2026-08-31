@@ -32,7 +32,7 @@ class MigrationPrepareCommand(ToolkitCommand):
         deploy_cmd = DeployV2Command(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
         verb = "Would deploy" if dry_run else "Deploying"
-        print(f"{verb} {MODEL_ID!r}")
+        self.console(f"{verb} {MODEL_ID!r}")
 
         plan: list[DeploymentStep[Any]] = [
             DeploymentStep(SpaceCRUD, [], resource_requests=[SPACE]),
