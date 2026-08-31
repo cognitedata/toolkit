@@ -81,6 +81,8 @@ def all_acls() -> Iterable:
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
@@ -200,7 +202,7 @@ class TestCapabilities:
         [
             pytest.param(
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
-                ["In field scope invalid scope name 'idscope'. Expected all or idScope"],
+                ["Invalid value for scope: invalid scope name 'idscope'. Expected all or idScope"],
                 id="Wrong case for datasetsAcl idScope",
             ),
             pytest.param(
@@ -211,21 +213,21 @@ class TestCapabilities:
                     }
                 },
                 [
-                    "In field scope invalid scope name 'idscope'. Expected all, datasetScope or idScope",
-                    "In actions[1] input should be 'READ' or 'WRITE'. Got 'OWNER'.",
+                    "Invalid value for scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
+                    "Unrecognized value for actions[1]: Expected one of 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
             ),
             pytest.param(
                 {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["UNKNOWN_APP"]}}}},
-                ["In scope.apps[1] input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
+                ["Unrecognized value for scope.apps[1]: Expected 'SEARCH'. Got 'UNKNOWN_APP'."],
                 id="Invalid app name in appConfigAcl",
             ),
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
-                    "In field scope invalid scope name 'idScope'. Expected agentExternalIdScope or all",
-                    "In actions[2] input should be 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
+                    "Invalid value for scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
+                    "Unrecognized value for actions[2]: Expected one of 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",
             ),

@@ -119,12 +119,13 @@ class DataExplorationConfig(BaseModelResource):
     asset_documents_card_view: ViewReference | None = None
 
 
-# Pydantic attribute name -> YAML/API key for card views used in build dependency and validation rules.
-INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY: dict[str, str] = {
-    "asset_activities_card_view": "assetActivitiesCardView",
-    "asset_notifications_card_view": "assetNotificationsCardView",
-    "asset_documents_card_view": "assetDocumentsCardView",
-}
+# Pydantic attribute names for card views used in build dependency and validation rules.
+# The corresponding YAML/API key can be derived with `to_camel`.
+INFIELD_CDM_CARD_VIEW_ATTRS: tuple[str, ...] = (
+    "asset_activities_card_view",
+    "asset_notifications_card_view",
+    "asset_documents_card_view",
+)
 
 
 class Discipline(BaseModelResource):

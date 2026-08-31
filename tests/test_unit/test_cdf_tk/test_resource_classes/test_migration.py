@@ -32,8 +32,8 @@ def invalid_mapping_test_cases() -> Iterable:
             },
         },
         {
-            "In viewId missing required field: 'space'",
-            "In viewId.version input should be a valid string. Got 123 of type int. Hint: "
+            "Missing required field in viewId: 'space'",
+            "Invalid value at viewId.version: Input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
         },
         id="Unknown field: dataSetId and missing name",

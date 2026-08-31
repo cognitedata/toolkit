@@ -77,204 +77,254 @@ class TestInfieldV1Loader:
 
 
 class TestInFieldCDMLocationConfigCRUD:
-    def test_get_dependencies_includes_data_exploration_card_views(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {
-                "space": "sp_instance",
-                "externalId": "my_location_config",
-                "dataExplorationConfig": {
-                    "assetActivitiesCardView": {
-                        "space": "customer_idm_extention",
-                        "version": "v2",
-                        "externalId": "ActivitiesCard",
-                    },
-                    "assetNotificationsCardView": {
-                        "space": "customer_idm_extention",
-                        "version": "v2",
-                        "externalId": "NotificationsCard",
+    @pytest.mark.parametrize(
+        "raw_config, expected",
+        [
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "dataExplorationConfig": {
+                        "assetActivitiesCardView": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "ActivitiesCard",
+                        },
+                        "assetNotificationsCardView": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "NotificationsCard",
+                        },
                     },
                 },
-            }
-        )
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
-            (
-                ViewIO.__name__,
-                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
+                    ),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+                    ),
+                },
+                id="data-exploration-card-views",
             ),
-        }
-
-    def test_get_dependencies_includes_observation_view(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {
-                "space": "sp_instance",
-                "externalId": "my_location_config",
-                "viewMappings": {
-                    "observation": [
-                        {
-                            "view": {
-                                "space": "customer_idm_extention",
-                                "version": "v2",
-                                "externalId": "ObservationView",
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "viewMappings": {
+                        "observation": [
+                            {
+                                "view": {
+                                    "space": "customer_idm_extention",
+                                    "version": "v2",
+                                    "externalId": "ObservationView",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
+                    ),
+                },
+                id="observation-view",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "dataExplorationConfig": {
+                        "assetPropertiesCardConfig": {
+                            "name": {
+                                "displayName": "Asset name",
+                                "orderNumber": 0,
                             },
                         },
-                    ],
-                },
-            }
-        )
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
-        }
-
-    def test_get_dependencies_without_asset_properties_card_config(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {
-                "space": "sp_instance",
-                "externalId": "my_location_config",
-                "dataExplorationConfig": {
-                    "assetPropertiesCardConfig": {
-                        "name": {
-                            "displayName": "Asset name",
-                            "orderNumber": 0,
-                        },
                     },
                 },
-            }
-        )
-        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
-
-    def test_get_dependencies_includes_card_views_and_observation_view(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {
-                "space": "sp_instance",
-                "externalId": "my_location_config",
-                "dataExplorationConfig": {
-                    "assetActivitiesCardView": {
-                        "space": "customer_idm_extention",
-                        "version": "v2",
-                        "externalId": "ActivitiesCard",
-                    },
-                },
-                "viewMappings": {
-                    "observation": [
-                        {
-                            "view": {
-                                "space": "customer_idm_extention",
-                                "version": "v2",
-                                "externalId": "ObservationView",
-                            },
-                        },
-                    ],
-                },
-            }
-        )
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
-        }
-
-    def test_get_dependencies_without_data_exploration_config(self) -> None:
-        config = InFieldCDMLocationConfigYAML.model_validate(
-            {"space": "sp_instance", "externalId": "my_location_config"}
-        )
-        assert list(InFieldCDMLocationConfigIO.get_dependencies(config)) == []
-
-    def test_get_dependent_items_includes_data_exploration_view_mappings(self) -> None:
-        item = {
-            "space": "sp_instance",
-            "externalId": "my_location_config",
-            "dataExplorationConfig": {
-                "assetActivitiesCardView": {
-                    "space": "customer_idm_extention",
-                    "version": "v2",
-                    "externalId": "ActivitiesCard",
-                },
-                "assetNotificationsCardView": {
-                    "space": "customer_idm_extention",
-                    "version": "v2",
-                    "externalId": "NotificationsCard",
-                },
-            },
-        }
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2")),
-            (
-                ViewIO.__name__,
-                ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
+                id="asset-properties-card-config-is-not-a-view",
             ),
+            pytest.param(
+                {"space": "sp_instance", "externalId": "my_location_config"},
+                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
+                id="no-data-exploration-config",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "viewMappings": {
+                        "asset": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
+                        "operation": {"space": "cdf_idm", "externalId": "CogniteOperation", "version": "v1"},
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
+                    (ViewIO.__name__, ViewId(space="cdf_idm", external_id="CogniteOperation", version="v1")),
+                },
+                id="direct-view-mappings",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "dataFilters": {
+                        "assets": {"instanceSpaces": ["migrated_assets"]},
+                        "maintenanceOrders": {"instanceSpaces": ["APM_SourceData_3_LOR_NORWAY_cdm"]},
+                    },
+                    "dataStorage": {
+                        "rootLocation": {"space": "migrated_assets", "externalId": "wefwef"},
+                        "appInstanceSpace": "app_data_instance_space_LOR_NORWAY_cdm",
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
+                    (SpaceCRUD.__name__, SpaceId(space="APM_SourceData_3_LOR_NORWAY_cdm")),
+                    (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
+                },
+                id="data-filters-and-data-storage-spaces",
+            ),
+        ],
+    )
+    def test_get_dependencies(self, raw_config: dict, expected: set) -> None:
+        config = InFieldCDMLocationConfigYAML.model_validate(raw_config)
+        actual = {
+            (loader_cls.__name__, identifier)
+            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
         }
+        assert actual == expected
 
-    def test_get_dependent_items_includes_observation_view(self) -> None:
-        item = {
-            "space": "sp_instance",
-            "externalId": "my_location_config",
-            "viewMappings": {
-                "observation": [
-                    {
-                        "view": {
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "dataExplorationConfig": {
+                        "assetActivitiesCardView": {
                             "space": "customer_idm_extention",
                             "version": "v2",
-                            "externalId": "ObservationView",
+                            "externalId": "ActivitiesCard",
+                        },
+                        "assetNotificationsCardView": {
+                            "space": "customer_idm_extention",
+                            "version": "v2",
+                            "externalId": "NotificationsCard",
                         },
                     },
-                ],
-            },
-        }
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
+                    ),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
+                    ),
+                },
+                id="data-exploration-view-mappings",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "viewMappings": {
+                        "observation": [
+                            {
+                                "view": {
+                                    "space": "customer_idm_extention",
+                                    "version": "v2",
+                                    "externalId": "ObservationView",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
+                    ),
+                },
+                id="observation-view",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "viewMappings": {
+                        "observation": [
+                            "not-a-dict",
+                            {"view": "not-a-dict"},
+                            {
+                                "view": {
+                                    "space": "customer_idm_extention",
+                                    "version": "v2",
+                                },
+                            },
+                            {
+                                "view": {
+                                    "space": "customer_idm_extention",
+                                    "version": "v2",
+                                    "externalId": "ObservationView",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (
+                        ViewIO.__name__,
+                        ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
+                    ),
+                },
+                id="skips-malformed-observation-entries",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_instance",
+                    "externalId": "my_location_config",
+                    "viewMappings": {
+                        "asset": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
+                    },
+                    "dataFilters": {
+                        "assets": {"instanceSpaces": ["migrated_assets"]},
+                    },
+                    "dataStorage": {
+                        "rootLocation": {"space": "migrated_assets", "externalId": "wefwef"},
+                        "appInstanceSpace": "app_data_instance_space_LOR_NORWAY_cdm",
+                    },
+                },
+                {
+                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
+                    (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
+                    (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
+                },
+                id="direct-view-mappings-and-spaces",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: set) -> None:
         actual = {
             (loader_cls.__name__, identifier)
             for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
         }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
-        }
-
-    def test_get_dependent_items_skips_malformed_observation_entries(self) -> None:
-        item = {
-            "space": "sp_instance",
-            "externalId": "my_location_config",
-            "viewMappings": {
-                "observation": [
-                    "not-a-dict",
-                    {"view": "not-a-dict"},
-                    {
-                        "view": {
-                            "space": "customer_idm_extention",
-                            "version": "v2",
-                        },
-                    },
-                    {
-                        "view": {
-                            "space": "customer_idm_extention",
-                            "version": "v2",
-                            "externalId": "ObservationView",
-                        },
-                    },
-                ],
-            },
-        }
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
-        }
-        assert actual == {
-            (ViewIO.__name__, ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2")),
-        }
+        assert actual == expected
 
     def test_skip_illegal_configuration(self) -> None:
         legacy_space = "my_infield_legacy_space"

@@ -4,7 +4,7 @@ import json
 from collections import UserList, defaultdict
 from typing import ClassVar, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class InsightDefinition(BaseModel):
@@ -26,28 +26,49 @@ class FileReadError(InsightDefinition):
     severity = 60
 
 
-class ModelSyntaxWarning(InsightDefinition):
+class ModelSyntaxError(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
     severity = 40
 
 
+class ModelSyntaxWarning(InsightDefinition):
+    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
+
+    severity = 15
+
+
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    severity = 30
+    severity = 45
 
 
-class FailedValidation(InsightDefinition):
+class InternalValidatorException(InsightDefinition):
     """A validator threw an unexpected exception and could not complete.
 
-    This should never happen in normal operation — it indicates a bug in the validator itself.
+    This should never happen in normal operation — it indicates a bug in the validator itself, not
+    necessarily an issue with the resource being validated. Treated like a warning: the build can proceed,
+    but the affected resource was not fully validated.
     """
 
-    severity = 60
+    severity = 35
     source: str
-    fix: str | None = "This is an unexpected error in the validator. Please report this as a bug."
+    fix: str | None = (
+        "This is an unexpected error in the validator. It does not necessarily indicate an issue with your resource, only that we failed to validate it. Please report this as a bug."
+    )
+
+    MAX_MESSAGE_LENGTH: ClassVar[int] = 2000
+
+    @field_validator("message", mode="after")
+    @classmethod
+    def _truncate_message(cls, message: str) -> str:
+        """The wrapped exception's string representation can be arbitrarily long (e.g. a large stack
+        dump from a third-party library). Truncate it so a single insight can't blow up the output."""
+        if len(message) <= cls.MAX_MESSAGE_LENGTH:
+            return message
+        return message[: cls.MAX_MESSAGE_LENGTH] + "... (truncated)"
 
 
 class IgnoredFileWarning(InsightDefinition):
@@ -61,7 +82,13 @@ class Recommendation(InsightDefinition):
 
 
 Insight: TypeAlias = (
-    ModelSyntaxWarning | ConsistencyError | FailedValidation | Recommendation | FileReadError | IgnoredFileWarning
+    ModelSyntaxError
+    | ModelSyntaxWarning
+    | ConsistencyError
+    | InternalValidatorException
+    | Recommendation
+    | FileReadError
+    | IgnoredFileWarning
 )
 
 
@@ -96,14 +123,12 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxWarning) for insight in self.data)
+        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(
-            isinstance(insight, (ModelSyntaxWarning, ConsistencyError, FailedValidation)) for insight in self.data
-        )
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:

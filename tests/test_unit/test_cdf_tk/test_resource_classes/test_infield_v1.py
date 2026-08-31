@@ -25,9 +25,9 @@ def invalid_test_cases() -> Iterable:
             "dataSetId": "invalid",  # Unknown field
         },
         {
-            "In field externalId input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
-            "In field name input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
-            "In field appDataSpaceVersion input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
+            "Invalid value for externalId: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for name: Input should be a valid string. Got 456 of type int. Hint: Use double quotes to force string.",
+            "Invalid value for appDataSpaceVersion: Input should be a valid string. Got [] of type list. Hint: Use double quotes to force string.",
             "Unknown field: 'dataSetId'",
         },
         id="Multiple type validation errors",
@@ -59,22 +59,22 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In featureConfiguration.rootLocationConfigurations[1].dataSetExternalId "
-            "input should be a valid string. Got True of type bool. Hint: Use double "
+            "Invalid value at featureConfiguration.rootLocationConfigurations[1].dataSetExternalId: Input "
+            "should be a valid string. Got True of type bool. Hint: Use double "
             "quotes to force string.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].featureToggles.observations.isEnabled "
-            "input should be a valid boolean. Got 'not-a-bool' of type str.",
-            "In featureConfiguration.rootLocationConfigurations[1].featureToggles.threeD "
-            "input should be a valid boolean. Got 'not-a-bool' of type str.",
-            "In featureConfiguration.rootLocationConfigurations[1].templateAdmins input "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].featureToggles.observations.isEnabled: "
+            "Input should be a valid boolean. Got 'not-a-bool' of type str.",
+            "Invalid value at featureConfiguration.rootLocationConfigurations[1].featureToggles.threeD: "
+            "Input should be a valid boolean. Got 'not-a-bool' of type str.",
+            "Invalid value at featureConfiguration.rootLocationConfigurations[1].templateAdmins: Input "
             "should be a valid list. Got 'not-a-list'.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].threeDConfiguration.fullWeightModels[1].modelId "
-            "input should be a valid integer. Got 'also-not-an-int' of type str.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].threeDConfiguration.fullWeightModels[1].revisionId "
-            "input should be a valid integer. Got 'not-an-int' of type str.",
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].threeDConfiguration.fullWeightModels[1].modelId: "
+            "Input should be a valid integer. Got 'also-not-an-int' of type str.",
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].threeDConfiguration.fullWeightModels[1].revisionId: "
+            "Input should be a valid integer. Got 'not-an-int' of type str.",
         },
         id="Nested structure validation errors",
     )
@@ -106,28 +106,28 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.dataSetExternalIds[1] "
-            "input should be a valid string. Got 1 of type int. Hint: Use double quotes "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.dataSetExternalIds[1]: "
+            "Input should be a valid string. Got 1 of type int. Hint: Use double quotes "
             "to force string.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.dataSetExternalIds[2] "
-            "input should be a valid string. Got 32 of type int. Hint: Use double quotes "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.dataSetExternalIds[2]: "
+            "Input should be a valid string. Got 32 of type int. Hint: Use double quotes "
             "to force string.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.spaces "
-            "input should be a valid list. Got 42.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].id "
-            "input should be a valid string. Got 123 of type int. Hint: Use double quotes "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].dataFilters.general.spaces: "
+            "Input should be a valid list. Got 42.",
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].id: "
+            "Input should be a valid string. Got 123 of type int. Hint: Use double quotes "
             "to force string.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].label "
-            "input should be a valid string. Got {'invalid': 'object'} of type dict. "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].label: "
+            "Input should be a valid string. Got {'invalid': 'object'} of type dict. "
             "Hint: Use double quotes to force string.",
-            "In "
-            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].value "
-            "input should be a valid string. Got [] of type list. Hint: Use double quotes "
+            "Invalid value at "
+            "featureConfiguration.rootLocationConfigurations[1].observations.type.options[1].value: "
+            "Input should be a valid string. Got [] of type list. Hint: Use double quotes "
             "to force string.",
         },
         id="Deep nested validation with complex structures",

@@ -236,9 +236,7 @@ def as_external_id(value: Any) -> str | None:
     return None
 
 
-def _root_internal_id_to_target_space(
-    client: ToolkitClient, target_by_root_asset: Mapping[str, str]
-) -> dict[int, str]:
+def _root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
     root_assets = client.tool.assets.retrieve(
         ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
     )

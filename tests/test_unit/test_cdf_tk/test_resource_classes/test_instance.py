@@ -37,7 +37,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "existingVersion": -1,
         },
-        {"In field existingVersion input should be greater than or equal to 0"},
+        {"Invalid value for existingVersion: Input should be greater than or equal to 0"},
         id="negative-existing-version",
     )
     yield pytest.param(
@@ -53,7 +53,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "space": "1invalid_space",
         },
-        {"In field space string should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
+        {"Invalid value for space: String should match pattern '^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$'"},
         id="invalid-space-pattern",
     )
     yield pytest.param(
@@ -61,7 +61,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "space": "a" * 44,
         },
-        {"In field space string should have at most 43 characters"},
+        {"Invalid value for space: String should have at most 43 characters"},
         id="space-too-long",
     )
     yield pytest.param(
@@ -69,7 +69,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "externalId": "",
         },
-        {"In field externalId string should have at least 1 character"},
+        {"Invalid value for externalId: String should have at least 1 character"},
         id="invalid-external-id",
     )
     yield pytest.param(
@@ -77,7 +77,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "externalId": "a" * 257,
         },
-        {"In field externalId string should have at most 256 characters"},
+        {"Invalid value for externalId: String should have at most 256 characters"},
         id="external-id-too-long",
     )
     yield pytest.param(
@@ -89,7 +89,7 @@ def invalid_edge_test_cases() -> Iterable:
                 "unknownField": "value",
             },
         },
-        {"In type unknown field: 'unknownField'"},
+        {"Unrecognized field in type: 'unknownField'. "},
         id="unknown-field-node-type",
     )
     yield pytest.param(
@@ -100,7 +100,7 @@ def invalid_edge_test_cases() -> Iterable:
                 "externalId": "type_edge",
             },
         },
-        {"In type.space string should have at least 1 character"},
+        {"Invalid value at type.space: String should have at least 1 character"},
         id="invalid-space-node-type",
     )
     yield pytest.param(
@@ -114,7 +114,7 @@ def invalid_edge_test_cases() -> Iterable:
             ],
         },
         {
-            "In sources[1].properties[24][key] input should be a valid string. Got 23 of type int. Hint: Use double quotes to force string."
+            "Invalid value at sources[1].properties[24][key]: Input should be a valid string. Got 23 of type int. Hint: Use double quotes to force string."
         },
         id="invalid-properties-key",
     )
@@ -128,7 +128,7 @@ def invalid_edge_test_cases() -> Iterable:
                 },
             ],
         },
-        {"In sources[1].properties.prop1 input was not a valid JSON value"},
+        {"Invalid value at sources[1].properties.prop1: input was not a valid JSON value"},
         id="invalid-properties-value",
     )
     yield pytest.param(
@@ -142,9 +142,9 @@ def invalid_edge_test_cases() -> Iterable:
             ],
         },
         {
-            "In sources[1].source.ViewReference.type input should be 'view'. Got 'unknown'.",
-            "In sources[1].source.ViewReference missing required field: 'version'",
-            "In sources[1].source.ContainerReference.type input should be 'container'. Got 'unknown'.",
+            "Unrecognized value for sources[1].source.ViewReference.type: Expected 'view'. Got 'unknown'.",
+            "Missing required field in sources[1].source.ViewReference: 'version'",
+            "Unrecognized value for sources[1].source.ContainerReference.type: Expected 'container'. Got 'unknown'.",
         },
         id="invalid-source-type",
     )

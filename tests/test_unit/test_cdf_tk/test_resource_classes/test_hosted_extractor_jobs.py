@@ -19,7 +19,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "config": {"topicFilter": "some_filter"},
         },
         {
-            "In field format invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
+            "Invalid value for format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
         },
         id="Invalid type",
     )
@@ -45,7 +45,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"encoding": "utf8"},
         },
         {
-            "In field format invalid input format missing 'type' key",
+            "Invalid value for format: Invalid input format missing 'type' key",
         },
         id="Format missing type",
     )
@@ -59,7 +59,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "encoding": "invalid_encoding"},
         },
         {
-            "In format.encoding input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
+            "Unrecognized value for format.encoding: Expected one of 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
         },
         id="CogniteFormat invalid encoding",
     )
@@ -73,7 +73,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "compression": "invalid_compression"},
         },
         {
-            "In format.compression input should be 'gzip'. Got 'invalid_compression'.",
+            "Unrecognized value for format.compression: Expected 'gzip'. Got 'invalid_compression'.",
         },
         id="CogniteFormat invalid compression",
     )
@@ -87,7 +87,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "custom"},
         },
         {
-            "In format missing required field: 'mappingId'",
+            "Missing required field in format: 'mappingId'",
         },
         id="CustomFormat missing mappingId",
     )
@@ -101,7 +101,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "custom", "mappingId": "a" * 256},
         },
         {
-            "In format.mappingId string should have at most 255 characters",
+            "Invalid value at format.mappingId: String should have at most 255 characters",
         },
         id="CustomFormat mappingId too long",
     )
@@ -115,7 +115,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "prefix": {"prefix": "a" * 256}},
         },
         {
-            "In format.prefix.prefix string should have at most 255 characters",
+            "Invalid value at format.prefix.prefix: String should have at most 255 characters",
         },
         id="CogniteFormat prefix too long",
     )
@@ -129,7 +129,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "dataModels": [{"space": f"space{i}"} for i in range(11)]},
         },
         {
-            "In format.dataModels list should have at most 10 items after validation, not 11",
+            "Invalid value at format.dataModels: List should have at most 10 items after validation, not 11",
         },
         id="CogniteFormat too many data models",
     )
@@ -143,7 +143,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite", "dataModels": [{}]},
         },
         {
-            "In format.dataModels[1] missing required field: 'space'",
+            "Missing required field in format.dataModels[1]: 'space'",
         },
         id="CogniteFormat missing space in dataModels",
     )
@@ -157,9 +157,9 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"type": "cognite"},
         },
         {
-            "In field externalId string should have at most 255 characters",
-            "In field destinationId string should have at most 255 characters",
-            "In field sourceId string should have at most 255 characters",
+            "Invalid value for externalId: String should have at most 255 characters",
+            "Invalid value for destinationId: String should have at most 255 characters",
+            "Invalid value for sourceId: String should have at most 255 characters",
         },
         id="externalId too long",
     )
@@ -173,7 +173,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": "invalid_format",
         },
         {
-            "In field format invalid input for format '<class 'str'>' expected dict",
+            "Invalid value for format: Invalid input for format '<class 'str'>' expected dict",
         },
         id="Format non-dict type",
     )
@@ -187,7 +187,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": None,
         },
         {
-            "In field format invalid input for format '<class 'NoneType'>' expected dict",
+            "Invalid value for format: Invalid input for format '<class 'NoneType'>' expected dict",
         },
         id="Format null type",
     )
@@ -208,19 +208,13 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             },
         },
         {
-            "In config.KafkaConfig missing required field: 'topic'",
-            "In config.KafkaConfig unknown field: 'incrementalLoad'",
-            "In config.KafkaConfig unknown field: 'interval'",
-            "In config.KafkaConfig unknown field: 'method'",
-            "In config.KafkaConfig unknown field: 'pagination'",
-            "In config.KafkaConfig unknown field: 'path'",
-            "In config.MQTTConfig missing required field: 'topicFilter'",
-            "In config.MQTTConfig unknown field: 'incrementalLoad'",
-            "In config.MQTTConfig unknown field: 'interval'",
-            "In config.MQTTConfig unknown field: 'method'",
-            "In config.MQTTConfig unknown field: 'pagination'",
-            "In config.MQTTConfig unknown field: 'path'",
-            "In config.RestConfig.incrementalLoad invalid type 'nextUrl'. Expected one of "
+            "Missing required field in config.KafkaConfig: 'topic'",
+            "Unrecognized fields in config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
+            "'pagination' and 'path'. ",
+            "Missing required field in config.MQTTConfig: 'topicFilter'",
+            "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
+            "'pagination' and 'path'. ",
+            "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
             "body, headerValue and queryParameter",
         },
         id="Invalid IncrementalLoad and Pagination type",

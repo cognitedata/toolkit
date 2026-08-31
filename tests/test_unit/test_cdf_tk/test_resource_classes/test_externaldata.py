@@ -92,7 +92,7 @@ class TestExternalDataSourceYAML:
                         },
                     },
                 },
-                ["In settings.credentials missing required field: 'clientSecret'"],
+                ["Missing required field in settings.credentials: 'clientSecret'"],
                 id="missing_client_secret",
             ),
         ],

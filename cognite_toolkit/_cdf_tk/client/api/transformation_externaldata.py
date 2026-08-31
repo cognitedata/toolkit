@@ -16,7 +16,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/transformations/externaldata", item_limit=1000),
+                "create": Endpoint(method="POST", path="/transformations/externaldata", item_limit=1000),
                 "delete": Endpoint(method="POST", path="/transformations/externaldata/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/transformations/externaldata", item_limit=1000),
             },
@@ -28,14 +28,8 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     ) -> PagedResponse[ExternalDataSourceResponse]:
         return PagedResponse[ExternalDataSourceResponse].model_validate_json(response.body)
 
-    def upsert(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self._request_item_response(items, "upsert")
-
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self.upsert(items)
-
-    def update(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self.upsert(items)
+        return self._request_item_response(items, "create")
 
     def delete(self, items: Sequence[ExternalId]) -> None:
         self._request_no_response(items, "delete")
