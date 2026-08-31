@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
@@ -48,7 +49,6 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
-from .deploy import DeployCommand
 
 
 class UploadCommand(ToolkitCommand):
@@ -108,7 +108,9 @@ class UploadCommand(ToolkitCommand):
         console = client.console
         data_files_by_selector = self._find_data_files(input_dir)
 
-        self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
+        self._deploy_resource_folder(
+            input_dir / DATA_RESOURCE_DIR, deploy_resources, client.config.project, dry_run, verbose
+        )
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
 
@@ -207,24 +209,20 @@ class UploadCommand(ToolkitCommand):
         self,
         resource_dir: Path,
         deploy_resources: bool,
-        client: ToolkitClient,
-        console: Console,
+        cdf_project: str,
         dry_run: bool,
         verbose: bool,
     ) -> None:
         """Deploy resources from the specified resource directory if it exists and deployment is enabled."""
         if deploy_resources and resource_dir.exists():
-            deploy_command = DeployCommand()
-            deploy_results = deploy_command.deploy_all_resources(
-                client=client,
-                build_dir=resource_dir,
-                env_vars=EnvironmentVariables.create_from_environment(),
-                dry_run=dry_run,
-                verbose=verbose,
+            env_vars = EnvironmentVariables.create_from_environment()
+            deploy_cmd = DeployV2Command(self.print_warning, silent=self.silent)
+            deploy_cmd.tracker = self.tracker
+            deploy_cmd.deploy(
+                env_vars=env_vars,
+                user_build_dir=resource_dir,
+                options=DeployOptions(operation="deploy", cdf_project=cdf_project, dry_run=dry_run, verbose=verbose),
             )
-            self.warning_list.extend(deploy_command.warning_list)
-            if deploy_results.has_counts:
-                console.print(deploy_results.counts_table())
         elif deploy_resources:
             self.warn(
                 MediumSeverityWarning(
