@@ -15,7 +15,9 @@ import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
+from rich.markup import escape
 from rich.progress import Progress
+from rich.text import Text
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -864,10 +866,16 @@ class BuildV2Command(ToolkitCommand):
 
             insight_subsections: list[RenderableType] = []
             for insight in insight_content:
-                message = self._truncate_for_terminal(insight.message)
+                message = self._format_insight_message_for_terminal(insight.message)
                 content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
                 if insight.fix:
-                    content.append(hanging_indent("→", f"Fix: {insight.fix}", marker_style=AuraColor.GREEN.rich))
+                    content.append(
+                        hanging_indent(
+                            "→",
+                            Text.from_markup(escape(f"Fix: {insight.fix}")),
+                            marker_style=AuraColor.GREEN.rich,
+                        )
+                    )
                 insight_subsections.append(
                     ToolkitPanelSection(
                         title=self._insight_section_title(insight),
@@ -910,12 +918,16 @@ class BuildV2Command(ToolkitCommand):
     _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 1000
 
     @classmethod
-    def _truncate_for_terminal(cls, message: str) -> str:
-        """Truncates a message for terminal display only; the full message is always written to the insights file."""
+    def _format_insight_message_for_terminal(cls, message: str) -> RenderableType:
+        """Formats an insight message for terminal display, escaping Rich markup in user-facing text."""
         if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
-            return message
-        truncated_notice = "[dim italic](truncated, see full message in the insights file)[/]"
-        return f"{message[: cls._MAX_TERMINAL_MESSAGE_LENGTH]}... {truncated_notice}"
+            return Text.from_markup(escape(message))
+        truncated_notice = Text.from_markup("[dim italic](truncated, see full message in the insights file)[/]")
+        return Text.assemble(
+            Text.from_markup(escape(message[: cls._MAX_TERMINAL_MESSAGE_LENGTH])),
+            Text("... "),
+            truncated_notice,
+        )
 
     @staticmethod
     def _humanize_insight_code(code: str | None) -> str:
