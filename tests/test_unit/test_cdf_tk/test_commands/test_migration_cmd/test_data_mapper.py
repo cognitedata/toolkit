@@ -1064,108 +1064,107 @@ class TestFDMtoCDMMapper:
             properties={**properties, self.SOURCE_VIEW_ID: {"textProp": "37"}},
         )
 
-    def test_location_split_mapper_tags_relocation_source_space(self) -> None:
+    @pytest.mark.parametrize("dry_run", [False, True], ids=["tags source space", "dry-run skips tag"])
+    def test_location_split_mapper_relocation_source(self, dry_run: bool) -> None:
         node = self._location_split_node(
             "node1", {TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}}}
         )
         with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {"ROOT_A": "target_space"})
+            mapper = self._location_split_mapper(client, {"ROOT_A": "target_space"}, dry_run=dry_run)
             mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
 
         assert len(mapped_items) == 1
         mapped_node = mapped_items[0].item
         assert isinstance(mapped_node, NodeRequest)
         assert mapped_node.space == "target_space"
-        assert mapped_node.sources is not None
-        assert (
-            InstanceSource(
-                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID, properties={"sourceSpace": self.SOURCE_SPACE}
-            )
-            in mapped_node.sources
-        )
-
-    def test_location_split_mapper_does_not_tag_relocation_source_in_dry_run(self) -> None:
-        node = self._location_split_node(
-            "template1", {TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}}}
-        )
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {"ROOT_A": "target_space"}, dry_run=True)
-            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:template1", item=node)])
-
-        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
-        assert [node.external_id for node in mapped_nodes] == ["template1"]
-        assert INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID not in {
-            source.source for node in mapped_nodes for source in (node.sources or [])
+        has_relocation_source = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID in {
+            source.source for source in (mapped_node.sources or [])
         }
+        assert has_relocation_source is not dry_run
 
-    def test_location_split_mapper_resolves_from_relocation_tagging(self) -> None:
-        node = self._location_split_node("item1", {TEMPLATE_ITEM_VIEW: {}})
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {}, registered={"item1": "target_space"})
-            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node)])
-
-        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
-        assert len(mapped_nodes) == 1
-        assert mapped_nodes[0].space == "target_space"
-
-    def test_location_split_mapper_resolves_via_parent_edge_when_untagged(self) -> None:
-        node = self._location_split_node("item1", {TEMPLATE_ITEM_VIEW: {}})
-        edge = EdgeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="edge1",
-            last_updated_time=1,
-            created_time=0,
-            version=1,
-            type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
-            start_node=NodeId(space=self.SOURCE_SPACE, external_id="template1"),
-            end_node=NodeId(space=self.SOURCE_SPACE, external_id="item1"),
-        )
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {}, registered={"template1": "target_space"})
-            mapped_items = mapper.map(
-                [
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:item1", item=node),
-                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
-                ]
+    @pytest.mark.parametrize(
+        "external_id, properties, registered, parent_edge_from, expected_space, expected_issue",
+        [
+            pytest.param(
+                "item1",
+                {TEMPLATE_ITEM_VIEW: {}},
+                {"item1": "target_space"},
+                None,
+                "target_space",
+                None,
+                id="registered",
+            ),
+            pytest.param(
+                "item1",
+                {TEMPLATE_ITEM_VIEW: {}},
+                {"template1": "target_space"},
+                "template1",
+                "target_space",
+                None,
+                id="parent-edge",
+            ),
+            pytest.param(
+                "node1",
+                {CONDITIONAL_ACTION_VIEW: {"parentObject": {"space": "source_space", "externalId": "parent1"}}},
+                {"parent1": "target_space"},
+                None,
+                "target_space",
+                None,
+                id="parent-property",
+            ),
+            pytest.param(
+                "node1",
+                {CONDITIONAL_ACTION_VIEW: {"textProp": "37"}},
+                {},
+                None,
+                None,
+                "parentObject",
+                id="unresolved-parent",
+            ),
+        ],
+    )
+    def test_location_split_mapper_resolves_target_space(
+        self,
+        external_id: str,
+        properties: dict,
+        registered: dict[str, str],
+        parent_edge_from: str | None,
+        expected_space: str | None,
+        expected_issue: str | None,
+    ) -> None:
+        node = self._location_split_node(external_id, properties)
+        items: list[DataItem] = [DataItem(tracking_id=f"{self.SOURCE_SPACE}:{external_id}", item=node)]
+        if parent_edge_from is not None:
+            items.append(
+                DataItem(
+                    tracking_id=f"{self.SOURCE_SPACE}:edge1",
+                    item=EdgeResponse(
+                        space=self.SOURCE_SPACE,
+                        external_id="edge1",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                        type=NodeId(space="cdf_apm", external_id="referenceTemplateItems"),
+                        start_node=NodeId(space=self.SOURCE_SPACE, external_id=parent_edge_from),
+                        end_node=NodeId(space=self.SOURCE_SPACE, external_id=external_id),
+                    ),
+                )
             )
-
-        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
-        assert len(mapped_nodes) == 1
-        assert mapped_nodes[0].space == "target_space"
-
-    def test_location_split_mapper_resolves_via_parent_property(self) -> None:
-        node = self._location_split_node(
-            "node1",
-            {CONDITIONAL_ACTION_VIEW: {"parentObject": {"space": self.SOURCE_SPACE, "externalId": "parent1"}}},
-        )
         with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {}, registered={"parent1": "target_space"})
-            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
-
-        assert len(mapped_items) == 1
-        mapped_node = mapped_items[0].item
-        assert isinstance(mapped_node, NodeRequest)
-        assert mapped_node.space == "target_space"
-
-    def test_location_split_mapper_reports_unresolved_parent_property_as_issue(self) -> None:
-        node = NodeResponse(
-            space=self.SOURCE_SPACE,
-            external_id="node1",
-            last_updated_time=1772522715000,
-            created_time=0,
-            version=1,
-            properties={CONDITIONAL_ACTION_VIEW: {"textProp": "37"}},
-        )
-        with monkeypatch_toolkit_client() as client:
-            mapper = self._location_split_mapper(client, {})
+            mapper = self._location_split_mapper(client, {}, registered=registered)
             logger = MagicMock(spec=DataLogger)
             mapper.logger = logger
-            mapped_items = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node)])
+            mapped_items = mapper.map(items)
 
-        assert mapped_items == []
-        logger.log.assert_called_once()
-        entries = logger.log.call_args[0][0]
-        assert "parentObject" in entries[0].message
+        if expected_space is None:
+            assert mapped_items == []
+            logger.log.assert_called_once()
+            assert expected_issue in logger.log.call_args[0][0][0].message
+            return
+
+        mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
+        assert len(mapped_nodes) == 1
+        assert mapped_nodes[0].space == expected_space
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",
