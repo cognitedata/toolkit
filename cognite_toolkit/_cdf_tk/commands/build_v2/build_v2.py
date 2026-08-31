@@ -857,7 +857,7 @@ class BuildV2Command(ToolkitCommand):
                 if step.status.code != "ready":
                     continue
                 display_name = step.rule.DISPLAY_NAME
-                progress.update(validating_task, description=f"Checking {display_name}...")
+                progress.update(validating_task, description=f"Running '{display_name}'...")
 
                 insights: list[Insight] = list(step.rule.validate())
 

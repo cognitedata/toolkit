@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 
 class NeatRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "NEAT"
-    DISPLAY_NAME = "Neat (data modeling)"
+    DISPLAY_NAME = "Data modeling checks"
 
     def get_status(self) -> RuleSetStatus:
         if self.installed():
             if self.client:
                 return RuleSetStatus(
                     code="ready",
-                    message="Neat is installed and will validate data models. Fetching the full CDF snapshot may take a while.",
+                    message="Neat is installed and will validate data models. Note: this validation may take a while to complete.",
                 )
             return RuleSetStatus(
                 code="unavailable",
@@ -37,7 +37,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             )
 
         install_command = package_install_command("cognite-neat")
-        message = f"Neat is not installed. Install with `{install_command}`."
+        message = f"Requires the `cognite-neat` package to be installed. Install with `{install_command}`."
         if not self.client:
             message += " Then run `cdf auth init` to authenticate the Toolkit client."
         return RuleSetStatus(code="unavailable", message=message)

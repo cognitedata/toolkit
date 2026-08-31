@@ -11,7 +11,7 @@ from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleS
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
-    DISPLAY_NAME = "Resource dependencies"
+    DISPLAY_NAME = "Dependency checks"
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
