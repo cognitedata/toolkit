@@ -117,7 +117,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     InstanceConversionIssue,
     MigrationEntryV2,
-    TargetSpaceResolutionIssue,
     ThreeDModelMigrationIssue,
     instance_conversion_issue_as_migration_entry,
 )
@@ -1480,12 +1479,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                     node, other_side_by_edge_type_and_direction_by_source[source_node_id]
                 )
             except InstanceMappingError as error:
-                issue_cls = (
-                    TargetSpaceResolutionIssue
-                    if isinstance(error, TargetSpaceResolutionError)
-                    else InstanceConversionIssue
-                )
-                issue_by_source_node_id[source_node_id] = issue_cls(
+                issue_by_source_node_id[source_node_id] = InstanceConversionIssue(
                     id=str(source_node_id),
                     errors=[str(error)],
                     severity=error.severity,
@@ -2140,12 +2134,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             try:
                 self._connection_creator.map_instance(schedule.as_id())
             except InstanceMappingError as error:
-                issue_cls = (
-                    TargetSpaceResolutionIssue
-                    if isinstance(error, TargetSpaceResolutionError)
-                    else InstanceConversionIssue
+                issues.append(
+                    InstanceConversionIssue(id=str(schedule.as_id()), errors=[str(error)], severity=error.severity)
                 )
-                issues.append(issue_cls(id=str(schedule.as_id()), errors=[str(error)]))
                 continue
             template_id = self._resolve_schedule_template(
                 schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
@@ -2215,7 +2206,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             template_id = template_id_by_schedule_id[schedule.as_id()]
             target_space = location_split_id_mapper.resolve_target_space(template_id.external_id)
             if target_space is None:
-                return TargetSpaceResolutionIssue(
+                return InstanceConversionIssue(
                     id="schedules-page",
                     errors=[
                         f"Could not resolve target space for schedules under Template {template_id}: "
@@ -2247,12 +2238,9 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            issue_cls = (
-                TargetSpaceResolutionIssue
-                if isinstance(error, TargetSpaceResolutionError)
-                else InstanceConversionIssue
+            return None, InstanceConversionIssue(
+                id=str(first.as_id()), errors=[str(error)], severity=error.severity
             )
-            return None, issue_cls(id=str(first.as_id()), errors=[str(error)])
         issue = InstanceConversionIssue(id=str(first.as_id()))
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(

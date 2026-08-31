@@ -2073,13 +2073,13 @@ class TestLocationSplitInstanceIdMapper:
 
         client.migration.instance_space_relocation_source.retrieve.assert_not_called()
 
-    def test_map_edge_id_uses_owning_node_target_space(self) -> None:
+    def test_assign_edge_space_uses_given_space(self) -> None:
         with monkeypatch_toolkit_client() as client:
             mapper = self._mapper(client)
 
-            result = mapper.map_edge_id(
+            result = mapper.assign_edge_space(
                 EdgeId(space=self.SOURCE_SPACE, external_id="edge_1"),
-                owning_node_target_space="space_b",
+                "space_b",
             )
 
         assert result == NodeId(space="space_b", external_id="edge_1")

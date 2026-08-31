@@ -610,8 +610,7 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
-    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
-        """Map an edge into the owning node's target space. Defaults to ``map_instance_id``."""
+    def assign_edge_space(self, edge_id: EdgeId, space: str) -> NodeId:
         return self.map_instance_id(edge_id)
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
@@ -757,10 +756,10 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
             f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
         )
 
-    def map_edge_id(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
-        # Edges are stored alongside the node that owns them and are never referenced by external ID
-        # elsewhere, so they don't need (and can't use) the per-external-id resolution that nodes require.
-        return NodeId(space=owning_node_target_space, external_id=edge_id.external_id)
+    def assign_edge_space(self, edge_id: EdgeId, space: str) -> NodeId:
+        # Edges live next to their owning node and are never looked up by external ID, so they skip
+        # the per-external-id resolution that nodes require.
+        return NodeId(space=space, external_id=edge_id.external_id)
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         destinations: set[str] = set()
@@ -983,10 +982,6 @@ class ConnectionCreator:
         """Maps a source instance ID to the corresponding destination instance ID."""
         return self._instance_id_mapper.map_instance_id(instance_id)
 
-    def map_edge(self, edge_id: EdgeId, owning_node_target_space: str) -> NodeId:
-        """Maps a source edge's own instance ID to its destination, given its owning node's target space."""
-        return self._instance_id_mapper.map_edge_id(edge_id, owning_node_target_space)
-
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
         """Get the edge properties for a given view ID."""
         if view_id not in self.view_by_id:
@@ -1125,7 +1120,7 @@ class ConnectionCreator:
         new_edges: list[EdgeRequest] = []
         for edge in edges:
             try:
-                new_edge_id = self.map_edge(edge.edge_id, source_id.space)
+                new_edge_id = self._instance_id_mapper.assign_edge_space(edge.edge_id, source_id.space)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue
