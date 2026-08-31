@@ -1841,8 +1841,7 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
             matching_nodes = [
                 data_item.item
                 for data_item in source
-                if isinstance(data_item.item, NodeResponse)
-                and notification_view in (data_item.item.properties or {})
+                if isinstance(data_item.item, NodeResponse) and notification_view in (data_item.item.properties or {})
             ]
             if matching_nodes:
                 resolver.prepare_page(matching_nodes)
@@ -2190,10 +2189,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                 item_edge.other_side.external_id
                 for item_edge in template_item_edges_by_schedule_id.get(schedule.as_id(), [])
             )
-        # Resolve every template and template item referenced by this page's schedules in a single batched
-        # lookup. Templates are needed for the schedule's own target space and its `template` direct
-        # relation; template items are needed for the `templateItems` direct relation created later in
-        # `_create_direct_relation`, which would otherwise fall back to a per-item network call.
         location_split_id_mapper.prefetch(
             [template_id.external_id for template_id in template_id_by_schedule_id.values()]
             + list(referenced_item_external_ids)
@@ -2234,9 +2229,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            return None, InstanceConversionIssue(
-                id=str(first.as_id()), errors=[str(error)], severity=error.severity
-            )
+            return None, InstanceConversionIssue(id=str(first.as_id()), errors=[str(error)], severity=error.severity)
         issue = InstanceConversionIssue(id=str(first.as_id()))
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(
