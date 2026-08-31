@@ -1767,10 +1767,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                 if source.source not in self._constrained_properties_by_view_id:
                     view = self._connection_creator.view_by_id.get(source.source)
                     if view is None:
-                        # Subclasses may tag instances with an extra source view (e.g. a bookkeeping
-                        # view) that was never added to the connection creator's view cache. Such
-                        # views are not part of the mapping, so they cannot have constrained direct
-                        # relations to check.
+                        # Location-split nodes also write InstanceSpaceRelocationSource, which is not a mapped view
+                        # and is never loaded into view_by_id.
                         self._constrained_properties_by_view_id[source.source] = {}
                         continue
                     self._constrained_properties_by_view_id[source.source] = {
@@ -1792,20 +1790,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                         for prop_id in property_ids
                     }
                     yield node.as_id(), constraint_by_prop_id, source
-
-
-def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
-    return mapped_node.model_copy(
-        update={
-            "sources": [
-                *(mapped_node.sources or []),
-                InstanceSource(
-                    source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
-                    properties={"sourceSpace": source_space},
-                ),
-            ]
-        }
-    )
 
 
 class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
@@ -1894,7 +1878,19 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
         if self.dry_run:
             return mapped_node, new_edges, issue
-        return _attach_relocation_source(mapped_node, node.space), new_edges, issue
+        return self._attach_relocation_source(mapped_node, node.space), new_edges, issue
+
+    @staticmethod
+    def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
+        if mapped_node.sources is None:
+            mapped_node.sources = []
+        mapped_node.sources.append(
+            InstanceSource(
+                source=INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID,
+                properties={"sourceSpace": source_space},
+            )
+        )
+        return mapped_node
 
     def _resolve_target_space(
         self,
@@ -2277,7 +2273,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
             sources=[InstanceSource(source=self._mapping.destination_view, properties=created_properties)],
         )
         if self._location_split_id_mapper is not None and not self.dry_run:
-            mapped_item = _attach_relocation_source(mapped_item, first.space)
+            mapped_item = LocationSplitFDMtoCDMMapper._attach_relocation_source(mapped_item, first.space)
         return mapped_item, issue
 
     def _find_schedule_edges(
