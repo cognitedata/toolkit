@@ -1,10 +1,17 @@
 import re
+import sys
 from typing import Any
 
-from pydantic import Field, field_validator, model_serializer
+from pydantic import Field, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -13,6 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
@@ -57,12 +65,27 @@ class ViewYAML(ToolkitResource):
         default=None,
         description="References to the views from where this view will inherit properties.",
     )
+    stream_id: list[StreamExternalId] | None = Field(
+        default=None,
+        description=(
+            "External ids of the records streams this view targets. "
+            "Must be a single-element array in v1; multi-stream record views are reserved for future use."
+        ),
+        min_length=1,
+        max_length=1,
+    )
     properties: dict[str, ViewProperty] | None = Field(
         default=None, description="Set of properties to apply to the View."
     )
 
     def as_id(self) -> ViewReferenceId:
         return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
+
+    @model_validator(mode="after")
+    def validate_record_view_alpha_flag(self) -> Self:
+        if self.stream_id is not None and not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+            raise ValueError("streamId requires the record_views alpha flag to be enabled in cdf.toml [alpha_flags].")
+        return self
 
     @field_validator("external_id")
     @classmethod

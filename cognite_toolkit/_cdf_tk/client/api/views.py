@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):
@@ -24,6 +25,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
+        api_version = "alpha" if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) else None
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
@@ -32,6 +34,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
                 "delete": Endpoint(method="POST", path="/models/views/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/views", item_limit=1000),
             },
+            api_version=api_version,
         )
 
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[ViewResponse]:
