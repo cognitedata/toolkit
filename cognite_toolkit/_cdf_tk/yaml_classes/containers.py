@@ -104,3 +104,17 @@ class ContainerYAML(ToolkitResource):
         if info.data.get("used_for") == "record" and val is not None:
             raise ValueError("Indexes and constraints are not supported for record containers.")
         return val
+
+    @field_validator("properties", mode="after")
+    @classmethod
+    def external_cdf_references_not_supported_for_record_containers(
+        cls, val: dict[str, ContainerPropertyDefinition], info: ValidationInfo
+    ) -> dict[str, ContainerPropertyDefinition]:
+        """Validate that external CDF references are not set for record containers"""
+        if info.data.get("used_for") == "record":
+            for key, prop in val.items():
+                if prop.type.type != {"timeseries", "file", "sequence"}:
+                    raise ValueError(
+                        f"External CDF references are not supported for record containers. Property '{key}' is of type 'externalCdfReference'."
+                    )
+        return val

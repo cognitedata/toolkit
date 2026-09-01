@@ -130,69 +130,45 @@ def container_with_indexes_cases() -> Iterable:
     yield from (pytest.param(next(iter(idx.values())), id=next(iter(idx.keys()))) for idx in container_indexes)
 
 
-class TestContainerYAML:
-    @pytest.mark.parametrize("data", list(find_resources("Container")))
-    def test_load_valid_container_file(self, data: dict[str, object]) -> None:
-        loaded = ContainerYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    @pytest.mark.parametrize("data", container_property_type_cases())
-    def test_load_valid_container_property_types(self, data: dict[str, object]) -> None:
-        loaded = ContainerYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    @pytest.mark.parametrize("data", container_with_constraints_cases())
-    def test_load_valid_container_constraints(self, data: dict[str, object]) -> None:
-        loaded = ContainerYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    @pytest.mark.parametrize("data", container_with_indexes_cases())
-    def test_load_valid_container_indexes(self, data: dict[str, object]) -> None:
-        loaded = ContainerYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    def test_invalid_external_id(self) -> None:
-        invalid_data = {
+def invalid_container_cases() -> Iterable:
+    yield pytest.param(
+        {
             "space": "my_space",
             "externalId": "Query",
             "properties": {"field": {"type": {"type": "text"}}},
-        }
-
-        with pytest.raises(ValueError, match="is a reserved container External ID"):
-            ContainerYAML.model_validate(invalid_data)
-
-    def test_invalid_property_identifier(self) -> None:
-        invalid_data = {
+        },
+        "is a reserved container External ID",
+        id="ReservedExternalId",
+    )
+    yield pytest.param(
+        {
             "space": "my_space",
             "externalId": "valid_container",
             "properties": {"invalid@": {"type": {"type": "text"}}},
-        }
-
-        with pytest.raises(ValueError, match="does not match the required pattern"):
-            ContainerYAML.model_validate(invalid_data)
-
-    def test_forbidden_property_identifier(self) -> None:
-        invalid_data = {
+        },
+        "does not match the required pattern",
+        id="InvalidPropertyIdentifier",
+    )
+    yield pytest.param(
+        {
             "space": "my_space",
             "externalId": "valid_container",
             "properties": {"edge_id": {"type": {"type": "text"}}},
-        }
-
-        with pytest.raises(ValueError, match="is a reserved property identifier"):
-            ContainerYAML.model_validate(invalid_data)
-
-    def test_space_format_validation(self) -> None:
-        invalid_data = {
+        },
+        "is a reserved property identifier",
+        id="ForbiddenPropertyIdentifier",
+    )
+    yield pytest.param(
+        {
             "space": "invalid space",  # Contains a space
             "externalId": "valid_container",
             "properties": {"field": {"type": {"type": "text"}}},
-        }
-
-        with pytest.raises(ValueError):
-            ContainerYAML.model_validate(invalid_data)
-
-    def test_invalid_record_container(self) -> None:
-        invalid_data = {
+        },
+        ".*",
+        id="InvalidSpaceFormat",
+    )
+    yield pytest.param(
+        {
             "space": "my_space",
             "externalId": "record_container",
             "usedFor": "record",
@@ -205,7 +181,31 @@ class TestContainerYAML:
                     "cursorable": True,
                 }
             },
-        }
+        },
+        "Indexes and constraints are not supported for record containers",
+        id="InvalidRecordContainer",
+    )
 
-        with pytest.raises(ValueError, match="Indexes and constraints are not supported for record containers"):
-            ContainerYAML.model_validate(invalid_data)
+
+class TestContainerYAML:
+    @pytest.mark.parametrize("data", list(find_resources("Container")))
+    def test_load_valid_container_file(self, data: dict[str, object]) -> None:
+        loaded = ContainerYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            *container_property_type_cases(),
+            *container_with_constraints_cases(),
+            *container_with_indexes_cases(),
+        ],
+    )
+    def test_load_valid_container_cases(self, data: dict[str, object]) -> None:
+        loaded = ContainerYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    @pytest.mark.parametrize("data, expected_match", list(invalid_container_cases()))
+    def test_invalid_container(self, data: dict[str, object], expected_match: str) -> None:
+        with pytest.raises(ValueError, match=expected_match):
+            ContainerYAML.model_validate(data)
