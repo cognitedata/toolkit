@@ -735,7 +735,7 @@ class DataModelingSelect:
         return selected_space
 
     def select_instance_type(
-        self, view_used_for: Literal["node", "edge", "all"] | None = None, message: str | None = None
+        self, view_used_for: Literal["node", "edge", "record", "all"] | None = None, message: str | None = None
     ) -> Literal["node", "edge"]:
         """Selects an instance type (node or edge) interactively.
 
@@ -746,6 +746,8 @@ class DataModelingSelect:
         Returns:
             The selected instance type, either 'node' or 'edge'.
         """
+        if view_used_for == "record":
+            raise ToolkitValueError("Instance type 'record' is not supported for instance view selection.")
         if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(

@@ -98,7 +98,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     last_updated_time: int
     writable: bool
     queryable: bool
-    used_for: Literal["node", "edge", "all"]
+    used_for: Literal["node", "edge", "all", "record"]
     is_global: bool
     mapped_containers: list[ContainerId]
 
