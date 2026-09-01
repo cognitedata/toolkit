@@ -130,7 +130,12 @@ class DeleteItem(RequestItem):
     item: JsonValue
     as_id_fun: Callable[[JsonValue], str]
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         return self.item  # type: ignore[return-value]
 
     def __str__(self) -> str:

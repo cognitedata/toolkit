@@ -351,8 +351,8 @@ class CoreApp(typer.Typer):
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
             lambda: cmd.deploy(
-                env_vars=env_vars,
                 user_build_dir=build_dir,
+                env_vars=env_vars,
                 options=DeployOptions(
                     cdf_project=cdf_project,
                     dry_run=dry_run,
@@ -431,8 +431,8 @@ class CoreApp(typer.Typer):
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
             lambda: cmd.deploy(
-                env_vars=env_vars,
                 user_build_dir=build_dir,
+                env_vars=env_vars,
                 options=DeployOptions(
                     operation="clean",
                     cdf_project=cdf_project,

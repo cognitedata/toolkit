@@ -65,7 +65,12 @@ class DataItem(RequestItem, Generic[T_DataItem]):
     def __str__(self) -> str:
         return self.tracking_id
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         if isinstance(self.item, dict):
             return self.item
         elif isinstance(self.item, DataRequestProtocol):
