@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, to_tracking_key
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -1060,10 +1060,21 @@ class BuildV2Command(ToolkitCommand):
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
         duration_ms = int((build_folder.finished_at - build_folder.started_at).total_seconds() * 1000)
 
-        resource_counts: Counter[str] = Counter(
-            f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
-            for resource in built_resources
-        )
+        stats_by_type: dict[ResourceType, ResourceBuildStat] = {}
+        for resource in built_resources:
+            if resource.type not in stats_by_type:
+                stats_by_type[resource.type] = ResourceBuildStat(
+                    resource_folder=resource.type.resource_folder,
+                    kind=resource.type.kind,
+                )
+            stat = stats_by_type[resource.type]
+            stat.built_count += 1
+            stat.dependency_total += len(resource.dependencies)
+            if resource.has_syntax_error:
+                stat.syntax_error_count += 1
+
+        resource_stats = sorted(stats_by_type.values(), key=lambda s: (s.resource_folder, s.kind))
+
         dependency_total = sum(len(resource.dependencies) for resource in built_resources)
         built_count = len(built_resources)
         dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
@@ -1071,19 +1082,18 @@ class BuildV2Command(ToolkitCommand):
         insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
         yaml_line_count = sum(module.yaml_line_count for module in build_folder.built_modules)
 
-        payload: dict[str, Any] = {
-            "build_duration_ms": duration_ms,
-            "resource_types": sorted(resource_counts.keys()),
-            "insight_codes": sorted(insight_codes_set),
-            "dependency_total": dependency_total,
-            "dependency_average": dependency_average,
-            "built_resource_total": built_count,
-            "module_count": len(build_folder.built_modules),
-            "insight_total_count": len(insights),
-            "yaml_line_count": yaml_line_count,
-        }
-        payload.update(resource_counts)
-        event = BuildTracking.model_validate(payload)
+        event = BuildTracking(
+            build_duration_ms=duration_ms,
+            resource_types=sorted(f"{s.resource_folder}.{s.kind}" for s in resource_stats),
+            resource_stats=resource_stats,
+            insight_codes=sorted(insight_codes_set),
+            dependency_total=dependency_total,
+            dependency_average=dependency_average,
+            built_resource_total=built_count,
+            module_count=len(build_folder.built_modules),
+            insight_total_count=len(insights),
+            yaml_line_count=yaml_line_count,
+        )
         self.tracker.track(event, client)
 
     def _write_results(
