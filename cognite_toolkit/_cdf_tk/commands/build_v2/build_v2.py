@@ -1060,9 +1060,6 @@ class BuildV2Command(ToolkitCommand):
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
         duration_ms = int((build_folder.finished_at - build_folder.started_at).total_seconds() * 1000)
 
-        # Aggregate per (resource_folder, kind) — carried as a nested list under
-        # `resource_stats` rather than dynamic top-level properties. This keeps
-        # the Mixpanel schema fixed as Toolkit adds new resource kinds.
         stats_by_type: dict[ResourceType, ResourceBuildStat] = {}
         for resource in built_resources:
             if resource.type not in stats_by_type:
