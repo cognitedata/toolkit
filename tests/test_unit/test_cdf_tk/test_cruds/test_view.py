@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -422,6 +423,20 @@ class TestRecordViewSupport:
         loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
         dumped = loader.dump_resource(_record_view_response())
         assert "streamId" not in dumped
+
+    def test_views_api_uses_alpha_cdf_version_when_record_views_enabled(
+        self, toolkit_config, enable_record_views: None
+    ) -> None:
+        from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
+
+        api = ViewsAPI(HTTPClient(toolkit_config))
+        assert api._api_version == "alpha"
+
+    def test_views_api_uses_default_cdf_version_without_record_views_flag(self, toolkit_config) -> None:
+        from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
+
+        api = ViewsAPI(HTTPClient(toolkit_config))
+        assert api._api_version is None
 
 
 class TestContainerCRUDGetDependencies:
