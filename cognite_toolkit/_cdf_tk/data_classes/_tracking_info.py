@@ -61,10 +61,16 @@ class CommandTracking(TrackingEvent):
 class DataTracking(TrackingEvent):
     """Structured tracking information for CLI commands."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
     event_name: Literal["DownloadResult", "UploadResult", "MigrationResult", "PurgeResult"] = Field(exclude=True)
     data_type: str
     total: int
+    success: int = Field(default=0)
+    failure: int = Field(default=0)
+    pending: int = Field(default=0)
+    skipped: int = Field(default=0)
+    success_with_warning: int = Field(default=0, alias="success-with-warning")
+    pending_with_warning: int = Field(default=0, alias="pending-with-warning")
 
     @classmethod
     def from_item_results(
