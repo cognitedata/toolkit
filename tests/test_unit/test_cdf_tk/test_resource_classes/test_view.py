@@ -232,6 +232,24 @@ def invalid_view_cases() -> Iterable:
             },
             "String should match pattern",
         ),
+        (
+            "InvalidRecordProperty",
+            {
+                "space": "my_space",
+                "externalId": "valid_view",
+                "streamId": ["stream1"],
+                "version": "1",
+                "properties": {
+                    "connectionProperty": {
+                        "connectionType": "single_edge_connection",
+                        "source": {"type": "view", "space": "my_space", "externalId": "source_view", "version": "1"},
+                        "type": {"space": "my_space", "externalId": "edge_type"},
+                        "direction": "outwards",
+                    }
+                },
+            },
+            "Record views only support container properties",
+        ),
     ]
     yield from (pytest.param(data, match, id=case_id) for case_id, data, match in invalid_views)
 
@@ -242,18 +260,10 @@ class TestViewYAML:
         loaded = ViewYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
-    @pytest.mark.parametrize("data", view_property_type_cases())
-    def test_load_valid_view_property_types(self, data: dict[str, object]) -> None:
-        loaded = ViewYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    @pytest.mark.parametrize("data", view_with_implements_cases())
-    def test_load_valid_view_implements(self, data: dict[str, object]) -> None:
-        loaded = ViewYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-
-    @pytest.mark.parametrize("data", view_with_filters_cases())
-    def test_load_valid_view_filters(self, data: dict[str, object]) -> None:
+    @pytest.mark.parametrize(
+        "data", [*view_property_type_cases(), *view_with_implements_cases(), *view_with_filters_cases()]
+    )
+    def test_load_valid_view(self, data: dict[str, object]) -> None:
         loaded = ViewYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
