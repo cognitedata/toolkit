@@ -2,7 +2,7 @@ import re
 from typing import Literal
 
 from pydantic import Field, field_validator, model_serializer
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler, ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.constants import (
@@ -94,3 +94,13 @@ class ContainerYAML(ToolkitResource):
         if self.indexes:
             serialized_data["indexes"] = {k: v.model_dump(**vars(info)) for k, v in self.indexes.items()}
         return serialized_data
+
+    @field_validator("indexes", "constraints", mode="after")
+    @classmethod
+    def indexes_and_constraints_not_supported_for_record_containers(
+        cls, val: dict[str, str] | None, info: ValidationInfo
+    ) -> dict[str, str] | None:
+        """Validate that indexes and constraints are not set for record containers"""
+        if info.data.get("used_for") == "record" and val is not None:
+            raise ValueError("Indexes and constraints are not supported for record containers.")
+        return val

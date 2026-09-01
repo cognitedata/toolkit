@@ -190,3 +190,22 @@ class TestContainerYAML:
 
         with pytest.raises(ValueError):
             ContainerYAML.model_validate(invalid_data)
+
+    def test_invalid_record_container(self) -> None:
+        invalid_data = {
+            "space": "my_space",
+            "externalId": "record_container",
+            "usedFor": "record",
+            "properties": {"field": {"type": {"type": "text"}}},
+            "indexes": {
+                "recordIndex": {
+                    "indexType": "btree",
+                    "properties": ["field"],
+                    "bySpace": True,
+                    "cursorable": True,
+                }
+            },
+        }
+
+        with pytest.raises(ValueError, match="Indexes and constraints are not supported for record containers"):
+            ContainerYAML.model_validate(invalid_data)
