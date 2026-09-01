@@ -2,8 +2,11 @@ from collections.abc import Hashable
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+import respx
 
+from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -17,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
     ViewCorePropertyResponse,
     ViewId,
+    ViewRequest,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
@@ -424,19 +428,44 @@ class TestRecordViewSupport:
         dumped = loader.dump_resource(_record_view_response())
         assert "streamId" not in dumped
 
-    def test_views_api_uses_alpha_cdf_version_when_record_views_enabled(
-        self, toolkit_config, enable_record_views: None
+    def test_views_api_sends_alpha_cdf_version_when_record_views_enabled(
+        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
     ) -> None:
-        from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
-
         api = ViewsAPI(HTTPClient(toolkit_config))
-        assert api._api_version == "alpha"
+        request = ViewRequest(
+            space="my_space",
+            external_id="my_record_view",
+            version="1",
+            stream_id=["my_stream"],
+        )
+        upsert_url = toolkit_config.create_api_url("/models/views")
+        respx_mock.post(upsert_url).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "space": "my_space",
+                            "externalId": "my_record_view",
+                            "version": "1",
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                            "writable": True,
+                            "queryable": True,
+                            "usedFor": "record",
+                            "isGlobal": False,
+                            "mappedContainers": [],
+                            "properties": {},
+                            "streamId": ["my_stream"],
+                        }
+                    ]
+                },
+            )
+        )
 
-    def test_views_api_uses_default_cdf_version_without_record_views_flag(self, toolkit_config) -> None:
-        from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
+        api.create([request])
 
-        api = ViewsAPI(HTTPClient(toolkit_config))
-        assert api._api_version is None
+        assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
 
 
 class TestContainerCRUDGetDependencies:
