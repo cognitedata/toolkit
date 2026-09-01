@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import G
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployOptions, DeployV2Command, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -49,7 +49,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     ResourceTypes,
     TransformationIO,
-    ViewIO,
     WorkflowTriggerIO,
     get_crud,
 )
@@ -78,12 +77,15 @@ class TestDeployResources:
         )
         expected_order = ["MyView", "MyOtherView"]
 
-        cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resource_type(
-            ViewIO.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
-            env_vars_with_client,
-            [],
-            dry_run=False,
+        cmd = DeployV2Command(print_warning=False, skip_tracking=True)
+        cmd.deploy(
+            user_build_dir=BUILD_DIR,
+            env_vars=env_vars_with_client,
+            options=DeployOptions(
+                cdf_project=env_vars_with_client.CDF_PROJECT,
+                dry_run=False,
+                environment_variables=env_vars_with_client.dump(),
+            ),
         )
 
         views = toolkit_client_approval.dump(sort=False)["ViewResponse"]
