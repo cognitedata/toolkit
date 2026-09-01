@@ -1193,10 +1193,6 @@ class DeployV2Command(ToolkitCommand):
 
         is_dry_run = results[0].is_dry_run
 
-        # Per-resource stats are carried as a nested list under `resource_stats`
-        # (see DeploymentTracking) rather than being flattened into dynamic
-        # top-level properties. This keeps the Mixpanel schema fixed as new
-        # resource kinds are added to Toolkit.
         resource_stats = [
             ResourceDeploymentStat(
                 resource_name=result.resource_name,
