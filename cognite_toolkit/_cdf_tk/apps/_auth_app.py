@@ -3,6 +3,7 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
@@ -14,6 +15,9 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
+        self.command(name="login")(self.login)
+        self.command()(self.logout)
+        self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -90,3 +94,32 @@ class AuthApp(typer.Typer):
                 no_prompt=no_prompt,
             )
         )
+
+    def login(
+        self,
+        org: Annotated[
+            str | None,
+            typer.Option("--org", help="Organization to sign in to (prompted when omitted)"),
+        ] = None,
+        force: Annotated[
+            bool,
+            typer.Option("--force", help="Replace an existing session without prompting"),
+        ] = False,
+        port: Annotated[
+            int | None,
+            typer.Option("--port", help="Local callback port for the OAuth redirect (default: 3000)"),
+        ] = None,
+    ) -> None:
+        """Sign in via the browser and persist a refreshable session (parity with `cognite auth login`)."""
+        cmd = AuthSessionCommand()
+        cmd.run(lambda: cmd.login(org=org, force=force, port=port))
+
+    def logout(self) -> None:
+        """Sign out and clear the persisted session."""
+        cmd = AuthSessionCommand()
+        cmd.run(cmd.logout)
+
+    def status(self) -> None:
+        """Show the active persisted session (org, user, expiry, reachable projects)."""
+        cmd = AuthSessionCommand()
+        cmd.run(cmd.status)
