@@ -233,7 +233,6 @@ class EnvironmentVariables:
             project=self.CDF_PROJECT,
             credentials=self.get_credentials(),
             base_url=self.cdf_url,
-            max_workers=self.CDF_MAX_WORKERS,
             timeout=self.CDF_TIMEOUT,
         )
         return ToolkitClient(config=config)

@@ -21,7 +21,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
-from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -31,7 +30,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -137,7 +136,7 @@ class ReadResource(Generic[T_RequestResource]):
 
 
 @dataclass
-class DeploymentStep:
+class DeploymentStep(Generic[T_RequestResource]):
     """A deployment step
 
     Args:
@@ -145,12 +144,14 @@ class DeploymentStep:
         files: The files to deploy in this step, all of which should be of the same structure.
         skipped_cruds: Resource types that this step depends on but are skipped due to the include filter.
             This is used to warn the user about potential issues with the deployment.
+        resource_requests: Resources that are given directly in their request form, rather than being read from files.
 
     """
 
     crud_cls: type[ResourceIO]
     files: list[Path]
     skipped_cruds: Set[type[ResourceIO]] = field(default_factory=set)
+    resource_requests: list[T_RequestResource] | None = None
 
 
 @dataclass
@@ -219,17 +220,23 @@ class DeploymentResult:
 class DeployV2Command(ToolkitCommand):
     def deploy(
         self,
-        env_vars: EnvironmentVariables,
         user_build_dir: Path,
+        env_vars: EnvironmentVariables | None = None,
+        client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
-        options = options or DeployOptions(environment_variables=env_vars.dump())
+        if env_vars is None and client is None:
+            raise ToolkitValueError("Either env_vars or client must be provided.")
+
+        options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
-        client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
+        if client is None:
+            # We check above that if client is None, then env_vars is not None, so this is safe.
+            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)  # type: ignore[union-attr]
 
-        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
         if options.drop:
@@ -257,6 +264,9 @@ class DeployV2Command(ToolkitCommand):
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
+            # To aviod circular imports, we import UploadCommand here.
+            from cognite_toolkit._cdf_tk.commands import UploadCommand
+
             self._display_deprecation_warning(raw_files, client.console)
             UploadCommand.upload_data(
                 raw_files,  # type: ignore[arg-type]
@@ -689,7 +699,16 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resource_by_id = cls._read_resource_files(crud, step.files, options)
+                if step.files:
+                    resource_by_id = cls._read_resource_files(crud, step.files, options)
+                else:
+                    resource_by_id = {}
+                resource_by_id.update(
+                    {
+                        crud.get_id(request): ReadResource(request=request, raw_dict=request.dump(context="toolkit"))
+                        for request in (step.resource_requests or [])
+                    }
+                )
                 if not resource_by_id:
                     # If the CRUD is a GroupScoped and the resources are all scoped.
                     progress.update(task_id, advance=len(step.files))
@@ -1193,25 +1212,24 @@ class DeployV2Command(ToolkitCommand):
 
         is_dry_run = results[0].is_dry_run
 
-        # Build flattened per-resource stats for Mixpanel compatibility
-        # Creates keys like "dataSets_created", "spaces_updated", etc.
-        per_resource_stats: dict[str, int] = {}
-        resource_types: list[str] = []
-        for result in results:
-            # Convert resource name to camelCase key prefix (e.g., "Data Sets" -> "dataSets")
-            key_prefix = cls._to_tracking_key(result.resource_name)
-            resource_types.append(result.resource_name)
-            per_resource_stats[f"{key_prefix}Created"] = result.created_count
-            per_resource_stats[f"{key_prefix}Updated"] = result.updated_count
-            per_resource_stats[f"{key_prefix}Deleted"] = result.deleted_count
-            per_resource_stats[f"{key_prefix}Unchanged"] = result.unchanged_count
-            per_resource_stats[f"{key_prefix}Skipped"] = result.skipped_count
-            per_resource_stats[f"{key_prefix}Total"] = result.total_count
+        resource_stats = [
+            ResourceDeploymentStat(
+                resource_name=result.resource_name,
+                created=result.created_count,
+                updated=result.updated_count,
+                deleted=result.deleted_count,
+                unchanged=result.unchanged_count,
+                skipped=result.skipped_count,
+                total=result.total_count,
+            )
+            for result in results
+        ]
 
         event = DeploymentTracking(
             is_dry_run=is_dry_run,
             operation=operation,
-            resource_types=resource_types,
+            resource_types=[result.resource_name for result in results],
+            resource_stats=resource_stats,
             total_created=sum(r.created_count for r in results),
             total_updated=sum(r.updated_count for r in results),
             total_deleted=sum(r.deleted_count for r in results),
@@ -1219,24 +1237,8 @@ class DeployV2Command(ToolkitCommand):
             total_skipped=sum(r.skipped_count for r in results),
             total_resources=sum(r.total_count for r in results),
             resource_type_count=len(results),
-            # This pydantic class allows extra
-            **per_resource_stats,  # type: ignore [arg-type]
         )
         tracker.track(event, client)
-
-    @staticmethod
-    def _to_tracking_key(resource_name: str) -> str:
-        """Convert a resource display name to a camelCase tracking key.
-
-        Examples:
-            "Data Sets" -> "dataSets"
-            "Extraction Pipelines" -> "extractionPipelines"
-            "RAW Tables" -> "rawTables"
-        """
-        words = resource_name.replace("-", " ").split()
-        if not words:
-            return resource_name.lower()
-        return words[0].lower() + "".join(word.capitalize() for word in words[1:])
 
     @classmethod
     def _find_raw_tables(cls, build_lineage: BuildLineage) -> Mapping[RawTableSelector, list[Path]]:

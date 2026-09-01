@@ -21,7 +21,7 @@ def invalid_search_config_test_cases() -> Iterable:
             "columnsLayout": [{"property": 123}],  # property should be str
         },
         {
-            "In columnsLayout[1].property input should be a valid string. Got 123 of type int. "
+            "Invalid value at columnsLayout[1].property: Input should be a valid string. Got 123 of type int. "
             "Hint: Use double quotes to force string.",
         },
         id="Invalid type in columns_layout property",

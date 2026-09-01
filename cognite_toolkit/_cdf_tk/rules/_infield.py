@@ -1,5 +1,7 @@
 from collections.abc import Iterable
 
+from pydantic.alias_generators import to_camel
+
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
@@ -10,9 +12,7 @@ from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRule
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
-from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import (
-    INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY,
-)
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
 _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
@@ -32,9 +32,9 @@ _FieldConfigRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
 _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
 
 
-class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "INFIELD-CDM"
-    DISPLAY_NAME = "InField CDM view properties"
+class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
+    CODE_PREFIX = "INFIELD"
+    DISPLAY_NAME = "Infield CDM checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -47,7 +47,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
             )
         return RuleSetStatus(
             code="ready",
-            message="Will validate InField CDM card views and field configs against CDF view properties.",
+            message="Will validate InField CDM location configurations.",
         )
 
     def validate(self) -> Iterable[ConsistencyError]:
@@ -100,7 +100,8 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
         field_refs: list[_FieldConfigRef] = []
 
         if config.data_exploration_config:
-            for attr, card_key in INFIELD_CDM_CARD_VIEW_ATTR_TO_JSON_KEY.items():
+            for attr in INFIELD_CDM_CARD_VIEW_ATTRS:
+                card_key = to_camel(attr)
                 mapping: ViewReference | None = getattr(config.data_exploration_config, attr, None)
                 if mapping is None:
                     continue
@@ -113,7 +114,7 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
                     (
                         resource,
                         "assetPropertiesCardConfig",
-                        InFieldCDMViewPropertiesRuleSet._asset_view_id_for_card_config(config),
+                        InFieldCDMRuleSet._asset_view_id_for_card_config(config),
                         frozenset(card_config.keys()),
                     )
                 )
@@ -147,13 +148,11 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
 
         missing = required - set(view.properties.keys())
         if missing:
+            quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
-                message=(
-                    f"View {view_id!s} used as {card_key!r} in {resource.source_path.name!r} "
-                    f"is missing required properties: {humanize_collection(sorted(missing))}."
-                ),
-                fix=f"Ensure the view has these properties: {humanize_collection(sorted(missing))}.",
+                message=(f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."),
+                fix=f"Ensure the view has these properties: {quoted_missing}.",
                 source_file=format_insight_source_file(resource.source_path),
             )
 
@@ -171,12 +170,10 @@ class InFieldCDMViewPropertiesRuleSet(ToolkitGlobalRuleSet):
 
         unknown = field_keys - set(view.properties.keys())
         if unknown:
+            quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield ConsistencyError(
                 code=f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY",
-                message=(
-                    f"View {view_id!s} used for {config_key!r} in {resource.source_path.name!r} "
-                    f"does not have properties: {humanize_collection(sorted(unknown))}."
-                ),
-                fix=f"Use property names that exist on the view: {humanize_collection(sorted(unknown))}.",
+                message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
+                fix=f"Use property names that exist on the view: {quoted_unknown}.",
                 source_file=format_insight_source_file(resource.source_path),
             )

@@ -77,6 +77,7 @@ class ContainerFilter(DataModelingFilter):
 class ViewFilter(DataModelingFilter):
     include_inherited_properties: bool | None = None
     all_versions: bool | None = None
+    used_for: Literal["node", "edge", "record", "all"] | None = None
 
 
 class DataModelFilter(DataModelingFilter):

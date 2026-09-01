@@ -4,7 +4,7 @@ import mimetypes
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import httpx
 from cognite.client import data_modeling as dm
@@ -57,7 +57,12 @@ class UploadFileContentItem(DataItem[FileMetadataRequest]):
     # Only applies for data modeling uploads, used to set properties like name, description, mime type, etc.
     file_view_properties: Mapping[str, JsonValue] | None = None
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = True) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = True,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         return self.item.dump(camel_case=camel_case, exclude_extra=exclude_extra)
 
 

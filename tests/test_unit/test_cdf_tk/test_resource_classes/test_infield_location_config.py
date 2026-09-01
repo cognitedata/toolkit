@@ -29,7 +29,7 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In featureToggles unknown field: 'invalidToggle'",
+            "Unrecognized field in featureToggles: 'invalidToggle'. ",
             "Unknown field: 'anotherUnknownField'",
             "Unknown field: 'unknownField'",
         },
@@ -53,14 +53,14 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "In accessManagement.checklistAdmins input should be a valid list. Got 456.",
-            "In accessManagement.templateAdmins input should be a valid list. Got 'should_be_a_list'.",
-            "In featureToggles.observations.isEnabled input should be a valid boolean. "
+            "Invalid value at accessManagement.checklistAdmins: Input should be a valid list. Got 456.",
+            "Invalid value at accessManagement.templateAdmins: Input should be a valid list. Got 'should_be_a_list'.",
+            "Invalid value at featureToggles.observations.isEnabled: Input should be a valid boolean. "
             "Got 'not_a_boolean' of type str.",
-            "In featureToggles.observations.isWriteBackEnabled input should be a valid "
+            "Invalid value at featureToggles.observations.isWriteBackEnabled: Input should be a valid "
             "boolean. Got ['invalid_type'] of type list.",
-            "In featureToggles.threeD input should be a valid boolean. Got 'not_a_boolean' of type str.",
-            "In featureToggles.trends input should be a valid boolean. Got 123 of type int.",
+            "Invalid value at featureToggles.threeD: Input should be a valid boolean. Got 'not_a_boolean' of type str.",
+            "Invalid value at featureToggles.trends: Input should be a valid boolean. Got 123 of type int.",
         },
         id="Multiple type mismatches across nested structures",
     )

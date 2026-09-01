@@ -91,13 +91,6 @@ class DeployCommand(ToolkitCommand):
 
         client = env_vars.get_client(build.is_strict_validation)
 
-        if not dry_run:
-            for module in build.read_modules:
-                if module.module_id:
-                    self._additional_tracking_info.module_ids.add(module.module_id)
-                if module.package_id:
-                    self._additional_tracking_info.package_ids.add(module.package_id)
-
         selected_loaders = self._clean_command.get_selected_loaders(build_dir, build.read_resource_folders, include)
         ordered_loaders = self._order_loaders(selected_loaders, build_dir)
         self._start_message(build_dir, dry_run, env_vars)

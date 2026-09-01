@@ -389,7 +389,7 @@ class FakeCogniteResourceGenerator:
                     return self._random_constrained_string(constraints)
             return self.create_value(base_type, var_name=var_name)
         elif container_type in UNION_TYPES:
-            return self.create_value(first_not_none)
+            return self.create_value(first_not_none, var_name=var_name)
         elif container_type is typing.Literal:
             return self._random.choice(args)
         elif container_type in [
@@ -399,7 +399,8 @@ class FakeCogniteResourceGenerator:
             collections.abc.Collection,
             SequenceNotStr,
         ]:
-            return [self.create_value(first_not_none) for _ in range(3)]
+            list_size = 1 if var_name == "stream_id" else 3
+            return [self.create_value(first_not_none, var_name=var_name) for _ in range(list_size)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:
             if first_not_none is None:
                 return self.create_value(dict)

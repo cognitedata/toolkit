@@ -22,7 +22,7 @@ def invalid_function_test_cases() -> Iterable:
             "secrets": {f"secret_name{i}": f"super_secret{i}" for i in range(31)},
         },
         {
-            "In field secrets dictionary should have at most 30 items after validation, not 31",
+            "Invalid value for secrets: Dictionary should have at most 30 items after validation, not 31",
         },
         id="Too many secrets",
     )

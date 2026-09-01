@@ -335,7 +335,12 @@ class Image360ContextualizationRequest(BaseModelObject):
     items: list[Image360AnnotationItem]
     dms_contextualization_config: DmsContextualizationConfig
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         return {
             "items": [item.dump(camel_case=camel_case, exclude_extra=exclude_extra) for item in self.items],
             "dmsContextualizationConfig": self.dms_contextualization_config.dump(
