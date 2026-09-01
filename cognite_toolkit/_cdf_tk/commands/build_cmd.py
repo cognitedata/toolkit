@@ -328,12 +328,6 @@ class BuildCommand(ToolkitCommand):
                 )
                 build.append(built_module)
 
-                if module.package_id:
-                    self._additional_tracking_info.package_ids.add(module.package_id)
-
-                if module.module_id:
-                    self._additional_tracking_info.module_ids.add(module.module_id)
-
         return build
 
     def _build_module_resources(
