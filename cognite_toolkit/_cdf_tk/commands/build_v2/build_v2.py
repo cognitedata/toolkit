@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, to_tracking_key
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -1060,10 +1060,30 @@ class BuildV2Command(ToolkitCommand):
         built_resources = [resource for module in build_folder.built_modules for resource in module.resources]
         duration_ms = int((build_folder.finished_at - build_folder.started_at).total_seconds() * 1000)
 
-        resource_counts: Counter[str] = Counter(
-            f"{to_tracking_key(f'{resource.type.resource_folder} {resource.type.kind}')}Built"
-            for resource in built_resources
-        )
+        # Aggregate per (resource_folder, kind) — carried as a nested list under
+        # `resource_stats` rather than dynamic top-level properties. This keeps
+        # the Mixpanel schema fixed as Toolkit adds new resource kinds.
+        stats_by_type: dict[ResourceType, dict[str, int]] = {}
+        for resource in built_resources:
+            bucket = stats_by_type.setdefault(
+                resource.type, {"built_count": 0, "dependency_total": 0, "syntax_error_count": 0}
+            )
+            bucket["built_count"] += 1
+            bucket["dependency_total"] += len(resource.dependencies)
+            if resource.has_syntax_error:
+                bucket["syntax_error_count"] += 1
+
+        resource_stats = [
+            ResourceBuildStat(
+                resource_folder=rtype.resource_folder,
+                kind=rtype.kind,
+                built_count=bucket["built_count"],
+                dependency_total=bucket["dependency_total"],
+                syntax_error_count=bucket["syntax_error_count"],
+            )
+            for rtype, bucket in sorted(stats_by_type.items(), key=lambda item: (item[0].resource_folder, item[0].kind))
+        ]
+
         dependency_total = sum(len(resource.dependencies) for resource in built_resources)
         built_count = len(built_resources)
         dependency_average = round((dependency_total / built_count), 6) if built_count else 0.0
@@ -1071,19 +1091,18 @@ class BuildV2Command(ToolkitCommand):
         insight_codes_set = {ins.code if ins.code is not None else "UNDEFINED" for ins in insights}
         yaml_line_count = sum(module.yaml_line_count for module in build_folder.built_modules)
 
-        payload: dict[str, Any] = {
-            "build_duration_ms": duration_ms,
-            "resource_types": sorted(resource_counts.keys()),
-            "insight_codes": sorted(insight_codes_set),
-            "dependency_total": dependency_total,
-            "dependency_average": dependency_average,
-            "built_resource_total": built_count,
-            "module_count": len(build_folder.built_modules),
-            "insight_total_count": len(insights),
-            "yaml_line_count": yaml_line_count,
-        }
-        payload.update(resource_counts)
-        event = BuildTracking.model_validate(payload)
+        event = BuildTracking(
+            build_duration_ms=duration_ms,
+            resource_types=sorted(f"{s.resource_folder}.{s.kind}" for s in resource_stats),
+            resource_stats=resource_stats,
+            insight_codes=sorted(insight_codes_set),
+            dependency_total=dependency_total,
+            dependency_average=dependency_average,
+            built_resource_total=built_count,
+            module_count=len(build_folder.built_modules),
+            insight_total_count=len(insights),
+            yaml_line_count=yaml_line_count,
+        )
         self.tracker.track(event, client)
 
     def _write_results(

@@ -2,18 +2,34 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
 
+# --- Mixpanel ingestion safety limits ---------------------------------------
+# Documented Mixpanel limits we defensively guard against:
+#   * String property values are truncated at 255 chars (silently).
+#   * Nested objects/arrays deeper than 3 levels are rejected/flattened.
+#   * 255 properties per event.
+# Our events sit well within these; the caps below are belt-and-suspenders so
+# a future change (e.g. a new free-form field or an explosion in resource
+# kinds) cannot silently corrupt analytics data.
+MP_STRING_LIMIT: int = 255
+MP_MAX_LIST_ITEMS: int = 250
 
-def to_tracking_key(display_name: str) -> str:
-    """Convert a resource label to a camelCase Mixpanel key prefix (matches deploy_v2)."""
-    words = display_name.replace("-", " ").replace("_", " ").split()
-    if not words:
-        return display_name.lower()
-    return words[0].lower() + "".join(word.capitalize() for word in words[1:])
+
+def _mp_safe_str(value: str, limit: int = MP_STRING_LIMIT) -> str:
+    """Truncate a string so it will not be silently cut off by Mixpanel."""
+    if len(value) <= limit:
+        return value
+    # Reserve one char for the ellipsis so total length stays <= limit.
+    return value[: limit - 1] + "…"
+
+
+def _mp_safe_str_list(values: list[str]) -> list[str]:
+    """Truncate each element and cap the list length."""
+    return [_mp_safe_str(v) for v in values[:MP_MAX_LIST_ITEMS]]
 
 
 class TrackingEvent(BaseModel):
@@ -57,6 +73,16 @@ class CommandTracking(TrackingEvent):
     alpha_flags: list[str] = Field(default_factory=list)
     plugins: list[str] = Field(default_factory=list)
 
+    @field_validator("result", mode="after")
+    @classmethod
+    def _truncate_result(cls, v: str) -> str:
+        return _mp_safe_str(v)
+
+    @field_validator("error", mode="after")
+    @classmethod
+    def _truncate_error(cls, v: str | None) -> str | None:
+        return _mp_safe_str(v) if v is not None else None
+
 
 class DataTracking(TrackingEvent):
     """Structured tracking information for CLI commands."""
@@ -86,31 +112,46 @@ class DataTracking(TrackingEvent):
         return cls.model_validate(tracking_data)
 
 
+class ResourceDeploymentStat(BaseModel):
+    """Per-resource-type deployment counts, nested inside ``DeploymentTracking``.
+
+    Kept as a flat set of scalars — do NOT add nested lists/dicts here, as
+    Mixpanel only supports 3 levels of nesting and this model already sits at
+    level 3 (event → resource_stats[] → this).
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    resource_name: str
+    created: int = 0
+    updated: int = 0
+    deleted: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    total: int = 0
+
+    @field_validator("resource_name", mode="after")
+    @classmethod
+    def _truncate_resource_name(cls, v: str) -> str:
+        return _mp_safe_str(v)
+
+
 class DeploymentTracking(TrackingEvent):
     """Structured tracking information for deployment commands.
 
-    This model uses a flattened structure for Mixpanel compatibility.
-    Per-resource stats are stored as dynamic fields like "dataSets_created", "spaces_updated", etc.
-
-    Attributes:
-        is_dry_run: Whether this was a dry run.
-        operation: The operation performed (deploy or clean).
-        resource_types: List of resource type names that were deployed.
-        total_created: Total resources created across all types.
-        total_updated: Total resources updated across all types.
-        total_deleted: Total resources deleted across all types.
-        total_unchanged: Total unchanged resources across all types.
-        total_skipped: Total skipped resources across all types.
-        total_resources: Total resources across all types.
-        resource_type_count: Number of different resource types deployed.
+    Per-resource stats are carried in the ``resource_stats`` list rather than
+    being flattened into top-level dynamic properties. This keeps the Mixpanel
+    schema fixed regardless of how many resource kinds Toolkit adds and avoids
+    silent property-count sprawl.
     """
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     event_name: Literal["DeploymentResult"] = Field("DeploymentResult", exclude=True)
     is_dry_run: bool = False
     operation: str = "deploy"
     resource_types: list[str] = Field(default_factory=list)
+    resource_stats: list[ResourceDeploymentStat] = Field(default_factory=list)
     total_created: int = 0
     total_updated: int = 0
     total_deleted: int = 0
@@ -119,24 +160,68 @@ class DeploymentTracking(TrackingEvent):
     total_resources: int = 0
     resource_type_count: int = 0
 
+    @field_validator("resource_types", mode="after")
+    @classmethod
+    def _cap_resource_types(cls, v: list[str]) -> list[str]:
+        return _mp_safe_str_list(v)
+
+    @field_validator("resource_stats", mode="after")
+    @classmethod
+    def _cap_resource_stats(cls, v: list[ResourceDeploymentStat]) -> list[ResourceDeploymentStat]:
+        return v[:MP_MAX_LIST_ITEMS]
+
+
+class ResourceBuildStat(BaseModel):
+    """Per-resource-type build counts, nested inside ``BuildTracking``.
+
+    Kept as a flat set of scalars — do NOT add nested lists/dicts here, as
+    Mixpanel only supports 3 levels of nesting and this model already sits at
+    level 3 (event → resource_stats[] → this).
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    resource_folder: str
+    kind: str
+    built_count: int = 0
+    dependency_total: int = 0
+    syntax_error_count: int = 0
+
+    @field_validator("resource_folder", "kind", mode="after")
+    @classmethod
+    def _truncate_names(cls, v: str) -> str:
+        return _mp_safe_str(v)
+
 
 class BuildTracking(TrackingEvent):
     """Structured tracking information for build v2 (`cdf build`).
 
-    Per-resource-type built counts use flattened Mixpanel fields such as ``spaceDataModelingBuilt``,
-    matching the ``DeploymentTracking`` pattern (``extra="allow"``). Populate via
-    ``BuildTracking.model_validate({...})`` in ``BuildV2Command._track_build_results``.
+    Per-resource-type built counts are carried in the ``resource_stats`` list
+    rather than being flattened into top-level dynamic properties. This keeps
+    the Mixpanel schema fixed regardless of how many resource kinds Toolkit
+    adds and avoids silent property-count sprawl.
     """
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     event_name: Literal["BuildResult"] = Field("BuildResult", exclude=True)
     build_duration_ms: int = 0
-    resource_types: set[str] = Field(default_factory=set)
-    insight_codes: set[str] = Field(default_factory=set)
+    resource_types: list[str] = Field(default_factory=list)
+    resource_stats: list[ResourceBuildStat] = Field(default_factory=list)
+    insight_codes: list[str] = Field(default_factory=list)
     dependency_total: int = 0
     dependency_average: float = 0.0
     built_resource_total: int = 0
     module_count: int = 0
     insight_total_count: int = 0
     yaml_line_count: int = 0
+
+    @field_validator("resource_types", "insight_codes", mode="after")
+    @classmethod
+    def _cap_str_lists(cls, v: list[str]) -> list[str]:
+        return _mp_safe_str_list(v)
+
+    @field_validator("resource_stats", mode="after")
+    @classmethod
+    def _cap_resource_stats(cls, v: list[ResourceBuildStat]) -> list[ResourceBuildStat]:
+        return v[:MP_MAX_LIST_ITEMS]
