@@ -1,9 +1,8 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic
+from typing import Any, Generic
 
-from rich import print
 from rich.console import Console
 from rich.table import Table
 
@@ -20,9 +19,13 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import RecordsMigrationIO
-from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
+    DeploymentResult,
+    DeploymentStep,
+    DeployOptions,
+    DeployV2Command,
+)
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
-from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
     ChartIO,
@@ -44,7 +47,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRepeatedUploadFailureError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import ResourceWorker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.file import add_top_level_comment_in_yaml, create_logfile_stem, yaml_safe_dump
@@ -455,43 +457,39 @@ class MigrationCommand(ToolkitCommand):
         output_dir: Path,
         deploy: bool = True,
         verbose: bool = False,
-    ) -> DeployResults:
+    ) -> Sequence[DeploymentResult]:
         """This method is used to create migration resource in CDF."""
         self.validate_migration_model_available(client)
 
-        deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
+        deploy_cmd = DeployV2Command(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
-        # crud_cls = creator.CRUD
-        # resource_list = creator.create_resources()
-        results = DeployResults([], "deploy", dry_run=dry_run)
+        results: list[DeploymentResult] = []
         for to_create in creator.create_resources():
             crud_cls = to_create.crud_cls
-            if deploy:
-                crud = crud_cls.create_loader(client)
-                worker = ResourceWorker(crud, "deploy")
-                local_by_id = {
-                    crud.get_id(item.resource): (item.resource.dump(), item.resource) for item in to_create.resources
-                }
-                worker.validate_access(local_by_id, is_dry_run=dry_run)
-                cdf_resources = crud.retrieve(list(local_by_id.keys()))
-                resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
+            if deploy and to_create.resources:
+                verb = "Would deploy" if dry_run else "Deploying"
+                self.console(f"{verb} {to_create.display_name!r}")
 
-                if dry_run:
-                    result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
-                else:
-                    result = deploy_cmd.actual_deploy(resources, crud)
-                    if result.calculated_total > 0 and to_create.store_linage is not None:
+                plan: list[DeploymentStep[Any]] = [
+                    DeploymentStep(
+                        crud_cls,
+                        [],
+                        resource_requests=[item.resource for item in to_create.resources],
+                    ),
+                ]
+                step_results = deploy_cmd.apply_plan(
+                    client,
+                    plan,
+                    options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
+                )
+                deploy_cmd._display_results(step_results, "deploy", console=client.console, verbose=verbose)
+                results.extend(step_results)
+
+                if not dry_run and step_results:
+                    result = step_results[0]
+                    if result.total_count - result.skipped_count > 0 and to_create.store_linage is not None:
                         store_count = to_create.store_linage()
                         self.console(f"Stored lineage for {store_count:,} {to_create.display_name}.")
-
-                verb = "Would deploy" if dry_run else "Deploying"
-                self.console(f"{verb} {to_create.display_name} to CDF.")
-
-                if result:
-                    results[result.name] = result
-
-                if results.has_counts:
-                    print(results.counts_table())
 
             for item in to_create.resources:
                 if item.config_data and item.filestem:

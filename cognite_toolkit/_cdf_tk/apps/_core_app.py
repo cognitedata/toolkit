@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Union
+from typing import Annotated
 
 import typer
 from dotenv import dotenv_values, load_dotenv
@@ -18,10 +18,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
-    BuildCommand,
     BuildV2Command,
-    CleanCommand,
-    DeployCommand,
     DeployOptions,
     DeployV2Command,
 )
@@ -164,108 +161,6 @@ class CoreApp(typer.Typer):
             display_path = relative_to_if_possible(env_path)
             print(f"  [bold yellow]WARNING:[/] No environment variables found in {display_path.as_posix()!r} file.")
 
-    def build(
-        self,
-        ctx: typer.Context,
-        organization_dir: Annotated[
-            Path,
-            typer.Option(
-                "--organization-dir",
-                "-o",
-                help="Where to find the module templates to build from",
-            ),
-        ] = CDF_TOML.cdf.default_organization_dir,
-        build_dir: Annotated[
-            Path,
-            typer.Option(
-                "--build-dir",
-                "-b",
-                help="Where to save the built module files",
-            ),
-        ] = Path("./build"),
-        selected: Annotated[
-            list[str] | None,
-            typer.Option(
-                "--modules",
-                "-m",
-                help="Specify paths or names to the modules to build",
-            ),
-        ] = None,
-        build_env_name: Annotated[
-            str | None,
-            typer.Option(
-                "--env",
-                "-e",
-                help="The name of the environment to build",
-            ),
-        ] = CDF_TOML.cdf.default_env,
-        no_clean: Annotated[
-            bool,
-            typer.Option(
-                "--no-clean",
-                "-c",
-                help="Whether not to delete the build directory before building the configurations",
-            ),
-        ] = False,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-        offline: Annotated[
-            bool,
-            typer.Option(
-                "--offline",
-                help="Do not check CDF for missing dependencies.",
-            ),
-        ] = False,
-        exit_on_warning: Annotated[
-            bool,
-            typer.Option(
-                "--exit-non-zero-on-warning",
-                "-w",
-                help="Exit with non-zero code on warning.",
-            ),
-        ] = False,
-    ) -> None:
-        """Build configuration files from the modules to the build directory."""
-        client: Union[ToolkitClient, None] = None
-        if not offline:
-            with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
-                # Remove the Error message from failing to load the config
-                # This is verified in check_auth
-                client = EnvironmentVariables.create_from_environment().get_client()
-
-        print_warning = True
-        if exit_on_warning:
-            print_warning = False
-
-        cmd = BuildCommand(print_warning=print_warning, client=client)
-        cmd.run(
-            lambda: cmd.execute(
-                verbose,
-                organization_dir,
-                build_dir,
-                selected,  # type: ignore[arg-type]
-                build_env_name,
-                no_clean,
-                client,
-                on_error="raise",
-            )
-        )
-
-        if exit_on_warning and cmd.warning_list:
-            print("\n[bold red]Warnings raised during the build process:[/]\n")
-
-            for warning in cmd.warning_list:
-                warning.print_warning(include_timestamp=False)
-                print(end="\n")
-
-            raise typer.Exit(code=1)
-
     def build_v2(
         self,
         ctx: typer.Context,
@@ -364,88 +259,6 @@ class CoreApp(typer.Typer):
             )
         )
 
-    def deploy(
-        self,
-        ctx: typer.Context,
-        build_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to find the module templates to deploy from. Defaults to current directory.",
-                allow_dash=True,
-            ),
-        ] = Path("./build"),
-        build_env_name: Annotated[
-            str | None,
-            typer.Option(
-                "--env",
-                "-e",
-                help="CDF project environment to use for deployment. This is optional and "
-                "if passed it is used to verify against the build environment",
-            ),
-        ] = None,
-        drop: Annotated[
-            bool,
-            typer.Option(
-                "--drop",
-                "-d",
-                help="Whether to drop existing configurations, drop per resource if present.",
-            ),
-        ] = False,
-        drop_data: Annotated[
-            bool,
-            typer.Option(
-                "--drop-data",
-                help="Whether to drop existing data in data model containers and spaces.",
-            ),
-        ] = False,
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-r",
-                help="Whether to do a dry-run, do dry-run if present.",
-            ),
-        ] = False,
-        include: Annotated[
-            list[str] | None,
-            typer.Option(
-                "--include",
-                help=f"Specify which resources to deploy, available options: {AVAILABLE_DATA_TYPES}.",
-            ),
-        ] = None,
-        force_update: Annotated[
-            bool,
-            typer.Option(
-                "--force-update",
-                help="Whether to force update the resources in the CDF project even if they are considered unchanged.",
-            ),
-        ] = False,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """Deploys the configuration files in the build directory to the CDF project."""
-        env_vars = EnvironmentVariables.create_from_environment()
-        cmd = DeployCommand(print_warning=True, client=env_vars.get_client())
-        cmd.run(
-            lambda: cmd.deploy_build_directory(
-                env_vars=env_vars,
-                build_dir=build_dir,
-                build_env_name=build_env_name,
-                dry_run=dry_run,
-                drop=drop,
-                drop_data=drop_data,
-                force_update=force_update,
-                include=include,
-                verbose=verbose,
-            )
-        )
-
     def deploy_v2(
         self,
         ctx: typer.Context,
@@ -538,8 +351,8 @@ class CoreApp(typer.Typer):
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
             lambda: cmd.deploy(
-                env_vars=env_vars,
                 user_build_dir=build_dir,
+                env_vars=env_vars,
                 options=DeployOptions(
                     cdf_project=cdf_project,
                     dry_run=dry_run,
@@ -551,74 +364,6 @@ class CoreApp(typer.Typer):
                     environment_variables=env_vars.dump(),
                     deployment_dir=deploy_dir,
                 ),
-            )
-        )
-
-    def clean(
-        self,
-        ctx: typer.Context,
-        build_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to find the module templates to clean from. Defaults to ./build directory.",
-                allow_dash=True,
-            ),
-        ] = Path("./build"),
-        build_env_name: Annotated[
-            str | None,
-            typer.Option(
-                "--env",
-                "-e",
-                help="CDF project environment to use for cleaning. This is optional and "
-                "if passed it is used to verify against the build environment",
-            ),
-        ] = None,
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-r",
-                help="Whether to do a dry-run, do dry-run if present",
-            ),
-        ] = False,
-        include: Annotated[
-            list[str] | None,
-            typer.Option(
-                "--include",
-                help=f"Specify which resource types to clean, supported types: {AVAILABLE_DATA_TYPES}",
-            ),
-        ] = None,
-        module: Annotated[
-            str | None,
-            typer.Option(
-                "--module",
-                "-m",
-                help="Specify name or path of the module to clean",
-            ),
-        ] = None,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """Cleans the resources in the build directory from the CDF project."""
-        # Override cluster and project from the options/env variables
-        env = EnvironmentVariables.create_from_environment()
-        cmd = CleanCommand(print_warning=True, client=env.get_client())
-        cmd.run(
-            lambda: cmd.execute(
-                env,
-                build_dir,
-                build_env_name,
-                dry_run,
-                include,
-                module,
-                verbose,
-                all_modules=False,
             )
         )
 
@@ -686,8 +431,8 @@ class CoreApp(typer.Typer):
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
             lambda: cmd.deploy(
-                env_vars=env_vars,
                 user_build_dir=build_dir,
+                env_vars=env_vars,
                 options=DeployOptions(
                     operation="clean",
                     cdf_project=cdf_project,

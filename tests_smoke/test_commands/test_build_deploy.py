@@ -57,8 +57,8 @@ runtime: py312""")
         )
         env_vars = EnvironmentVariables.create_from_environment()
         DeployV2Command(skip_tracking=True).deploy(
-            env_vars=env_vars,
             user_build_dir=tmp_path / "build",
+            env_vars=env_vars,
             options=DeployOptions(
                 cdf_project=env_vars.CDF_PROJECT,
                 environment_variables=env_vars.dump(),

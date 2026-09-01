@@ -24,7 +24,12 @@ class RAWDatabaseRequest(RequestResource):
         return RawDatabaseId(name=self.name)
 
     # Override dump to always use by_alias=False since the API expects name='...'
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         Args:
