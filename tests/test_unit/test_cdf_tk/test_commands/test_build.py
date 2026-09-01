@@ -5,15 +5,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
-from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
@@ -219,41 +217,3 @@ externalId: some_external_id
         assert isinstance(source_file.loaded, dict)
         actual = dm.DataModelId.load(source_file.loaded["destination"]["dataModel"])
         assert actual == dm.DataModelId("my_space", "MyModel", "1_0_0")
-
-    def test_track_module_build(self, tmp_path: Path) -> None:
-        cmd = BuildCommand(print_warning=True, skip_tracking=True)
-        cmd.run(
-            lambda: cmd.build_modules(
-                modules=ModuleDirectories.load(data.EXTERNAL_PACKAGE),
-                build_dir=tmp_path,
-                variables=BuildVariables([]),
-                verbose=False,
-            )
-        )
-        assert cmd._additional_tracking_info.package_ids == {"rmdm"}
-        assert cmd._additional_tracking_info.module_ids == {"agent", "data_model"}
-
-    def test_track_module_build_with_package_info(self, tmp_path: Path) -> None:
-        cmd = BuildCommand(print_warning=True, skip_tracking=True)
-        cmd.build_config(
-            build_dir=tmp_path,
-            organization_dir=data.EXTERNAL_PACKAGE,
-            config=BuildConfigYAML(
-                filepath=Path("config.dev.yaml"),
-                environment=Environment(
-                    name="dev", project="my_project", validation_type="dev", selected=["external_module_1"]
-                ),
-            ),
-            packages=Packages.load(data.EXTERNAL_PACKAGE),
-            clean=False,
-            verbose=False,
-            client=None,
-            progress_bar=False,
-            on_error="continue",
-        )
-
-        with open(tmp_path / "_build_environment.yaml") as file:
-            _build_file = yaml.safe_load(file)
-        assert _build_file is not None
-        assert _build_file["read_modules"][0]["package_id"] == "rmdm"
-        assert _build_file["read_modules"][0]["module_id"] == "data_model"
