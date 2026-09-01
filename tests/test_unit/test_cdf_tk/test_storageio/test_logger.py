@@ -1,13 +1,16 @@
 from collections import Counter
+from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio.logger import (
     FileWithAggregationLogger,
     ItemsResult,
     LabelResult,
     LogEntryV2,
+    OperationStatus,
     Severity,
     display_item_results,
 )
@@ -114,3 +117,11 @@ class TestFileWithAggregationLogger:
                 attribute_display_name="ignored properties",
             )
         )
+
+
+class TestOperationStatus:
+    def test_operation_status_match_tracking_event(self) -> None:
+        operation_status: set[str] = set(get_args(OperationStatus))
+        trackings_keys = {field_.alias or key for key, field_ in DataTracking.model_fields.items()}
+
+        assert operation_status <= trackings_keys, "OperationStatus values should match DataTracking model fields"
