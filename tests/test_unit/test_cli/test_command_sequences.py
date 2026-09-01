@@ -282,8 +282,8 @@ def test_build_deploy_v2_complete_orgs(
         respx_mock.route(url__regex=r".*/raw/dbs/[^/]+/tables/[^/]+/rows(?:\?.*)?$").respond(status_code=200)
 
         DeployV2Command(silent=True, skip_tracking=True).deploy(
-            env_vars=env_vars_with_client,
             user_build_dir=build_tmp_path,
+            env_vars=env_vars_with_client,
             options=DeployOptions(
                 environment_variables=env_vars_with_client.dump(),
             ),

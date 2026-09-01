@@ -139,7 +139,11 @@ class QueryRequest(BaseModelObject):
     root: str = Field(exclude=True)
 
     def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, endpoint: Literal["query", "sync"] = "query"
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+        endpoint: Literal["query", "sync"] = "query",
     ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 

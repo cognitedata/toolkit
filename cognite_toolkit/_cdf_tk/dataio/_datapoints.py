@@ -44,7 +44,12 @@ class DatapointsRequestAdapter(RequestResource):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     datapoints: DataPointInsertionRequest
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         return {"datapoints": self.datapoints.SerializeToString()}
 
     def as_id(self) -> Identifier:
