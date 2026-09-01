@@ -113,7 +113,7 @@ class ContainerYAML(ToolkitResource):
         """Validate that external CDF references are not set for record containers"""
         if info.data.get("used_for") == "record":
             for key, prop in val.items():
-                if prop.type.type != {"timeseries", "file", "sequence"}:
+                if prop.type.type in {"timeseries", "file", "sequence"}:
                     raise ValueError(
                         f"External CDF references are not supported for record containers. Property '{key}' is of type 'externalCdfReference'."
                     )

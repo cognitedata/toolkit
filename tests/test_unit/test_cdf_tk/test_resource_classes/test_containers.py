@@ -185,6 +185,16 @@ def invalid_container_cases() -> Iterable:
         "Indexes and constraints are not supported for record containers",
         id="InvalidRecordContainer",
     )
+    yield pytest.param(
+        {
+            "space": "my_space",
+            "externalId": "record_container",
+            "usedFor": "record",
+            "properties": {"field": {"type": {"type": "timeseries"}}},
+        },
+        "External CDF references are not supported for record containers.",
+        id="InvalidRecordContainer",
+    )
 
 
 class TestContainerYAML:
