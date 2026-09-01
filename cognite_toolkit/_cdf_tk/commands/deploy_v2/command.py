@@ -220,17 +220,23 @@ class DeploymentResult:
 class DeployV2Command(ToolkitCommand):
     def deploy(
         self,
-        env_vars: EnvironmentVariables,
         user_build_dir: Path,
+        env_vars: EnvironmentVariables | None = None,
+        client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
-        options = options or DeployOptions(environment_variables=env_vars.dump())
+        if env_vars is None and client is None:
+            raise ToolkitValueError("Either env_vars or client must be provided.")
+
+        options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
-        client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
+        if client is None:
+            # We check above that if client is None, then env_vars is not None, so this is safe.
+            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)  # type: ignore[union-attr]
 
-        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, env_vars.CDF_PROJECT)
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
         if options.drop:

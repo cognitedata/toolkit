@@ -42,7 +42,6 @@ from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceRespo
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -109,7 +108,7 @@ class UploadCommand(ToolkitCommand):
         data_files_by_selector = self._find_data_files(input_dir)
 
         self._deploy_resource_folder(
-            input_dir / DATA_RESOURCE_DIR, deploy_resources, client.config.project, dry_run, verbose
+            input_dir / DATA_RESOURCE_DIR, client, deploy_resources, client.config.project, dry_run, verbose
         )
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
@@ -208,6 +207,7 @@ class UploadCommand(ToolkitCommand):
     def _deploy_resource_folder(
         self,
         resource_dir: Path,
+        client: ToolkitClient,
         deploy_resources: bool,
         cdf_project: str,
         dry_run: bool,
@@ -215,12 +215,11 @@ class UploadCommand(ToolkitCommand):
     ) -> None:
         """Deploy resources from the specified resource directory if it exists and deployment is enabled."""
         if deploy_resources and resource_dir.exists():
-            env_vars = EnvironmentVariables.create_from_environment()
             deploy_cmd = DeployV2Command(self.print_warning, silent=self.silent)
             deploy_cmd.tracker = self.tracker
             deploy_cmd.deploy(
-                env_vars=env_vars,
                 user_build_dir=resource_dir,
+                client=client,
                 options=DeployOptions(operation="deploy", cdf_project=cdf_project, dry_run=dry_run, verbose=verbose),
             )
             self.warning_list.extend(deploy_cmd.warning_list)
