@@ -6,6 +6,7 @@ import httpx
 import pytest
 import respx
 
+from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -14,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     ContainerPropertyDefinition,
     ContainerResponse,
+    DataModelRequest,
     DirectNodeRelation,
     RequiresConstraintDefinition,
     SpaceId,
@@ -457,6 +459,47 @@ class TestRecordViewSupport:
                             "mappedContainers": [],
                             "properties": {},
                             "streamId": ["my_stream"],
+                        }
+                    ]
+                },
+            )
+        )
+
+        api.create([request])
+
+        assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
+
+    def test_data_models_api_sends_alpha_cdf_version_when_record_views_enabled(
+        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
+    ) -> None:
+        api = DataModelsAPI(HTTPClient(toolkit_config))
+        request = DataModelRequest(
+            space="my_space",
+            external_id="my_model",
+            version="1",
+            views=[ViewId(space="my_space", external_id="my_record_view", version="1")],
+        )
+        upsert_url = toolkit_config.create_api_url("/models/datamodels")
+        respx_mock.post(upsert_url).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "space": "my_space",
+                            "externalId": "my_model",
+                            "version": "1",
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                            "isGlobal": False,
+                            "views": [
+                                {
+                                    "type": "view",
+                                    "space": "my_space",
+                                    "externalId": "my_record_view",
+                                    "version": "1",
+                                }
+                            ],
                         }
                     ]
                 },
