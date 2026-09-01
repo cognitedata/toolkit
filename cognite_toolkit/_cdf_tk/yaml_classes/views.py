@@ -2,7 +2,7 @@ import re
 from typing import Any
 
 from pydantic import Field, field_validator, model_serializer
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler, ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
 from cognite_toolkit._cdf_tk.constants import (
@@ -92,12 +92,13 @@ class ViewYAML(ToolkitResource):
         return val
 
     @field_validator("properties", mode="after")
+    @classmethod
     def record_views_only_support_container_properties(
-        self, val: dict[str, ViewProperty] | None
+        cls, val: dict[str, ViewProperty] | None, info: ValidationInfo
     ) -> dict[str, ViewProperty] | None:
         """Validate that record views only support container properties."""
-        if self.stream_id is not None and val is not None:
-            invalid_properties = [key for key, prop in val.items() if isinstance(prop, ContainerViewProperty)]
+        if info.data["stream_id"] is not None and val is not None:
+            invalid_properties = [key for key, prop in val.items() if not isinstance(prop, ContainerViewProperty)]
             if invalid_properties:
                 raise ValueError(
                     f"Record views only support container properties. The following properties are invalid for record views: {humanize_collection(invalid_properties)}"
