@@ -1063,26 +1063,20 @@ class BuildV2Command(ToolkitCommand):
         # Aggregate per (resource_folder, kind) — carried as a nested list under
         # `resource_stats` rather than dynamic top-level properties. This keeps
         # the Mixpanel schema fixed as Toolkit adds new resource kinds.
-        stats_by_type: dict[ResourceType, dict[str, int]] = {}
+        stats_by_type: dict[ResourceType, ResourceBuildStat] = {}
         for resource in built_resources:
-            bucket = stats_by_type.setdefault(
-                resource.type, {"built_count": 0, "dependency_total": 0, "syntax_error_count": 0}
-            )
-            bucket["built_count"] += 1
-            bucket["dependency_total"] += len(resource.dependencies)
+            if resource.type not in stats_by_type:
+                stats_by_type[resource.type] = ResourceBuildStat(
+                    resource_folder=resource.type.resource_folder,
+                    kind=resource.type.kind,
+                )
+            stat = stats_by_type[resource.type]
+            stat.built_count += 1
+            stat.dependency_total += len(resource.dependencies)
             if resource.has_syntax_error:
-                bucket["syntax_error_count"] += 1
+                stat.syntax_error_count += 1
 
-        resource_stats = [
-            ResourceBuildStat(
-                resource_folder=rtype.resource_folder,
-                kind=rtype.kind,
-                built_count=bucket["built_count"],
-                dependency_total=bucket["dependency_total"],
-                syntax_error_count=bucket["syntax_error_count"],
-            )
-            for rtype, bucket in sorted(stats_by_type.items(), key=lambda item: (item[0].resource_folder, item[0].kind))
-        ]
+        resource_stats = sorted(stats_by_type.values(), key=lambda s: (s.resource_folder, s.kind))
 
         dependency_total = sum(len(resource.dependencies) for resource in built_resources)
         built_count = len(built_resources)
