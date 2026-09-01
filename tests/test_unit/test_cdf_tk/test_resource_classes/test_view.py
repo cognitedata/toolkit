@@ -155,6 +155,87 @@ def view_with_filters_cases() -> Iterable:
     yield from (pytest.param(next(iter(f.values())), id=next(iter(f.keys()))) for f in view_filters)
 
 
+def invalid_view_cases() -> Iterable:
+    invalid_views = [
+        (
+            "ReservedExternalId",
+            {
+                "space": "my_space",
+                "externalId": "Query",  # Reserved name
+                "version": "1",
+                "properties": {
+                    "field": {
+                        "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "field",
+                    }
+                },
+            },
+            "is a reserved view External ID",
+        ),
+        (
+            "InvalidPropertyIdentifier",
+            {
+                "space": "my_space",
+                "externalId": "valid_view",
+                "version": "1",
+                "properties": {
+                    "invalid@": {  # Invalid character
+                        "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "field",
+                    }
+                },
+            },
+            "does not match the required pattern",
+        ),
+        (
+            "ForbiddenPropertyIdentifier",
+            {
+                "space": "my_space",
+                "externalId": "valid_view",
+                "version": "1",
+                "properties": {
+                    "edge_id": {  # Reserved property name
+                        "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "field",
+                    }
+                },
+            },
+            "is a reserved property identifier",
+        ),
+        (
+            "InvalidSpaceFormat",
+            {
+                "space": "invalid space",  # Contains a space
+                "externalId": "valid_view",
+                "version": "1",
+                "properties": {
+                    "field": {
+                        "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "field",
+                    }
+                },
+            },
+            "String should match pattern",
+        ),
+        (
+            "InvalidVersionFormat",
+            {
+                "space": "my_space",
+                "externalId": "valid_view",
+                "version": ".0.1",  # Invalid version format
+                "properties": {
+                    "field": {
+                        "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "field",
+                    }
+                },
+            },
+            "String should match pattern",
+        ),
+    ]
+    yield from (pytest.param(data, match, id=case_id) for case_id, data, match in invalid_views)
+
+
 class TestViewYAML:
     @pytest.mark.parametrize("data", list(find_resources("View")))
     def test_load_valid_view_file(self, data: dict[str, object]) -> None:
@@ -176,82 +257,7 @@ class TestViewYAML:
         loaded = ViewYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
-    def test_invalid_external_id(self) -> None:
-        invalid_data = {
-            "space": "my_space",
-            "externalId": "Query",  # Reserved name
-            "version": "1",
-            "properties": {
-                "field": {
-                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
-                    "containerPropertyIdentifier": "field",
-                }
-            },
-        }
-
-        with pytest.raises(ValueError, match="is a reserved view External ID"):
-            ViewYAML.model_validate(invalid_data)
-
-    def test_invalid_property_identifier(self) -> None:
-        invalid_data = {
-            "space": "my_space",
-            "externalId": "valid_view",
-            "version": "1",
-            "properties": {
-                "invalid@": {  # Invalid character
-                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
-                    "containerPropertyIdentifier": "field",
-                }
-            },
-        }
-
-        with pytest.raises(ValueError, match="does not match the required pattern"):
-            ViewYAML.model_validate(invalid_data)
-
-    def test_forbidden_property_identifier(self) -> None:
-        invalid_data = {
-            "space": "my_space",
-            "externalId": "valid_view",
-            "version": "1",
-            "properties": {
-                "edge_id": {  # Reserved property name
-                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
-                    "containerPropertyIdentifier": "field",
-                }
-            },
-        }
-
-        with pytest.raises(ValueError, match="is a reserved property identifier"):
-            ViewYAML.model_validate(invalid_data)
-
-    def test_space_format_validation(self) -> None:
-        invalid_data = {
-            "space": "invalid space",  # Contains a space
-            "externalId": "valid_view",
-            "version": "1",
-            "properties": {
-                "field": {
-                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
-                    "containerPropertyIdentifier": "field",
-                }
-            },
-        }
-
-        with pytest.raises(ValueError):
-            ViewYAML.model_validate(invalid_data)
-
-    def test_invalid_version_format(self) -> None:
-        invalid_data = {
-            "space": "my_space",
-            "externalId": "valid_view",
-            "version": ".0.1",  # Invalid version format
-            "properties": {
-                "field": {
-                    "container": {"type": "container", "space": "my_space", "externalId": "my_container"},
-                    "containerPropertyIdentifier": "field",
-                }
-            },
-        }
-
-        with pytest.raises(ValueError):
+    @pytest.mark.parametrize("invalid_data, expected_match", list(invalid_view_cases()))
+    def test_invalid_view(self, invalid_data: dict[str, object], expected_match: str) -> None:
+        with pytest.raises(ValueError, match=expected_match):
             ViewYAML.model_validate(invalid_data)
