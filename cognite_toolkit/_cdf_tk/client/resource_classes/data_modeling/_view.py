@@ -26,6 +26,7 @@ class View(BaseModelObject, ABC):
     description: str | None = None
     filter: JsonValue | None = None
     implements: list[ViewId] | None = None
+    stream_id: list[str] | None = None
 
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)
@@ -69,6 +70,11 @@ class View(BaseModelObject, ABC):
             dumped["type"] = "view"
             output.append(dumped)
         return output
+
+    @property
+    def is_record_view(self) -> bool:
+        """Check if the view is a record view based on its properties."""
+        return self.stream_id is not None
 
 
 class ViewRequest(View, RequestResource):

@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-from .view_field_definitions import ViewProperty, ViewReference
+from .view_field_definitions import ContainerViewProperty, ViewProperty, ViewReference
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
@@ -27,6 +27,10 @@ class ViewYAML(ToolkitResource):
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
+    )
+    stream_id: list[str] | None = Field(
+        default=None,
+        description="If set, this is a record view and list the stream ids that the view is associated with.",
     )
     external_id: str = Field(
         description="External-id of the view.",
@@ -84,6 +88,19 @@ class ViewYAML(ToolkitResource):
             if key in FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER:
                 raise ValueError(
                     f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER)}"
+                )
+        return val
+
+    @field_validator("properties", mode="after")
+    def record_views_only_support_container_properties(
+        self, val: dict[str, ViewProperty] | None
+    ) -> dict[str, ViewProperty] | None:
+        """Validate that record views only support container properties."""
+        if self.stream_id is not None and val is not None:
+            invalid_properties = [key for key, prop in val.items() if isinstance(prop, ContainerViewProperty)]
+            if invalid_properties:
+                raise ValueError(
+                    f"Record views only support container properties. The following properties are invalid for record views: {humanize_collection(invalid_properties)}"
                 )
         return val
 
