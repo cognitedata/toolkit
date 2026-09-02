@@ -2076,27 +2076,21 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
     def _as_schedules_and_edges(
         self, source: Sequence[NodeOrEdgeResponse]
     ) -> tuple[
-        dict[tuple[NodeId | None, str], list[NodeResponse]],
+        dict[str, list[NodeResponse]],
         dict[NodeId, list[EdgeOtherSide]],
         dict[NodeId, list[EdgeOtherSide]],
         list[InstanceConversionIssue],
     ]:
-        """Builds the schedule dedup groups and the edge lookups needed to reconstruct direct relations.
-
-        A single call to ``map()`` may contain schedules belonging to multiple templates (the query batches
-        several template roots together), so schedules are grouped by ``(owning template, content hash)``
-        rather than by content hash alone. This prevents unrelated templates that happen to share an
-        identical schedule configuration (e.g. "daily at 08:00") from being collapsed into one node.
-        """
-        schedule_nodes: list[NodeResponse] = []
+        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
         issues: list[InstanceConversionIssue] = []
         for item in source:
             if isinstance(item, NodeResponse):
                 item_properties = item.properties or {}
-                if self.SCHEDULE_VIEW in item_properties:
-                    schedule_nodes.append(item)
+                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
+                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
+                    schedules[schedule_hash].append(item)
                 elif self.TEMPLATE_VIEW in item_properties:
                     # The template nodes are included to do pagination correctly (one page per template),
                     # but we do not need the templates, so we can safely ignore them.
@@ -2128,29 +2122,15 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                             ],
                         )
                     )
-        if self._location_split_id_mapper is not None:
+        if (location_split_id_mapper := self._location_split_id_mapper) is not None:
             location_split_issue = self._register_location_split_schedules(
-                schedule_nodes, template_edges_by_item_id, template_item_edges_by_schedule_id
+                location_split_id_mapper,
+                [node for group in schedules.values() for node in group],
+                template_edges_by_item_id,
+                template_item_edges_by_schedule_id,
             )
             if location_split_issue is not None:
                 return {}, {}, {}, [location_split_issue]
-
-        schedules: dict[tuple[NodeId | None, str], list[NodeResponse]] = defaultdict(list)
-        for schedule in schedule_nodes:
-            # Fail unresolved schedules individually so they are not grouped with resolvable duplicates.
-            try:
-                self._connection_creator.map_instance(schedule.as_id())
-            except InstanceMappingError as error:
-                issues.append(
-                    InstanceConversionIssue(id=str(schedule.as_id()), errors=[str(error)], severity=error.severity)
-                )
-                continue
-            template_id = self._resolve_schedule_template(
-                schedule.as_id(), template_edges_by_item_id, template_item_edges_by_schedule_id
-            )
-            schedule_properties = (schedule.properties or {}).get(self.SCHEDULE_VIEW, {})
-            schedule_hash = self._calculate_schedule_hash(schedule_properties)
-            schedules[(template_id, schedule_hash)].append(schedule)
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _resolve_schedule_template(
@@ -2176,13 +2156,11 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
 
     def _register_location_split_schedules(
         self,
+        location_split_id_mapper: LocationSplitInstanceIdMapper,
         schedule_nodes: list[NodeResponse],
         template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
         template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
     ) -> InstanceConversionIssue | None:
-        location_split_id_mapper = self._location_split_id_mapper
-        if location_split_id_mapper is None:
-            return None
         template_id_by_schedule_id: dict[NodeId, NodeId] = {}
         referenced_item_external_ids: set[str] = set()
         for schedule in schedule_nodes:
@@ -2240,11 +2218,12 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
         if not duplicated_schedules:
             raise ValueError("At least one schedule is required to create a schedule mapping.")
         first = duplicated_schedules[0]
+        issue = InstanceConversionIssue(id=str(first.as_id()))
         try:
             new_id = self._connection_creator.map_instance(first.as_id())
         except InstanceMappingError as error:
-            return None, InstanceConversionIssue(id=str(first.as_id()), errors=[str(error)], severity=error.severity)
-        issue = InstanceConversionIssue(id=str(first.as_id()))
+            issue.errors.append(str(error))
+            return None, issue
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
             issue.errors.append(
                 f"Destination view '{self._mapping.destination_view}' not found in view cache. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
