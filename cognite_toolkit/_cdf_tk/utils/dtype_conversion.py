@@ -581,11 +581,16 @@ class _EnumConverter(_ValueConverter):
         self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
 
     def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
-        value = str(value).casefold()
-        if value in self.available_types:
-            return self.available_types[value]
+        value_str = str(value).casefold()
+        if value_str in self.available_types:
+            return self.available_types[value_str]
+        # DMS enum identifiers cannot start with a digit - we assume those will be instead stored as "_1", "_2", ...
+        if value_str[:1].isdigit():
+            prefixed = f"_{value_str}"
+            if prefixed in self.available_types:
+                return self.available_types[prefixed]
         raise ValueError(
-            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
+            f"Value {value_str!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
         )
 
 
