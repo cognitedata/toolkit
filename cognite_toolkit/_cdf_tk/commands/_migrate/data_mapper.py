@@ -505,7 +505,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 self.logger.log(
                     MigrationEntryV2(
                         id=identifier,
-                        label="No asset-centric timeseries in Chart.",
+                        label="No asset-centric timeseries in Chart",
                         severity=Severity.skipped,
                         message=f"There are only {len(item.data.core_timeseries_collection or [])} CogniteTimesSeries in the chart.",
                         source=chart_src,
@@ -518,31 +518,63 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             )
 
             if issue.missing_timeseries_ids:
-                log_entries.append(
-                    MigrationEntryV2(
-                        id=identifier,
-                        label="Missing CogniteTimeSeries for ID",
-                        message="No migrated instance found for classic timeseries internal ID(s)",
-                        severity=Severity.warning,
-                        source=chart_src,
-                        destination=chart_dest,
-                        attributes={str(id_) for id_ in issue.missing_timeseries_ids},
-                        attribute_display_name="timeseries IDs",
+                deleted_ids = issue.missing_timeseries_ids - self._classic_timeseries_ids
+                unmigrated_ids = issue.missing_timeseries_ids & self._classic_timeseries_ids
+                if deleted_ids:
+                    log_entries.append(
+                        MigrationEntryV2(
+                            id=identifier,
+                            label="Deleted classic timeseries for ID",
+                            message="Classic timeseries with internal ID(s) have been deleted",
+                            severity=Severity.warning,
+                            source=chart_src,
+                            destination=chart_dest,
+                            attributes={str(id_) for id_ in deleted_ids},
+                            attribute_display_name="timeseries IDs",
+                        )
                     )
-                )
+                if unmigrated_ids:
+                    log_entries.append(
+                        MigrationEntryV2(
+                            id=identifier,
+                            label="Missing CogniteTimeSeries for ID",
+                            message="No migrated instance found for classic timeseries with internal ID(s)",
+                            severity=Severity.warning,
+                            source=chart_src,
+                            destination=chart_dest,
+                            attributes={str(id_) for id_ in unmigrated_ids},
+                            attribute_display_name="timeseries IDs",
+                        )
+                    )
             if issue.missing_timeseries_external_ids:
-                log_entries.append(
-                    MigrationEntryV2(
-                        id=identifier,
-                        label="Missing CogniteTimeSeries for external ID",
-                        message="No migrated instance found for classic timeseries external ID(s)",
-                        severity=Severity.warning,
-                        source=chart_src,
-                        destination=chart_dest,
-                        attributes=set(issue.missing_timeseries_external_ids),
-                        attribute_display_name="timeseries external IDs",
+                deleted_external_ids = issue.missing_timeseries_external_ids - self._classic_timeseries_external_ids
+                unmigrated_external_ids = issue.missing_timeseries_external_ids & self._classic_timeseries_external_ids
+                if deleted_external_ids:
+                    log_entries.append(
+                        MigrationEntryV2(
+                            id=identifier,
+                            label="Deleted classic timeseries for external ID",
+                            message="Classic timeseries with external ID(s) have been deleted",
+                            severity=Severity.warning,
+                            source=chart_src,
+                            destination=chart_dest,
+                            attributes=set(deleted_external_ids),
+                            attribute_display_name="timeseries external IDs",
+                        )
                     )
-                )
+                if unmigrated_external_ids:
+                    log_entries.append(
+                        MigrationEntryV2(
+                            id=identifier,
+                            label="Missing CogniteTimeSeries for external ID",
+                            message="No migrated instance found for classic timeseries with external ID(s)",
+                            severity=Severity.warning,
+                            source=chart_src,
+                            destination=chart_dest,
+                            attributes=set(unmigrated_external_ids),
+                            attribute_display_name="timeseries external IDs",
+                        )
+                    )
             if issue.missing_timeseries_identifier:
                 log_entries.append(
                     MigrationEntryV2(
@@ -838,9 +870,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
                 if node_id is None:
                     issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
-                    self._record_unmigrated_timeseries_error(
-                        issue, None, new_calculation.target_timeseries_external_id
-                    )
+                    self._record_unmigrated_timeseries_error(issue, None, new_calculation.target_timeseries_external_id)
                     continue
                 new_calculation.target_timeseries_instance_id = node_id
                 new_calculation.target_timeseries_external_id = None

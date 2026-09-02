@@ -700,7 +700,8 @@ class TestChartMapper:
         assert {ts.id for ts in mapped.data.core_timeseries_collection} == {"kept_ts"}
         logger.log.assert_called()
         log_entries = logger.log.call_args[0][0]
-        assert any(entry.severity == Severity.warning for entry in log_entries)
+        warning_messages = [entry.message for entry in log_entries if entry.severity == Severity.warning]
+        assert warning_messages == ["Classic timeseries external ID(s) have been deleted"]
 
     def test_map_chart_fails_on_unmigrated_timeseries(self) -> None:
         chart = ChartResponse(
