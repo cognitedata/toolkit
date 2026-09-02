@@ -702,7 +702,7 @@ class TestChartMapper:
         logger.log.assert_called()
         log_entries = logger.log.call_args[0][0]
         warning_messages = [entry.message for entry in log_entries if entry.severity == Severity.warning]
-        assert warning_messages == ["Classic timeseries external ID(s) have been deleted"]
+        assert warning_messages == ["No classic timeseries found for external ID(s)"]
 
     def test_map_chart_fails_on_unmigrated_timeseries(self) -> None:
         chart = ChartResponse(

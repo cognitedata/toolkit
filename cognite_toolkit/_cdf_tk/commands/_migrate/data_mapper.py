@@ -524,8 +524,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         MigrationEntryV2(
                             id=identifier,
-                            label="Deleted classic timeseries for ID",
-                            message="Classic timeseries with internal ID(s) have been deleted",
+                            label="Classic timeseries missing for ID",
+                            message="No classic timeseries found for internal ID(s)",
                             severity=Severity.warning,
                             source=chart_src,
                             destination=chart_dest,
@@ -553,8 +553,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     log_entries.append(
                         MigrationEntryV2(
                             id=identifier,
-                            label="Deleted classic timeseries for external ID",
-                            message="Classic timeseries with external ID(s) have been deleted",
+                            label="Classic timeseries missing for external ID",
+                            message="No classic timeseries found for external ID(s)",
                             severity=Severity.warning,
                             source=chart_src,
                             destination=chart_dest,
