@@ -484,6 +484,11 @@ _T_ChartCalculation = TypeVar("_T_ChartCalculation", ChartWorkflowUIElement, Cha
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
     DEFAULT_EVENT_VIEW = ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1")
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._classic_timeseries_ids: set[int] = set()
+        self._classic_timeseries_external_ids: set[str] = set()
+
     def prepare(self, source_selector: ChartSelector) -> None:
         if missing_acl := self.client.tool.token.verify_acls(
             [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
@@ -682,8 +687,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             self.client.migration.lookup.time_series(list(timeseries_ids))
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
-        self._classic_timeseries_ids: set[int] = set()
-        self._classic_timeseries_external_ids: set[str] = set()
+        self._classic_timeseries_ids.clear()
+        self._classic_timeseries_external_ids.clear()
         # Retrieve by id and external ID separately. A chart timeseries often has both, and
         # mixing them in one /timeseries/byids call returns 409 conflicting references.
         if timeseries_ids:
