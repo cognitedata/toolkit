@@ -1,8 +1,7 @@
 """Detect whether the toolkit CLI is invoked by an AI coding agent.
 
 Detection is environment-based and agent-agnostic. Rules follow the ordering in
-Vercel's ``agents.json`` where possible, plus common signals for agents called
-out in CDF-28539 (Windsurf, Cody, Amazon Q Developer, etc.).
+Vercel's ``agents.json`` where possible, plus common signals for agents (Windsurf, Cody, Amazon Q Developer, etc.).
 
 See https://github.com/vercel/detect-agent for the ``AI_AGENT`` standard.
 """
