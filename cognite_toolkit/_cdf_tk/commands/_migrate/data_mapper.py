@@ -2195,6 +2195,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                     errors=[
                         f"Could not resolve target space for schedule {schedule.as_id()}: no owning Template found."
                     ],
+                    severity=Severity.failure,
                 )
             template_id_by_schedule_id[schedule.as_id()] = template_id
             referenced_item_external_ids.update(
@@ -2215,6 +2216,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
                         f"Could not resolve target space for schedules under Template {template_id}: "
                         "the Template has not been resolved to a target space."
                     ],
+                    severity=Severity.failure,
                 )
             location_split_id_mapper.register(schedule.external_id, target_space)
         return None
