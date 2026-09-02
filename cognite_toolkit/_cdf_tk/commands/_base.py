@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
+from cognite_toolkit._cdf_tk.utils.coding_agent import get_invocation_info
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -49,6 +50,9 @@ class ToolkitCommand:
         command.subcommands = subcommands
         command.alpha_flags = [name for name, value in CDF_TOML.alpha_flags.items() if value]
         command.plugins = [name for name, value in CDF_TOML.plugins.items() if value]
+        invocation = get_invocation_info()
+        command.invocation_source = invocation.invocation_source
+        command.coding_agent = invocation.coding_agent
         self.tracker.track(command, self._client)
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

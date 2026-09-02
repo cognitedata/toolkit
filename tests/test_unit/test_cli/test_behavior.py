@@ -49,7 +49,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    BuildV2Command,
+    DeployOptions,
+    DeployV2Command,
+    DumpResourceCommand,
+    PullCommand,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
@@ -68,7 +76,6 @@ from tests.data import (
     PROJECT_WITH_DUPLICATES,
 )
 from tests.test_unit.approval_client import ApprovalToolkitClient
-from tests.test_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
@@ -82,34 +89,32 @@ def test_inject_custom_environmental_variables(
     config_yaml["variables"]["modules"]["cdf_common"]["dataset"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting the cdf_common module to be built
     config_yaml["environment"]["selected"] = ["cdf_common"]
-    config_yaml["environment"]["project"] = "pytest"
-    mock_read_yaml_file(
-        {
-            "config.dev.yaml": config_yaml,
-        },
-        monkeypatch,
-    )
+    config_yaml["environment"]["project"] = CDF_PROJECT
+    config_path = build_tmp_path.parent / "config.inject.yaml"
+    config_path.write_text(yaml.safe_dump(config_yaml), encoding="utf-8")
     monkeypatch.setenv("MY_ENVIRONMENT_VARIABLE", "my_environment_variable_value")
-    BuildCommand(silent=True).execute(
-        organization_dir=buildable_modules,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="dev",
-        no_clean=False,
-        client=None,
-        on_error="raise",
-        verbose=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=buildable_modules,
+            build_dir=build_tmp_path,
+            config_yaml=config_path,
+            user_selected_modules=["cdf_common"],
+        ),
     )
-    DeployCommand(silent=True).deploy_build_directory(
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
         env_vars=env_vars_with_client,
-        build_dir=build_tmp_path,
-        build_env_name="dev",
-        drop=True,
-        dry_run=False,
-        include=[],
-        drop_data=False,
-        verbose=False,
-        force_update=False,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=True,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     dataset = toolkit_client_approval.created_resources_of_type(DataSetResponse)[0]
@@ -629,16 +634,19 @@ def test_deploy_group_with_unknown_acl(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    DeployCommand(silent=True).deploy_build_directory(
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         env_vars=env_vars_with_client,
-        build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
-        build_env_name="dev",
-        drop=False,
-        dry_run=False,
-        include=None,
-        verbose=False,
-        drop_data=False,
-        force_update=False,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     groups = toolkit_client_approval.created_resources["GroupResponse"]
@@ -728,27 +736,29 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    BuildCommand(silent=True).execute(
-        False,
-        NAUGHTY_PROJECT,
-        build_tmp_path,
-        ["modules/multi_locations"],
-        None,
-        False,
-        env_vars_with_client.get_client(),
-        "raise",
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=NAUGHTY_PROJECT,
+            build_dir=build_tmp_path,
+            config_yaml=None,
+            user_selected_modules=["modules/multi_locations"],
+        ),
     )
 
-    DeployCommand(silent=True).deploy_build_directory(
-        env_vars_with_client,
-        build_tmp_path,
-        None,
-        dry_run=False,
-        drop=False,
-        drop_data=False,
-        force_update=False,
-        include=None,
-        verbose=False,
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
+        env_vars=env_vars_with_client,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     locations = toolkit_client_approval.created_resources_of_type(LocationFilterResponse)
@@ -772,20 +782,29 @@ def test_build_deploy_keep_special_characters(
     my_cdf_toml = cdf_toml.CDFToml.load(use_singleton=False)
     my_cdf_toml.cdf.file_encoding = encoding
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
-    BuildCommand(silent=True).execute(
-        False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=NAUGHTY_PROJECT,
+            build_dir=build_dir,
+            config_yaml=None,
+            user_selected_modules=["encoding_issue"],
+        ),
     )
 
-    DeployCommand(silent=True).deploy_build_directory(
-        env_vars_with_client,
-        build_dir,
-        None,
-        dry_run=False,
-        drop=False,
-        drop_data=False,
-        force_update=False,
-        include=None,
-        verbose=False,
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_dir,
+        env_vars=env_vars_with_client,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     transformations = toolkit_client_approval.created_resources_of_type(TransformationResponse)
@@ -833,27 +852,29 @@ dataModelingType: DATA_MODELING_ONLY
     parent_file.parent.mkdir(parents=True, exist_ok=True)
     parent_file.write_text(parent, encoding="utf-8")
 
-    BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
-        organization_dir=org,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name=None,
-        no_clean=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
         client=env_vars_with_client.get_client(),
-        on_error="raise",
+        parameters=BuildParameters(
+            organization_dir=org,
+            build_dir=build_tmp_path,
+            config_yaml=None,
+            user_selected_modules=["my_first", "my_second"],
+        ),
     )
 
-    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
         env_vars=env_vars_with_client,
-        build_dir=build_tmp_path,
-        build_env_name="dev",
-        drop=False,
-        dry_run=False,
-        include=[],
-        drop_data=False,
-        verbose=False,
-        force_update=False,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     # Verify that the workflow was created in the correct order, parent before child.
@@ -940,27 +961,29 @@ def test_workflow_deployment_order(
     main_workflow_file.write_text(yaml_safe_dump(main_workflow.dump()), encoding="utf-8")
     subworkflow_file.write_text(yaml_safe_dump(subworkflow.dump()), encoding="utf-8")
 
-    BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
-        organization_dir=org,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name=None,
-        no_clean=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
         client=env_vars_with_client.get_client(),
-        on_error="raise",
+        parameters=BuildParameters(
+            organization_dir=org,
+            build_dir=build_tmp_path,
+            config_yaml=None,
+            user_selected_modules=["my_workflow_module"],
+        ),
     )
 
-    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
         env_vars=env_vars_with_client,
-        build_dir=build_tmp_path,
-        build_env_name="dev",
-        drop=False,
-        dry_run=False,
-        include=[],
-        drop_data=False,
-        verbose=False,
-        force_update=False,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
     )
 
     # Verify that the workflow was created in the correct order, subworkflow before main.

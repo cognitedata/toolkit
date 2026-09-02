@@ -28,7 +28,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import G
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    ModulesCommand,
+)
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -49,48 +52,18 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     ResourceTypes,
     TransformationIO,
-    ViewIO,
     WorkflowTriggerIO,
     get_crud,
 )
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import COMPLETE_ORG, PROJECT_FOR_TEST
+from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
-from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
+from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
-
-
-class TestDeployResources:
-    def test_deploy_resource_order(
-        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
-    ):
-        build_env_name = "dev"
-        cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
-        config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
-        config.environment.selected = ["another_module"]
-        build_cmd = BuildCommand()
-        build_cmd.build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
-        )
-        expected_order = ["MyView", "MyOtherView"]
-
-        cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resource_type(
-            ViewIO.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
-            env_vars_with_client,
-            [],
-            dry_run=False,
-        )
-
-        views = toolkit_client_approval.dump(sort=False)["ViewResponse"]
-
-        actual_order = [view["externalId"] for view in views]
-
-        assert actual_order == expected_order
 
 
 class TestFormatConsistency:

@@ -1192,7 +1192,7 @@ class TestMigrationCommand:
             items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(1001)],
         )
         upload = command._upload(
-            selected=MagicMock(),
+            selected=MagicMock(__str__=lambda self: "TestView"),
             write_client=MagicMock(),
             target=target,  # type: ignore[arg-type]
             destination="Instances",
