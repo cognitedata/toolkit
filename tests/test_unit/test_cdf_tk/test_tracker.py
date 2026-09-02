@@ -4,7 +4,6 @@ import sys
 from unittest.mock import patch
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand, _parse_sys_args
-from cognite_toolkit._cdf_tk.tracker import Tracker
 
 
 class MockToolkitCommand(ToolkitCommand):
@@ -34,13 +33,16 @@ class TestTracker:
             assert event_information["downloadedLibraryIds"] == ["test"]
 
     def test_tracking_includes_invocation_source(self) -> None:
-        tracker = Tracker(skip_tracking=True)
+        cmd = MockToolkitCommand()
         env = {"CURSOR_TRACE_ID": "trace-1"}
         with patch.dict("os.environ", env, clear=True):
-            properties = tracker._get_all_event_properties()
+            with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
+                cmd.run(cmd.execute)
 
-        assert properties["invocationSource"] == "agent"
-        assert properties["codingAgent"] == "cursor"
+        mock_track_internal.assert_called_once()
+        *_, event_information = mock_track_internal.call_args.args
+        assert event_information["invocationSource"] == "agent"
+        assert event_information["codingAgent"] == "cursor"
 
 
 class TestParseSystemArgs:

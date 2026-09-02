@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.dataio.logger import ItemsResult
+from cognite_toolkit._cdf_tk.utils.coding_agent import InvocationSource
 
 # --- Mixpanel ingestion safety limits ---------------------------------------
 # Documented Mixpanel limits we defensively guard against:
@@ -72,6 +73,13 @@ class CommandTracking(TrackingEvent):
     subcommands: list[str] = Field(default_factory=list)
     alpha_flags: list[str] = Field(default_factory=list)
     plugins: list[str] = Field(default_factory=list)
+    invocation_source: InvocationSource | None = Field(default=None)
+    coding_agent: str | None = Field(default=None)
+
+    @field_validator("coding_agent", mode="after")
+    @classmethod
+    def _truncate_coding_agent(cls, v: str | None) -> str | None:
+        return _mp_safe_str(v) if v is not None else None
 
     @field_validator("result", mode="after")
     @classmethod

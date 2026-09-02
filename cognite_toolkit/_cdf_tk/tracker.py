@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import TrackingEvent
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
-from cognite_toolkit._cdf_tk.utils.coding_agent import get_invocation_info
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
 from cognite_toolkit._version import __version__
 
@@ -60,7 +59,6 @@ class Tracker:
             "organization": organization,
             "cluster": cluster,
             "privateLink": private_link,
-            **get_invocation_info().to_tracking_dict(),
         }
         return self._all_event_properties
 
