@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
+    BuildInput,
     BuildLineage,
     BuildParameters,
-    BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -44,10 +44,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
-    BuildSource,
     BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
+    ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
     SuccessfulReadYAMLFile,
@@ -90,8 +90,8 @@ SelectionSource = Literal["modules", "config", "interactive"]
 
 @dataclass
 class BuildResult:
-    source_files: BuildSourceFiles
-    source: BuildSource
+    source_files: BuildInput
+    source: ModuleScanResult
     build_folder: BuildFolder
 
 
@@ -126,14 +126,14 @@ class BuildV2Command(ToolkitCommand):
             else "interactive"
         )
 
-        build_source = self._find_modules(build_files)
+        module_scan_result = self._find_modules(build_files)
         if display:
             self._display_module_sources(
-                build_source, console, parameters.verbose, selection_source, parameters.config_file_name
+                module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
             )
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(build_source.modules, parameters.build_dir.resolve(), console)
+        built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
         plan = self._create_validation_plan(built_modules, client)
         if display:
@@ -145,7 +145,7 @@ class BuildV2Command(ToolkitCommand):
             build_dir=parameters.build_dir.resolve(),
             built_modules=built_modules,
             validation_results=validation_results,
-            all_variables=build_source.all_variables,
+            all_variables=module_scan_result.all_variables,
             started_at=build_start_time,
             finished_at=datetime.now(timezone.utc),
         )
@@ -159,7 +159,7 @@ class BuildV2Command(ToolkitCommand):
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
-        return BuildResult(source_files=build_files, source=build_source, build_folder=build_folder)
+        return BuildResult(source_files=build_files, source=module_scan_result, build_folder=build_folder)
 
     @classmethod
     def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
@@ -241,7 +241,7 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
+    def _find_modules(self, build: BuildInput) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
 
         if build.selected_modules is None:
@@ -269,7 +269,7 @@ class BuildV2Command(ToolkitCommand):
 
     def _display_module_sources(
         self,
-        build_source: BuildSource,
+        build_source: ModuleScanResult,
         console: Console,
         verbose: bool,
         selection_source: SelectionSource,
@@ -419,7 +419,7 @@ class BuildV2Command(ToolkitCommand):
         return "interactive"
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] | None = None
         variables: dict[str, JsonValue] = {}
@@ -451,7 +451,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return BuildSourceFiles(
+        return BuildInput(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,

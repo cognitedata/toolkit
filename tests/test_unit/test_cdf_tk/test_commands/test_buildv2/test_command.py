@@ -16,10 +16,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltM
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
-    BuildSource,
     FailedReadYAMLFile,
     MisplacedModule,
     ModuleId,
+    ModuleScanResult,
     NonExistingModuleName,
     ResourceType,
     SuccessfulReadYAMLFile,
@@ -468,7 +468,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_non_verbose_non_existing_module_prints_summary_and_raises(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             non_existing_module_names=[NonExistingModuleName(name="missing_module", closest_matches=[])],
@@ -490,7 +490,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_verbose_ambiguous_module_prints_details_and_raises(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             ambiguous_selection=[
@@ -519,7 +519,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_verbose_misplaced_module_prints_warning_details_without_raising(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             misplaced_modules=[
