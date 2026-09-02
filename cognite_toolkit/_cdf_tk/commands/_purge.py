@@ -231,7 +231,6 @@ class NodesToDelete(ToDelete):
                             severity=Severity.skipped,
                             label="Has datapoints",
                             message=f"Skipped node {node_id} as it has datapoints",
-                            
                         )
                     )
             for node_id in files_ids:
