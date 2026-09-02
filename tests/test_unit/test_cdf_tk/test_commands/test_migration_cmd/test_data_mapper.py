@@ -13,7 +13,6 @@ from pytest_regressions.data_regression import DataRegressionFixture
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     EdgeTypeId,
-    ExternalId,
     InternalId,
     NodeId,
     ViewDirectId,
@@ -675,6 +674,7 @@ class TestChartMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
+
             def _get_node_id(
                 id: int | Sequence[int] | None = None, external_id: str | Sequence[str] | None = None
             ) -> NodeId | None:
