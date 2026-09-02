@@ -32,6 +32,18 @@ class TestTracker:
             assert "downloadedLibraryIds" in event_information
             assert event_information["downloadedLibraryIds"] == ["test"]
 
+    def test_tracking_includes_invocation_source(self) -> None:
+        cmd = MockToolkitCommand()
+        env = {"CURSOR_TRACE_ID": "trace-1"}
+        with patch.dict("os.environ", env, clear=True):
+            with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
+                cmd.run(cmd.execute)
+
+        mock_track_internal.assert_called_once()
+        *_, event_information = mock_track_internal.call_args.args
+        assert event_information["invocationSource"] == "agent"
+        assert event_information["codingAgent"] == "cursor"
+
 
 class TestParseSystemArgs:
     """Test _parse_sys_args filtering logic directly."""
