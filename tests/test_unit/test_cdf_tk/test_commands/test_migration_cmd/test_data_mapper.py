@@ -695,7 +695,8 @@ class TestChartMapper:
 
         assert len(mapped_list) == 1
         mapped = mapped_list[0].item
-        assert mapped.data.time_series_collection is None
+        assert mapped.data.time_series_collection is not None
+        assert {ts.id for ts in mapped.data.time_series_collection} == {"deleted_ts"}
         assert mapped.data.core_timeseries_collection is not None
         assert {ts.id for ts in mapped.data.core_timeseries_collection} == {"kept_ts"}
         logger.log.assert_called()

@@ -778,7 +778,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         mapped_chart.data.core_timeseries_collection = (
             mapped_chart.data.core_timeseries_collection or []
         ) + timeseries_core_collection
-        mapped_chart.data.time_series_collection = None
+        remaining_classic_timeseries = [
+            ts_item for ts_item in time_series_collection if ts_item.id not in migrated_ts_ui_ids
+        ]
+        mapped_chart.data.time_series_collection = remaining_classic_timeseries or None
         mapped_chart.data.source_collection = updated_source_collection
         if updated_threshold_collection:
             mapped_chart.data.threshold_collection = updated_threshold_collection
