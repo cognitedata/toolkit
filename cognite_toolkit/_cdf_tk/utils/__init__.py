@@ -1,4 +1,5 @@
 from .cicd import get_cicd_environment
+from .coding_agent import detect_coding_agent, get_invocation_info
 from .collection import flatten_dict, humanize_collection, in_dict, to_diff
 from .file import (
     YAMLComment,
@@ -39,9 +40,11 @@ __all__ = [
     "calculate_directory_hash",
     "calculate_hash",
     "calculate_secure_hash",
+    "detect_coding_agent",
     "find_directory_with_subdirectories",
     "flatten_dict",
     "get_cicd_environment",
+    "get_invocation_info",
     "humanize_collection",
     "in_dict",
     "iterate_modules",
