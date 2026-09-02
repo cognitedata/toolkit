@@ -106,33 +106,13 @@ class InvocationInfo(BaseModel):
         return payload
 
 
-def get_invocation_info(env: Mapping[str, str] | None = None) -> InvocationInfo:
+def get_invocation_info() -> InvocationInfo:
     """Classify the current invocation as CI/CD, coding agent, or human."""
-    environment = os.environ if env is None else env
-    coding_agent = detect_coding_agent(environment)
-    cicd = get_cicd_environment() if env is None else _get_cicd_environment_from_env(environment)
+    coding_agent = detect_coding_agent()
+    cicd = get_cicd_environment()
 
     if cicd != "local":
         return InvocationInfo(invocation_source="cicd", coding_agent=coding_agent)
     if coding_agent is not None:
         return InvocationInfo(invocation_source="agent", coding_agent=coding_agent)
     return InvocationInfo(invocation_source="human")
-
-
-def _get_cicd_environment_from_env(env: Mapping[str, str]) -> str:
-    """Mirror :func:`get_cicd_environment` for explicit env maps in tests."""
-    if "CI" in env and env.get("GITHUB_ACTIONS"):
-        return "github"
-    if env.get("GITLAB_CI"):
-        return "gitlab"
-    if "CI" in env and "BITBUCKET_BUILD_NUMBER" in env:
-        return "bitbucket"
-    if env.get("CIRCLECI"):
-        return "circleci"
-    if env.get("TRAVIS"):
-        return "travis"
-    if "TF_BUILD" in env:
-        return "azure"
-    if "BUILD_ID" in env:
-        return "google-cloud-build"
-    return "local"

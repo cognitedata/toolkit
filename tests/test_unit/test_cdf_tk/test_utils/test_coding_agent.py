@@ -1,5 +1,7 @@
 """Tests for AI coding agent invocation detection."""
 
+from unittest.mock import patch
+
 from cognite_toolkit._cdf_tk.utils.coding_agent import detect_coding_agent, get_invocation_info
 
 
@@ -36,24 +38,28 @@ class TestDetectCodingAgent:
 
 class TestGetInvocationInfo:
     def test_human_local_shell(self) -> None:
-        info = get_invocation_info({})
+        with patch.dict("os.environ", {}, clear=True):
+            info = get_invocation_info()
         assert info.invocation_source == "human"
         assert info.coding_agent is None
         assert info.to_tracking_dict() == {"invocationSource": "human"}
 
     def test_agent_local_shell(self) -> None:
-        info = get_invocation_info({"CLAUDECODE": "1"})
+        with patch.dict("os.environ", {"CLAUDECODE": "1"}, clear=True):
+            info = get_invocation_info()
         assert info.invocation_source == "agent"
         assert info.coding_agent == "claude-code"
         assert info.to_tracking_dict() == {"invocationSource": "agent", "codingAgent": "claude-code"}
 
     def test_cicd_without_agent(self) -> None:
-        info = get_invocation_info({"CI": "true", "GITHUB_ACTIONS": "true"})
+        with patch.dict("os.environ", {"CI": "true", "GITHUB_ACTIONS": "true"}, clear=True):
+            info = get_invocation_info()
         assert info.invocation_source == "cicd"
         assert info.coding_agent is None
 
     def test_cicd_with_copilot_agent(self) -> None:
         env = {"CI": "true", "GITHUB_ACTIONS": "true", "COPILOT_AGENT_SESSION_ID": "session-1"}
-        info = get_invocation_info(env)
+        with patch.dict("os.environ", env, clear=True):
+            info = get_invocation_info()
         assert info.invocation_source == "cicd"
         assert info.coding_agent == "github-copilot"
