@@ -68,8 +68,6 @@ GroupResponse:
     origin: Cognite Toolkit
   name: gp_transformations_springfield_aveva_pi
   sourceId: <not set>
-RAWDatabaseResponse:
-- name: ingestion
 RAWTableResponse:
 - name: timeseries_metadata
 TransformationResponse:
