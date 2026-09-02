@@ -682,8 +682,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             self.client.migration.lookup.time_series(list(timeseries_ids))
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
-        self._classic_timeseries_ids = set()
-        self._classic_timeseries_external_ids = set()
+        self._classic_timeseries_ids: set[int] = set()
+        self._classic_timeseries_external_ids: set[str] = set()
         # Retrieve by id and external ID separately. A chart timeseries often has both, and
         # mixing them in one /timeseries/byids call returns 409 conflicting references.
         if timeseries_ids:
