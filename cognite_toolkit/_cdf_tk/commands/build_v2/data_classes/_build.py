@@ -64,8 +64,8 @@ class BuildParameters(BaseModel):
         return self.config_yaml.name if self.config_yaml else ""
 
 
-class BuildSourceFiles(BaseModel):
-    """The output of reading the source system.
+class BuildInput(BaseModel):
+    """The input files after reading the source system.
 
     All yaml files found in the modules/ directory.
     If available, the config.<name>.yaml file, which specifies which modules to build, variables available,
@@ -92,6 +92,8 @@ class BuildSourceFiles(BaseModel):
 
 
 class BuiltResource(BaseModel):
+    """Represents a resource that has been built from the source system."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     identifier: Identifier
     source_hash: str
