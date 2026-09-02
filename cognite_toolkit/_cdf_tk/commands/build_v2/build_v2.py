@@ -99,7 +99,18 @@ class BuildV2Command(ToolkitCommand):
     def build(
         self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
     ) -> BuildResult:
-        """"""
+        """Builds modules from the source system and returns the results.
+
+        Args:
+            parameters: The build parameters.
+            client: The ToolkitClient to use for validation. If None, no validation that depends on
+                the client will be performed.
+            display: Whether to display the build progress and results in the console. If False,
+                only progress bars will be printed.
+        Returns:
+            BuildResult: The result of the build, including the source files, source modules, and build folder.
+
+        """
         console = client.console if client else Console(markup=True)
 
         # Track build duration
