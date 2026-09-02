@@ -94,6 +94,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for transformation external data sources (OneLake / Fabric)",
     )
+    RECORD_VIEWS = FlagMetadata(
+        visible=True,
+        description="Enables support for record-backed views (streamId on views)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

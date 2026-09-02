@@ -6,6 +6,7 @@ from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
 
 from ._data_types import DirectNodeRelation
 from ._view_property import (
@@ -26,6 +27,15 @@ class View(BaseModelObject, ABC):
     description: str | None = None
     filter: JsonValue | None = None
     implements: list[ViewId] | None = None
+    stream_id: list[StreamExternalId] | None = Field(
+        default=None,
+        description=(
+            "External ids of the records streams this view targets. "
+            "Must be a single-element array in v1; multi-stream record views are reserved for future use."
+        ),
+        min_length=1,
+        max_length=1,
+    )
 
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)
@@ -92,7 +102,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     last_updated_time: int
     writable: bool
     queryable: bool
-    used_for: Literal["node", "edge", "all"]
+    used_for: Literal["node", "edge", "record", "all"]
     is_global: bool
     mapped_containers: list[ContainerId]
 

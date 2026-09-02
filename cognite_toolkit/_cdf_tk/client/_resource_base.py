@@ -34,12 +34,17 @@ class BaseModelObject(BaseModel):
             if not _is_optional(field_info.annotation):
                 self.__pydantic_fields_set__.add(field_name)
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         Args:
             camel_case (bool): Whether to use camelCase for the keys. Default is True.
             exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+            context (Literal["api", "toolkit"]): The context in which the dump is used. Default is "api".
+                This is used by resources that have a different representation in the API and in Toolkit.
+                For example, WrappedInstanceRequest has a different representation in the API and in Toolkit.
 
         """
         if exclude_extra:
@@ -99,7 +104,9 @@ class Identifier(RequestItem):
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore", frozen=True)
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         This is the default serialization method for request resources.

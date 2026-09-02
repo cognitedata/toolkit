@@ -1,5 +1,5 @@
 import sys
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import model_validator
 
@@ -31,5 +31,10 @@ class PendingInstanceId(RequestItem):
         id_part = f"id={self.id}" if self.id is not None else f"externalId={self.external_id}"
         return f"PendingInstanceId({id_part})"
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+    ) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
