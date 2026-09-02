@@ -8,10 +8,13 @@ from cognite_toolkit._cdf_tk.utils.coding_agent import detect_coding_agent, get_
 
 
 class TestDetectCodingAgent:
+    def test_ai_agent_standard_takes_priority(self) -> None:
+        env = {"AI_AGENT": "custom-agent@2.0", "CURSOR_TRACE_ID": "trace-1"}
+        assert detect_coding_agent(env) == "custom-agent"
+
     @pytest.mark.parametrize(
         ("env", "expected"),
         [
-            ({"AI_AGENT": "custom-agent@2.0", "CURSOR_TRACE_ID": "trace-1"}, "custom-agent"),
             ({"CURSOR_AGENT": "1", "CURSOR_TRACE_ID": "trace-1"}, "cursor-cli"),
             ({"CURSOR_TRACE_ID": "trace-1"}, "cursor"),
             ({"CLAUDECODE": "1"}, "claude-code"),
@@ -22,7 +25,6 @@ class TestDetectCodingAgent:
             ({}, None),
         ],
         ids=[
-            "ai_agent_standard_takes_priority",
             "cursor_cli_before_cursor",
             "cursor",
             "claude_code",
