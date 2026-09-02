@@ -343,7 +343,7 @@ class TestConvertToContainerProperty:
                 "ENUM_C",
                 EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
-                "Value 'enum_c' is not a valid enum value. Available values: ENUM_A and ENUM_B",
+                "Value 'ENUM_C' is not a valid enum value. Available values: ENUM_A and ENUM_B",
                 id="Invalid enum value (not in list)",
             ),
             pytest.param(

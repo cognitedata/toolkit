@@ -590,7 +590,7 @@ class _EnumConverter(_ValueConverter):
             if prefixed in self.available_types:
                 return self.available_types[prefixed]
         raise ValueError(
-            f"Value {value_str!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
+            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
         )
 
 
