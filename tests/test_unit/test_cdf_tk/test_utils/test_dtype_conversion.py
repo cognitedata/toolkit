@@ -101,6 +101,13 @@ class TestConvertToContainerProperty:
             ),
             pytest.param(
                 "1",
+                EnumProperty(values={"_1": EnumValue(), "_2": EnumValue()}),
+                True,
+                "_1",
+                id="Numeric string to underscore-prefixed enum",
+            ),
+            pytest.param(
+                "1",
                 BooleanProperty(),
                 True,
                 True,
@@ -336,7 +343,7 @@ class TestConvertToContainerProperty:
                 "ENUM_C",
                 EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
-                "Value 'enum_c' is not a valid enum value. Available values: ENUM_A and ENUM_B",
+                "Value 'ENUM_C' is not a valid enum value. Available values: ENUM_A and ENUM_B",
                 id="Invalid enum value (not in list)",
             ),
             pytest.param(
@@ -493,6 +500,36 @@ class TestConvertToContainerProperty:
         actual = convert_to_primary_property_with_special_cases(
             value, type_, True, destination_container_property, source_property, direct_relation_lookup=cache
         )
+
+        assert actual == expected
+
+    @pytest.mark.parametrize(
+        "value, type_, destination_container_property, expected",
+        [
+            pytest.param(
+                "1",
+                EnumProperty(values={"immediate": EnumValue(), "within_2_weeks": EnumValue()}),
+                (ContainerId(space="cdf_infield", external_id="FieldObservation"), "priority"),
+                "immediate",
+                id="Default FieldObservation.priority uses the mapping table",
+            ),
+            pytest.param(
+                "1",
+                EnumProperty(values={"_1": EnumValue(), "_2": EnumValue()}),
+                (ContainerId(space="custom_space", external_id="CustomObservation"), "priority"),
+                "_1",
+                id="Custom observation container prefixes numeric values with underscore",
+            ),
+        ],
+    )
+    def test_infield_observation_priority_conversion(
+        self,
+        value: str,
+        type_: PropertyTypeDefinition,
+        destination_container_property: tuple[ContainerId, str],
+        expected: PropertyValueWrite,
+    ):
+        actual = convert_to_primary_property_with_special_cases(value, type_, True, destination_container_property)
 
         assert actual == expected
 
