@@ -88,8 +88,18 @@ class ValidationStep:
 SelectionSource = Literal["modules", "config", "interactive"]
 
 
+@dataclass
+class BuildResult:
+    source_files: BuildSourceFiles
+    source: BuildSource
+    build_folder: BuildFolder
+
+
 class BuildV2Command(ToolkitCommand):
-    def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
+    def build(
+        self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
+    ) -> BuildResult:
+        """"""
         console = client.console if client else Console(markup=True)
 
         # Track build duration
@@ -106,15 +116,17 @@ class BuildV2Command(ToolkitCommand):
         )
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(
-            build_source, console, parameters.verbose, selection_source, parameters.config_file_name
-        )
+        if display:
+            self._display_module_sources(
+                build_source, console, parameters.verbose, selection_source, parameters.config_file_name
+            )
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir.resolve(), console)
 
         plan = self._create_validation_plan(built_modules, client)
-        self._display_validation_plan(plan, console)
+        if display:
+            self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
         build_folder = BuildFolder(
@@ -128,14 +140,15 @@ class BuildV2Command(ToolkitCommand):
         )
 
         insights = build_folder.all_insights
-        self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
-        self._display_build_summary(build_folder, insights, console, parameters.verbose)
+        if display:
+            self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
+            self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
         self._track_build_results(build_folder, insights, client)
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
-        return build_folder
+        return BuildResult(source_files=build_files, source=build_source, build_folder=build_folder)
 
     @classmethod
     def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
