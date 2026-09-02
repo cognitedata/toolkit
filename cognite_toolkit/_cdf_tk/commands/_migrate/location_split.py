@@ -10,10 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMCon
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import get_first_instance_space
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    LocationSplitInstanceIdMapper,
-    TargetSpaceResolutionError,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import TargetSpaceResolutionError
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
@@ -22,6 +19,59 @@ CDM_SPACE_SUFFIX = "_cdm"
 CFG_SPACE_SUFFIX = "_cfg"
 
 LocationSplitKind = Literal["app_data", "source_data"]
+
+_APM_SPACE = "cdf_apm"
+_TEMPLATE_VIEW = ViewId(space=_APM_SPACE, external_id="Template", version="v8")
+_CHECKLIST_VIEW = ViewId(space=_APM_SPACE, external_id="Checklist", version="v7")
+_OBSERVATION_VIEW = ViewId(space=_APM_SPACE, external_id="Observation", version="v5")
+_TEMPLATE_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="TemplateItem", version="v7")
+_CHECKLIST_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="ChecklistItem", version="v7")
+_CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalAction", version="v1")
+_MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
+_CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
+_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
+
+COGNITE_SOLUTION_TAG_VIEW_ID = ViewId(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
+
+# Resolved from the node's own rootLocation.
+APP_DATA_ROOT_LOCATION_VIEWS = (_TEMPLATE_VIEW, _CHECKLIST_VIEW, _OBSERVATION_VIEW)
+# Child views that inherit target space from a parent tagged in InstanceSpaceRelocationSource.
+# Inbound edges are read on the child /sync page so a newly added child is picked up with its parent edge.
+APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
+    _TEMPLATE_ITEM_VIEW: EdgeTypeId(
+        type=NodeId(space=_APM_SPACE, external_id="referenceTemplateItems"), direction="inwards"
+    ),
+    _CHECKLIST_ITEM_VIEW: EdgeTypeId(
+        type=NodeId(space=_APM_SPACE, external_id="referenceChecklistItems"), direction="inwards"
+    ),
+    _MEASUREMENT_VIEW: EdgeTypeId(
+        type=NodeId(space=_APM_SPACE, external_id="referenceMeasurements"), direction="inwards"
+    ),
+}
+APP_DATA_PARENT_EDGE_TYPES = frozenset(edge_type.type for edge_type in APP_DATA_PARENT_EDGE_BY_VIEW.values())
+# Inherit target space from a parent referenced by a direct-relation property.
+APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
+    _CONDITIONAL_ACTION_VIEW: "parentObject",
+    _CONDITION_VIEW: "conditionalAction",
+    _ACTION_VIEW: "conditionalActions",
+}
+
+
+def get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) -> Any:
+    properties = (node.properties or {}).get(view_id)
+    if not isinstance(properties, dict):
+        return None
+    return properties.get(property_id)
+
+
+def as_external_id(value: Any) -> str | None:
+    """Direct relations are ``{space, externalId}`` dicts; some APM properties are plain strings."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        external_id = value.get("externalId")
+        return external_id if isinstance(external_id, str) else None
+    return None
 
 
 def _iter_root_locations(
@@ -93,6 +143,40 @@ def build_infield_instance_space_name(
     return fix_invalid_space_name(candidate)
 
 
+def _find_cdm_target_space(
+    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
+    migrated_root: NodeId,
+    *,
+    target_kind: LocationSplitKind,
+) -> str | None:
+    matching_configs = [
+        config
+        for config in cdm_configs
+        if config.data_storage is not None
+        and config.data_storage.root_location is not None
+        and config.data_storage.root_location.get("space") == migrated_root.space
+        and config.data_storage.root_location.get("externalId") == migrated_root.external_id
+    ]
+    if not matching_configs:
+        return None
+    if len(matching_configs) > 1:
+        raise ToolkitMigrationError(
+            f"Cannot proceed with migration: Found {len(matching_configs)} deployed InField CDM location configs "
+            f"({', '.join(sorted(config.external_id for config in matching_configs))}) with the same root "
+            f"location {migrated_root!s}. Each root location must have exactly one deployed CDM location config "
+            "in order to use this migration tool to non-ambiguously assign target spaces."
+        )
+    config = matching_configs[0]
+    data_storage = config.data_storage
+    assert data_storage is not None
+    if target_kind == "app_data":
+        return data_storage.app_instance_space
+    # For source-data migration: choose arbitrarily one of maintenanceOrder,
+    # operation or notification's instance space as target space,
+    # as they per the docs are expected to be the same space.
+    return get_first_instance_space(config.data_filters, "maintenanceOrder")
+
+
 def build_target_by_root_asset(
     client: ToolkitClient,
     *,
@@ -150,106 +234,6 @@ def build_target_by_root_asset(
     return target_by_root_asset
 
 
-def _find_cdm_target_space(
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-    migrated_root: NodeId,
-    *,
-    target_kind: LocationSplitKind,
-) -> str | None:
-    matching_configs = [
-        config
-        for config in cdm_configs
-        if config.data_storage is not None
-        and config.data_storage.root_location is not None
-        and config.data_storage.root_location.get("space") == migrated_root.space
-        and config.data_storage.root_location.get("externalId") == migrated_root.external_id
-    ]
-    if not matching_configs:
-        return None
-    if len(matching_configs) > 1:
-        raise ToolkitMigrationError(
-            f"Cannot proceed with migration: Found {len(matching_configs)} deployed InField CDM location configs "
-            f"({', '.join(sorted(config.external_id for config in matching_configs))}) with the same root "
-            f"location {migrated_root!s}. Each root location must have exactly one deployed CDM location config "
-            "in order to use this migration tool to non-ambiguously assign target spaces."
-        )
-    config = matching_configs[0]
-    data_storage = config.data_storage
-    assert data_storage is not None
-    if target_kind == "app_data":
-        return data_storage.app_instance_space
-    # For source-data migration: choose arbitrarily one of maintenanceOrder,
-    # operation or notification's instance space as target space,
-    # as they per the docs are expected to be the same space.
-    return get_first_instance_space(config.data_filters, "maintenanceOrder")
-
-
-_APM_SPACE = "cdf_apm"
-_TEMPLATE_VIEW = ViewId(space=_APM_SPACE, external_id="Template", version="v8")
-_CHECKLIST_VIEW = ViewId(space=_APM_SPACE, external_id="Checklist", version="v7")
-_OBSERVATION_VIEW = ViewId(space=_APM_SPACE, external_id="Observation", version="v5")
-_TEMPLATE_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="TemplateItem", version="v7")
-_CHECKLIST_ITEM_VIEW = ViewId(space=_APM_SPACE, external_id="ChecklistItem", version="v7")
-_CONDITIONAL_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="ConditionalAction", version="v1")
-_MEASUREMENT_VIEW = ViewId(space=_APM_SPACE, external_id="MeasurementReading", version="v4")
-_CONDITION_VIEW = ViewId(space=_APM_SPACE, external_id="Condition", version="v1")
-_ACTION_VIEW = ViewId(space=_APM_SPACE, external_id="Action", version="v1")
-
-COGNITE_SOLUTION_TAG_VIEW_ID = ViewId(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
-
-# Resolved from the node's own rootLocation.
-APP_DATA_ROOT_LOCATION_VIEWS = (_TEMPLATE_VIEW, _CHECKLIST_VIEW, _OBSERVATION_VIEW)
-# Child views that inherit target space from a parent tagged in InstanceSpaceRelocationSource.
-# Inbound edges are read on the child /sync page so a newly added child is picked up with its parent edge.
-APP_DATA_PARENT_EDGE_BY_VIEW: Mapping[ViewId, EdgeTypeId] = {
-    _TEMPLATE_ITEM_VIEW: EdgeTypeId(
-        type=NodeId(space=_APM_SPACE, external_id="referenceTemplateItems"), direction="inwards"
-    ),
-    _CHECKLIST_ITEM_VIEW: EdgeTypeId(
-        type=NodeId(space=_APM_SPACE, external_id="referenceChecklistItems"), direction="inwards"
-    ),
-    _MEASUREMENT_VIEW: EdgeTypeId(
-        type=NodeId(space=_APM_SPACE, external_id="referenceMeasurements"), direction="inwards"
-    ),
-}
-APP_DATA_PARENT_EDGE_TYPES = frozenset(edge_type.type for edge_type in APP_DATA_PARENT_EDGE_BY_VIEW.values())
-# Inherit target space from a parent referenced by a direct-relation property.
-APP_DATA_PARENT_PROPERTY_BY_VIEW: Mapping[ViewId, str] = {
-    _CONDITIONAL_ACTION_VIEW: "parentObject",
-    _CONDITION_VIEW: "conditionalAction",
-    _ACTION_VIEW: "conditionalActions",
-}
-
-
-def get_view_property(node: NodeResponse, view_id: ViewId, property_id: str) -> Any:
-    properties = (node.properties or {}).get(view_id)
-    if not isinstance(properties, dict):
-        return None
-    return properties.get(property_id)
-
-
-def as_external_id(value: Any) -> str | None:
-    """Direct relations are ``{space, externalId}`` dicts; some APM properties are plain strings."""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        external_id = value.get("externalId")
-        return external_id if isinstance(external_id, str) else None
-    return None
-
-
-def _root_internal_id_to_target_space(client: ToolkitClient, target_by_root_asset: Mapping[str, str]) -> dict[int, str]:
-    root_assets = client.tool.assets.retrieve(
-        ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
-    )
-    root_id_to_target: dict[int, str] = {}
-    for asset in root_assets:
-        if asset.external_id is None or asset.external_id not in target_by_root_asset:
-            continue
-        root_id_to_target[asset.id] = target_by_root_asset[asset.external_id]
-    return root_id_to_target
-
-
 class AssetExternalIdTargetSpaceResolver:
     """Resolve target space from a classic asset reference on the node (e.g. Notification.assetExternalId)."""
 
@@ -263,8 +247,22 @@ class AssetExternalIdTargetSpaceResolver:
         self._client = client
         self._view_id = view_id
         self._property_id = property_id
-        self._root_id_to_target_space = _root_internal_id_to_target_space(client, target_by_root_asset)
+        self._root_id_to_target_space = self._root_internal_id_to_target_space(client, target_by_root_asset)
         self._root_id_by_asset_external_id: dict[str, int | None] = {}
+
+    @staticmethod
+    def _root_internal_id_to_target_space(
+        client: ToolkitClient, target_by_root_asset: Mapping[str, str]
+    ) -> dict[int, str]:
+        root_assets = client.tool.assets.retrieve(
+            ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
+        )
+        root_id_to_target: dict[int, str] = {}
+        for asset in root_assets:
+            if asset.external_id is None or asset.external_id not in target_by_root_asset:
+                continue
+            root_id_to_target[asset.id] = target_by_root_asset[asset.external_id]
+        return root_id_to_target
 
     def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
         asset_external_ids: set[str] = set()
@@ -287,7 +285,12 @@ class AssetExternalIdTargetSpaceResolver:
             raise TargetSpaceResolutionError(
                 f"{node.as_id()} is missing {self._property_id}.", severity=Severity.failure
             )
-        root_id = self._root_id_by_asset_external_id.get(asset_external_id)
+        if asset_external_id not in self._root_id_by_asset_external_id:
+            raise RuntimeError(
+                f"Bug in Toolkit: asset {asset_external_id!r} was requested without prefetching it first. "
+                "Call prepare_page() before resolving."
+            )
+        root_id = self._root_id_by_asset_external_id[asset_external_id]
         if root_id is None:
             raise TargetSpaceResolutionError(
                 f"{node.as_id()}: asset {asset_external_id!r} referenced via {self._property_id} was not found.",
@@ -301,20 +304,3 @@ class AssetExternalIdTargetSpaceResolver:
                 severity=Severity.failure,
             )
         return target_space
-
-
-def register_solution_tag_references(
-    node: NodeResponse,
-    target_space: str,
-    instance_id_mapper: LocationSplitInstanceIdMapper,
-) -> None:
-    """Point this node's solutionTags at the copy of each tag in ``target_space``."""
-    for properties in (node.properties or {}).values():
-        if not isinstance(properties, dict):
-            continue
-        value = properties.get("solutionTags")
-        if not isinstance(value, list):
-            continue
-        for item in value:
-            if (external_id := as_external_id(item)) is not None:
-                instance_id_mapper.register(external_id, target_space)

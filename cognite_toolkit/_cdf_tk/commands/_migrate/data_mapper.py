@@ -128,7 +128,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     AssetExternalIdTargetSpaceResolver,
     as_external_id,
     get_view_property,
-    register_solution_tag_references,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.dataio import DataItem, T_DataRequest, T_DataResponse, T_Selector
@@ -1873,11 +1872,24 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         if target_space is None:
             target_space = self._resolve_target_space(node, other_side_by_edge_type_and_direction)
         self._instance_id_mapper.register(node.external_id, target_space)
-        register_solution_tag_references(node, target_space, self._instance_id_mapper)
+        self._register_solution_tag_references(node, target_space)
         mapped_node, new_edges, issue = super()._map_single_node(node, other_side_by_edge_type_and_direction)
         if self.dry_run:
             return mapped_node, new_edges, issue
         return self._attach_relocation_source(mapped_node, node.space), new_edges, issue
+
+    def _register_solution_tag_references(self, node: NodeResponse, target_space: str) -> None:
+        """Point this node's solutionTags at the copy of each tag in ``target_space``."""
+        for properties in (node.properties or {}).values():
+            if not isinstance(properties, dict):
+                continue
+            value = properties.get("solutionTags")
+            if not isinstance(value, list):
+                continue
+            for item in value:
+                external_id = as_external_id(item)
+                if external_id is not None:
+                    self._instance_id_mapper.register(external_id, target_space)
 
     @staticmethod
     def _attach_relocation_source(mapped_node: NodeRequest, source_space: str) -> NodeRequest:
