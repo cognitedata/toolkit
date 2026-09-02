@@ -1125,14 +1125,16 @@ class BuildV2Command(ToolkitCommand):
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = parameters.insight_path
-        if parameters.insight_format == "csv":
-            insight_file_content = insights.to_csv()
-        else:
-            insight_file_content = insights.to_json()
-        if insight_file_content.strip():
-            safe_write(insight_file, insight_file_content)
+        if parameters.write_insights:
+            insight_file = parameters.insight_path
+            if parameters.insight_format == "csv":
+                insight_file_content = insights.to_csv()
+            else:
+                insight_file_content = insights.to_json()
+            if insight_file_content.strip():
+                safe_write(insight_file, insight_file_content)
 
-        lineage_file = build.build_dir / BuildLineage.filename
-        lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
-        safe_write(lineage_file, lineage)
+        if parameters.write_lineage:
+            lineage_file = build.build_dir / BuildLineage.filename
+            lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
+            safe_write(lineage_file, lineage)
