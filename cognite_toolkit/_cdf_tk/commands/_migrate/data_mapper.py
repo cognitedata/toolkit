@@ -650,6 +650,29 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             self.client.migration.lookup.time_series(list(timeseries_ids))
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
+        self._classic_timeseries_ids = set()
+        self._classic_timeseries_external_ids = set()
+        # Retrieve by id and external ID separately. A chart timeseries often has both, and
+        # mixing them in one /timeseries/byids call returns 409 conflicting references.
+        if timeseries_ids:
+            existing_by_id = self.client.tool.timeseries.retrieve(
+                [InternalId(id=timeseries_id) for timeseries_id in timeseries_ids],
+                ignore_unknown_ids=True,
+            )
+            self._classic_timeseries_ids.update(timeseries.id for timeseries in existing_by_id)
+            self._classic_timeseries_external_ids.update(
+                timeseries.external_id for timeseries in existing_by_id if timeseries.external_id
+            )
+        remaining_external_ids = timeseries_external_ids - self._classic_timeseries_external_ids
+        if remaining_external_ids:
+            existing_by_external_id = self.client.tool.timeseries.retrieve(
+                [ExternalId(external_id=external_id) for external_id in remaining_external_ids],
+                ignore_unknown_ids=True,
+            )
+            self._classic_timeseries_ids.update(timeseries.id for timeseries in existing_by_external_id)
+            self._classic_timeseries_external_ids.update(
+                timeseries.external_id for timeseries in existing_by_external_id if timeseries.external_id
+            )
         if event_ids_by_chart_external_id:
             all_event_ids = list(
                 {event_id for event_ids in event_ids_by_chart_external_id.values() for event_id in event_ids}
@@ -658,6 +681,21 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             # when we do a lookup on one by one event.
             self.client.migration.lookup.events(all_event_ids)
         return event_ids_by_chart_external_id
+
+    def _classic_timeseries_exists(self, timeseries_id: int | None, timeseries_external_id: str | None) -> bool:
+        return (timeseries_id is not None and timeseries_id in self._classic_timeseries_ids) or (
+            timeseries_external_id is not None and timeseries_external_id in self._classic_timeseries_external_ids
+        )
+
+    def _record_unmigrated_timeseries_error(
+        self,
+        issue: ChartMigrationIssue,
+        timeseries_id: int | None,
+        timeseries_external_id: str | None,
+    ) -> None:
+        error = "Chart contains unmigrated timeseries."
+        if self._classic_timeseries_exists(timeseries_id, timeseries_external_id) and error not in issue.errors:
+            issue.errors.append(error)
 
     def _map_single_item(
         self, item: ChartResponse, event_ids: set[int]
@@ -668,7 +706,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
         mapped_monitoring_jobs = self._map_monitoring_jobs(item.monitoring_jobs or [], issue)
         mapped_scheduled_calculations = self._map_scheduled_calculations(item.scheduled_calculations or [], issue)
-        if issue.has_issues:
+        if issue.errors:
             return None, issue
 
         migrated_ts_ui_ids = {core.id for core in timeseries_core_collection if core.id is not None}
@@ -748,6 +786,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     issue.missing_timeseries_external_ids.add(ts_item.ts_external_id)
                 else:
                     issue.missing_timeseries_identifier.add(ts_item.id or "unknown")
+                self._record_unmigrated_timeseries_error(issue, ts_item.ts_id, ts_item.ts_external_id)
                 continue
             if ts_item.id is None:
                 issue.errors.append(f"Missing timeseries id: {ts_item.ts_id!r}")
@@ -773,6 +812,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     issue.missing_timeseries_external_ids.add(new_job.model.timeseries_external_id)
                 if new_job.model.timeseries_id:
                     issue.missing_timeseries_ids.add(new_job.model.timeseries_id)
+                self._record_unmigrated_timeseries_error(
+                    issue, new_job.model.timeseries_id, new_job.model.timeseries_external_id
+                )
                 continue
             new_model = job.model.model_copy(
                 update={
@@ -796,6 +838,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 )
                 if node_id is None:
                     issue.missing_timeseries_external_ids.add(new_calculation.target_timeseries_external_id)
+                    self._record_unmigrated_timeseries_error(
+                        issue, None, new_calculation.target_timeseries_external_id
+                    )
                     continue
                 new_calculation.target_timeseries_instance_id = node_id
                 new_calculation.target_timeseries_external_id = None
@@ -820,6 +865,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     node_id = self.client.migration.lookup.time_series(external_id=external_id)
                     if node_id is None:
                         issue.missing_timeseries_external_ids.add(external_id)
+                        self._record_unmigrated_timeseries_error(issue, None, external_id)
                         new_inputs.append(input_)
                     else:
                         new_inputs.append(input_.model_copy(update={"value": node_id}))

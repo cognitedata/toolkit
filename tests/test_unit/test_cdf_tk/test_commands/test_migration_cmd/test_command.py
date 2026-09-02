@@ -891,6 +891,7 @@ class TestMigrationCommand:
             )
         )
 
+        respx_mock.post(config.create_api_url("/timeseries/byids")).respond(json={"items": []})
         # Chart update (existing chart goes through per-chart update endpoint)
         respx.put(
             config.create_app_url("/storage/charts/charts/my_chart"),
@@ -919,7 +920,7 @@ class TestMigrationCommand:
         }
 
         calls = respx_mock.calls
-        assert len(calls) == 6
+        assert len(calls) == 8
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts/my_chart")
         assert last_call.request.method == "PUT"
