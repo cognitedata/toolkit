@@ -42,6 +42,14 @@ class BuildParameters(BaseModel):
         default="csv",
         description="Format for the insights file written to the build directory.",
     )
+    write_insights: bool = Field(
+        default=True,
+        description="Whether to write insights to a file in the build directory.",
+    )
+    write_lineage: bool = Field(
+        default=True,
+        description="Whether to write lineage information to a file in the build directory.",
+    )
 
     @property
     def modules_directory(self) -> Path:
