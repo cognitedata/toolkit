@@ -76,11 +76,6 @@ class CommandTracking(TrackingEvent):
     invocation_source: InvocationSource | None = Field(default=None)
     coding_agent: str | None = Field(default=None)
 
-    @field_validator("coding_agent", mode="after")
-    @classmethod
-    def _truncate_coding_agent(cls, v: str | None) -> str | None:
-        return _mp_safe_str(v) if v is not None else None
-
     @field_validator("result", mode="after")
     @classmethod
     def _truncate_result(cls, v: str) -> str:
