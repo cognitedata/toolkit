@@ -6,6 +6,8 @@ FeatureConfiguration objects as this is just JSON object in the node, but use th
 data sets, spaces, and groups.
 """
 
+import sys
+from collections.abc import Iterator, Sequence
 from typing import ClassVar, Literal
 
 from pydantic import JsonValue
@@ -16,6 +18,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
 APM_CONFIG_VIEW_ID = ViewId(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
@@ -207,3 +214,13 @@ class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
             self.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"instance_type", "space"}),
             extra="ignore",
         )
+
+    @classmethod
+    def iterate_root_locations(cls, configs: Sequence[Self]) -> Iterator[tuple[RootLocationConfiguration, str]]:
+        """Yield ``(root_location, asset_external_id)`` for every root location with an ``asset_external_id``."""
+        for config in configs:
+            if not config.feature_configuration:
+                continue
+            for root in config.feature_configuration.root_location_configurations or []:
+                if root.asset_external_id:
+                    yield root, root.asset_external_id
