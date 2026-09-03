@@ -196,7 +196,7 @@ class TransformationTask(TaskDefinition):
 
 
 class CDFTask(TaskDefinition):
-    type: Literal["cdfRequest"] = "cdfRequest"
+    type: Literal["cdf"] = "cdf"
     parameters: CDFTaskParameters
 
 
