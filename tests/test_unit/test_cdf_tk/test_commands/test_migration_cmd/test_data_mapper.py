@@ -10,7 +10,14 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InternalId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerId,
+    EdgeTypeId,
+    InternalId,
+    NodeId,
+    ViewDirectId,
+    ViewId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationGeometry,
     AnnotationPoint,
@@ -499,6 +506,7 @@ class TestChartMapper:
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
             client.migration.lookup.events = event_lookup
+            client.tool.timeseries.retrieve.return_value = []
 
             mapper = ChartMapper(client)
             mapped_list = mapper.map([DataItem(tracking_id="t", item=source)])
@@ -643,6 +651,7 @@ class TestChartMapper:
             client.migration.lookup.time_series.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
+            client.tool.timeseries.retrieve.return_value = []
 
             mapper = ChartMapper(client)
             mapped_list = mapper.map([DataItem(tracking_id="t", item=chart)])
@@ -653,6 +662,99 @@ class TestChartMapper:
         assert mapped.data.core_timeseries_collection is not None
         migrated_ids = {ts.id for ts in mapped.data.core_timeseries_collection}
         assert migrated_ids == {"existing_core_ts", "classic_ts"}
+
+    def test_map_chart_skips_deleted_timeseries(self) -> None:
+        target_space = "my_target_space"
+        chart = ChartResponse(
+            external_id="chart_deleted_ts",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Chart with deleted timeseries",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                time_series_collection=[
+                    ChartTimeseriesUIElement(id="kept_ts", ts_external_id="kept_timeseries"),
+                    ChartTimeseriesUIElement(id="deleted_ts", ts_external_id="deleted_timeseries"),
+                ],
+            ),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+
+            def _get_node_id(
+                id: int | Sequence[int] | None = None, external_id: str | Sequence[str] | None = None
+            ) -> NodeId | None:
+                if external_id == "kept_timeseries":
+                    return NodeId(space=target_space, external_id="kept_timeseries")
+                return None
+
+            client.migration.lookup.time_series.side_effect = _get_node_id
+            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
+            )
+            client.tool.timeseries.retrieve.return_value = []
+
+            mapper = ChartMapper(client)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapped_list = mapper.map([DataItem(tracking_id="t", item=chart)])
+
+        assert len(mapped_list) == 1
+        mapped = mapped_list[0].item
+        assert mapped.data.time_series_collection is not None
+        assert {ts.id for ts in mapped.data.time_series_collection} == {"deleted_ts"}
+        assert mapped.data.core_timeseries_collection is not None
+        assert {ts.id for ts in mapped.data.core_timeseries_collection} == {"kept_ts"}
+        logger.log.assert_called()
+        log_entries = logger.log.call_args[0][0]
+        warning_messages = [entry.message for entry in log_entries if entry.severity == Severity.warning]
+        assert warning_messages == ["No classic timeseries found for external ID(s)"]
+
+    def test_map_chart_fails_on_unmigrated_timeseries(self) -> None:
+        chart = ChartResponse(
+            external_id="chart_unmigrated_ts",
+            visibility="PUBLIC",
+            created_time=0,
+            last_updated_time=0,
+            owner_id="user@example.com",
+            data=ChartData(
+                version=1,
+                name="Chart with unmigrated timeseries",
+                date_from="2024-01-01T00:00:00Z",
+                date_to="2024-12-31T00:00:00Z",
+                time_series_collection=[
+                    ChartTimeseriesUIElement(id="unmigrated_ts", ts_external_id="unmigrated_timeseries"),
+                ],
+            ),
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.time_series.return_value = None
+            client.tool.timeseries.retrieve.return_value = [
+                TimeSeriesResponse(
+                    external_id="unmigrated_timeseries",
+                    type="numeric",
+                    created_time=0,
+                    last_updated_time=0,
+                    id=42,
+                )
+            ]
+
+            mapper = ChartMapper(client)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+            mapped_list = mapper.map([DataItem(tracking_id="t", item=chart)])
+
+        assert mapped_list == []
+        logger.log.assert_called()
+        log_entries = logger.log.call_args[0][0]
+        assert any(entry.severity == Severity.failure for entry in log_entries)
+        failure_messages = [entry.message for entry in log_entries if entry.severity == Severity.failure]
+        assert failure_messages == ["Chart contains unmigrated timeseries."]
 
     def test_skip_dms_chart(self, tmp_path: Path) -> None:
         dms_chart = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
