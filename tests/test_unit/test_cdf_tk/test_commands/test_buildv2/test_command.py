@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
@@ -757,3 +757,58 @@ views:
     )
     def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
         assert BuildV2Command._find_unresolved_variables(content) == expected
+
+
+@pytest.mark.usefixtures("empty_cdf")
+class TestTmpBuild:
+    def test_tmp_build_writes_cache_and_skips_unchanged_modules(
+        self, tmp_path: Path, tlk_client: ToolkitClient
+    ) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        cache_path = org / "build_cache.yaml"
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert cache_path.exists()
+        assert first_lineage.module_lineage[0].module_hash
+
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert second_lineage.module_lineage[0].module_hash == first_lineage.module_lineage[0].module_hash
+        assert (
+            BuildLineage.from_yaml_file(cache_path).module_lineage[0].module_hash
+            == first_lineage.module_lineage[0].module_hash
+        )
+
+    def test_tmp_build_rebuilds_changed_module(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        first_hash = first_lineage.module_lineage[0].module_hash
+
+        space_file.write_text(SPACE_YAML + "description: Updated\n")
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert second_lineage.module_lineage[0].module_hash != first_hash
+
+    def test_tmp_build_uses_config_specific_cache_file(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        org.mkdir()
+        config_yaml = org / "config.dev.yaml"
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        cache_path = org / "build_cache.dev.yaml"
+        _ = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert cache_path.exists()
+        assert not (org / "build_cache.yaml").exists()

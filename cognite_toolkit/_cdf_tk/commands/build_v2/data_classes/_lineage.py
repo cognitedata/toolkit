@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, read_yaml_content
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import ResourceType
@@ -68,6 +68,10 @@ class ModuleLineageItem(_BaseLineageModel):
 
     module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
     module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
+    module_hash: str = Field(
+        default="",
+        description="Hash of the module source directory at build time, used for incremental rebuilds.",
+    )
     insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
     resource_lineage: list[ResourceLineageItem] = Field(
         default_factory=list, description="List of resource lineage items for this module"
@@ -109,9 +113,11 @@ class ModuleLineageItem(_BaseLineageModel):
                     identifier=resource.identifier,
                 )
             )
+        module_path = module.module_id.path.resolve()
         return cls(
             module_id=module.module_id.id.as_posix(),
-            module_path=module.module_id.path.resolve(),
+            module_path=module_path,
+            module_hash=calculate_directory_hash(module_path, shorten=True),
             resource_lineage=resource_lineage,
             insights_summary=module.all_insights.summary,
         )
