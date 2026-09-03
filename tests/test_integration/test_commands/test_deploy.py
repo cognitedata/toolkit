@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParamete
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
+    ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
     ResourceWorker,
@@ -90,7 +91,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
     # Data Products and Rule Sets APIs are not yet available on the test server.
-    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}
+    # External data sources reject dummy OneLake credentials (400 Invalid body).
+    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}
     with (
         patch.dict(
             os.environ,
@@ -129,8 +131,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO}:
+        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}:
             # Data Products and Rule Sets APIs are not yet available on the test server.
+            # External data sources reject dummy OneLake credentials (400 Invalid body).
             continue
         loader = loader_cls.create_loader(client, build_dir)
 

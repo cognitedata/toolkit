@@ -1,0 +1,11 @@
+externalId: my_onelake_source
+name: Example OneLake source
+dataSetExternalId: ds_complete_org
+settings:
+  credentials:
+    clientId: ${IDP_CLIENT_ID}
+    tenantId: ${IDP_TENANT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+  locationDescription:
+    workspaceId: 00000000-0000-0000-0000-000000000003
+    containerId: 00000000-0000-0000-0000-000000000004

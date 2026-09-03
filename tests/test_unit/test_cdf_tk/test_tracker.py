@@ -1,5 +1,6 @@
 """Unit tests for deployment pack tracking functionality in Tracker."""
 
+import os
 import sys
 from unittest.mock import patch
 
@@ -34,7 +35,11 @@ class TestTracker:
 
     def test_tracking_includes_invocation_source(self) -> None:
         cmd = MockToolkitCommand()
-        env = {"CURSOR_TRACE_ID": "trace-1"}
+        env = {
+            "CURSOR_TRACE_ID": "trace-1",
+            # Tracker skips Mixpanel people_set when this is set; without it, _track is never called.
+            "PYTEST_CURRENT_TEST": os.environ["PYTEST_CURRENT_TEST"],
+        }
         with patch.dict("os.environ", env, clear=True):
             with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
                 cmd.run(cmd.execute)
