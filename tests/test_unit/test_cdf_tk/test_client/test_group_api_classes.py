@@ -114,6 +114,7 @@ def all_acls() -> Iterable[tuple]:
         {"relationshipsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"roboticsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"all": {}}}},
         {"roboticsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": [123]}}}},
+        {"ruleSetsAcl": {"actions": ["CREATE", "READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
         {"sapWritebackAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"sapWritebackAcl": {"actions": ["READ", "WRITE"], "scope": {"instancesScope": {"instances": ["123", "456"]}}}},
         {"sapWritebackRequestsAcl": {"actions": ["WRITE", "LIST"], "scope": {"all": {}}}},

@@ -421,6 +421,14 @@ class RoboticsAcl(Acl):
     scope: AllScope | DataSetScope
 
 
+class RuleSetsAcl(Acl):
+    """ACL for Rule Set resources."""
+
+    acl_name: Literal["ruleSetsAcl"] = Field("ruleSetsAcl", exclude=True)
+    actions: Sequence[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class SAPWritebackAcl(Acl):
     """ACL for SAP Writeback resources."""
 
@@ -705,6 +713,7 @@ AclType: TypeAlias = Annotated[
         | RawAcl
         | RelationshipsAcl
         | RoboticsAcl
+        | RuleSetsAcl
         | SAPWritebackAcl
         | SAPWritebackRequestsAcl
         | ScheduledCalculationsAcl
