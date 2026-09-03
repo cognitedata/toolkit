@@ -1563,8 +1563,9 @@ class MigrateApp(typer.Typer):
             prefix=HINT_LEAD_TEXT,
         )
 
-    @staticmethod
+    @classmethod
     def infield_data(
+        cls,
         ctx: typer.Context,
         source_space: Annotated[
             str | None,
@@ -1644,7 +1645,7 @@ class MigrateApp(typer.Typer):
                 "into a Toolkit module and deployed them with 'cdf deploy'?"
             )
         shared_legacy_spaces = find_shared_legacy_instance_spaces(apm_configs)
-        source_space, target_space, log_dir, dry_run, verbose = MigrateApp._resolve_infield_migration_spaces(
+        source_space, target_space, log_dir, dry_run, verbose = cls._resolve_infield_migration_spaces(
             client=client,
             source_space=source_space,
             target_space=target_space,
@@ -1658,7 +1659,7 @@ class MigrateApp(typer.Typer):
         )
 
         instance_id_mapper, location_split_id_mapper, target_spaces, target_by_root_asset = (
-            MigrateApp._infield_instance_id_mappers(
+            cls._infield_instance_id_mappers(
                 client,
                 source_space=source_space,
                 target_space=target_space,
@@ -1670,7 +1671,7 @@ class MigrateApp(typer.Typer):
                 label="Infield data",
             )
         )
-        MigrateApp._print_location_split_plan(
+        cls._print_location_split_plan(
             client,
             source_space=source_space,
             target_by_root_asset=target_by_root_asset,
@@ -1780,8 +1781,9 @@ class MigrateApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def infield_source_data(
+        cls,
         ctx: typer.Context,
         source_space: Annotated[
             str | None,
@@ -1850,7 +1852,7 @@ class MigrateApp(typer.Typer):
                 "'cdf migrate infield-configs' into a Toolkit module and deployed them with 'cdf deploy'?"
             )
         shared_legacy_spaces = find_shared_legacy_instance_spaces(apm_configs)
-        source_space, target_space, log_dir, dry_run, verbose = MigrateApp._resolve_infield_migration_spaces(
+        source_space, target_space, log_dir, dry_run, verbose = cls._resolve_infield_migration_spaces(
             client=client,
             source_space=source_space,
             target_space=target_space,
@@ -1865,7 +1867,7 @@ class MigrateApp(typer.Typer):
 
         source_views = resolve_apm_source_data_view_ids(apm_configs)
         instance_id_mapper, location_split_id_mapper, target_spaces, target_by_root_asset = (
-            MigrateApp._infield_instance_id_mappers(
+            cls._infield_instance_id_mappers(
                 client,
                 source_space=source_space,
                 target_space=target_space,
@@ -1876,7 +1878,7 @@ class MigrateApp(typer.Typer):
                 label="APM_SourceData",
             )
         )
-        MigrateApp._print_location_split_plan(
+        cls._print_location_split_plan(
             client,
             source_space=source_space,
             target_by_root_asset=target_by_root_asset,
@@ -2234,8 +2236,9 @@ class MigrateApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def _infield_instance_id_mappers(
+        cls,
         client: ToolkitClient,
         *,
         source_space: str,
@@ -2248,7 +2251,7 @@ class MigrateApp(typer.Typer):
         passthrough_space_mapping: Mapping[str, str] | None = None,
     ) -> tuple[InstanceIdMapper, LocationSplitInstanceIdMapper | None, set[str], dict[str, str]]:
         passthrough = dict(passthrough_space_mapping or {})
-        if MigrateApp._is_location_split_source(source_space, shared_legacy_spaces):
+        if cls._is_location_split_source(source_space, shared_legacy_spaces):
             target_by_root_asset = build_target_by_root_asset(
                 client,
                 source_space=source_space,
@@ -2274,8 +2277,9 @@ class MigrateApp(typer.Typer):
         instance_id_mapper = SpaceMappingInstanceIdMapper({source_space: target_space, **passthrough})
         return instance_id_mapper, None, {target_space}, {}
 
-    @staticmethod
+    @classmethod
     def _resolve_infield_migration_spaces(
+        cls,
         *,
         client: ToolkitClient,
         source_space: str | None,
@@ -2312,7 +2316,7 @@ class MigrateApp(typer.Typer):
             ).unsafe_ask()
             if not isinstance(source_space, str):
                 raise typer.BadParameter(f"No source space selected for {label} migration.")
-            if MigrateApp._is_location_split_source(source_space, shared_legacy_spaces):
+            if cls._is_location_split_source(source_space, shared_legacy_spaces):
                 # Cannot specify target space if this is a location split migration
                 target_space = None
             else:
@@ -2346,7 +2350,7 @@ class MigrateApp(typer.Typer):
             )
 
         if source_space is not None and target_space is not None:
-            if MigrateApp._is_location_split_source(source_space, shared_legacy_spaces):
+            if cls._is_location_split_source(source_space, shared_legacy_spaces):
                 raise typer.BadParameter(
                     f"Source space {source_space!r} is shared by multiple InField locations; These must be split into "
                     "multiple target spaces during migration. You should rerun this command without --target-space so "
@@ -2362,7 +2366,7 @@ class MigrateApp(typer.Typer):
         if (
             source_space is not None
             and target_space is None
-            and MigrateApp._is_location_split_source(source_space, shared_legacy_spaces)
+            and cls._is_location_split_source(source_space, shared_legacy_spaces)
         ):
             return source_space, None, log_dir, dry_run, verbose
 
