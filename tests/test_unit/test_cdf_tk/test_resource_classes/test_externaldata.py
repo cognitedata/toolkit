@@ -15,9 +15,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     OneLakeSettingsRead,
     OneLakeSettingsWrite,
 )
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
+from tests.data import COMPLETE_ORG_ALPHA_FLAGS
+from tests.test_unit.utils import find_resources
 
 
 class TestExternalDataSourceYAML:
@@ -43,6 +46,14 @@ class TestExternalDataSourceYAML:
         assert loaded.external_id == "fabric-lakehouse-prod"
         assert loaded.settings.credentials.client_secret is not None
         assert loaded.settings.credentials.client_secret.get_secret_value() == "azure-client-secret"
+
+    @pytest.mark.parametrize(
+        "data", list(find_resources("ExternalDataSource", base=COMPLETE_ORG_ALPHA_FLAGS / MODULES))
+    )
+    def test_load_valid_external_data_source_file(self, data: dict[str, object]) -> None:
+        loaded = ExternalDataSourceYAML.model_validate(data)
+        dumped = json.loads(loaded.model_dump_json(by_alias=True, exclude_unset=True))
+        assert dumped == data
 
     def test_load_external_data_source_without_client_secret(self) -> None:
         data = {
