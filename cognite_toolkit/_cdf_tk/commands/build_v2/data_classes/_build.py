@@ -42,6 +42,14 @@ class BuildParameters(BaseModel):
         default="csv",
         description="Format for the insights file written to the build directory.",
     )
+    write_insights: bool = Field(
+        default=True,
+        description="Whether to write insights to a file in the build directory.",
+    )
+    write_lineage: bool = Field(
+        default=True,
+        description="Whether to write lineage information to a file in the build directory.",
+    )
 
     @property
     def modules_directory(self) -> Path:
@@ -56,8 +64,8 @@ class BuildParameters(BaseModel):
         return self.config_yaml.name if self.config_yaml else ""
 
 
-class BuildSourceFiles(BaseModel):
-    """The output of reading the source system.
+class BuildInput(BaseModel):
+    """The input files after reading the source system.
 
     All yaml files found in the modules/ directory.
     If available, the config.<name>.yaml file, which specifies which modules to build, variables available,
@@ -84,6 +92,8 @@ class BuildSourceFiles(BaseModel):
 
 
 class BuiltResource(BaseModel):
+    """Represents a resource that has been built from the source system."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     identifier: Identifier
     source_hash: str

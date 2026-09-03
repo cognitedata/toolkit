@@ -168,7 +168,7 @@ class NonExistingModuleName(BaseModel):
     closest_matches: list[str]
 
 
-class BuildSource(BaseModel):
+class ModuleScanResult(BaseModel):
     """Class used to describe source for build"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

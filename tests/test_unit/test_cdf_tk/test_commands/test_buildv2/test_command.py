@@ -1,3 +1,4 @@
+import shutil
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -11,15 +12,15 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
-    BuildSource,
     FailedReadYAMLFile,
     MisplacedModule,
     ModuleId,
+    ModuleScanResult,
     NonExistingModuleName,
     ResourceType,
     SuccessfulReadYAMLFile,
@@ -468,7 +469,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_non_verbose_non_existing_module_prints_summary_and_raises(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             non_existing_module_names=[NonExistingModuleName(name="missing_module", closest_matches=[])],
@@ -490,7 +491,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_verbose_ambiguous_module_prints_details_and_raises(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             ambiguous_selection=[
@@ -519,7 +520,7 @@ class TestDisplayModuleSourcesOutput:
 
     def test_verbose_misplaced_module_prints_warning_details_without_raising(self, tmp_path: Path) -> None:
         console, output = self._console()
-        build_source = BuildSource(
+        build_source = ModuleScanResult(
             module_dir=tmp_path,
             modules=[],
             misplaced_modules=[
@@ -757,3 +758,123 @@ views:
     )
     def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
         assert BuildV2Command._find_unresolved_variables(content) == expected
+
+
+@pytest.mark.usefixtures("empty_cdf")
+class TestTmpBuild:
+    def test_tmp_build_writes_cache_and_skips_unchanged_modules(
+        self, tmp_path: Path, tlk_client: ToolkitClient
+    ) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        cache_path = org / "build_cache.yaml"
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert cache_path.exists()
+        assert first_lineage.module_lineage[0].module_hash
+
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert second_lineage.module_lineage[0].module_hash == first_lineage.module_lineage[0].module_hash
+        assert (
+            BuildLineage.from_yaml_file(cache_path).module_lineage[0].module_hash
+            == first_lineage.module_lineage[0].module_hash
+        )
+
+    def test_tmp_build_rebuilds_changed_module(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        first_hash = first_lineage.module_lineage[0].module_hash
+
+        space_file.write_text(SPACE_YAML + "description: Updated\n")
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+        assert second_lineage.module_lineage[0].module_hash != first_hash
+
+    def test_tmp_build_uses_config_specific_cache_file(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        org.mkdir()
+        config_yaml = org / "config.dev.yaml"
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        cache_path = org / "build_cache.dev.yaml"
+        _ = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert cache_path.exists()
+        assert not (org / "build_cache.yaml").exists()
+
+    def test_tmp_build_invalidates_cache_when_config_changes(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        org.mkdir()
+        config_yaml = org / "config.dev.yaml"
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert first_lineage.config_hash
+
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: other-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert second_lineage.config_hash != first_lineage.config_hash
+        assert second_lineage.config_hash == BuildLineage.from_yaml_file(org / "build_cache.dev.yaml").config_hash
+
+    def test_tmp_build_removes_deleted_module_from_cache(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+
+        # Create two modules.
+        module_a_file = org / MODULES / "module_a" / SpaceCRUD.folder_name / f"a.{SpaceCRUD.kind}.yaml"
+        module_a_file.parent.mkdir(parents=True, exist_ok=True)
+        module_a_file.write_text("space: space_a\nname: Space A\n")
+
+        module_b_dir = org / MODULES / "module_b"
+        module_b_file = module_b_dir / SpaceCRUD.folder_name / f"b.{SpaceCRUD.kind}.yaml"
+        module_b_file.parent.mkdir(parents=True, exist_ok=True)
+        module_b_file.write_text("space: space_b\nname: Space B\n")
+
+        cache_path = org / "build_cache.yaml"
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        cached_module_names = {item.module_path.name for item in first_lineage.module_lineage}
+        assert cached_module_names == {"module_a", "module_b"}
+
+        # Delete module_b entirely and rebuild. module_a is unchanged, so
+        # needs_rebuild will be empty but a deletion has occurred.
+        shutil.rmtree(module_b_dir)
+
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+
+        remaining_names = {item.module_path.name for item in second_lineage.module_lineage}
+        assert remaining_names == {"module_a"}
+
+        # The cache file on disk must be updated to reflect the deletion.
+        cached_on_disk = BuildLineage.from_yaml_file(cache_path)
+        assert {item.module_path.name for item in cached_on_disk.module_lineage} == {"module_a"}

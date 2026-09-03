@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
+    BuildInput,
     BuildLineage,
     BuildParameters,
-    BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -44,10 +44,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
-    BuildSource,
     BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
+    ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
     SuccessfulReadYAMLFile,
@@ -68,7 +68,13 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Read
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
-from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_directory_hash,
+    calculate_hash,
+    humanize_collection,
+    safe_write,
+    tmp_build_directory,
+)
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -89,7 +95,21 @@ SelectionSource = Literal["modules", "config", "interactive"]
 
 
 class BuildV2Command(ToolkitCommand):
-    def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
+    def build(
+        self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
+    ) -> BuildFolder:
+        """Builds modules from the source system and returns the results.
+
+        Args:
+            parameters: The build parameters.
+            client: The ToolkitClient to use for validation. If None, no validation that depends on
+                the client will be performed.
+            display: Whether to display the build progress and results in the console. If False,
+                only progress bars will be printed.
+        Returns:
+            BuildFolder: The result of the build, including the source files, source modules, and build folder.
+
+        """
         console = client.console if client else Console(markup=True)
 
         # Track build duration
@@ -105,16 +125,18 @@ class BuildV2Command(ToolkitCommand):
             else "interactive"
         )
 
-        build_source = self._find_modules(build_files)
-        self._display_module_sources(
-            build_source, console, parameters.verbose, selection_source, parameters.config_file_name
-        )
+        module_scan_result = self._find_modules(build_files)
+        if display:
+            self._display_module_sources(
+                module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
+            )
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(build_source.modules, parameters.build_dir.resolve(), console)
+        built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
         plan = self._create_validation_plan(built_modules, client)
-        self._display_validation_plan(plan, console)
+        if display:
+            self._display_validation_plan(plan, console)
         validation_results = self._run_validation(plan, console)
 
         build_folder = BuildFolder(
@@ -122,20 +144,164 @@ class BuildV2Command(ToolkitCommand):
             build_dir=parameters.build_dir.resolve(),
             built_modules=built_modules,
             validation_results=validation_results,
-            all_variables=build_source.all_variables,
+            all_variables=module_scan_result.all_variables,
             started_at=build_start_time,
             finished_at=datetime.now(timezone.utc),
         )
 
         insights = build_folder.all_insights
-        self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
-        self._display_build_summary(build_folder, insights, console, parameters.verbose)
+        if display:
+            self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
+            self._display_build_summary(build_folder, insights, console, parameters.verbose)
 
         self._track_build_results(build_folder, insights, client)
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
+
+    def tmp_build(
+        self, organization_dir: Path, config_yaml: Path | None = None, client: ToolkitClient | None = None
+    ) -> BuildLineage:
+        """Build modules to a temporary directory and cache lineage for incremental rebuilds.
+
+        On the first run, all selected modules are built and lineage is written to
+        ``build_cache.yaml`` (or ``build_cache.<env>.yaml`` when a config file is used).
+        Subsequent runs compare module directory hashes against the cache and only rebuild
+        modules that have changed since the last run. If a config YAML is passed and its
+        content has changed, the entire cache is invalidated and all modules are rebuilt.
+        """
+        console = client.console if client else Console(markup=True)
+        self._validate_build_parameters(
+            BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
+        )
+
+        organization_dir = organization_dir.resolve()
+        config_yaml_path = config_yaml.resolve() if config_yaml else None
+        base_parameters = BuildParameters(
+            organization_dir=organization_dir, config_yaml=config_yaml_path, user_selected_modules=[f"{MODULES}/"]
+        )
+
+        cache_path = self._build_cache_path(organization_dir, config_yaml_path)
+        cached_lineage: BuildLineage | None = None
+        if cache_path.exists():
+            cached_lineage = BuildLineage.from_yaml_file(cache_path)
+
+        needs_rebuild, has_deletions = self._modules_needing_rebuild(base_parameters, cached_lineage)
+        if needs_rebuild is not None and not needs_rebuild and cached_lineage is not None:
+            # There is a cached lineage file,
+            if has_deletions:
+                lineage = self._merge_build_lineage(cached_lineage, None)
+                safe_write(cache_path, lineage.to_yaml())
+                return lineage
+            return cached_lineage
+
+        with tmp_build_directory() as build_dir:
+            if needs_rebuild is None:
+                user_selected_modules = [f"{MODULES}/"]
+            else:
+                user_selected_modules = [module_path.as_posix() for module_path in needs_rebuild]
+
+            build_parameters = BuildParameters(
+                organization_dir=organization_dir,
+                build_dir=build_dir,
+                config_yaml=config_yaml_path,
+                user_selected_modules=user_selected_modules,
+            )
+            build_folder = self.build(build_parameters, client, display=False)
+            cdf_project = client.config.project if client else None
+            lineage = BuildLineage.from_build(build_folder, cdf_project, config_yaml_path)
+            if cached_lineage is not None and needs_rebuild is not None:
+                lineage = self._merge_build_lineage(cached_lineage, lineage)
+
+        safe_write(cache_path, lineage.to_yaml())
+        return lineage
+
+    @staticmethod
+    def _build_cache_path(organization_dir: Path, config_yaml: Path | None) -> Path:
+        if config_yaml is None:
+            return organization_dir / "build_cache.yaml"
+        config_name = config_yaml.name
+        if config_name.startswith("config.") and config_name.endswith(".yaml"):
+            env = config_name[len("config.") : -len(".yaml")]
+            return organization_dir / f"build_cache.{env}.yaml"
+        return organization_dir / "build_cache.yaml"
+
+    def _modules_needing_rebuild(
+        self, parameters: BuildParameters, cached_lineage: BuildLineage | None
+    ) -> tuple[set[RelativeDirPath] | None, bool]:
+        if cached_lineage is None:
+            return None, False
+
+        if parameters.config_yaml is not None:
+            current_config_hash = calculate_hash(parameters.config_yaml, shorten=True)
+            if cached_lineage.config_hash != current_config_hash:
+                return None, False
+
+        build_files = self._read_file_system(parameters)
+        source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
+        module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
+
+        cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
+
+        needs_rebuild: set[RelativeDirPath] = set()
+        seen_module_ids: set[RelativeDirPath] = set()
+        current_module_paths: set[Path] = set()
+        for source in module_scan.modules:
+            if source.id in seen_module_ids:
+                continue
+            seen_module_ids.add(source.id)
+            module_path = Path(source.path).resolve()
+            current_module_paths.add(module_path)
+            current_hash = calculate_directory_hash(module_path, shorten=True)
+            cached_hash = cached_hash_by_path.get(module_path)
+            if not cached_hash or cached_hash != current_hash:
+                needs_rebuild.add(source.id)
+
+        has_deletions = any(cached_path not in current_module_paths for cached_path in cached_hash_by_path)
+
+        return needs_rebuild, has_deletions
+
+    @staticmethod
+    def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage | None) -> BuildLineage:
+        if new_lineage is not None:
+            rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
+            merged_modules = list(new_lineage.module_lineage)
+        else:
+            rebuilt_paths = set()
+            merged_modules = []
+
+        for item in cached_lineage.module_lineage:
+            resolved_path = item.module_path.resolve()
+            if resolved_path in rebuilt_paths:
+                continue
+            # Filter out cached modules whose directories no longer exist on disk.
+            if not resolved_path.exists():
+                continue
+            merged_modules.append(item)
+
+        modules_summary = {
+            "processed": len(merged_modules),
+            "succeeded": sum(1 for module in merged_modules if module.is_success),
+            "failed": sum(1 for module in merged_modules if not module.is_success),
+        }
+        insights_summary: dict[str, int] = defaultdict(int)
+        for module in merged_modules:
+            for insight_type, count in module.insights_summary.items():
+                insights_summary[insight_type] += count
+
+        template = new_lineage if new_lineage is not None else cached_lineage
+        return BuildLineage(
+            timestamp=template.timestamp,
+            duration=template.duration,
+            organization_dir=template.organization_dir,
+            build_dir=template.build_dir,
+            cdf_project=template.cdf_project,
+            config_hash=template.config_hash,
+            module_lineage=merged_modules,
+            modules_summary=modules_summary,
+            insights_summary=dict(insights_summary),
+        )
 
     @classmethod
     def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
@@ -217,7 +383,7 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
+    def _find_modules(self, build: BuildInput) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
 
         if build.selected_modules is None:
@@ -245,7 +411,7 @@ class BuildV2Command(ToolkitCommand):
 
     def _display_module_sources(
         self,
-        build_source: BuildSource,
+        build_source: ModuleScanResult,
         console: Console,
         verbose: bool,
         selection_source: SelectionSource,
@@ -395,7 +561,7 @@ class BuildV2Command(ToolkitCommand):
         return "interactive"
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] | None = None
         variables: dict[str, JsonValue] = {}
@@ -427,7 +593,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return BuildSourceFiles(
+        return BuildInput(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,
@@ -1101,14 +1267,16 @@ class BuildV2Command(ToolkitCommand):
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
 
-        insight_file = parameters.insight_path
-        if parameters.insight_format == "csv":
-            insight_file_content = insights.to_csv()
-        else:
-            insight_file_content = insights.to_json()
-        if insight_file_content.strip():
-            safe_write(insight_file, insight_file_content)
+        if parameters.write_insights:
+            insight_file = parameters.insight_path
+            if parameters.insight_format == "csv":
+                insight_file_content = insights.to_csv()
+            else:
+                insight_file_content = insights.to_json()
+            if insight_file_content.strip():
+                safe_write(insight_file, insight_file_content)
 
-        lineage_file = build.build_dir / BuildLineage.filename
-        lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
-        safe_write(lineage_file, lineage)
+        if parameters.write_lineage:
+            lineage_file = build.build_dir / BuildLineage.filename
+            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yaml).to_yaml()
+            safe_write(lineage_file, lineage)
