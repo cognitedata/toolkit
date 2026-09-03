@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuildVariables,
     BuiltFullResourceList,
-    BuiltModuleList,
     BuiltResourceFull,
     DeployResults,
     ModuleDirectories,
@@ -63,7 +62,8 @@ from cognite_toolkit._cdf_tk.utils.modules import (
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
-from .build_cmd import BuildCommand
+from .build_v2.build_v2 import BuildV2Command
+from .build_v2.data_classes import BuildFolder, BuildParameters
 from .clean import CleanCommand
 
 if sys.version_info >= (3, 11):
@@ -464,23 +464,28 @@ class PullCommand(ToolkitCommand):
                     )
         else:
             raise ValueError("Expected a string or Path")
-        build_cmd = BuildCommand(silent=True, skip_tracking=True)
+        build_cmd = BuildV2Command(silent=True, skip_tracking=True)
         build_dir = Path(tempfile.mkdtemp())
         try:
-            built_modules = build_cmd.execute(
-                verbose=verbose,
-                organization_dir=organization_dir,
-                build_dir=build_dir,
-                selected=[build_module],
-                build_env_name=env,
-                no_clean=False,
+            built_folder = build_cmd.build(
+                parameters=BuildParameters(
+                    build_dir=build_dir,
+                    organization_dir=organization_dir,
+                    user_selected_modules=[
+                        build_module.as_posix() if isinstance(build_module, Path) else str(build_module)
+                    ],
+                    config_yaml=organization_dir / f"config.{env}.yaml",
+                    verbose=False,
+                    write_insights=False,
+                    write_lineage=False,
+                ),
                 client=client,
-                on_error="raise",
+                display=False,
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e
         else:
-            self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, client, env_vars)
+            self._pull_build_dir(build_dir, selected, built_folder, dry_run, env, client, env_vars)
         finally:
             try:
                 safe_rmtree(build_dir)
@@ -491,7 +496,7 @@ class PullCommand(ToolkitCommand):
         self,
         build_dir: Path,
         selected: Path | str,
-        built_modules: BuiltModuleList,
+        build_folder: BuildFolder,
         dry_run: bool,
         build_env_name: str,
         client: ToolkitClient,
