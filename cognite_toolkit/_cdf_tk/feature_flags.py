@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for record-backed views (streamId on views)",
     )
+    FUNCTION_APPS = FlagMetadata(
+        visible=False,
+        description="Enables local Function App development commands",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

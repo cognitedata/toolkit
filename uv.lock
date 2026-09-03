@@ -329,6 +329,26 @@ wheels = [
 ]
 
 [[package]]
+name = "cognite-function-apps"
+version = "0.13.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cognite-sdk" },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/67/e5/bf46f7d9cd24de5292b13330add50c09b7e5b14b69c2fb9b54ec00c265a0/cognite_function_apps-0.13.1.tar.gz", hash = "sha256:673dcabacd5f4909a18c947b0c3b1e07b0b26c5361196ffa48f54c2ca6b4b8ad", size = 432011, upload-time = "2026-06-08T13:33:43.865Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/2b/448f1fae3b1382894c49d261d9799fd7477287ec63a7973fa6277034a21c/cognite_function_apps-0.13.1-py3-none-any.whl", hash = "sha256:ece79f388888d5d5199615f5a3f176b5faf7793293a9c99a235ba44d7af21e9c", size = 111776, upload-time = "2026-06-08T13:33:42.757Z" },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "typer" },
+    { name = "uvicorn" },
+]
+
+[[package]]
 name = "cognite-neat"
 version = "1.0.61"
 source = { registry = "https://pypi.org/simple" }
@@ -395,6 +415,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+serve = [
+    { name = "cognite-function-apps", extra = ["cli"] },
+    { name = "pydantic-settings" },
+]
 sql = [
     { name = "sqlparse" },
 ]
@@ -433,6 +457,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cognite-function-apps", extras = ["cli"], marker = "extra == 'serve'" },
     { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.43" },
     { name = "cognite-sdk", specifier = ">=8.6.0,<9.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
@@ -444,6 +469,7 @@ requires-dist = [
     { name = "pip", specifier = ">=25.0.1" },
     { name = "pyarrow", marker = "extra == 'table'", specifier = ">=20.0.0" },
     { name = "pydantic", specifier = ">=2.12.0" },
+    { name = "pydantic-settings", marker = "extra == 'serve'", specifier = ">=2.0.0" },
     { name = "python-dateutil", specifier = ">=2.9.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
@@ -456,7 +482,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12.0,<1.0.0" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
 ]
-provides-extras = ["table", "sql", "v08"]
+provides-extras = ["table", "sql", "v08", "serve"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1905,6 +1931,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-settings"
+version = "2.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz", hash = "sha256:694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117", size = 261253, upload-time = "2026-08-07T09:24:57.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/a4/2bffa9f8e804325a09867f0e9d30795c80ea9f8d62560bd1b6ad6220eb2f/pydantic_settings-2.15.0-py3-none-any.whl", hash = "sha256:0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42", size = 69413, upload-time = "2026-08-07T09:24:55.839Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2519,6 +2559,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "uvicorn"
+version = "0.52.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "h11" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz", hash = "sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86", size = 100627, upload-time = "2026-08-19T06:27:41.821Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/79/4a20b54ab0491485ccd8c077db2d39187c7f12b3e15485d38a7be37c81b4/uvicorn-0.52.4-py3-none-any.whl", hash = "sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1", size = 79871, upload-time = "2026-08-19T06:27:40.36Z" },
 ]
 
 [[package]]

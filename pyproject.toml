@@ -84,6 +84,10 @@ sql = [
 v08 = [
     "cognite-neat >=1.0.43"
 ]
+serve = [
+    "cognite-function-apps[cli]",
+    "pydantic-settings>=2.0.0",
+]
 
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
