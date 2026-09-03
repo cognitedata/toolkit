@@ -610,6 +610,10 @@ class InstanceIdMapper(ABC):
     def map_instance_id(self, instance_id: NodeId | EdgeId) -> NodeId:
         raise NotImplementedError
 
+    def map_edge_id(self, edge_id: EdgeId, space: str) -> EdgeId:
+        mapped = self.map_instance_id(edge_id)
+        return EdgeId(space=mapped.space, external_id=mapped.external_id)
+
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         """Return the destination instance spaces corresponding to the given source spaces, for display purposes.
 
@@ -752,6 +756,11 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
             f"{self.source_space!r} and passthrough spaces "
             f"({humanize_collection(self._passthrough_space_mapping) or 'none'})."
         )
+
+    def map_edge_id(self, edge_id: EdgeId, space: str) -> EdgeId:
+        # Edges live next to their owning node and are never looked up by external ID, so they skip
+        # the per-external-id resolution that nodes require.
+        return EdgeId(space=space, external_id=edge_id.external_id)
 
     def get_destination_spaces(self, source_spaces: Iterable[str]) -> list[str]:
         destinations: set[str] = set()
@@ -1112,7 +1121,7 @@ class ConnectionCreator:
         new_edges: list[EdgeRequest] = []
         for edge in edges:
             try:
-                new_edge_id = self.map_instance(edge.edge_id)
+                new_edge_id = self._instance_id_mapper.map_edge_id(edge.edge_id, source_id.space)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue
