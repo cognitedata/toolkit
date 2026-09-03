@@ -814,6 +814,38 @@ class TestTmpBuild:
         assert cache_path.exists()
         assert not (org / "build_cache.yaml").exists()
 
+    def test_tmp_build_invalidates_cache_when_config_changes(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        org.mkdir()
+        config_yaml = org / "config.dev.yaml"
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+
+        first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert first_lineage.config_hash
+
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: other-project
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        )
+        second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        assert second_lineage.config_hash != first_lineage.config_hash
+        assert second_lineage.config_hash == BuildLineage.from_yaml_file(org / "build_cache.dev.yaml").config_hash
+
     def test_tmp_build_removes_deleted_module_from_cache(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
         org = tmp_path / "org"

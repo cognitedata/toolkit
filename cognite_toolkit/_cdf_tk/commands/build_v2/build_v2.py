@@ -168,7 +168,8 @@ class BuildV2Command(ToolkitCommand):
         On the first run, all selected modules are built and lineage is written to
         ``build_cache.yaml`` (or ``build_cache.<env>.yaml`` when a config file is used).
         Subsequent runs compare module directory hashes against the cache and only rebuild
-        modules that have changed since the last run.
+        modules that have changed since the last run. If a config YAML is passed and its
+        content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
         console = client.console if client else Console(markup=True)
         self._validate_build_parameters(
@@ -209,7 +210,7 @@ class BuildV2Command(ToolkitCommand):
             )
             build_folder = self.build(build_parameters, client, display=False)
             cdf_project = client.config.project if client else None
-            lineage = BuildLineage.from_build(build_folder, cdf_project)
+            lineage = BuildLineage.from_build(build_folder, cdf_project, config_yaml_path)
             if cached_lineage is not None and needs_rebuild is not None:
                 lineage = self._merge_build_lineage(cached_lineage, lineage)
 
@@ -231,6 +232,11 @@ class BuildV2Command(ToolkitCommand):
     ) -> tuple[set[RelativeDirPath] | None, bool]:
         if cached_lineage is None:
             return None, False
+
+        if parameters.config_yaml is not None:
+            current_config_hash = calculate_hash(parameters.config_yaml, shorten=True)
+            if cached_lineage.config_hash != current_config_hash:
+                return None, False
 
         build_files = self._read_file_system(parameters)
         source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
@@ -291,6 +297,7 @@ class BuildV2Command(ToolkitCommand):
             organization_dir=template.organization_dir,
             build_dir=template.build_dir,
             cdf_project=template.cdf_project,
+            config_hash=template.config_hash,
             module_lineage=merged_modules,
             modules_summary=modules_summary,
             insights_summary=dict(insights_summary),
@@ -1271,5 +1278,5 @@ class BuildV2Command(ToolkitCommand):
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yaml).to_yaml()
             safe_write(lineage_file, lineage)

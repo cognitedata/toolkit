@@ -132,6 +132,10 @@ class BuildLineage(_BaseLineageModel):
     organization_dir: Path
     build_dir: Path
     cdf_project: str | None = None
+    config_hash: str | None = Field(
+        default=None,
+        description="Hash of the config YAML file at build time. Used to invalidate the incremental rebuild cache when the config changes.",
+    )
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -160,7 +164,9 @@ class BuildLineage(_BaseLineageModel):
         return round(value, 2) if value is not None else None
 
     @classmethod
-    def from_build(cls, build: BuildFolder, cdf_project: str | None = None) -> "BuildLineage":
+    def from_build(
+        cls, build: BuildFolder, cdf_project: str | None = None, config_yaml: Path | None = None
+    ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
         module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
@@ -183,6 +189,7 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
+            config_hash=calculate_hash(config_yaml, shorten=True) if config_yaml is not None else None,
         )
 
     def to_yaml(self) -> str:
