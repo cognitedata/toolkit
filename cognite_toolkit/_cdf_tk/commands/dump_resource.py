@@ -281,7 +281,10 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
         for workflow_id in selected_workflow_ids:
             versions = versions_by_workflow.get(workflow_id, [])
             if not versions:
-                raise ToolkitMissingResourceError(f"No versions found for workflow {workflow_id}")
+                HighSeverityWarning(f"No versions found for workflow {workflow_id}. Skipping.").print_warning(
+                    console=self.client.console
+                )
+                continue
             if len(versions) == 1:
                 selected_versions.append(versions[0])
                 continue
