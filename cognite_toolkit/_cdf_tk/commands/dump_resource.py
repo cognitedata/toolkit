@@ -271,15 +271,9 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
             raise ToolkitValueError(f"No workflows selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self._workflows = [workflows_by_id[external_id] for external_id in selected_workflow_ids]
 
-        selected_id_set = set(selected_workflow_ids)
-        versions_by_workflow: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
-        for version in self.client.tool.workflows.versions.list(limit=None):
-            if version.workflow_external_id in selected_id_set:
-                versions_by_workflow[version.workflow_external_id].append(version)
-
         selected_versions: list[WorkflowVersionResponse] = []
         for workflow_id in selected_workflow_ids:
-            versions = versions_by_workflow.get(workflow_id, [])
+            versions = self.client.tool.workflows.versions.list(workflow_external_id=workflow_id, limit=None)
             if not versions:
                 HighSeverityWarning(f"No versions found for workflow {workflow_id}. Skipping.").print_warning(
                     console=self.client.console
