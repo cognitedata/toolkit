@@ -1,7 +1,7 @@
 """Helpers for splitting shared legacy Infield instance spaces into per-location CDM spaces."""
 
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -74,17 +74,6 @@ def as_external_id(value: Any) -> str | None:
     return None
 
 
-def _iter_root_locations(
-    apm_configs: Sequence[APMConfigResponse],
-) -> Iterator[tuple[RootLocationConfiguration, str]]:
-    for config in apm_configs:
-        if not config.feature_configuration:
-            continue
-        for root in config.feature_configuration.root_location_configurations or []:
-            if root.asset_external_id:
-                yield root, root.asset_external_id
-
-
 def _legacy_instance_space(root: RootLocationConfiguration, target_kind: LocationSplitKind) -> str | None:
     if target_kind == "app_data":
         return root.app_data_instance_space
@@ -104,7 +93,7 @@ def find_shared_legacy_instance_spaces(apm_configs: Sequence[APMConfigResponse])
     """
     locations_by_app_space: dict[str, set[str]] = defaultdict(set)
     locations_by_source_space: dict[str, set[str]] = defaultdict(set)
-    for root, asset_external_id in _iter_root_locations(apm_configs):
+    for root, asset_external_id in APMConfigResponse.iterate_root_locations(apm_configs):
         if root.app_data_instance_space:
             locations_by_app_space[root.app_data_instance_space].add(asset_external_id)
         if root.source_data_instance_space:
@@ -187,7 +176,7 @@ def build_target_by_root_asset(
 ) -> dict[str, str]:
     """Map classic root asset external ID -> CDM target space for locations using ``source_space``."""
     classic_root_assets: set[str] = set()
-    for root, asset_external_id in _iter_root_locations(apm_configs):
+    for root, asset_external_id in APMConfigResponse.iterate_root_locations(apm_configs):
         if _legacy_instance_space(root, target_kind) == source_space:
             classic_root_assets.add(asset_external_id)
     if len(classic_root_assets) < 2:
