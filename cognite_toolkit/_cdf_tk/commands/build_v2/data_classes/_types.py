@@ -3,6 +3,12 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import AfterValidator
 
+KNOWN_FILE_EXTENSIONS = {".json", ".yaml", ".yml", ".py", ".sql"}
+
+
+def _is_likely_dir(p: Path) -> bool:
+    return p.suffix.lower() not in KNOWN_FILE_EXTENSIONS
+
 
 def _is_relative_file_path(p: Path) -> Path:
     if not p.suffix:
@@ -29,7 +35,7 @@ def _is_relative_dir_path(p: Path) -> Path:
 
 
 def _is_absolute_dir_path(p: Path) -> Path:
-    if p.suffix:
+    if not _is_likely_dir(p):
         raise ValueError(f"{p.as_posix()!r} is not a directory.")
     if not p.is_absolute():
         raise ValueError(f"{p.as_posix()!r} is not an absolute path.")
