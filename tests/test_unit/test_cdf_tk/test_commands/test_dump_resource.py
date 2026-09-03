@@ -13,6 +13,7 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
@@ -48,6 +49,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowDefinition,
+    WorkflowVersionResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -64,6 +70,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
+    WorkflowFinder,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -240,6 +247,73 @@ class TestDumpTransformations:
         _, external_data_list, loader, _ = batches[2]
         assert isinstance(loader, ExternalDataSourceIO)
         assert external_data_list == [external_source]
+
+
+@pytest.fixture()
+def three_workflows() -> list[WorkflowResponse]:
+    return [
+        WorkflowResponse(external_id="workflowA", created_time=1, last_updated_time=1),
+        WorkflowResponse(external_id="workflowB", created_time=1, last_updated_time=1),
+        WorkflowResponse(external_id="workflowC", created_time=1, last_updated_time=1),
+    ]
+
+
+def _workflow_version(workflow_external_id: str, version: str) -> WorkflowVersionResponse:
+    return WorkflowVersionResponse(
+        workflow_external_id=workflow_external_id,
+        version=version,
+        workflow_definition=WorkflowDefinition(tasks=[]),
+        created_time=1,
+        last_updated_time=1,
+    )
+
+
+class TestWorkflowFinder:
+    def test_select_workflows(self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch) -> None:
+        def select_workflows(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_workflows)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_workflows]
+        versions = [_workflow_version("workflowB", "v1"), _workflow_version("workflowC", "v1")]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
+        ):
+            client.tool.workflows.list.return_value = three_workflows
+            client.tool.workflows.versions.list.return_value = versions
+            finder = WorkflowFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == (
+            WorkflowVersionId(workflow_external_id="workflowB", version="v1"),
+            WorkflowVersionId(workflow_external_id="workflowC", version="v1"),
+        )
+
+    def test_select_workflow_multiple_versions(
+        self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_workflows(choices: list[Choice]) -> list[str]:
+            return [choices[0].value]
+
+        def select_versions(choices: list[Choice]) -> list[WorkflowVersionId]:
+            assert len(choices) == 2
+            return [choices[1].value]
+
+        answers = [select_workflows, select_versions]
+        versions = [_workflow_version("workflowA", "v1"), _workflow_version("workflowA", "v2")]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
+        ):
+            client.tool.workflows.list.return_value = three_workflows
+            client.tool.workflows.versions.list.return_value = versions
+            finder = WorkflowFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == (WorkflowVersionId(workflow_external_id="workflowA", version="v2"),)
 
 
 @pytest.fixture()

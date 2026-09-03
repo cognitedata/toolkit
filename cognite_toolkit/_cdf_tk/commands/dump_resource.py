@@ -250,68 +250,72 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             yield [], spaces, space_loader, None
 
 
-class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
-    def __init__(self, client: ToolkitClient, identifier: WorkflowVersionId | None = None):
+class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[WorkflowVersionId, ...] | None = None):
         super().__init__(client, identifier)
-        self._workflow: WorkflowResponse | None = None
-        self._workflow_version: WorkflowVersionResponse | None = None
+        self._workflows: list[WorkflowResponse] | None = None
+        self._workflow_versions: list[WorkflowVersionResponse] | None = None
 
-    def _interactive_select(self) -> WorkflowVersionId:
+    def _interactive_select(self) -> tuple[WorkflowVersionId, ...]:
         workflows = self.client.tool.workflows.list(limit=None)
         if not workflows:
             raise ToolkitMissingResourceError("No workflows found")
-        workflow_external_ids = [wf.external_id for wf in workflows]
-        selected_workflow_id: str = questionary.select(
-            "Which workflow would you like to dump?",
-            [Choice(workflow_id, value=workflow_id) for workflow_id in workflow_external_ids],
+        workflows_by_id = {workflow.external_id: workflow for workflow in workflows}
+        choices = [Choice(external_id, value=external_id) for external_id in sorted(workflows_by_id)]
+        selected_workflow_ids: list[str] | None = questionary.checkbox(
+            "Which workflow(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one workflow.",
         ).unsafe_ask()
-        for workflow in workflows:
-            if workflow.external_id == selected_workflow_id:
-                self._workflow = workflow
-                break
+        if not selected_workflow_ids:
+            raise ToolkitValueError(f"No workflows selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        self._workflows = [workflows_by_id[external_id] for external_id in selected_workflow_ids]
 
-        versions = [
-            v
-            for page in self.client.tool.workflows.versions.iterate(workflow_external_id=selected_workflow_id)
-            for v in page
-        ]
-        if len(versions) == 0:
-            raise ToolkitMissingResourceError(f"No versions found for workflow {selected_workflow_id}")
-        if len(versions) == 1:
-            self._workflow_version = versions[0]
-            return self._workflow_version.as_id()
+        selected_id_set = set(selected_workflow_ids)
+        versions_by_workflow: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        for version in self.client.tool.workflows.versions.list(limit=None):
+            if version.workflow_external_id in selected_id_set:
+                versions_by_workflow[version.workflow_external_id].append(version)
 
-        version_ids = [v.as_id() for v in versions]
-        selected_version: WorkflowVersionId = questionary.select(
-            "Which version would you like to dump?",
-            [Choice(f"{version!r}", value=version) for version in version_ids],
-        ).unsafe_ask()
-        for version in versions:
-            if version.version == selected_version.version:
-                self._workflow_version = version
-                break
-        return selected_version
+        selected_versions: list[WorkflowVersionResponse] = []
+        for workflow_id in selected_workflow_ids:
+            versions = versions_by_workflow.get(workflow_id, [])
+            if not versions:
+                raise ToolkitMissingResourceError(f"No versions found for workflow {workflow_id}")
+            if len(versions) == 1:
+                selected_versions.append(versions[0])
+                continue
+
+            chosen: list[WorkflowVersionId] | None = questionary.checkbox(
+                f"Which version(s) of {workflow_id} would you like to dump?",
+                choices=[Choice(f"{version.as_id()!r}", value=version.as_id()) for version in versions],
+                validate=lambda choices: True if choices else "You must select at least one version.",
+            ).unsafe_ask()
+            if not chosen:
+                raise ToolkitValueError(
+                    f"No versions selected for dumping workflow {workflow_id}.{_INTERACTIVE_SELECT_HELPER_TEXT}"
+                )
+            chosen_set = set(chosen)
+            selected_versions.extend(version for version in versions if version.as_id() in chosen_set)
+
+        self._workflow_versions = selected_versions
+        return tuple(version.as_id() for version in selected_versions)
 
     def __iter__(
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        workflow_id = ExternalId(external_id=self.identifier.workflow_external_id)
-        if self._workflow:
-            yield [], [self._workflow], WorkflowIO.create_loader(self.client), None
+        workflow_ids = list(dict.fromkeys(ExternalId(external_id=id_.workflow_external_id) for id_ in self.identifier))
+        if self._workflows:
+            yield [], self._workflows, WorkflowIO.create_loader(self.client), None
         else:
-            yield [workflow_id], None, WorkflowIO.create_loader(self.client), None
-        if self._workflow_version:
-            yield (
-                [],
-                [self._workflow_version],
-                WorkflowVersionIO.create_loader(self.client),
-                None,
-            )
+            yield workflow_ids, None, WorkflowIO.create_loader(self.client), None
+        if self._workflow_versions:
+            yield [], self._workflow_versions, WorkflowVersionIO.create_loader(self.client), None
         else:
-            yield [self.identifier], None, WorkflowVersionIO.create_loader(self.client), None
+            yield list(self.identifier), None, WorkflowVersionIO.create_loader(self.client), None
         trigger_loader = WorkflowTriggerIO.create_loader(self.client)
-        trigger_list = list(trigger_loader.iterate(parent_ids=[workflow_id]))
+        trigger_list = list(trigger_loader.iterate(parent_ids=workflow_ids))
         yield [], trigger_list, trigger_loader, None
 
 
