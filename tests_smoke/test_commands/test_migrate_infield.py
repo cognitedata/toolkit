@@ -331,8 +331,6 @@ class TestMigrateInfield:
                         # These also change for each run.
                         properties.pop("sourceCreatedTime", None)
                         properties.pop("sourceUpdatedTime", None)
-                        # FieldObservation.startTime is populated with the current time when
-                        # missing on the source instance.
                         if "FieldObservation" in view_name:
                             properties.pop("startTime", None)
                 destination_instances.append(dumped)
