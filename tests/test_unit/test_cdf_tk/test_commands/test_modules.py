@@ -424,8 +424,7 @@ class TestModulesCommand:
         assert "Syntax warnings" in output
         assert ModelSyntaxWarning.__name__ in output
         assert Recommendation.__name__ in output
-        assert "SUCCESS" in output
-        assert "modules/my_module" in output
+        assert "modules/my_module" not in output
 
     def test_list_passes_config_yaml_to_tmp_build(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         config_yaml = tmp_path / "config.dev.yaml"

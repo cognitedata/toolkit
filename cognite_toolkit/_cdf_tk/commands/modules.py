@@ -15,7 +15,7 @@ import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
-from rich.console import Console, Group
+from rich.console import Group
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
-from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable
+from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, ToolkitPanel, ToolkitPanelSection, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import (
     relative_to_if_possible,
@@ -88,15 +88,15 @@ else:
 INDENT = "  "
 POINTER = INDENT + "▶"
 
-# Matches BuildV2Command._display_insights / _display_build_summary styling.
+# Named Rich colors so Windows terminals show green/yellow/red without truecolor.
 _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
-    FileReadError.__name__: (AuraColor.RED.rich, "✗"),
-    ConsistencyError.__name__: (AuraColor.RED.rich, "✗"),
-    ModelSyntaxError.__name__: (AuraColor.RED.rich, "✗"),
-    InternalValidatorException.__name__: (AuraColor.AMBER.rich, "!"),
-    IgnoredFileWarning.__name__: (AuraColor.MOUNTAIN.rich, "○"),
-    ModelSyntaxWarning.__name__: (AuraColor.AMBER.rich, "!"),
-    Recommendation.__name__: (AuraColor.SKY.rich, "*"),
+    FileReadError.__name__: ("red", "✗"),
+    ConsistencyError.__name__: ("red", "✗"),
+    ModelSyntaxError.__name__: ("red", "✗"),
+    InternalValidatorException.__name__: ("yellow", "!"),
+    IgnoredFileWarning.__name__: ("yellow", "○"),
+    ModelSyntaxWarning.__name__: ("yellow", "!"),
+    Recommendation.__name__: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
     FileReadError.__name__: FileReadError.severity,
@@ -922,15 +922,13 @@ class ModulesCommand(ToolkitCommand):
             sys.stdout.write(f"{json.dumps(output, indent=2, sort_keys=True)}\n")
             return
 
-        console = self._client.console if self._client else Console(markup=True)
-        self._display_modules_list(lineage, effective_build_env, organization_dir, console)
+        self._display_modules_list(lineage, effective_build_env, organization_dir)
 
     def _display_modules_list(
         self,
         lineage: BuildLineage,
         build_env_name: str,
         organization_dir: Path,
-        console: Console,
     ) -> None:
         modules = sorted(lineage.module_lineage, key=lambda item: item.module_id)
         resource_count = sum(len(module.resource_lineage) for module in modules)
@@ -962,16 +960,16 @@ class ModulesCommand(ToolkitCommand):
 
         match max_severity:
             case severity if severity < 15:
-                border_color = AuraColor.GREEN.rich
+                border_color = "green"
                 recommendation = "[green]✓[/] [bold]All modules look good.[/bold]\nReady to build and deploy."
             case severity if 15 <= severity <= 35:
-                border_color = AuraColor.AMBER.rich
+                border_color = "yellow"
                 recommendation = (
                     "[yellow]![/] [bold]Review warnings before deploying.[/bold]\n"
                     "Modules built, but some resources may be ignored or rejected."
                 )
             case _:
-                border_color = AuraColor.RED.rich
+                border_color = "red"
                 recommendation = (
                     "[red]✗[/] [bold]Fix errors before deploying.[/bold]\n"
                     "One or more modules have issues that will block deployment."
@@ -985,7 +983,7 @@ class ModulesCommand(ToolkitCommand):
             ToolkitPanelSection(title="Insights", content=insight_lines),
             ToolkitPanelSection(content=[recommendation]),
         ]
-        console.print(
+        print(
             ToolkitPanel(
                 Group(*summary_sections),
                 title=f"{build_env_name} modules",
@@ -995,21 +993,22 @@ class ModulesCommand(ToolkitCommand):
 
         table = ToolkitTable(title="Module details")
         table.add_column("Module", no_wrap=True)
+        table.add_column("Status", no_wrap=True)
         table.add_column("Resources", justify="right", no_wrap=True)
-        table.add_column("Insights", min_width=28, overflow="fold")
+        table.add_column("Insights", min_width=24, overflow="fold")
         table.add_column("Syntax warnings", justify="right", no_wrap=True)
 
         for module in modules:
-            location = self._module_location_display(module.module_path, organization_dir)
-            folders = {item.type.resource_folder for item in module.resource_lineage}
+            name_style = self._module_guide_color(module)
             table.add_row(
-                f"[bold]{module.module_path.name}[/]  {self._format_module_status(module)}\n[dim]{location}[/]",
-                f"{len(module.resource_lineage):,}\n[dim]{len(folders)} folders[/]",
+                f"[bold {name_style}]{module.module_path.name}[/]",
+                self._format_module_status(module),
+                f"{len(module.resource_lineage):,}",
                 self._format_module_insights(module.insights_summary),
                 self._format_syntax_warnings(module.insights_summary.get(ModelSyntaxWarning.__name__, 0)),
             )
 
-        console.print(table)
+        print(table)
 
     @staticmethod
     def _ordered_insight_counts(insights_summary: dict[str, int]) -> tuple[tuple[str, int], ...]:
@@ -1022,7 +1021,7 @@ class ModulesCommand(ToolkitCommand):
     @classmethod
     def _format_insight_line(cls, insight_type: str, count: int) -> str:
         style, icon = _INSIGHT_STYLE.get(insight_type, ("white", "•"))
-        return f"[{style}]{icon}[/] [bold]{count}[/] {insight_type}"
+        return f"[{style}]{icon} [bold]{count}[/] {insight_type}[/]"
 
     @classmethod
     def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
@@ -1038,15 +1037,28 @@ class ModulesCommand(ToolkitCommand):
     @staticmethod
     def _format_syntax_warnings(count: int) -> str:
         if count == 0:
-            return "0"
+            return "[green]0[/]"
         style, icon = _INSIGHT_STYLE[ModelSyntaxWarning.__name__]
         return f"[{style}]{icon} {count:,}[/]"
 
-    @staticmethod
-    def _format_module_status(module: ModuleLineageItem) -> str:
+    @classmethod
+    def _module_guide_color(cls, module: ModuleLineageItem) -> str:
+        if not module.is_success:
+            return "red"
+        max_severity = 0
+        for insight_type, count in module.insights_summary.items():
+            if count:
+                max_severity = max(max_severity, _INSIGHT_SEVERITY.get(insight_type, InsightDefinition.severity))
+        if max_severity >= 15:
+            return "yellow"
+        return "green"
+
+    @classmethod
+    def _format_module_status(cls, module: ModuleLineageItem) -> str:
+        color = cls._module_guide_color(module)
         if module.is_success:
-            return "[green]SUCCESS[/]"
-        return "[red]FAILED[/]"
+            return f"[{color}]SUCCESS[/]"
+        return f"[{color}]FAILED[/]"
 
     def add(self, organization_dir: Path, deployment_pack: str | None = None) -> None:
         verify_module_directory(organization_dir, None)
