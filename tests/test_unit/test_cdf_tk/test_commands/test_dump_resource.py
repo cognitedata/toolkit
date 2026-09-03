@@ -282,7 +282,11 @@ class TestWorkflowFinder:
             MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
         ):
             client.tool.workflows.list.return_value = three_workflows
-            client.tool.workflows.versions.list.return_value = versions
+            client.tool.workflows.versions.list.side_effect = (
+                lambda workflow_external_id, limit=None: [
+                    v for v in versions if v.workflow_external_id == workflow_external_id
+                ]
+            )
             finder = WorkflowFinder(client, None)
             selected = finder._interactive_select()
 
