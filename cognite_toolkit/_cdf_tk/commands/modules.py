@@ -15,12 +15,12 @@ import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress import Progress, track
 from rich.rule import Rule
-from rich.table import Table
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
@@ -36,6 +36,19 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    FileReadError,
+    IgnoredFileWarning,
+    InsightDefinition,
+    InternalValidatorException,
+    ModelSyntaxError,
+    ModelSyntaxWarning,
+    Recommendation,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
     MODULES,
@@ -44,7 +57,6 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuiltModule,
     Environment,
     InitConfigYAML,
     ModuleLocation,
@@ -55,9 +67,15 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
-from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE
+from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    relative_to_if_possible,
+    safe_read,
+    safe_rmtree,
+    safe_write,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -69,6 +87,29 @@ else:
 
 INDENT = "  "
 POINTER = INDENT + "▶"
+
+# Matches BuildV2Command._display_insights / _display_build_summary styling.
+_INSIGHT_STYLE: dict[str, tuple[str, str]] = {
+    FileReadError.__name__: (AuraColor.RED.rich, "✗"),
+    ConsistencyError.__name__: (AuraColor.RED.rich, "✗"),
+    ModelSyntaxError.__name__: (AuraColor.RED.rich, "✗"),
+    InternalValidatorException.__name__: (AuraColor.AMBER.rich, "!"),
+    IgnoredFileWarning.__name__: (AuraColor.MOUNTAIN.rich, "○"),
+    ModelSyntaxWarning.__name__: (AuraColor.AMBER.rich, "!"),
+    Recommendation.__name__: (AuraColor.SKY.rich, "*"),
+}
+_INSIGHT_SEVERITY: dict[str, int] = {
+    FileReadError.__name__: FileReadError.severity,
+    ConsistencyError.__name__: ConsistencyError.severity,
+    ModelSyntaxError.__name__: ModelSyntaxError.severity,
+    InternalValidatorException.__name__: InternalValidatorException.severity,
+    IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
+    ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
+    Recommendation.__name__: Recommendation.severity,
+}
+_INSIGHT_ORDER: tuple[str, ...] = tuple(
+    name for name, _ in sorted(_INSIGHT_SEVERITY.items(), key=lambda item: item[1], reverse=True)
+)
 
 
 _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
@@ -823,16 +864,28 @@ class ModulesCommand(ToolkitCommand):
             )
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    @staticmethod
-    def _list_row_from_module(module: BuiltModule) -> dict[str, str | int]:
+    @classmethod
+    def _list_row_from_module(
+        cls, module: ModuleLineageItem, organization_dir: Path
+    ) -> dict[str, str | int | dict[str, int]]:
+        resource_folders = {item.type.resource_folder for item in module.resource_lineage}
         return {
-            "module_name": module.name,
-            "resource_folders": len(module.resources),
-            "resources": sum(len(resources) for resources in module.resources.values()),
-            "build_warnings": module.warning_count,
-            "build_result": module.status,
-            "location": module.location.path.as_posix(),
+            "module_name": module.module_path.name,
+            "resource_folders": len(resource_folders),
+            "resources": len(module.resource_lineage),
+            "insights": {name: count for name, count in sorted(module.insights_summary.items()) if count},
+            "syntax_warnings": module.insights_summary.get(ModelSyntaxWarning.__name__, 0),
+            "build_result": "Success" if module.is_success else module.status,
+            "location": cls._module_location_display(module.module_path, organization_dir),
         }
+
+    @staticmethod
+    def _module_location_display(module_path: Path, organization_dir: Path) -> str:
+        resolved_module = module_path.resolve()
+        resolved_org = organization_dir.resolve()
+        if resolved_module.is_relative_to(resolved_org):
+            return resolved_module.relative_to(resolved_org).as_posix()
+        return relative_to_if_possible(resolved_module).as_posix()
 
     def list(
         self,
@@ -844,47 +897,156 @@ class ModulesCommand(ToolkitCommand):
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
         verify_module_directory(organization_dir, effective_build_env)
-        modules = ModuleResources(organization_dir, effective_build_env)
-        module_list = modules.list()
+
+        config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
+        config_yaml = config_path if config_path.is_file() else None
+        lineage = BuildV2Command(
+            print_warning=self.print_warning,
+            skip_tracking=True,
+            silent=self.silent,
+            client=self._client,
+        ).tmp_build(organization_dir, config_yaml=config_yaml, client=self._client)
 
         if output_format == "json":
             output = {
                 "environment": effective_build_env,
                 "organization_dir": organization_dir.as_posix(),
-                "modules": [self._list_row_from_module(module) for module in module_list],
+                "modules_summary": lineage.modules_summary,
+                "insights_summary": lineage.insights_summary,
+                "modules": [
+                    self._list_row_from_module(module, organization_dir)
+                    for module in sorted(lineage.module_lineage, key=lambda item: item.module_id)
+                ],
             }
             # Use plain stdout to keep output machine-parseable and avoid Rich markup processing.
             sys.stdout.write(f"{json.dumps(output, indent=2, sort_keys=True)}\n")
             return
 
-        table = Table(title=f"{effective_build_env} {organization_dir.name} modules")
-        table.add_column("Module Name", style="bold")
-        table.add_column("Resource Folders", style="bold")
-        table.add_column("Resources", style="bold")
-        table.add_column("Build Warnings", style="bold")
-        table.add_column("Build Result", style="bold")
-        table.add_column("Location", style="bold")
+        console = self._client.console if self._client else Console(markup=True)
+        self._display_modules_list(lineage, effective_build_env, organization_dir, console)
 
-        for module in module_list:
-            if module.status == "Success":
-                status = f"[green]{module.status}[/]"
-            else:
-                status = f"[red]{module.status}[/]"
-            if module.warning_count > 0:
-                warning_count = f"[yellow]{module.warning_count:,}[/]"
-            else:
-                warning_count = f"{module.warning_count:,}"
+    def _display_modules_list(
+        self,
+        lineage: BuildLineage,
+        build_env_name: str,
+        organization_dir: Path,
+        console: Console,
+    ) -> None:
+        modules = sorted(lineage.module_lineage, key=lambda item: item.module_id)
+        resource_count = sum(len(module.resource_lineage) for module in modules)
+        resource_type_count = len({item.type for module in modules for item in module.resource_lineage})
+        processed = lineage.modules_summary.get("processed", len(modules))
+        succeeded = lineage.modules_summary.get("succeeded", sum(1 for module in modules if module.is_success))
+        failed = lineage.modules_summary.get("failed", processed - succeeded)
 
+        loaded_lines = [
+            f"[green]✓[/] [bold]{processed}[/] modules",
+            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
+        ]
+        if succeeded:
+            loaded_lines.append(f"[green]✓[/] [bold]{succeeded}[/] succeeded")
+        if failed:
+            loaded_lines.append(f"[red]✗[/] [bold]{failed}[/] failed")
+
+        max_severity = 0
+        insight_lines = []
+        ordered_insights = self._ordered_insight_counts(lineage.insights_summary)
+        for insight_type, count in ordered_insights:
+            max_severity = max(max_severity, _INSIGHT_SEVERITY.get(insight_type, InsightDefinition.severity))
+            insight_lines.append(self._format_insight_line(insight_type, count))
+        if not insight_lines:
+            insight_lines.append("[green]✓[/] No insights")
+
+        if failed:
+            max_severity = max(max_severity, ModelSyntaxError.severity)
+
+        match max_severity:
+            case severity if severity < 15:
+                border_color = AuraColor.GREEN.rich
+                recommendation = "[green]✓[/] [bold]All modules look good.[/bold]\nReady to build and deploy."
+            case severity if 15 <= severity <= 35:
+                border_color = AuraColor.AMBER.rich
+                recommendation = (
+                    "[yellow]![/] [bold]Review warnings before deploying.[/bold]\n"
+                    "Modules built, but some resources may be ignored or rejected."
+                )
+            case _:
+                border_color = AuraColor.RED.rich
+                recommendation = (
+                    "[red]✗[/] [bold]Fix errors before deploying.[/bold]\n"
+                    "One or more modules have issues that will block deployment."
+                )
+
+        org_display = relative_to_if_possible(organization_dir).as_posix()
+        summary_sections = [
+            ToolkitPanelSection(title="Directory", description=org_display),
+            ToolkitPanelSection(title="Environment", description=build_env_name),
+            ToolkitPanelSection(title="Loaded", content=loaded_lines),
+            ToolkitPanelSection(title="Insights", content=insight_lines),
+            ToolkitPanelSection(content=[recommendation]),
+        ]
+        console.print(
+            ToolkitPanel(
+                Group(*summary_sections),
+                title=f"{build_env_name} modules",
+                border_style=border_color,
+            )
+        )
+
+        table = ToolkitTable(title="Module details")
+        table.add_column("Module", no_wrap=True)
+        table.add_column("Resources", justify="right", no_wrap=True)
+        table.add_column("Insights", min_width=28, overflow="fold")
+        table.add_column("Syntax warnings", justify="right", no_wrap=True)
+
+        for module in modules:
+            location = self._module_location_display(module.module_path, organization_dir)
+            folders = {item.type.resource_folder for item in module.resource_lineage}
             table.add_row(
-                module.name,
-                f"{len(module.resources):,}",
-                f"{sum(len(resources) for resources in module.resources.values()):,}",
-                warning_count,
-                status,
-                module.location.path.as_posix(),
+                f"[bold]{module.module_path.name}[/]  {self._format_module_status(module)}\n[dim]{location}[/]",
+                f"{len(module.resource_lineage):,}\n[dim]{len(folders)} folders[/]",
+                self._format_module_insights(module.insights_summary),
+                self._format_syntax_warnings(module.insights_summary.get(ModelSyntaxWarning.__name__, 0)),
             )
 
-        print(table)
+        console.print(table)
+
+    @staticmethod
+    def _ordered_insight_counts(insights_summary: dict[str, int]) -> tuple[tuple[str, int], ...]:
+        known = [(name, insights_summary[name]) for name in _INSIGHT_ORDER if insights_summary.get(name, 0)]
+        extras = sorted(
+            (name, count) for name, count in insights_summary.items() if name not in _INSIGHT_SEVERITY and count
+        )
+        return tuple(known + extras)
+
+    @classmethod
+    def _format_insight_line(cls, insight_type: str, count: int) -> str:
+        style, icon = _INSIGHT_STYLE.get(insight_type, ("white", "•"))
+        return f"[{style}]{icon}[/] [bold]{count}[/] {insight_type}"
+
+    @classmethod
+    def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
+        lines = []
+        for insight_type, count in cls._ordered_insight_counts(insights_summary):
+            if insight_type == ModelSyntaxWarning.__name__:
+                continue
+            lines.append(cls._format_insight_line(insight_type, count))
+        if not lines:
+            return "[green]✓[/]"
+        return "  ".join(lines)
+
+    @staticmethod
+    def _format_syntax_warnings(count: int) -> str:
+        if count == 0:
+            return "0"
+        style, icon = _INSIGHT_STYLE[ModelSyntaxWarning.__name__]
+        return f"[{style}]{icon} {count:,}[/]"
+
+    @staticmethod
+    def _format_module_status(module: ModuleLineageItem) -> str:
+        if module.is_success:
+            return "[green]SUCCESS[/]"
+        return "[red]FAILED[/]"
 
     def add(self, organization_dir: Path, deployment_pack: str | None = None) -> None:
         verify_module_directory(organization_dir, None)

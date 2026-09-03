@@ -11,6 +11,10 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import ModuleLocation, Package, Packages
@@ -377,43 +381,74 @@ class TestModulesCommand:
         shutil.rmtree(mock_module_dir)
 
     def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
-        location = MagicMock()
-        location.path = Path("modules/my_module")
-
-        module = MagicMock()
-        module.name = "my_module"
-        module.resources = {"data_models": [1, 2], "raw": [1]}
-        module.warning_count = 1
-        module.status = "Success"
-        module.location = location
-
-        class FakeModuleResources:
-            def __init__(self, organization_dir: Path, build_env: str | None) -> None:
-                self._organization_dir = organization_dir
-                self._build_env = build_env
-
-            def list(self) -> list[MagicMock]:
-                return [module]
-
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.verify_module_directory", lambda *_: None)
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.ModuleResources", FakeModuleResources)
+        lineage = _module_list_lineage(tmp_path)
+        _patch_modules_list(monkeypatch, lineage)
 
         cmd = ModulesCommand(print_warning=False, skip_tracking=True)
         cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="json")
 
         payload = json.loads(capsys.readouterr().out)
-        assert payload["environment"] == "dev"
-        assert payload["organization_dir"] == tmp_path.as_posix()
-        assert payload["modules"] == [
-            {
-                "build_result": "Success",
-                "build_warnings": 1,
-                "location": "modules/my_module",
-                "module_name": "my_module",
-                "resource_folders": 2,
-                "resources": 3,
-            }
-        ]
+        assert payload == {
+            "environment": "dev",
+            "insights_summary": {
+                ModelSyntaxWarning.__name__: 1,
+                Recommendation.__name__: 2,
+            },
+            "modules": [
+                {
+                    "build_result": "Success",
+                    "insights": {
+                        ModelSyntaxWarning.__name__: 1,
+                        Recommendation.__name__: 2,
+                    },
+                    "location": "modules/my_module",
+                    "module_name": "my_module",
+                    "resource_folders": 2,
+                    "resources": 3,
+                    "syntax_warnings": 1,
+                }
+            ],
+            "modules_summary": {"failed": 0, "processed": 1, "succeeded": 1},
+            "organization_dir": tmp_path.as_posix(),
+        }
+
+    def test_list_table_shows_insight_types(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
+        lineage = _module_list_lineage(tmp_path)
+        _patch_modules_list(monkeypatch, lineage)
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="table")
+
+        output = capsys.readouterr().out
+        assert "my_module" in output
+        assert "Syntax warnings" in output
+        assert ModelSyntaxWarning.__name__ in output
+        assert Recommendation.__name__ in output
+        assert "SUCCESS" in output
+        assert "modules/my_module" in output
+
+    def test_list_passes_config_yaml_to_tmp_build(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        config_yaml = tmp_path / "config.dev.yaml"
+        config_yaml.write_text("environment:\n  name: dev\n")
+        captured: dict[str, Path | None] = {}
+
+        def fake_tmp_build(
+            self: BuildV2Command,
+            organization_dir: Path,
+            config_yaml: Path | None = None,
+            client: object = None,
+        ) -> BuildLineage:
+            captured["organization_dir"] = organization_dir
+            captured["config_yaml"] = config_yaml
+            return _module_list_lineage(tmp_path)
+
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.verify_module_directory", lambda *_: None)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.BuildV2Command.tmp_build", fake_tmp_build)
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="json")
+
+        assert captured == {"organization_dir": tmp_path, "config_yaml": config_yaml}
 
     @pytest.fixture
     def lookup_packages(self, tmp_path: Path) -> Packages:
@@ -565,3 +600,63 @@ class TestModulesCommand:
         assert "other_cherry_pkg" in captured["selected_packages"]
         assert len(captured["selected_packages"]["other_cherry_pkg"].modules) == 1
         assert captured["selected_packages"]["other_cherry_pkg"].modules[0].name == "mod_b"
+
+
+def _patch_modules_list(monkeypatch: MonkeyPatch, lineage: BuildLineage) -> None:
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.verify_module_directory", lambda *_: None)
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.commands.modules.BuildV2Command.tmp_build",
+        lambda self, organization_dir, config_yaml=None, client=None: lineage,
+    )
+
+
+def _module_list_lineage(tmp_path: Path) -> BuildLineage:
+    module_path = tmp_path / "modules" / "my_module"
+    module_path.mkdir(parents=True, exist_ok=True)
+    source_dir = module_path / "data_models"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    build_dir = tmp_path / "build" / "data_models"
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    views = [
+        ResourceLineageItem(
+            source_file=source_dir / f"view_{index}.View.yaml",
+            source_hash="abc",
+            type={"resource_folder": "data_models", "kind": "View"},
+            built_file=build_dir / f"{index}-view.View.yaml",
+            identifier={"space": "my_space", "externalId": f"View{index}", "version": "1"},
+        )
+        for index in (1, 2)
+    ]
+    files_dir = module_path / "files"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    files_build = tmp_path / "build" / "files"
+    files_build.mkdir(parents=True, exist_ok=True)
+    file_item = ResourceLineageItem(
+        source_file=files_dir / "my_file.FileMetadata.yaml",
+        source_hash="def",
+        type={"resource_folder": "files", "kind": "FileMetadata"},
+        built_file=files_build / "1-my_file.FileMetadata.yaml",
+        identifier={"externalId": "my_file"},
+    )
+
+    return BuildLineage(
+        organization_dir=tmp_path,
+        build_dir=tmp_path / "build",
+        modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
+        insights_summary={
+            ModelSyntaxWarning.__name__: 1,
+            Recommendation.__name__: 2,
+        },
+        module_lineage=[
+            ModuleLineageItem(
+                module_id="modules/my_module",
+                module_path=module_path,
+                insights_summary={
+                    ModelSyntaxWarning.__name__: 1,
+                    Recommendation.__name__: 2,
+                },
+                resource_lineage=[*views, file_item],
+            )
+        ],
+    )
