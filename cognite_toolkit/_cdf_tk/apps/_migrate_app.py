@@ -1686,9 +1686,7 @@ class MigrateApp(typer.Typer):
             # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
             # migrate Observations onto it instead of the default FieldObservation view.
             custom_observation_views = {
-                view_id
-                for space in target_spaces
-                if (view_id := resolve_observation_view_id(infield_cdm_configs, space)) is not None
+                resolve_observation_view_id(infield_cdm_configs, space) for space in target_spaces
             }
             if len(custom_observation_views) > 1:
                 raise ToolkitMigrationError(
@@ -1730,8 +1728,6 @@ class MigrateApp(typer.Typer):
             )
         if schedule_mapping is None:
             raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
-        if solution_tag_mapping is None:
-            raise ValueError("No mapping for CogniteSolutionTag view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
             client,
             instance_id_mapper=instance_id_mapper,
@@ -1748,6 +1744,8 @@ class MigrateApp(typer.Typer):
             client, connection_creator, schedule_mapping, location_split_id_mapper
         )
         if location_split_id_mapper is not None:
+            if solution_tag_mapping is None:
+                raise ValueError("No mapping for CogniteSolutionTag view found in infield_data_mappings.yaml")
             mapper = LocationSplitFDMtoCDMMapper(
                 client,
                 infield_mappings,
@@ -1886,7 +1884,7 @@ class MigrateApp(typer.Typer):
         )
 
         mappings = create_apm_source_data_mappings()
-        custom_views: dict[str, ViewId] = {}
+        custom_views: dict[str, ViewId | None] = {}
         for space in target_spaces:
             space_custom_views, custom_view_warnings = resolve_source_data_view_ids(infield_cdm_configs, space)
             for warning in custom_view_warnings:
@@ -1898,13 +1896,14 @@ class MigrateApp(typer.Typer):
                         border_style="yellow",
                     )
                 )
-            for type_key, view_id in space_custom_views.items():
-                existing = custom_views.get(type_key)
-                if existing is not None and existing != view_id:
+            for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values():
+                view_id = space_custom_views.get(type_key)
+                if type_key in custom_views and custom_views[type_key] != view_id:
                     raise ToolkitMigrationError(
-                        f"Location split targets disagree on the custom {type_key} view: {existing!s} vs {view_id!s}."
+                        f"Target locations disagree on the custom {type_key} view: {custom_views[type_key]!s} vs {view_id!s}."
                     )
                 custom_views[type_key] = view_id
+        custom_views = {type_key: view_id for type_key, view_id in custom_views.items() if view_id is not None}
         if custom_views:
             # Custom maintenanceOrder/operation/notification views, keyed off the original APM source view IDs.
             remapped: list[ViewToViewMapping] = []
