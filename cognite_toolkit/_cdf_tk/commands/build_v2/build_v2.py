@@ -186,9 +186,13 @@ class BuildV2Command(ToolkitCommand):
         if cache_path.exists():
             cached_lineage = BuildLineage.from_yaml_file(cache_path)
 
-        needs_rebuild = self._modules_needing_rebuild(base_parameters, cached_lineage)
+        needs_rebuild, has_deletions = self._modules_needing_rebuild(base_parameters, cached_lineage)
         if needs_rebuild is not None and not needs_rebuild and cached_lineage is not None:
-            # There is a cached lineage file and needs_rebuild is an empty set.
+            # There is a cached lineage file,
+            if has_deletions:
+                lineage = self._merge_build_lineage(cached_lineage, None)
+                safe_write(cache_path, lineage.to_yaml())
+                return lineage
             return cached_lineage
 
         with tmp_build_directory() as build_dir:
@@ -224,9 +228,9 @@ class BuildV2Command(ToolkitCommand):
 
     def _modules_needing_rebuild(
         self, parameters: BuildParameters, cached_lineage: BuildLineage | None
-    ) -> set[RelativeDirPath] | None:
+    ) -> tuple[set[RelativeDirPath] | None, bool]:
         if cached_lineage is None:
-            return None
+            return None, False
 
         build_files = self._read_file_system(parameters)
         source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
@@ -236,25 +240,39 @@ class BuildV2Command(ToolkitCommand):
 
         needs_rebuild: set[RelativeDirPath] = set()
         seen_module_ids: set[RelativeDirPath] = set()
+        current_module_paths: set[Path] = set()
         for source in module_scan.modules:
             if source.id in seen_module_ids:
                 continue
             seen_module_ids.add(source.id)
             module_path = Path(source.path).resolve()
+            current_module_paths.add(module_path)
             current_hash = calculate_directory_hash(module_path, shorten=True)
             cached_hash = cached_hash_by_path.get(module_path)
             if not cached_hash or cached_hash != current_hash:
                 needs_rebuild.add(source.id)
 
-        return needs_rebuild
+        has_deletions = any(cached_path not in current_module_paths for cached_path in cached_hash_by_path)
+
+        return needs_rebuild, has_deletions
 
     @staticmethod
-    def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage) -> BuildLineage:
-        rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
-        merged_modules = list(new_lineage.module_lineage)
+    def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage | None) -> BuildLineage:
+        if new_lineage is not None:
+            rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
+            merged_modules = list(new_lineage.module_lineage)
+        else:
+            rebuilt_paths = set()
+            merged_modules = []
+
         for item in cached_lineage.module_lineage:
-            if item.module_path.resolve() not in rebuilt_paths:
-                merged_modules.append(item)
+            resolved_path = item.module_path.resolve()
+            if resolved_path in rebuilt_paths:
+                continue
+            # Filter out cached modules whose directories no longer exist on disk.
+            if not resolved_path.exists():
+                continue
+            merged_modules.append(item)
 
         modules_summary = {
             "processed": len(merged_modules),
@@ -266,12 +284,13 @@ class BuildV2Command(ToolkitCommand):
             for insight_type, count in module.insights_summary.items():
                 insights_summary[insight_type] += count
 
+        template = new_lineage if new_lineage is not None else cached_lineage
         return BuildLineage(
-            timestamp=new_lineage.timestamp,
-            duration=new_lineage.duration,
-            organization_dir=new_lineage.organization_dir,
-            build_dir=new_lineage.build_dir,
-            cdf_project=new_lineage.cdf_project,
+            timestamp=template.timestamp,
+            duration=template.duration,
+            organization_dir=template.organization_dir,
+            build_dir=template.build_dir,
+            cdf_project=template.cdf_project,
             module_lineage=merged_modules,
             modules_summary=modules_summary,
             insights_summary=dict(insights_summary),

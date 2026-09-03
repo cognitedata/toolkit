@@ -1,3 +1,4 @@
+import shutil
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -812,3 +813,36 @@ class TestTmpBuild:
         _ = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         assert cache_path.exists()
         assert not (org / "build_cache.yaml").exists()
+
+    def test_tmp_build_removes_deleted_module_from_cache(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+
+        # Create two modules.
+        module_a_file = org / MODULES / "module_a" / SpaceCRUD.folder_name / f"a.{SpaceCRUD.kind}.yaml"
+        module_a_file.parent.mkdir(parents=True, exist_ok=True)
+        module_a_file.write_text("space: space_a\nname: Space A\n")
+
+        module_b_dir = org / MODULES / "module_b"
+        module_b_file = module_b_dir / SpaceCRUD.folder_name / f"b.{SpaceCRUD.kind}.yaml"
+        module_b_file.parent.mkdir(parents=True, exist_ok=True)
+        module_b_file.write_text("space: space_b\nname: Space B\n")
+
+        cache_path = org / "build_cache.yaml"
+
+        first_lineage = cmd.tmp_build(org, client=tlk_client)
+        cached_module_names = {item.module_path.name for item in first_lineage.module_lineage}
+        assert cached_module_names == {"module_a", "module_b"}
+
+        # Delete module_b entirely and rebuild. module_a is unchanged, so
+        # needs_rebuild will be empty but a deletion has occurred.
+        shutil.rmtree(module_b_dir)
+
+        second_lineage = cmd.tmp_build(org, client=tlk_client)
+
+        remaining_names = {item.module_path.name for item in second_lineage.module_lineage}
+        assert remaining_names == {"module_a"}
+
+        # The cache file on disk must be updated to reflect the deletion.
+        cached_on_disk = BuildLineage.from_yaml_file(cache_path)
+        assert {item.module_path.name for item in cached_on_disk.module_lineage} == {"module_a"}
