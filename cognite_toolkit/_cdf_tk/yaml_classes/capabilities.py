@@ -342,6 +342,12 @@ class RoboticsAcl(Capability):
     scope: AllScope | DataSetScope
 
 
+class RuleSetsAcl(Capability):
+    _capability_name = "ruleSetsAcl"
+    actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class SAPWritebackAcl(Capability):
     _capability_name = "sapWritebackAcl"
     actions: list[Literal["READ", "WRITE"]]
