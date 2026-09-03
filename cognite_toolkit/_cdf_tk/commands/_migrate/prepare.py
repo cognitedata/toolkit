@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeployOptions,
     DeployV2Command,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     DataModelIO,
@@ -17,7 +18,15 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
 )
 
-from .data_model import COGNITE_MIGRATION_MODEL, CONTAINERS, MODEL_ID, SPACE, VIEWS
+from .data_model import (
+    COGNITE_MIGRATION_MODEL,
+    CONTAINERS,
+    INSTANCE_SPACE_RELOCATION_SOURCE,
+    INSTANCE_SPACE_RELOCATION_SOURCE_VIEW,
+    MODEL_ID,
+    SPACE,
+    VIEWS,
+)
 from .default_mappings import create_default_mappings
 
 
@@ -32,10 +41,16 @@ class MigrationPrepareCommand(ToolkitCommand):
         verb = "Would deploy" if dry_run else "Deploying"
         self.console(f"{verb} {MODEL_ID!r}")
 
+        containers = list(CONTAINERS)
+        views = list(VIEWS)
+        if Flags.INFIELD_LOCATION_SPLIT.is_enabled():
+            containers.append(INSTANCE_SPACE_RELOCATION_SOURCE)
+            views.append(INSTANCE_SPACE_RELOCATION_SOURCE_VIEW)
+
         plan: list[DeploymentStep[Any]] = [
             DeploymentStep(SpaceCRUD, [], resource_requests=[SPACE]),
-            DeploymentStep(ContainerCRUD, [], resource_requests=CONTAINERS),
-            DeploymentStep(ViewIO, [], resource_requests=VIEWS),
+            DeploymentStep(ContainerCRUD, [], resource_requests=containers),
+            DeploymentStep(ViewIO, [], resource_requests=views),
             DeploymentStep(DataModelIO, [], resource_requests=[COGNITE_MIGRATION_MODEL]),
             DeploymentStep(ResourceViewMappingIO, [], resource_requests=create_default_mappings()),
         ]
