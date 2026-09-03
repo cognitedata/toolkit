@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -68,7 +68,13 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Read
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
-from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_directory_hash,
+    calculate_hash,
+    humanize_collection,
+    safe_write,
+    tmp_build_directory,
+)
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -88,17 +94,10 @@ class ValidationStep:
 SelectionSource = Literal["modules", "config", "interactive"]
 
 
-@dataclass
-class BuildResult:
-    source_files: BuildInput
-    source: ModuleScanResult
-    build_folder: BuildFolder
-
-
 class BuildV2Command(ToolkitCommand):
     def build(
         self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
-    ) -> BuildResult:
+    ) -> BuildFolder:
         """Builds modules from the source system and returns the results.
 
         Args:
@@ -108,7 +107,7 @@ class BuildV2Command(ToolkitCommand):
             display: Whether to display the build progress and results in the console. If False,
                 only progress bars will be printed.
         Returns:
-            BuildResult: The result of the build, including the source files, source modules, and build folder.
+            BuildFolder: The result of the build, including the source files, source modules, and build folder.
 
         """
         console = client.console if client else Console(markup=True)
@@ -159,7 +158,124 @@ class BuildV2Command(ToolkitCommand):
 
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
-        return BuildResult(source_files=build_files, source=module_scan_result, build_folder=build_folder)
+        return build_folder
+
+    def tmp_build(
+        self, organization_dir: Path, config_yaml: Path | None = None, client: ToolkitClient | None = None
+    ) -> BuildLineage:
+        """Build modules to a temporary directory and cache lineage for incremental rebuilds.
+
+        On the first run, all selected modules are built and lineage is written to
+        ``build_cache.yaml`` (or ``build_cache.<env>.yaml`` when a config file is used).
+        Subsequent runs compare module directory hashes against the cache and only rebuild
+        modules that have changed since the last run.
+        """
+        console = client.console if client else Console(markup=True)
+        self._validate_build_parameters(
+            BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
+        )
+
+        organization_dir = organization_dir.resolve()
+        config_yaml_path = config_yaml.resolve() if config_yaml else None
+        base_parameters = BuildParameters(
+            organization_dir=organization_dir, config_yaml=config_yaml_path, user_selected_modules=[f"{MODULES}/"]
+        )
+
+        cache_path = self._build_cache_path(organization_dir, config_yaml_path)
+        cached_lineage: BuildLineage | None = None
+        if cache_path.exists():
+            cached_lineage = BuildLineage.from_yaml_file(cache_path)
+
+        needs_rebuild = self._modules_needing_rebuild(base_parameters, cached_lineage)
+        if needs_rebuild is not None and not needs_rebuild and cached_lineage is not None:
+            # There is a cached lineage file and needs_rebuild is an empty set.
+            return cached_lineage
+
+        with tmp_build_directory() as build_dir:
+            if needs_rebuild is None:
+                user_selected_modules = [f"{MODULES}/"]
+            else:
+                user_selected_modules = [module_path.as_posix() for module_path in needs_rebuild]
+
+            build_parameters = BuildParameters(
+                organization_dir=organization_dir,
+                build_dir=build_dir,
+                config_yaml=config_yaml_path,
+                user_selected_modules=user_selected_modules,
+            )
+            build_folder = self.build(build_parameters, client, display=False)
+            cdf_project = client.config.project if client else None
+            lineage = BuildLineage.from_build(build_folder, cdf_project)
+            if cached_lineage is not None and needs_rebuild is not None:
+                lineage = self._merge_build_lineage(cached_lineage, lineage)
+
+        safe_write(cache_path, lineage.to_yaml())
+        return lineage
+
+    @staticmethod
+    def _build_cache_path(organization_dir: Path, config_yaml: Path | None) -> Path:
+        if config_yaml is None:
+            return organization_dir / "build_cache.yaml"
+        config_name = config_yaml.name
+        if config_name.startswith("config.") and config_name.endswith(".yaml"):
+            env = config_name[len("config.") : -len(".yaml")]
+            return organization_dir / f"build_cache.{env}.yaml"
+        return organization_dir / "build_cache.yaml"
+
+    def _modules_needing_rebuild(
+        self, parameters: BuildParameters, cached_lineage: BuildLineage | None
+    ) -> set[RelativeDirPath] | None:
+        if cached_lineage is None:
+            return None
+
+        build_files = self._read_file_system(parameters)
+        source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
+        module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
+
+        cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
+
+        needs_rebuild: set[RelativeDirPath] = set()
+        seen_module_ids: set[RelativeDirPath] = set()
+        for source in module_scan.modules:
+            if source.id in seen_module_ids:
+                continue
+            seen_module_ids.add(source.id)
+            module_path = Path(source.path).resolve()
+            current_hash = calculate_directory_hash(module_path, shorten=True)
+            cached_hash = cached_hash_by_path.get(module_path)
+            if not cached_hash or cached_hash != current_hash:
+                needs_rebuild.add(source.id)
+
+        return needs_rebuild
+
+    @staticmethod
+    def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage) -> BuildLineage:
+        rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
+        merged_modules = list(new_lineage.module_lineage)
+        for item in cached_lineage.module_lineage:
+            if item.module_path.resolve() not in rebuilt_paths:
+                merged_modules.append(item)
+
+        modules_summary = {
+            "processed": len(merged_modules),
+            "succeeded": sum(1 for module in merged_modules if module.is_success),
+            "failed": sum(1 for module in merged_modules if not module.is_success),
+        }
+        insights_summary: dict[str, int] = defaultdict(int)
+        for module in merged_modules:
+            for insight_type, count in module.insights_summary.items():
+                insights_summary[insight_type] += count
+
+        return BuildLineage(
+            timestamp=new_lineage.timestamp,
+            duration=new_lineage.duration,
+            organization_dir=new_lineage.organization_dir,
+            build_dir=new_lineage.build_dir,
+            cdf_project=new_lineage.cdf_project,
+            module_lineage=merged_modules,
+            modules_summary=modules_summary,
+            insights_summary=dict(insights_summary),
+        )
 
     @classmethod
     def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
