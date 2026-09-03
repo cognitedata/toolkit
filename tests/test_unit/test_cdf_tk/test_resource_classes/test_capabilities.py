@@ -173,6 +173,13 @@ def all_acls() -> Iterable:
         {"timeSeriesAcl": {"actions": ["WRITE", "READ"], "scope": {"assetRootIdScope": {"rootIds": ["myAsset"]}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
+        {"transformationsExternalDataSourcesAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "transformationsExternalDataSourcesAcl": {
+                "actions": ["READ", "WRITE", "USE"],
+                "scope": {"datasetScope": {"ids": ["myDataSet"]}},
+            }
+        },
         {"visionModelAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"wellsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"workflowOrchestrationAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},

@@ -408,6 +408,12 @@ class TransformationsAcl(Capability):
     scope: AllScope | DataSetScope
 
 
+class TransformationsExternalDataSourcesAcl(Capability):
+    _capability_name = "transformationsExternalDataSourcesAcl"
+    actions: list[Literal["READ", "WRITE", "USE"]]
+    scope: AllScope | DataSetScope
+
+
 class TypesAcl(Capability):
     _capability_name = "typesAcl"
     actions: list[Literal["READ", "WRITE"]]

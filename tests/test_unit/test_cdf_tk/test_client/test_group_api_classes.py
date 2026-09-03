@@ -168,6 +168,13 @@ def all_acls() -> Iterable[tuple]:
         {"timeSeriesAcl": {"actions": ["WRITE", "READ"], "scope": {"assetRootIdScope": {"rootIds": [987]}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
+        {"transformationsExternalDataSourcesAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "transformationsExternalDataSourcesAcl": {
+                "actions": ["READ", "WRITE", "USE"],
+                "scope": {"datasetScope": {"ids": [123]}},
+            }
+        },
         {"visionModelAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"wellsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"workflowOrchestrationAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
@@ -227,9 +234,7 @@ class TestGroupAPIClasses:
     def test_capability_in_sync(self) -> None:
         """Checks that the request/response capabilities are in sync with the YAML spec."""
         request_capabilities = {acl.model_fields["acl_name"].default for acl in get_all_subclasses(Acl)} - {
-            "unknownAcl",
-            # Until cognite-sdk publishes this capability class.
-            "transformationsExternalDataSourcesAcl",
+            "unknownAcl"
         }
         spec_capabilities = {capability._capability_name for capability in get_all_subclasses(Capability)}
 

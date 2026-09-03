@@ -550,7 +550,7 @@ class TransformationsAcl(Acl):
 
 
 class TransformationsExternalDataSourcesAcl(Acl):
-    """ACL for Fabric OneLake external data sources used by transformations."""
+    """ACL for Transformations External Data Sources resources."""
 
     acl_name: Literal["transformationsExternalDataSourcesAcl"] = Field(
         "transformationsExternalDataSourcesAcl", exclude=True
