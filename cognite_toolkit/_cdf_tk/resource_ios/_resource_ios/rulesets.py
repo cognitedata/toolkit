@@ -6,7 +6,8 @@ from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import RuleSetsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
@@ -23,6 +24,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
 # docs are not published yet; link to the API reference root.
@@ -66,11 +68,15 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[RuleSetRequest]) -> ScopeDefinition | None:
-        return None
+        return AllScope()
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        yield from ()
+        if isinstance(scope, AllScope):
+            yield RuleSetsAcl(
+                actions=as_read_create_update_delete_actions(actions),
+                scope=scope,
+            )
 
     def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.create(list(items))
