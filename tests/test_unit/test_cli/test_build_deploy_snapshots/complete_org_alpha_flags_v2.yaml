@@ -83,6 +83,19 @@ DataSetResponse:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
+ExternalDataSourceResponse:
+- dataSetId: 7982613576047462211
+  externalId: my_onelake_source
+  format: one_lake
+  name: Example OneLake source
+  settings:
+    credentials:
+      clientId: dummy-123
+      clientSecret: dummy-secret
+      tenantId: dummy-domain
+    locationDescription:
+      containerId: 00000000-0000-0000-0000-000000000004
+      workspaceId: 00000000-0000-0000-0000-000000000003
 FileMetadataResponse:
 - dataSetId: 7982613576047462211
   externalId: fn_multi_file_function
