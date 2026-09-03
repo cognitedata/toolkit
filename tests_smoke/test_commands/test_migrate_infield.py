@@ -327,10 +327,14 @@ class TestMigrateInfield:
                     exclude={"last_updated_time", "version", "created_time"},
                 )
                 for view_properties in dumped.get("properties", {}).values():
-                    for properties in view_properties.values():
+                    for view_name, properties in view_properties.items():
                         # These also change for each run.
                         properties.pop("sourceCreatedTime", None)
                         properties.pop("sourceUpdatedTime", None)
+                        # FieldObservation.startTime is populated with the current time when
+                        # missing on the source instance.
+                        if "FieldObservation" in view_name:
+                            properties.pop("startTime", None)
                 destination_instances.append(dumped)
 
         log_files = [file for file in tmp_path.rglob("*.ndjson") if file.is_file()]
