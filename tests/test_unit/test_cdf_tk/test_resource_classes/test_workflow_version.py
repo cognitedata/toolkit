@@ -85,7 +85,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {
             "Invalid value at workflowDefinition.tasks[1]: Input tag 'unknownType' found using 'type' "
             "does not match any of the expected tags: 'function', 'transformation', "
-            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
+            "'cdf', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
         },
         id="Invalid task type",
     )
@@ -189,6 +189,31 @@ class TestWorkflowVersionYAML:
     @pytest.mark.parametrize("data", list(valid_subworkflow_test_cases()))
     def test_valid_subworkflow_formats(self, data: dict[str, object]) -> None:
         """Test that both subworkflow reference and inline tasks formats are valid (CDF-26812)."""
+        warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 0, f"Expected no warnings, got: {warning_list}"
+
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_cdf_task_type(self) -> None:
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "cdfTask",
+                        "type": "cdf",
+                        "parameters": {
+                            "cdfRequest": {
+                                "resourcePath": "/timeseries/list",
+                                "method": "GET",
+                            }
+                        },
+                    }
+                ]
+            },
+        }
         warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
         assert len(warning_list) == 0, f"Expected no warnings, got: {warning_list}"
 
