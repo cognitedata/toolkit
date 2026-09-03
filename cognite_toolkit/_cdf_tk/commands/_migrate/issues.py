@@ -187,16 +187,6 @@ class InstanceConversionIssue(MigrationIssue):
         return "Instance conversion"
 
 
-class TargetSpaceResolutionIssue(InstanceConversionIssue):
-    """Represents a location-split issue where an instance's target space could not be resolved."""
-
-    type: Literal["targetSpaceResolution"] = "targetSpaceResolution"  # type: ignore[assignment]
-
-    @property
-    def label(self) -> str:
-        return "Target space resolution"
-
-
 def instance_conversion_issue_as_migration_entry(
     issue: InstanceConversionIssue, *, source: str, destination: str
 ) -> MigrationEntryV2:
