@@ -108,6 +108,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import ExternalDataSourceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -646,6 +647,24 @@ ex:Oslo_Facility
                 "ignoreNullFields": True,
                 "query": "SELECT 1",
                 "destination": {"type": "assets"},
+            }
+        ],
+        ExternalDataSourceResponse: [
+            {
+                "externalId": "smoke-test-external-data-source",
+                "name": "Smoke Test External Data Source",
+                "dataSetId": -1,
+                "settings": {
+                    "credentials": {
+                        "clientId": "00000000-0000-0000-0000-000000000001",
+                        "tenantId": "00000000-0000-0000-0000-000000000002",
+                        "clientSecret": "smoke-test-client-secret",
+                    },
+                    "locationDescription": {
+                        "workspaceId": "00000000-0000-0000-0000-000000000003",
+                        "containerId": "00000000-0000-0000-0000-000000000004",
+                    },
+                },
             }
         ],
         TransformationScheduleResponse: [{"externalId": "smoke-test-transformation", "interval": "0 0 * * *"}],

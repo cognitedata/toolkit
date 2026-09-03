@@ -48,7 +48,12 @@ class ExternalDataSourceIO(
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield TransformationsExternalDataSourcesAcl(actions=sorted(actions), scope=scope)
+            acl_actions: set[Literal["READ", "WRITE", "USE"]] = set()
+            if "READ" in actions:
+                acl_actions.update({"READ", "USE"})
+            if "WRITE" in actions:
+                acl_actions.add("WRITE")
+            yield TransformationsExternalDataSourcesAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | dict) -> ExternalId:
