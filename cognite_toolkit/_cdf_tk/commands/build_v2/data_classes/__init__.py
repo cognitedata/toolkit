@@ -1,7 +1,7 @@
 from ._build import (
     BuildFolder,
+    BuildInput,
     BuildParameters,
-    BuildSourceFiles,
     BuiltModule,
 )
 from ._config import ConfigYAML
@@ -29,9 +29,9 @@ from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, Validati
 __all__ = [
     "AbsoluteDirPath",
     "BuildFolder",
+    "BuildInput",
     "BuildLineage",
     "BuildParameters",
-    "BuildSourceFiles",
     "BuildVariable",
     "BuiltModule",
     "ConfigYAML",

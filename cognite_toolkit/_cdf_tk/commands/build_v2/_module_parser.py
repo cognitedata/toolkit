@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    BuildSourceFiles,
+    BuildInput,
     ModelSyntaxError,
     ModuleSource,
     RelativeDirPath,
@@ -13,10 +13,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
-    BuildSource,
     BuildVariable,
     InvalidBuildVariable,
     MisplacedModule,
+    ModuleScanResult,
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
@@ -29,11 +29,11 @@ class ModuleParser:
     @classmethod
     def parse(
         cls,
-        build: BuildSourceFiles,
+        build: BuildInput,
         user_selected_modules: set[RelativeDirPath | str],
         source_by_module_id: dict[RelativeDirPath, ModuleSource],
         orphan_yaml_files: list[RelativeFilePath],
-    ) -> BuildSource:
+    ) -> ModuleScanResult:
         module_ids = list(source_by_module_id.keys())
         available_paths = cls._expand_parents(module_ids)
         selected_modules = cls._select_modules(module_ids, user_selected_modules)
@@ -58,7 +58,7 @@ class ModuleParser:
             else:
                 module_sources.append(source)
 
-        return BuildSource(
+        return ModuleScanResult(
             module_dir=build.module_dir,
             modules=module_sources,
             invalid_variables=invalid_variables,

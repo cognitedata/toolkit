@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, read_yaml_content
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import ResourceType
@@ -68,6 +68,10 @@ class ModuleLineageItem(_BaseLineageModel):
 
     module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
     module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
+    module_hash: str = Field(
+        default="",
+        description="Hash of the module source directory at build time, used for incremental rebuilds.",
+    )
     insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
     resource_lineage: list[ResourceLineageItem] = Field(
         default_factory=list, description="List of resource lineage items for this module"
@@ -109,9 +113,11 @@ class ModuleLineageItem(_BaseLineageModel):
                     identifier=resource.identifier,
                 )
             )
+        module_path = module.module_id.path.resolve()
         return cls(
             module_id=module.module_id.id.as_posix(),
-            module_path=module.module_id.path.resolve(),
+            module_path=module_path,
+            module_hash=calculate_directory_hash(module_path, shorten=True),
             resource_lineage=resource_lineage,
             insights_summary=module.all_insights.summary,
         )
@@ -126,6 +132,10 @@ class BuildLineage(_BaseLineageModel):
     organization_dir: Path
     build_dir: Path
     cdf_project: str | None = None
+    config_hash: str | None = Field(
+        default=None,
+        description="Hash of the config YAML file at build time. Used to invalidate the incremental rebuild cache when the config changes.",
+    )
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -154,7 +164,9 @@ class BuildLineage(_BaseLineageModel):
         return round(value, 2) if value is not None else None
 
     @classmethod
-    def from_build(cls, build: BuildFolder, cdf_project: str | None = None) -> "BuildLineage":
+    def from_build(
+        cls, build: BuildFolder, cdf_project: str | None = None, config_yaml: Path | None = None
+    ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
         module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
@@ -177,6 +189,7 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
+            config_hash=calculate_hash(config_yaml, shorten=True) if config_yaml is not None else None,
         )
 
     def to_yaml(self) -> str:
