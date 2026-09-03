@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for record-backed views (streamId on views)",
     )
+    INFIELD_LOCATION_SPLIT = FlagMetadata(
+        visible=True,
+        description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

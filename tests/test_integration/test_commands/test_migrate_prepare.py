@@ -2,6 +2,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import CONTAINERS, VIEWS
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 class TestMigrateTimeSeriesCommand:
@@ -10,10 +11,11 @@ class TestMigrateTimeSeriesCommand:
         toolkit_client: ToolkitClient,
     ) -> None:
         cmd = MigrationPrepareCommand(silent=True, skip_tracking=True)
+        location_split_extra = 1 if Flags.INFIELD_LOCATION_SPLIT.is_enabled() else 0
         expected_resources = {
             "spaces": 1,
-            "containers": len(CONTAINERS),
-            "views": len(VIEWS),
+            "containers": len(CONTAINERS) + location_split_extra,
+            "views": len(VIEWS) + location_split_extra,
             "data models": 1,
             "resource view mapping": len(create_default_mappings()),
         }
