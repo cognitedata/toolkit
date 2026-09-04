@@ -128,7 +128,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             selection_source = "interactive"
 
-        module_scan_result = self._find_modules(build_files)
+        module_scan_result = self._find_modules(build_files, parameters.operation)
 
         if display:
             self._display_module_sources(
@@ -390,18 +390,20 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     @classmethod
-    def _find_modules(cls, build: BuildInput) -> ModuleScanResult:
+    def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
 
         if build.selected_modules is None:
-            user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()))
+            user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
             user_selected_modules = build.selected_modules
 
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
     @classmethod
-    def _ask_user_to_select_modules(cls, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
+    def _ask_user_to_select_modules(
+        cls, available_modules: list[ModuleSource], operation: str
+    ) -> set[RelativeDirPath | str]:
         choices = [
             Choice(
                 title=f"{module.name} ({module.id.as_posix()})",
@@ -410,10 +412,10 @@ class BuildV2Command(ToolkitCommand):
             for module in available_modules
         ]
         if not available_modules:
-            raise ToolkitValueError("No modules found to build.")
-        result = questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask()
+            raise ToolkitValueError(f"No modules found to {operation}.")
+        result = questionary.checkbox(f"Which modules would you like to {operation}?", choices=choices).unsafe_ask()
         if result is None:
-            raise ToolkitValueError("Build cancelled by user.")
+            raise ToolkitValueError(f"{operation.title()} cancelled by user.")
         return set(result)
 
     def _display_module_sources(
