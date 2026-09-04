@@ -55,14 +55,14 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
     DumpResourceCommand,
-    PullCommand,
+    PullV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, LocationFilterIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -155,11 +155,11 @@ def test_pull_dataset(
     dataset.description = "New description"
     toolkit_client_approval.append(DataSetResponse, dataset)
 
-    cmd = PullCommand(silent=True)
-    cmd.pull_module(
-        module_name_or_path=dataset_yaml,
+    cmd = PullV2Command(silent=True)
+    cmd.pull(
+        user_selected_modules=["cdf_common"],
         organization_dir=buildable_modules_mutable,
-        env="dev",
+        config_yaml=buildable_modules_mutable / "config.dev.yaml",
         dry_run=False,
         verbose=False,
         env_vars=env_vars_with_client,
@@ -186,11 +186,11 @@ def test_pull_dataset_relative_path(
     toolkit_client_approval.append(DataSetResponse, dataset)
 
     with chdir(buildable_modules_mutable):
-        cmd = PullCommand(silent=True)
-        cmd.pull_module(
-            module_name_or_path=f"{MODULES}/cdf_common/data_sets/demo.DataSet.yaml",
+        cmd = PullV2Command(silent=True)
+        cmd.pull(
+            user_selected_modules=[f"{MODULES}/cdf_common"],
             organization_dir=buildable_modules_mutable,
-            env="dev",
+            config_yaml=buildable_modules_mutable / "config.dev.yaml",
             dry_run=False,
             verbose=False,
             env_vars=env_vars_with_client,
@@ -228,11 +228,11 @@ from `ingestion`.`timeseries_metadata`"""
     transformation.query = new_query
 
     toolkit_client_approval.append(TransformationResponse, transformation)
-    cmd = PullCommand(silent=True)
-    cmd.pull_module(
-        module_name_or_path=transformation_yaml,
+    cmd = PullV2Command(silent=True)
+    cmd.pull(
+        user_selected_modules=["cdf_pi"],
         organization_dir=buildable_modules_mutable,
-        env="dev",
+        config_yaml=buildable_modules_mutable / "config.dev.yaml",
         dry_run=False,
         verbose=False,
         env_vars=env_vars_with_client,
@@ -313,11 +313,11 @@ def test_pull_workflow_trigger_with_environment_variables(
     trigger = WorkflowTriggerResponse._load(response_dict)
     toolkit_client_approval.append(WorkflowTriggerResponse, trigger)
 
-    cmd = PullCommand(silent=True)
-    cmd.pull_module(
-        module_name_or_path=yaml_filepath,
+    cmd = PullV2Command(silent=True)
+    cmd.pull(
+        user_selected_modules=["cdf_ingestion"],
         organization_dir=buildable_modules_mutable,
-        env="dev",
+        config_yaml=buildable_modules_mutable / "config.dev.yaml",
         dry_run=False,
         verbose=False,
         env_vars=env_vars_with_client,
@@ -355,11 +355,11 @@ def test_pull_group(
     )
     toolkit_client_approval.append(GroupResponse, cdf_group)
 
-    cmd = PullCommand(skip_tracking=True, silent=True)
-    cmd.pull_module(
-        module_name_or_path="my-module",
+    cmd = PullV2Command(skip_tracking=True, silent=True)
+    cmd.pull(
+        user_selected_modules=["my-module"],
         organization_dir=org_dir,
-        env="dev",
+        config_yaml=org_dir / "config.dev.yaml",
         dry_run=False,
         verbose=False,
         env_vars=env_vars_with_client,
@@ -885,33 +885,21 @@ dataModelingType: DATA_MODELING_ONLY
 
 
 def test_build_project_with_only_identifiers(
-    build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     """In the cdf modules pull command, we have to be able to build a project that only has identifiers
     without raising any errors.
     """
-    built_modules = BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
+    cmd = PullV2Command(silent=True, skip_tracking=True)
+    cmd.pull(
+        user_selected_modules=None,
+        env_vars=env_vars_with_client,
         organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="dev",
-        no_clean=False,
-        client=env_vars_with_client.get_client(),
-        on_error="raise",
+        config_yaml=COMPLETE_ORG_ONLY_IDENTIFIER / "config.dev.yaml",
+        dry_run=True,
+        verbose=False,
     )
-
-    # Loading the local resources as it is done in the PullCommand
-    for loader_cls in RESOURCE_CRUD_LIST:
-        loader = loader_cls.create_loader(env_vars_with_client.get_client())
-        built_resources = built_modules.get_resources(
-            None,
-            loader.folder_name,
-            loader.kind,
-        )
-        _ = PullCommand._get_local_resource_dict_by_id(built_resources, loader, {})
 
 
 def test_workflow_deployment_order(

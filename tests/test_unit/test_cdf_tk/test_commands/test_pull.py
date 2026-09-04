@@ -6,15 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildVariable,
-    BuildVariables,
-    BuiltFullResourceList,
-    BuiltResourceFull,
-)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+from cognite_toolkit._cdf_tk.commands.pull import PullV2Command, ResourceYAMLDifference, TextFileDifference
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -431,6 +427,14 @@ class TestTextFileDifference:
         assert text_file.dump() == dumped
 
 
+def _built_resource(identifier: Identifier, variables: list[BuildVariable] | None = None) -> MagicMock:
+    resource = MagicMock()
+    resource.identifier = identifier
+    resource.variables = variables or []
+    resource.extra_files = []
+    return resource
+
+
 def to_write_content_use_cases() -> Iterable:
     source = """name: Ingestion
 externalId: {{ dataset }}
@@ -444,17 +448,12 @@ description: This dataset contains Transformations, Functions, and Workflows for
         }
     }
     variable = BuildVariable(
-        key="dataset",
+        id=Path("modules/dataset"),
         value="ingestion",
         is_selected=True,
-        location=Path("whatever"),
     )
-    ingestion = MagicMock(spec=BuiltResourceFull)
-    ingestion.build_variables = BuildVariables([variable])
-    ingestion.identifier = ExternalId(external_id="ingestion")
-    ingestion.extra_sources = []
-
-    resources = BuiltFullResourceList([ingestion])
+    ingestion = _built_resource(ExternalId(external_id="ingestion"), [variable])
+    resources = [ingestion]
 
     expected = """name: Ingestion
 externalId: {{ dataset }}
@@ -512,11 +511,8 @@ description: New description
             "description": "also new description",
         },
     }
-    unique_dataset = MagicMock(spec=BuiltResourceFull)
-    unique_dataset.build_variables = BuildVariables([])
-    unique_dataset.identifier = ExternalId(external_id="unique_dataset")
-    unique_dataset.extra_sources = []
-    resources = BuiltFullResourceList([ingestion, unique_dataset])
+    unique_dataset = _built_resource(ExternalId(external_id="unique_dataset"))
+    resources = [ingestion, unique_dataset]
 
     yield pytest.param(
         source,
@@ -562,17 +558,15 @@ filter:
         }
     }
     variable_view = BuildVariable(
-        key="instance_space",
+        id=Path("modules/instance_space"),
         value="my_space",
         is_selected=True,
-        location=Path("whatever"),
     )
-    view_resource = MagicMock(spec=BuiltResourceFull)
-    view_resource.build_variables = BuildVariables([variable_view])
-    view_resource.identifier = ViewId(space="my_space", external_id="my_external_id", version="v1")
-    view_resource.extra_sources = []
-
-    resources_view = BuiltFullResourceList([view_resource])
+    view_resource = _built_resource(
+        ViewId(space="my_space", external_id="my_external_id", version="v1"),
+        [variable_view],
+    )
+    resources_view = [view_resource]
 
     expected_view = """space: {{ instance_space }}
 externalId: my_external_id
@@ -598,7 +592,7 @@ filter:
     )
 
 
-class TestPullCommand:
+class TestPullV2Command:
     @pytest.mark.parametrize(
         "source, to_write, resources, expected, loader_type, source_file",
         list(to_write_content_use_cases()),
@@ -606,21 +600,21 @@ class TestPullCommand:
     def test_to_write_content(
         self,
         source: str,
-        to_write: dict[str, [dict[str, Any]]],
-        resources: BuiltFullResourceList,
+        to_write: dict[Identifier, dict[str, Any]],
+        resources: list[MagicMock],
         expected: str,
         loader_type: type,
         source_file: Path,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        cmd = PullCommand(silent=True, skip_tracking=True)
+        cmd = PullV2Command(silent=True, skip_tracking=True)
 
         actual, extra_files = cmd._to_write_content(
-            source=source,
+            source_content=source,
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            loader=loader_type.create_loader(toolkit_client_approval.mock_client),
+            resource_io=loader_type.create_loader(toolkit_client_approval.mock_client),
             source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"
