@@ -31,7 +31,7 @@ class BuildVariable(BaseModel):
         return self.id.name
 
     def get_pattern_replace_pair(
-        self, file_suffix: FileSuffix = ".yaml"
+        self, file_suffix: FileSuffix | str = ".yaml"
     ) -> tuple[str, str | Callable[[re.Match[str]], str]]:
         substitution = self.value
         pattern = rf"{{{{\s*{self.name}\s*}}}}"
@@ -102,7 +102,7 @@ class BuildVariable(BaseModel):
             return f"({', '.join(formatted_items)})"
 
     @classmethod
-    def substitute(cls, content: str, variables: "list[BuildVariable]", file_suffix: FileSuffix = ".yaml") -> str:
+    def substitute(cls, content: str, variables: "list[BuildVariable]", file_suffix: FileSuffix | str = ".yaml") -> str:
         """Substitutes variables in the given content based on their patterns and replacement values."""
         for variable in variables:
             pattern, replace = variable.get_pattern_replace_pair(file_suffix)

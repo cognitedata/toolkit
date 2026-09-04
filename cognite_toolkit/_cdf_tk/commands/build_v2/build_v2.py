@@ -47,10 +47,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
+    ModuleId,
     ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
-    SuccessfulReadYAMLFile, ModuleId,
+    SuccessfulReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
@@ -670,7 +671,9 @@ class BuildV2Command(ToolkitCommand):
 
                 # Local validation of module
                 insights = validator.run(module)
-                built_resources = self._export_resources(module.files, resource_counter, build_dir, source.variables, source.id)
+                built_resources = self._export_resources(
+                    module.files, resource_counter, build_dir, source.variables, source.as_id()
+                )
 
                 built_modules.append(
                     BuiltModule(
@@ -896,8 +899,7 @@ class BuildV2Command(ToolkitCommand):
                 and extra_file.content
                 and extra_file.suffix in SUPPORTS_VARIABLE_REPLACEMENT
             ):
-                # We check that it is a valid suffix above.
-                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
+                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)
             output.append(extra_file)
         return output
 
@@ -928,7 +930,12 @@ class BuildV2Command(ToolkitCommand):
         return syntax_error, syntax_warning
 
     def _export_resources(
-        self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path, variables: list[BuildVariable], module_id: ModuleId,
+        self,
+        files: Sequence[ReadYAMLFile],
+        resource_counter: Counter,
+        build_dir: Path,
+        variables: list[BuildVariable],
+        module_id: ModuleId,
     ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
         for file in files:

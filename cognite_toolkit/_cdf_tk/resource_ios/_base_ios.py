@@ -185,7 +185,6 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
     # for example, the Transformation resource has the query property that is used to store the query content.
     extra_content_property: str | None = None
 
-
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
