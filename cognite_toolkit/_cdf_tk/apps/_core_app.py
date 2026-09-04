@@ -315,7 +315,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"deploy_logs_{TODAY!s}"),
+        ] = Path(f"logs/deploy_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(
