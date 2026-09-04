@@ -862,12 +862,12 @@ class PullV2Command(ToolkitCommand):
         variables_with_environment_list: list[BuildVariable] = []
         for variable in variables:
             updated_variable = variable
-            if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
+            if isinstance(updated_variable.value, str) and ENV_VAR_PATTERN.match(updated_variable.value):
                 for key, value in environment_variables.items():
-                    if key in variable.value and isinstance(value, str):
+                    if key in updated_variable.value and isinstance(value, str):
                         # Running through all environment variables, in case multiple are used in the same variable.
-                        updated_variable = variable.model_copy(
-                            update={"value": variable.value.replace(f"${{{key}}}", value)}
+                        updated_variable = updated_variable.model_copy(
+                            update={"value": updated_variable.value.replace(f"${{{key}}}", value)}
                         )
             elif isinstance(variable.value, list):
                 new_value: list[str | int | float | bool] = []
@@ -912,7 +912,7 @@ class PullV2Command(ToolkitCommand):
                     new_extra = item_write.pop(built.crud_cls.extra_content_property)
                     for placeholder, variable in extra_placeholders.items():
                         if placeholder in extra_content:
-                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.name} }}}}")
+                            new_extra = new_extra.replace(str(variable.value), f"{{{{ {variable.name} }}}}")
                     extra_files[extra.source_path] = new_extra
 
         # Only split for resources that are sidecar-backed in build metadata, plus Skill (sidecar-first by design).
