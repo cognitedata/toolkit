@@ -7,7 +7,7 @@ import typer
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullV2Command
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -219,12 +219,12 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Pull a module from CDF. This will overwrite the local files with the latest version from CDF."""
         env_vars = EnvironmentVariables.create_from_environment()
-        cmd = PullCommand(client=env_vars.get_client())
+        cmd = PullV2Command(client=env_vars.get_client(is_strict_validation=False))
         cmd.run(
-            lambda: cmd.pull_module(
-                module_name_or_path=module_name_or_path,
+            lambda: cmd.pull(
+                user_selected_modules=[module_name_or_path] if isinstance(module_name_or_path, str) else None,
                 organization_dir=organization_dir,
-                env=build_env,
+                config_yaml=organization_dir / f"config.{build_env}.yaml",
                 dry_run=dry_run,
                 verbose=verbose,
                 env_vars=env_vars,
