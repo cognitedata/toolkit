@@ -1,6 +1,5 @@
 import json
 import re
-import sys
 import tempfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -11,7 +10,7 @@ import yaml
 from rich.console import Console, Group, RenderableType
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, ResponseResource, T_Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, ResponseResource
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
@@ -43,11 +42,6 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 from ._base import ToolkitCommand
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -547,12 +541,12 @@ class PullV2Command(ToolkitCommand):
     @classmethod
     def _update(
         cls,
-        item_id: T_Identifier,
+        item_id: Identifier,
         source_with_variable_substitution: dict[str, Any],
         source_with_variable_placeholder: dict[str, Any],
         source_file: Path,
-        to_write: dict[T_Identifier, dict[str, Any]],
-        built_by_identifier: dict[T_Identifier, BuiltResource],
+        to_write: dict[Identifier, dict[str, Any]],
+        built_by_identifier: dict[Identifier, BuiltResource],
         replacer: "ResourceReplacer",
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
