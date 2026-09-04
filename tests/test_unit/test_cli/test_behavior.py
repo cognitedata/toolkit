@@ -14,6 +14,7 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import NameId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     ContainerPropertyDefinition,
@@ -62,7 +63,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, Work
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, LocationFilterIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, AgentIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -995,6 +996,64 @@ def test_workflow_deployment_order(
         subworkflow.workflow_external_id,
         main_workflow.workflow_external_id,
     ]
+
+
+def test_agent_deployment_order(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    # Skip the agent runtime/capability consistency checks, which require a real service availability response.
+    toolkit_client_approval.mock_client.tool.agents.service_availability.return_value = None
+    supervisor = """externalId: supervisor
+name: Supervisor
+runtimeVersion: "1.3.0"
+subagents:
+  - agentExternalId: weather-specialist
+"""
+    subagent = """externalId: weather-specialist
+name: Weather Specialist
+runtimeVersion: "1.3.0"
+"""
+    org = build_tmp_path.parent / "org"
+    resource_folder = org / MODULES / "my_agent_module" / AgentIO.folder_name
+    # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
+    # that Toolkit does a topological sort of the agents before deploying them.
+    supervisor_file = resource_folder / f"1.supervisor.{AgentIO.kind}.yaml"
+    subagent_file = resource_folder / f"2.weather-specialist.{AgentIO.kind}.yaml"
+    supervisor_file.parent.mkdir(parents=True, exist_ok=True)
+    supervisor_file.write_text(supervisor, encoding="utf-8")
+    subagent_file.write_text(subagent, encoding="utf-8")
+
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=org,
+            build_dir=build_tmp_path,
+            config_yaml=None,
+            user_selected_modules=["my_agent_module"],
+        ),
+    )
+
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
+        env_vars=env_vars_with_client,
+        options=DeployOptions(
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
+    )
+
+    # Verify that the agents were created in the correct order, subagent before the supervisor referencing it.
+    agents = toolkit_client_approval.created_resources_of_type(AgentResponse)
+    assert len(agents) == 2
+    assert [agent.external_id for agent in agents] == ["weather-specialist", "supervisor"]
 
 
 def test_warning_missing_dependency(
