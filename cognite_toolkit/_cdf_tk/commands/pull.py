@@ -4,14 +4,14 @@ import re
 import sys
 import tempfile
 import uuid
-from collections import UserList, defaultdict
+from collections import Counter, UserList, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
 
 import yaml
 from rich import print
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 
@@ -25,13 +25,19 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuiltResource,
     ResourceType,
 )
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
     ResourceIO,
     ViewIO,
+)
+from cognite_toolkit._cdf_tk.ui import (
+    ToolkitPanel,
+    ToolkitPanelSection,
+    ToolkitTable,
+    hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
@@ -524,7 +530,150 @@ class PullV2Command(ToolkitCommand):
         return results
 
     @classmethod
-    def _display_results(cls, results: list[PullResult], console: Console, verbose: bool) -> None: ...
+    def _display_results(cls, results: list[PullResult], console: Console, verbose: bool) -> None:
+        if not results:
+            console.print(
+                ToolkitPanel(
+                    "No resources were pulled.",
+                    title="Pull summary",
+                )
+            )
+            return
+
+        is_dry_run = any(r.is_dry_run for r in results)
+        panel_title = "Pull summary"
+        if is_dry_run:
+            panel_title += " [dim](dry run)[/]"
+
+        # Group results by resource type
+        results_by_type: dict[ResourceType, list[PullResult]] = defaultdict(list)
+        for result in results:
+            results_by_type[result.resource_type].append(result)
+
+        table = ToolkitTable()
+        table.add_column("Resource", style="cyan")
+        if is_dry_run:
+            table.add_column("Would change", justify="right", style="yellow")
+        else:
+            table.add_column("Changed", justify="right", style="yellow")
+        table.add_column("Unchanged", justify="right", style="dim")
+        table.add_column("Skipped", justify="right", style="yellow")
+        table.add_column("Extra files", justify="right", style="green")
+        table.add_column("Total", justify="right", style="cyan")
+
+        total_changed = 0
+        total_unchanged = 0
+        total_skipped = 0
+        total_extra = 0
+        total_files = 0
+        all_skipped: list[tuple[ResourceType, Path, SkippedPull]] = []
+
+        # Sort types for stable output
+        sorted_types = sorted(results_by_type.keys(), key=lambda t: (t.resource_folder, t.kind))
+        for resource_type in sorted_types:
+            type_results = results_by_type[resource_type]
+            changed = sum(1 for r in type_results if r.has_changes)
+            unchanged = sum(1 for r in type_results if not r.has_changes)
+            skipped = sum(len(r.skipped) for r in type_results)
+            extra = sum(len(r.extra_files) for r in type_results)
+            total = len(type_results)
+
+            total_changed += changed
+            total_unchanged += unchanged
+            total_skipped += skipped
+            total_extra += extra
+            total_files += total
+
+            for r in type_results:
+                for skip in r.skipped:
+                    all_skipped.append((resource_type, r.source_file, skip))
+
+            table.add_row(
+                str(resource_type),
+                str(changed),
+                str(unchanged),
+                str(skipped),
+                str(extra),
+                str(total),
+            )
+
+        if len(sorted_types) > 1:
+            table.add_section()
+            table.add_row(
+                "[bold]All[/]",
+                f"[bold]{total_changed}[/]",
+                f"[bold]{total_unchanged}[/]",
+                f"[bold]{total_skipped}[/]",
+                f"[bold]{total_extra}[/]",
+                f"[bold]{total_files}[/]",
+            )
+
+        sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
+
+        if is_dry_run:
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}This was a dry run. No files were modified. "
+                        f"Re-run without --dry-run to apply the changes."
+                    )
+                )
+            )
+
+        if all_skipped and not verbose:
+            most_common = Counter(skip.reason for _, _, skip in all_skipped).most_common(n=3)
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}A total of {len(all_skipped)} resources were skipped during pull. "
+                        f"The most common reasons were: "
+                        f"{', '.join(f'{reason} ({count} occurrences)' for reason, count in most_common)}. "
+                        f"Use --verbose to see all skipped resources."
+                    )
+                )
+            )
+        elif verbose and all_skipped:
+            sections.append(
+                ToolkitPanelSection(
+                    title="Skipped resources",
+                    content=[
+                        hanging_indent(
+                            "○",
+                            f"[bold]{skip.identifier}[/] {source_file.as_posix()} [{resource_type}] {skip.reason}",
+                            marker_style="dim",
+                        )
+                        for resource_type, source_file, skip in all_skipped
+                    ],
+                )
+            )
+
+        if verbose:
+            changed_entries: list[RenderableType] = []
+            for resource_type in sorted_types:
+                for r in results_by_type[resource_type]:
+                    if not r.has_changes:
+                        continue
+                    changed_entries.append(
+                        hanging_indent(
+                            "●",
+                            f"[bold]{resource_type}[/] {r.source_file.as_posix()}"
+                            + (
+                                f" (+{len(r.extra_files)} extra file{'s' if len(r.extra_files) != 1 else ''})"
+                                if r.extra_files
+                                else ""
+                            ),
+                            marker_style="green",
+                        )
+                    )
+            if changed_entries:
+                sections.append(
+                    ToolkitPanelSection(
+                        title="Changed files",
+                        content=changed_entries,
+                    )
+                )
+
+        console.print(ToolkitPanel(Group(*sections), title=panel_title))
 
     @staticmethod
     def _get_local_resource_dict_by_id(
