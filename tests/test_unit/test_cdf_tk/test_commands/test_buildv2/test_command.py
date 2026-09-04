@@ -362,7 +362,9 @@ class TestReadFileSystem:
             config_yaml=config_yaml,
             user_selected_modules=["module1", "module2"],
         )
-        build_files = BuildV2Command._read_file_system(parameters)
+        build_files = BuildV2Command._read_file_system(
+            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+        )
         assert build_files.model_dump() == {
             "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
@@ -385,7 +387,9 @@ class TestReadFileSystem:
         _ = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
         with pytest.raises(ToolkitValueError) as exc_info:
-            BuildV2Command._read_file_system(parameters)
+            BuildV2Command._read_file_system(
+                parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+            )
 
         assert (
             "Unrecognized value for environment.validation-type: Expected one of 'dev' or 'prod'. Got 'invalid_type'."
