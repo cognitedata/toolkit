@@ -826,6 +826,35 @@ class PullCommand(ToolkitCommand):
         return replacer.replace(loaded, loaded_with_placeholder, item_write)
 
 
+class PullV2Command(ToolkitCommand):
+    def pull(
+        self,
+        user_selected_modules: list[str] | None,
+        env_vars: EnvironmentVariables,
+        organization_dir: Path,
+        config_yaml: Path | None = None,
+        dry_run: bool = False,
+        verbose: bool = False,
+    ) -> None:
+        """Pulls resources from CDF and updates local configuration files.
+
+        Args:
+            user_selected_modules: List of module names or paths to pull. If None, the user will be prompted to select.
+            env_vars: Environment variables for the current environment.
+            organization_dir: Path to the organization directory containing modules.
+            config_yaml: Optional path to a specific configuration YAML file to pull.
+            dry_run: If True, no files will be modified; only a summary of changes will be displayed.
+            verbose: If True, detailed output will be printed during execution.
+        """
+        # Figure out which modules to pull based on user input or prompt.
+        # Build selected modules.
+        # Order resources by type (now ignore modules)
+        # For each resource type, pull the resources from CDF and update local files.
+        # - Gather up the results and display a summary of changes.
+        # - Verbose output can show detailed changes for each resource.
+        ...
+
+
 class ResourceReplacer:
     """Replaces values in a local resource dictionary with the updated values from CDF.
 
