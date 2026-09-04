@@ -81,6 +81,10 @@ def create_built_resource() -> Callable[[Path, Path], BuiltResource]:
             crud_cls=InFieldCDMLocationConfigIO,
             dependencies=set(),
             has_syntax_error=False,
+            module_id=ModuleId(
+                id=RelativeDirPath(Path("modules/my")),
+                path=source_path.parent.resolve(),
+            ),
         )
 
     return _create

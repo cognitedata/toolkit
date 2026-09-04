@@ -241,6 +241,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         module.resources.append(
@@ -256,6 +257,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         result = list(DependencyRuleSet([module]).validate())
