@@ -170,7 +170,7 @@ class DumpConfigApp(typer.Typer):
             list[str] | None,
             typer.Argument(
                 help="Workflow ID to dump. Format: external_id version. Example: 'my_external_id v1'. "
-                "If nothing is provided, an interactive prompt will be shown to select the workflow",
+                "If nothing is provided, an interactive prompt will be shown to select the workflow(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -200,13 +200,13 @@ class DumpConfigApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected workflow as yaml to the folder specified, defaults to /tmp."""
-        selected_workflow: WorkflowVersionId | None = None
+        selected_workflow: tuple[WorkflowVersionId, ...] | None = None
         if workflow_id is not None:
             if len(workflow_id) <= 1:
                 raise ToolkitRequiredValueError(
                     "Workflow ID must have at least 1 part: external_id and, optionally, version."
                 )
-            selected_workflow = WorkflowVersionId(workflow_external_id=workflow_id[0], version=workflow_id[1])
+            selected_workflow = (WorkflowVersionId(workflow_external_id=workflow_id[0], version=workflow_id[1]),)
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)
