@@ -1,3 +1,4 @@
+import builtins
 import difflib
 import json
 import shutil
@@ -60,7 +61,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Environment,
     InitConfigYAML,
     ModuleLocation,
-    ModuleResources,
     Package,
     Packages,
 )
@@ -1075,7 +1075,7 @@ class ModulesCommand(ToolkitCommand):
             environments.append(default.environment.validation_type)
             build_env = default.environment.validation_type
 
-        existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
+        existing_module_names = self._find_existing_modules(organization_dir, build_env)
         available_packages, modules_source_path = self._get_available_packages()
 
         if deployment_pack is not None:
@@ -1092,6 +1092,20 @@ class ModulesCommand(ToolkitCommand):
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
+
+    @classmethod
+    def _find_existing_modules(cls, organization_dir: Path, build_env: str) -> builtins.list[str]:
+        """
+        Returns a list of existing module names in the given organization directory and build environment.
+        """
+        build_input = BuildV2Command._read_file_system(
+            organization_dir=organization_dir,
+            config_yaml=organization_dir / f"config.{build_env}.yaml",
+            user_selected_modules=[f"{MODULES}/"],
+        )
+
+        scan_result = BuildV2Command._find_modules(build_input)
+        return [module.name for module in scan_result.modules]
 
     def _get_available_packages(self, user_library: Library | None = None) -> tuple[Packages, Path]:
         """

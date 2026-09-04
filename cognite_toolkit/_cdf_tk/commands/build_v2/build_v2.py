@@ -116,7 +116,9 @@ class BuildV2Command(ToolkitCommand):
         build_start_time = datetime.now(timezone.utc)
 
         self._validate_build_parameters(parameters, console, sys.argv)
-        build_files = self._read_file_system(parameters)
+        build_files = self._read_file_system(
+            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+        )
         selection_source: SelectionSource = (
             "modules"
             if parameters.user_selected_modules
@@ -238,7 +240,9 @@ class BuildV2Command(ToolkitCommand):
             if cached_lineage.config_hash != current_config_hash:
                 return None, False
 
-        build_files = self._read_file_system(parameters)
+        build_files = self._read_file_system(
+            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+        )
         source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
@@ -383,11 +387,12 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _find_modules(self, build: BuildInput) -> ModuleScanResult:
+    @classmethod
+    def _find_modules(cls, build: BuildInput) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
 
         if build.selected_modules is None:
-            user_selected_modules = self._ask_user_to_select_modules(list(source_by_module_id.values()))
+            user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()))
         else:
             user_selected_modules = build.selected_modules
 
@@ -561,19 +566,24 @@ class BuildV2Command(ToolkitCommand):
         return "interactive"
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildInput:
+    def _read_file_system(
+        cls,
+        organization_dir: Path,
+        config_yaml: Path | None,
+        user_selected_modules: list[str] | None,
+    ) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] | None = None
         variables: dict[str, JsonValue] = {}
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
-        if parameters.user_selected_modules:
-            selected, errors = cls._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
+        if user_selected_modules:
+            selected, errors = cls._parse_user_selection(user_selected_modules, organization_dir)
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
-        if parameters.config_yaml:
-            config_path = parameters.config_yaml.resolve()
+        if config_yaml:
+            config_path = config_yaml.resolve()
             try:
                 config = ConfigYAML.from_yaml_file(config_path)
             except ValidationError as e:
@@ -581,8 +591,8 @@ class BuildV2Command(ToolkitCommand):
                 raise ToolkitValueError(
                     f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
-            if not parameters.user_selected_modules and config.environment.selected:
-                selected, errors = cls._parse_user_selection(config.environment.selected, parameters.organization_dir)
+            if not user_selected_modules and config.environment.selected:
+                selected, errors = cls._parse_user_selection(config.environment.selected, organization_dir)
                 if errors:
                     raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
             variables = config.variables or {}
@@ -590,8 +600,7 @@ class BuildV2Command(ToolkitCommand):
             validation_type = config.environment.validation_type
 
         yaml_files = [
-            yaml_file.relative_to(parameters.organization_dir)
-            for yaml_file in parameters.modules_directory.rglob("*.y*ml")
+            yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
         ]
         return BuildInput(
             yaml_files=yaml_files,
@@ -599,7 +608,7 @@ class BuildV2Command(ToolkitCommand):
             variables=variables,
             validation_type=validation_type,
             cdf_project=cdf_project,
-            organization_dir=parameters.organization_dir.resolve(),
+            organization_dir=organization_dir.resolve(),
         )
 
     @classmethod
