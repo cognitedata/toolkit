@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
     BuildParameters,
+    BuildVariable,
     BuiltResource,
     ResourceType,
 )
@@ -937,7 +938,7 @@ class PullV2Command(ToolkitCommand):
                 local_resource_by_id[resource.identifier] = resource_list[0]
             except IndexError:
                 raise ToolkitValueError(
-                    f"There is a bug in Toolikt. "
+                    f"There is a bug in Toolkit. "
                     f"Expected at least one resource in the file {resource.build_path}, but found none."
                 )
         return local_resource_by_id
@@ -964,8 +965,10 @@ class PullV2Command(ToolkitCommand):
             cdf_dumped = resource_io.dump_resource(cdf_resource, local_dict)
 
             if cdf_dumped == local_dict:
+                # Todo: log
                 to_write[item_id] = local_dict
             else:
+                # Todo: log
                 to_write[item_id] = cdf_dumped
                 has_changes = True
         return has_changes, to_write
@@ -978,7 +981,194 @@ class PullV2Command(ToolkitCommand):
         environment_variables: dict[str, str | None],
         resource_io: ResourceIO,
         source_file: Path,
-    ) -> tuple[str, dict[Path, str]]: ...
+    ) -> tuple[str, dict[Path, str]]:
+        """Convert resource data from CDF into YAML file content ready to be written to disk.
+
+        This method takes the raw CDF resource data and transforms it back into a properly
+        formatted YAML file that preserves:
+        - Template variables (e.g., {{ variable_name }}) instead of their resolved values
+        - YAML comments from the original source file
+        - The original key ordering in dictionaries
+
+        The transformation process:
+        1. Replace all template variables with unique placeholders
+        2. Load source YAML content while preserving comments
+        3. Update the resource data with placeholder values where variables were used
+        4. Dump the updated data back to YAML format
+        5. Replace placeholders with the original template variable syntax
+        6. Restore the YAML comments
+
+        Args:
+            source: The original YAML file content as a string.
+            to_write: A mapping from resource identifiers to their updated data dictionaries
+                pulled from CDF.
+            resources: The list of built resources containing build variables and metadata.
+            environment_variables: A mapping of environment variable names to their values,
+                used to resolve variables like ${VAR_NAME} in template values.
+            resource_io: The ResourceCRUD loader instance for this resource type.
+            source_file: The path to the source file being processed.
+
+        Returns:
+            A tuple containing:
+            - The final YAML content string ready to be written to disk.
+            - A dictionary mapping extra file paths to their content (for resources
+              that have additional files, like SQL queries for transformations).
+
+        Raises:
+            ValueError: If the loaded YAML structure doesn't match between the original
+                and placeholder versions.
+            ToolkitMissingResourceError: If a resource identifier is not found in the
+                to_write or resources mappings.
+        """
+        # 1. Replace all variables with placeholders
+        # 2. Load source and keep the comments
+        # 3. Update the to_write dict with the placeholders
+        # 4. Dump the yaml with the placeholders
+        # 5. Replace the placeholders with the variables
+        # 6. Add the comments back
+
+        # All resources are assumed to be in the same file, and thus the same build variables.
+        variables = resources[0].variables
+        if environment_variables:
+            variables = self._to_be_named(variables, environment_variables)
+
+        content, value_by_placeholder = BuildVariable.substitute_with_placeholders(source_content, variables)
+        comments = YAMLComments.load(source_content)
+
+        # If there is a variable in the identifier, we need to replace it with the value
+        # such that we can look it up in the to_write dict.
+        if isinstance(resource_io, ExtractionPipelineConfigIO):
+            # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
+            # but we need to load it as a dict so we can write it back to the file maintaining
+            # the order or the keys.
+            source_dict_with_variable_substitution = read_yaml_content(
+                BuildVariable.substitute(source_content, variables, source_file.suffix)
+            )
+            source_with_with_variable_placeholders = read_yaml_content(content)
+        else:
+            source_dict_with_variable_substitution = read_yaml_content(
+                resource_io.safe_read(BuildVariable.substitute(source_content, variables, source_file.suffix))
+            )
+            source_with_with_variable_placeholders = read_yaml_content(resource_io.safe_read(content))
+
+        built_by_identifier = {r.identifier: r for r in resources}
+        updated: dict[str, Any] | list[dict[str, Any]]
+        extra_files: dict[Path, str] = {}
+        replacer = ResourceReplacer(value_by_placeholder, resource_io)
+        if isinstance(source_dict_with_variable_substitution, dict) and isinstance(
+            source_with_with_variable_placeholders, dict
+        ):
+            item_id = resource_io.get_id(source_dict_with_variable_substitution)
+            updated = self._update(
+                item_id,
+                source_dict_with_variable_substitution,
+                source_with_with_variable_placeholders,
+                source_file,
+                to_write,
+                built_by_identifier,
+                replacer,
+                extra_files,
+            )
+        elif isinstance(source_dict_with_variable_substitution, list) and isinstance(
+            source_with_with_variable_placeholders, list
+        ):
+            updated = []
+            for i, source_dict_with_variable_substitution_i in enumerate(source_dict_with_variable_substitution):
+                item_id = resource_io.get_id(source_dict_with_variable_substitution_i)
+                updated.append(
+                    self._update(
+                        item_id,
+                        source_dict_with_variable_substitution_i,
+                        source_with_with_variable_placeholders[i],
+                        source_file,
+                        to_write,
+                        built_by_identifier,
+                        replacer,
+                        extra_files,
+                    )
+                )
+        else:
+            raise ValueError("Loaded and loaded_with_ids should be of the same type")
+
+        dumped = yaml_safe_dump(updated)
+        for placeholder, variable in value_by_placeholder.items():
+            dumped = dumped.replace(placeholder, f"{{{{ {variable.key} }}}}")
+        file_content = comments.dump(dumped)
+        return file_content, extra_files
+
+    @staticmethod
+    def _to_be_named(
+        variables: list[BuildVariable], environment_variables: dict[str, str | None]
+    ) -> list[BuildVariable]:
+        variables_with_environment_list: list[BuildVariable] = []
+        for variable in variables:
+            if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
+                for key, value in environment_variables.items():
+                    if key in variable.value and isinstance(value, str):
+                        # Running through all environment variables, in case multiple are used in the same variable.
+                        # Note that variable are immutable, so we are not modifying the original variable.
+                        variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
+                variables_with_environment_list.append(variable)
+            elif isinstance(variable.value, tuple):
+                new_value: list[str | int | float | bool] = []
+                for var_item in variable.value:
+                    if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
+                        for key, value in environment_variables.items():
+                            if key in var_item and isinstance(value, str):
+                                var_item = var_item.replace(f"${{{key}}}", value)
+                    new_value.append(var_item)
+                variables_with_environment_list.append(dataclasses.replace(variable, value=tuple(new_value)))  # type: ignore[arg-type]
+            else:
+                variables_with_environment_list.append(variable)
+        variables = BuildVariables(variables_with_environment_list)
+        return variables
+
+    @classmethod
+    def _update(
+        cls,
+        item_id: T_Identifier,
+        source_with_variable_substitution: dict[str, Any],
+        source_with_variable_placeholder: dict[str, Any],
+        source_file: Path,
+        to_write: dict[T_Identifier, dict[str, Any]],
+        built_by_identifier: dict[T_Identifier, BuiltResource],
+        replacer: "ResourceReplacer",
+        extra_files: dict[Path, str],
+    ) -> dict[str, Any]:
+        if item_id not in to_write:
+            raise ToolkitValueError(f"Bug in Toolkit resource {item_id} not found in to_write.")
+        item_write = to_write[item_id]
+        if item_id not in built_by_identifier:
+            raise ToolkitMissingResourceError(f"Bug in Toolkit resource {item_id} not found in built resources.")
+        built = built_by_identifier[item_id]
+
+        if built.extra_files:
+            for extra in built.extra_files:
+                extra_content, extra_placeholders = BuildVariable.substitute_with_placeholders(
+                    safe_read(extra.source_path), built.variables
+                )
+                if (
+                    built.crud_cls.extra_content_property in item_write
+                    and built.crud_cls.extra_content_property is not None
+                ):
+                    new_extra = item_write.pop(built.crud_cls.extra_content_property)
+                    for placeholder, variable in extra_placeholders.items():
+                        if placeholder in extra_content:
+                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
+                    extra_files[extra.source_path] = new_extra
+
+        # Only split for resources that are sidecar-backed in build metadata, plus Skill (sidecar-first by design).
+        if built.extra_files or replacer._loader.kind == "Skill":
+            split_resources = list(replacer._loader.split_resource(source_file, item_write))
+            base_to_write = item_write
+            for split_path, split_content in split_resources:
+                if split_path == source_file and isinstance(split_content, dict):
+                    base_to_write = split_content
+                elif isinstance(split_content, str):
+                    extra_files[split_path] = split_content
+            return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, base_to_write)
+
+        return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, item_write)
 
 
 class ResourceReplacer:
