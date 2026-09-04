@@ -180,6 +180,12 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
+    # This is used for resources that support extra files. For example, the Transformation resources
+    # supports having the query in a separate .sql file. This is the property were the extra content should be placed,
+    # for example, the Transformation resource has the query property that is used to store the query content.
+    extra_content_property: str | None = None
+
+
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
