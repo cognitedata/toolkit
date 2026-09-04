@@ -33,7 +33,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
@@ -390,6 +389,31 @@ class TextFileDifference(UserList):
         print(Panel.fit(Markdown("\n".join(content), justify="left"), title=title or "File differences"))
 
 
+@dataclass
+class SkippedPull:
+    identifier: Identifier
+    reason: str
+
+
+@dataclass
+class PullResult:
+    """Represents the result of a pull operation for a single resource file.
+
+    Attributes:
+        source_file: The path to the source file that was pulled.
+        has_changes: A boolean indicating whether there were changes between the local and CDF versions.
+        is_dry_run: A boolean indicating whether the pull was a dry run (no files were modified).
+        resource_type: The type of resource that was pulled (e.g., "view", "extraction_pipeline_config").
+    """
+
+    source_file: Path
+    resource_type: ResourceType
+    has_changes: bool
+    is_dry_run: bool
+    extra_files: list[Path]
+    skipped: list[SkippedPull]
+
+
 class PullV2Command(ToolkitCommand):
     def pull(
         self,
@@ -444,12 +468,13 @@ class PullV2Command(ToolkitCommand):
         env_vars: dict[str, str | None],
         console: Console,
         verbose: bool,
-    ) -> None:
+    ) -> list[PullResult]:
         resources_by_type: dict[ResourceType, list[BuiltResource]] = defaultdict(list)
         for module in build_folder.built_modules:
             for resource in module.resources:
                 resources_by_type[resource.type].append(resource)
 
+        results: list[PullResult] = []
         for resource_type, resources in resources_by_type.items():
             resource_io = resources[0].crud_cls.create_loader(
                 client, build_dir=build_folder.build_dir, console=client.console
@@ -464,8 +489,11 @@ class PullV2Command(ToolkitCommand):
 
             for source_file, file_resources in resource_by_source_file.items():
                 local_resource_by_id = self._get_local_resource_dict_by_id(file_resources, resource_io, env_vars)
-                has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, resource_io)
+                has_changes, missing_in_cdf, to_write = self._get_to_write(
+                    local_resource_by_id, cdf_resource_by_id, resource_io
+                )
 
+                extra_files: dict[Path, str] = {}
                 if has_changes and not dry_run:
                     new_content, extra_files = self._to_write_content(
                         safe_read(source_file), to_write, file_resources, env_vars, resource_io, source_file
@@ -476,6 +504,22 @@ class PullV2Command(ToolkitCommand):
                         filepath.parent.mkdir(parents=True, exist_ok=True)
                         with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                             f.write(content)
+
+                results.append(
+                    PullResult(
+                        source_file=source_file,
+                        has_changes=has_changes,
+                        is_dry_run=dry_run,
+                        resource_type=resource_type,
+                        extra_files=list(extra_files.keys()),
+                        skipped=[
+                            SkippedPull(identifier=identifier, reason="Resource missing in CDF")
+                            for identifier in missing_in_cdf
+                        ],
+                    )
+                )
+
+        return results
 
     @staticmethod
     def _get_local_resource_dict_by_id(
@@ -497,35 +541,29 @@ class PullV2Command(ToolkitCommand):
                 )
         return local_resource_by_id
 
+    @staticmethod
     def _get_to_write(
-        self,
         local_resource_by_id: dict[Identifier, dict[str, Any]],
         cdf_resource_by_id: dict[Identifier, ResponseResource],
         resource_io: ResourceIO,
-    ) -> tuple[bool, dict[Identifier, dict[str, Any]]]:
+    ) -> tuple[bool, list[Identifier], dict[Identifier, dict[str, Any]]]:
         to_write: dict[Identifier, dict[str, Any]] = {}
         has_changes = False
+        missing_in_cdf: list[Identifier] = []
         for item_id, local_dict in local_resource_by_id.items():
             cdf_resource = cdf_resource_by_id.get(item_id)
             if cdf_resource is None:
                 to_write[item_id] = local_dict
-                ## Todo, log as skip.
-                self.warn(
-                    MediumSeverityWarning(
-                        f"No {resource_io.display_name} with id {item_id} found in CDF. Have you deployed it?"
-                    )
-                )
+                missing_in_cdf.append(item_id)
                 continue
             cdf_dumped = resource_io.dump_resource(cdf_resource, local_dict)
 
             if cdf_dumped == local_dict:
-                # Todo: log
                 to_write[item_id] = local_dict
             else:
-                # Todo: log
                 to_write[item_id] = cdf_dumped
                 has_changes = True
-        return has_changes, to_write
+        return has_changes, missing_in_cdf, to_write
 
     def _to_write_content(
         self,
