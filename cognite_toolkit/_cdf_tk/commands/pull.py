@@ -1,4 +1,3 @@
-import dataclasses
 import itertools
 import json
 import re
@@ -8,7 +7,7 @@ import uuid
 from collections import UserList
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, cast
 
 import questionary
 import yaml
@@ -23,10 +22,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_Reques
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
-    BuildVariable,
-    BuildVariables,
-    BuiltFullResourceList,
-    BuiltResourceFull,
     DeployResults,
     ModuleDirectories,
     ResourceDeployResult,
@@ -63,7 +58,14 @@ from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
 from .build_v2.build_v2 import BuildV2Command
-from .build_v2.data_classes import BuildFolder, BuildParameters
+from .build_v2.data_classes import (
+    BuildFolder,
+    BuildParameters,
+    BuildVariable,
+    BuiltResource,
+    BuiltResourceList,
+    FileSuffix,
+)
 from .clean import CleanCommand
 
 if sys.version_info >= (3, 11):
@@ -78,6 +80,13 @@ _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # version control, the diff will be easier to read.
 ENCODING = "utf-8"
 NEWLINE = "\n"
+
+
+def _file_suffix(path: Path) -> FileSuffix:
+    suffix = path.suffix.lower()
+    if suffix in {".yaml", ".yml", ".json", ".sql"}:
+        return suffix  # type: ignore[return-value]
+    return ".yaml"
 
 
 @dataclass
@@ -520,9 +529,8 @@ class PullCommand(ToolkitCommand):
             if not issubclass(loader_cls, ResourceIO):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
-            resources: BuiltFullResourceList[T_Identifier] = built_modules.get_resources(  # type: ignore[valid-type]
-                None,
-                loader.folder_name,  # type: ignore[arg-type]
+            resources = build_folder.get_resources(
+                loader.folder_name,
                 loader.kind,
                 selected,
                 is_supported_file=loader.is_supported_file,
@@ -556,11 +564,11 @@ class PullCommand(ToolkitCommand):
     def _pull_resources(
         self,
         loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
-        resources: BuiltFullResourceList[T_Identifier],
+        resources: BuiltResourceList,
         dry_run: bool,
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
-        cdf_resources = loader.retrieve(resources.identifiers)
+        cdf_resources = loader.retrieve(cast(list[T_Identifier], resources.identifiers))
         cdf_resource_by_id: dict[T_Identifier, T_ResponseResource] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
@@ -616,11 +624,11 @@ class PullCommand(ToolkitCommand):
 
     @staticmethod
     def _get_local_resource_dict_by_id(
-        resources: BuiltFullResourceList[T_ID],
+        resources: BuiltResourceList,
         loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         environment_variables: dict[str, str | None],
     ) -> dict[T_Identifier, dict[str, Any]]:
-        unique_destinations = {r.destination for r in resources if r.destination}
+        unique_destinations = {r.build_path for r in resources}
         local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
         local_resource_ids = set(resources.identifiers)
         for destination in unique_destinations:
@@ -628,31 +636,32 @@ class PullCommand(ToolkitCommand):
             for resource_dict in resource_list:
                 identifier = loader.get_id(resource_dict)
                 if identifier in local_resource_ids:
-                    local_resource_by_id[identifier] = resource_dict  # type:ignore[index]
+                    local_resource_by_id[identifier] = resource_dict
         return local_resource_by_id
 
     @staticmethod
     def _select_resource_ids(
-        all_: bool, id_: T_ID, loader: ResourceIO, local_resources: BuiltFullResourceList, organization_dir: Path
-    ) -> BuiltFullResourceList[T_ID]:
+        all_: bool, id_: T_ID, loader: ResourceIO, local_resources: BuiltResourceList, organization_dir: Path
+    ) -> BuiltResourceList:
         if all_:
             return local_resources
         if id_ is None:
-            return questionary.select(
+            selected_resource = questionary.select(
                 f"Select a {loader.display_name} to pull",
                 choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
             ).unsafe_ask()
+            return BuiltResourceList([selected_resource])
         if id_ not in local_resources.identifiers:
             raise ToolkitMissingResourceError(
                 f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
             )
-        return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
+        return BuiltResourceList([r for r in local_resources if r.identifier == id_])
 
     def _to_write_content(
         self,
         source: str,
         to_write: dict[T_ID, dict[str, Any]],
-        resources: BuiltFullResourceList[T_ID],
+        resources: BuiltResourceList,
         environment_variables: dict[str, str | None],
         loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         source_file: Path,
@@ -703,42 +712,44 @@ class PullCommand(ToolkitCommand):
         # 6. Add the comments back
 
         # All resources are assumed to be in the same file, and thus the same build variables.
-        variables = resources[0].build_variables
+        variables = resources[0].variables
         if environment_variables:
             variables_with_environment_list: list[BuildVariable] = []
             for variable in variables:
                 if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
-                    for key, value in environment_variables.items():
-                        if key in variable.value and isinstance(value, str):
+                    value = variable.value
+                    for key, env_value in environment_variables.items():
+                        if key in value and isinstance(env_value, str):
                             # Running through all environment variables, in case multiple are used in the same variable.
-                            # Note that variable are immutable, so we are not modifying the original variable.
-                            variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
-                    variables_with_environment_list.append(variable)
-                elif isinstance(variable.value, tuple):
+                            # Note that variables are immutable, so we are not modifying the original variable.
+                            value = value.replace(f"${{{key}}}", env_value)
+                    variables_with_environment_list.append(variable.model_copy(update={"value": value}))
+                elif isinstance(variable.value, list):
                     new_value: list[str | int | float | bool] = []
                     for var_item in variable.value:
                         if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
-                            for key, value in environment_variables.items():
-                                if key in var_item and isinstance(value, str):
-                                    var_item = var_item.replace(f"${{{key}}}", value)
+                            for key, env_value in environment_variables.items():
+                                if key in var_item and isinstance(env_value, str):
+                                    var_item = var_item.replace(f"${{{key}}}", env_value)
                         new_value.append(var_item)
-                    variables_with_environment_list.append(dataclasses.replace(variable, value=tuple(new_value)))  # type: ignore[arg-type]
+                    variables_with_environment_list.append(variable.model_copy(update={"value": new_value}))
                 else:
                     variables_with_environment_list.append(variable)
-            variables = BuildVariables(variables_with_environment_list)
+            variables = variables_with_environment_list
 
-        content, value_by_placeholder = variables.replace(source, source_file, use_placeholder=True)
+        content, value_by_placeholder = BuildVariable.substitute_with_placeholders(source, variables)
         comments = YAMLComments.load(source)
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
+        substituted = BuildVariable.substitute(source, variables, _file_suffix(source_file))
         if isinstance(loader, ExtractionPipelineConfigIO):
             # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
             # but we need to load it as a dict so we can write it back to the file maintaining
             # the order or the keys.
-            loaded = read_yaml_content(variables.replace(source, source_file))
+            loaded = read_yaml_content(substituted)
             loaded_with_placeholder = read_yaml_content(content)
         else:
-            loaded = read_yaml_content(loader.safe_read(variables.replace(source, source_file)))
+            loaded = read_yaml_content(loader.safe_read(substituted))
             loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
 
         built_by_identifier = {r.identifier: r for r in resources}
@@ -782,7 +793,7 @@ class PullCommand(ToolkitCommand):
 
         dumped = yaml_safe_dump(updated)
         for placeholder, variable in value_by_placeholder.items():
-            dumped = dumped.replace(placeholder, f"{{{{ {variable.key} }}}}")
+            dumped = dumped.replace(placeholder, f"{{{{ {variable.name} }}}}")
         file_content = comments.dump(dumped)
         return file_content, extra_files
 
@@ -794,7 +805,7 @@ class PullCommand(ToolkitCommand):
         loaded_with_placeholder: dict[str, Any],
         source_file: Path,
         to_write: dict[T_ID, dict[str, Any]],
-        built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
+        built_by_identifier: dict[T_ID, BuiltResource],
         replacer: "ResourceReplacer",
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
@@ -804,21 +815,21 @@ class PullCommand(ToolkitCommand):
         if item_id not in built_by_identifier:
             raise ToolkitMissingResourceError(f"Resource {item_id} not found in resources.")
         built = built_by_identifier[item_id]
-        if built.extra_sources:
-            builder = create_builder(built.resource_dir, None)
-            for extra in built.extra_sources:
-                extra_content, extra_placeholders = built.build_variables.replace(
-                    safe_read(extra.path), extra.path, use_placeholder=True
+        if built.extra_files:
+            builder = create_builder(built.type.resource_folder, None)
+            for extra in built.extra_files:
+                extra_content, extra_placeholders = BuildVariable.substitute_with_placeholders(
+                    safe_read(extra.source_path), built.variables
                 )
                 key, _ = builder.load_extra_field(extra_content)
                 if key in item_write:
                     new_extra = item_write.pop(key)
                     for placeholder, variable in extra_placeholders.items():
-                        if placeholder in extra_content:
-                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
-                    extra_files[extra.path] = new_extra
+                        if placeholder in extra_content and isinstance(variable.value, str):
+                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.name} }}}}")
+                    extra_files[extra.source_path] = new_extra
         # Only split for resources that are sidecar-backed in build metadata, plus Skill (sidecar-first by design).
-        if built.extra_sources or replacer._loader.kind == "Skill":
+        if built.extra_files or replacer._loader.kind == "Skill":
             split_resources = list(replacer._loader.split_resource(source_file, item_write))
             base_to_write = item_write
             for split_path, split_content in split_resources:
@@ -956,7 +967,7 @@ class ResourceReplacer:
                     # string, we cannot update it.
                     if variable := self._value_by_placeholder.get(placeholder_value):
                         raise ToolkitValueError(
-                            f"Pull is not supported for list variable: {variable.key}: {variable.value_variable}"
+                            f"Pull is not supported for list variable: {variable.name}: {variable.value}"
                         )
                     raise ToolkitValueError("Pull is not supported for list variable.")
             else:
@@ -1010,10 +1021,10 @@ class ResourceReplacer:
                 # Variable substitution is only supported for strings
                 return to_write
             for placeholder, variable in self._value_by_placeholder.items():
-                if placeholder in placeholder_value:
+                if placeholder in placeholder_value and isinstance(variable.value, str):
                     # We use the placeholder and not the {{ variable }} in the value to ensure
                     # that the result is valid yaml.
-                    to_write = to_write.replace(variable.value, placeholder)  # type: ignore[arg-type]
+                    to_write = to_write.replace(variable.value, placeholder)
                     # Iterate through all variables in case multiple are used in the same value.
             return to_write
         elif isinstance(current, dict) and isinstance(to_write, str):

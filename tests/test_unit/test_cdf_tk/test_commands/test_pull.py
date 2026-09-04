@@ -8,13 +8,8 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, BuiltResource, BuiltResourceList
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildVariable,
-    BuildVariables,
-    BuiltFullResourceList,
-    BuiltResourceFull,
-)
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -444,17 +439,16 @@ description: This dataset contains Transformations, Functions, and Workflows for
         }
     }
     variable = BuildVariable(
-        key="dataset",
+        id=Path("modules/dataset"),
         value="ingestion",
         is_selected=True,
-        location=Path("whatever"),
     )
-    ingestion = MagicMock(spec=BuiltResourceFull)
-    ingestion.build_variables = BuildVariables([variable])
+    ingestion = MagicMock(spec=BuiltResource)
+    ingestion.variables = [variable]
     ingestion.identifier = ExternalId(external_id="ingestion")
-    ingestion.extra_sources = []
+    ingestion.extra_files = []
 
-    resources = BuiltFullResourceList([ingestion])
+    resources = BuiltResourceList([ingestion])
 
     expected = """name: Ingestion
 externalId: {{ dataset }}
@@ -512,11 +506,11 @@ description: New description
             "description": "also new description",
         },
     }
-    unique_dataset = MagicMock(spec=BuiltResourceFull)
-    unique_dataset.build_variables = BuildVariables([])
+    unique_dataset = MagicMock(spec=BuiltResource)
+    unique_dataset.variables = []
     unique_dataset.identifier = ExternalId(external_id="unique_dataset")
-    unique_dataset.extra_sources = []
-    resources = BuiltFullResourceList([ingestion, unique_dataset])
+    unique_dataset.extra_files = []
+    resources = BuiltResourceList([ingestion, unique_dataset])
 
     yield pytest.param(
         source,
@@ -562,17 +556,16 @@ filter:
         }
     }
     variable_view = BuildVariable(
-        key="instance_space",
+        id=Path("modules/instance_space"),
         value="my_space",
         is_selected=True,
-        location=Path("whatever"),
     )
-    view_resource = MagicMock(spec=BuiltResourceFull)
-    view_resource.build_variables = BuildVariables([variable_view])
+    view_resource = MagicMock(spec=BuiltResource)
+    view_resource.variables = [variable_view]
     view_resource.identifier = ViewId(space="my_space", external_id="my_external_id", version="v1")
-    view_resource.extra_sources = []
+    view_resource.extra_files = []
 
-    resources_view = BuiltFullResourceList([view_resource])
+    resources_view = BuiltResourceList([view_resource])
 
     expected_view = """space: {{ instance_space }}
 externalId: my_external_id
@@ -607,7 +600,7 @@ class TestPullCommand:
         self,
         source: str,
         to_write: dict[str, [dict[str, Any]]],
-        resources: BuiltFullResourceList,
+        resources: BuiltResourceList,
         expected: str,
         loader_type: type,
         source_file: Path,

@@ -891,22 +891,22 @@ def test_build_project_with_only_identifiers(
     """In the cdf modules pull command, we have to be able to build a project that only has identifiers
     without raising any errors.
     """
-    built_modules = BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
-        organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="dev",
-        no_clean=False,
+    build_folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        parameters=BuildParameters(
+            organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
+            build_dir=build_tmp_path,
+            config_yaml=COMPLETE_ORG_ONLY_IDENTIFIER / "config.dev.yaml",
+            write_insights=False,
+            write_lineage=False,
+        ),
         client=env_vars_with_client.get_client(),
-        on_error="raise",
+        display=False,
     )
 
     # Loading the local resources as it is done in the PullCommand
     for loader_cls in RESOURCE_CRUD_LIST:
         loader = loader_cls.create_loader(env_vars_with_client.get_client())
-        built_resources = built_modules.get_resources(
-            None,
+        built_resources = build_folder.get_resources(
             loader.folder_name,
             loader.kind,
         )

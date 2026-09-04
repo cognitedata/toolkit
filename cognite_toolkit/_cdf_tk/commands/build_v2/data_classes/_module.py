@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -107,6 +108,24 @@ class BuildVariable(BaseModel):
             pattern, replace = variable.get_pattern_replace_pair(file_suffix)
             content = re.sub(pattern, replace, content)
         return content
+
+    @classmethod
+    def substitute_with_placeholders(
+        cls, content: str, variables: "list[BuildVariable]"
+    ) -> tuple[str, dict[str, "BuildVariable"]]:
+        """Replace ``{{ variable }}`` tokens with unique placeholders.
+
+        Used by pull to round-trip CDF values back into source files without
+        resolving template variables. The placeholders are valid YAML tokens so
+        the content can be parsed, then swapped back to ``{{ name }}`` syntax.
+        """
+        variable_by_placeholder: dict[str, BuildVariable] = {}
+        for variable in variables:
+            placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
+            variable_by_placeholder[placeholder] = variable
+            pattern = rf"{{{{\s*{re.escape(variable.name)}\s*}}}}"
+            content = re.sub(pattern, placeholder, content)
+        return content, variable_by_placeholder
 
 
 class InvalidBuildVariable(BuildVariable):

@@ -1,4 +1,6 @@
 import builtins
+from collections import UserList, defaultdict
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -7,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
@@ -104,7 +106,10 @@ class BuiltResource(BaseModel):
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
 
     failed_extra: list[FailedReadExtra] = Field(default_factory=list)
+    extra_files: list[SuccessExtra] = Field(default_factory=list)
     has_syntax_error: bool
+    variables: list[BuildVariable] = Field(default_factory=list)
+    module_name: str = ""
 
     @property
     def can_verify(self) -> bool:
@@ -186,6 +191,44 @@ class BuiltModule(BaseModel):
     def __hash__(self) -> int:
         return hash(self.module_id.path)
 
+    def get_resources(
+        self,
+        resource_folder: str | None = None,
+        kind: str | None = None,
+        selected: Path | None = None,
+        is_supported_file: Callable[[Path], bool] | None = None,
+    ) -> "BuiltResourceList":
+        """Return resources in this module, optionally filtered by folder, kind, path, or file type."""
+        resources = (
+            resource
+            for resource in self.resources
+            if (resource_folder is None or resource.type.resource_folder == resource_folder)
+            and (kind is None or resource.type.kind == kind)
+        )
+        if selected is not None:
+            resources = (resource for resource in resources if self._is_selected_path(resource.source_path, selected))
+        if is_supported_file is not None:
+            resources = (resource for resource in resources if is_supported_file(resource.source_path))
+        return BuiltResourceList(list(resources))
+
+    @staticmethod
+    def _is_selected_path(filepath: Path, selected: Path) -> bool:
+        return filepath.resolve().is_relative_to(selected.resolve())
+
+
+class BuiltResourceList(UserList[BuiltResource]):
+    """A list of built resources with helpers used by pull and similar commands."""
+
+    @property
+    def identifiers(self) -> list[Identifier]:
+        return [resource.identifier for resource in self.data]
+
+    def by_file(self) -> dict[Path, "BuiltResourceList"]:
+        resources_by_file: dict[Path, BuiltResourceList] = defaultdict(BuiltResourceList)
+        for resource in self.data:
+            resources_by_file[resource.source_path].append(resource)
+        return resources_by_file
+
 
 class ValidationResult(BaseModel):
     name: str
@@ -220,3 +263,34 @@ class BuildFolder(BaseModel):
     def build_duration_seconds(self) -> float:
         """Duration of the build in seconds."""
         return (self.finished_at - self.started_at).total_seconds()
+
+    def get_resources(
+        self,
+        resource_folder: str,
+        kind: str | None = None,
+        selected: Path | str | None = None,
+        is_supported_file: Callable[[Path], bool] | None = None,
+    ) -> BuiltResourceList:
+        """Return built resources matching the given folder, kind, and selection.
+
+        Args:
+            resource_folder: Resource folder name, e.g. ``data_sets``.
+            kind: Optional resource kind, e.g. ``DataSet``. If omitted, all kinds in the folder are returned.
+            selected: Module name, or a path to a module / file / directory to include.
+            is_supported_file: Optional predicate applied to each resource's source path.
+        """
+        selected_name = selected if isinstance(selected, str) else None
+        selected_path = selected if isinstance(selected, Path) else None
+        resources = BuiltResourceList()
+        for module in self.built_modules:
+            if selected_name is not None and module.module_id.name != selected_name:
+                continue
+            resources.extend(
+                module.get_resources(
+                    resource_folder=resource_folder,
+                    kind=kind,
+                    selected=selected_path,
+                    is_supported_file=is_supported_file,
+                )
+            )
+        return resources

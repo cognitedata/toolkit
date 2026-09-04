@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -6,12 +7,21 @@ import yaml
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildFolder,
+    BuildVariable,
+    BuiltModule,
+    BuiltResource,
+    RelativeDirPath,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import (
     BuildLineage,
     ModuleLineageItem,
     ResourceLineageItem,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, TransformationIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 
 
@@ -236,6 +246,17 @@ query: >-
         with pytest.raises(NotImplementedError, match=r"'.txt' is not supported"):
             variable.get_pattern_replace_pair(".txt")  # type: ignore[arg-type]
 
+    def test_substitute_with_placeholders(self) -> None:
+        source = "externalId: {{ dataset }}\nname: {{ name }}\n"
+        variables = _create_variables({"dataset": "ingestion", "name": "Ingestion"})
+
+        content, placeholders = BuildVariable.substitute_with_placeholders(source, variables)
+
+        assert "{{" not in content
+        assert {variable.name for variable in placeholders.values()} == {"dataset", "name"}
+        for placeholder in placeholders:
+            assert placeholder in content
+
 
 class TestBuildLinage:
     def test_deserialize_resource_lineage(self, tmp_path: Path) -> None:
@@ -301,3 +322,126 @@ class TestBuildLinage:
         )
 
         lineage.validate_source_files_unchanged()
+
+
+def _built_resource(
+    source_path: Path,
+    build_path: Path,
+    folder: str,
+    kind: str,
+    crud_cls: type,
+    module_name: str,
+    identifier: str = "resource",
+) -> BuiltResource:
+    return BuiltResource(
+        identifier=ExternalId(external_id=identifier),
+        source_hash="hash",
+        type=ResourceType(resource_folder=folder, kind=kind),
+        source_path=AbsoluteFilePath(source_path),
+        build_path=AbsoluteFilePath(build_path),
+        crud_cls=crud_cls,
+        has_syntax_error=False,
+        module_name=module_name,
+    )
+
+
+def _build_folder_with_modules(tmp_path: Path, module_resources: dict[str, list[BuiltResource]]) -> BuildFolder:
+    org_dir = tmp_path / "org"
+    build_dir = tmp_path / "build"
+    org_dir.mkdir()
+    build_dir.mkdir()
+    built_modules: list[BuiltModule] = []
+    for name, resources in module_resources.items():
+        module_path = org_dir / "modules" / name
+        module_path.mkdir(parents=True)
+        built_modules.append(
+            BuiltModule(
+                module_id=ModuleId(
+                    id=RelativeDirPath(Path("modules") / name),
+                    path=AbsoluteDirPath(module_path.resolve()),
+                ),
+                resources=resources,
+                yaml_line_count=1,
+            )
+        )
+    now = datetime.now(timezone.utc)
+    return BuildFolder(
+        organization_dir=org_dir.resolve(),
+        build_dir=build_dir.resolve(),
+        started_at=now,
+        finished_at=now,
+        built_modules=built_modules,
+    )
+
+
+class TestBuildFolderGetResources:
+    def test_get_resources_by_module_name(self, tmp_path: Path) -> None:
+        source_a = tmp_path / "modules" / "module1" / "data_sets" / "a.DataSet.yaml"
+        source_b = tmp_path / "modules" / "module2" / "data_sets" / "b.DataSet.yaml"
+        build_a = tmp_path / "build" / "data_sets" / "a.DataSet.yaml"
+        build_b = tmp_path / "build" / "data_sets" / "b.DataSet.yaml"
+        folder = _build_folder_with_modules(
+            tmp_path,
+            {
+                "module1": [
+                    _built_resource(source_a, build_a, "data_sets", "DataSet", DataSetsIO, "module1", "a"),
+                ],
+                "module2": [
+                    _built_resource(source_b, build_b, "data_sets", "DataSet", DataSetsIO, "module2", "b"),
+                ],
+            },
+        )
+
+        result = folder.get_resources("data_sets", kind="DataSet", selected="module1")
+
+        assert [item.source_path for item in result] == [source_a]
+
+    def test_get_resources_by_file_path(self, tmp_path: Path) -> None:
+        source = tmp_path / "modules" / "module1" / "transformations" / "my.Transformation.yaml"
+        schedule = tmp_path / "modules" / "module1" / "transformations" / "my.Schedule.yaml"
+        build = tmp_path / "build" / "transformations" / "out.yaml"
+        folder = _build_folder_with_modules(
+            tmp_path,
+            {
+                "module1": [
+                    _built_resource(
+                        source, build, "transformations", "Transformation", TransformationIO, "module1", "tr"
+                    ),
+                    _built_resource(
+                        schedule, build, "transformations", "Schedule", TransformationIO, "module1", "sched"
+                    ),
+                ],
+            },
+        )
+
+        result = folder.get_resources("transformations", kind="Transformation", selected=source)
+
+        assert [item.source_path for item in result] == [source]
+
+    def test_get_resources_by_kind_and_supported_file(self, tmp_path: Path) -> None:
+        source = tmp_path / "modules" / "module1" / "transformations" / "my.Transformation.yaml"
+        other = tmp_path / "modules" / "module1" / "transformations" / "other.csv"
+        build = tmp_path / "build" / "transformations" / "out.yaml"
+        folder = _build_folder_with_modules(
+            tmp_path,
+            {
+                "module1": [
+                    _built_resource(
+                        source, build, "transformations", "Transformation", TransformationIO, "module1", "tr"
+                    ),
+                    _built_resource(
+                        other, build, "transformations", "Transformation", TransformationIO, "module1", "x"
+                    ),
+                ],
+            },
+        )
+
+        result = folder.get_resources(
+            "transformations",
+            kind="Transformation",
+            is_supported_file=lambda path: path.suffix == ".yaml",
+        )
+
+        assert [item.source_path for item in result] == [source]
+        assert result.identifiers == [ExternalId(external_id="tr")]
+        assert list(result.by_file()) == [source]
