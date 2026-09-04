@@ -3,8 +3,9 @@ from collections.abc import Hashable
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, ResourceIO, SkillIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
@@ -386,3 +387,60 @@ class TestAgentIODiffList:
 
         assert local_by_cdf == {0: 0}
         assert added == [1]
+
+
+class TestAgentIOTopologicalSort:
+    def test_topological_sort_orders_subagents_before_referencing_agent(self) -> None:
+        supervisor = AgentRequest(
+            external_id="supervisor",
+            name="Supervisor",
+            subagents=[SubagentConfig(agent_external_id="weather-specialist")],
+        )
+        subagent = AgentRequest(external_id="weather-specialist", name="Weather Specialist")
+
+        actual = AgentIO.topological_sort([supervisor, subagent])
+
+        assert [agent.external_id for agent in actual] == ["weather-specialist", "supervisor"]
+
+    def test_topological_sort_raises_on_cycle(self) -> None:
+        agent_a = AgentRequest(external_id="a", name="A", subagents=[SubagentConfig(agent_external_id="b")])
+        agent_b = AgentRequest(external_id="b", name="B", subagents=[SubagentConfig(agent_external_id="a")])
+
+        with pytest.raises(ToolkitCycleError):
+            AgentIO.topological_sort([agent_a, agent_b])
+
+
+class TestAgentIODelete:
+    def test_delete_sorts_referencing_agent_before_subagent(self) -> None:
+        supervisor = AgentResponse.model_validate(
+            {
+                "externalId": "supervisor",
+                "name": "Supervisor",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "1.3.0",
+                "subagents": [{"agentExternalId": "weather-specialist"}],
+            }
+        )
+        subagent = AgentResponse.model_validate(
+            {
+                "externalId": "weather-specialist",
+                "name": "Weather Specialist",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "ownerId": "owner",
+                "runtimeVersion": "1.3.0",
+            }
+        )
+        client = ToolkitClientMock()
+        client.tool.agents.retrieve.return_value = [supervisor, subagent]
+        io = AgentIO(client, None, None)
+
+        io.delete([ExternalId(external_id="weather-specialist"), ExternalId(external_id="supervisor")])
+
+        deleted_ids = client.tool.agents.delete.call_args[0][0]
+        assert deleted_ids == [
+            ExternalId(external_id="supervisor"),
+            ExternalId(external_id="weather-specialist"),
+        ]

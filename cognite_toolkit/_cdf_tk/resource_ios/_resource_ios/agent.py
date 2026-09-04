@@ -1,15 +1,17 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Literal, final
+from graphlib import CycleError, TopologicalSorter
+from typing import Any, Literal, TypeVar, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import Agent, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AgentsAcl,
     AllScope,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
@@ -25,6 +27,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     Query,
     QueryKnowledgeGraph,
 )
+
+T_Agent = TypeVar("T_Agent", bound=Agent)
 
 
 @final
@@ -148,17 +152,53 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
         if isinstance(scope, AllScope):
             yield AgentsAcl(actions=sorted(actions), scope=scope)
 
+    @classmethod
+    def topological_sort(cls, items: Sequence[T_Agent]) -> list[T_Agent]:
+        """Sorts the agents in topological order based on their subagent references.
+
+        Subagents must exist before the agents that reference them, as the agents service
+        validates that subagent references point to existing agents.
+        """
+        agent_by_id: dict[ExternalId, T_Agent] = {item.as_id(): item for item in items}
+        dependencies: dict[ExternalId, set[ExternalId]] = {}
+        for item_id, item in agent_by_id.items():
+            dependencies[item_id] = {
+                subagent_id
+                for subagent in item.subagents or []
+                if (subagent_id := ExternalId(external_id=subagent.agent_external_id)) in agent_by_id
+            }
+        try:
+            return [
+                agent_by_id[item_id]
+                for item_id in TopologicalSorter(dependencies).static_order()
+                if item_id in agent_by_id
+            ]
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cannot deploy agents. Cycle detected {e.args} in the 'subagents' references of the agents.",
+                *e.args[1:],
+            ) from None
+
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.create(items)
+        return self.client.tool.agents.create(self.topological_sort(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
         return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.update(items)
+        return self.client.tool.agents.update(self.topological_sort(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.agents.delete(list(ids), ignore_unknown_ids=True)
+        # The agents service rejects deleting an agent that is still referenced as a subagent by
+        # another agent, so the referencing agents must be deleted before the subagents they reference,
+        # i.e. the reverse of the create/update order.
+        retrieved = self.retrieve(ids)
+        retrieved_ids = {agent.as_id() for agent in retrieved}
+        ordered_ids = [agent.as_id() for agent in reversed(self.topological_sort(retrieved))]
+        # Ids that could not be retrieved (e.g. already deleted) are appended at the end.
+        ordered_ids.extend(id_ for id_ in ids if id_ not in retrieved_ids)
+
+        self.client.tool.agents.delete(ordered_ids, ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
