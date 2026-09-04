@@ -241,6 +241,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         module.resources.append(
@@ -256,6 +257,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         result = list(DependencyRuleSet([module]).validate())
@@ -337,11 +339,11 @@ class TestValidateBuildParameters:
         console = MagicMock(spec=Console)
         if expected_error:
             with pytest.raises(ToolkitError) as exc_info:
-                BuildV2Command._validate_build_parameters(parameters, console, user_args)
+                BuildV2Command.validate_build_parameters(parameters, console, user_args)
 
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
-            BuildV2Command._validate_build_parameters(parameters, console, user_args)
+            BuildV2Command.validate_build_parameters(parameters, console, user_args)
 
 
 class TestReadFileSystem:

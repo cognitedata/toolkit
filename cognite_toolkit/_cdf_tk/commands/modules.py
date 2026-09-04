@@ -1104,7 +1104,7 @@ class ModulesCommand(ToolkitCommand):
             user_selected_modules=[f"{MODULES}/"],
         )
 
-        scan_result = BuildV2Command._find_modules(build_input)
+        scan_result = BuildV2Command._find_modules(build_input, "module add")
         return [module.name for module in scan_result.modules]
 
     def _get_available_packages(self, user_library: Library | None = None) -> tuple[Packages, Path]:

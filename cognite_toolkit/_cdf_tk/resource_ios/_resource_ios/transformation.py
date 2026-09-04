@@ -167,6 +167,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
         }
     )
+    extra_content_property = "query"
+
     _doc_url = "Transformations/operation/createTransformations"
     _hash_key = "-- cdf-auth"
 

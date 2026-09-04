@@ -1,75 +1,47 @@
-import dataclasses
-import itertools
 import json
 import re
-import sys
 import tempfile
-import uuid
-from collections import UserList
-from dataclasses import dataclass, field
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
-import questionary
 import yaml
-from questionary import Choice
-from rich import print
-from rich.markdown import Markdown
-from rich.panel import Panel
+from rich.console import Console, Group, RenderableType
 
-from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildEnvironment,
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, ResponseResource
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildFolder,
+    BuildParameters,
     BuildVariable,
-    BuildVariables,
-    BuiltFullResourceList,
-    BuiltModuleList,
-    BuiltResourceFull,
-    DeployResults,
-    ModuleDirectories,
-    ResourceDeployResult,
-    YAMLComments,
+    BuiltResource,
+    ResourceType,
 )
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
-    FunctionIO,
-    GraphQLCRUD,
-    GroupAllScopedCRUD,
-    HostedExtractorDestinationIO,
-    HostedExtractorSourceIO,
     ResourceIO,
-    StreamlitIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.ui import (
+    ToolkitPanel,
+    ToolkitPanelSection,
+    ToolkitTable,
+    hanging_indent,
+)
 from cognite_toolkit._cdf_tk.utils import (
-    YAMLComment,
-    YAMLWithComments,
+    humanize_collection,
     read_yaml_content,
-    read_yaml_file,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.modules import (
-    is_module_path,
-    module_directory_from_path,
-    parse_user_selected_modules,
-)
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
-from .build_cmd import BuildCommand
-from .clean import CleanCommand
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -81,575 +53,336 @@ NEWLINE = "\n"
 
 
 @dataclass
-class Variable:
-    placeholder: str | None = None
-    name: str | None = None
-    source_value: str | None = None
+class SkippedPull:
+    identifier: Identifier
+    reason: str
 
 
 @dataclass
-class ResourceProperty:
-    """This represents a single property in a CDF resource file.
+class PullResult:
+    """Represents the result of a pull operation for a single resource file.
 
-    Args:
-        key_path: The path to the property in the resource file.
-        build_value: The value of the property in the local resource file build file.
-        cdf_value: The value of the property in the CDF resource.
-        variables: A list of variables that are used in the property value.
+    Attributes:
+        source_file: The path to the source file that was pulled.
+        has_changes: A boolean indicating whether there were changes between the local and CDF versions.
+        is_dry_run: A boolean indicating whether the pull was a dry run (no files were modified).
+        resource_type: The type of resource that was pulled (e.g., "view", "extraction_pipeline_config").
     """
 
-    key_path: tuple[str | int, ...]
-    build_value: float | int | str | bool | None = None
-    cdf_value: float | int | str | bool | None = None
-    variables: list[Variable] = field(default_factory=list)
-
-    @property
-    def value(self) -> float | int | str | bool | None:
-        if self.has_variables:
-            return self.variables[0].source_value
-        return self.cdf_value or self.build_value
-
-    @property
-    def has_variables(self) -> bool:
-        return bool(self.variables)
-
-    @property
-    def is_changed(self) -> bool:
-        return (
-            self.build_value != self.cdf_value
-            and self.build_value is not None
-            and self.cdf_value is not None
-            and not self.has_variables
-        )
-
-    @property
-    def is_added(self) -> bool:
-        return self.build_value is None and self.cdf_value is not None
-
-    @property
-    def is_cannot_change(self) -> bool:
-        return (
-            self.build_value != self.cdf_value
-            and not self.has_variables
-            and self.build_value is not None
-            and self.cdf_value is not None
-        )
-
-    def __str__(self) -> str:
-        key_str = ".".join(map(str, self.key_path))
-        if self.is_added:
-            return f"ADDED: '{key_str}: {self.cdf_value}'"
-        elif self.is_changed:
-            return f"CHANGED: '{key_str}: {self.build_value} -> {self.cdf_value}'"
-        elif self.is_cannot_change:
-            return f"CANNOT CHANGE (contains variables): '{key_str}: {self.build_value} -> {self.cdf_value}'"
-        else:
-            return f"UNCHANGED: '{key_str}: {self.build_value}'"
+    source_file: Path
+    resource_type: ResourceType
+    has_changes: bool
+    is_dry_run: bool
+    extra_files: list[Path]
+    skipped: list[SkippedPull]
 
 
-class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], ResourceProperty]):
-    """This represents a YAML file that contains resources and their properties.
-
-    It is used to compare a local resource file with a CDF resource.
-    """
-
-    def __init__(
+class PullV2Command(ToolkitCommand):
+    def pull(
         self,
-        items: dict[tuple[str | int, ...], ResourceProperty],
-        comments: dict[tuple[str, ...], YAMLComment] | None = None,
-    ) -> None:
-        super().__init__(items or {})
-        self._comments = comments or {}
-
-    def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None:
-        return self._comments.get(key)
-
-    @classmethod
-    def load(cls, build_content: str, source_content: str) -> Self:
-        comments = cls._extract_comments(build_content)
-        build = read_yaml_content(build_content)
-        build_flatten = cls._flatten(build)
-        items: dict[tuple[str | int, ...], ResourceProperty] = {}
-        for key, value in build_flatten.items():
-            items[key] = ResourceProperty(
-                key_path=key,
-                build_value=value,
-            )
-
-        source_content, variable_by_placeholder = cls._replace_variables(source_content)
-        source = read_yaml_content(source_content)
-        source_items = cls._flatten(source)
-        for key, value in source_items.items():
-            for placeholder, variable in variable_by_placeholder.items():
-                if placeholder in str(value):
-                    items[key].variables.append(
-                        Variable(
-                            placeholder=placeholder,
-                            name=variable_by_placeholder[placeholder],
-                            source_value=str(value),
-                        )
-                    )
-        return cls(items, comments)
-
-    @classmethod
-    def _flatten(
-        cls, raw: dict[str, Any] | list[dict[str, Any]]
-    ) -> dict[tuple[str | int, ...], str | int | float | bool | None]:
-        if isinstance(raw, dict):
-            return cls._flatten_dict(raw)
-        elif isinstance(raw, list):
-            raise NotImplementedError()
-        else:
-            raise ValueError(f"Expected a dictionary or list, got {type(raw)}")
-
-    @classmethod
-    def _flatten_dict(
-        cls, raw: dict[str, Any], key_path: tuple[str | int, ...] = ()
-    ) -> dict[tuple[str | int, ...], str | int | float | bool | None]:
-        items: dict[tuple[str | int, ...], str | int | float | bool | None] = {}
-        for key, value in raw.items():
-            if key == "scopes":
-                # Hack to handle that scopes is a list variable
-                items[(*key_path, key)] = value
-            elif isinstance(value, dict):
-                items.update(cls._flatten_dict(value, (*key_path, key)))
-            elif isinstance(value, list):
-                for i, item in enumerate(value):
-                    if isinstance(item, dict):
-                        items.update(cls._flatten_dict(item, (*key_path, key, i)))
-                    else:
-                        items[(*key_path, key, i)] = item
-            else:
-                items[(*key_path, key)] = value
-        return items
-
-    @classmethod
-    def _replace_variables(cls, content: str) -> tuple[str, dict[str, str]]:
-        variable_by_placeholder: dict[str, str] = {}
-        seen: set[str] = set()
-        for match in _VARIABLE_PATTERN.finditer(content):
-            variable = match.group(1)
-            if variable in seen:
-                continue
-            placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
-            content = content.replace(f"{{{{{variable}}}}}", placeholder)
-            variable_by_placeholder[placeholder] = variable
-            seen.add(variable)
-        return content, variable_by_placeholder
-
-    def update_cdf_resource(self, cdf_resource: dict[str, Any]) -> None:
-        for key, value in self._flatten_dict(cdf_resource).items():
-            if key in self:
-                self[key].cdf_value = value
-            else:
-                self[key] = ResourceProperty(key_path=key, cdf_value=value)
-
-    def dump(self) -> dict[Any, Any]:
-        dumped: dict[Any, Any] = {}
-        for key, prop in self.items():
-            current = dumped
-            for part, next_part in itertools.pairwise(key):
-                if isinstance(part, int) and isinstance(current, list) and len(current) < part + 1:
-                    current.append({})
-                    current = current[part]
-                elif isinstance(part, int) and isinstance(current, list) and part < len(current):
-                    current = current[part]
-                elif isinstance(part, str) and isinstance(next_part, str):
-                    current = current.setdefault(part, {})
-                elif isinstance(part, str) and isinstance(next_part, int):
-                    current = current.setdefault(part, [])
-                else:
-                    raise ValueError(f"Expected a string or int, got {type(part)}")
-            if isinstance(key[-1], int) and isinstance(current, list):
-                current.append(prop.value)
-            elif isinstance(key[-1], str) and isinstance(current, dict):
-                current[key[-1]] = prop.value
-            else:
-                raise ValueError(f"Expected a string or int, got {type(key[-1])}")
-        return dumped
-
-    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
-        """Dump a config dictionary to a yaml string"""
-        dumped_with_comments = self._dump_yaml_with_comments(indent_size, False)
-        for key, prop in self.items():
-            for variable in prop.variables:
-                if variable.placeholder:
-                    dumped_with_comments = dumped_with_comments.replace(
-                        variable.placeholder, f"{{{{{variable.name}}}}}"
-                    )
-        return dumped_with_comments
-
-    def display(self, title: str | None = None) -> None:
-        added = [prop for prop in self.values() if prop.is_added]
-        changed = [prop for prop in self.values() if prop.is_changed]
-        cannot_change = [prop for prop in self.values() if prop.is_cannot_change]
-        unchanged = [
-            prop for prop in self.values() if not prop.is_added and not prop.is_changed and not prop.is_cannot_change
-        ]
-
-        content: list[str] = []
-        if added:
-            content.append("\n**Added properties**(Either set in CDF UI or default values set by CDF):")
-            content.extend([f" - {prop}" for prop in added])
-        if changed:
-            content.append("\n**Changed properties:**")
-            content.extend([f" - {prop}" for prop in changed])
-        if cannot_change:
-            content.append("\n**Cannot change properties**")
-            content.extend([f" - {prop}" for prop in cannot_change])
-        if unchanged:
-            content.append(f"\n**{len(unchanged)} properties unchanged**")
-
-        print(Panel.fit(Markdown("\n".join(content), justify="left"), title=title or "Resource differences"))
-
-
-@dataclass
-class Line:
-    line_no: int
-    build_value: str | None = None
-    source_value: str | None = None
-    cdf_value: str | None = None
-    variables: list[str] | None = None
-
-    @property
-    def value(self) -> str:
-        if self.variables:
-            if self.source_value is None:
-                raise ValueError("Source value should be set if there are variables")
-            return self.source_value
-        value = self.cdf_value or self.build_value
-        if value is None:
-            raise ValueError("CDF value or build value should be set")
-        return value
-
-    @property
-    def is_changed(self) -> bool:
-        return (
-            self.build_value != self.cdf_value
-            and self.build_value is not None
-            and self.cdf_value is not None
-            and self.variables is None
-        )
-
-    @property
-    def is_added(self) -> bool:
-        return self.build_value is None and self.cdf_value is not None
-
-    @property
-    def is_cannot_change(self) -> bool:
-        return (
-            self.build_value != self.cdf_value
-            and self.variables is not None
-            and self.build_value is not None
-            and self.cdf_value is not None
-        )
-
-
-class TextFileDifference(UserList):
-    def __init__(self, lines: list[Line] | None) -> None:
-        super().__init__(lines or [])
-
-    @classmethod
-    def load(cls, build_content: str, source_content: str) -> Self:
-        lines = []
-        # Build and source content should have the same number of lines
-        for no, (build, source) in enumerate(zip(build_content.splitlines(), source_content.splitlines())):
-            variables = [v.group(1) for v in _VARIABLE_PATTERN.finditer(source)] or None
-            lines.append(
-                Line(
-                    line_no=no + 1,
-                    build_value=build,
-                    source_value=source,
-                    variables=variables,
-                )
-            )
-        return cls(lines)
-
-    def update_cdf_content(self, cdf_content: str) -> None:
-        for i, line in enumerate(cdf_content.splitlines()):
-            if i < len(self):
-                self[i].cdf_value = line
-            else:
-                self.append(Line(cdf_value=line, line_no=i + 1))
-
-    def dump(self) -> str:
-        return "\n".join(line.value for line in self) + "\n"
-
-    def display(self, title: str | None = None) -> None:
-        added = [line for line in self if line.is_added]
-        changed = [line for line in self if line.is_changed]
-        cannot_change = [line for line in self if line.is_cannot_change]
-        unchanged_count = len(self) - len(added) - len(changed) - len(cannot_change)
-
-        content: list[str] = []
-        if added:
-            content.append("\n**Added lines**")
-            if len(added) == 1:
-                content.append(f" - Line {added[0].line_no}: '{added[0].cdf_value}'")
-            else:
-                content.append(f" - Line {added[0].line_no} - {added[-1].line_no}: {len(added)} lines")
-        if changed:
-            content.append("\n**Changed lines**")
-            if len(changed) == 1:
-                content.append(f" - Line {changed[0].line_no}: '{changed[0].source_value}' -> '{changed[0].cdf_value}'")
-            else:
-                content.append(f" - Line {changed[0].line_no} - {changed[-1].line_no}: {len(changed)} lines")
-        if cannot_change:
-            content.append("\n**Cannot change lines**")
-            if len(cannot_change) == 1:
-                content.append(
-                    f" - Line {cannot_change[0].line_no}: '{cannot_change[0].source_value}' -> '{cannot_change[0].cdf_value}'"
-                )
-            else:
-                content.append(
-                    f" - Line {cannot_change[0].line_no} - {cannot_change[-1].line_no}: {len(cannot_change)} lines"
-                )
-        if unchanged_count != 0:
-            content.append(f"\n**{unchanged_count} lines unchanged**")
-
-        print(Panel.fit(Markdown("\n".join(content), justify="left"), title=title or "File differences"))
-
-
-class PullCommand(ToolkitCommand):
-    def __init__(
-        self,
-        print_warning: bool = True,
-        skip_tracking: bool = False,
-        silent: bool = False,
-        client: ToolkitClient | None = None,
-    ) -> None:
-        super().__init__(print_warning, skip_tracking, silent, client)
-        self._clean_command = CleanCommand(print_warning, skip_tracking=True)
-
-    def pull_module(
-        self,
-        module_name_or_path: str | Path | None,
-        organization_dir: Path,
-        env: str,
-        dry_run: bool,
-        verbose: bool,
+        user_selected_modules: list[str] | None,
         env_vars: EnvironmentVariables,
+        organization_dir: Path,
+        config_yaml: Path | None = None,
+        dry_run: bool = False,
+        verbose: bool = False,
     ) -> None:
-        client = env_vars.get_client()
-        client.config.is_strict_validation = False
-        if not module_name_or_path:
-            modules = ModuleDirectories.load(organization_dir, None)
-            if not modules:
-                raise ToolkitValueError(
-                    "No module argument provided and no modules found in the organization directory."
-                )
+        """Pulls resources from CDF and updates local configuration files.
 
-            selected = questionary.select(
-                "Select a module to pull",
-                choices=[Choice(title=module.name, value=module.name) for module in modules],
-            ).unsafe_ask()
-        else:
-            selected = parse_user_selected_modules([module_name_or_path])[0]
-        build_module: str | Path
-        if isinstance(selected, str):
-            build_module = selected
-        elif isinstance(selected, Path):
-            try:
-                # If the selected path is a sub-path of a module, we
-                # need to build the entire module.
-                build_module = module_directory_from_path(selected)
-            except ValueError:
-                # Remove this if-statement and set the build_module to selected
-                # to support pulling more than one module.
-                if is_module_path(selected):
-                    build_module = selected
-                else:
-                    raise ToolkitValueError(
-                        "Select module or a sub-path of a module. Multiple modules are not supported."
-                    )
-        else:
-            raise ValueError("Expected a string or Path")
-        build_cmd = BuildCommand(silent=True, skip_tracking=True)
+        Args:
+            user_selected_modules: List of module names or paths to pull. If None, the user will be prompted to select.
+            env_vars: Environment variables for the current environment.
+            organization_dir: Path to the organization directory containing modules.
+            config_yaml: Optional path to a specific configuration YAML file to pull.
+            dry_run: If True, no files will be modified; only a summary of changes will be displayed.
+            verbose: If True, detailed output will be printed during execution.
+        """
+        client = env_vars.get_client(is_strict_validation=False)
+        console = client.console
         build_dir = Path(tempfile.mkdtemp())
         try:
-            built_modules = build_cmd.execute(
-                verbose=verbose,
+            parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                selected=[build_module],
-                build_env_name=env,
-                no_clean=False,
-                client=client,
-                on_error="raise",
+                config_yaml=config_yaml,
+                user_selected_modules=user_selected_modules,
+                verbose=False,
+                write_insights=False,
+                write_lineage=False,
+            )
+            build_folder = BuildV2Command(print_warning=False, skip_tracking=True, silent=True, client=client).build(
+                parameters, client, display=False
             )
         except ToolkitError as e:
-            raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e
+            raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e
         else:
-            self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, client, env_vars)
+            self._pull_built_modules(build_folder, client, dry_run, env_vars.dump(include_os=True), console, verbose)
         finally:
             try:
                 safe_rmtree(build_dir)
             except Exception as e:
                 raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
 
-    def _pull_build_dir(
+    def _pull_built_modules(
         self,
-        build_dir: Path,
-        selected: Path | str,
-        built_modules: BuiltModuleList,
-        dry_run: bool,
-        build_env_name: str,
+        build_folder: BuildFolder,
         client: ToolkitClient,
-        env_vars: EnvironmentVariables,
-    ) -> None:
-        build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
-        built = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
-        selected_loaders = self._clean_command.get_selected_loaders(
-            build_dir, read_resource_folders=built.read_resource_folders, include=None
-        )
+        dry_run: bool,
+        env_vars: dict[str, str | None],
+        console: Console,
+        verbose: bool,
+    ) -> list[PullResult]:
+        resources_by_type: dict[ResourceType, list[BuiltResource]] = defaultdict(list)
+        for module in build_folder.built_modules:
+            for resource in module.resources:
+                resources_by_type[resource.type].append(resource)
 
-        if len(selected_loaders) == 0:
-            if isinstance(selected, Path):
-                self.warn(LowSeverityWarning(f"No valid resource recognized at {selected.as_posix()}"))
-            else:
-                self.warn(LowSeverityWarning(f"No valid resources recognized in {selected}"))
+        results: list[PullResult] = []
+        for resource_type, resources in resources_by_type.items():
+            resource_io = resources[0].crud_cls.create_loader(
+                client, build_dir=build_folder.build_dir, console=client.console
+            )
+
+            cdf_resources = resource_io.retrieve([resource.identifier for resource in resources])
+            cdf_resource_by_id = {resource_io.get_id(r): r for r in cdf_resources}
+
+            resource_by_source_file: dict[Path, list[BuiltResource]] = defaultdict(list)
+            for resource in resources:
+                resource_by_source_file[resource.source_path].append(resource)
+
+            for source_file, file_resources in resource_by_source_file.items():
+                local_resource_by_id = self._get_local_resource_dict_by_id(file_resources, resource_io, env_vars)
+                has_changes, missing_in_cdf, to_write = self._get_to_write(
+                    local_resource_by_id, cdf_resource_by_id, resource_io
+                )
+
+                extra_files: dict[Path, str] = {}
+                if has_changes and not dry_run:
+                    new_content, extra_files = self._to_write_content(
+                        safe_read(source_file), to_write, file_resources, env_vars, resource_io, source_file
+                    )
+                    with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                        f.write(new_content)
+                    for filepath, content in extra_files.items():
+                        filepath.parent.mkdir(parents=True, exist_ok=True)
+                        with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                            f.write(content)
+
+                results.append(
+                    PullResult(
+                        source_file=source_file,
+                        has_changes=has_changes,
+                        is_dry_run=dry_run,
+                        resource_type=resource_type,
+                        extra_files=list(extra_files.keys()),
+                        skipped=[
+                            SkippedPull(identifier=identifier, reason="Resource missing in CDF")
+                            for identifier in missing_in_cdf
+                        ],
+                    )
+                )
+
+        self._display_results(results, console, verbose)
+
+        return results
+
+    @classmethod
+    def _display_results(cls, results: list[PullResult], console: Console, verbose: bool) -> None:
+        if not results:
+            console.print(
+                ToolkitPanel(
+                    "No resources were pulled.",
+                    title="Pull summary",
+                )
+            )
             return
 
-        results = DeployResults([], action="pull", dry_run=dry_run)
-        for loader_cls in selected_loaders:
-            if not issubclass(loader_cls, ResourceIO):
-                continue
-            loader = loader_cls.create_loader(client, build_dir)
-            resources: BuiltFullResourceList[T_Identifier] = built_modules.get_resources(  # type: ignore[valid-type]
-                None,
-                loader.folder_name,  # type: ignore[arg-type]
-                loader.kind,
-                selected,
-                is_supported_file=loader.is_supported_file,
+        is_dry_run = any(r.is_dry_run for r in results)
+        panel_title = "Pull summary"
+        if is_dry_run:
+            panel_title += " [dim](dry run)[/]"
+
+        # Group results by resource type
+        results_by_type: dict[ResourceType, list[PullResult]] = defaultdict(list)
+        for result in results:
+            results_by_type[result.resource_type].append(result)
+
+        table = ToolkitTable()
+        table.add_column("Resource", style="cyan")
+        if is_dry_run:
+            table.add_column("Would change", justify="right", style="yellow")
+        else:
+            table.add_column("Changed", justify="right", style="yellow")
+        table.add_column("Unchanged", justify="right", style="dim")
+        table.add_column("Skipped", justify="right", style="yellow")
+        table.add_column("Extra files", justify="right", style="green")
+        table.add_column("Total", justify="right", style="cyan")
+
+        total_changed = 0
+        total_unchanged = 0
+        total_skipped = 0
+        total_extra = 0
+        total_files = 0
+        all_skipped: list[tuple[ResourceType, Path, SkippedPull]] = []
+
+        # Sort types for stable output
+        sorted_types = sorted(results_by_type.keys(), key=lambda t: (t.resource_folder, t.kind))
+        for resource_type in sorted_types:
+            type_results = results_by_type[resource_type]
+            changed = sum(1 for r in type_results if r.has_changes)
+            unchanged = sum(1 for r in type_results if not r.has_changes)
+            skipped = sum(len(r.skipped) for r in type_results)
+            extra = sum(len(r.extra_files) for r in type_results)
+            total = len(type_results)
+
+            total_changed += changed
+            total_unchanged += unchanged
+            total_skipped += skipped
+            total_extra += extra
+            total_files += total
+
+            for r in type_results:
+                for skip in r.skipped:
+                    all_skipped.append((resource_type, r.source_file, skip))
+
+            table.add_row(
+                str(resource_type),
+                str(changed),
+                str(unchanged),
+                str(skipped),
+                str(extra),
+                str(total),
             )
-            if not resources:
-                continue
-            if isinstance(loader, HostedExtractorSourceIO | HostedExtractorDestinationIO):
-                self.warn(
-                    LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
-                )
-                continue
-            if isinstance(loader, GraphQLCRUD | FunctionIO | StreamlitIO):
-                self.warn(
-                    LowSeverityWarning(
-                        f"Skipping {loader.display_name} as it is not supported by the pull command due to"
-                        "the external file(s)."
+
+        if len(sorted_types) > 1:
+            table.add_section()
+            table.add_row(
+                "[bold]All[/]",
+                f"[bold]{total_changed}[/]",
+                f"[bold]{total_unchanged}[/]",
+                f"[bold]{total_skipped}[/]",
+                f"[bold]{total_extra}[/]",
+                f"[bold]{total_files}[/]",
+            )
+
+        sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
+
+        if is_dry_run:
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}This was a dry run. No files were modified. "
+                        f"Re-run without --dry-run to apply the changes."
                     )
                 )
-                continue
-            if isinstance(loader, GroupAllScopedCRUD):
-                # We have two loaders for Groups. We skip this one and
-                # only use the GroupResourceScopedLoader
-                continue
+            )
 
-            result = self._pull_resources(loader, resources, dry_run, env_vars.dump(include_os=True))
-            results[loader.display_name] = result
-
-        table = results.counts_table(exclude_columns={"Total"})
-        print(table)
-
-    def _pull_resources(
-        self,
-        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
-        resources: BuiltFullResourceList[T_Identifier],
-        dry_run: bool,
-        environment_variables: dict[str, str | None],
-    ) -> ResourceDeployResult:
-        cdf_resources = loader.retrieve(resources.identifiers)
-        cdf_resource_by_id: dict[T_Identifier, T_ResponseResource] = {loader.get_id(r): r for r in cdf_resources}
-
-        resources_by_file = resources.by_file()
-        file_results = ResourceDeployResult(loader.display_name)
-        environment_variables = environment_variables or {}
-        for source_file, resources in resources_by_file.items():
-            local_resource_by_id = self._get_local_resource_dict_by_id(resources, loader, environment_variables)
-            has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
-
-            if has_changes and not dry_run:
-                new_content, extra_files = self._to_write_content(
-                    safe_read(source_file), to_write, resources, environment_variables, loader, source_file
-                )
-                with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
-                    f.write(new_content)
-                for filepath, content in extra_files.items():
-                    filepath.parent.mkdir(parents=True, exist_ok=True)
-                    with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
-                        f.write(content)
-
-        return file_results
-
-    def _get_to_write(
-        self,
-        local_resource_by_id: dict[T_ID, dict[str, Any]],
-        cdf_resource_by_id: dict[T_ID, T_ResponseResource],
-        file_results: ResourceDeployResult,
-        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
-    ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
-        to_write: dict[T_ID, dict[str, Any]] = {}
-        has_changes = False
-        for item_id, local_dict in local_resource_by_id.items():
-            cdf_resource = cdf_resource_by_id.get(item_id)
-            if cdf_resource is None:
-                file_results.unchanged += 1
-                to_write[item_id] = local_dict
-                self.warn(
-                    MediumSeverityWarning(
-                        f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
+        if all_skipped and not verbose:
+            most_common = Counter(skip.reason for _, _, skip in all_skipped).most_common(n=3)
+            sections.append(
+                ToolkitPanelSection(
+                    description=(
+                        f"{HINT_LEAD_TEXT}A total of {len(all_skipped)} resources were skipped during pull. "
+                        f"The most common reasons were: "
+                        f"{', '.join(f'{reason} ({count} occurrences)' for reason, count in most_common)}. "
+                        f"Use --verbose to see all skipped resources."
                     )
                 )
-                continue
-            cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
+            )
+        elif verbose and all_skipped:
+            sections.append(
+                ToolkitPanelSection(
+                    title="Skipped resources",
+                    content=[
+                        hanging_indent(
+                            "○",
+                            f"[bold]{skip.identifier}[/] {source_file.as_posix()} [{resource_type}] {skip.reason}",
+                            marker_style="dim",
+                        )
+                        for resource_type, source_file, skip in all_skipped
+                    ],
+                )
+            )
 
-            if cdf_dumped == local_dict:
-                file_results.unchanged += 1
-                to_write[item_id] = local_dict
-            else:
-                file_results.changed += 1
-                to_write[item_id] = cdf_dumped
-                has_changes = True
-        return has_changes, to_write
+        if verbose:
+            changed_entries: list[RenderableType] = []
+            for resource_type in sorted_types:
+                for r in results_by_type[resource_type]:
+                    if not r.has_changes:
+                        continue
+                    changed_entries.append(
+                        hanging_indent(
+                            "●",
+                            f"[bold]{resource_type}[/] {r.source_file.as_posix()}"
+                            + (
+                                f" (+{len(r.extra_files)} extra file{'s' if len(r.extra_files) != 1 else ''})"
+                                if r.extra_files
+                                else ""
+                            ),
+                            marker_style="green",
+                        )
+                    )
+            if changed_entries:
+                sections.append(
+                    ToolkitPanelSection(
+                        title="Changed files",
+                        content=changed_entries,
+                    )
+                )
+
+        console.print(ToolkitPanel(Group(*sections), title=panel_title))
 
     @staticmethod
     def _get_local_resource_dict_by_id(
-        resources: BuiltFullResourceList[T_ID],
-        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: list[BuiltResource],
+        resource_io: ResourceIO,
         environment_variables: dict[str, str | None],
-    ) -> dict[T_Identifier, dict[str, Any]]:
-        unique_destinations = {r.destination for r in resources if r.destination}
-        local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
-        local_resource_ids = set(resources.identifiers)
-        for destination in unique_destinations:
-            resource_list = loader.load_resource_file(destination, environment_variables)
-            for resource_dict in resource_list:
-                identifier = loader.get_id(resource_dict)
-                if identifier in local_resource_ids:
-                    local_resource_by_id[identifier] = resource_dict  # type:ignore[index]
+    ) -> dict[Identifier, dict[str, Any]]:
+        local_resource_by_id: dict[Identifier, dict[str, Any]] = {}
+        for resource in resources:
+            resource_list = resource_io.load_resource_file(resource.build_path, environment_variables)
+            # In build, there should always be just one resource per file, so we can safely take the first one.
+            # Adding a try-except block to catch any unexpected IndexError, which would indicate a bug in the Toolkit.
+            try:
+                local_resource_by_id[resource.identifier] = resource_list[0]
+            except IndexError:
+                raise ToolkitValueError(
+                    f"There is a bug in Toolkit. "
+                    f"Expected at least one resource in the file {resource.build_path}, but found none."
+                )
         return local_resource_by_id
 
     @staticmethod
-    def _select_resource_ids(
-        all_: bool, id_: T_ID, loader: ResourceIO, local_resources: BuiltFullResourceList, organization_dir: Path
-    ) -> BuiltFullResourceList[T_ID]:
-        if all_:
-            return local_resources
-        if id_ is None:
-            return questionary.select(
-                f"Select a {loader.display_name} to pull",
-                choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
-            ).unsafe_ask()
-        if id_ not in local_resources.identifiers:
-            raise ToolkitMissingResourceError(
-                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
-            )
-        return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
+    def _get_to_write(
+        local_resource_by_id: dict[Identifier, dict[str, Any]],
+        cdf_resource_by_id: dict[Identifier, ResponseResource],
+        resource_io: ResourceIO,
+    ) -> tuple[bool, list[Identifier], dict[Identifier, dict[str, Any]]]:
+        to_write: dict[Identifier, dict[str, Any]] = {}
+        has_changes = False
+        missing_in_cdf: list[Identifier] = []
+        for item_id, local_dict in local_resource_by_id.items():
+            cdf_resource = cdf_resource_by_id.get(item_id)
+            if cdf_resource is None:
+                to_write[item_id] = local_dict
+                missing_in_cdf.append(item_id)
+                continue
+            cdf_dumped = resource_io.dump_resource(cdf_resource, local_dict)
+
+            if cdf_dumped == local_dict:
+                to_write[item_id] = local_dict
+            else:
+                to_write[item_id] = cdf_dumped
+                has_changes = True
+        return has_changes, missing_in_cdf, to_write
 
     def _to_write_content(
         self,
-        source: str,
-        to_write: dict[T_ID, dict[str, Any]],
-        resources: BuiltFullResourceList[T_ID],
+        source_content: str,
+        to_write: dict[Identifier, dict[str, Any]],
+        resources: list[BuiltResource],
         environment_variables: dict[str, str | None],
-        loader: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        resource_io: ResourceIO,
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
         """Convert resource data from CDF into YAML file content ready to be written to disk.
@@ -675,7 +408,7 @@ class PullCommand(ToolkitCommand):
             resources: The list of built resources containing build variables and metadata.
             environment_variables: A mapping of environment variable names to their values,
                 used to resolve variables like ${VAR_NAME} in template values.
-            loader: The ResourceCRUD loader instance for this resource type.
+            resource_io: The ResourceCRUD loader instance for this resource type.
             source_file: The path to the source file being processed.
 
         Returns:
@@ -698,73 +431,59 @@ class PullCommand(ToolkitCommand):
         # 6. Add the comments back
 
         # All resources are assumed to be in the same file, and thus the same build variables.
-        variables = resources[0].build_variables
+        variables = resources[0].variables
         if environment_variables:
-            variables_with_environment_list: list[BuildVariable] = []
-            for variable in variables:
-                if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
-                    for key, value in environment_variables.items():
-                        if key in variable.value and isinstance(value, str):
-                            # Running through all environment variables, in case multiple are used in the same variable.
-                            # Note that variable are immutable, so we are not modifying the original variable.
-                            variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
-                    variables_with_environment_list.append(variable)
-                elif isinstance(variable.value, tuple):
-                    new_value: list[str | int | float | bool] = []
-                    for var_item in variable.value:
-                        if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
-                            for key, value in environment_variables.items():
-                                if key in var_item and isinstance(value, str):
-                                    var_item = var_item.replace(f"${{{key}}}", value)
-                        new_value.append(var_item)
-                    variables_with_environment_list.append(dataclasses.replace(variable, value=tuple(new_value)))  # type: ignore[arg-type]
-                else:
-                    variables_with_environment_list.append(variable)
-            variables = BuildVariables(variables_with_environment_list)
+            variables = self._resolve_env_vars_in_variables(variables, environment_variables)
 
-        content, value_by_placeholder = variables.replace(source, source_file, use_placeholder=True)
-        comments = YAMLComments.load(source)
+        content, value_by_placeholder = BuildVariable.substitute_with_placeholders(source_content, variables)
+        comments = YAMLComments.load(source_content)
+
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        if isinstance(loader, ExtractionPipelineConfigIO):
+
+        if isinstance(resource_io, ExtractionPipelineConfigIO):
             # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
             # but we need to load it as a dict so we can write it back to the file maintaining
             # the order or the keys.
-            loaded = read_yaml_content(variables.replace(source, source_file))
-            loaded_with_placeholder = read_yaml_content(content)
+            source_dict_with_variable_substitution = read_yaml_content(
+                BuildVariable.substitute(source_content, variables, source_file.suffix)
+            )
+            source_with_with_variable_placeholders = read_yaml_content(content)
         else:
-            loaded = read_yaml_content(loader.safe_read(variables.replace(source, source_file)))
-            loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
+            source_dict_with_variable_substitution = read_yaml_content(
+                resource_io.safe_read(BuildVariable.substitute(source_content, variables, source_file.suffix))
+            )
+            source_with_with_variable_placeholders = read_yaml_content(resource_io.safe_read(content))
 
         built_by_identifier = {r.identifier: r for r in resources}
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
-        replacer = ResourceReplacer(value_by_placeholder, loader)
-        if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
-            item_id = loader.get_id(loaded)
+        replacer = ResourceReplacer(value_by_placeholder, resource_io)
+        if isinstance(source_dict_with_variable_substitution, dict) and isinstance(
+            source_with_with_variable_placeholders, dict
+        ):
+            item_id = resource_io.get_id(source_dict_with_variable_substitution)
             updated = self._update(
-                # Here we make a T_Identifier into a T_ID.
-                # T_Identifier < T_ID so it should be safe to ignore the type here.
-                item_id,  # type: ignore[misc]
-                loaded,
-                loaded_with_placeholder,
+                item_id,
+                source_dict_with_variable_substitution,
+                source_with_with_variable_placeholders,
                 source_file,
                 to_write,
                 built_by_identifier,
                 replacer,
                 extra_files,
             )
-        elif isinstance(loaded, list) and isinstance(loaded_with_placeholder, list):
+        elif isinstance(source_dict_with_variable_substitution, list) and isinstance(
+            source_with_with_variable_placeholders, list
+        ):
             updated = []
-            for i, item in enumerate(loaded):
-                item_id = loader.get_id(item)
+            for i, source_dict_with_variable_substitution_i in enumerate(source_dict_with_variable_substitution):
+                item_id = resource_io.get_id(source_dict_with_variable_substitution_i)
                 updated.append(
                     self._update(
-                        # Here we make a T_Identifier into a T_ID
-                        # T_Identifier < T_ID so it should be safe to ignore the type here.
-                        item_id,  # type: ignore[misc]
-                        item,
-                        loaded_with_placeholder[i],
+                        item_id,
+                        source_dict_with_variable_substitution_i,
+                        source_with_with_variable_placeholders[i],
                         source_file,
                         to_write,
                         built_by_identifier,
@@ -777,43 +496,84 @@ class PullCommand(ToolkitCommand):
 
         dumped = yaml_safe_dump(updated)
         for placeholder, variable in value_by_placeholder.items():
-            dumped = dumped.replace(placeholder, f"{{{{ {variable.key} }}}}")
+            dumped = dumped.replace(placeholder, f"{{{{ {variable.name} }}}}")
         file_content = comments.dump(dumped)
         return file_content, extra_files
+
+    @staticmethod
+    def _resolve_env_vars_in_variables(
+        variables: list[BuildVariable], environment_variables: dict[str, str | None]
+    ) -> list[BuildVariable]:
+        """Substitute environment variable placeholders in build variable values.
+
+        Replaces `${VAR_NAME}` references within string values or list-of-string
+        values with their corresponding values from `environment_variables`.
+
+        Args:
+            variables: List of build variables that may contain environment variable syntax.
+            environment_variables: Mapping of environment variable names to their values.
+
+        Returns:
+            A new list of `BuildVariable` instances with environment variables resolved.
+        """
+        variables_with_environment_list: list[BuildVariable] = []
+        for variable in variables:
+            updated_variable = variable
+            if isinstance(updated_variable.value, str) and ENV_VAR_PATTERN.match(updated_variable.value):
+                for key, value in environment_variables.items():
+                    if key in updated_variable.value and isinstance(value, str):
+                        # Running through all environment variables, in case multiple are used in the same variable.
+                        updated_variable = updated_variable.model_copy(
+                            update={"value": updated_variable.value.replace(f"${{{key}}}", value)}
+                        )
+            elif isinstance(variable.value, list):
+                new_value: list[str | int | float | bool] = []
+                for var_item in variable.value:
+                    if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
+                        for key, value in environment_variables.items():
+                            if key in var_item and isinstance(value, str):
+                                var_item = var_item.replace(f"${{{key}}}", value)
+                    new_value.append(var_item)
+                updated_variable = variable.model_copy(update={"value": new_value})
+            variables_with_environment_list.append(updated_variable)
+        return variables_with_environment_list
 
     @classmethod
     def _update(
         cls,
-        item_id: T_ID,
-        loaded: dict[str, Any],
-        loaded_with_placeholder: dict[str, Any],
+        item_id: Identifier,
+        source_with_variable_substitution: dict[str, Any],
+        source_with_variable_placeholder: dict[str, Any],
         source_file: Path,
-        to_write: dict[T_ID, dict[str, Any]],
-        built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
+        to_write: dict[Identifier, dict[str, Any]],
+        built_by_identifier: dict[Identifier, BuiltResource],
         replacer: "ResourceReplacer",
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
         if item_id not in to_write:
-            raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
+            raise ToolkitValueError(f"Bug in Toolkit resource {item_id} not found in to_write.")
         item_write = to_write[item_id]
         if item_id not in built_by_identifier:
-            raise ToolkitMissingResourceError(f"Resource {item_id} not found in resources.")
+            raise ToolkitMissingResourceError(f"Bug in Toolkit resource {item_id} not found in built resources.")
         built = built_by_identifier[item_id]
-        if built.extra_sources:
-            builder = create_builder(built.resource_dir, None)
-            for extra in built.extra_sources:
-                extra_content, extra_placeholders = built.build_variables.replace(
-                    safe_read(extra.path), extra.path, use_placeholder=True
+
+        if built.extra_files:
+            for extra in built.extra_files:
+                extra_content, extra_placeholders = BuildVariable.substitute_with_placeholders(
+                    safe_read(extra.source_path), built.variables
                 )
-                key, _ = builder.load_extra_field(extra_content)
-                if key in item_write:
-                    new_extra = item_write.pop(key)
+                if (
+                    built.crud_cls.extra_content_property in item_write
+                    and built.crud_cls.extra_content_property is not None
+                ):
+                    new_extra = item_write.pop(built.crud_cls.extra_content_property)
                     for placeholder, variable in extra_placeholders.items():
                         if placeholder in extra_content:
-                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
-                    extra_files[extra.path] = new_extra
+                            new_extra = new_extra.replace(str(variable.value), f"{{{{ {variable.name} }}}}")
+                    extra_files[extra.source_path] = new_extra
+
         # Only split for resources that are sidecar-backed in build metadata, plus Skill (sidecar-first by design).
-        if built.extra_sources or replacer._loader.kind == "Skill":
+        if built.extra_files or replacer._loader.kind == "Skill":
             split_resources = list(replacer._loader.split_resource(source_file, item_write))
             base_to_write = item_write
             for split_path, split_content in split_resources:
@@ -821,9 +581,9 @@ class PullCommand(ToolkitCommand):
                     base_to_write = split_content
                 elif isinstance(split_content, str):
                     extra_files[split_path] = split_content
-            return replacer.replace(loaded, loaded_with_placeholder, base_to_write)
+            return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, base_to_write)
 
-        return replacer.replace(loaded, loaded_with_placeholder, item_write)
+        return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, item_write)
 
 
 class ResourceReplacer:
@@ -951,7 +711,7 @@ class ResourceReplacer:
                     # string, we cannot update it.
                     if variable := self._value_by_placeholder.get(placeholder_value):
                         raise ToolkitValueError(
-                            f"Pull is not supported for list variable: {variable.key}: {variable.value_variable}"
+                            f"Pull is not supported for list variable: {variable.name}: {variable.value}"
                         )
                     raise ToolkitValueError("Pull is not supported for list variable.")
             else:
