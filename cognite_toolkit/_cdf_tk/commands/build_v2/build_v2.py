@@ -115,19 +115,20 @@ class BuildV2Command(ToolkitCommand):
         # Track build duration
         build_start_time = datetime.now(timezone.utc)
 
-        self._validate_build_parameters(parameters, console, sys.argv)
+        self.validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
-        selection_source: SelectionSource = (
-            "modules"
-            if parameters.user_selected_modules
-            else "config"
-            if build_files.selected_modules is not None
-            else "interactive"
-        )
+
+        if parameters.user_selected_modules:
+            selection_source: SelectionSource = "modules"
+        elif build_files.selected_modules is not None:
+            selection_source = "config"
+        else:
+            selection_source = "interactive"
 
         module_scan_result = self._find_modules(build_files)
+
         if display:
             self._display_module_sources(
                 module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
@@ -174,7 +175,7 @@ class BuildV2Command(ToolkitCommand):
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
         console = client.console if client else Console(markup=True)
-        self._validate_build_parameters(
+        self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
         )
 
@@ -308,7 +309,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
+    def validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
         """Checks that the user has the correct folders set up and that the config file (if provided) exists."""
 
         # Set up the variables

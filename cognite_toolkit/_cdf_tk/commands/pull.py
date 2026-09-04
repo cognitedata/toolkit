@@ -14,12 +14,15 @@ import questionary
 import yaml
 from questionary import Choice
 from rich import print
+from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildFolder, BuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -49,6 +52,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeveri
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
+    humanize_collection,
     read_yaml_content,
     read_yaml_file,
     safe_read,
@@ -846,13 +850,40 @@ class PullV2Command(ToolkitCommand):
             dry_run: If True, no files will be modified; only a summary of changes will be displayed.
             verbose: If True, detailed output will be printed during execution.
         """
-        # Figure out which modules to pull based on user input or prompt.
-        # Build selected modules.
-        # Order resources by type (now ignore modules)
-        # For each resource type, pull the resources from CDF and update local files.
-        # - Gather up the results and display a summary of changes.
-        # - Verbose output can show detailed changes for each resource.
-        ...
+        client = env_vars.get_client(is_strict_validation=False)
+        console = client.console
+        build_dir = Path(tempfile.mkdtemp())
+        try:
+            parameters = BuildParameters(
+                organization_dir=organization_dir,
+                build_dir=build_dir,
+                config_yaml=config_yaml,
+                user_selected_modules=user_selected_modules,
+                verbose=False,
+                write_insights=False,
+                write_lineage=False,
+            )
+            build_folder = BuildV2Command(print_warning=False, skip_tracking=True, silent=True, client=client).build(
+                parameters, client, display=False
+            )
+        except ToolkitError as e:
+            raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e
+        else:
+            self._pull_built_modules(build_folder, dry_run, env_vars, console, verbose)
+        finally:
+            try:
+                safe_rmtree(build_dir)
+            except Exception as e:
+                raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
+
+    def _pull_built_modules(
+        self,
+        build_folder: BuildFolder,
+        dry_run: bool,
+        env_vars: EnvironmentVariables,
+        console: Console,
+        verbose: bool,
+    ) -> None: ...
 
 
 class ResourceReplacer:

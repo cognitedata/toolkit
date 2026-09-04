@@ -50,6 +50,10 @@ class BuildParameters(BaseModel):
         default=True,
         description="Whether to write lineage information to a file in the build directory.",
     )
+    operation: str = Field(
+        default="build",
+        description="The operation being performed. Used when prompting the user for input. For example, 'Which modules do you want to build?'",
+    )
 
     @property
     def modules_directory(self) -> Path:
