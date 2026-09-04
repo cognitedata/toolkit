@@ -719,7 +719,8 @@ def test_dump_workflow(
     cmd = DumpResourceCommand(silent=True)
     cmd.dump_to_yamls(
         WorkflowFinder(
-            env_vars_with_client.get_client(), WorkflowVersionId(workflow_external_id="myWorkflow", version="v1")
+            env_vars_with_client.get_client(),
+            (WorkflowVersionId(workflow_external_id="myWorkflow", version="v1"),),
         ),
         output_dir=output_dir,
         clean=True,
