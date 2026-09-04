@@ -519,7 +519,12 @@ class PullV2Command(ToolkitCommand):
                     )
                 )
 
+        self._display_results(results, console, verbose)
+
         return results
+
+    @classmethod
+    def _display_results(cls, results: list[PullResult], console: Console, verbose: bool) -> None: ...
 
     @staticmethod
     def _get_local_resource_dict_by_id(
