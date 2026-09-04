@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
-    SuccessfulReadYAMLFile,
+    SuccessfulReadYAMLFile, ModuleId,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
@@ -670,7 +670,7 @@ class BuildV2Command(ToolkitCommand):
 
                 # Local validation of module
                 insights = validator.run(module)
-                built_resources = self._export_resources(module.files, resource_counter, build_dir)
+                built_resources = self._export_resources(module.files, resource_counter, build_dir, source.variables, source.id)
 
                 built_modules.append(
                     BuiltModule(
@@ -928,7 +928,7 @@ class BuildV2Command(ToolkitCommand):
         return syntax_error, syntax_warning
 
     def _export_resources(
-        self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
+        self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path, variables: list[BuildVariable], module_id: ModuleId,
     ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
         for file in files:
@@ -979,7 +979,10 @@ class BuildV2Command(ToolkitCommand):
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
+                        extra_files=[extra for extra in resource.extra_files if isinstance(extra, SuccessExtra)],
                         has_syntax_error=resource.validated is None,
+                        variables=variables,
+                        module_id=module_id,
                     )
                 )
         return built_resources

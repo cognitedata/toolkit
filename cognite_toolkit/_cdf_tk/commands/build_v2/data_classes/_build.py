@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
@@ -108,7 +108,11 @@ class BuiltResource(BaseModel):
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
 
     failed_extra: list[FailedReadExtra] = Field(default_factory=list)
+    extra_files: list[SuccessExtra] = Field(default_factory=list)
+
     has_syntax_error: bool
+    variables: list[BuildVariable] = Field(default_factory=list)
+    module_id: ModuleId
 
     @property
     def can_verify(self) -> bool:
