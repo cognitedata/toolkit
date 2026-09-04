@@ -5,7 +5,7 @@ import re
 import sys
 import tempfile
 import uuid
-from collections import UserList
+from collections import UserList, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
@@ -22,7 +22,12 @@ from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildFolder, BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildFolder,
+    BuildParameters,
+    BuiltResource,
+    ResourceType,
+)
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -869,7 +874,7 @@ class PullV2Command(ToolkitCommand):
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e
         else:
-            self._pull_built_modules(build_folder, dry_run, env_vars, console, verbose)
+            self._pull_built_modules(build_folder, client, dry_run, env_vars.dump(include_os=True), console, verbose)
         finally:
             try:
                 safe_rmtree(build_dir)
@@ -879,11 +884,101 @@ class PullV2Command(ToolkitCommand):
     def _pull_built_modules(
         self,
         build_folder: BuildFolder,
+        client: ToolkitClient,
         dry_run: bool,
-        env_vars: EnvironmentVariables,
+        env_vars: dict[str, str | None],
         console: Console,
         verbose: bool,
-    ) -> None: ...
+    ) -> None:
+        resources_by_type: dict[ResourceType, list[BuiltResource]] = defaultdict(list)
+        for module in build_folder.built_modules:
+            for resource in module.resources:
+                resources_by_type[resource.type].append(resource)
+
+        for resource_type, resources in resources_by_type.items():
+            resource_io = resources[0].crud_cls.create_loader(
+                client, build_dir=build_folder.build_dir, console=client.console
+            )
+
+            cdf_resources = resource_io.retrieve([resource.identifier for resource in resources])
+            cdf_resource_by_id = {resource_io.get_id(r): r for r in cdf_resources}
+
+            resource_by_source_file: dict[Path, list[BuiltResource]] = defaultdict(list)
+            for resource in resources:
+                resource_by_source_file[resource.source_path].append(resource)
+
+            for source_file, file_resources in resource_by_source_file.items():
+                local_resource_by_id = self._get_local_resource_dict_by_id(file_resources, resource_io, env_vars)
+                has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, resource_io)
+
+                if has_changes and not dry_run:
+                    new_content, extra_files = self._to_write_content(
+                        safe_read(source_file), to_write, file_resources, env_vars, resource_io, source_file
+                    )
+                    with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                        f.write(new_content)
+                    for filepath, content in extra_files.items():
+                        filepath.parent.mkdir(parents=True, exist_ok=True)
+                        with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                            f.write(content)
+
+    @staticmethod
+    def _get_local_resource_dict_by_id(
+        resources: list[BuiltResource],
+        resource_io: ResourceIO,
+        environment_variables: dict[str, str | None],
+    ) -> dict[T_Identifier, dict[str, Any]]:
+        local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
+        for resource in resources:
+            resource_list = resource_io.load_resource_file(resource.build_path, environment_variables)
+            # In build, there should always be just one resource per file, so we can safely take the first one.
+            # Adding a try-except block to catch any unexpected IndexError, which would indicate a bug in the Toolkit.
+            try:
+                local_resource_by_id[resource.identifier] = resource_list[0]
+            except IndexError:
+                raise ToolkitValueError(
+                    f"There is a bug in Toolikt. "
+                    f"Expected at least one resource in the file {resource.build_path}, but found none."
+                )
+        return local_resource_by_id
+
+    def _get_to_write(
+        self,
+        local_resource_by_id: dict[T_Identifier, dict[str, Any]],
+        cdf_resource_by_id: dict[T_Identifier, T_ResponseResource],
+        resource_io: ResourceIO,
+    ) -> tuple[bool, dict[T_Identifier, dict[str, Any]]]:
+        to_write: dict[T_Identifier, dict[str, Any]] = {}
+        has_changes = False
+        for item_id, local_dict in local_resource_by_id.items():
+            cdf_resource = cdf_resource_by_id.get(item_id)
+            if cdf_resource is None:
+                to_write[item_id] = local_dict
+                ## Todo, log as skip.
+                self.warn(
+                    MediumSeverityWarning(
+                        f"No {resource_io.display_name} with id {item_id} found in CDF. Have you deployed it?"
+                    )
+                )
+                continue
+            cdf_dumped = resource_io.dump_resource(cdf_resource, local_dict)
+
+            if cdf_dumped == local_dict:
+                to_write[item_id] = local_dict
+            else:
+                to_write[item_id] = cdf_dumped
+                has_changes = True
+        return has_changes, to_write
+
+    def _to_write_content(
+        self,
+        source_content: str,
+        to_write: dict[T_Identifier, dict[str, Any]],
+        resources: list[BuiltResource],
+        environment_variables: dict[str, str | None],
+        resource_io: ResourceIO,
+        source_file: Path,
+    ) -> tuple[str, dict[Path, str]]: ...
 
 
 class ResourceReplacer:

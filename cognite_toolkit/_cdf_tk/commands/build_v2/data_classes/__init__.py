@@ -3,6 +3,7 @@ from ._build import (
     BuildInput,
     BuildParameters,
     BuiltModule,
+    BuiltResource,
 )
 from ._config import ConfigYAML
 from ._insights import (
@@ -34,6 +35,7 @@ __all__ = [
     "BuildParameters",
     "BuildVariable",
     "BuiltModule",
+    "BuiltResource",
     "ConfigYAML",
     "ConsistencyError",
     "FailedReadYAMLFile",
