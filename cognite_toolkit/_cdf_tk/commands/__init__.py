@@ -17,7 +17,7 @@ from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .modules import ModulesCommand
-from .pull import PullCommand
+from .pull import PullV2Command
 from .repo import RepoCommand
 from .resources import ResourcesCommand
 from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
@@ -39,7 +39,7 @@ __all__ = [
     "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
-    "PullCommand",
+    "PullV2Command",
     "PurgeCommand",
     "RepoCommand",
     "ResourcesCommand",

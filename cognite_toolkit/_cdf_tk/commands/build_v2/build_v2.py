@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
+    ModuleId,
     ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
@@ -115,19 +116,20 @@ class BuildV2Command(ToolkitCommand):
         # Track build duration
         build_start_time = datetime.now(timezone.utc)
 
-        self._validate_build_parameters(parameters, console, sys.argv)
+        self.validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
-        selection_source: SelectionSource = (
-            "modules"
-            if parameters.user_selected_modules
-            else "config"
-            if build_files.selected_modules is not None
-            else "interactive"
-        )
 
-        module_scan_result = self._find_modules(build_files)
+        if parameters.user_selected_modules:
+            selection_source: SelectionSource = "modules"
+        elif build_files.selected_modules is not None:
+            selection_source = "config"
+        else:
+            selection_source = "interactive"
+
+        module_scan_result = self._find_modules(build_files, parameters.operation)
+
         if display:
             self._display_module_sources(
                 module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
@@ -174,7 +176,7 @@ class BuildV2Command(ToolkitCommand):
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
         console = client.console if client else Console(markup=True)
-        self._validate_build_parameters(
+        self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
         )
 
@@ -308,7 +310,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
+    def validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
         """Checks that the user has the correct folders set up and that the config file (if provided) exists."""
 
         # Set up the variables
@@ -388,18 +390,20 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     @classmethod
-    def _find_modules(cls, build: BuildInput) -> ModuleScanResult:
+    def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
 
         if build.selected_modules is None:
-            user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()))
+            user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
             user_selected_modules = build.selected_modules
 
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
     @classmethod
-    def _ask_user_to_select_modules(cls, available_modules: list[ModuleSource]) -> set[RelativeDirPath | str]:
+    def _ask_user_to_select_modules(
+        cls, available_modules: list[ModuleSource], operation: str
+    ) -> set[RelativeDirPath | str]:
         choices = [
             Choice(
                 title=f"{module.name} ({module.id.as_posix()})",
@@ -408,10 +412,10 @@ class BuildV2Command(ToolkitCommand):
             for module in available_modules
         ]
         if not available_modules:
-            raise ToolkitValueError("No modules found to build.")
-        result = questionary.checkbox("Which modules would you like to build?", choices=choices).unsafe_ask()
+            raise ToolkitValueError(f"No modules found to {operation}.")
+        result = questionary.checkbox(f"Which modules would you like to {operation}?", choices=choices).unsafe_ask()
         if result is None:
-            raise ToolkitValueError("Build cancelled by user.")
+            raise ToolkitValueError(f"{operation.title()} cancelled by user.")
         return set(result)
 
     def _display_module_sources(
@@ -669,7 +673,9 @@ class BuildV2Command(ToolkitCommand):
 
                 # Local validation of module
                 insights = validator.run(module)
-                built_resources = self._export_resources(module.files, resource_counter, build_dir)
+                built_resources = self._export_resources(
+                    module.files, resource_counter, build_dir, source.variables, source.as_id()
+                )
 
                 built_modules.append(
                     BuiltModule(
@@ -895,8 +901,7 @@ class BuildV2Command(ToolkitCommand):
                 and extra_file.content
                 and extra_file.suffix in SUPPORTS_VARIABLE_REPLACEMENT
             ):
-                # We check that it is a valid suffix above.
-                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
+                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)
             output.append(extra_file)
         return output
 
@@ -927,7 +932,12 @@ class BuildV2Command(ToolkitCommand):
         return syntax_error, syntax_warning
 
     def _export_resources(
-        self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
+        self,
+        files: Sequence[ReadYAMLFile],
+        resource_counter: Counter,
+        build_dir: Path,
+        variables: list[BuildVariable],
+        module_id: ModuleId,
     ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
         for file in files:
@@ -978,7 +988,10 @@ class BuildV2Command(ToolkitCommand):
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
+                        extra_files=[extra for extra in resource.extra_files if isinstance(extra, SuccessExtra)],
                         has_syntax_error=resource.validated is None,
+                        variables=variables,
+                        module_id=module_id,
                     )
                 )
         return built_resources

@@ -8,8 +8,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
@@ -48,6 +48,10 @@ class TestFunctionLimitsRule:
             crud_cls=FunctionIO,
             dependencies=set(),
             has_syntax_error=False,
+            module_id=ModuleId(
+                id=RelativeDirPath(Path("modules/my")),
+                path=source_path.parent.resolve(),
+            ),
         )
 
     @staticmethod
