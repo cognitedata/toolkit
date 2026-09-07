@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
+    DataProductIO,
     DataSetsIO,
     ExtractionPipelineIO,
     GroupAllScopedCRUD,
@@ -206,6 +207,17 @@ class TestGroupLoader:
                     (ExtractionPipelineIO, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="ID scope extractionpipline ",
+            ),
+            pytest.param(
+                {
+                    "capabilities": [
+                        {"dataProductsAcl": {"scope": {"dataProductScope": {"externalIds": ["my-data-product"]}}}}
+                    ]
+                },
+                [
+                    (DataProductIO, ExternalId(external_id="my-data-product")),
+                ],
+                id="Data product scope",
             ),
         ],
     )
