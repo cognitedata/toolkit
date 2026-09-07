@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
@@ -270,6 +271,9 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
 
     def dump_resource(self, resource: WorkflowVersionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
+        if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
+            for task in dumped["workflowDefinition"]["tasks"]:
+                task.pop("lineageAnnotation", None)
         if not local:
             return dumped
         # Sort to match the order of the local tasks
@@ -341,6 +345,13 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
             return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
         elif len(json_path) == 4 and json_path[:2] == ("workflowDefinition", "tasks") and json_path[3] == "dependsOn":
             return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
+        elif (
+            len(json_path) == 5
+            and json_path[:2] == ("workflowDefinition", "tasks")
+            and json_path[3] == "lineageAnnotation"
+            and json_path[4] in ("sources", "targets")
+        ):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["uri"])
         elif len(json_path) >= 2 and json_path[:2] == ("workflowDefinition", "tasks"):
             # Assume all other arrays in the tasks are hashable
             return diff_list_hashable(local, cdf)

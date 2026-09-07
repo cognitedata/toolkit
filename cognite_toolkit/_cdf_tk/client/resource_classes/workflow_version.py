@@ -155,6 +155,15 @@ Parameter = Annotated[
 ]
 
 
+class LineageInfo(BaseModelObject):
+    uri: str
+
+
+class TaskLineage(BaseModelObject):
+    sources: list[LineageInfo] | None = None
+    targets: list[LineageInfo] | None = None
+
+
 class Task(BaseModelObject):
     model_config = ConfigDict(extra="allow")
     external_id: str
@@ -166,6 +175,7 @@ class Task(BaseModelObject):
     timeout: int | None = None
     on_failure: Literal["abortWorkflow", "skipTask"] | None = None
     depends_on: list[TaskId] | None = None
+    lineage_annotation: TaskLineage | None = None
     parameters: Parameter
 
     @field_validator("parameters", mode="before")

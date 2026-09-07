@@ -13,13 +13,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    CogniteFunctionRef,
+    FunctionTaskParameters,
+    LineageInfo,
     SubworkflowTaskParameters,
     Task,
+    TaskLineage,
     WorkflowDefinition,
     WorkflowVersionRequest,
+    WorkflowVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import WorkflowTriggerIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
@@ -162,3 +168,65 @@ class TestWorkflowVersionLoader:
         assert error.args[1] == [
             WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]
         ]
+
+
+class TestWorkflowVersionLineageAnnotation:
+    @staticmethod
+    def _response_with_lineage() -> WorkflowVersionResponse:
+        return WorkflowVersionResponse(
+            workflow_external_id="wf1",
+            version="v1",
+            workflow_definition=WorkflowDefinition(
+                tasks=[
+                    Task(
+                        external_id="t1",
+                        type="function",
+                        parameters=FunctionTaskParameters(function=CogniteFunctionRef(external_id="my-func")),
+                        lineage_annotation=TaskLineage(
+                            sources=[LineageInfo(uri="cdf://cluster/project/domain/default/files/f1")]
+                        ),
+                    )
+                ]
+            ),
+            created_time=0,
+            last_updated_time=0,
+        )
+
+    def test_dump_resource_keeps_lineage_annotation_with_alpha_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original = FeatureFlag.is_enabled
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.DATA_PRODUCTS or original(flag))
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionIO(client, None, None)
+
+        dumped = loader.dump_resource(self._response_with_lineage())
+
+        assert dumped["workflowDefinition"]["tasks"][0]["lineageAnnotation"] == {
+            "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
+        }
+
+    def test_dump_resource_strips_lineage_annotation_without_alpha_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionIO(client, None, None)
+
+        dumped = loader.dump_resource(self._response_with_lineage())
+
+        assert "lineageAnnotation" not in dumped["workflowDefinition"]["tasks"][0]
+
+    def test_diff_list_lineage_sources(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionIO(client, None, None)
+
+        local = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
+        cdf = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
+
+        local_by_cdf, added = loader.diff_list(
+            local, cdf, ("workflowDefinition", "tasks", 0, "lineageAnnotation", "sources")
+        )
+
+        assert local_by_cdf == {0: 0}
+        assert added == []

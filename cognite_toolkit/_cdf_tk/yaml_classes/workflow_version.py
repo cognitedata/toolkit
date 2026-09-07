@@ -1,9 +1,16 @@
+import sys
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, model_validator
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as WorkflowVersionIdIdentifier
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -146,6 +153,24 @@ class TaskId(BaseModelResource):
     )
 
 
+class LineageInfo(BaseModelResource):
+    uri: str = Field(
+        min_length=1,
+        max_length=1024,
+        description="CDF resource URI identifying a lineage source or target, for example "
+        "'cdf://<cluster>/<project>/domain/<domain>/timeseries/<externalId>'.",
+    )
+
+
+class TaskLineage(BaseModelResource):
+    sources: list[LineageInfo] | None = Field(
+        None, max_length=100, description="The data sources that this task reads from."
+    )
+    targets: list[LineageInfo] | None = Field(
+        None, max_length=100, description="The data targets that this task writes to."
+    )
+
+
 class TaskDefinition(BaseModelResource, ABC):
     external_id: str = Field(
         max_length=255,
@@ -183,6 +208,17 @@ class TaskDefinition(BaseModelResource, ABC):
         description="The tasks that must be completed before this task can be executed.",
         max_length=100,
     )
+    lineage_annotation: TaskLineage | None = Field(
+        None, description="Declares the data lineage sources and targets of this task."
+    )
+
+    @model_validator(mode="after")
+    def validate_lineage_annotation_alpha_flag(self) -> Self:
+        if self.lineage_annotation is not None and not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
+            raise ValueError(
+                "lineageAnnotation requires the data_products alpha flag to be enabled in cdf.toml [alpha_flags]."
+            )
+        return self
 
 
 class FunctionTask(TaskDefinition):
