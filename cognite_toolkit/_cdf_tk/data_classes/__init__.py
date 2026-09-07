@@ -29,7 +29,6 @@ from ._deploy_results import (
     ResourceDeployResult,
     UploadDeployResult,
 )
-from ._issues import Issue, IssueList
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._packages import Package, Packages
 from ._tracking_info import CommandTracking, DeploymentTracking, TrackingEvent
@@ -57,8 +56,6 @@ __all__ = [
     "DeploymentTracking",
     "Environment",
     "InitConfigYAML",
-    "Issue",
-    "IssueList",
     "ModuleDirectories",
     "ModuleLocation",
     "Package",
