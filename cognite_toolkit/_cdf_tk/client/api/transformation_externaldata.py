@@ -31,8 +31,11 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
         return self._request_item_response(items, "create")
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
-        self._request_no_response(items, "delete")
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+        if ignore_unknown_ids:
+            self._request_item_split_retries_no_response(items, "delete")
+        else:
+            self._request_no_response(items, "delete")
 
     def list(self, limit: int | None = 100) -> list[ExternalDataSourceResponse]:
         return self._list(limit=limit)
