@@ -34,10 +34,6 @@ class Flags(Enum):
         visible=False,
         description="Enables the support for deploying data models as GraphQL schemas",
     )
-    PROFILE = FlagMetadata(
-        visible=True,
-        description="Enables support for the profile command",
-    )
     INFIELD = FlagMetadata(
         visible=True,
         description="Enables support for Infield configs",

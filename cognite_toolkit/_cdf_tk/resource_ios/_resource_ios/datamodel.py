@@ -1418,6 +1418,8 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
+    extra_content_property = "dml"
+
     def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
         super().__init__(client, build_dir, console)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}

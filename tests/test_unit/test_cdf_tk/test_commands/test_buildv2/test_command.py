@@ -241,6 +241,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         module.resources.append(
@@ -256,6 +257,7 @@ class TestDependencyValidationSearchConfig:
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
+                module_id=module.module_id,
             )
         )
         result = list(DependencyRuleSet([module]).validate())
@@ -337,11 +339,11 @@ class TestValidateBuildParameters:
         console = MagicMock(spec=Console)
         if expected_error:
             with pytest.raises(ToolkitError) as exc_info:
-                BuildV2Command._validate_build_parameters(parameters, console, user_args)
+                BuildV2Command.validate_build_parameters(parameters, console, user_args)
 
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
-            BuildV2Command._validate_build_parameters(parameters, console, user_args)
+            BuildV2Command.validate_build_parameters(parameters, console, user_args)
 
 
 class TestReadFileSystem:
@@ -882,3 +884,34 @@ class TestTmpBuild:
         # The cache file on disk must be updated to reflect the deletion.
         cached_on_disk = BuildLineage.from_yaml_file(cache_path)
         assert {item.module_path.name for item in cached_on_disk.module_lineage} == {"module_a"}
+
+    def test_tmp_build_cache_preserves_variables_for_load_resource_dict(
+        self, tmp_path: Path, tlk_client: ToolkitClient
+    ) -> None:
+        cmd = BuildV2Command()
+        org = tmp_path / "org"
+        org.mkdir()
+        config_yaml = org / "config.dev.yaml"
+        config_yaml.write_text(
+            """environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/
+variables:
+  modules:
+    my_module:
+      space_name: substituted_space
+"""
+        )
+        create_resource_file(org, SpaceCRUD, "space: {{ space_name }}\nname: Space\n")
+
+        first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        first_spaces = first_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
+        assert first_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+
+        second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
+        second_spaces = second_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
+        assert second_spaces[0].variables
+        assert second_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}

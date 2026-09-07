@@ -3,6 +3,7 @@ from ._build import (
     BuildInput,
     BuildParameters,
     BuiltModule,
+    BuiltResource,
 )
 from ._config import ConfigYAML
 from ._insights import (
@@ -13,7 +14,7 @@ from ._insights import (
     ModelSyntaxWarning,
     Recommendation,
 )
-from ._lineage import BuildLineage
+from ._lineage import BuildLineage, ResourceLineageItem
 from ._module import (
     BuildVariable,
     FailedReadYAMLFile,
@@ -34,6 +35,7 @@ __all__ = [
     "BuildParameters",
     "BuildVariable",
     "BuiltModule",
+    "BuiltResource",
     "ConfigYAML",
     "ConsistencyError",
     "FailedReadYAMLFile",
@@ -48,6 +50,7 @@ __all__ = [
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
+    "ResourceLineageItem",
     "ResourceType",
     "SuccessfulReadYAMLFile",
     "ValidationType",

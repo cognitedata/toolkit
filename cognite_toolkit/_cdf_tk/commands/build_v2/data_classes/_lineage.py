@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import yaml
 from pydantic import (
@@ -13,6 +13,7 @@ from pydantic import (
     computed_field,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic.alias_generators import to_camel
 from pydantic_core.core_schema import ValidationInfo
@@ -24,11 +25,22 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxError,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, read_yaml_content
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMissingResourceError,
+    ToolkitValidationError,
+    ToolkitYAMLFormatError,
+)
+from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, get_crud
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_directory_hash,
+    calculate_hash,
+    load_yaml_inject_variables,
+    read_yaml_content,
+    safe_read,
+)
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ._module import ResourceType
+from ._module import BuildVariable, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
 
@@ -46,6 +58,7 @@ class ResourceLineageItem(_BaseLineageModel):
     type: ResourceType
     built_file: AbsoluteFilePath
     identifier: Identifier
+    variables: list[BuildVariable] = Field(default_factory=list, exclude=True)
 
     @field_validator("identifier", mode="plain")
     @classmethod
@@ -62,6 +75,25 @@ class ResourceLineageItem(_BaseLineageModel):
     def serialize_identifier(self, value: Identifier) -> dict[str, Any]:
         return value.dump()
 
+    def load_resource_dict(
+        self, environment_variables: dict[str, str | None], validate: bool = False
+    ) -> dict[str, Any]:
+        content = BuildVariable.substitute(safe_read(self.source_file), self.variables, self.source_file.suffix)
+        resource_io = cast(type[ResourceIO], get_crud(self.type.resource_folder, self.type.kind))
+        raw = load_yaml_inject_variables(
+            content,
+            environment_variables,
+            validate=validate,
+            original_filepath=self.source_file,
+        )
+        if isinstance(raw, dict):
+            return raw
+        elif isinstance(raw, list):
+            for item in raw:
+                if resource_io.get_id(item) == self.identifier:
+                    return item
+        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.source_file}")
+
 
 class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""
@@ -73,9 +105,22 @@ class ModuleLineageItem(_BaseLineageModel):
         description="Hash of the module source directory at build time, used for incremental rebuilds.",
     )
     insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
+    variables: list[BuildVariable] = Field(
+        default_factory=list,
+        description="Build variables for this module. Stored so source files can be reloaded from the tmp_build cache.",
+    )
     resource_lineage: list[ResourceLineageItem] = Field(
         default_factory=list, description="List of resource lineage items for this module"
     )
+
+    @model_validator(mode="after")
+    def _propagate_variables_to_resources(self) -> "ModuleLineageItem":
+        if not self.variables:
+            return self
+        for resource in self.resource_lineage:
+            if not resource.variables:
+                resource.variables = self.variables
+        return self
 
     @property
     def is_success(self) -> bool:
@@ -111,6 +156,7 @@ class ModuleLineageItem(_BaseLineageModel):
                     built_file=resource.build_path.resolve(),
                     type=resource.type,
                     identifier=resource.identifier,
+                    variables=module.variables,
                 )
             )
         module_path = module.module_id.path.resolve()
@@ -120,6 +166,7 @@ class ModuleLineageItem(_BaseLineageModel):
             module_hash=calculate_directory_hash(module_path, shorten=True),
             resource_lineage=resource_lineage,
             insights_summary=module.all_insights.summary,
+            variables=module.variables,
         )
 
 
@@ -255,3 +302,12 @@ class BuildLineage(_BaseLineageModel):
             raise ToolkitValidationError(
                 "Source files have changed since the build. Please rebuild before deploying.\n" + "\n".join(errors)
             )
+
+    def get_resource_of_type(self, resource_type: ResourceType) -> list[ResourceLineageItem]:
+        """Get all resources of a specific type from the lineage."""
+        resources: list[ResourceLineageItem] = []
+        for module in self.module_lineage:
+            for resource in module.resource_lineage:
+                if resource.type == resource_type:
+                    resources.append(resource)
+        return resources
