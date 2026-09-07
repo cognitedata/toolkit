@@ -16,7 +16,7 @@ class AuthApp(typer.Typer):
         self.command()(self.init)
         self.command()(self.verify)
         if FeatureFlag.is_enabled(Flags.V09):
-            self.command(name="login")(self.login)
+            self.command()(self.login)
             self.command()(self.logout)
             self.command()(self.status)
 
@@ -111,7 +111,7 @@ class AuthApp(typer.Typer):
             typer.Option("--port", help="Local callback port for the OAuth redirect (default: 3000)"),
         ] = None,
     ) -> None:
-        """Sign in via the browser and persist a refreshable session (parity with `cognite auth login`)."""
+        """Sign in via the browser and persist a refreshable session."""
         from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
 
         cmd = AuthSessionCommand()
