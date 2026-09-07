@@ -6,12 +6,9 @@ from ._config_yaml import (
     InitConfigYAML,
 )
 from ._deploy_results import (
-    DatapointDeployResult,
     DeployResult,
     DeployResults,
-    ResourceContainerDeployResult,
     ResourceDeployResult,
-    UploadDeployResult,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._packages import Package, Packages
@@ -23,7 +20,6 @@ __all__ = [
     "CommandTracking",
     "ConfigEntry",
     "ConfigYAMLs",
-    "DatapointDeployResult",
     "DeployResult",
     "DeployResults",
     "DeploymentTracking",
@@ -33,9 +29,7 @@ __all__ = [
     "ModuleLocation",
     "Package",
     "Packages",
-    "ResourceContainerDeployResult",
     "ResourceDeployResult",
     "TrackingEvent",
-    "UploadDeployResult",
     "YAMLComments",
 ]
