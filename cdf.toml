@@ -8,7 +8,6 @@ file_upload_timeout_seconds = 90
 [alpha_flags]
 graphql = true
 import-cmd = true
-profile = true
 infield = true
 migrate = true
 create = true
