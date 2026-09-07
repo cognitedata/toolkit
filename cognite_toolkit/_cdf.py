@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.apps import (
     LandingApp,
     MigrateApp,
     ModulesApp,
-    ProfileApp,
     RepoApp,
     RunApp,
 )
@@ -99,9 +98,6 @@ if Plugins.dump.value.is_enabled():
 
 if Plugins.dev.value.is_enabled():
     _app.add_typer(DevApp(**default_typer_kws), name="dev")
-
-if Flags.PROFILE.is_enabled():
-    _app.add_typer(ProfileApp(**default_typer_kws), name="profile")
 
 if Flags.MIGRATE.is_enabled():
     _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
