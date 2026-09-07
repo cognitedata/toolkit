@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -51,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
-from . import BuildV2Command
 from ._base import ToolkitCommand
 
 ALLOWED_HANDLE_ARGS = frozenset({"data", "client", "secrets", "function_call_info"})
@@ -253,9 +253,13 @@ if __name__ == "__main__":
         ):
             return FunctionCallArgs()
         if is_interactive:
-            data, credentials = cls._get_call_args_interactive(function_external_id, build_folder)
+            data, credentials = cls._get_call_args_interactive(
+                function_external_id, build_folder, environment_variables
+            )
         elif data_source is not None:
-            data, credentials = cls._geta_call_args_from_data_source(data_source, function_external_id, build_folder)
+            data, credentials = cls._geta_call_args_from_data_source(
+                data_source, function_external_id, build_folder, environment_variables
+            )
         else:
             raise ToolkitValueError("Data source is required when not in interactive mode.")
 
@@ -294,7 +298,7 @@ if __name__ == "__main__":
 
     @staticmethod
     def _get_call_args_interactive(
-        function_external_id: str, build_folder: BuildLineage
+        function_external_id: str, build_folder: BuildLineage, environment_variables: dict[str, str | None]
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         options: dict[str, Any] = {}
         for schedule in build_folder.get_resource_of_type(FunctionScheduleIO.as_resource_type()):
@@ -307,14 +311,14 @@ if __name__ == "__main__":
         workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
         raw_trigger_by_workflow_id: dict[tuple[str, str | None], dict[str, Any]] = {}
         for trigger in build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type()):
-            raw_trigger = trigger.load_resource_dict({}, validate=False)
+            raw_trigger = trigger.load_resource_dict(environment_variables, validate=False)
             loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
             raw_trigger_by_workflow_id[(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)] = (
                 raw_trigger
             )
 
         for workflow in workflows:
-            raw_workflow = workflow.load_resource_dict({}, validate=False)
+            raw_workflow = workflow.load_resource_dict(environment_variables, validate=False)
             loaded = WorkflowVersionUpsert.load(raw_workflow)
             for task in loaded.workflow_definition.tasks:
                 if (
@@ -338,7 +342,7 @@ if __name__ == "__main__":
         selected = options[selected_name]
         if isinstance(selected, ResourceLineageItem):
             # Schedule
-            raw_schedule = selected.load_resource_dict({}, validate=False)
+            raw_schedule = selected.load_resource_dict(environment_variables, validate=False)
             return raw_schedule.get("data", {}), ClientCredentials.load(
                 raw_schedule["authentication"]
             ) if "authentication" in raw_schedule else None
@@ -356,7 +360,10 @@ if __name__ == "__main__":
 
     @staticmethod
     def _geta_call_args_from_data_source(
-        data_source: str | WorkflowVersionId, function_external_id: str, build_folder: BuildLineage
+        data_source: str | WorkflowVersionId,
+        function_external_id: str,
+        build_folder: BuildLineage,
+        environment_variables: dict[str, str | None],
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
@@ -375,7 +382,7 @@ if __name__ == "__main__":
                     and identifier.version == data_source.version
                 )
             if matches_workflow:
-                raw_workflow = workflow.load_resource_dict({}, validate=False)
+                raw_workflow = workflow.load_resource_dict(environment_variables, validate=False)
                 loaded = WorkflowVersionUpsert.load(raw_workflow)
                 for task in loaded.workflow_definition.tasks:
                     if (
@@ -386,7 +393,7 @@ if __name__ == "__main__":
                         found = True
                         break
             for trigger in triggers:
-                raw_trigger = trigger.load_resource_dict({}, validate=False)
+                raw_trigger = trigger.load_resource_dict(environment_variables, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
                     isinstance(data_source, WorkflowVersionId)
@@ -413,7 +420,7 @@ if __name__ == "__main__":
                 and schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
             ):
-                raw_schedule = schedule.load_resource_dict({}, validate=False)
+                raw_schedule = schedule.load_resource_dict(environment_variables, validate=False)
                 return raw_schedule.get("data", {}), ClientCredentials.load(
                     raw_schedule["authentication"]
                 ) if "authentication" in raw_schedule else None
