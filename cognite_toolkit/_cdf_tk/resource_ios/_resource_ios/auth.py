@@ -79,7 +79,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
     resource_cls = GroupResponse
     resource_write_cls = GroupRequest
     yaml_cls = GroupYAML
-    resource_scopes = frozenset(
+    resource_scopes: frozenset[type[cap.Capability.Scope] | type[yaml_cap.Scope]] = frozenset(
         {
             cap.IDScope,
             cap.SpaceIDScope,
@@ -88,10 +88,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
             cap.AssetRootIDScope,
             cap.ExtractionPipelineScope,
             cap.IDScopeLowerCase,
-            yaml_cap.DataProductScope._scope_name,  # Not yet added to the SDK
+            # Not yet added to the SDK, so we use the toolkit's own yaml scope class here instead.
+            yaml_cap.DataProductScope,
         }
     )
-    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
+    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})
     _doc_url = "Groups/operation/createGroups"
 
     def __init__(
