@@ -3,22 +3,12 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.auth.session_keyring import (
-    configure_sample_store,
     delete_session_token,
     read_session_token,
-    reset_store,
     store_session_token,
 )
 from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, clear_session, read_session, write_session
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
-
-
-@pytest.fixture
-def sample_keyring(tmp_path: Path):
-    backing_file = tmp_path / "keyring.ron"
-    configure_sample_store(str(backing_file))
-    yield backing_file
-    reset_store()
 
 
 def test_session_token_roundtrip(sample_keyring: Path) -> None:

@@ -1,24 +1,36 @@
+import sys
 from datetime import datetime, timezone
 
 import questionary
 from rich import print
 
-from cognite_toolkit._cdf_tk.auth.cogidp import fetch_session_user_info
+from cognite_toolkit._cdf_tk.auth.cogidp import SessionProject, fetch_session_user_info
 from cognite_toolkit._cdf_tk.auth.oidc import login_for_session, revoke_refresh_token
+from cognite_toolkit._cdf_tk.auth.session_keyring import read_session_token
 from cognite_toolkit._cdf_tk.auth.session_refresh import SessionExpiredError, ensure_fresh_session
 from cognite_toolkit._cdf_tk.auth.session_store import (
+    clear_org_tokens,
     clear_session,
     read_session_metadata,
     token_state,
     write_session,
 )
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 from ._base import ToolkitCommand
 
 
 class AuthSessionCommand(ToolkitCommand):
     def login(self, org: str | None, force: bool, port: int | None) -> None:
-        existing = read_session_metadata()
+        try:
+            existing = read_session_metadata()
+        except AuthenticationError:
+            if force:
+                clear_session()
+                existing = None
+            else:
+                raise
+
         if existing and not force:
             state = token_state(existing)
             if state != "EXPIRED":
@@ -29,10 +41,12 @@ class AuthSessionCommand(ToolkitCommand):
                 if not replace:
                     print("[yellow]Aborted.[/yellow]")
                     return
-        if existing:
-            clear_session()
 
         if not org:
+            if not sys.stdin.isatty():
+                raise AuthenticationError(
+                    "Organization name is required. Pass --org when running without an interactive terminal."
+                )
             org = questionary.text(
                 "Enter your organization name",
                 validate=lambda value: bool(value.strip()) or "Organization name is required",
@@ -40,27 +54,33 @@ class AuthSessionCommand(ToolkitCommand):
             org = org.strip()
 
         session = login_for_session(org, port=port)
+        if existing and existing.org != session.org:
+            clear_org_tokens(existing.org)
         write_session(session)
         print(f"\n[green]Signed in to organization {session.org}.[/green]")
 
     def logout(self) -> None:
-        session = ensure_fresh_session()
-        if session is None:
+        try:
             metadata = read_session_metadata()
-            if metadata is None:
-                print("[yellow]No active session.[/yellow]")
-                return
+        except AuthenticationError:
             clear_session()
             print("[green]Session cleared.[/green]")
             return
-        revoke_refresh_token(session.refresh_token)
+
+        if metadata is None:
+            print("[yellow]No active session.[/yellow]")
+            return
+
+        refresh_token = read_session_token(f"{metadata.org}/refreshToken")
+        if refresh_token:
+            revoke_refresh_token(refresh_token)
         clear_session()
-        print(f"[green]Signed out from organization {session.org}.[/green]")
+        print(f"[green]Signed out from organization {metadata.org}.[/green]")
 
     def status(self) -> None:
         try:
             session = ensure_fresh_session()
-        except SessionExpiredError as exc:
+        except (SessionExpiredError, AuthenticationError) as exc:
             print(f"[red]{exc}[/red]")
             return
         if session is None:
@@ -85,7 +105,7 @@ class AuthSessionCommand(ToolkitCommand):
             print("\n[dim]No projects returned from CogIdP.[/dim]")
             return
 
-        by_cluster: dict[str, list] = {}
+        by_cluster: dict[str, list[SessionProject]] = {}
         for project in user_info.projects:
             cluster = project.cluster or "(unknown cluster)"
             by_cluster.setdefault(cluster, []).append(project)

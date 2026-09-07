@@ -3,6 +3,7 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_DEFAULT_CALLBACK_PORT
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -108,7 +109,10 @@ class AuthApp(typer.Typer):
         ] = False,
         port: Annotated[
             int | None,
-            typer.Option("--port", help="Local callback port for the OAuth redirect (default: 3000)"),
+            typer.Option(
+                "--port",
+                help=f"Local callback port for the OAuth redirect (default: {COGNITE_CLI_DEFAULT_CALLBACK_PORT})",
+            ),
         ] = None,
     ) -> None:
         """Sign in via the browser and persist a refreshable session."""

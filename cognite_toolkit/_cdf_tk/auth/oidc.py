@@ -1,3 +1,4 @@
+import html
 import secrets
 import socket
 import threading
@@ -13,19 +14,18 @@ import httpx
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from rich import print
 
-from cognite_toolkit._cdf_tk.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, format_session_timestamp
 from cognite_toolkit._cdf_tk.constants import (
+    COGNITE_CLI_CALLBACK_PORTS,
     COGNITE_CLI_CLIENT_ID,
     COGNITE_CLI_DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
-    COGNITE_CLI_DEFAULT_CALLBACK_PORT,
+    COGNITE_CLI_LOGIN_TIMEOUT_SECONDS,
     COGNITE_CLI_REFRESH_TOKEN_IDLE_TTL_SECONDS,
     COGNITE_CLI_SESSION_SCOPES,
     COGNITE_CLI_SESSION_VERSION,
     COGNITE_IDP_BASE_URL,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
-
-LOGIN_TIMEOUT_SECONDS = 5 * 60
 
 
 @dataclass(frozen=True)
@@ -44,16 +44,8 @@ class _CallbackContext:
     result: dict[str, Any] | None = None
 
 
-def resolve_idp_base_url() -> str:
-    return COGNITE_IDP_BASE_URL
-
-
-def callback_redirect_uri(port: int) -> str:
-    return f"http://localhost:{port}/"
-
-
 def fetch_openid_configuration(base_url: str | None = None) -> OpenIdConfiguration:
-    idp_base = (base_url or resolve_idp_base_url()).rstrip("/")
+    idp_base = (base_url or COGNITE_IDP_BASE_URL).rstrip("/")
     url = f"{idp_base}/.well-known/openid-configuration"
     try:
         response = httpx.get(url, timeout=30.0)
@@ -61,11 +53,20 @@ def fetch_openid_configuration(base_url: str | None = None) -> OpenIdConfigurati
     except httpx.HTTPError as exc:
         raise AuthenticationError(f"Failed to fetch OpenID configuration from {idp_base}") from exc
     data = response.json()
-    return OpenIdConfiguration(
-        authorization_endpoint=data["authorization_endpoint"],
-        token_endpoint=data["token_endpoint"],
-        revocation_endpoint=data.get("revocation_endpoint"),
-    )
+    if not isinstance(data, dict):
+        raise AuthenticationError(f"Invalid OpenID configuration response from {idp_base}")
+    try:
+        return OpenIdConfiguration(
+            authorization_endpoint=data["authorization_endpoint"],
+            token_endpoint=data["token_endpoint"],
+            revocation_endpoint=data.get("revocation_endpoint"),
+        )
+    except KeyError as exc:
+        raise AuthenticationError(f"Invalid OpenID configuration response from {idp_base}") from exc
+
+
+def callback_redirect_uri(port: int) -> str:
+    return f"http://localhost:{port}/"
 
 
 def _as_seconds(value: Any) -> int | None:
@@ -99,8 +100,8 @@ def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | 
         org=org,
         access_token=access_token,
         refresh_token=refresh_token,
-        access_token_expires_at=(now + timedelta(seconds=access_ttl)).isoformat(),
-        refresh_token_expires_at=(now + timedelta(seconds=refresh_ttl)).isoformat(),
+        access_token_expires_at=format_session_timestamp(now + timedelta(seconds=access_ttl)),
+        refresh_token_expires_at=format_session_timestamp(now + timedelta(seconds=refresh_ttl)),
     )
 
 
@@ -155,7 +156,7 @@ def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHan
 
             state = params.get("state", [""])[0]
             code = params.get("code", [""])[0]
-            if state != context.expected_state or not code:
+            if not secrets.compare_digest(state, context.expected_state) or not code:
                 context.result = {"error": AuthenticationError("Invalid OAuth callback state or missing code.")}
                 self._respond_html("Authentication Error", "Invalid callback.", success=False)
                 return
@@ -186,11 +187,13 @@ def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHan
                 self._respond_html("Authentication Error", str(exc), success=False)
 
         def _respond_html(self, title: str, message: str, *, success: bool) -> None:
+            escaped_title = html.escape(title)
+            escaped_message = html.escape(message)
             color = "#16a34a" if success else "#dc2626"
             body = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{title}</title></head>
+<html><head><meta charset="utf-8"><title>{escaped_title}</title></head>
 <body style="font-family: system-ui, sans-serif; padding: 2rem;">
-<h1 style="color:{color};">{title}</h1><p>{message}</p>
+<h1 style="color:{color};">{escaped_title}</h1><p>{escaped_message}</p>
 </body></html>"""
             encoded = body.encode("utf-8")
             self.send_response(200)
@@ -254,14 +257,9 @@ class _OAuthCallbackServer:
             server.server_close()
 
 
-def login_for_session(org: str, port: int | None = None) -> StoredSession:
-    if not org.strip():
-        raise AuthenticationError("Organization name is required.")
-    org = org.strip()
-    callback_port = port or COGNITE_CLI_DEFAULT_CALLBACK_PORT
-
+def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
     print("Starting CDF login flow...\n")
-    idp_base = resolve_idp_base_url()
+    idp_base = COGNITE_IDP_BASE_URL
     print(f"Fetching OpenID configuration from {idp_base}...")
     oidc = fetch_openid_configuration(idp_base)
 
@@ -300,7 +298,7 @@ def login_for_session(org: str, port: int | None = None) -> StoredSession:
         print(f"Could not open browser automatically. Open this URL manually:\n{auth_url}\n")
 
     try:
-        result = callback_server.wait_for_result(LOGIN_TIMEOUT_SECONDS)
+        result = callback_server.wait_for_result(COGNITE_CLI_LOGIN_TIMEOUT_SECONDS)
     finally:
         callback_server.stop()
 
@@ -309,6 +307,24 @@ def login_for_session(org: str, port: int | None = None) -> StoredSession:
     if "error" in result:
         raise result["error"]
     return build_session_from_tokens(org, result["tokens"])
+
+
+def login_for_session(org: str, port: int | None = None) -> StoredSession:
+    if not org.strip():
+        raise AuthenticationError("Organization name is required.")
+    org = org.strip()
+
+    ports_to_try = [port] if port is not None else list(COGNITE_CLI_CALLBACK_PORTS)
+    last_error: AuthenticationError | None = None
+    for callback_port in ports_to_try:
+        try:
+            return _login_for_session_at_port(org, callback_port)
+        except AuthenticationError as exc:
+            if "already in use" in str(exc):
+                last_error = exc
+                continue
+            raise
+    raise last_error or AuthenticationError("No available callback port for login.")
 
 
 def refresh_session_tokens(session: StoredSession) -> StoredSession:
@@ -344,10 +360,11 @@ def revoke_refresh_token(refresh_token: str) -> None:
     if not oidc.revocation_endpoint:
         return
     try:
-        httpx.post(
+        response = httpx.post(
             oidc.revocation_endpoint,
             data={"token": refresh_token, "client_id": COGNITE_CLI_CLIENT_ID},
             timeout=30.0,
         )
+        response.raise_for_status()
     except httpx.HTTPError:
         pass

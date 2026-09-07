@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.auth.home import get_cli_home, session_file_path
 from cognite_toolkit._cdf_tk.auth.session_keyring import (
@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
-SessionTokenState = Literal["VALID", "EXPIRING", "EXPIRED", "MISSING"]
+SessionTokenState = Literal["VALID", "EXPIRING", "EXPIRED"]
 
 
 @dataclass
@@ -40,6 +40,12 @@ def _access_token_account(org: str) -> str:
 
 def _refresh_token_account(org: str) -> str:
     return f"{org}/refreshToken"
+
+
+def format_session_timestamp(dt: datetime) -> str:
+    dt = dt.astimezone(timezone.utc)
+    milliseconds = dt.microsecond // 1000
+    return dt.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
 
 
 def _parse_iso_timestamp(value: str) -> datetime:
@@ -92,17 +98,31 @@ def _read_metadata_file() -> SessionMetadata | None:
     path = session_file_path()
     if not path.is_file():
         return None
-    raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    if raw.get("version") != COGNITE_CLI_SESSION_VERSION:
-        raise AuthenticationError(
-            f"Unsupported session version {raw.get('version')!r}. Run `cdf auth login --force` to sign in again."
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("Session file content is not a JSON object.")
+        if raw.get("version") != COGNITE_CLI_SESSION_VERSION:
+            raise AuthenticationError(
+                f"Unsupported session version {raw.get('version')!r}. Run `cdf auth login --force` to sign in again."
+            )
+        return SessionMetadata(
+            version=raw["version"],
+            org=raw["org"],
+            access_token_expires_at=raw["accessTokenExpiresAt"],
+            refresh_token_expires_at=raw["refreshTokenExpiresAt"],
         )
-    return SessionMetadata(
-        version=raw["version"],
-        org=raw["org"],
-        access_token_expires_at=raw["accessTokenExpiresAt"],
-        refresh_token_expires_at=raw["refreshTokenExpiresAt"],
-    )
+    except AuthenticationError:
+        raise
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+        raise AuthenticationError(
+            f"Session file is corrupted or invalid: {exc}. Run `cdf auth login --force` to sign in again."
+        ) from exc
+
+
+def clear_org_tokens(org: str) -> None:
+    delete_session_token(_access_token_account(org))
+    delete_session_token(_refresh_token_account(org))
 
 
 def write_session(session: StoredSession) -> None:
@@ -129,10 +149,8 @@ def read_session() -> StoredSession | None:
     access_token = read_session_token(_access_token_account(metadata.org))
     refresh_token = read_session_token(_refresh_token_account(metadata.org))
     if not access_token or not refresh_token:
-        raise AuthenticationError(
-            "Session metadata exists but tokens are missing from the credential store. "
-            "Run `cdf auth login` to sign in again."
-        )
+        clear_session()
+        return None
     return StoredSession(
         version=metadata.version,
         org=metadata.org,
@@ -144,10 +162,12 @@ def read_session() -> StoredSession | None:
 
 
 def clear_session() -> None:
-    metadata = _read_metadata_file()
+    try:
+        metadata = _read_metadata_file()
+    except AuthenticationError:
+        metadata = None
     if metadata is not None:
-        delete_session_token(_access_token_account(metadata.org))
-        delete_session_token(_refresh_token_account(metadata.org))
+        clear_org_tokens(metadata.org)
     path = session_file_path()
     if path.is_file():
         path.unlink()

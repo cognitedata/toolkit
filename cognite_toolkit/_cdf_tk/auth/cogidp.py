@@ -1,4 +1,5 @@
 import base64
+import binascii
 import json
 from dataclasses import dataclass
 from urllib.parse import quote, urlparse
@@ -26,6 +27,7 @@ class SessionUserInfo:
 
 
 def _decode_jwt_claims(token: str) -> dict[str, str]:
+    """Decode JWT payload for display only; signature is not verified."""
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -37,7 +39,7 @@ def _decode_jwt_claims(token: str) -> dict[str, str]:
         if not isinstance(data, dict):
             return {}
         return {k: v for k, v in data.items() if isinstance(v, str)}
-    except (json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError, binascii.Error):
         return {}
 
 
