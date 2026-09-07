@@ -708,6 +708,7 @@ class BuildV2Command(ToolkitCommand):
                         yaml_line_count=sum(
                             file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
                         ),
+                        variables=source.variables,
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)

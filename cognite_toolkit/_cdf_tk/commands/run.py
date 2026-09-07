@@ -722,7 +722,7 @@ class RunWorkflowCommand(ToolkitCommand):
         credentials: ClientCredentials | None = None
         input_: dict | None = None
         for trigger in triggers:
-            trigger_dict = trigger.get_resource_dict(env_vars.dump(), validate=False)
+            trigger_dict = trigger.load_resource_dict(env_vars.dump(), validate=False)
             if (
                 trigger_dict["workflowExternalId"] == id_.workflow_external_id
                 and trigger_dict["workflowVersion"] == id_.version
