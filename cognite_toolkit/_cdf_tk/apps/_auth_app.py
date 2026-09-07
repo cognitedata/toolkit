@@ -3,7 +3,7 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
@@ -15,9 +15,10 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
-        self.command(name="login")(self.login)
-        self.command()(self.logout)
-        self.command()(self.status)
+        if FeatureFlag.is_enabled(Flags.V09):
+            self.command(name="login")(self.login)
+            self.command()(self.logout)
+            self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -111,15 +112,21 @@ class AuthApp(typer.Typer):
         ] = None,
     ) -> None:
         """Sign in via the browser and persist a refreshable session (parity with `cognite auth login`)."""
+        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+
         cmd = AuthSessionCommand()
         cmd.run(lambda: cmd.login(org=org, force=force, port=port))
 
     def logout(self) -> None:
         """Sign out and clear the persisted session."""
+        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+
         cmd = AuthSessionCommand()
         cmd.run(cmd.logout)
 
     def status(self) -> None:
         """Show the active persisted session (org, user, expiry, reachable projects)."""
+        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+
         cmd = AuthSessionCommand()
         cmd.run(cmd.status)

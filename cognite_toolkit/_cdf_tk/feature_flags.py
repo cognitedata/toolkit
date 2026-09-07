@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for record-backed views (streamId on views)",
     )
+    V09 = FlagMetadata(
+        visible=True,
+        description="Enables persisted CogIdP auth session commands (login, logout, status)",
+    )
     INFIELD_LOCATION_SPLIT = FlagMetadata(
         visible=True,
         description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
