@@ -9,7 +9,7 @@ import typing
 import warnings
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import Hashable, ItemsView, KeysView, ValuesView
+from collections.abc import ItemsView, KeysView, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -17,14 +17,12 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar, overload
 from zipfile import ZipFile
 
-import pandas as pd
 import yaml
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
@@ -426,26 +424,6 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def read_csv(
-    path: Path | typing.TextIO,
-    parse_dates: bool | None = None,
-    index_col: Hashable | None = None,
-    dtype: Any | None = None,
-) -> pd.DataFrame:
-    """Reads CSV
-
-    Args:
-        path (Path): Path to the CSV file.
-        parse_dates (bool, optional): Whether to parse dates. Defaults to None.
-        index_col (Hashable, optional): Index column. Defaults to None.
-        dtype (Any, optional): Data types. Defaults to None
-
-    Returns:
-        pd.DataFrame: DataFrame with the CSV data.
-    """
-    return pd.read_csv(path, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
-
-
 def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
     excvalue = exc[1]
     if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
@@ -470,23 +448,6 @@ def safe_rmtree(path: Path) -> None:
         MediumSeverityWarning(
             f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
         ).print_warning()
-
-
-def get_table_columns(table: Path) -> list[str]:
-    """Get the columns of a table
-
-    Args:
-        table (Path): Path to the table
-
-    Returns:
-        list[str]: List of columns
-    """
-    if table.suffix == ".csv":
-        return read_csv(table).columns.tolist()
-    elif table.suffix == ".parquet":
-        return pd.read_parquet(table).columns.tolist()
-    else:
-        raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")
 
 
 @contextmanager
