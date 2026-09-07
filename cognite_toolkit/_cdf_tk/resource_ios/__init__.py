@@ -17,8 +17,7 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
-from ._base_ios import DataCRUD, Loader, ResourceContainerIO, ResourceIO
-from ._data_cruds import RawFileCRUD
+from ._base_ios import Loader, ResourceContainerIO, ResourceIO
 from ._resource_ios import (
     AgentIO,
     AppIO,
@@ -119,10 +118,9 @@ CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 for _loader in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
-    DataCRUD.__subclasses__(),
     GroupIO.__subclasses__(),
 ):
-    if _loader in [ResourceIO, ResourceContainerIO, DataCRUD, GroupIO]:
+    if _loader in [ResourceIO, ResourceContainerIO, GroupIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
@@ -150,7 +148,6 @@ RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
 RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
-RESOURCE_DATA_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, DataCRUD)]
 KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
 for crud in CRUD_LIST:
     if crud.folder_name not in KINDS_BY_FOLDER_NAME:
@@ -216,7 +213,6 @@ __all__ = [
     "AssetIO",
     "CogniteFileCRUD",
     "ContainerCRUD",
-    "DataCRUD",
     "DataModelIO",
     "DataProductIO",
     "DataProductVersionIO",
@@ -243,7 +239,6 @@ __all__ = [
     "LocationFilterIO",
     "NodeCRUD",
     "RawDatabaseCRUD",
-    "RawFileCRUD",
     "RawTableCRUD",
     "RelationshipIO",
     "ResourceContainerIO",
