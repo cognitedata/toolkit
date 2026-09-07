@@ -132,6 +132,7 @@ class BuiltModule(BaseModel):
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
     yaml_line_count: int
+    variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
     def files_built(self) -> bool:

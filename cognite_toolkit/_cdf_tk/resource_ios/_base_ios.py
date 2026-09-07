@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
@@ -65,6 +65,12 @@ class Loader(ABC):
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
         self.console = console or client.console
+
+    @classmethod
+    def as_resource_type(cls) -> "ResourceType":
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
+
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
     def create_loader(

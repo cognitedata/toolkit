@@ -30,9 +30,11 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitFileNotFoundError,
@@ -143,11 +145,18 @@ if __name__ == "__main__":
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
 
-        resources = ModuleResources(organization_dir, build_env_name)
-        is_interactive = external_id is None
-        external_id = self._get_function(external_id, resources).identifier.external_id
-        call_args = self._get_call_args(data_source, external_id, resources, env_vars.dump(), is_interactive)
         client = env_vars.get_client()
+        build_folder = BuildV2Command(
+            print_warning=False,
+            silent=True,
+        ).tmp_build(
+            organization_dir,
+            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            client,
+        )
+        is_interactive = external_id is None
+        external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
+        call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
         function = client.functions.retrieve(external_id=external_id)
         if function is None:
             raise ToolkitMissingResourceError(
@@ -208,10 +217,11 @@ if __name__ == "__main__":
         return True
 
     @staticmethod
-    def _get_function(external_id: str | None, resources: ModuleResources) -> BuiltResourceFull[ExternalId]:
-        function_builds_by_identifier: dict[str, BuiltResourceFull[ExternalId]] = {
+    def _get_function(external_id: str | None, build_folder: BuildLineage) -> ResourceLineageItem:
+        function_builds_by_identifier: dict[str, ResourceLineageItem] = {
             build.identifier.external_id: build
-            for build in resources.list_resources(ExternalId, "functions", FunctionIO.kind)
+            for build in build_folder.get_resource_of_type(FunctionIO.as_resource_type())
+            if isinstance(build.identifier, ExternalId)
         }
 
         if len(function_builds_by_identifier) == 0:
@@ -233,7 +243,7 @@ if __name__ == "__main__":
         cls,
         data_source: str | WorkflowVersionId | None,
         function_external_id: str,
-        resources: ModuleResources,
+        build_folder: BuildLineage,
         environment_variables: dict[str, str | None],
         is_interactive: bool,
     ) -> FunctionCallArgs:
@@ -243,9 +253,9 @@ if __name__ == "__main__":
         ):
             return FunctionCallArgs()
         if is_interactive:
-            data, credentials = cls._get_call_args_interactive(function_external_id, resources)
+            data, credentials = cls._get_call_args_interactive(function_external_id, build_folder)
         elif data_source is not None:
-            data, credentials = cls._geta_call_args_from_data_source(data_source, function_external_id, resources)
+            data, credentials = cls._geta_call_args_from_data_source(data_source, function_external_id, build_folder)
         else:
             raise ToolkitValueError("Data source is required when not in interactive mode.")
 
@@ -284,22 +294,24 @@ if __name__ == "__main__":
 
     @staticmethod
     def _get_call_args_interactive(
-        function_external_id: str, resources: ModuleResources
+        function_external_id: str, build_folder: BuildLineage
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
-        schedules = resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleIO.kind)
-        options: dict[str, Any] = {
-            f"FunctionSchedule: {schedule.identifier.name}": schedule
-            for schedule in schedules
-            if schedule.identifier.function_external_id == function_external_id
-        }
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
-        raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
-        for trigger in resources.list_resources(str, "workflows", WorkflowTriggerIO.kind):
+        options: dict[str, Any] = {}
+        for schedule in build_folder.get_resource_of_type(FunctionScheduleIO.as_resource_type()):
+            if (
+                isinstance(schedule.identifier, FunctionScheduleId)
+                and schedule.identifier.function_external_id == function_external_id
+            ):
+                options[f"FunctionSchedule: {schedule.identifier.name}"] = schedule
+
+        workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
+        raw_trigger_by_workflow_id: dict[tuple[str, str | None], dict[str, Any]] = {}
+        for trigger in build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type()):
             raw_trigger = trigger.load_resource_dict({}, validate=False)
             loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
-            raw_trigger_by_workflow_id[
-                WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
-            ] = raw_trigger
+            raw_trigger_by_workflow_id[(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)] = (
+                raw_trigger
+            )
 
         for workflow in workflows:
             raw_workflow = workflow.load_resource_dict({}, validate=False)
@@ -308,9 +320,12 @@ if __name__ == "__main__":
                 if (
                     isinstance(task.parameters, FunctionTaskParameters)
                     and task.parameters.external_id == function_external_id
+                    and isinstance(workflow.identifier, ToolkitWorkflowVersionId)
                 ):
                     data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
-                    raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
+                    raw_trigger = raw_trigger_by_workflow_id.get(
+                        (workflow.identifier.workflow_external_id, workflow.identifier.version), {}
+                    )
                     options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
                         data,
                         raw_trigger.get("authentication"),
@@ -321,7 +336,7 @@ if __name__ == "__main__":
             return {}, None
         selected_name: str = questionary.select("Select schedule to run", choices=options).unsafe_ask()  # type: ignore[arg-type]
         selected = options[selected_name]
-        if isinstance(selected, BuiltResourceFull):
+        if isinstance(selected, ResourceLineageItem):
             # Schedule
             raw_schedule = selected.load_resource_dict({}, validate=False)
             return raw_schedule.get("data", {}), ClientCredentials.load(
@@ -341,16 +356,25 @@ if __name__ == "__main__":
 
     @staticmethod
     def _geta_call_args_from_data_source(
-        data_source: str | WorkflowVersionId, function_external_id: str, resources: ModuleResources
+        data_source: str | WorkflowVersionId, function_external_id: str, build_folder: BuildLineage
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
+        workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
+        triggers = build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type())
         found = False
         for workflow in workflows:
-            if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
-                isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
-            ):
+            identifier = workflow.identifier
+            matches_workflow = False
+            if isinstance(identifier, ToolkitWorkflowVersionId):
+                matches_workflow = (
+                    isinstance(data_source, str) and identifier.workflow_external_id == data_source
+                ) or (
+                    isinstance(data_source, WorkflowVersionId)
+                    and identifier.workflow_external_id == data_source.workflow_external_id
+                    and identifier.version == data_source.version
+                )
+            if matches_workflow:
                 raw_workflow = workflow.load_resource_dict({}, validate=False)
                 loaded = WorkflowVersionUpsert.load(raw_workflow)
                 for task in loaded.workflow_definition.tasks:
@@ -361,7 +385,7 @@ if __name__ == "__main__":
                         data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
                         found = True
                         break
-            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerIO.kind):
+            for trigger in triggers:
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
@@ -383,9 +407,10 @@ if __name__ == "__main__":
         if not isinstance(data_source, str):
             raise ToolkitValueError(f"Data source {data_source} is not a valid workflow external id.")
 
-        for schedule in resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleIO.kind):
+        for schedule in build_folder.get_resource_of_type(FunctionScheduleIO.as_resource_type()):
             if (
-                schedule.identifier.function_external_id == function_external_id
+                isinstance(schedule.identifier, FunctionScheduleId)
+                and schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
             ):
                 raw_schedule = schedule.load_resource_dict({}, validate=False)
@@ -415,10 +440,17 @@ if __name__ == "__main__":
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
 
-        resources = ModuleResources(organization_dir, build_env_name)
-        function_build = self._get_function(external_id, resources)
+        build_folder = BuildV2Command(
+            print_warning=False,
+            silent=True,
+        ).tmp_build(
+            organization_dir,
+            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            env_vars.get_client(),
+        )
+        function_build = self._get_function(external_id, build_folder)
 
-        function_external_id = function_build.identifier.external_id
+        function_external_id = cast(ExternalId, function_build.identifier).external_id
 
         virtual_envs_dir = organization_dir / virtual_env_folder_name
         virtual_envs_dir.mkdir(exist_ok=True)
@@ -427,7 +459,7 @@ if __name__ == "__main__":
             safe_write(readme_overview, self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        function_source_code = function_build.source.path.parent / function_external_id
+        function_source_code = function_build.source_file.parent / function_external_id
         if not function_source_code.exists():
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
@@ -497,7 +529,7 @@ if __name__ == "__main__":
         call_args = self._get_call_args(
             data_source,
             function_external_id,
-            resources,
+            build_folder,
             env_vars.dump(),
             is_interactive,
         )
@@ -684,10 +716,17 @@ class RunWorkflowCommand(ToolkitCommand):
         wait: bool,
     ) -> bool:
         """Run a workflow in CDF"""
-        resources = ModuleResources(organization_dir, build_env_name)
         client = env_vars.get_client()
+        build_folder = BuildV2Command(
+            print_warning=False,
+            silent=True,
+        ).tmp_build(
+            organization_dir,
+            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            client,
+        )
         is_interactive = external_id is None
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
+        workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
         if len(workflows) == 0:
             raise ToolkitMissingResourceError("No workflows found in modules.")
         if external_id is None:
@@ -699,7 +738,8 @@ class RunWorkflowCommand(ToolkitCommand):
                 (
                     build
                     for build in workflows
-                    if build.identifier.workflow_external_id == external_id
+                    if isinstance(build.identifier, ToolkitWorkflowVersionId)
+                    and build.identifier.workflow_external_id == external_id
                     and (version is None or (build.identifier.version == version))
                 ),
                 None,
@@ -707,9 +747,9 @@ class RunWorkflowCommand(ToolkitCommand):
             if selected_ is None:
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             selected = selected_
-        id_ = selected.identifier
-        triggers = resources.list_resources(str, "workflows", WorkflowTriggerIO.kind)
+        id_ = cast(WorkflowVersionId, selected.identifier)
 
+        triggers = build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type())
         credentials: ClientCredentials | None = None
         input_: dict | None = None
         for trigger in triggers:

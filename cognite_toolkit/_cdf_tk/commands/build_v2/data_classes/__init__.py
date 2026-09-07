@@ -14,7 +14,7 @@ from ._insights import (
     ModelSyntaxWarning,
     Recommendation,
 )
-from ._lineage import BuildLineage
+from ._lineage import BuildLineage, ResourceLineageItem
 from ._module import (
     BuildVariable,
     FailedReadYAMLFile,
@@ -50,6 +50,7 @@ __all__ = [
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
+    "ResourceLineageItem",
     "ResourceType",
     "SuccessfulReadYAMLFile",
     "ValidationType",
