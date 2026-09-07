@@ -218,8 +218,8 @@ class BuildV2Command(ToolkitCommand):
             if cached_lineage is not None and needs_rebuild is not None:
                 lineage = self._merge_build_lineage(cached_lineage, lineage)
 
-        safe_write(cache_path, lineage.to_yaml())
-        return lineage
+            safe_write(cache_path, lineage.to_yaml())
+            return lineage
 
     @staticmethod
     def _build_cache_path(organization_dir: Path, config_yaml: Path | None) -> Path:

@@ -25,7 +25,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, read_yaml_content
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_directory_hash,
+    calculate_hash,
+    load_yaml_inject_variables,
+    read_yaml_content,
+)
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import ResourceType
@@ -61,6 +66,15 @@ class ResourceLineageItem(_BaseLineageModel):
     @field_serializer("identifier", when_used="always")
     def serialize_identifier(self, value: Identifier) -> dict[str, Any]:
         return value.dump()
+
+    def get_resource_dict(self, environment_variables: dict[str, str | None], validate: bool = False) -> dict[str, Any]:
+        return load_yaml_inject_variables(
+            self.built_file.read_text(encoding=BUILD_FOLDER_ENCODING),
+            environment_variables,
+            required_return_type="dict",
+            validate=validate,
+            original_filepath=self.source_file,
+        )
 
 
 class ModuleLineageItem(_BaseLineageModel):

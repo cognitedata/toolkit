@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
+from . import BuildV2Command
 from ._base import ToolkitCommand
 
 ALLOWED_HANDLE_ARGS = frozenset({"data", "client", "secrets", "function_call_info"})
@@ -684,10 +685,17 @@ class RunWorkflowCommand(ToolkitCommand):
         wait: bool,
     ) -> bool:
         """Run a workflow in CDF"""
-        resources = ModuleResources(organization_dir, build_env_name)
         client = env_vars.get_client()
+        build_folder = BuildV2Command(
+            print_warning=False,
+            silent=True,
+        ).tmp_build(
+            organization_dir,
+            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            client,
+        )
         is_interactive = external_id is None
-        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionIO.kind)
+        workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
         if len(workflows) == 0:
             raise ToolkitMissingResourceError("No workflows found in modules.")
         if external_id is None:
@@ -699,7 +707,8 @@ class RunWorkflowCommand(ToolkitCommand):
                 (
                     build
                     for build in workflows
-                    if build.identifier.workflow_external_id == external_id
+                    if isinstance(build.identifier, WorkflowVersionId)
+                    and build.identifier.workflow_external_id == external_id
                     and (version is None or (build.identifier.version == version))
                 ),
                 None,
@@ -707,13 +716,13 @@ class RunWorkflowCommand(ToolkitCommand):
             if selected_ is None:
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             selected = selected_
-        id_ = selected.identifier
-        triggers = resources.list_resources(str, "workflows", WorkflowTriggerIO.kind)
+        id_ = cast(WorkflowVersionId, selected.identifier)
 
+        triggers = build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type())
         credentials: ClientCredentials | None = None
         input_: dict | None = None
         for trigger in triggers:
-            trigger_dict = trigger.load_resource_dict(env_vars.dump(), validate=False)
+            trigger_dict = trigger.get_resource_dict(env_vars.dump(), validate=False)
             if (
                 trigger_dict["workflowExternalId"] == id_.workflow_external_id
                 and trigger_dict["workflowVersion"] == id_.version

@@ -60,7 +60,7 @@ from .data_organization import DataSetsIO
 from .file import CogniteFileCRUD, FileMetadataCRUD
 from .group_scoped import GroupResourceScopedCRUD
 
-CDF_TOML = CDFToml.load()
+CDF_TOML: CDFToml = CDFToml.load()
 
 
 @final
