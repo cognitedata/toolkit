@@ -255,3 +255,12 @@ class BuildLineage(_BaseLineageModel):
             raise ToolkitValidationError(
                 "Source files have changed since the build. Please rebuild before deploying.\n" + "\n".join(errors)
             )
+
+    def get_resource_of_type(self, resource_type: ResourceType) -> list[ResourceLineageItem]:
+        """Get all resources of a specific type from the lineage."""
+        resources: list[ResourceLineageItem] = []
+        for module in self.module_lineage:
+            for resource in module.resource_lineage:
+                if resource.type == resource_type:
+                    resources.append(resource)
+        return resources
