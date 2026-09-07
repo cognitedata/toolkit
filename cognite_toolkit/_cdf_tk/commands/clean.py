@@ -9,7 +9,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
-from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES, ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
@@ -55,8 +55,6 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
-
-AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(CRUDS_BY_FOLDER_NAME)
 
 
 class CleanCommand(ToolkitCommand):
