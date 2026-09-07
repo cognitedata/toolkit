@@ -13,6 +13,7 @@ from pydantic import (
     computed_field,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic.alias_generators import to_camel
 from pydantic_core.core_schema import ValidationInfo
@@ -104,9 +105,22 @@ class ModuleLineageItem(_BaseLineageModel):
         description="Hash of the module source directory at build time, used for incremental rebuilds.",
     )
     insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
+    variables: list[BuildVariable] = Field(
+        default_factory=list,
+        description="Build variables for this module. Stored so source files can be reloaded from the tmp_build cache.",
+    )
     resource_lineage: list[ResourceLineageItem] = Field(
         default_factory=list, description="List of resource lineage items for this module"
     )
+
+    @model_validator(mode="after")
+    def _propagate_variables_to_resources(self) -> "ModuleLineageItem":
+        if not self.variables:
+            return self
+        for resource in self.resource_lineage:
+            if not resource.variables:
+                resource.variables = self.variables
+        return self
 
     @property
     def is_success(self) -> bool:
@@ -152,6 +166,7 @@ class ModuleLineageItem(_BaseLineageModel):
             module_hash=calculate_directory_hash(module_path, shorten=True),
             resource_lineage=resource_lineage,
             insights_summary=module.all_insights.summary,
+            variables=module.variables,
         )
 
 
