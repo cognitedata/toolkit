@@ -1,4 +1,3 @@
-from ._build_files import BuildDestinationFile, BuildSourceFile
 from ._build_variables import BuildVariable, BuildVariables
 from ._built_modules import (
     BuiltModule,
@@ -36,9 +35,7 @@ from ._yaml_comments import YAMLComments
 
 __all__ = [
     "BuildConfigYAML",
-    "BuildDestinationFile",
     "BuildEnvironment",
-    "BuildSourceFile",
     "BuildVariable",
     "BuildVariables",
     "BuiltFullResourceList",
