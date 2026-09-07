@@ -10,12 +10,7 @@ import pytest
 import yaml
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    EnvironmentVariableMissingWarning,
-    TemplateVariableWarning,
-    catch_warnings,
-)
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     flatten_dict,
@@ -27,7 +22,6 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
-from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import CALC_HASH_DATA, PROJECT_FOR_TEST
 
 
@@ -50,33 +44,6 @@ class TestLoadYamlInjectVariables:
 
         assert len(warning_list) == 1
         assert warning_list[0] == expected_warning
-
-
-@pytest.mark.parametrize(
-    "variable, expected_warnings",
-    [
-        pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, Path()),
-            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "")],
-            id="Single warning",
-        ),
-        pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, Path("a_module")),
-            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_module")],
-            id="Nested warning",
-        ),
-        pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, Path("a_super_module/a_module")),
-            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_super_module.a_module")],
-            id="Deep nested warning",
-        ),
-        pytest.param(BuildVariable("sourceId", "123", False, Path("a_module")), [], id="No warning"),
-    ],
-)
-def test_validate_config_yaml(variable: BuildVariable, expected_warnings: list[TemplateVariableWarning]) -> None:
-    warnings = validate_modules_variables(BuildVariables([variable]), Path("config.yaml"))
-
-    assert sorted(warnings) == sorted(expected_warnings)
 
 
 def test_calculate_hash_on_folder() -> None:

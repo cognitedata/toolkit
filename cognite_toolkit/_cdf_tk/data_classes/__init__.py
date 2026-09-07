@@ -1,4 +1,3 @@
-from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
     ConfigEntry,
@@ -21,8 +20,6 @@ from ._yaml_comments import YAMLComments
 
 __all__ = [
     "BuildConfigYAML",
-    "BuildVariable",
-    "BuildVariables",
     "CommandTracking",
     "ConfigEntry",
     "ConfigYAMLs",

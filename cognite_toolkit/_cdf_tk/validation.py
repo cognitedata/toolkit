@@ -1,5 +1,4 @@
 import inspect
-import re
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
@@ -9,7 +8,7 @@ from pydantic_core import ErrorDetails
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.constants import DEV_ONLY_MODULES
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, ModuleDirectories
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
@@ -19,7 +18,6 @@ from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.tk_warnings import (
     DataSetMissingWarning,
     MediumSeverityWarning,
-    TemplateVariableWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -31,7 +29,6 @@ __all__ = [
     "humanize_validation_error_categorized",
     "validate_data_set_is_set",
     "validate_module_selection",
-    "validate_modules_variables",
 ]
 
 
@@ -45,26 +42,6 @@ class _MessageEntry(NamedTuple):
 
 class _GroupEntry(NamedTuple):
     loc: tuple[str | int, ...]
-
-
-def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
-    """Checks whether the config file has any issues.
-
-    Currently, this checks for:
-        * Non-replaced template variables, such as <change_me>.
-
-    Args:
-        variables: The variables to check.
-        filepath: The filepath of the config.yaml.
-    """
-    warning_list: WarningList = WarningList()
-    pattern = re.compile(r"<.*?>")
-    for variable in variables:
-        if isinstance(variable.value, str) and pattern.match(variable.value):
-            warning_list.append(
-                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location.parts))
-            )
-    return warning_list
 
 
 def validate_data_set_is_set(
