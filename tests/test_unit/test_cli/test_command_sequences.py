@@ -16,9 +16,7 @@ import respx
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import (
-    BuildCommand,
     BuildV2Command,
-    CleanCommand,
     DeployOptions,
     DeployV2Command,
 )
@@ -182,28 +180,38 @@ def test_init_build_clean(
     buildable_modules: Path,
     data_regression,
 ) -> None:
-    mock_environments_yaml_file(module_path, monkeypatch)
-
-    BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
-        organization_dir=buildable_modules,
-        build_dir=build_tmp_path,
-        selected=None,
-        no_clean=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
         client=env_vars_with_client.get_client(),
-        build_env_name="dev",
-        on_error="raise",
+        parameters=BuildParameters(
+            organization_dir=buildable_modules,
+            build_dir=build_tmp_path,
+            config_yaml=buildable_modules / "config.dev.yaml",
+            user_selected_modules=[module_path.name],
+        ),
     )
-    CleanCommand(silent=True, skip_tracking=True).execute(
-        env_vars=env_vars_with_client,
-        build_dir=build_tmp_path,
-        build_env_name="dev",
-        dry_run=False,
-        include=None,
-        module_str=module_path.name,
-        all_modules=True,
-        verbose=False,
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
+        lambda msg, client: True,
     )
+    with patch.dict(
+        os.environ,
+        {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
+    ):
+        DeployV2Command(silent=True, skip_tracking=True).deploy(
+            user_build_dir=build_tmp_path,
+            env_vars=env_vars_with_client,
+            options=DeployOptions(
+                operation="clean",
+                cdf_project=env_vars_with_client.CDF_PROJECT,
+                drop=True,
+                dry_run=False,
+                include=None,
+                verbose=False,
+                drop_data=True,
+                force_update=False,
+                environment_variables=env_vars_with_client.dump(),
+            ),
+        )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()
     assert not not_mocked, (
