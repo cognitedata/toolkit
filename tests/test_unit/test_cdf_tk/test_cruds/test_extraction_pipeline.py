@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
-from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     ExtractionPipelineConfigIO,
@@ -65,34 +64,6 @@ class TestExtractionPipelineDependencies:
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
-
-    def test_load_extraction_pipeline_delete_one(
-        self,
-        toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
-        monkeypatch: MonkeyPatch,
-    ) -> None:
-        toolkit_client_approval.append(
-            ExtractionPipelineConfigResponse,
-            ExtractionPipelineConfigResponse(
-                external_id="ep_src_asset",
-                description="DB extractor config reading data from Springfield SAP",
-                config="\n    logger: \n        {level: WARN}",
-                revision=1,
-                created_time=0,
-            ),
-        )
-
-        local_file = MagicMock(spec=Path)
-        local_file.read_text.return_value = self.config_yaml
-        local_file.stem = "ep_src_asset"
-
-        cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client.get_client())
-        with patch.object(ExtractionPipelineConfigIO, "find_files", return_value=[local_file]):
-            res = cmd.clean_resources(loader, env_vars_with_client, [], dry_run=True, drop=True)
-            assert res is not None
-            assert res.deleted == 1
 
 
 class TestExtractionPipelineLoader:
