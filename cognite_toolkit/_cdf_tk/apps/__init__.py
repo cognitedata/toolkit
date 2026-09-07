@@ -9,7 +9,6 @@ from ._import_app import ImportApp
 from ._landing_app import LandingApp
 from ._migrate_app import MigrateApp
 from ._modules_app import ModulesApp
-from ._profile_app import ProfileApp
 from ._purge import PurgeApp
 from ._repo_app import RepoApp
 from ._run import RunApp
@@ -27,7 +26,6 @@ __all__ = [
     "LandingApp",
     "MigrateApp",
     "ModulesApp",
-    "ProfileApp",
     "PurgeApp",
     "RepoApp",
     "RunApp",

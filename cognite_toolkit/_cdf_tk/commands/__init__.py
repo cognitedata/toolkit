@@ -3,7 +3,6 @@ from ._migrate import (
     MigrationCommand,
     MigrationPrepareCommand,
 )
-from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
@@ -40,10 +39,6 @@ __all__ = [
     "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
-    "ProfileAssetCentricCommand",
-    "ProfileAssetCommand",
-    "ProfileRawCommand",
-    "ProfileTransformationCommand",
     "PullCommand",
     "PurgeCommand",
     "RepoCommand",
