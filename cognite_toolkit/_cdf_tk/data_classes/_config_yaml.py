@@ -13,7 +13,6 @@ import yaml
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import (
-    _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV,
@@ -22,15 +21,13 @@ from cognite_toolkit._cdf_tk.constants import (
     SEARCH_VARIABLES_SUFFIX,
     EnvType,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError
 from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, RawDatabaseCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     MediumSeverityWarning,
     MissingFileWarning,
     SourceFileModifiedWarning,
-    ToolkitWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import (
@@ -44,10 +41,9 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._version import __version__
 
-from . import BuiltModuleList
 from ._base import ConfigCore, _load_version_variable
 from ._built_resources import BuiltResourceList
-from ._module_directories import ModuleDirectories, ReadModule
+from ._module_directories import ReadModule
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -116,38 +112,6 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     filename: ClassVar[str] = "config.{build_env}.yaml"
     variables: dict[str, Any] = field(default_factory=dict)
 
-    def validate_environment(self) -> ToolkitWarning | None:
-        if _RUNNING_IN_BROWSER:
-            return None
-        project = self.environment.project
-        project_env = os.environ.get("CDF_PROJECT")
-        if project_env == project:
-            return None
-
-        is_strict_validation = self.environment.is_strict_validation
-        env_name = self.environment.name
-        file_name = self.get_filename(env_name)
-        missing_message = (
-            "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
-            f"set in environment section of {file_name!r}.\nThis is required for "
-            "building configurations for staging and prod environments to ensure that you do "
-            "not accidentally deploy to the wrong project."
-        )
-        mismatch_message = (
-            f"Project name mismatch between project set in the environment section of {file_name!r} and the "
-            f"environment variable 'CDF_PROJECT', {project} ≠ {project_env}.\nThis is required for "
-            "building configurations for staging and prod environments to ensure that you do not "
-            "accidentally deploy to the wrong project."
-        )
-        if is_strict_validation and project_env is None:
-            raise ToolkitEnvError(missing_message)
-        elif is_strict_validation:
-            raise ToolkitEnvError(mismatch_message)
-        elif not is_strict_validation and project_env is None:
-            return MediumSeverityWarning(missing_message)
-        else:
-            return MediumSeverityWarning(mismatch_message)
-
     @classmethod
     def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> Self:
         if "environment" not in data:
@@ -163,62 +127,6 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             raise ToolkitEnvError(err_msg)
         variables = data.get("variables", {})
         return cls(environment=environment, variables=variables, filepath=filepath)
-
-    def create_build_environment(
-        self, built_modules: BuiltModuleList, selected_modules: ModuleDirectories
-    ) -> "BuildEnvironment":
-        return BuildEnvironment(
-            name=self.environment.name,
-            project=self.environment.project,
-            validation_type=self.environment.validation_type,
-            selected=self.environment.selected,
-            cdf_toolkit_version=__version__,
-            built_resources=built_modules.as_resources_by_folder(),
-            read_modules=[module.as_read_module() for module in selected_modules],
-        )
-
-    def get_selected_modules(
-        self,
-        modules_by_package: dict[str, list[str | Path]],
-        available_modules: set[str | Path],
-        organization_dir: Path,
-        verbose: bool,
-    ) -> list[str | Path]:
-        selected_packages = [
-            package
-            for package in self.environment.selected
-            if package in modules_by_package and isinstance(package, str)
-        ]
-        if verbose:
-            print("  [bold green]INFO:[/] Selected packages:")
-            if len(selected_packages) == 0:
-                print("    None")
-            for package in selected_packages:
-                print(f"    {package}")
-
-        selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
-        if missing := set(selected_modules) - available_modules:
-            hint = ModuleDefinition.long(missing, organization_dir)
-            raise ToolkitMissingModuleError(
-                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
-            )
-
-        selected_modules.extend(
-            itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
-        )
-        if not selected_modules:
-            raise ToolkitEnvError(
-                f"No selected modules specified in {self.filepath!s}, have you configured "
-                f"the environment ({self.environment.name})?"
-            )
-        if verbose:
-            print("  [bold green]INFO:[/] Selected modules:")
-            for module in selected_modules:
-                if isinstance(module, Path):
-                    print(f"    {module.as_posix()}")
-                else:
-                    print(f"    {module}")
-        return selected_modules
 
     @classmethod
     def load_default(cls, organization_dir: Path) -> Self:

@@ -14,7 +14,6 @@ from ._built_resources import (
 )
 from ._config_yaml import (
     BuildConfigYAML,
-    BuildEnvironment,
     ConfigEntry,
     ConfigYAMLs,
     Environment,
@@ -35,7 +34,6 @@ from ._yaml_comments import YAMLComments
 
 __all__ = [
     "BuildConfigYAML",
-    "BuildEnvironment",
     "BuildVariable",
     "BuildVariables",
     "BuiltFullResourceList",
