@@ -1,17 +1,4 @@
 from ._build_variables import BuildVariable, BuildVariables
-from ._built_modules import (
-    BuiltModule,
-    BuiltModuleList,
-)
-from ._built_resources import (
-    BuiltFullResourceList,
-    BuiltResource,
-    BuiltResourceFull,
-    BuiltResourceList,
-    SourceLocation,
-    SourceLocationEager,
-    SourceLocationLazy,
-)
 from ._config_yaml import (
     BuildConfigYAML,
     ConfigEntry,
@@ -36,12 +23,6 @@ __all__ = [
     "BuildConfigYAML",
     "BuildVariable",
     "BuildVariables",
-    "BuiltFullResourceList",
-    "BuiltModule",
-    "BuiltModuleList",
-    "BuiltResource",
-    "BuiltResourceFull",
-    "BuiltResourceList",
     "CommandTracking",
     "ConfigEntry",
     "ConfigYAMLs",
@@ -57,9 +38,6 @@ __all__ = [
     "Packages",
     "ResourceContainerDeployResult",
     "ResourceDeployResult",
-    "SourceLocation",
-    "SourceLocationEager",
-    "SourceLocationLazy",
     "TrackingEvent",
     "UploadDeployResult",
     "YAMLComments",
