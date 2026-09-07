@@ -78,7 +78,7 @@ class ResourceLineageItem(_BaseLineageModel):
     def load_resource_dict(
         self, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
-        content = BuildVariable.substitute(safe_read(self.source_file), self.variables, self.source_file.suffix)  # type: ignore[arg-type]
+        content = BuildVariable.substitute(safe_read(self.source_file), self.variables, self.source_file.suffix)
         loader = cast(ResourceIO, get_crud(self.type.resource_folder, self.type.kind))
         raw = load_yaml_inject_variables(
             content,
