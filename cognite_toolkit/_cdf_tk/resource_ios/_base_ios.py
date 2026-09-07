@@ -17,14 +17,13 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
@@ -68,7 +67,9 @@ class Loader(ABC):
         self.console = console or client.console
 
     @classmethod
-    def as_resource_type(cls) -> ResourceType:
+    def as_resource_type(cls) -> "ResourceType":
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
+
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
