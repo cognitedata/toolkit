@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
-    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -501,27 +500,4 @@ class ResourceContainerIO(ResourceIO[T_Identifier, T_RequestResource, T_Response
 
     @abstractmethod
     def drop_data(self, ids: Sequence[T_Identifier]) -> int:
-        raise NotImplementedError
-
-
-class DataCRUD(Loader, ABC):
-    """This is the base class for all data CRUD..
-
-    A data CRUD is a CRUD that uploads data to CDF. It will typically depend on a
-    resource container that stores the data. For example, the datapoints crud depends
-    on the timeseries CRUD.
-
-    It has only one required method:
-        - upload: Uploads the data to CDF.
-
-    class attributes:
-        item_name: The name of the item that is stored in the resource container. This should be set in the subclass.
-            It is used to display messages when running operations.
-
-    """
-
-    item_name: str
-
-    @abstractmethod
-    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
