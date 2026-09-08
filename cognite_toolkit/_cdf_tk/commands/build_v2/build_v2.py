@@ -117,18 +117,10 @@ class BuildV2Command(ToolkitCommand):
         build_start_time = datetime.now(timezone.utc)
 
         self.validate_build_parameters(parameters, console, sys.argv)
-        build_files = self._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+
+        module_scan_result, selection_source = self.read_filesystem_and_find_modules(
+            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules, parameters.operation
         )
-
-        if parameters.user_selected_modules:
-            selection_source: SelectionSource = "modules"
-        elif build_files.selected_modules is not None:
-            selection_source = "config"
-        else:
-            selection_source = "interactive"
-
-        module_scan_result = self._find_modules(build_files, parameters.operation)
 
         if display:
             self._display_module_sources(
@@ -163,6 +155,31 @@ class BuildV2Command(ToolkitCommand):
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
+
+    def read_filesystem_and_find_modules(
+        self,
+        organization_dir: Path,
+        config_yaml: Path | None = None,
+        user_selected_modules: list[str] | None = None,
+        operation: str | None = None,
+    ) -> tuple[ModuleScanResult, SelectionSource]:
+        """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists,
+        and then finds the modules to build.
+
+        Returns:
+            A tuple containing the ModuleScanResult and the SelectionSource indicating how the modules were selected (from user input, config file, or interactive selection).
+        """
+        build_files = self._read_file_system(organization_dir, config_yaml, user_selected_modules)
+
+        if user_selected_modules:
+            selection_source: SelectionSource = "modules"
+        elif build_files.selected_modules is not None:
+            selection_source = "config"
+        else:
+            selection_source = "interactive"
+
+        module_scan_result = self._find_modules(build_files, operation or "build")
+        return module_scan_result, selection_source
 
     def tmp_build(
         self, organization_dir: Path, config_yaml: Path | None = None, client: ToolkitClient | None = None
