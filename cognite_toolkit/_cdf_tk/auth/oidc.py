@@ -18,14 +18,32 @@ from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, format_ses
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
-_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"
-_IDP_BASE_URL = os.environ.get("COGNITE_IDP_BASE_URL", "https://auth.cognite.com").rstrip("/")
+# OAuth public client IDs for @cognite/cli on Cognite IdP. These are not secrets.
+_PROD_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"
+_DEV_CLIENT_ID = "e26f94fb-bac4-4915-aa91-456668004185"
+
+_PROD_IDP_BASE_URL = "https://auth.cognite.com"
+_DEV_IDP_BASE_URL = "https://auth-dev.cognitedata-development.cognite.ai"
 _SESSION_SCOPES = "openid profile email offline_access"
 _DEFAULT_CALLBACK_PORT = 3000
 _CALLBACK_PORTS = (_DEFAULT_CALLBACK_PORT, *range(3100, 3111))
 _LOGIN_TIMEOUT_SECONDS = 5 * 60
 _DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60
 _REFRESH_TOKEN_IDLE_TTL_SECONDS = 25 * 60 * 60
+
+
+def _is_dev_org(org: str) -> bool:
+    return org.startswith("cog-dev-")
+
+
+def _resolve_idp_base_url(org: str) -> str:
+    if env_base_url := os.environ.get("COGNITE_IDP_BASE_URL", "").strip():
+        return env_base_url.rstrip("/")
+    return _DEV_IDP_BASE_URL if _is_dev_org(org) else _PROD_IDP_BASE_URL
+
+
+def _resolve_client_id(org: str) -> str:
+    return _DEV_CLIENT_ID if _is_dev_org(org) else _PROD_CLIENT_ID
 
 
 @dataclass(frozen=True)
@@ -39,13 +57,14 @@ class OpenIdConfiguration:
 class _CallbackContext:
     expected_state: str
     code_verifier: str
+    client_id: str
     token_endpoint: str
     redirect_uri: str
     result: dict[str, Any] | None = None
 
 
-def fetch_openid_configuration(base_url: str | None = None) -> OpenIdConfiguration:
-    idp_base = (base_url or _IDP_BASE_URL).rstrip("/")
+def fetch_openid_configuration(idp_base_url: str) -> OpenIdConfiguration:
+    idp_base = idp_base_url.rstrip("/")
     url = f"{idp_base}/.well-known/openid-configuration"
     try:
         response = httpx.get(url, timeout=30.0)
@@ -164,7 +183,7 @@ def _exchange_authorization_code(context: _CallbackContext, code: str) -> dict[s
         context.token_endpoint,
         data={
             "grant_type": "authorization_code",
-            "client_id": _CLIENT_ID,
+            "client_id": context.client_id,
             "code": code,
             "redirect_uri": context.redirect_uri,
             "code_verifier": context.code_verifier,
@@ -271,14 +290,16 @@ class _OAuthCallbackServer:
 
 
 def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
-    oidc = fetch_openid_configuration(_IDP_BASE_URL)
+    idp_base_url = _resolve_idp_base_url(org)
+    client_id = _resolve_client_id(org)
+    oidc = fetch_openid_configuration(idp_base_url)
 
     code_verifier, code_challenge = _generate_pkce_pair()
     state = secrets.token_urlsafe(32)
     redirect_uri = callback_redirect_uri(callback_port)
 
     auth_params = {
-        "client_id": _CLIENT_ID,
+        "client_id": client_id,
         "response_type": "code",
         "scope": _SESSION_SCOPES,
         "redirect_uri": redirect_uri,
@@ -292,6 +313,7 @@ def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
     context = _CallbackContext(
         expected_state=state,
         code_verifier=code_verifier,
+        client_id=client_id,
         token_endpoint=oidc.token_endpoint,
         redirect_uri=redirect_uri,
     )
@@ -339,13 +361,15 @@ def login_for_session(org: str, port: int | None = None) -> StoredSession:
 
 
 def refresh_session_tokens(session: StoredSession) -> StoredSession:
-    oidc = fetch_openid_configuration()
+    idp_base_url = _resolve_idp_base_url(session.org)
+    client_id = _resolve_client_id(session.org)
+    oidc = fetch_openid_configuration(idp_base_url)
     try:
         response = httpx.post(
             oidc.token_endpoint,
             data={
                 "grant_type": "refresh_token",
-                "client_id": _CLIENT_ID,
+                "client_id": client_id,
                 "refresh_token": session.refresh_token,
             },
             headers={"Accept": "application/json"},
@@ -366,14 +390,14 @@ def refresh_session_tokens(session: StoredSession) -> StoredSession:
     return build_session_from_tokens(session.org, tokens)
 
 
-def revoke_refresh_token(refresh_token: str) -> None:
-    oidc = fetch_openid_configuration()
+def revoke_refresh_token(refresh_token: str, org: str) -> None:
+    oidc = fetch_openid_configuration(_resolve_idp_base_url(org))
     if not oidc.revocation_endpoint:
         return
     try:
         response = httpx.post(
             oidc.revocation_endpoint,
-            data={"token": refresh_token, "client_id": _CLIENT_ID},
+            data={"token": refresh_token, "client_id": _resolve_client_id(org)},
             timeout=30.0,
         )
         response.raise_for_status()

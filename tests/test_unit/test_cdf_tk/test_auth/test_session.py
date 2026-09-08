@@ -24,6 +24,32 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
+def test_resolve_client_id_matches_cognite_cli() -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import (
+        _DEV_CLIENT_ID,
+        _PROD_CLIENT_ID,
+        _resolve_client_id,
+    )
+
+    assert _resolve_client_id("cog-hyperion") == _PROD_CLIENT_ID
+    assert _resolve_client_id("cog-dev-hyperion") == _DEV_CLIENT_ID
+
+
+def test_resolve_idp_base_url_matches_cognite_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import (
+        _DEV_IDP_BASE_URL,
+        _PROD_IDP_BASE_URL,
+        _resolve_idp_base_url,
+    )
+
+    monkeypatch.delenv("COGNITE_IDP_BASE_URL", raising=False)
+    assert _resolve_idp_base_url("cog-hyperion") == _PROD_IDP_BASE_URL
+    assert _resolve_idp_base_url("cog-dev-hyperion") == _DEV_IDP_BASE_URL
+
+    monkeypatch.setenv("COGNITE_IDP_BASE_URL", "https://auth.example.com/")
+    assert _resolve_idp_base_url("cog-dev-hyperion") == "https://auth.example.com"
+
+
 def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
     from cognite_toolkit._cdf_tk.auth.oidc import _login_for_session_at_port
 
@@ -137,6 +163,7 @@ def test_callback_server_returns_oauth_error_from_url() -> None:
     context = _CallbackContext(
         expected_state="state",
         code_verifier="verifier",
+        client_id="test-client",
         token_endpoint="https://example.com/token",
         redirect_uri=f"http://localhost:{port}/",
     )
@@ -172,6 +199,7 @@ def test_callback_server_returns_plain_text_on_success() -> None:
     context = _CallbackContext(
         expected_state="state",
         code_verifier="verifier",
+        client_id="test-client",
         token_endpoint="https://example.com/token",
         redirect_uri=f"http://localhost:{port}/",
     )
@@ -209,6 +237,7 @@ def test_callback_server_accepts_localhost_connection() -> None:
     context = _CallbackContext(
         expected_state="state",
         code_verifier="verifier",
+        client_id="test-client",
         token_endpoint="https://example.com/token",
         redirect_uri=f"http://localhost:{port}/",
     )

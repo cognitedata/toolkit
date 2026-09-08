@@ -93,7 +93,7 @@ class AuthSessionCommand(ToolkitCommand):
 
         refresh_token = read_session_token(f"{metadata.org}/refreshToken")
         if refresh_token:
-            revoke_refresh_token(refresh_token)
+            revoke_refresh_token(refresh_token, metadata.org)
         clear_session()
         print(f"[green]Signed out from organization {metadata.org}.[/green]")
 
