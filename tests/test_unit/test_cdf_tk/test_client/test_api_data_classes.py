@@ -732,6 +732,44 @@ class TestUnknownHostedExtractorJobUnions:
         assert HostedExtractorJobRequest._load(data).dump() == data
 
 
+class TestHostedExtractorJobRequest:
+    def test_as_update_replace_omits_null_config(self) -> None:
+        request = HostedExtractorJobRequest.model_validate(
+            {
+                "externalId": "job_eventhub",
+                "destinationId": "dest_1",
+                "sourceId": "src_1",
+                "format": {"type": "cognite"},
+            }
+        )
+
+        update = request.as_update(mode="replace")
+
+        assert update == {
+            "externalId": "job_eventhub",
+            "update": {
+                "destinationId": {"set": "dest_1"},
+                "format": {"set": {"type": "cognite"}},
+                "sourceId": {"set": "src_1"},
+            },
+        }
+
+    def test_as_update_replace_sets_config_when_present(self) -> None:
+        request = HostedExtractorJobRequest.model_validate(
+            {
+                "externalId": "job_mqtt",
+                "destinationId": "dest_1",
+                "sourceId": "src_1",
+                "format": {"type": "cognite"},
+                "config": {"topicFilter": "my/topic"},
+            }
+        )
+
+        update = request.as_update(mode="replace")
+
+        assert update["update"]["config"] == {"set": {"topicFilter": "my/topic"}}
+
+
 class TestUnknownHostedExtractorSourceUnions:
     def test_unknown_source_request_type(self) -> None:
         data = {
