@@ -3,11 +3,11 @@ from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Mu
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
-
-from ._module_directories import ModuleDirectories, ModuleLocation
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -34,7 +34,7 @@ class Package:
     description: str | None = None
     id: str | None = None
     can_cherry_pick: bool = True
-    modules: list[ModuleLocation] = field(default_factory=list)
+    modules: list[ModuleDirectory] = field(default_factory=list)
 
     @property
     def module_names(self) -> set[str]:
@@ -89,10 +89,10 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definitions = library_definition.get("packages", {})
 
         # Load all available modules
-        module_directories = ModuleDirectories.load(root_module_dir)
+        scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(root_module_dir.parent)
 
         # Create lookup dictionaries for efficient module discovery
-        module_by_relative_path = {module.relative_path: module for module in module_directories}
+        module_by_relative_path = {module.id: module for module in scan_result.modules}
 
         packages_with_modules: dict[str, Package] = {}
 
