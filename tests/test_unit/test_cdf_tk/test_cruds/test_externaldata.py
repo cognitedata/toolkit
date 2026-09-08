@@ -115,7 +115,7 @@ class TestExternalDataSourceIO:
         resource_dict = loader.load_resource_file(local_file, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
-        resource_id = resource.as_id()
+        resource_id = loader.get_id(resource)
         existing_list = loader.retrieve([resource_id])
         result = DeployV2Command.categorize_resources(
             loader,
