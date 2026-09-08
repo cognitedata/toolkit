@@ -42,6 +42,12 @@ def all_acls() -> Iterable[tuple]:
             }
         },
         {"dataProductsAcl": {"actions": ["CREATE", "READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
+        {
+            "dataProductsAcl": {
+                "actions": ["READ"],
+                "scope": {"dataProductScope": {"externalIds": ["my-data-product"]}},
+            }
+        },
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": [123]}}}},
         {"diagramParsingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},

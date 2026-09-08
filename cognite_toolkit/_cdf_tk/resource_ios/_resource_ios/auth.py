@@ -79,7 +79,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
     resource_cls = GroupResponse
     resource_write_cls = GroupRequest
     yaml_cls = GroupYAML
-    resource_scopes = frozenset(
+    resource_scopes: frozenset[type[cap.Capability.Scope] | type[yaml_cap.Scope]] = frozenset(
         {
             cap.IDScope,
             cap.SpaceIDScope,
@@ -88,9 +88,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
             cap.AssetRootIDScope,
             cap.ExtractionPipelineScope,
             cap.IDScopeLowerCase,
+            # Not yet added to the SDK, so we use the toolkit's own yaml scope class here instead.
+            yaml_cap.DataProductScope,
         }
     )
-    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
+    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})
     _doc_url = "Groups/operation/createGroups"
 
     def __init__(
@@ -142,6 +144,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
         from .classic import AssetIO
         from .data_organization import DataSetsIO
+        from .data_product import DataProductIO
         from .datamodel import SpaceCRUD
         from .extraction_pipeline import ExtractionPipelineIO
         from .location import LocationFilterIO
@@ -155,6 +158,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
                                 yield SpaceCRUD, SpaceId(space=space_id)
+                    if data_product_external_ids := scope.get(yaml_cap.DataProductScope._scope_name, []):
+                        if isinstance(data_product_external_ids, dict) and "externalIds" in data_product_external_ids:
+                            for data_product_external_id in data_product_external_ids["externalIds"]:
+                                yield DataProductIO, ExternalId(external_id=data_product_external_id)
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
@@ -202,6 +209,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         from .classic import AssetIO
         from .data_organization import DataSetsIO
+        from .data_product import DataProductIO
         from .datamodel import SpaceCRUD
         from .extraction_pipeline import ExtractionPipelineIO
         from .location import LocationFilterIO
@@ -213,6 +221,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
                     yield SpaceCRUD, SpaceId(space=space_id)
+            elif isinstance(scope, yaml_cap.DataProductScope):
+                for data_product_external_id in scope.external_ids:
+                    yield DataProductIO, ExternalId(external_id=data_product_external_id)
             elif isinstance(scope, yaml_cap.DataSetScope):
                 for data_set_id in scope.ids:
                     yield DataSetsIO, ExternalId(external_id=data_set_id)

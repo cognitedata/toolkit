@@ -22,6 +22,7 @@ from .scopes import (
     AppExternalIdScope,
     AssetRootIDScope,
     CurrentUserScope,
+    DataProductScope,
     DataSetScope,
     ExperimentScope,
     ExtractionPipelineScope,
@@ -162,7 +163,7 @@ class DataProductsAcl(Acl):
 
     acl_name: Literal["dataProductsAcl"] = Field("dataProductsAcl", exclude=True)
     actions: Sequence[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScope | DataProductScope
 
 
 class DataSetsAcl(Acl):
