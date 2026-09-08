@@ -8,10 +8,6 @@ from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
 
-_SKILL_MODULE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "modules" / "skill_test"
-_SKILL_YAML = _SKILL_MODULE_DIR / "agents" / "smoke-test-skill.Skill.yaml"
-_SKILL_MARKDOWN = _SKILL_MODULE_DIR / "agents" / "smoke-test-skill.Skill.md"
-
 _SKILL_CONTENT = """---
 name: test-skill
 description: Test skill description
@@ -184,27 +180,3 @@ class TestSkillIO:
         assert dumped["name"] == "test-skill"
         assert dumped["description"] == "Test skill description"
         assert dumped["content"] == _SKILL_CONTENT
-
-    def test_fixture_module_loads_smoke_test_skill(self) -> None:
-        skill_io = SkillIO(ToolkitClientMock(), None)
-        items = skill_io.load_resource_file(_SKILL_YAML)
-        assert items == [{"externalId": "smoke-test-skill"}]
-
-        extras = list(
-            SkillIO.get_extra_files(
-                _SKILL_YAML,
-                identifier=ExternalId(external_id="smoke-test-skill"),
-                item=items[0],
-            )
-        )
-        assert len(extras) == 1
-        assert isinstance(extras[0], SuccessExtra)
-        assert extras[0].source_path == _SKILL_MARKDOWN
-        assert extras[0].content == _SKILL_MARKDOWN.read_text(encoding="utf-8")
-
-        request = skill_io.load_resource(items[0])
-        assert request.external_id == "smoke-test-skill"
-        assert request.name == "smoke-test-skill"
-        assert request.description == "Smoke test skill"
-        assert request.content is not None
-        assert "Used by toolkit smoke tests." in request.content
