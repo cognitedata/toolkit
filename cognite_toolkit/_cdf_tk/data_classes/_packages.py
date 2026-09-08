@@ -2,8 +2,8 @@ import sys
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
@@ -16,6 +16,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as toml
     from typing_extensions import Self
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass
@@ -80,6 +82,7 @@ class Packages(dict, MutableMapping[str, Package]):
         Args:
             root_module_dir: The module directories to load the packages from.
         """
+        from cognite_toolkit._cdf_tk.commands import BuildV2Command
 
         package_definition_path = next(root_module_dir.rglob("packages.toml"), None)
         if not package_definition_path or not package_definition_path.exists():
