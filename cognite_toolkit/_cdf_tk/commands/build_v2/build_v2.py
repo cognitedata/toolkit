@@ -189,12 +189,16 @@ class BuildV2Command(ToolkitCommand):
         selected_module: str | None = None,
         operation: str | None = None,
         allow_creation: bool = False,
+        module_scan_result: ModuleScanResult | None = None,
     ) -> ModuleSource:
-        results, _ = cls.read_filesystem_and_find_modules(
-            organization_dir,
-            user_selected_modules=[selected_module] if selected_module else [f"{MODULES}/"],
-            operation=operation,
-        )
+        if module_scan_result is None:
+            results, _ = cls.read_filesystem_and_find_modules(
+                organization_dir,
+                user_selected_modules=[selected_module] if selected_module else [f"{MODULES}/"],
+                operation=operation,
+            )
+        else:
+            results = module_scan_result
         if errors := results.non_existing_module_names:
             error = errors[0]
             raise ToolkitValueError(
