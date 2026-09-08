@@ -9,11 +9,14 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 
 
-def to_deploy_status(definition_yaml: str, loader: ResourceIO) -> dict[str, int]:
+def to_deploy_status(definition_yaml: str | MagicMock, loader: ResourceIO) -> dict[str, int]:
     """This is a helper function to test that a YAML definiition of a resource is
     correctly categorized into create, change, delete, or unchanged."""
-    filepath = MagicMock(spec=Path)
-    filepath.read_text.return_value = definition_yaml
+    if isinstance(definition_yaml, str):
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+    else:
+        filepath = definition_yaml
 
     resource_dict = loader.load_resource_file(filepath, {})
     assert len(resource_dict) == 1

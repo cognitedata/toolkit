@@ -1152,25 +1152,7 @@ description: ""
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
         filepath.parent.name = FunctionIO.folder_name
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(deepcopy(resource_dict[0]))
-        assert isinstance(resource, FunctionRequest)
-        resource_id = resource.as_id()
-        existing_list = loader.retrieve([resource_id])
-        if not existing_list:
-            existing_list = loader.create([resource])
-        result = DeployV2Command.categorize_resources(
-            loader,
-            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
-            cdf_by_id={resource_id: existing_list[0]},
-        )
-        assert {
-            "create": len(result.to_create),
-            "change": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
         self, toolkit_client: ToolkitClient, toolkit_space: Space, tmp_path: Path
