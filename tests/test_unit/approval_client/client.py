@@ -76,7 +76,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
-from cognite_toolkit._cdf_tk.resource_ios import FileCRUD
+from cognite_toolkit._cdf_tk.dataio import FileMetadataDataIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 from tests.constants import CDF_PROJECT
@@ -739,7 +739,7 @@ class ApprovalToolkitClient:
                 entry = instance_id.dump()
             entry["filehash"] = filehash
 
-            created_resources[FileCRUD.__name__].append(entry)
+            created_resources[FileMetadataDataIO.__name__].append(entry)
 
             return FileMetadata(
                 external_id=external_id,
