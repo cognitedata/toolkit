@@ -8,7 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, TypeAlias, get_args
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -179,6 +179,14 @@ class ModuleToml(BaseModel):
     data: list[ExampleData] = Field(default_factory=list)
     extra_resources: list[Path] = Field(default_factory=list)
     package_id: str | None = None
+
+    @field_validator("extra_resources")
+    @classmethod
+    def validate_extra_resources(cls, v: list[Path]) -> list[Path]:
+        for extra in v:
+            if extra.is_absolute():
+                raise ValueError(f"Extra resource {extra} must be a relative path")
+        return v
 
     @classmethod
     def load(cls, data: dict[str, Any] | Path) -> Self:

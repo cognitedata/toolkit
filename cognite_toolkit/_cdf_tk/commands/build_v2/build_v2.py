@@ -212,12 +212,14 @@ class BuildV2Command(ToolkitCommand):
         if allow_creation:
             choices.append(Choice(title="Create a new module", value="NEW"))
         selected = questionary.select(f"Select a module to {operation or 'build'}:", choices=choices).unsafe_ask()
+        if selected is None:
+            raise ToolkitValueError("Module selection cancelled by user.")
         if selected == "NEW":
 
             def _validate_new_module_path(u: str) -> bool | str:
                 if not u:
                     return "Please enter a module path."
-                relative = (organization_dir / MODULES / Path(u)).as_posix()
+                relative = (Path(MODULES) / Path(u)).as_posix()
                 _, error = cls._validate_user_module(relative, organization_dir)
                 # A path that does not yet exist is expected here (we are creating it),
                 # so only surface non-existence-related errors.
