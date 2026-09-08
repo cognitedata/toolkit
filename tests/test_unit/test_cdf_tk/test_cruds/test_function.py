@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,8 +25,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, ResourceWorker
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -104,14 +107,23 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionIO.folder_name
 
-        worker = ResourceWorker(FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
-        resources = worker.prepare_resources([filepath])
+        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = loader.get_id(resource)
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "update": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "update": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
         toolkit_client_approval.clear_cdf_resources(FunctionResponse)
@@ -137,13 +149,18 @@ secrets:
             },
         )
         toolkit_client_approval.append(FunctionResponse, cdf_function)
-        resources = worker.prepare_resources([filepath])
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "update": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "update": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 1, "update": 0, "delete": 1, "unchanged": 0}
 
     def test_dump_index_url_set(self, env_vars_with_client: EnvironmentVariables, tmp_path: Path) -> None:

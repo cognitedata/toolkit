@@ -25,10 +25,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, NodeCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios import GraphQLCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.utils import to_deploy_status
 
 
 class TestDataModelLoader:
@@ -64,21 +65,10 @@ class TestDataModelLoader:
             name=None,
         ).dump_yaml()
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = local_data_model
-
         loader = DataModelIO.create_loader(
             env_vars_with_client.get_client(),
         )
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(local_data_model, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:
         local_yaml = """space: sp_space

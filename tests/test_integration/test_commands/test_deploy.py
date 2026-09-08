@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
-    ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
@@ -127,6 +126,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     changed_resources: dict[str, set[Any]] = {}
     client = env_vars.get_client()
     print("Looking for changed resources ...")
+    options = DeployOptions(environment_variables=env_vars.dump(), verbose=True)
     for loader_cls in RESOURCE_CRUD_LIST:
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
@@ -137,12 +137,27 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
             continue
         loader = loader_cls.create_loader(client, build_dir)
 
-        worker = ResourceWorker(loader, "deploy")
-        files = worker.load_files()
-        resources = worker.prepare_resources(files, environment_variables=env_vars.dump(), verbose=True)
+        files = loader.find_files()
+        if not files:
+            continue
+        resource_by_id = DeployV2Command._read_resource_files(loader, files, options)
+        if not resource_by_id:
+            continue
+        cdf_by_id = {loader.get_id(resource): resource for resource in loader.retrieve(list(resource_by_id.keys()))}
+        resources = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id=resource_by_id,
+            cdf_by_id=cdf_by_id,
+            options=options,
+        )
         if changed := (set(loader.get_ids(resources.to_update)) - {dm.NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
-            worker.prepare_resources(files, environment_variables=env_vars.dump(), verbose=True)
+            DeployV2Command.categorize_resources(
+                loader,
+                resource_by_id=resource_by_id,
+                cdf_by_id=cdf_by_id,
+                options=options,
+            )
 
     return changed_resources

@@ -1,18 +1,22 @@
-import contextlib
 import io
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import DataSetScope, FilesAcl, FunctionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceWorker, WorkflowTriggerIO
+from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, WorkflowTriggerIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-class TestResourceWorker:
+class TestDeployV2CommandCategorizeResources:
     def test_mask_sensitive_data(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         toolkit_client_approval.append(
             WorkflowTriggerResponse,
@@ -31,7 +35,6 @@ class TestResourceWorker:
         )
         loader = WorkflowTriggerIO.create_loader(toolkit_client_approval.mock_client)
 
-        worker = ResourceWorker(loader, "deploy")
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
 triggerRule:
@@ -43,15 +46,26 @@ authentication:
   clientId: my_client_id
   clientSecret: my_super_secret_42
 """
+        resource_dict = loader.load_resource_file(local_file, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = loader.get_id(resource)
+        existing_list = loader.retrieve([resource_id])
         output_capture = io.StringIO()
-        with contextlib.redirect_stdout(output_capture):
-            _ = worker.prepare_resources([local_file], environment_variables={}, is_dry_run=False, verbose=True)
+        console = Console(file=output_capture, highlight=False, color_system=None)
+        _ = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [local_file])},
+            cdf_by_id={resource_id: existing_list[0]},
+            console=console,
+            options=DeployOptions(verbose=True),
+        )
 
         terminal_output = output_capture.getvalue()
         assert "my_super_secret_42" not in terminal_output
 
     def test_worker_uses_function_capabilities(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        # This test verifies that the ResourceWorker uses function-specific capabilities
+        # This test verifies that function-specific capabilities are used
         # for FunctionLoader rather than generic capabilities
         with patch(
             "cognite_toolkit._cdf_tk.resource_ios._resource_ios.function.FunctionIO.load_resource_file"
@@ -71,12 +85,12 @@ authentication:
             local_file = MagicMock(spec=Path)
             local_file.parent.name = FunctionIO.folder_name
 
-            worker = ResourceWorker(loader, "deploy")
-            local_by_id = worker.load_resources([local_file], None, False)
-            worker.validate_access(local_by_id, is_dry_run=False)
-            mock_authorization.assert_called_once()
+            resource_dicts = loader.load_resource_file(local_file, None)
+            resource = loader.load_resource(deepcopy(resource_dicts[0]))
+            DeployV2Command._validate_access(loader, [resource], is_dry_run=False)
+            assert mock_authorization.call_count >= 1
 
-            capabilities_arg = mock_authorization.call_args[0][0]
+            capabilities_arg = mock_authorization.call_args_list[0].args[0]
             assert len(capabilities_arg) == 2
             assert isinstance(capabilities_arg[0], FunctionsAcl)
             assert isinstance(capabilities_arg[1], FilesAcl)
