@@ -836,11 +836,12 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
-        console: Console,
-        options: DeployOptions,
-        is_delete: bool,
-        is_data_resource: bool,
+        console: Console | None = None,
+        options: DeployOptions | None = None,
+        is_delete: bool = False,
+        is_data_resource: bool = False,
     ) -> ResourceToDeploy:
+        options = options or DeployOptions("deploy", drop_data=False, force_update=False, verbose=False)
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, resource in resource_by_id.items():
             if len(resource.source_files) > 1:
@@ -904,6 +905,8 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
+                    if console is None:
+                        console = crud.client.console
                     diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
                     for sensitive in crud.sensitive_strings(resource.request):
                         diff_str = diff_str.replace(sensitive, "********")
