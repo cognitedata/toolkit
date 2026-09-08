@@ -197,6 +197,7 @@ authentication:
         filepath.read_text.return_value = schedule_yaml
 
         resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
         identifier = loader.get_id(resource)
         try:

@@ -87,7 +87,6 @@ from ._resource_ios import (
     WorkflowTriggerIO,
     WorkflowVersionIO,
 )
-from ._worker import ResourceWorker
 
 _EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
@@ -243,7 +242,6 @@ __all__ = [
     "ResourceContainerIO",
     "ResourceIO",
     "ResourceTypes",
-    "ResourceWorker",
     "RobotCapabilityIO",
     "RoboticFrameIO",
     "RoboticLocationIO",
