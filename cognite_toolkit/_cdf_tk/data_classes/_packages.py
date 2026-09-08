@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
@@ -91,11 +92,19 @@ class Packages(dict, MutableMapping[str, Package]):
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        # Load all available modules
-        scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(root_module_dir.parent)
-
-        # Create lookup dictionaries for efficient module discovery
-        module_by_relative_path = {module.id: module for module in scan_result.modules}
+        scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(
+            root_module_dir.parent,
+            user_selected_modules=[f"{MODULES}/"],
+        )
+        module_by_relative_path: dict[Path, ModuleDirectory] = {}
+        for module in scan_result.modules:
+            if not module.path.is_relative_to(root_module_dir):
+                continue
+            relative_path = module.path.relative_to(root_module_dir)
+            # The id in ModuleDirectory is relative to the organization directory,
+            # while packages expect it to be relative to the module directory inside the
+            # organization directory.
+            module_by_relative_path[relative_path] = module.model_copy(update={"id": relative_path})
 
         packages_with_modules: dict[str, Package] = {}
 
@@ -106,14 +115,14 @@ class Packages(dict, MutableMapping[str, Package]):
             if modules := package_definition.get("modules"):
                 if isinstance(modules, list) and modules:
                     for module_path in modules:
-                        if (module := module_by_relative_path.get(Path(module_path))) is None:
+                        if (module_or_none := module_by_relative_path.get(Path(module_path))) is None:
                             warnings.append(
                                 LowSeverityWarning(
                                     f"Unable to load module '{module_path}'. The path may be wrong or the module may require an alpha flag that is not set."
                                 )
                             )
                             continue
-                        packages_with_modules[package_name].modules.append(module)
+                        packages_with_modules[package_name].modules.append(module_or_none)
 
         return cls(packages_with_modules, warnings)
 
