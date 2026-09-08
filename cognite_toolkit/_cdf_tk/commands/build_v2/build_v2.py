@@ -92,7 +92,7 @@ class ValidationStep:
     rule: ToolkitGlobalRuleSet
 
 
-SelectionSource = Literal["modules", "config", "interactive"]
+SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 
 class BuildV2Command(ToolkitCommand):
@@ -172,7 +172,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(organization_dir, config_yaml, user_selected_modules)
 
         if user_selected_modules:
-            selection_source: SelectionSource = "modules"
+            selection_source: SelectionSource = "cli-arg"
         elif build_files.selected_modules is not None:
             selection_source = "config"
         else:
@@ -580,7 +580,7 @@ class BuildV2Command(ToolkitCommand):
 
     @staticmethod
     def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
-        if selection_source == "modules":
+        if selection_source == "cli-arg":
             return "provided as arguments, overrides selection in config.env.yaml"
         if selection_source == "config":
             return f"specified in {config_file_name or 'config.env.yaml'}"
