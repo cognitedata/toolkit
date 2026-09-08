@@ -128,12 +128,12 @@ def _generate_pkce_pair() -> tuple[str, str]:
 
 def _can_bind(host: str, port: int) -> bool:
     family = socket.AF_INET6 if ":" in host else socket.AF_INET
-    with socket.socket(family, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind((host, port))
-        except OSError:
-            return False
+    except OSError:
+        return False
     return True
 
 
