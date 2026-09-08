@@ -51,6 +51,13 @@ class AppExternalIdScope(ScopeDefinition):
     external_ids: list[str]
 
 
+class DataProductScope(ScopeDefinition):
+    """Scope limited to specific Data Products by External ID."""
+
+    scope_name: Literal["dataProductScope"] = Field("dataProductScope", exclude=True)
+    external_ids: list[str]
+
+
 class AllScope(ScopeDefinition):
     """Scope that applies to all resources."""
 
@@ -223,6 +230,7 @@ Scope: TypeAlias = Annotated[
         | PostgresGatewayUsersScope
         | AgentExternalIdScope
         | AppExternalIdScope
+        | DataProductScope
         | UnknownScope
     ),
     BeforeValidator(_handle_unknown_scope),
