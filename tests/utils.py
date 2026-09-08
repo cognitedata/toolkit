@@ -21,7 +21,7 @@ def to_deploy_status(definition_yaml: str | MagicMock, loader: ResourceIO) -> di
     resource_dict = loader.load_resource_file(filepath, {})
     assert len(resource_dict) == 1
     resource = loader.load_resource(deepcopy(resource_dict[0]))
-    resource_id = resource.as_id()
+    resource_id = loader.get_id(resource)
     existing_list = loader.retrieve([resource_id])
     if not existing_list:
         existing_list = loader.create([resource])
