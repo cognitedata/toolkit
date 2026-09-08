@@ -90,7 +90,7 @@ class ModulesApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="cdf modules init",
                 alternative="cdf init modules",
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):

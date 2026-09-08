@@ -55,7 +55,7 @@ class AuthApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="cdf auth init",
                 alternative="cdf init auth",
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
         # We do not pass in a client here as this is typically used to create the .env file needed for authentication.
         cmd = AuthCommand()

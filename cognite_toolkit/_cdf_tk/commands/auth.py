@@ -164,7 +164,7 @@ class AuthCommand(ToolkitCommand):
                     "cdf init access (provision groups and capabilities), and "
                     "cdf api functions activate (activate the CDF Function service)"
                 ),
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
             self.audit_access(client, no_prompt=no_prompt, demo_principal=demo_principal)
             result = self.provision_access(client, dry_run=dry_run, no_prompt=no_prompt, demo_principal=demo_principal)

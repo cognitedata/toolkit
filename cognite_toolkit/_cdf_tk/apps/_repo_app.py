@@ -46,7 +46,7 @@ class RepoApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="cdf repo init",
                 alternative="cdf init repo",
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
