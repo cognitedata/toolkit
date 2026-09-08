@@ -1,4 +1,5 @@
 from collections.abc import Hashable
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -26,11 +27,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     ResourceIO,
-    ResourceWorker,
     SpaceCRUD,
     ViewIO,
 )
@@ -151,13 +153,21 @@ class TestViewLoader:
 
         toolkit_client_approval.append(ViewResponse, [cdf_view])
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([file])
+        resource_dict = loader.load_resource_file(file, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [file])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @pytest.mark.parametrize(

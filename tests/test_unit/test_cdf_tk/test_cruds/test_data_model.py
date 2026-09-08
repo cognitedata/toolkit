@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -23,9 +24,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, NodeCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios import GraphQLCRUD, ViewIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -70,14 +73,22 @@ class TestDataModelLoader:
         loader = DataModelIO.create_loader(
             env_vars_with_client.get_client(),
         )
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:

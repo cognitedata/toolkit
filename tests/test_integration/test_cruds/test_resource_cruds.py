@@ -80,7 +80,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     GroupIO,
     LabelIO,
     NodeCRUD,
-    ResourceWorker,
     RobotCapabilityIO,
     RoboticsDataPostProcessingIO,
     SkillIO,
@@ -198,17 +197,20 @@ authentication:
         filepath.read_text.return_value = schedule_yaml
 
         resource_dict = loader.load_resource_file(filepath, {})
-        resource = loader.load_resource(resource_dict[0])
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         identifier = loader.get_id(resource)
         try:
-            loader.create([resource])
-            worker = ResourceWorker(loader, "deploy")
-            resources = worker.prepare_resources([filepath])
+            existing_list = loader.create([resource])
+            result = DeployV2Command.categorize_resources(
+                loader,
+                resource_by_id={identifier: ReadResource(resource, resource_dict[0], [filepath])},
+                cdf_by_id={identifier: existing_list[0]},
+            )
             assert {
-                "create": len(resources.to_create),
-                "change": len(resources.to_update),
-                "delete": len(resources.to_delete),
-                "unchanged": len(resources.unchanged),
+                "create": len(result.to_create),
+                "change": len(result.to_update),
+                "delete": len(result.to_delete),
+                "unchanged": len(result.unchanged),
             } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
         finally:
             loader.delete([identifier])
@@ -399,19 +401,26 @@ timeSeriesIds:
         loader = DatapointSubscriptionIO.create_loader(toolkit_client)
 
         filepath = self._create_mock_file(definition_yaml)
-        resource = self._load_subscription_from_yaml(filepath, loader)
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         assert isinstance(resource, DatapointSubscriptionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        if not existing_list:
+            existing_list = loader.create([resource])
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @staticmethod
@@ -914,19 +923,24 @@ workflowDefinition:
 
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         assert isinstance(resource, WorkflowVersionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        if not existing_list:
+            existing_list = loader.create([resource])
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
@@ -1078,20 +1092,24 @@ ignoreNullFields: true
 
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
-        resource = crud.load_resource(resource_dict[0])
+        resource = crud.load_resource(deepcopy(resource_dict[0]))
         external_id = crud.get_id(resource)
         assert isinstance(resource, TransformationRequest)
-        if not crud.retrieve([external_id]):
-            _ = crud.create([resource])
+        existing_list = crud.retrieve([external_id])
+        if not existing_list:
+            existing_list = crud.create([resource])
 
-        worker = ResourceWorker(crud, "deploy")
-        resources = worker.prepare_resources([filepath])
+        result = DeployV2Command.categorize_resources(
+            crud,
+            resource_by_id={external_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={external_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
@@ -1170,19 +1188,24 @@ properties:
 
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         assert isinstance(resource, ViewRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        if not existing_list:
+            existing_list = loader.create([resource])
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
@@ -1222,17 +1245,22 @@ description: ""
         filepath.parent.name = FunctionIO.folder_name
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         assert isinstance(resource, FunctionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        if not existing_list:
+            existing_list = loader.create([resource])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(

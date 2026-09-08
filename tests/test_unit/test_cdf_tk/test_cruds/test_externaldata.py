@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -16,8 +17,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import TransformationsExternalDataSourcesAcl
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO, ResourceWorker
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -108,13 +111,21 @@ class TestExternalDataSourceIO:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = _YAML
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([local_file])
+        resource_dict = loader.load_resource_file(local_file, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [local_file])},
+            cdf_by_id={loader.get_id(item): item for item in existing_list},
+        )
         assert {
-            "create": len(resources.to_create),
-            "changed": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "changed": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 1, "changed": 0, "delete": 0, "unchanged": 0}
 
     def test_prepare_resources_existing_recreates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
@@ -122,13 +133,21 @@ class TestExternalDataSourceIO:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = _YAML
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([local_file])
+        resource_dict = loader.load_resource_file(local_file, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = resource.as_id()
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [local_file])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "changed": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "changed": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
 
     def test_get_dependent_items_dataset(self) -> None:

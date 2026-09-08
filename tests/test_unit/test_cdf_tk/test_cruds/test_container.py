@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -13,8 +14,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -66,13 +69,21 @@ indexes: {}
 
         toolkit_client_approval.append(ContainerResponse, [cdf_container])
 
-        worker = ResourceWorker(crud, "deploy")
-        resources = worker.prepare_resources([file])
+        resource_dict = crud.load_resource_file(file, {})
+        assert len(resource_dict) == 1
+        resource = crud.load_resource(deepcopy(resource_dict[0]))
+        resource_id = resource.as_id()
+        existing_list = crud.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            crud,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [file])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
         dumped_no_local = crud.dump_resource(cdf_container)
