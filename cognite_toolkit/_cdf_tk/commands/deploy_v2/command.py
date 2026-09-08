@@ -731,7 +731,7 @@ class DeployV2Command(ToolkitCommand):
                         [read.request for read in resource_by_id.values()],
                         options.deployment_dir,
                     )
-                resources_to_deploy = cls._categorize_resources(
+                resources_to_deploy = cls.categorize_resources(
                     crud,
                     resource_by_id,
                     cdf_resource_by_id,
@@ -831,7 +831,7 @@ class DeployV2Command(ToolkitCommand):
         return bool(crud.client.tool.token.verify_acls(optional_acls))
 
     @classmethod
-    def _categorize_resources(
+    def categorize_resources(
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
