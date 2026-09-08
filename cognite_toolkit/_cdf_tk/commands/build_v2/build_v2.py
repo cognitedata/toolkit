@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ConfigYAML,
     InsightList,
     Module,
-    ModuleSource,
+    ModuleDirectory,
     RelativeDirPath,
     ResourceType,
     ValidationType,
@@ -190,7 +190,7 @@ class BuildV2Command(ToolkitCommand):
         operation: str | None = None,
         allow_creation: bool = False,
         module_scan_result: ModuleScanResult | None = None,
-    ) -> ModuleSource:
+    ) -> ModuleDirectory:
         if module_scan_result is None:
             results, _ = cls.read_filesystem_and_find_modules(
                 organization_dir,
@@ -233,7 +233,7 @@ class BuildV2Command(ToolkitCommand):
                 raise ToolkitValueError("No module path provided.")
             new_module_path = organization_dir / MODULES / Path(user_type_path)
             new_module_path.mkdir(parents=True, exist_ok=True)
-            return ModuleSource(id=new_module_path.relative_to(organization_dir), path=new_module_path)
+            return ModuleDirectory(id=new_module_path.relative_to(organization_dir), path=new_module_path)
         return selected
 
     def tmp_build(
@@ -474,7 +474,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _ask_user_to_select_modules(
-        cls, available_modules: list[ModuleSource], operation: str
+        cls, available_modules: list[ModuleDirectory], operation: str
     ) -> set[RelativeDirPath | str]:
         choices = [
             Choice(
@@ -732,7 +732,7 @@ class BuildV2Command(ToolkitCommand):
         return None
 
     def _build_modules(
-        self, module_sources: Sequence[ModuleSource], build_dir: Path, console: Console
+        self, module_sources: Sequence[ModuleDirectory], build_dir: Path, console: Console
     ) -> list[BuiltModule]:
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
@@ -794,7 +794,7 @@ class BuildV2Command(ToolkitCommand):
             progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
-    def _import_module(self, source: ModuleSource) -> Module:
+    def _import_module(self, source: ModuleDirectory) -> Module:
         resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():

@@ -7,7 +7,7 @@ from typing import Any, cast
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
     ModelSyntaxError,
-    ModuleSource,
+    ModuleDirectory,
     RelativeDirPath,
     RelativeFilePath,
 )
@@ -31,7 +31,7 @@ class ModuleParser:
         cls,
         build: BuildInput,
         user_selected_modules: set[RelativeDirPath | str],
-        source_by_module_id: dict[RelativeDirPath, ModuleSource],
+        source_by_module_id: dict[RelativeDirPath, ModuleDirectory],
         orphan_yaml_files: list[RelativeFilePath],
     ) -> ModuleScanResult:
         module_ids = list(source_by_module_id.keys())
@@ -45,7 +45,7 @@ class ModuleParser:
 
         build_variables, invalid_variables = cls._parse_variables(build.variables, available_paths, selected_paths)
 
-        module_sources: list[ModuleSource] = []
+        module_sources: list[ModuleDirectory] = []
         for module in selected_modules:
             source = source_by_module_id[module]
             module_specific_variables = cls._as_module_variables(build_variables, module)
@@ -95,9 +95,9 @@ class ModuleParser:
     @classmethod
     def find_modules(
         cls, yaml_files: list[RelativeFilePath], organization_dir: Path
-    ) -> tuple[dict[RelativeDirPath, ModuleSource], list[RelativeDirPath]]:
+    ) -> tuple[dict[RelativeDirPath, ModuleDirectory], list[RelativeDirPath]]:
         """Organizes YAML files by their module (top-level folder in the modules directory)."""
-        source_by_module_id: dict[RelativeDirPath, ModuleSource] = {}
+        source_by_module_id: dict[RelativeDirPath, ModuleDirectory] = {}
         orphan_files: list[RelativeDirPath] = []
         for yaml_file in yaml_files:
             if yaml_file.name in EXCL_FILES:
@@ -107,7 +107,7 @@ class ModuleParser:
                 if cls._is_in_code_bundle_subdirectory(yaml_file, resource_folder):
                     continue
                 if relative_module_path not in source_by_module_id:
-                    source_by_module_id[relative_module_path] = ModuleSource(
+                    source_by_module_id[relative_module_path] = ModuleDirectory(
                         path=organization_dir / relative_module_path,
                         id=relative_module_path,
                     )

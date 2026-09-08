@@ -19,9 +19,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
     MisplacedModule,
+    ModuleDirectory,
     ModuleId,
     ModuleScanResult,
-    ModuleSource,
     NonExistingModuleName,
     ResourceType,
     SuccessfulReadYAMLFile,
@@ -921,10 +921,10 @@ variables:
 
 class TestSelectModule:
     @staticmethod
-    def _make_module(org: Path, name: str) -> ModuleSource:
+    def _make_module(org: Path, name: str) -> ModuleDirectory:
         module_dir = org / MODULES / name
         module_dir.mkdir(parents=True, exist_ok=True)
-        return ModuleSource(id=Path(MODULES) / name, path=module_dir)
+        return ModuleDirectory(id=Path(MODULES) / name, path=module_dir)
 
     @staticmethod
     def _org(tmp_path: Path) -> Path:
@@ -1002,7 +1002,7 @@ class TestSelectModule:
                 allow_creation=True,
             )
 
-        assert isinstance(result, ModuleSource)
+        assert isinstance(result, ModuleDirectory)
         assert (org / MODULES / "created_module").exists()
         assert result.path == org / MODULES / "created_module"
         assert result.id == Path(MODULES) / "created_module"

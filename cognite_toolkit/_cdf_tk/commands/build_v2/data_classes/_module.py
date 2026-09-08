@@ -150,7 +150,7 @@ class ModuleId(Identifier):
         return self.id.name
 
 
-class ModuleSource(BaseModel):
+class ModuleDirectory(BaseModel):
     """Class used to describe source for module"""
 
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
@@ -192,7 +192,7 @@ class ModuleScanResult(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     module_dir: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
-    modules: list[ModuleSource]
+    modules: list[ModuleDirectory]
 
     ambiguous_selection: list[AmbiguousSelection] = Field(default_factory=list)
     misplaced_modules: list[MisplacedModule] = Field(default_factory=list)
