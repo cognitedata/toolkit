@@ -62,13 +62,16 @@ def reset_store() -> None:
 
 
 def _read_entry_password(account: str) -> str | None:
-    return keyring.get_password(COGNITE_CLI_KEYRING_SERVICE, account)
+    try:
+        return keyring.get_password(COGNITE_CLI_KEYRING_SERVICE, account)
+    except Exception:
+        return None
 
 
 def _delete_entry(account: str) -> None:
     try:
         keyring.delete_password(COGNITE_CLI_KEYRING_SERVICE, account)
-    except PasswordDeleteError:
+    except Exception:
         pass
 
 
