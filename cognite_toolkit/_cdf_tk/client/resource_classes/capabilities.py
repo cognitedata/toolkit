@@ -3,7 +3,6 @@ from typing import TypeVar
 from cognite.client.data_classes.capabilities import (
     AllScope,
     AppConfigScope,
-    AppExternalIdScope,
     AssetRootIDScope,
     Capability,
     CurrentUserScope,
@@ -40,10 +39,6 @@ def scope_intersection(scope1: T_Scope, scope2: T_Scope | None) -> Capability.Sc
     elif isinstance(scope1, AppConfigScope) and isinstance(scope2, AppConfigScope):
         if apps := sorted(set(scope1.apps) & set(scope2.apps)):
             return AppConfigScope(apps=apps)
-        return None
-    elif isinstance(scope1, AppExternalIdScope) and isinstance(scope2, AppExternalIdScope):
-        if intersection_external_ids := sorted(set(scope1.external_ids) & set(scope2.external_ids)):
-            return AppExternalIdScope(external_ids=intersection_external_ids)
         return None
     elif isinstance(scope1, DataSetScope) and isinstance(scope2, DataSetScope):
         if ids := sorted(set(scope1.ids) & set(scope2.ids)):
@@ -125,8 +120,6 @@ def scope_union(scope1: T_Scope, scope2: T_Scope | None) -> Capability.Scope:
         return AllScope()
     elif isinstance(scope1, AppConfigScope) and isinstance(scope2, AppConfigScope):
         return AppConfigScope(apps=sorted(set(scope1.apps) | set(scope2.apps)))
-    elif isinstance(scope1, AppExternalIdScope) and isinstance(scope2, AppExternalIdScope):
-        return AppExternalIdScope(external_ids=sorted(set(scope1.external_ids) | set(scope2.external_ids)))
     elif isinstance(scope1, DataSetScope) and isinstance(scope2, DataSetScope):
         return DataSetScope(ids=sorted(set(scope1.ids) | set(scope2.ids)))
     elif isinstance(scope1, IDScope) and isinstance(scope2, IDScope):
