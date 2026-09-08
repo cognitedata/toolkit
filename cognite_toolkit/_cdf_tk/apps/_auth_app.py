@@ -3,7 +3,6 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_DEFAULT_CALLBACK_PORT
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import VALID_AUTH_LOGIN_FLOWS, AuthLoginFlowCli, EnvironmentVariables
 
@@ -119,13 +118,24 @@ class AuthApp(typer.Typer):
             typer.Option(
                 "--port",
                 "-p",
-                help=f"Local callback port for the OAuth redirect (default: {COGNITE_CLI_DEFAULT_CALLBACK_PORT})",
+                help="Local callback port for the OAuth redirect (default: 3000, session flow only)",
             ),
         ] = None,
     ) -> None:
         """Sign in and optionally write a .env file for subsequent Toolkit commands."""
         if flow not in VALID_AUTH_LOGIN_FLOWS:
             raise typer.BadParameter(f"Invalid flow {flow!r}. Choose one of: {', '.join(VALID_AUTH_LOGIN_FLOWS)}")
+
+        if flow != "session":
+            if org is not None:
+                raise typer.BadParameter("--org is only valid with --flow session")
+            if force:
+                raise typer.BadParameter("--force is only valid with --flow session")
+            if port is not None:
+                raise typer.BadParameter("--port is only valid with --flow session")
+            org = None
+            force = False
+            port = None
 
         cmd = AuthCommand()
         cmd.run(

@@ -1,3 +1,4 @@
+import os
 import secrets
 import socket
 import threading
@@ -14,17 +15,17 @@ from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from rich import print
 
 from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, format_session_timestamp
-from cognite_toolkit._cdf_tk.constants import (
-    COGNITE_CLI_CALLBACK_PORTS,
-    COGNITE_CLI_CLIENT_ID,
-    COGNITE_CLI_DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
-    COGNITE_CLI_LOGIN_TIMEOUT_SECONDS,
-    COGNITE_CLI_REFRESH_TOKEN_IDLE_TTL_SECONDS,
-    COGNITE_CLI_SESSION_SCOPES,
-    COGNITE_CLI_SESSION_VERSION,
-    COGNITE_IDP_BASE_URL,
-)
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"
+_IDP_BASE_URL = os.environ.get("COGNITE_IDP_BASE_URL", "https://auth.cognite.com").rstrip("/")
+_SESSION_SCOPES = "openid profile email offline_access"
+_DEFAULT_CALLBACK_PORT = 3000
+_CALLBACK_PORTS = (_DEFAULT_CALLBACK_PORT, *range(3100, 3111))
+_LOGIN_TIMEOUT_SECONDS = 5 * 60
+_DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60
+_REFRESH_TOKEN_IDLE_TTL_SECONDS = 25 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -44,7 +45,7 @@ class _CallbackContext:
 
 
 def fetch_openid_configuration(base_url: str | None = None) -> OpenIdConfiguration:
-    idp_base = (base_url or COGNITE_IDP_BASE_URL).rstrip("/")
+    idp_base = (base_url or _IDP_BASE_URL).rstrip("/")
     url = f"{idp_base}/.well-known/openid-configuration"
     try:
         response = httpx.get(url, timeout=30.0)
@@ -68,17 +69,13 @@ def callback_redirect_uri(port: int) -> str:
     return f"http://localhost:{port}/"
 
 
-def _as_seconds(value: Any) -> int | None:
+def _token_ttl_seconds(value: Any, default: int) -> int:
     if value is None:
-        return None
-    if isinstance(value, str):
-        try:
-            value = int(value)
-        except ValueError:
-            return None
-    if isinstance(value, (int, float)) and float(value) == value:
+        return default
+    try:
         return int(value)
-    return None
+    except (TypeError, ValueError):
+        return default
 
 
 def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | None = None) -> StoredSession:
@@ -92,8 +89,8 @@ def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | 
             "Login succeeded but no refresh token was returned. "
             "The identity provider may not support the `offline_access` scope."
         )
-    access_ttl = _as_seconds(tokens.get("expires_in")) or COGNITE_CLI_DEFAULT_ACCESS_TOKEN_TTL_SECONDS
-    refresh_ttl = _as_seconds(tokens.get("refresh_expires_in")) or COGNITE_CLI_REFRESH_TOKEN_IDLE_TTL_SECONDS
+    access_ttl = _token_ttl_seconds(tokens.get("expires_in"), _DEFAULT_ACCESS_TOKEN_TTL_SECONDS)
+    refresh_ttl = _token_ttl_seconds(tokens.get("refresh_expires_in"), _REFRESH_TOKEN_IDLE_TTL_SECONDS)
     return StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org=org,
@@ -130,7 +127,6 @@ def _callback_loopback_hosts(port: int) -> tuple[str, ...]:
     return tuple(hosts)
 
 
-_CALLBACK_SUCCESS = "Signed in. Close this tab and return to the terminal."
 _CALLBACK_FAILED = "Failed to sign in. Close this tab and check the terminal for details."
 _CALLBACK_INCOMPLETE = "Failed to sign in. Close this tab and try again."
 
@@ -168,7 +164,7 @@ def _exchange_authorization_code(context: _CallbackContext, code: str) -> dict[s
         context.token_endpoint,
         data={
             "grant_type": "authorization_code",
-            "client_id": COGNITE_CLI_CLIENT_ID,
+            "client_id": _CLIENT_ID,
             "code": code,
             "redirect_uri": context.redirect_uri,
             "code_verifier": context.code_verifier,
@@ -218,7 +214,7 @@ def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHan
                 return
 
             context.result = {"tokens": tokens}
-            _send_plain_text_response(self, _CALLBACK_SUCCESS)
+            _send_plain_text_response(self, "Signed in. Close this tab and return to the terminal.")
 
     return CallbackHandler
 
@@ -275,17 +271,16 @@ class _OAuthCallbackServer:
 
 
 def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
-    idp_base = COGNITE_IDP_BASE_URL
-    oidc = fetch_openid_configuration(idp_base)
+    oidc = fetch_openid_configuration(_IDP_BASE_URL)
 
     code_verifier, code_challenge = _generate_pkce_pair()
     state = secrets.token_urlsafe(32)
     redirect_uri = callback_redirect_uri(callback_port)
 
     auth_params = {
-        "client_id": COGNITE_CLI_CLIENT_ID,
+        "client_id": _CLIENT_ID,
         "response_type": "code",
-        "scope": COGNITE_CLI_SESSION_SCOPES,
+        "scope": _SESSION_SCOPES,
         "redirect_uri": redirect_uri,
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
@@ -314,7 +309,7 @@ def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
         print(f"Could not open browser automatically. Open this URL manually:\n{auth_url}\n")
 
     try:
-        result = callback_server.wait_for_result(COGNITE_CLI_LOGIN_TIMEOUT_SECONDS)
+        result = callback_server.wait_for_result(_LOGIN_TIMEOUT_SECONDS)
     finally:
         callback_server.stop()
 
@@ -330,7 +325,7 @@ def login_for_session(org: str, port: int | None = None) -> StoredSession:
         raise AuthenticationError("Organization name is required.")
     org = org.strip()
 
-    ports_to_try = [port] if port is not None else list(COGNITE_CLI_CALLBACK_PORTS)
+    ports_to_try = [port] if port is not None else list(_CALLBACK_PORTS)
     last_error: AuthenticationError | None = None
     for callback_port in ports_to_try:
         try:
@@ -350,7 +345,7 @@ def refresh_session_tokens(session: StoredSession) -> StoredSession:
             oidc.token_endpoint,
             data={
                 "grant_type": "refresh_token",
-                "client_id": COGNITE_CLI_CLIENT_ID,
+                "client_id": _CLIENT_ID,
                 "refresh_token": session.refresh_token,
             },
             headers={"Accept": "application/json"},
@@ -378,7 +373,7 @@ def revoke_refresh_token(refresh_token: str) -> None:
     try:
         response = httpx.post(
             oidc.revocation_endpoint,
-            data={"token": refresh_token, "client_id": COGNITE_CLI_CLIENT_ID},
+            data={"token": refresh_token, "client_id": _CLIENT_ID},
             timeout=30.0,
         )
         response.raise_for_status()
