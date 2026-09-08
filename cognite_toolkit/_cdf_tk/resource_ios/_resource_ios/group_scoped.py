@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from .auth import GroupIO, SecurityCategoryIO
 from .classic import AssetIO
 from .data_organization import DataSetsIO
+from .data_product import DataProductIO
 from .datamodel import SpaceCRUD
 from .extraction_pipeline import ExtractionPipelineIO
 from .location import LocationFilterIO
@@ -36,6 +37,7 @@ class GroupResourceScopedCRUD(GroupIO):
         {
             SpaceCRUD,
             DataSetsIO,
+            DataProductIO,
             ExtractionPipelineIO,
             TimeSeriesCRUD,
             SecurityCategoryIO,

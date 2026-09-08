@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
 )
+from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
@@ -108,7 +109,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import ExternalDataSourceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
+    ExternalDataSourceRequest,
+    ExternalDataSourceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -322,6 +326,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # For channels, we only have list, thus these cannot be
         # generically tested.
         AlertChannelsAPI,
+        # Do not have secret in the response, so cannot be recreated from the response.
+        TransformationExternalDataSourcesAPI,
     }
 )
 
@@ -2062,6 +2068,47 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
             client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+
+    def test_transformation_external_data_source_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        data_source_example = get_examples_minimum_requests(ExternalDataSourceResponse)[0]
+        data_source_request = ExternalDataSourceRequest.model_validate(data_source_example)
+        data_source_id = data_source_request.as_id()
+
+        try:
+            # Create external data source
+            create_endpoint = client.tool.transformations.external_data_sources._method_endpoint_map["create"]
+            try:
+                created = client.tool.transformations.external_data_sources.create([data_source_request])
+            except ToolkitAPIError as e:
+                if e.code != 500:
+                    raise EndpointAssertionError(
+                        create_endpoint.path,
+                        f"Transformation external data source no longer returns 500. Error: {e!s}. Update the smoke tests to reflect the new behavior.",
+                    )
+                pytest.skip("Transformation external data source creation is not supported in this project.")
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created external data source, got {len(created)}"
+                )
+            if created[0].as_id() != data_source_id:
+                raise EndpointAssertionError(
+                    create_endpoint.path, "Created external data source ID does not match requested ID."
+                )
+            # List external data sources
+            list_endpoint = client.tool.transformations.external_data_sources._method_endpoint_map["list"]
+            try:
+                listed = list(client.tool.transformations.external_data_sources.list(limit=1))
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing external data sources failed.")
+            if len(listed) == 0:
+                raise EndpointAssertionError(
+                    list_endpoint.path, "Expected at least 1 listed external data source, got 0"
+                )
+        finally:
+            # Clean up
+            client.tool.transformations.external_data_sources.delete([data_source_id], ignore_unknown_ids=True)
 
     def test_datapoints_subscription_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
