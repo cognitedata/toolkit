@@ -1,25 +1,10 @@
-import inspect
-import re
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
-from cognite_toolkit._cdf_tk.constants import DEV_ONLY_MODULES
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, ModuleDirectories
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitDuplicatedModuleError,
-    ToolkitEnvError,
-    ToolkitMissingModuleError,
-)
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    DataSetMissingWarning,
-    MediumSeverityWarning,
-    TemplateVariableWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -29,9 +14,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 __all__ = [
     "humanize_validation_error",
     "humanize_validation_error_categorized",
-    "validate_data_set_is_set",
-    "validate_module_selection",
-    "validate_modules_variables",
 ]
 
 
@@ -45,54 +27,6 @@ class _MessageEntry(NamedTuple):
 
 class _GroupEntry(NamedTuple):
     loc: tuple[str | int, ...]
-
-
-def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
-    """Checks whether the config file has any issues.
-
-    Currently, this checks for:
-        * Non-replaced template variables, such as <change_me>.
-
-    Args:
-        variables: The variables to check.
-        filepath: The filepath of the config.yaml.
-    """
-    warning_list: WarningList = WarningList()
-    pattern = re.compile(r"<.*?>")
-    for variable in variables:
-        if isinstance(variable.value, str) and pattern.match(variable.value):
-            warning_list.append(
-                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location.parts))
-            )
-    return warning_list
-
-
-def validate_data_set_is_set(
-    raw: dict[str, Any] | list[dict[str, Any]],
-    resource_cls: type[ResponseResource],
-    filepath: Path,
-    identifier_key: str = "externalId",
-) -> WarningList:
-    warning_list: WarningList = WarningList()
-    if not (inspect.isclass(resource_cls) and issubclass(resource_cls, BaseModel)):
-        return warning_list
-
-    if "data_set_id" not in resource_cls.model_fields.keys():
-        return warning_list
-
-    if isinstance(raw, list):
-        for item in raw:
-            warning_list.extend(validate_data_set_is_set(item, resource_cls, filepath, identifier_key))
-        return warning_list
-
-    if "dataSetExternalId" in raw or "dataSetId" in raw:
-        return warning_list
-
-    value = raw.get(identifier_key, f"No identifier {identifier_key}")
-    warning_list.append(
-        DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__.removesuffix("Response"))
-    )
-    return warning_list
 
 
 def validate_resource_yaml_pydantic(
@@ -310,70 +244,3 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
 
     suffix = ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
     return f"{prefix}{suffix}"
-
-
-def validate_module_selection(
-    modules: ModuleDirectories,
-    config: BuildConfigYAML,
-    packages: dict[str, list[str]],
-    selected_modules: set[str | Path],
-    organization_dir: Path,
-) -> WarningList:
-    """Validates module selection and returns warnings for non-critical issues.
-
-    Critical errors (duplicate modules, missing modules, no modules selected) are still raised
-    as exceptions as they prevent the build from proceeding.
-    """
-    warnings: WarningList = WarningList()
-
-    # Validations: Ambiguous selection.
-    selected_names = {s for s in config.environment.selected if isinstance(s, str)}
-    if duplicate_modules := {
-        module_name: paths
-        for module_name, paths in modules.as_path_by_name().items()
-        if len(paths) > 1 and module_name in selected_names
-    }:
-        # If the user has selected a module by name, and there are multiple modules with that name, raise an error.
-        # Note, if the user uses a path to select a module, this error will not be raised.
-        raise ToolkitDuplicatedModuleError(
-            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
-        )
-
-    # Package Referenced Modules Exists
-    for package, package_modules in packages.items():
-        if package not in selected_names:
-            # We do not check packages that are not selected.
-            # Typically, the user will delete the modules that are irrelevant for them;
-            # thus we only check the selected packages.
-            continue
-        if missing_packages := set(package_modules) - modules.available_names:
-            raise ToolkitMissingModuleError(
-                f"Package {package} defined in {CDFToml.file_name!s} is referring "
-                f"the following missing modules {missing_packages}."
-            )
-
-    # Selected modules does not exists
-    if missing_modules := set(selected_modules) - modules.available:
-        hint = ModuleDefinition.long(missing_modules, organization_dir)
-        raise ToolkitMissingModuleError(
-            f"The following selected modules are missing, please check path: {missing_modules}.\n{hint}"
-        )
-
-    # Nothing is Selected
-    if not modules.selected:
-        raise ToolkitEnvError(
-            f"No selected modules specified in {config.filepath!s}, have you configured "
-            f"the environment ({config.environment.name})?"
-        )
-
-    # Dev modules warning (non-critical)
-    dev_modules = modules.available_names & DEV_ONLY_MODULES
-    if dev_modules and config.environment.validation_type != "dev":
-        warnings.append(
-            MediumSeverityWarning(
-                "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
-                f"{humanize_collection(dev_modules)!r}",
-            )
-        )
-
-    return warnings
