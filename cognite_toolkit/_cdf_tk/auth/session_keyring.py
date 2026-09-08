@@ -2,7 +2,6 @@ import sys
 
 import keyring
 from keyring.backend import KeyringBackend
-from keyring.errors import PasswordDeleteError
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_KEYRING_SERVICE
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
