@@ -7,9 +7,16 @@ Note: This is a beta API and may change in future releases.
 """
 
 from collections.abc import Iterable, Sequence
+from urllib.parse import urlencode
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    ItemsSuccessResponse,
+    SuccessResponse,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
 
@@ -32,13 +39,27 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[SkillResponse]:
         return PagedResponse[SkillResponse].model_validate_json(response.body)
 
+    def upload(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
+        """Upload SKILL.md content using the dedicated upload endpoint."""
+        for item in items:
+            query_string = urlencode({"externalId": item.external_id, "overwrite": str(overwrite).lower()})
+            result = self._http_client.request_multipart_retries(
+                url=self._make_url(f"/ai/skills/upload?{query_string}"),
+                files={"file": ("SKILL.md", item.content.encode("utf-8"), "text/markdown")},
+                form_fields={},
+                api_version=self._api_version,
+            )
+            if isinstance(result, FailedResponse):
+                raise ToolkitAPIError(message=result.body, code=result.status_code)
+        return self.retrieve([item.as_id() for item in items], ignore_unknown_ids=False)
+
     def create(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
         """Create or update skills in CDF."""
-        return self._request_item_response(items, "upsert", params={"overwrite": overwrite})
+        return self.upload(items, overwrite=overwrite)
 
     def update(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
         """Update skills in CDF (implemented as upsert)."""
-        return self.create(items, overwrite=overwrite)
+        return self.upload(items, overwrite=overwrite)
 
     def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[SkillResponse]:
         """Retrieve skills from CDF by external ID."""

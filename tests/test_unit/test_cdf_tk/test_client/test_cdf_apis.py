@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessions
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.skills import SkillsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
@@ -68,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
@@ -1296,6 +1298,52 @@ class TestCDFResourceAPI:
             return_value=httpx.Response(status_code=200)
         )
         api.delete([AppVersionId(app_external_id="my-app", version="1.0.0")])
+
+    def test_skills_api_create_uses_upload_endpoint(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = SkillsAPI(HTTPClient(config))
+        skill_content = """---
+name: smoke-test-skill
+description: Smoke test skill
+---
+
+# Smoke test skill
+"""
+        skill = SkillRequest(
+            external_id="smoke-test-skill",
+            name="smoke-test-skill",
+            description="Smoke test skill",
+            content=skill_content,
+        )
+        upload_route = respx_mock.post(
+            config.create_api_url("/ai/skills/upload?externalId=smoke-test-skill&overwrite=true")
+        ).mock(return_value=httpx.Response(status_code=200, json={}))
+        retrieve_route = respx_mock.post(config.create_api_url("/ai/skills/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": "smoke-test-skill",
+                            "name": "smoke-test-skill",
+                            "description": "Smoke test skill",
+                            "content": skill_content,
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                        }
+                    ]
+                },
+            )
+        )
+
+        created = api.create([skill])
+
+        assert upload_route.called
+        assert retrieve_route.called
+        assert len(created) == 1
+        assert created[0].external_id == "smoke-test-skill"
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:
