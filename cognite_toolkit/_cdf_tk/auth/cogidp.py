@@ -64,10 +64,9 @@ def fetch_session_user_info(org: str, access_token: str) -> SessionUserInfo:
             timeout=30.0,
         )
         response.raise_for_status()
-    except httpx.HTTPError as exc:
+        data = response.json()
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
         raise AuthenticationError(f"Failed to verify session with CogIdP: {exc}") from exc
-
-    data = response.json()
     items = data.get("items", []) if isinstance(data, dict) else []
     projects: list[SessionProject] = []
     for item in items:
