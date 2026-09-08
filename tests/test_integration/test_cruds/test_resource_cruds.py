@@ -199,7 +199,8 @@ authentication:
         resource = loader.load_resource(deepcopy(resource_dict[0]))
         identifier = loader.get_id(resource)
         try:
-            existing_list = loader.create([resource])
+            _ = loader.create([resource])
+            existing_list = loader.retrieve([identifier])
             result = DeployV2Command.categorize_resources(
                 loader,
                 resource_by_id={identifier: ReadResource(resource, resource_dict[0], [filepath])},
