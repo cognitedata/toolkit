@@ -21,12 +21,14 @@ global_config.silence_feature_preview_warnings = True
 from rich import print
 
 from cognite_toolkit._cdf_tk.apps import (
+    ApiApp,
     AuthApp,
     CoreApp,
     DataApp,
     DevApp,
     DumpApp,
     ImportApp,
+    InitApp,
     LandingApp,
     MigrateApp,
     ModulesApp,
@@ -84,9 +86,11 @@ except AttributeError as e:
 _app = CoreApp(**default_typer_kws)
 
 landing_app = LandingApp(**default_typer_kws)
+init_app = InitApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-_app.add_typer(RepoApp(**default_typer_kws), name="repo")
+if not Flags.V09.is_enabled():
+    _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
 
 if Plugins.run.value.is_enabled():
@@ -110,7 +114,13 @@ if Plugins.data.value.is_enabled():
 
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
-_app.command("init")(landing_app.main_init)
+
+if Flags.V09.is_enabled():
+    _app.add_typer(init_app, name="init")
+    _app.add_typer(ApiApp(**default_typer_kws), name="api")
+    _app.add_typer(RepoApp(**default_typer_kws), name="repo", hidden=True)
+else:
+    _app.command("init")(landing_app.main_init)
 
 
 @_app.command("about")

@@ -12,6 +12,7 @@ from .build_v2.build_v2 import BuildV2Command
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
 from .entity_matching import EntityMatchingCommand
+from .function_service import FunctionServiceCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .modules import ModulesCommand
@@ -30,6 +31,7 @@ __all__ = [
     "DownloadCommand",
     "DumpResourceCommand",
     "EntityMatchingCommand",
+    "FunctionServiceCommand",
     "FunctionsCommand",
     "InitCommand",
     "MigrationCommand",

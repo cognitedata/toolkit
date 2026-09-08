@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullV2Command
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
@@ -85,6 +86,12 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
+        if Flags.V09.is_enabled():
+            ToolkitDeprecationWarning(
+                feature="cdf modules init",
+                alternative="cdf init modules",
+                removal_version="0.9",
+            ).print_warning()
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Try to load client if possible, but ignore errors.

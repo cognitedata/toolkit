@@ -7,6 +7,8 @@ import typer
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import RepoCommand
 from cognite_toolkit._cdf_tk.commands.repo import REPOSITORY_HOSTING
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -40,6 +42,12 @@ class RepoApp(typer.Typer):
         verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     ) -> None:
         """Initialize a new git repository with files like .gitignore, cdf.toml, and so on."""
+        if Flags.V09.is_enabled():
+            ToolkitDeprecationWarning(
+                feature="cdf repo init",
+                alternative="cdf init repo",
+                removal_version="0.9",
+            ).print_warning()
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Try to load client if possible, but ignore errors.
