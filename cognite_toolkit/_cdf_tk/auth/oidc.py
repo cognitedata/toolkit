@@ -130,7 +130,7 @@ def _callback_loopback_hosts(port: int) -> tuple[str, ...]:
     return tuple(hosts)
 
 
-_CALLBACK_SUCCESS = "Successfully signed in. Close this tab and return to the terminal."
+_CALLBACK_SUCCESS = "Signed in. Close this tab and return to the terminal."
 _CALLBACK_FAILED = "Failed to sign in. Close this tab and check the terminal for details."
 _CALLBACK_INCOMPLETE = "Failed to sign in. Close this tab and try again."
 
