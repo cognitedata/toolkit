@@ -42,7 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     TextProperty,
     ViewId,
-    ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -61,10 +60,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     FunctionTaskParameters,
-    WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
@@ -402,28 +399,7 @@ timeSeriesIds:
 """
         loader = DatapointSubscriptionIO.create_loader(toolkit_client)
 
-        filepath = self._create_mock_file(definition_yaml)
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(deepcopy(resource_dict[0]))
-        assert isinstance(resource, DatapointSubscriptionRequest)
-        resource_id = resource.as_id()
-        existing_list = loader.retrieve([resource_id])
-        if not existing_list:
-            existing_list = loader.create([resource])
-
-        result = DeployV2Command.categorize_resources(
-            loader,
-            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
-            cdf_by_id={resource_id: existing_list[0]},
-        )
-
-        assert {
-            "create": len(result.to_create),
-            "change": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @staticmethod
     def _create_mock_file(yaml_content: str) -> Path:
@@ -920,30 +896,7 @@ workflowDefinition:
 """
         loader = WorkflowVersionIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(deepcopy(resource_dict[0]))
-        assert isinstance(resource, WorkflowVersionRequest)
-        resource_id = resource.as_id()
-        existing_list = loader.retrieve([resource_id])
-        if not existing_list:
-            existing_list = loader.create([resource])
-
-        result = DeployV2Command.categorize_resources(
-            loader,
-            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
-            cdf_by_id={resource_id: existing_list[0]},
-        )
-
-        assert {
-            "create": len(result.to_create),
-            "change": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestTransformationCRUD:
@@ -1089,30 +1042,7 @@ ignoreNullFields: true
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         crud = TransformationIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = transformation_yaml
-
-        resource_dict = crud.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = crud.load_resource(deepcopy(resource_dict[0]))
-        external_id = crud.get_id(resource)
-        assert isinstance(resource, TransformationRequest)
-        existing_list = crud.retrieve([external_id])
-        if not existing_list:
-            existing_list = crud.create([resource])
-
-        result = DeployV2Command.categorize_resources(
-            crud,
-            resource_by_id={external_id: ReadResource(resource, resource_dict[0], [filepath])},
-            cdf_by_id={external_id: existing_list[0]},
-        )
-
-        assert {
-            "create": len(result.to_create),
-            "change": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:
@@ -1185,30 +1115,7 @@ properties:
         """
         loader = ViewIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(deepcopy(resource_dict[0]))
-        assert isinstance(resource, ViewRequest)
-        resource_id = resource.as_id()
-        existing_list = loader.retrieve([resource_id])
-        if not existing_list:
-            existing_list = loader.create([resource])
-
-        result = DeployV2Command.categorize_resources(
-            loader,
-            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
-            cdf_by_id={resource_id: existing_list[0]},
-        )
-
-        assert {
-            "create": len(result.to_create),
-            "change": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestFunctionLoader:

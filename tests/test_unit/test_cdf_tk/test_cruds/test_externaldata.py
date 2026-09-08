@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceI
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.utils import to_deploy_status
 
 _YAML = """
 externalId: fabric-lakehouse-prod
@@ -130,25 +131,8 @@ class TestExternalDataSourceIO:
 
     def test_prepare_resources_existing_recreates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         toolkit_client_approval.append(ExternalDataSourceResponse, _make_response())
-        local_file = MagicMock(spec=Path)
-        local_file.read_text.return_value = _YAML
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
-        resource_dict = loader.load_resource_file(local_file, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(deepcopy(resource_dict[0]))
-        resource_id = resource.as_id()
-        existing_list = loader.retrieve([resource_id])
-        result = DeployV2Command.categorize_resources(
-            loader,
-            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [local_file])},
-            cdf_by_id={resource_id: existing_list[0]},
-        )
-        assert {
-            "create": len(result.to_create),
-            "changed": len(result.to_update),
-            "delete": len(result.to_delete),
-            "unchanged": len(result.unchanged),
-        } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
+        assert to_deploy_status(_YAML, loader) == {"create": 1, "change": 0, "delete": 1, "unchanged": 0}
 
     def test_get_dependent_items_dataset(self) -> None:
         deps = list(
