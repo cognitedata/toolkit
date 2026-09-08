@@ -5,7 +5,7 @@ from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
@@ -160,60 +160,6 @@ class ModuleLocation:
 
     def __str__(self) -> str:
         return self.name
-
-    def as_read_module(self) -> "ReadModule":
-        return ReadModule(
-            dir=self.dir,
-            resource_directories=tuple(self.resource_directories),
-            module_id=self.module_id,
-            package_id=self.package_id,
-        )
-
-
-@dataclass(frozen=True)
-class ReadModule:
-    """This is a short representation of a module.
-
-    Args:
-        dir: The absolute path to the module directory.
-        resource_directories: The resource directories in the module.
-    """
-
-    dir: Path
-    resource_directories: tuple[str, ...]
-    module_id: str | None
-    package_id: str | None
-
-    def resource_dir_path(self, resource_folder: str) -> Path | None:
-        """Returns the path to a resource in the module.
-
-        Args:
-            resource_folder: The name of the resource.
-
-        Returns:
-            The path to the resource if it exists, otherwise None.
-        """
-        for resource_dir in self.resource_directories:
-            if resource_dir == resource_folder and (resource_path := self.dir / resource_folder).exists():
-                return resource_path
-        return None
-
-    @classmethod
-    def load(cls, data: dict[str, Any]) -> Self:
-        return cls(
-            dir=Path(data["dir"]),
-            resource_directories=tuple(data["resource_directories"]),
-            module_id=data.get("module_id"),
-            package_id=data.get("package_id"),
-        )
-
-    def dump(self) -> dict[str, Any]:
-        return {
-            "dir": self.dir.as_posix(),
-            "resource_directories": list(self.resource_directories),
-            "module_id": self.module_id,
-            "package_id": self.package_id,
-        }
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
