@@ -11,6 +11,42 @@ def test_parse_auth_login_flow_maps_cli_values() -> None:
     assert parse_auth_login_flow("client-credentials") == "client_credentials"
 
 
+def test_login_clears_corrupted_session_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+
+    cleared: list[bool] = []
+
+    def fake_clear_session() -> None:
+        cleared.append(True)
+
+    def raise_auth_error() -> None:
+        raise AuthenticationError("Unsupported session version")
+
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.commands.auth_session.read_session_metadata",
+        raise_auth_error,
+    )
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth_session.clear_session", fake_clear_session)
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.commands.auth_session.login_for_session",
+        lambda org, port=None: type(
+            "Session",
+            (),
+            {"org": org, "access_token": "a", "refresh_token": "r"},
+        )(),
+    )
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth_session.write_session", lambda session: None)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.commands.auth_session.questionary.text",
+        lambda *args, **kwargs: type("Answer", (), {"unsafe_ask": lambda self: "my-org"})(),
+    )
+
+    AuthSessionCommand().login(org=None, force=False, port=None)
+
+    assert cleared == [True]
+
+
 def test_confirm_login_flow_overrides_env_skips_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LOGIN_FLOW", raising=False)
 

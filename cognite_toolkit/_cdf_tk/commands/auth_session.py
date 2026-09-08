@@ -45,11 +45,8 @@ class AuthSessionCommand(ToolkitCommand):
         try:
             existing = read_session_metadata()
         except AuthenticationError:
-            if force:
-                clear_session()
-                existing = None
-            else:
-                raise
+            clear_session()
+            existing = None
 
         if existing and not force:
             state = token_state(existing)
