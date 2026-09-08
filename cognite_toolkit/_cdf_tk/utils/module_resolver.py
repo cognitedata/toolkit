@@ -6,6 +6,7 @@ import typer
 from questionary import Choice
 from rich import print
 
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path
 
@@ -27,14 +28,12 @@ class ModuleResolver:
         Returns:
             The path to the module.
         """
-        from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 
-        present_modules = ModuleDirectories.load(organization_dir, None)
-
+        present_modules, _ = BuildV2Command.find_modules(organization_dir)
         if module_name:
-            for mod in present_modules:
+            for mod in present_modules.values():
                 if mod.name.casefold() == module_name.casefold():
-                    return mod.dir
+                    return mod.path
 
             if questionary.confirm(f"{module_name} module not found. Do you want to create a new one?").unsafe_ask():
                 validate_safe_path(module_name)
@@ -46,7 +45,7 @@ class ModuleResolver:
                 print("[red]Aborting...[/red]")
             raise typer.Exit()
 
-        choices = [Choice(title=mod.name, value=mod.dir) for mod in present_modules]
+        choices = [Choice(title=mod.name, value=mod.path) for mod in present_modules.values()]
         choices.append(Choice(title="<Create new module>", value="NEW"))
 
         selected = questionary.select("Select a module:", choices=choices).unsafe_ask()

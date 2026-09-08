@@ -603,9 +603,8 @@ class BuildV2Command(ToolkitCommand):
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
 
-        yaml_files = [
-            yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
-        ]
+        yaml_files = cls._scan_yaml_files(organization_dir)
+
         return BuildInput(
             yaml_files=yaml_files,
             selected_modules=selected,
@@ -614,6 +613,16 @@ class BuildV2Command(ToolkitCommand):
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
         )
+
+    @classmethod
+    def _scan_yaml_files(cls, organization_dir: Path) -> list[Path]:
+        """Scans the organization directory for YAML files under the modules directory."""
+        return [yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")]
+
+    @classmethod
+    def find_modules(cls, organization_dir: Path) -> tuple[dict[RelativeDirPath, ModuleSource], list[RelativeDirPath]]:
+        """Finds modules in the organization directory and returns a mapping of module IDs to module sources along with orphans."""
+        return ModuleParser.find_modules(cls._scan_yaml_files(organization_dir), organization_dir)
 
     @classmethod
     def _parse_user_selection(
