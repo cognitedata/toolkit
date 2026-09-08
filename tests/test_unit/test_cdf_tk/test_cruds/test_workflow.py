@@ -192,9 +192,7 @@ class TestWorkflowVersionLineageAnnotation:
             last_updated_time=0,
         )
 
-    def test_dump_resource_keeps_lineage_annotation_with_alpha_flag(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_dump_resource_keeps_lineage_annotation_with_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         original = FeatureFlag.is_enabled
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.DATA_PRODUCTS or original(flag))
         with monkeypatch_toolkit_client() as client:
@@ -206,9 +204,7 @@ class TestWorkflowVersionLineageAnnotation:
             "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
         }
 
-    def test_dump_resource_strips_lineage_annotation_without_alpha_flag(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_dump_resource_strips_lineage_annotation_without_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
         with monkeypatch_toolkit_client() as client:
             loader = WorkflowVersionIO(client, None, None)
