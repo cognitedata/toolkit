@@ -63,14 +63,6 @@ class AuthApp(typer.Typer):
 
     def status(
         self,
-        no_prompt: Annotated[
-            bool,
-            typer.Option(
-                "--no-prompt",
-                "-np",
-                help="Whether to skip the prompt to continue. This is useful for CI/CD pipelines.",
-            ),
-        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -83,7 +75,7 @@ class AuthApp(typer.Typer):
         """Show project access status (read-only). To fix access issues, use cdf init access."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = AuthCommand(client=client)
-        cmd.run(lambda: cmd.audit_access(client, no_prompt=no_prompt))
+        cmd.run(lambda: cmd.audit_access(client, no_prompt=True))
 
     def verify(
         self,
