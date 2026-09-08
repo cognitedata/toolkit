@@ -5,7 +5,7 @@ import typer
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_DEFAULT_CALLBACK_PORT
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import VALID_AUTH_LOGIN_FLOWS, AuthLoginFlowCli, EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -18,8 +18,6 @@ class AuthApp(typer.Typer):
         self.command()(self.verify)
         if FeatureFlag.is_enabled(Flags.V09):
             self.command()(self.login)
-            self.command()(self.logout)
-            self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -99,9 +97,18 @@ class AuthApp(typer.Typer):
 
     def login(
         self,
+        flow: Annotated[
+            AuthLoginFlowCli,
+            typer.Option(
+                "--flow",
+                "-f",
+                help="Authentication flow to use.",
+                case_sensitive=False,
+            ),
+        ] = "session",
         org: Annotated[
             str | None,
-            typer.Option("--org", help="Organization to sign in to (prompted when omitted)"),
+            typer.Option("--org", "-o", help="Organization to sign in to when using the session flow"),
         ] = None,
         force: Annotated[
             bool,
@@ -111,26 +118,21 @@ class AuthApp(typer.Typer):
             int | None,
             typer.Option(
                 "--port",
+                "-p",
                 help=f"Local callback port for the OAuth redirect (default: {COGNITE_CLI_DEFAULT_CALLBACK_PORT})",
             ),
         ] = None,
     ) -> None:
-        """Sign in via the browser and persist a refreshable session."""
-        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+        """Sign in and optionally write a .env file for subsequent Toolkit commands."""
+        if flow not in VALID_AUTH_LOGIN_FLOWS:
+            raise typer.BadParameter(f"Invalid flow {flow!r}. Choose one of: {', '.join(VALID_AUTH_LOGIN_FLOWS)}")
 
-        cmd = AuthSessionCommand()
-        cmd.run(lambda: cmd.login(org=org, force=force, port=port))
-
-    def logout(self) -> None:
-        """Sign out and clear the persisted session."""
-        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
-
-        cmd = AuthSessionCommand()
-        cmd.run(cmd.logout)
-
-    def status(self) -> None:
-        """Show the active persisted session (org, user, expiry, reachable projects)."""
-        from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
-
-        cmd = AuthSessionCommand()
-        cmd.run(cmd.status)
+        cmd = AuthCommand()
+        cmd.run(
+            lambda: cmd.login(
+                flow=flow,
+                org=org,
+                force=force,
+                port=port,
+            )
+        )

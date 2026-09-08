@@ -354,19 +354,21 @@ wheels = [
 
 [[package]]
 name = "cognite-sdk"
-version = "8.6.0"
+version = "8.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
     { name = "httpx" },
     { name = "msal" },
     { name = "packaging" },
+    { name = "pip" },
     { name = "protobuf" },
     { name = "typing-extensions" },
+    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/8a/089dc5a30220f22ad2e9553d4d21fe4926dffaaacb6dacb80edb960112da/cognite_sdk-8.6.0.tar.gz", hash = "sha256:e02333b743a2306b760126f311f1f0cabd2490e9275613349b7fde67736e35c3", size = 712132, upload-time = "2026-05-20T13:51:52.655Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/1b/fea083575ff0de6c06b7df862b5c9ea3c1d17a79d63acd897af627e11001/cognite_sdk-8.15.0.tar.gz", hash = "sha256:3083e70297fe0c6a24c61882ae45c91dddb50c345cc56a788368113c55732256", size = 767957, upload-time = "2026-08-31T14:31:48.186Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/69/21a02d7660cfd9d65de4cb507737c83f66781a7e996f58d459528c984e03/cognite_sdk-8.6.0-py3-none-any.whl", hash = "sha256:bc814ade552c513ac9b8db0a54b43880b21c24c3aa5f6e9f98698391d622b781", size = 942316, upload-time = "2026-05-20T13:51:50.332Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/57/207cf4b0c8d81c37a29e4b7f42cf39d262b04067a3a46273f47b08256637/cognite_sdk-8.15.0-py3-none-any.whl", hash = "sha256:3b9186554a0fdd6d795e0927b9ce2e1730a831a85bc7ed971a13fefe46b9942a", size = 1011058, upload-time = "2026-08-31T14:31:46.63Z" },
 ]
 
 [[package]]
@@ -435,7 +437,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.43" },
-    { name = "cognite-sdk", specifier = ">=8.6.0,<9.0.0" },
+    { name = "cognite-sdk", specifier = ">=8.8.0,<9.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "keyring", specifier = ">=25.0.0" },

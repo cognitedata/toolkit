@@ -16,8 +16,28 @@ from cognite_toolkit._cdf_tk.auth.session_store import (
     write_session,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from cognite_toolkit._cdf_tk.utils.auth import LoginFlow, read_env_login_flow
 
 from ._base import ToolkitCommand
+
+
+def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
+    """Warn and confirm when login uses a different mode than .env."""
+    env_flow = read_env_login_flow()
+    if env_flow is None or env_flow == selected_flow:
+        return True
+
+    print(
+        "[yellow]Your .env configures "
+        f"LOGIN_FLOW={env_flow!r}, but you selected {selected_flow!r}. "
+        "Continuing will switch the toolkit to the new authentication mode.[/yellow]"
+    )
+    if not sys.stdin.isatty():
+        raise AuthenticationError(
+            f".env uses LOGIN_FLOW={env_flow!r}, but login was requested with {selected_flow!r}. "
+            "Update .env or run in an interactive terminal."
+        )
+    return questionary.confirm("Do you want to continue?", default=False).unsafe_ask()
 
 
 class AuthSessionCommand(ToolkitCommand):
@@ -57,7 +77,7 @@ class AuthSessionCommand(ToolkitCommand):
         if existing and existing.org != session.org:
             clear_org_tokens(existing.org)
         write_session(session)
-        print(f"\n[green]Signed in to organization {session.org}.[/green]")
+        print("[green]Signed in.[/green]")
 
     def logout(self) -> None:
         try:

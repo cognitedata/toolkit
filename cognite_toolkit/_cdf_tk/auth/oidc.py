@@ -1,4 +1,3 @@
-import html
 import secrets
 import socket
 import threading
@@ -131,6 +130,59 @@ def _callback_loopback_hosts(port: int) -> tuple[str, ...]:
     return tuple(hosts)
 
 
+_CALLBACK_SUCCESS = "Successfully signed in. Close this tab and return to the terminal."
+_CALLBACK_FAILED = "Failed to sign in. Close this tab and check the terminal for details."
+_CALLBACK_INCOMPLETE = "Failed to sign in. Close this tab and try again."
+
+
+def _first_query_param(params: dict[str, list[str]], name: str) -> str:
+    return params.get(name, [""])[0]
+
+
+def _oauth_error_from_params(params: dict[str, list[str]]) -> AuthenticationError:
+    error = _first_query_param(params, "error")
+    description = _first_query_param(params, "error_description")
+    if description:
+        return AuthenticationError(description)
+    if error:
+        return AuthenticationError(error.replace("_", " "))
+    return AuthenticationError("Sign-in failed.")
+
+
+def _callback_error_message(error: AuthenticationError) -> str:
+    return f"{error}\n\nClose this tab and return to the terminal."
+
+
+def _send_plain_text_response(handler: BaseHTTPRequestHandler, message: str, *, status: int = 200) -> None:
+    body = message.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/plain; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Connection", "close")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _exchange_authorization_code(context: _CallbackContext, code: str) -> dict[str, Any]:
+    response = httpx.post(
+        context.token_endpoint,
+        data={
+            "grant_type": "authorization_code",
+            "client_id": COGNITE_CLI_CLIENT_ID,
+            "code": code,
+            "redirect_uri": context.redirect_uri,
+            "code_verifier": context.code_verifier,
+        },
+        headers={"Accept": "application/json"},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    tokens = response.json()
+    if not isinstance(tokens, dict):
+        raise AuthenticationError("Token exchange returned an invalid response.")
+    return tokens
+
+
 def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHandler]:
     class CallbackHandler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: Any) -> None:
@@ -139,69 +191,34 @@ def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHan
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
             if parsed.path != "/":
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b"Not found")
+                _send_plain_text_response(self, "Not found.", status=404)
                 return
 
             params = parse_qs(parsed.query)
             if "error" in params:
-                error = params.get("error", ["unknown"])[0]
-                description = params.get("error_description", [""])[0]
+                auth_error = _oauth_error_from_params(params)
+                context.result = {"error": auth_error}
+                _send_plain_text_response(self, _callback_error_message(auth_error))
+                return
+
+            state = _first_query_param(params, "state")
+            code = _first_query_param(params, "code")
+            if not code or not secrets.compare_digest(state, context.expected_state):
                 context.result = {
-                    "error": AuthenticationError(f"Authentication failed: {error}. {description}".strip())
+                    "error": AuthenticationError("Invalid OAuth callback state or missing authorization code.")
                 }
-                self._respond_html("Authentication Error", str(context.result["error"]), success=False)
+                _send_plain_text_response(self, _CALLBACK_INCOMPLETE)
                 return
 
-            state = params.get("state", [""])[0]
-            code = params.get("code", [""])[0]
-            if not secrets.compare_digest(state, context.expected_state) or not code:
-                context.result = {"error": AuthenticationError("Invalid OAuth callback state or missing code.")}
-                self._respond_html("Authentication Error", "Invalid callback.", success=False)
-                return
-
-            print("Exchanging authorization code for tokens...")
             try:
-                response = httpx.post(
-                    context.token_endpoint,
-                    data={
-                        "grant_type": "authorization_code",
-                        "client_id": COGNITE_CLI_CLIENT_ID,
-                        "code": code,
-                        "redirect_uri": context.redirect_uri,
-                        "code_verifier": context.code_verifier,
-                    },
-                    headers={"Accept": "application/json"},
-                    timeout=30.0,
-                )
-                response.raise_for_status()
-                context.result = {"tokens": response.json()}
-                self._respond_html(
-                    "Toolkit login successful",
-                    "You can close this window and return to the terminal.",
-                    success=True,
-                )
+                tokens = _exchange_authorization_code(context, code)
             except httpx.HTTPError as exc:
                 context.result = {"error": AuthenticationError(f"Token exchange failed: {exc}")}
-                self._respond_html("Authentication Error", str(exc), success=False)
+                _send_plain_text_response(self, _CALLBACK_FAILED)
+                return
 
-        def _respond_html(self, title: str, message: str, *, success: bool) -> None:
-            escaped_title = html.escape(title)
-            escaped_message = html.escape(message)
-            color = "#16a34a" if success else "#dc2626"
-            body = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{escaped_title}</title></head>
-<body style="font-family: system-ui, sans-serif; padding: 2rem;">
-<h1 style="color:{color};">{escaped_title}</h1><p>{escaped_message}</p>
-</body></html>"""
-            encoded = body.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(encoded)))
-            self.send_header("Connection", "close")
-            self.end_headers()
-            self.wfile.write(encoded)
+            context.result = {"tokens": tokens}
+            _send_plain_text_response(self, _CALLBACK_SUCCESS)
 
     return CallbackHandler
 
@@ -258,9 +275,7 @@ class _OAuthCallbackServer:
 
 
 def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
-    print("Starting CDF login flow...\n")
     idp_base = COGNITE_IDP_BASE_URL
-    print(f"Fetching OpenID configuration from {idp_base}...")
     oidc = fetch_openid_configuration(idp_base)
 
     code_verifier, code_challenge = _generate_pkce_pair()
@@ -287,14 +302,15 @@ def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
     )
     callback_server = _OAuthCallbackServer(callback_port, context)
     callback_server.start()
-    print(f"Local HTTP server started on http://localhost:{callback_port}")
 
-    print(f"Organization: {org}")
-    print("Opening browser for authentication...\n")
+    print("Opening browser for authentication...")
 
+    browser_opened = False
     try:
-        webbrowser.open(auth_url)
+        browser_opened = bool(webbrowser.open(auth_url))
     except Exception:
+        browser_opened = False
+    if not browser_opened:
         print(f"Could not open browser automatically. Open this URL manually:\n{auth_url}\n")
 
     try:

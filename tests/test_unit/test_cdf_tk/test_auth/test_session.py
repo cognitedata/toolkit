@@ -24,6 +24,56 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
+def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import _login_for_session_at_port
+
+    with (
+        patch(
+            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            return_value=OpenIdConfiguration(
+                "https://auth.example.com/authorize",
+                "https://auth.example.com/token",
+                None,
+            ),
+        ),
+        patch("cognite_toolkit._cdf_tk.auth.oidc.webbrowser.open", return_value=False),
+        patch("cognite_toolkit._cdf_tk.auth.oidc._OAuthCallbackServer") as server_cls,
+    ):
+        server_cls.return_value.wait_for_result.return_value = {
+            "tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}
+        }
+        _login_for_session_at_port("my-org", 3000)
+
+    captured = capsys.readouterr()
+    assert "Could not open browser automatically" in captured.out
+    assert "https://auth.example.com/authorize?" in captured.out
+
+
+def test_login_prints_manual_url_when_browser_open_raises(capsys) -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import _login_for_session_at_port
+
+    with (
+        patch(
+            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            return_value=OpenIdConfiguration(
+                "https://auth.example.com/authorize",
+                "https://auth.example.com/token",
+                None,
+            ),
+        ),
+        patch("cognite_toolkit._cdf_tk.auth.oidc.webbrowser.open", side_effect=OSError("no browser")),
+        patch("cognite_toolkit._cdf_tk.auth.oidc._OAuthCallbackServer") as server_cls,
+    ):
+        server_cls.return_value.wait_for_result.return_value = {
+            "tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}
+        }
+        _login_for_session_at_port("my-org", 3000)
+
+    captured = capsys.readouterr()
+    assert "Could not open browser automatically" in captured.out
+    assert "https://auth.example.com/authorize?" in captured.out
+
+
 def test_build_session_from_tokens_requires_refresh_token() -> None:
     with pytest.raises(AuthenticationError, match="refresh token"):
         build_session_from_tokens("my-org", {"access_token": "abc"})
@@ -76,6 +126,78 @@ def test_callback_loopback_hosts_ipv4_only_when_ipv6_unavailable() -> None:
         side_effect=lambda host, port: host == "127.0.0.1",
     ):
         assert _callback_loopback_hosts(3000) == ("127.0.0.1",)
+
+
+def test_callback_server_returns_oauth_error_from_url() -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import _CallbackContext, _OAuthCallbackServer
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    context = _CallbackContext(
+        expected_state="state",
+        code_verifier="verifier",
+        token_endpoint="https://example.com/token",
+        redirect_uri=f"http://localhost:{port}/",
+    )
+    server = _OAuthCallbackServer(port, context)
+    server.start()
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"http://127.0.0.1:{port}/",
+                params={
+                    "error": "invalid_request",
+                    "error_description": "Organization 'fff' not found (request ID: b1b0e0c4)",
+                    "state": "state",
+                },
+            )
+    finally:
+        server.stop()
+
+    assert response.status_code == 200
+    assert "Organization 'fff' not found" in response.text
+    assert "Close this tab and return to the terminal." in response.text
+    assert context.result is not None
+    assert "error" in context.result
+    assert str(context.result["error"]) == "Organization 'fff' not found (request ID: b1b0e0c4)"
+
+
+def test_callback_server_returns_plain_text_on_success() -> None:
+    from cognite_toolkit._cdf_tk.auth.oidc import _CallbackContext, _OAuthCallbackServer
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    context = _CallbackContext(
+        expected_state="state",
+        code_verifier="verifier",
+        token_endpoint="https://example.com/token",
+        redirect_uri=f"http://localhost:{port}/",
+    )
+    server = _OAuthCallbackServer(port, context)
+    server.start()
+    request = httpx.Request("POST", "https://example.com/token")
+    try:
+        with (
+            patch(
+                "cognite_toolkit._cdf_tk.auth.oidc.httpx.post",
+                return_value=httpx.Response(
+                    200,
+                    request=request,
+                    json={"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
+                ),
+            ),
+            httpx.Client() as client,
+        ):
+            response = client.get(f"http://127.0.0.1:{port}/", params={"state": "state", "code": "code"})
+    finally:
+        server.stop()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.text == "Signed in. Close this tab and return to the terminal."
+    assert context.result == {"tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}}
 
 
 def test_callback_server_accepts_localhost_connection() -> None:
