@@ -7,14 +7,11 @@ from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal, cast, get_args
+from typing import Any, ClassVar, cast, get_args
 
-import yaml
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import (
-    _RUNNING_IN_BROWSER,
-    BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV,
     MODULES,
@@ -22,32 +19,21 @@ from cognite_toolkit._cdf_tk.constants import (
     SEARCH_VARIABLES_SUFFIX,
     EnvType,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, RawDatabaseCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError
+from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    FileReadWarning,
     MediumSeverityWarning,
-    MissingFileWarning,
-    SourceFileModifiedWarning,
-    ToolkitWarning,
-    WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
-    calculate_hash,
     flatten_dict,
     read_yaml_content,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
-from cognite_toolkit._version import __version__
 
-from . import BuiltModuleList
-from ._base import ConfigCore, _load_version_variable
-from ._built_resources import BuiltResourceList
-from ._module_directories import ModuleDirectories, ReadModule
+from ._base import ConfigCore
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -116,38 +102,6 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     filename: ClassVar[str] = "config.{build_env}.yaml"
     variables: dict[str, Any] = field(default_factory=dict)
 
-    def validate_environment(self) -> ToolkitWarning | None:
-        if _RUNNING_IN_BROWSER:
-            return None
-        project = self.environment.project
-        project_env = os.environ.get("CDF_PROJECT")
-        if project_env == project:
-            return None
-
-        is_strict_validation = self.environment.is_strict_validation
-        env_name = self.environment.name
-        file_name = self.get_filename(env_name)
-        missing_message = (
-            "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
-            f"set in environment section of {file_name!r}.\nThis is required for "
-            "building configurations for staging and prod environments to ensure that you do "
-            "not accidentally deploy to the wrong project."
-        )
-        mismatch_message = (
-            f"Project name mismatch between project set in the environment section of {file_name!r} and the "
-            f"environment variable 'CDF_PROJECT', {project} ≠ {project_env}.\nThis is required for "
-            "building configurations for staging and prod environments to ensure that you do not "
-            "accidentally deploy to the wrong project."
-        )
-        if is_strict_validation and project_env is None:
-            raise ToolkitEnvError(missing_message)
-        elif is_strict_validation:
-            raise ToolkitEnvError(mismatch_message)
-        elif not is_strict_validation and project_env is None:
-            return MediumSeverityWarning(missing_message)
-        else:
-            return MediumSeverityWarning(mismatch_message)
-
     @classmethod
     def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> Self:
         if "environment" not in data:
@@ -164,163 +118,12 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         variables = data.get("variables", {})
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(
-        self, built_modules: BuiltModuleList, selected_modules: ModuleDirectories
-    ) -> "BuildEnvironment":
-        return BuildEnvironment(
-            name=self.environment.name,
-            project=self.environment.project,
-            validation_type=self.environment.validation_type,
-            selected=self.environment.selected,
-            cdf_toolkit_version=__version__,
-            built_resources=built_modules.as_resources_by_folder(),
-            read_modules=[module.as_read_module() for module in selected_modules],
-        )
-
-    def get_selected_modules(
-        self,
-        modules_by_package: dict[str, list[str | Path]],
-        available_modules: set[str | Path],
-        organization_dir: Path,
-        verbose: bool,
-    ) -> list[str | Path]:
-        selected_packages = [
-            package
-            for package in self.environment.selected
-            if package in modules_by_package and isinstance(package, str)
-        ]
-        if verbose:
-            print("  [bold green]INFO:[/] Selected packages:")
-            if len(selected_packages) == 0:
-                print("    None")
-            for package in selected_packages:
-                print(f"    {package}")
-
-        selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
-        if missing := set(selected_modules) - available_modules:
-            hint = ModuleDefinition.long(missing, organization_dir)
-            raise ToolkitMissingModuleError(
-                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
-            )
-
-        selected_modules.extend(
-            itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
-        )
-        if not selected_modules:
-            raise ToolkitEnvError(
-                f"No selected modules specified in {self.filepath!s}, have you configured "
-                f"the environment ({self.environment.name})?"
-            )
-        if verbose:
-            print("  [bold green]INFO:[/] Selected modules:")
-            for module in selected_modules:
-                if isinstance(module, Path):
-                    print(f"    {module.as_posix()}")
-                else:
-                    print(f"    {module}")
-        return selected_modules
-
     @classmethod
     def load_default(cls, organization_dir: Path) -> Self:
         return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
 
     def dump(self) -> dict[str, Any]:
         return {"environment": self.environment.dump(), "variables": self.variables}
-
-
-@dataclass
-class BuildEnvironment(Environment):
-    cdf_toolkit_version: str = __version__
-    built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
-    read_modules: list[ReadModule] = field(default_factory=list)
-
-    @property
-    def read_resource_folders(self) -> set[str]:
-        return {resource_folder for module in self.read_modules for resource_folder in module.resource_directories}
-
-    def dump(self) -> dict[str, Any]:
-        output = super().dump()
-        output["cdf_toolkit_version"] = self.cdf_toolkit_version
-        if self.built_resources:
-            output["built_resources"] = {
-                resource_folder: resources.dump(resource_folder, include_destination=True)
-                for resource_folder, resources in self.built_resources.items()
-            }
-        if self.read_modules:
-            output["read_modules"] = [module.dump() for module in self.read_modules]
-        return output
-
-    def dump_to_file(self, build_dir: Path) -> None:
-        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(
-            "# DO NOT EDIT THIS FILE!\n" + yaml.dump(self.dump(), sort_keys=False, indent=2)
-        )
-
-    @classmethod
-    def load(
-        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean", "pull"] = "build"
-    ) -> Self:
-        if "name" in data and build_name is not None and data["name"] != build_name:
-            raise ToolkitEnvError(
-                f"Expected to {action} for {build_name!r} environment, but the last "
-                f"build was created for the {data['name']!r} environment."
-            )
-        build_name = build_name or data.get("name")
-
-        version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
-        _deprecation_selected(data)
-        built_resources: dict[str, BuiltResourceList] = {}
-        if "built_resources" in data:
-            # We expect to dump BuildEnvironment, and load DeployEnvironment
-            built_resources = {
-                resource_folder: BuiltResourceList.load(resources, resource_folder)
-                for resource_folder, resources in data["built_resources"].items()
-            }
-        read_modules: list[ReadModule] = []
-        if "read_modules" in data:
-            read_modules = [ReadModule.load(module_data) for module_data in data["read_modules"]]
-        _deprecate_type(data, build_name or "dev")
-        try:
-            return cls(
-                name=data["name"],
-                project=data["project"],
-                validation_type=data["validation-type"],
-                selected=data["selected"],
-                cdf_toolkit_version=version,
-                built_resources=built_resources,
-                read_modules=read_modules,
-            )
-        except KeyError:
-            raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'validation-type', "
-                f"or 'selected' in {BUILD_ENVIRONMENT_FILE!s}"
-            )
-
-    def set_environment_variables(self) -> None:
-        os.environ["CDF_ENVIRON"] = self.name
-        os.environ["CDF_BUILD_TYPE"] = self.validation_type
-
-    def check_source_files_changed(self) -> WarningList[FileReadWarning]:
-        warning_list = WarningList[FileReadWarning]()
-        for resource_folder, resources in self.built_resources.items():
-            if resource_folder == RawDatabaseCRUD.folder_name:
-                # We modify the hash for RawDatabaseLoader, so we skip checking the hash for this folder.
-                continue
-            for resource in resources:
-                to_check = [resource.source, *(resource.extra_sources or [])]
-                for source in to_check:
-                    source_filepath = source.path
-                    if source_filepath.suffix in {".csv", ".parquet"}:
-                        # When we copy over the source files we use utf-8 encoding, which can change the file hash.
-                        # Thus, we skip checking the hash for these file types.
-                        continue
-
-                    if not source_filepath.exists():
-                        warning_list.append(
-                            MissingFileWarning(source_filepath, attempted_check="source file has changed")
-                        )
-                    elif source.hash != calculate_hash(source_filepath, shorten=True):
-                        warning_list.append(SourceFileModifiedWarning(source_filepath))
-        return warning_list
 
 
 def _deprecation_selected(data: dict[str, Any]) -> None:

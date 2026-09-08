@@ -2,11 +2,9 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
-from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitRequiredValueError, ToolkitVersionError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 if sys.version_info >= (3, 11):
@@ -43,28 +41,3 @@ class ConfigCore(ABC):
     @abstractmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> Self:
         raise NotImplementedError
-
-
-T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
-
-
-def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
-    try:
-        cdf_tk_version: str = data["cdf_toolkit_version"]
-    except KeyError:
-        err_msg = f"System variables are missing required field 'cdf_toolkit_version' in {file_name!s}. {{}}"
-        if file_name == BUILD_ENVIRONMENT_FILE:
-            raise ToolkitVersionError(
-                err_msg.format("Rerun `cdf build` to build the modules again and create it correctly.")
-            )
-        raise ToolkitVersionError(
-            err_msg.format("Run `cdf modules upgrade` to initialize the modules again to create a correct file.")
-        )
-
-    if cdf_tk_version != _version.__version__:
-        raise ToolkitVersionError(
-            f"The version of the modules ({cdf_tk_version}) does not match the version of the installed CLI "
-            f"({_version.__version__}). Please either run `cdf modules upgrade` to upgrade the modules OR "
-            f"run `pip install cognite-toolkit=={cdf_tk_version}` to downgrade cdf-tk CLI."
-        )
-    return cdf_tk_version
