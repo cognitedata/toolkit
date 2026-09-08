@@ -339,13 +339,13 @@ class CoreApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="--drop flag in cdf deploy",
                 alternative="cdf clean",
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
         if drop_data:
             ToolkitDeprecationWarning(
                 feature="--drop-data flag in cdf deploy",
                 alternative="cdf clean --drop-data",
-                removal_version="0.9",
+                removal_version="1.0",
             ).print_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
