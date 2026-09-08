@@ -93,14 +93,14 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definitions = library_definition.get("packages", {})
 
         scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(
-            root_module_dir.parent,
+            root_module_dir,
             user_selected_modules=[f"{MODULES}/"],
         )
         module_by_relative_path: dict[Path, ModuleDirectory] = {}
         for module in scan_result.modules:
-            if not module.path.is_relative_to(root_module_dir):
+            if not module.path.is_relative_to(root_module_dir / MODULES):
                 continue
-            relative_path = module.path.relative_to(root_module_dir)
+            relative_path = module.path.relative_to(root_module_dir / MODULES)
             # The id in ModuleDirectory is relative to the organization directory,
             # while packages expect it to be relative to the module directory inside the
             # organization directory.
