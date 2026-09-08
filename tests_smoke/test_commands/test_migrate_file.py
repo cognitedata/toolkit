@@ -1,3 +1,4 @@
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -122,6 +123,8 @@ class TestMigrateFile:
         migrated_node = nodes[0]
         if migrated_node.external_id != file.external_id:
             raise AssertionError("Migrated file instance external ID does not match expected value.")
+
+        time.sleep(5)  # Wait for eventual consistency in CDF before downloading content
         content = client.files.download_bytes(instance_id=dm.NodeId(space, external_id=file.external_id))
         if content != b"Toolkit classic file content for migration smoke test.":
             raise AssertionError("Migrated file content does not match expected content.")

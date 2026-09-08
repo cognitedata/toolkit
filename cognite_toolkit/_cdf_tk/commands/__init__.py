@@ -3,22 +3,19 @@ from ._migrate import (
     MigrationCommand,
     MigrationPrepareCommand,
 )
-from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
 from .about import AboutCommand
 from .auth import AuthCommand
-from .build_cmd import BuildCommand
 from .build_v2.build_v2 import BuildV2Command
-from .clean import CleanCommand
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
 from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .modules import ModulesCommand
-from .pull import PullCommand
+from .pull import PullV2Command
 from .repo import RepoCommand
 from .resources import ResourcesCommand
 from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
@@ -26,9 +23,7 @@ from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowComman
 __all__ = [
     "AboutCommand",
     "AuthCommand",
-    "BuildCommand",
     "BuildV2Command",
-    "CleanCommand",
     "DeployOptions",
     "DeployV2Command",
     "DeploymentStep",
@@ -40,11 +35,7 @@ __all__ = [
     "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
-    "ProfileAssetCentricCommand",
-    "ProfileAssetCommand",
-    "ProfileRawCommand",
-    "ProfileTransformationCommand",
-    "PullCommand",
+    "PullV2Command",
     "PurgeCommand",
     "RepoCommand",
     "ResourcesCommand",

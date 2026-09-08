@@ -1,4 +1,5 @@
 from collections.abc import Hashable
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -14,8 +15,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
 )
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
+    DataProductIO,
     DataSetsIO,
     ExtractionPipelineIO,
     GroupAllScopedCRUD,
@@ -24,7 +28,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawDatabaseCRUD,
     RawTableCRUD,
     ResourceIO,
-    ResourceWorker,
     SpaceCRUD,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -96,8 +99,9 @@ class TestGroupLoader:
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
-        raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
-        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+        filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
 
         # Simulate that one group is already in CDF
         cdf_group = GroupResponse(
@@ -113,18 +117,24 @@ class TestGroupLoader:
         new_group = GroupRequest(name="new_group", source_id="123", capabilities=loaded.capabilities)
         new_file = MagicMock(spec=Path)
         new_file.read_text.return_value = new_group.dump_yaml()
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources(
-            [
-                LOAD_DATA / "auth" / "1.my_group_scoped.yaml",
-                new_file,
-            ]
+        loaded_id = loader.get_id(loaded)
+        new_raw = loader.load_resource_file(new_file, env_vars_with_client.dump())
+        new_loaded = loader.load_resource(deepcopy(new_raw[0]), is_dry_run=False)
+        new_id = loader.get_id(new_loaded)
+        existing_list = loader.retrieve([loaded_id, new_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={
+                loaded_id: ReadResource(loaded, raw_list[0], [filepath]),
+                new_id: ReadResource(new_loaded, new_raw[0], [new_file]),
+            },
+            cdf_by_id={loader.get_id(item): item for item in existing_list},
         )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 1, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_upsert_group(
@@ -134,8 +144,9 @@ class TestGroupLoader:
         monkeypatch: MonkeyPatch,
     ):
         loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
-        raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
-        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+        filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
 
         # Simulate that the group is already in CDF, but with fewer capabilities
         cdf_group = GroupResponse(
@@ -148,15 +159,19 @@ class TestGroupLoader:
         )
         toolkit_client_approval.append(GroupResponse, [cdf_group])
 
-        # group exists, no changes
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([LOAD_DATA / "auth" / "1.my_group_scoped.yaml"])
+        resource_id = loader.get_id(loaded)
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(loaded, raw_list[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 1, "delete": 0, "unchanged": 0}
 
     @pytest.mark.parametrize(
@@ -207,6 +222,17 @@ class TestGroupLoader:
                 ],
                 id="ID scope extractionpipline ",
             ),
+            pytest.param(
+                {
+                    "capabilities": [
+                        {"dataProductsAcl": {"scope": {"dataProductScope": {"externalIds": ["my-data-product"]}}}}
+                    ]
+                },
+                [
+                    (DataProductIO, ExternalId(external_id="my-data-product")),
+                ],
+                id="Data product scope",
+            ),
         ],
     )
     def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
@@ -244,13 +270,21 @@ capabilities:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]), is_dry_run=False)
+        resource_id = loader.get_id(resource)
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_unchanged_group_raw_acl_table_scoped(
@@ -299,11 +333,19 @@ capabilities:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]), is_dry_run=False)
+        resource_id = loader.get_id(resource)
+        existing_list = loader.retrieve([resource_id])
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
+            cdf_by_id={resource_id: existing_list[0]},
+        )
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

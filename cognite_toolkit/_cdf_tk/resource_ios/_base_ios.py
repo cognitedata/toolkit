@@ -23,8 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -65,6 +64,12 @@ class Loader(ABC):
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
         self.console = console or client.console
+
+    @classmethod
+    def as_resource_type(cls) -> "ResourceType":
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
+
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
     def create_loader(
@@ -179,6 +184,11 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
+
+    # This is used for resources that support extra files. For example, the Transformation resources
+    # supports having the query in a separate .sql file. This is the property were the extra content should be placed,
+    # for example, the Transformation resource has the query property that is used to store the query content.
+    extra_content_property: str | None = None
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -490,27 +500,4 @@ class ResourceContainerIO(ResourceIO[T_Identifier, T_RequestResource, T_Response
 
     @abstractmethod
     def drop_data(self, ids: Sequence[T_Identifier]) -> int:
-        raise NotImplementedError
-
-
-class DataCRUD(Loader, ABC):
-    """This is the base class for all data CRUD..
-
-    A data CRUD is a CRUD that uploads data to CDF. It will typically depend on a
-    resource container that stores the data. For example, the datapoints crud depends
-    on the timeseries CRUD.
-
-    It has only one required method:
-        - upload: Uploads the data to CDF.
-
-    class attributes:
-        item_name: The name of the item that is stored in the resource container. This should be set in the subclass.
-            It is used to display messages when running operations.
-
-    """
-
-    item_name: str
-
-    @abstractmethod
-    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError

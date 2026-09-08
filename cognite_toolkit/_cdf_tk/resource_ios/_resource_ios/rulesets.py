@@ -42,6 +42,8 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
     support_drop = True
     support_update = False
 
+    extra_content_property = "rules"
+
     @classmethod
     def doc_url(cls) -> str:
         return _DOCS_ROOT

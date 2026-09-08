@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.file import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.industrial_tool import StreamlitIO
-from cognite_toolkit._cdf_tk.tk_warnings import StreamlitRequirementsWarning
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 
@@ -29,7 +28,8 @@ class TestStreamlitLoader:
             ["pyodide-http==0.2.1", f"cognite-sdk=={CogniteSDKVersion.__version__}"]
         )
 
-    def user_requirements_txt() -> list[tuple[list[str], StreamlitRequirementsWarning]]:
+    @staticmethod
+    def user_requirements_txt() -> list[tuple[list[str], list[str]]]:
         return [
             (["pyodide-http==0.2.1", "cognite-sdk==7.62.1"], []),
             (["pyodide-http==0.0.0", "cognite-sdk", "numpy"], []),

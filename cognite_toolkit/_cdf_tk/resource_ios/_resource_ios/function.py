@@ -60,7 +60,7 @@ from .data_organization import DataSetsIO
 from .file import CogniteFileCRUD, FileMetadataCRUD
 from .group_scoped import GroupResourceScopedCRUD
 
-CDF_TOML = CDFToml.load()
+CDF_TOML: CDFToml = CDFToml.load()
 
 
 @final
@@ -802,6 +802,8 @@ class FunctionScheduleIO(ResourceIO[FunctionScheduleId, FunctionScheduleRequest,
             if result:
                 created = result[0]
                 created.function_external_id = id_.function_external_id
+                # Data is not returned in the create call. Thus, we need to set it manually from the request.
+                created.data = item.data
                 created_list.append(created)
         return created_list
 

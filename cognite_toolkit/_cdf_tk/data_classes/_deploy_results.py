@@ -9,9 +9,9 @@ from typing import Literal
 from rich.table import Table
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 
 @total_ordering
@@ -52,79 +52,6 @@ class ResourceDeployResult(DeployResult):
         self.changed += other.changed
         self.unchanged += other.unchanged
         self.total += other.total
-
-        if isinstance(other, ResourceContainerDeployResult):
-            return ResourceContainerDeployResult(
-                name=self.name,
-                created=self.created,
-                deleted=self.deleted,
-                changed=self.changed,
-                unchanged=self.unchanged,
-                total=self.total,
-                item_name=other.item_name,
-                dropped_datapoints=other.dropped_datapoints,
-            )
-        else:
-            return self
-
-
-@dataclass
-class ResourceContainerDeployResult(ResourceDeployResult):
-    item_name: str = ""
-    dropped_datapoints: int = 0
-
-    def __iadd__(self, other: ResourceDeployResult) -> "ResourceContainerDeployResult":
-        if self.name != other.name:
-            raise ValueError("Cannot add two ResourceContainerDeployResult objects with different names")
-        super().__iadd__(other)
-        if isinstance(other, ResourceContainerDeployResult):
-            self.dropped_datapoints += other.dropped_datapoints
-        return self
-
-    @classmethod
-    def from_resource_deploy_result(
-        cls, result: ResourceDeployResult, item_name: str = "", dropped_datapoints: int = 0
-    ) -> Self:
-        return cls(
-            name=result.name,
-            created=result.created,
-            deleted=result.deleted,
-            changed=result.changed,
-            unchanged=result.unchanged,
-            total=result.total,
-            item_name=item_name,
-            dropped_datapoints=dropped_datapoints,
-        )
-
-
-@dataclass
-class UploadDeployResult(DeployResult):
-    uploaded: int = 0
-    item_name: str = ""
-
-    def __iadd__(self, other: "UploadDeployResult") -> "UploadDeployResult":
-        if self.name != other.name:
-            raise ValueError("Cannot add two DeployResult objects with different names")
-        self.uploaded += other.uploaded
-
-        if isinstance(other, DatapointDeployResult):
-            return DatapointDeployResult(
-                name=self.name, uploaded=self.uploaded, item_name=other.item_name, points=other.points
-            )
-        else:
-            return self
-
-
-@dataclass
-class DatapointDeployResult(UploadDeployResult):
-    points: int = 0
-
-    def __iadd__(self, other: UploadDeployResult) -> UploadDeployResult:
-        if self.name != other.name:
-            raise ValueError("Cannot add two DeployResult objects with different names")
-        super().__iadd__(other)
-        if isinstance(other, DatapointDeployResult):
-            self.points += other.points
         return self
 
 
@@ -142,12 +69,6 @@ class DeployResults(UserDict):
     @property
     def has_counts(self) -> bool:
         return any(isinstance(entry, ResourceDeployResult) for entry in self.data.values())
-
-    @property
-    def has_uploads(self) -> bool:
-        return any(
-            isinstance(entry, UploadDeployResult | ResourceContainerDeployResult) for entry in self.data.values()
-        )
 
     def counts_table(
         self, exclude_columns: set[Literal["Created", "Deleted", "Changed", "Untouched", "Total"]] | None = None
@@ -190,35 +111,6 @@ class DeployResults(UserDict):
             if exclude_columns is None or "Total" not in exclude_columns:
                 row.append(f"{item.total:,}")
             table.add_row(*row)
-
-        return table
-
-    def uploads_table(self) -> Table:
-        table = Table(title=f"Summary of Data {self.action.title()} operation (data is always uploaded):")
-        prefix = "Would have " if self.dry_run else ""
-        table.add_column("Resource", justify="right")
-        table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")
-        table.add_column("Item Type", justify="right")
-        table.add_column("From files", justify="right", style="green")
-        table.add_column(f"{prefix}Deleted Data", justify="right", style="red")
-        for item in sorted(
-            entry
-            for entry in self.data.values()
-            if isinstance(entry, UploadDeployResult | ResourceContainerDeployResult)
-        ):
-            if item.name == "raw.tables":
-                # We skip this as we cannot count the number of datapoints in a raw table
-                # and all we can do is to print a misleading 0 for deleted datapoints.
-                continue
-
-            if isinstance(item, UploadDeployResult):
-                if isinstance(item, DatapointDeployResult):
-                    datapoints = f"{item.points:,}"
-                else:
-                    datapoints = "-"
-                table.add_row(item.name, datapoints, item.item_name, str(item.uploaded), "-")
-            elif isinstance(item, ResourceContainerDeployResult):
-                table.add_row(item.name, "-", item.item_name, "-", f"{item.dropped_datapoints:,}")
 
         return table
 

@@ -5,12 +5,23 @@ from typing import get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from tests.test_unit.utils import find_resources
+
+
+@pytest.fixture
+def enable_data_products(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+
+    def is_enabled(flag: Flags) -> bool:
+        return flag is Flags.DATA_PRODUCTS or original(flag)
+
+    monkeypatch.setattr(FeatureFlag, "is_enabled", is_enabled)
 
 
 def invalid_workflow_version_test_cases() -> Iterable:
@@ -115,6 +126,29 @@ def invalid_workflow_version_test_cases() -> Iterable:
         },
         id="functionApp parameters exceeds max 10 entries",
     )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "lineageAnnotation": {
+                            "sources": [{"uri": f"cdf://cluster/project/domain/default/files/f{i}"} for i in range(101)]
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "Invalid value at workflowDefinition.tasks[1].function.lineageAnnotation.sources: List should have at "
+            "most 100 items after validation, not 101"
+        },
+        id="lineageAnnotation sources exceeds max 100 entries",
+    )
 
 
 def valid_subworkflow_test_cases() -> Iterable:
@@ -178,7 +212,9 @@ class TestWorkflowVersionYAML:
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_workflow_version_test_cases()))
-    def test_invalid_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+    def test_invalid_error_messages(
+        self, data: dict | list, expected_errors: set[str], enable_data_products: None
+    ) -> None:
         warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]
@@ -248,3 +284,48 @@ class TestWorkflowVersionYAML:
         loaded = WorkflowVersionRequest._load(data)
 
         assert loaded.dump() == data
+
+
+class TestLineageAnnotationSupport:
+    def test_load_valid_lineage_annotation(self, enable_data_products: None) -> None:
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "lineageAnnotation": {
+                            "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}],
+                            "targets": [{"uri": "cdf://cluster/project/domain/default/timeseries/ts1"}],
+                        },
+                    }
+                ]
+            },
+        }
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_lineage_annotation_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
+        with pytest.raises(ValueError, match="data_products alpha flag"):
+            WorkflowVersionYAML.model_validate(
+                {
+                    "workflowExternalId": "wf1",
+                    "version": "v1",
+                    "workflowDefinition": {
+                        "tasks": [
+                            {
+                                "externalId": "t1",
+                                "type": "function",
+                                "parameters": {"function": {"externalId": "my-func"}},
+                                "lineageAnnotation": {
+                                    "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
+                                },
+                            }
+                        ]
+                    },
+                }
+            )

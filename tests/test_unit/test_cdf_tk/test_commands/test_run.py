@@ -12,9 +12,14 @@ from cognite.client.data_classes.workflows import (
     WorkflowVersionId,
 )
 
-from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildV2Command,
+    RunFunctionCommand,
+    RunTransformationCommand,
+    RunWorkflowCommand,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
-from cognite_toolkit._cdf_tk.data_classes import ModuleResources
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -42,8 +47,11 @@ class TestRunTransformation:
 
 
 @pytest.fixture(scope="session")
-def functon_module_resources() -> ModuleResources:
-    return ModuleResources(RUN_DATA, "dev")
+def function_build_folder() -> BuildLineage:
+    return BuildV2Command(print_warning=False, silent=True).tmp_build(
+        RUN_DATA,
+        RUN_DATA / "config.dev.yaml",
+    )
 
 
 class TestRunFunction:
@@ -161,14 +169,14 @@ class TestRunFunction:
         ],
     )
     def test_get_call_args(
-        self, data_source: str, expected: FunctionCallArgs, functon_module_resources: ModuleResources
+        self, data_source: str, expected: FunctionCallArgs, function_build_folder: BuildLineage
     ) -> None:
         environment_variables = {
             expected.client_id_env_name: expected.authentication.client_id,
             expected.client_secret_env_name: expected.authentication.client_secret,
         }
         actual = RunFunctionCommand._get_call_args(
-            data_source, "fn_test3", functon_module_resources, environment_variables, is_interactive=False
+            data_source, "fn_test3", function_build_folder, environment_variables, is_interactive=False
         )
 
         assert actual == expected

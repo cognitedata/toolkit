@@ -81,7 +81,7 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
     resource_cls = FileMetadataResponse
     resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
-    kind = "FileMetadata"
+    kind: str = "FileMetadata"
     dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, LabelIO, AssetIO})
 
     _doc_url = "Files/operation/initFileUpload"
@@ -360,7 +360,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
-    kind = "CogniteFile"
+    kind: str = "CogniteFile"
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML

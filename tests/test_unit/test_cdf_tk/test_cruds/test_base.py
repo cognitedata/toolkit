@@ -1,12 +1,8 @@
-import os
-import shutil
-import tempfile
 import typing
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Iterator
-from contextlib import contextmanager
+from collections.abc import Iterable
 from pathlib import Path
-from typing import cast, get_args, get_origin
+from typing import get_args, get_origin
 from unittest.mock import MagicMock
 
 import pytest
@@ -20,7 +16,6 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -28,14 +23,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import G
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import (
-    BuildCommand,
-    ModulesCommand,
-)
-from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildConfigYAML,
-)
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     CRUD_LIST,
@@ -53,12 +40,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceTypes,
     TransformationIO,
     WorkflowTriggerIO,
-    get_crud,
 )
-from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.constants import REPO_ROOT
-from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -212,53 +195,6 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
-
-
-@contextmanager
-def tmp_org_directory() -> Iterator[Path]:
-    # Include worker ID to ensure each pytest-xdist worker has its own temp directory
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    org_dir = Path(tempfile.mkdtemp(prefix=f"orgdir.{worker_id}.", suffix=".tmp", dir=Path.cwd()))
-    try:
-        yield org_dir
-    finally:
-        shutil.rmtree(org_dir)
-
-
-def cognite_module_files_with_loader() -> Iterable[tuple]:
-    with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
-        ModulesCommand(module_source_dir=COMPLETE_ORG / MODULES).init(organization_dir, select_all=True, clean=True)
-        cdf_toml = CDFToml.load(REPO_ROOT)
-        config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
-        config.set_environment_variables()
-        # Use path syntax to select all modules in the source directory
-        config.environment.selected = [Path()]
-
-        built_modules = BuildCommand().build_config(
-            build_dir=build_dir,
-            organization_dir=organization_dir,
-            config=config,
-            packages=cdf_toml.modules.packages,
-            clean=True,
-            verbose=False,
-        )
-        for module in built_modules:
-            for resource_folder, resources in module.resources.items():
-                for resource in resources:
-                    try:
-                        loader = get_crud(resource_folder, resource.kind)
-                    except ValueError:
-                        # Cannot find loader for resource kind
-                        continue
-                    filepath = cast(Path, resource.destination)
-                    if issubclass(loader, ResourceIO):
-                        raw = yaml.CSafeLoader(filepath.read_text()).get_data()
-
-                        if isinstance(raw, dict):
-                            yield pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict")
-                        elif isinstance(raw, list):
-                            for no, item in enumerate(raw):
-                                yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
 def sensitive_strings_test_cases() -> Iterable[tuple]:
