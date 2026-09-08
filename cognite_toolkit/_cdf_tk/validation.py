@@ -1,13 +1,10 @@
-import inspect
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
-from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    DataSetMissingWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -17,7 +14,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 __all__ = [
     "humanize_validation_error",
     "humanize_validation_error_categorized",
-    "validate_data_set_is_set",
 ]
 
 
@@ -31,34 +27,6 @@ class _MessageEntry(NamedTuple):
 
 class _GroupEntry(NamedTuple):
     loc: tuple[str | int, ...]
-
-
-def validate_data_set_is_set(
-    raw: dict[str, Any] | list[dict[str, Any]],
-    resource_cls: type[ResponseResource],
-    filepath: Path,
-    identifier_key: str = "externalId",
-) -> WarningList:
-    warning_list: WarningList = WarningList()
-    if not (inspect.isclass(resource_cls) and issubclass(resource_cls, BaseModel)):
-        return warning_list
-
-    if "data_set_id" not in resource_cls.model_fields.keys():
-        return warning_list
-
-    if isinstance(raw, list):
-        for item in raw:
-            warning_list.extend(validate_data_set_is_set(item, resource_cls, filepath, identifier_key))
-        return warning_list
-
-    if "dataSetExternalId" in raw or "dataSetId" in raw:
-        return warning_list
-
-    value = raw.get(identifier_key, f"No identifier {identifier_key}")
-    warning_list.append(
-        DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__.removesuffix("Response"))
-    )
-    return warning_list
 
 
 def validate_resource_yaml_pydantic(

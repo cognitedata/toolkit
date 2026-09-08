@@ -1,12 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar
 
 from rich.markup import escape
-
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 
 from .base import SeverityLevel, ToolkitWarning
 
@@ -70,171 +68,11 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
 
 
 @dataclass(frozen=True)
-class DuplicatedItemWarning(YAMLFileWarning):
-    severity = SeverityLevel.MEDIUM
-    identifier: Hashable
-    first_location: Path
-
-    def get_message(self) -> str:
-        return (
-            f"{type(self).__name__}: Duplicated item with identifier "
-            f"{self.identifier!r} first seen in {self.first_location.name!r}."
-        )
-
-
-@dataclass(frozen=True)
-class UnknownResourceTypeWarning(YAMLFileWarning):
-    severity = SeverityLevel.MEDIUM
-
-    suggestion: str | None
-
-    def get_message(self) -> str:
-        msg = f"{type(self).__name__}: File {self.filepath.as_posix()!r}."
-        if self.suggestion:
-            msg += f"\n[blue]HINT: [/blue]{self.suggestion}"
-        return msg
-
-
-@dataclass(frozen=True)
-class UnusedParameterWarning(YAMLFileWithElementWarning):
-    severity = SeverityLevel.LOW
-    actual: str
-
-    def get_message(self) -> str:
-        message = f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
-        if self.actual == "dataSetId" or self.actual == "data_set_id":
-            message += f" {HINT_LEAD_TEXT}The parameter 'dataSetExternalId' should be used instead."
-        return message
-
-
-@dataclass(frozen=True)
-class UnresolvedVariableWarning(FileReadWarning):
-    severity = SeverityLevel.HIGH
-    variable: str
-
-    def get_message(self) -> str:
-        return f"{type(self).__name__}: Variable {self.variable!r} is not resolved in {self.filepath}."
-
-
-@dataclass(frozen=True)
-class ResourceMissingIdentifierWarning(YAMLFileWarning):
-    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
-    message: ClassVar[str] = "The resource is missing an identifier:"
-    resource: str
-    ext_id_type: str
-
-    def get_message(self) -> str:
-        message = f"The {self.resource} {self.filepath} is missing the {self.ext_id_type} field(s)."
-        return message
-
-
-@dataclass(frozen=True)
-class NamingConventionWarning(YAMLFileWarning):
-    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "The naming convention is not followed:"
-    resource: str
-    ext_id_type: str
-    external_id: str
-
-    @property
-    @abstractmethod
-    def recommendation(self) -> str:
-        raise NotImplementedError()
-
-    def get_message(self) -> str:
-        message = (
-            f"The {self.ext_id_type} identifier {self.external_id!r} of the resource {self.resource} "
-            f"does not follow the recommended naming convention {self.recommendation}"
-        )
-        return message
-
-
-@dataclass(frozen=True)
-class PrefixConventionWarning(NamingConventionWarning):
-    prefix: str
-
-    @property
-    def recommendation(self) -> str:
-        return f"of prefixing with {self.prefix!r}."
-
-
-@dataclass(frozen=True)
-class NamespacingConventionWarning(NamingConventionWarning):
-    namespace: str
-
-    @property
-    def recommendation(self) -> str:
-        return f"of using {self.namespace!r} as separator."
-
-
-@dataclass(frozen=True)
-class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
-    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
-    expected: str
-
-    def get_message(self) -> str:
-        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}."
-
-
-@dataclass(frozen=True)
-class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
-    expected: tuple[str, ...]
-
-    def get_message(self) -> str:
-        return f"{type(self).__name__}: Missing required identifier {self.expected!r}{self._location}."
-
-
-@dataclass(frozen=True)
 class MissingReferencedWarning(YAMLFileWithElementWarning):
     message: str
 
     def get_message(self) -> str:
         return f"{type(self).__name__}: {self.message}."
-
-
-@dataclass(frozen=True)
-class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
-    path: str
-
-    def get_message(self) -> str:
-        return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
-
-
-@dataclass(frozen=True)
-class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
-    severity = SeverityLevel.MEDIUM
-    resource_name: str
-
-    def get_message(self) -> str:
-        # Avoid circular import
-        from cognite_toolkit._cdf_tk.resource_ios import TransformationIO
-
-        if self.filepath.parent.name == TransformationIO.folder_name:
-            return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."
-        else:
-            return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
-
-
-@dataclass(frozen=True)
-class SourceFileModifiedWarning(FileReadWarning):
-    severity = SeverityLevel.ERROR
-
-    def get_message(self) -> str:
-        message = (
-            f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. "
-            "Please rebuild the project."
-        )
-        return message
-
-
-@dataclass(frozen=True)
-class MissingFileWarning(FileReadWarning):
-    severity = SeverityLevel.MEDIUM
-    attempted_check: str
-
-    def get_message(self) -> str:
-        message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
-        return message
 
 
 @dataclass(frozen=True)
@@ -251,38 +89,6 @@ class EnvironmentVariableMissingWarning(FileReadWarning):
             [f"{variable!r}" for variable in self.variables], sort=True, bind_word="and"
         )
         return f"The environment variable{suffix} missing: {quoted_variables}"
-
-
-@dataclass(frozen=True)
-class StreamlitRequirementsWarning(FileReadWarning):
-    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
-    dependencies: str | list[str]
-
-    def get_message(self) -> str:
-        if isinstance(self.dependencies, str):
-            return f"Missing recommended dependencies in requirements.txt: {self.dependencies}"
-        return f"Missing dependencies in requirements.txt: {', '.join(self.dependencies)}"
-
-
-@dataclass(frozen=True)
-class RequirementsTXTValidationWarning(FileReadWarning):
-    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
-    external_id: str
-    error_details: str
-    is_credential_error: bool
-    resource: Literal["function", "streamlit"]
-
-    def get_message(self) -> str:
-        message = (
-            f"{self.resource.title()} '{self.external_id}' requirements.txt validation failed. "
-            f"Packages could not be resolved: {self.error_details}"
-        )
-        if self.is_credential_error:
-            message += (
-                f"\n{HINT_LEAD_TEXT}This appears to be a credential/authentication issue. "
-                "Check if the Personal Access Token (PAT) or credentials in indexUrl are valid and not expired."
-            )
-        return message
 
 
 @dataclass(frozen=True)
