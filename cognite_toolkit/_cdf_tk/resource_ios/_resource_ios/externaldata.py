@@ -33,8 +33,8 @@ class ExternalDataSourceIO(
     kind = "ExternalDataSource"
     yaml_cls = ExternalDataSourceYAML
     dependencies = frozenset({DataSetsIO})
-    _doc_url = "Transformations-External-Data-Sources/operation/createExternalDataSources"
-
+    _doc_url = "Transformation-External-Data-Sources/operation/createExternalDataSources"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     support_update = False
 
     @property

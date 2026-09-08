@@ -63,6 +63,11 @@ class AppExternalIdScope(Scope):
     external_ids: list[str]
 
 
+class DataProductScope(Scope):
+    _scope_name = "dataProductScope"
+    external_ids: list[str]
+
+
 class CurrentUserScope(Scope):
     _scope_name = "currentuserscope"
 
@@ -225,7 +230,7 @@ class DataProductsAcl(Capability):
 
     _capability_name = "dataProductsAcl"
     actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScope | DataProductScope
 
 
 class DataSetsAcl(Capability):
