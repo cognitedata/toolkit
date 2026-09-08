@@ -69,9 +69,9 @@ def fetch_openid_configuration(idp_base_url: str) -> OpenIdConfiguration:
     try:
         response = httpx.get(url, timeout=30.0)
         response.raise_for_status()
-    except httpx.HTTPError as exc:
+        data = response.json()
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
         raise AuthenticationError(f"Failed to fetch OpenID configuration from {idp_base}") from exc
-    data = response.json()
     if not isinstance(data, dict):
         raise AuthenticationError(f"Invalid OpenID configuration response from {idp_base}")
     try:
