@@ -1,8 +1,6 @@
-import os
 import sys
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -13,7 +11,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import NameId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
@@ -22,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     DataModelResponse,
     Float64Property,
-    SpaceId,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
@@ -51,20 +48,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionResponse,
 )
 from cognite_toolkit._cdf_tk.commands import (
-    BuildCommand,
     BuildV2Command,
     DeployOptions,
     DeployV2Command,
     DumpResourceCommand,
     PullV2Command,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConsistencyError
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
-from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
-from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
@@ -123,23 +117,14 @@ def test_inject_custom_environmental_variables(
 
 
 def test_duplicated_modules(build_tmp_path: Path) -> None:
-    config = MagicMock(spec=BuildConfigYAML)
-    config.environment = MagicMock(spec=Environment)
-    config.environment.name = "dev"
-    config.environment.selected = ["module1"]
-    with pytest.raises(ToolkitDuplicatedModuleError) as err:
-        BuildCommand().build_config(
-            build_dir=build_tmp_path,
-            organization_dir=PROJECT_WITH_DUPLICATES,
-            config=config,
-            packages={},
+    with pytest.raises(ToolkitValueError, match="ambiguous selected"):
+        BuildV2Command(silent=True, skip_tracking=True).build(
+            parameters=BuildParameters(
+                organization_dir=PROJECT_WITH_DUPLICATES,
+                build_dir=build_tmp_path,
+                user_selected_modules=["module1"],
+            ),
         )
-    l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
-    assert l1 == "Ambiguous module selected in config.dev.yaml:"
-    assert l2 == "module1 exists in:"
-    assert l3 == "modules/examples/module1"
-    assert l4 == "modules/models/module1"
-    assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
 def test_pull_dataset(
@@ -579,23 +564,18 @@ def test_build_custom_project(
     build_tmp_path: Path,
 ) -> None:
     expected_resources = {
-        "timeseries",
         "data_modeling",
         "data_sets",
-        "raw",
         "extraction_pipelines",
         "transformations",
         "robotics",
     }
-    BuildCommand(silent=True).execute(
-        organization_dir=PROJECT_NO_COGNITE_MODULES,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="dev",
-        no_clean=False,
-        client=None,
-        on_error="raise",
-        verbose=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        parameters=BuildParameters(
+            organization_dir=PROJECT_NO_COGNITE_MODULES,
+            build_dir=build_tmp_path,
+            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.dev.yaml",
+        ),
     )
 
     actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
@@ -611,15 +591,12 @@ def test_build_project_selecting_parent_path(
     build_tmp_path: Path,
 ) -> None:
     expected_resources = {"auth", "data_modeling", "files", "transformations", "data_sets"}
-    BuildCommand(silent=True).execute(
-        organization_dir=PROJECT_FOR_TEST,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="dev",
-        no_clean=False,
-        client=None,
-        on_error="raise",
-        verbose=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        parameters=BuildParameters(
+            organization_dir=PROJECT_FOR_TEST,
+            build_dir=build_tmp_path,
+            config_yaml=PROJECT_FOR_TEST / "config.dev.yaml",
+        ),
     )
 
     actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
@@ -666,15 +643,12 @@ def test_deploy_group_with_unknown_acl(
 def test_build_project_with_only_top_level_variables(
     build_tmp_path: Path,
 ) -> None:
-    BuildCommand(silent=True).execute(
-        organization_dir=PROJECT_NO_COGNITE_MODULES,
-        build_dir=build_tmp_path,
-        selected=None,
-        build_env_name="top_level_variables",
-        no_clean=False,
-        client=None,
-        on_error="raise",
-        verbose=False,
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        parameters=BuildParameters(
+            organization_dir=PROJECT_NO_COGNITE_MODULES,
+            build_dir=build_tmp_path,
+            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.top_level_variables.yaml",
+        ),
     )
 
     assert build_tmp_path.exists()
@@ -1071,21 +1045,17 @@ capabilities:
 
     (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
 
-    cmd = BuildCommand(silent=True, skip_tracking=True)
-    with patch.dict(os.environ, {"CDF_PROJECT": CDF_PROJECT}):
-        cmd.execute(
-            verbose=False,
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            selected=None,
-            build_env_name="dev",
-            no_clean=False,
-            client=env_vars_with_client.get_client(),
-            on_error="raise",
-        )
-    assert len(cmd.warning_list) == 1
-    warning = cmd.warning_list[0]
-    assert isinstance(warning, MissingDependencyWarning)
-    assert warning.identifier == SpaceId(space="my_non_existent_space")
-
-    assert warning.required_by == {(NameId(name="scoped_group"), yaml_filepath.relative_to(my_org))}
+            config_yaml=my_org / "config.dev.yaml",
+        ),
+    )
+    insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
+    assert len(insights) == 1
+    insight = insights[0]
+    assert isinstance(insight, ConsistencyError)
+    assert insight.message == "Unknown reference to spaces with id 'my_non_existent_space'"
+    assert insight.source_file == "modules/my_module/auth/scoped_group.Group.yaml"

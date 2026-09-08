@@ -8,7 +8,6 @@ from ._respace import RespaceCommand
 from ._upload import UploadCommand
 from .about import AboutCommand
 from .auth import AuthCommand
-from .build_cmd import BuildCommand
 from .build_v2.build_v2 import BuildV2Command
 from .clean import CleanCommand
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
@@ -25,7 +24,6 @@ from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowComman
 __all__ = [
     "AboutCommand",
     "AuthCommand",
-    "BuildCommand",
     "BuildV2Command",
     "CleanCommand",
     "DeployOptions",
