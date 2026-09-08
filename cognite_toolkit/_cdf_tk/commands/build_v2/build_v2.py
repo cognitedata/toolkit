@@ -191,7 +191,9 @@ class BuildV2Command(ToolkitCommand):
         allow_creation: bool = False,
     ) -> ModuleSource:
         results, _ = cls.read_filesystem_and_find_modules(
-            organization_dir, user_selected_modules=[selected_module] if selected_module else None, operation=operation
+            organization_dir,
+            user_selected_modules=[selected_module] if selected_module else [f"{MODULES}/"],
+            operation=operation,
         )
         if errors := results.non_existing_module_names:
             error = errors[0]
@@ -199,7 +201,7 @@ class BuildV2Command(ToolkitCommand):
                 f"Module '{error.name}' does not exist in the organization directory '{organization_dir}'."
                 f"Did you mean one of these? {humanize_collection(error.closest_matches)}"
             )
-        if results.modules:
+        if results.modules and selected_module is not None:
             return results.modules[0]
 
         choices = [Choice(title=module.id.as_posix(), value=module) for module in results.modules]
@@ -207,11 +209,21 @@ class BuildV2Command(ToolkitCommand):
             choices.append(Choice(title="Create a new module", value="NEW"))
         selected = questionary.select(f"Select a module to {operation or 'build'}:", choices=choices).unsafe_ask()
         if selected == "NEW":
+
+            def _validate_new_module_path(u: str) -> bool | str:
+                if not u:
+                    return "Please enter a module path."
+                relative = (organization_dir / MODULES / Path(u)).as_posix()
+                _, error = cls._validate_user_module(relative, organization_dir)
+                # A path that does not yet exist is expected here (we are creating it),
+                # so only surface non-existence-related errors.
+                if error and "does not exist" not in error:
+                    return error
+                return True
+
             user_type_path = questionary.text(
                 f"Enter the relative path to the new module {organization_dir}/{MODULES}:",
-                validate=lambda u: cls._validate_user_module(
-                    (organization_dir / MODULES / Path(u)).as_posix(), organization_dir
-                ),
+                validate=_validate_new_module_path,
             ).unsafe_ask()
             if not user_type_path:
                 raise ToolkitValueError("No module path provided.")
