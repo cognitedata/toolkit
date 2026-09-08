@@ -1,0 +1,7 @@
+[module]
+title = "Skill test"
+id = "skill_test"
+is_selected_by_default = false
+
+[dependencies]
+modules = []
