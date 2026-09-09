@@ -22,7 +22,6 @@ from .hashing import (
 )
 from .modules import (
     find_directory_with_subdirectories,
-    iterate_modules,
     resource_folder_from_path,
 )
 from .pip_validator import PipValidationResult, validate_requirements_with_pip

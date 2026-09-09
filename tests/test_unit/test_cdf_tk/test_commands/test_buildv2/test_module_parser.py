@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
+from tests.data import PROJECT_FOR_TEST
 
 
 class TestModuleSourceParser:
@@ -546,3 +549,16 @@ class TestAsModuleVariables:
         actual: dict[int | None, list[BuildVariable]],
     ) -> None:
         assert ModuleParser._as_module_variables(variables, module) == actual
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            Path("modules") / "a_module",
+            Path("modules") / "another_module",
+            Path("modules") / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in ModuleParser.find_modules(PROJECT_FOR_TEST)[0].items()}
+
+        assert actual_modules == expected_modules

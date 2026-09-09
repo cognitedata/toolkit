@@ -1,49 +1,4 @@
-from collections.abc import Iterator
 from pathlib import Path
-
-from cognite_toolkit._cdf_tk.constants import (
-    ROOT_MODULES,
-)
-
-
-def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
-    """Iterate over all modules in the project and yield the module directory and all files in the module.
-
-
-    Args:
-        root_dir (Path): The root directory of the project
-
-    Yields:
-        Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
-
-    """
-    if root_dir.name in ROOT_MODULES:
-        yield from _iterate_modules(root_dir)
-        return
-    for root_module in ROOT_MODULES:
-        module_dir = root_dir / root_module
-        if module_dir.exists():
-            yield from _iterate_modules(module_dir)
-
-
-def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
-    # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.constants import EXCL_FILES
-    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
-
-    if not root_dir.exists():
-        return
-    for module_dir in root_dir.iterdir():
-        if not module_dir.is_dir():
-            continue
-        sub_directories = [path for path in module_dir.iterdir() if path.is_dir()]
-        is_any_resource_directories = any(dir.name in CRUDS_BY_FOLDER_NAME for dir in sub_directories)
-        if sub_directories and is_any_resource_directories:
-            # Module found
-            yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
-            # Stop searching for modules in subdirectories
-            continue
-        yield from _iterate_modules(module_dir)
 
 
 def module_directory_from_path(path: Path) -> Path:

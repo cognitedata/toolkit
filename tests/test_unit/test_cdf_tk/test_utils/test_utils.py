@@ -10,7 +10,6 @@ import pytest
 import yaml
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -21,7 +20,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
-from tests.data import CALC_HASH_DATA, PROJECT_FOR_TEST
+from tests.data import CALC_HASH_DATA
 
 
 class TestLoadYamlInjectVariables:
@@ -148,19 +147,6 @@ def auth_variables_validate_test_cases():
         },
         id="Happy path Client credentials login",
     )
-
-
-class TestIterateModules:
-    def test_modules_project_for_tests(self):
-        expected_modules = {
-            Path("modules") / "a_module",
-            Path("modules") / "another_module",
-            Path("modules") / "parent_module" / "child_module",
-        }
-
-        actual_modules = {module for module, _ in ModuleParser.find_modules(PROJECT_FOR_TEST)[0].items()}
-
-        assert actual_modules == expected_modules
 
 
 @pytest.mark.parametrize(
