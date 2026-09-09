@@ -327,7 +327,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
-        source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
+        source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
         cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
@@ -473,7 +473,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
-        source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
+        source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
         if build.selected_modules is None:
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)

@@ -94,12 +94,24 @@ class ModuleParser:
 
     @classmethod
     def find_modules(
-        cls, yaml_files: list[RelativeFilePath], organization_dir: Path
+        cls, module_directory: Path, yaml_files: list[RelativeFilePath] | None = None
     ) -> tuple[dict[RelativeDirPath, ModuleDirectory], list[RelativeDirPath]]:
-        """Organizes YAML files by their module (top-level folder in the modules directory)."""
+        """Find all module in the given directory and return a mapping of module id to ModuleDirectory, and a list of orphan yaml files.
+
+        Args:
+            module_directory: The directory to search for modules in.
+            yaml_files: A list of yaml files to search for modules in. If None, all yaml files in the directory will be searched.
+
+        Returns:
+
+        """
+        if yaml_files is None:
+            search_files = [yaml_file.relative_to(module_directory) for yaml_file in module_directory.rglob("*.y*ml")]
+        else:
+            search_files = yaml_files
         source_by_module_id: dict[RelativeDirPath, ModuleDirectory] = {}
         orphan_files: list[RelativeDirPath] = []
-        for yaml_file in yaml_files:
+        for yaml_file in search_files:
             if yaml_file.name in EXCL_FILES:
                 continue
             relative_module_path, resource_folder = cls._get_module_path_from_resource_file_path(yaml_file)
@@ -108,13 +120,13 @@ class ModuleParser:
                     continue
                 if relative_module_path not in source_by_module_id:
                     source_by_module_id[relative_module_path] = ModuleDirectory(
-                        path=organization_dir / relative_module_path,
+                        path=module_directory / relative_module_path,
                         id=relative_module_path,
                     )
                 source = source_by_module_id[relative_module_path]
                 if resource_folder not in source.resource_files_by_folder:
                     source.resource_files_by_folder[resource_folder] = []
-                source.resource_files_by_folder[resource_folder].append(organization_dir / yaml_file)
+                source.resource_files_by_folder[resource_folder].append(module_directory / yaml_file)
             else:
                 orphan_files.append(yaml_file)
         return source_by_module_id, orphan_files

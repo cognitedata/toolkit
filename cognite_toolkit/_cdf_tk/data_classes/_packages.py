@@ -91,8 +91,7 @@ class Packages(dict, MutableMapping[str, Package]):
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        yaml_files = [yaml_file.relative_to(root_module_dir) for yaml_file in root_module_dir.rglob("*.y*ml")]
-        module_by_relative_path, _ = ModuleParser.find_modules(yaml_files, root_module_dir)
+        module_by_relative_path, _ = ModuleParser.find_modules(root_module_dir)
 
         packages_with_modules: dict[str, Package] = {}
 

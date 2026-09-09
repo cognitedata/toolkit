@@ -79,7 +79,7 @@ class TestModuleSourceParser:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.touch()
 
-        found_modules, orphans = ModuleParser.find_modules([Path(yaml_file) for yaml_file in yaml_files], org)
+        found_modules, orphans = ModuleParser.find_modules(org, [Path(yaml_file) for yaml_file in yaml_files])
         actual_modules = {
             module.as_posix(): {
                 resource_folder: [file.relative_to(org).as_posix() for file in files]
