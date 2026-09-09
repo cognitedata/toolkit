@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
-from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
@@ -83,7 +83,6 @@ class Packages(dict, MutableMapping[str, Package]):
         Args:
             root_module_dir: The module directories to load the packages from.
         """
-        from cognite_toolkit._cdf_tk.commands import BuildV2Command
 
         package_definition_path = next(root_module_dir.rglob("packages.toml"), None)
         if not package_definition_path or not package_definition_path.exists():
@@ -92,21 +91,8 @@ class Packages(dict, MutableMapping[str, Package]):
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(
-            root_module_dir.parent if (root_module_dir.parent / MODULES).exists() else root_module_dir,
-            user_selected_modules=[f"{MODULES}/"],
-        )
-        module_by_relative_path: dict[Path, ModuleDirectory] = {}
-        for module in scan_result.modules:
-            if not module.path.is_relative_to(root_module_dir):
-                raise ValueError(
-                    f"Bug in Toolkit: module {module.name} is not in the root module directory {root_module_dir}"
-                )
-            relative_path = module.path.relative_to(root_module_dir)
-            # The id in ModuleDirectory is relative to the organization directory,
-            # while packages expect it to be relative to the module directory inside the
-            # organization directory.
-            module_by_relative_path[relative_path] = module.model_copy(update={"id": relative_path})
+        yaml_files = [yaml_file.relative_to(root_module_dir) for yaml_file in root_module_dir.rglob("*.y*ml")]
+        module_by_relative_path, _ = ModuleParser.find_modules(yaml_files, root_module_dir)
 
         packages_with_modules: dict[str, Package] = {}
 
