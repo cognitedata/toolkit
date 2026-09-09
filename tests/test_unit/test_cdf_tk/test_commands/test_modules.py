@@ -27,7 +27,7 @@ COMPLETE_ORG_MODULES = COMPLETE_ORG / MODULES
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
-    return Packages.load(COMPLETE_ORG)
+    return Packages.load(COMPLETE_ORG_MODULES)
 
 
 @pytest.fixture(scope="session")
@@ -110,7 +110,7 @@ class TestModulesCommand:
     def test_config_external_modules(self, tmp_path: Path) -> None:
         target_path = tmp_path / "repo_root"
 
-        selected_packages = Packages.load(EXTERNAL_PACKAGE)
+        selected_packages = Packages.load(EXTERNAL_PACKAGE / MODULES)
         selected_packages_location = EXTERNAL_PACKAGE
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
@@ -169,7 +169,7 @@ class TestModulesCommand:
         self, tmp_path: Path, monkeypatch: MonkeyPatch, modules_command_with_cached_download
     ) -> None:
         cmd = modules_command_with_cached_download(
-            print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG
+            print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES
         )
         dummy_resource = "space: my_space"
         my_org = tmp_path / "my_org"
