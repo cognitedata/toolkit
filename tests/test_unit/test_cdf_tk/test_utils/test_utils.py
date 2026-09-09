@@ -10,11 +10,11 @@ import pytest
 import yaml
 from _pytest.mark import ParameterSet
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     flatten_dict,
-    iterate_modules,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
@@ -153,12 +153,12 @@ def auth_variables_validate_test_cases():
 class TestIterateModules:
     def test_modules_project_for_tests(self):
         expected_modules = {
-            PROJECT_FOR_TEST / "modules" / "a_module",
-            PROJECT_FOR_TEST / "modules" / "another_module",
-            PROJECT_FOR_TEST / "modules" / "parent_module" / "child_module",
+            Path("modules") / "a_module",
+            Path("modules") / "another_module",
+            Path("modules") / "parent_module" / "child_module",
         }
 
-        actual_modules = {module for module, _ in iterate_modules(PROJECT_FOR_TEST)}
+        actual_modules = {module for module, _ in ModuleParser.find_modules(PROJECT_FOR_TEST)[0].items()}
 
         assert actual_modules == expected_modules
 
