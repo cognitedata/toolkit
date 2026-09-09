@@ -71,11 +71,11 @@ class TestFormatConsistency:
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -108,7 +108,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
@@ -116,11 +116,11 @@ class TestFormatConsistency:
     def test_loader_takes_list(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -159,7 +159,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
 
     @pytest.mark.parametrize(
