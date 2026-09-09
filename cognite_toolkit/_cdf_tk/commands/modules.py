@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -75,7 +76,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_write,
     yaml_safe_dump,
 )
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
@@ -254,7 +254,15 @@ class ModulesCommand(ToolkitCommand):
         if extra_resources:
             created_by_module: dict[Path, int] = Counter()
             for extra in extra_resources:
-                module_dir = module_directory_from_path(extra)
+                module_dir, _ = ModuleParser.get_module_path_from_resource_file_path(extra)
+                if module_dir is None:
+                    self.warn(
+                        LowSeverityWarning(
+                            f"Extra resource {extra} is not in a module directory, skipping. "
+                            "Please check the module.toml file for this resource."
+                        )
+                    )
+                    continue
                 extra_full_path = modules_source_path / extra
                 target_path = modules_target_root_dir / extra
                 if target_path.exists():

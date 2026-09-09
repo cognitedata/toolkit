@@ -1,21 +1,6 @@
 from pathlib import Path
 
 
-def module_directory_from_path(path: Path) -> Path:
-    """Get the module directory from a path"""
-    # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
-
-    if len(path.parts) == 1:
-        raise ValueError("Path is not a module")
-
-    for _ in range(len(path.parts)):
-        if path.name in CRUDS_BY_FOLDER_NAME and path.parent != path:
-            return path.parent
-        path = path.parent
-    raise ValueError("Path is not part of a module")
-
-
 def resource_folder_from_path(path: Path) -> str:
     """Get the resource_folder from a path"""
     # local import to avoid circular import

@@ -146,7 +146,7 @@ class ModuleParser:
         return False
 
     @staticmethod
-    def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path, ResourceTypes] | tuple[None, None]:
+    def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
         for parent in resource_file.parents:
             if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
                 # We know that all keys in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,

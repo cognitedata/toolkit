@@ -562,3 +562,16 @@ class TestIterateModules:
         actual_modules = {module for module, _ in ModuleParser.find_modules(PROJECT_FOR_TEST)[0].items()}
 
         assert actual_modules == expected_modules
+
+
+class TestModules:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            (Path("cdf_common/data_sets/demo.DataSet.yaml"), Path("cdf_common")),
+            (Path("cdf_common/functions/contextualization_connection_writer"), Path("cdf_common")),
+            (Path("sourcesystem/cdf_pi/auth/workflow.Group.yaml"), Path("sourcesystem/cdf_pi")),
+        ],
+    )
+    def test_valid_module_directory_from_path(self, path: Path, expected: Path) -> None:
+        assert ModuleParser.get_module_path_from_resource_file_path(path)[0] == expected

@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.utils import (
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from tests.data import CALC_HASH_DATA
 
 
@@ -313,16 +312,3 @@ class TestQuoteKeyInYAML:
         actual = stringify_value_by_key_in_yaml(raw, key="config")
         assert actual == expected
         assert yaml.safe_load(actual) == yaml.safe_load(expected)
-
-
-class TestModules:
-    @pytest.mark.parametrize(
-        "path, expected",
-        [
-            (Path("cdf_common/data_sets/demo.DataSet.yaml"), Path("cdf_common")),
-            (Path("cdf_common/functions/contextualization_connection_writer"), Path("cdf_common")),
-            (Path("sourcesystem/cdf_pi/auth/workflow.Group.yaml"), Path("sourcesystem/cdf_pi")),
-        ],
-    )
-    def test_valid_module_directory_from_path(self, path: Path, expected: Path) -> None:
-        assert module_directory_from_path(path) == expected
