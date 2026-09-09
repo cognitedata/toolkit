@@ -43,7 +43,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowTriggerIO,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -390,13 +389,10 @@ class TestResourceCRUDs:
             if loader_cls not in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
         ],
     )
-    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceIO]) -> None:
-        with monkeypatch_toolkit_client() as toolkit_client:
-            # Since we are not loading the local resource, we must allow reverse lookup
-            # without first lookup.
-            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-
-        loader = loader_cls.create_loader(approval_client.mock_client)
+    def test_dump_resource_with_local_id(
+        self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
+    ) -> None:
+        loader = loader_cls.create_loader(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 

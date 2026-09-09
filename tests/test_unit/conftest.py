@@ -38,6 +38,7 @@ from tests.data import (
     EXTRACTOR_VIEWS_YAML,
 )
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.approval_client.client import LookUpAPIMock
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -73,6 +74,32 @@ def toolkit_client_cheap() -> ToolkitClient:
     """A bare minimum fast to initialize client. For tests that don't need to make any calls to the CDF API."""
     mock_client = MagicMock(spec=ToolkitClient)
     mock_client.console = MagicMock(spec=Console)
+    return mock_client
+
+
+@pytest.fixture(scope="session")
+def toolkit_client_with_lookup() -> ToolkitClient:
+    """Toolkit client with all lookup methods mocked. For tests that need to test lookup functionality.
+    This is much faster than using the ApprovalToolkitClient, which requires a lot of setup and is slower to initialize.
+    """
+    mock_client = MagicMock(spec=ToolkitClient)
+    mock_client.console = MagicMock(spec=Console)
+    mock_client.lookup = MagicMock()
+    # Setup mock for all lookup methods
+    for lookup_api in [
+        mock_client.lookup.data_sets,
+        mock_client.lookup.assets,
+        mock_client.lookup.time_series,
+        mock_client.lookup.files,
+        mock_client.lookup.events,
+        mock_client.lookup.security_categories,
+        mock_client.lookup.location_filters,
+        mock_client.lookup.extraction_pipelines,
+        mock_client.lookup.functions,
+    ]:
+        mock_lookup = LookUpAPIMock(allow_reverse_lookup=True)
+        lookup_api.id.side_effect = mock_lookup.id
+        lookup_api.external_id.side_effect = mock_lookup.external_id
     return mock_client
 
 
