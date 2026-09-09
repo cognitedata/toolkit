@@ -54,6 +54,7 @@ class LocationFilter(BaseModelObject):
     parent_id: int | None = None
     data_models: list[DataModelId] | None = None
     instance_spaces: list[str] | None = None
+    user_data_instance_space: str | None = None
     scene: LocationFilterScene | None = None
     asset_centric: AssetCentricFilter | None = None
     views: list[LocationFilterView] | None = None
