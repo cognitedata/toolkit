@@ -22,7 +22,7 @@ from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 if sys.version_info >= (3, 11):
     from typing import Self
 
-    import toml
+    import tomllib as toml
 else:
     import tomli as toml
     from typing_extensions import Self

@@ -211,6 +211,10 @@ class BuildV2Command(ToolkitCommand):
         choices = [Choice(title=module.id.as_posix(), value=module) for module in results.modules]
         if allow_creation:
             choices.append(Choice(title="Create a new module", value="NEW"))
+        if not choices:
+            raise ToolkitValueError(
+                f"No modules found to {operation or 'build'} in the organization directory '{organization_dir}'."
+            )
         selected = questionary.select(f"Select a module to {operation or 'build'}:", choices=choices).unsafe_ask()
         if selected is None:
             raise ToolkitValueError("Module selection cancelled by user.")
@@ -219,6 +223,10 @@ class BuildV2Command(ToolkitCommand):
             def _validate_new_module_path(u: str) -> bool | str:
                 if not u:
                     return "Please enter a module path."
+                try:
+                    (organization_dir / MODULES / Path(u)).resolve().relative_to((organization_dir / MODULES).resolve())
+                except ValueError:
+                    return "Module path must be inside the modules directory."
                 relative = (Path(MODULES) / Path(u)).as_posix()
                 _, error = cls._validate_user_module(relative, organization_dir)
                 # A path that does not yet exist is expected here (we are creating it),
