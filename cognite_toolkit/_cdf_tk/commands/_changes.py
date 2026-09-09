@@ -13,6 +13,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
@@ -134,7 +135,6 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        from cognite_toolkit._cdf_tk.utils import resource_folder_from_path
 
         api_call_parameters = {
             "skipOnVersionConflict", "replace", "autoCreateDirectRelations"
@@ -143,9 +143,8 @@ After:
         changed: set[Path] = set()
         resource_yaml: Path
         for resource_yaml in self._organization_dir.rglob("*.yaml"):
-            try:
-                resource_folder = resource_folder_from_path(resource_yaml)
-            except ValueError:
+            _, resource_folder = ModuleParser.get_module_path_from_resource_file_path(resource_yaml)
+            if resource_folder is None:
                 continue
             if resource_folder == "data_models" and resource_yaml.stem.casefold().endswith("node"):
                 content = safe_read(resource_yaml)
