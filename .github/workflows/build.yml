@@ -48,7 +48,7 @@ jobs:
         run: uv run pytest tests/test_unit -n auto --durations=20
 
   test:
-    name: Run tests
+    name: Run tests passed Python versions
     runs-on: ubuntu-latest
     env:
       CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: 3.11
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
         run: |
           pip install uv
