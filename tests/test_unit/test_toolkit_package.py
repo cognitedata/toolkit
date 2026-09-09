@@ -15,6 +15,10 @@ else:
     import tomli as tomllib
 
 CDF_TK_PATH = REPO_ROOT / "cognite_toolkit" / "_cdf_tk"
+YAML_CLASSES_PATH = CDF_TK_PATH / "yaml_classes"
+
+# Methods that start a new validation, which does not inherit the settings of an ongoing one.
+_VALIDATION_METHODS: frozenset[str] = frozenset({"model_validate", "validate_python"})
 
 # Mapping from PyPI package names to Python import names
 # Only needed when they differ
@@ -32,7 +36,7 @@ _PACKAGE_TO_IMPORT_NAME: dict[str, str] = {
 _EXCEPTION_MODULES: frozenset[str] = frozenset({"cognite.neat"})
 
 
-def _assert_import_violations(
+def _assert_violations(
     extract_fn: Callable[[Path], list[tuple[str, int, str]]],
     description: str,
     expected_total: int | None = None,
@@ -79,7 +83,7 @@ def test_no_private_third_party_imports() -> None:
     # We are not copying over protobuf files, so private imports from cognite.client._proto are currently acceptable.
     # We also need to look up the version of CogniteSDK as we dynamically create requirement.txt files for
     # Streamlit apps
-    _assert_import_violations(
+    _assert_violations(
         _extract_private_imports,
         "private imports from third-party packages",
         exceptions={"cognite.client._proto", "cognite.client._version"},
@@ -94,7 +98,19 @@ def test_no_cognite_sdk_imports() -> None:
     The goal is to fully remove the cognite-sdk dependency from the toolkit (with the exception of Auth and protobuf files).
     This test tracks progress toward that goal.
     """
-    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 90)
+    _assert_violations(_extract_cognite_sdk_imports, "cognite.client imports", 90)
+
+
+def test_resource_classes_revalidate_through_validate_as() -> None:
+    """
+    Test that resource classes picking a class based on the file content go through validate_as.
+
+    model_validate starts a fresh validation that does not inherit the extra argument of the ongoing one, so
+    calling it directly makes unrecognized fields an error again for that resource and everything below it.
+    An unrecognized field is only a warning, and must not stop the resource from being validated, as that
+    silently skips all downstream validation of it (dependencies, data modeling, agents, ...).
+    """
+    _assert_violations(_extract_direct_validation_calls, "resource classes validating directly")
 
 
 def _parse_package_name(dependency: str) -> str:
@@ -257,3 +273,33 @@ def _extract_cognite_sdk_imports(file_path: Path) -> list[tuple[str, int, str]]:
                     cognite_imports.append((alias.name, node.lineno, reason))
 
     return cognite_imports
+
+
+def _extract_direct_validation_calls(file_path: Path) -> list[tuple[str, int, str]]:
+    """
+    Extract resource class validation calls that do not go through validate_as.
+
+    Returns a list of tuples: (file_name, line_number, reason)
+    """
+    if not file_path.is_relative_to(YAML_CLASSES_PATH) or file_path.name == "base.py":
+        # base.py implements validate_as and the lenient entry points.
+        return []
+
+    direct_calls: list[tuple[str, int, str]] = []
+
+    try:
+        source = file_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (SyntaxError, UnicodeDecodeError):
+        return direct_calls
+
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _VALIDATION_METHODS
+        ):
+            reason = f"calls {node.func.attr}() directly, use validate_as from yaml_classes.base instead"
+            direct_calls.append((file_path.name, node.lineno, reason))
+
+    return direct_calls
