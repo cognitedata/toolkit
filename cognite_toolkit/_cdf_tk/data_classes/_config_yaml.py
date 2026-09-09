@@ -348,7 +348,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self
 
     @classmethod
-    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> Self:
+    def load_existing(cls, existing_config_yaml: str, organization_dir: Path, build_env_name: str = "dev") -> Self:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
@@ -365,7 +365,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         comments = cls._extract_comments(raw_file)
         config = cast(dict, read_yaml_content(raw_file))
         if cls._environment in config:
-            environment = Environment.load(config[cls._environment], build_env_name, Path(existing_config_yaml).parent)
+            environment = Environment.load(config[cls._environment], build_env_name, organization_dir)
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
@@ -548,7 +548,9 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
     def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> Self:
         instance = cls()
         for config_yaml in existing_config_yamls:
-            config = InitConfigYAML.load_existing(safe_read(config_yaml), config_yaml.name.split(".")[0])
+            config = InitConfigYAML.load_existing(
+                safe_read(config_yaml), config_yaml.parent, config_yaml.name.split(".")[0]
+            )
             instance[config.environment.name] = config
         return instance
 

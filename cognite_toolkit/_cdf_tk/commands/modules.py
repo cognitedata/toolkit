@@ -288,7 +288,7 @@ class ModulesCommand(ToolkitCommand):
         for environment in environments:
             if mode == "update":
                 config_init = InitConfigYAML.load_existing(
-                    safe_read(Path(organization_dir) / f"config.{environment}.yaml"), environment
+                    safe_read(Path(organization_dir) / f"config.{environment}.yaml"), organization_dir, environment
                 ).load_defaults(modules_source_path, selected_paths)
             else:
                 ignore_variable_patterns: list[tuple[str, ...]] | None = None
