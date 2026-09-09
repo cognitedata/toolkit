@@ -199,6 +199,15 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        try:
+            # All the subsequent inspection calls (get_origin, get_args, etc.) are very expensive, so we
+            # first check if the class is a subclass of BaseModel, which is a common case and can be handled more efficiently.
+            # If `issubclass` raises a TypeError, we ignore it and continue with the other checks.
+            if issubclass(resource_cls, BaseModel):
+                return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
+        except TypeError:
+            ...
+
         if get_origin(resource_cls) is typing.Annotated:
             resource_cls = get_args(resource_cls)[0]
 
@@ -206,9 +215,6 @@ class FakeCogniteResourceGenerator:
             args = get_args(resource_cls)
             first_not_none = next(arg for arg in args if arg is not type(None))
             return self.create_instance(first_not_none, skip_defaulted_args)
-
-        if issubclass(resource_cls, BaseModel):
-            return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
 
         is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
         if is_abstract:
