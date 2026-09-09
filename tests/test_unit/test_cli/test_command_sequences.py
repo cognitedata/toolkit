@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -27,7 +28,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     Loader,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -40,13 +41,14 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(BUILDABLE_PACKAGE):
-        if module.name == "references":  # this particular module should never be built or deployed
+    result, _ = ModuleParser.find_modules(BUILDABLE_PACKAGE)
+    for module_relative_path in result.keys():
+        if module_relative_path.name == "references":  # this particular module should never be built or deployed
             continue
-        elif module.name == "search":
+        elif module_relative_path.name == "search":
             # Not ready yet
             continue
-        yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
+        yield pytest.param(module_relative_path, id=f"{module_relative_path.parent.name}/{module_relative_path.name}")
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
