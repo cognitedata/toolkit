@@ -15,7 +15,7 @@ extend-download = true
 extend-upload = true
 data-products = true
 entity-matching = false
-custom-apps = true
+custom-apps = false
 external-data-sources = true
 signals = false
 
