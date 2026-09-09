@@ -1235,6 +1235,8 @@ Used by toolkit integration tests{body_suffix}.
 
 
 class TestSkillIO:
+    # Skills upload can intermittently fail with "Files not uploaded" against live CDF.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["ToolkitAPIError"])
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = SkillIO(toolkit_client, None)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
