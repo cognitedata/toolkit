@@ -75,7 +75,11 @@ class LocationYAML(ToolkitResource):
     )
     instance_spaces: list[str] | None = Field(default=None, description="The list of spaces that instances are in")
     user_data_instance_space: str | None = Field(
-        default=None, description="The space where user-uploaded data is stored."
+        default=None,
+        description="The space where user-uploaded data is stored.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
     )
     scene: Scenes | None = Field(default=None, description="The scene config for the location.")
     asset_centric: AssetCentricResource | None = Field(
