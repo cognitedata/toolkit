@@ -39,7 +39,7 @@ def invalid_extraction_pipeline_test_cases() -> Iterable:
     # All required fields present but with extra unknown field
     yield pytest.param(
         {"externalId": "pipeline5", "name": "Pipeline 5", "dataSetExternalId": "ds5", "unknownField": "value"},
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="Unknown field present",
     )
 

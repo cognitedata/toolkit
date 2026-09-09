@@ -43,7 +43,7 @@ def invalid_robot_frame_cases() -> Iterable:
             "externalId": "frame_001",
             "unknownField": "value",
         },
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="unknown-field-present",
     )
 

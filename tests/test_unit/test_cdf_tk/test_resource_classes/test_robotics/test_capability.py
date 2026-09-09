@@ -59,7 +59,7 @@ class TestRobotCapabilityYAML:
             ),
             pytest.param(
                 {"externalId": "cap_001", "name": "Test Capability", "method": "test_method", "unknownField": "value"},
-                {"Unknown field: 'unknownField'"},
+                {"Unrecognized field: 'unknownField'"},
                 id="unknown-field-present",
             ),
         ],

@@ -14,7 +14,10 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
     # Missing required field: externalId, extra field 'name'
     yield pytest.param(
         {"name": "MyWorkflowTrigger"},
-        {"Missing required fields: 'authentication', 'externalId', 'triggerRule', 'workflowExternalId' and 'workflowVersion'", "Unknown field: 'name'"},
+        {
+            "Missing required fields: 'authentication', 'externalId', 'triggerRule', 'workflowExternalId' and 'workflowVersion'",
+            "Unrecognized field: 'name'",
+        },
         id="Missing required fields ",
     )
     # Extra/unknown field
@@ -30,7 +33,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         {
             "Missing required fields in authentication: 'clientId' and 'clientSecret'",
             "Invalid value for triggerRule: Invalid trigger rule data missing 'triggerType' key",
-            "Unknown field: 'foo'",
+            "Unrecognized field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
     )

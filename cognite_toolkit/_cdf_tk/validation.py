@@ -219,11 +219,7 @@ def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[
             )
         if unknown := group["unknown"]:
             field_word = "field" if len(unknown) == 1 else "fields"
-            if path:
-                message = f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}."
-            else:
-                message = f"Unknown {field_word}: {humanize_collection(unknown)}"
-            errors.append((message, "warning"))
+            errors.append((f"Unrecognized {field_word}{location}: {humanize_collection(unknown)}", "warning"))
     return errors
 
 

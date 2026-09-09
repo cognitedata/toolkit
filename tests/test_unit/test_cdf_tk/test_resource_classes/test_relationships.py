@@ -18,8 +18,11 @@ def invalid_relationship_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "equipment:pump", "dataSetId": 123},
-        {"Missing required fields: 'sourceExternalId', 'sourceType', 'targetExternalId' and 'targetType'", "Unknown field: 'dataSetId'"},
-        id="Unknown field: dataSetId and missing name",
+        {
+            "Missing required fields: 'sourceExternalId', 'sourceType', 'targetExternalId' and 'targetType'",
+            "Unrecognized field: 'dataSetId'",
+        },
+        id="Unrecognized field: dataSetId and missing name",
     )
 
 

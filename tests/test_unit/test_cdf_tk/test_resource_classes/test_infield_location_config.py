@@ -28,7 +28,10 @@ def invalid_test_cases() -> Iterable:
                 "invalidToggle": "bad_value",
             },
         },
-        {"Unrecognized field in featureToggles: 'invalidToggle'.", "Unknown fields: 'anotherUnknownField' and 'unknownField'"},
+        {
+            "Unrecognized field in featureToggles: 'invalidToggle'",
+            "Unrecognized fields: 'anotherUnknownField' and 'unknownField'",
+        },
         id="Multiple extra fields at different levels",
     )
     yield pytest.param(

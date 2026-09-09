@@ -19,14 +19,14 @@ def timeseries_yaml_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "my_timeseries", "type": "numeric"},
         [
-            "Unknown field: 'type'",
+            "Unrecognized field: 'type'",
         ],
         id="Unknown field type",
     )
     yield pytest.param(
         {"externalId": "my_timeseries", "type": "numeric", "assetId": 123},
         [
-            "Unknown fields: 'assetId' and 'type'",
+            "Unrecognized fields: 'assetId' and 'type'",
         ],
         id="Multiple top level unknown fields are grouped into one message",
     )
@@ -48,9 +48,9 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2", "type": "numeric"},
         ],
         [
-            "Unrecognized field in item [1]: 'nam'.",
+            "Unrecognized field in item [1]: 'nam'",
             "Missing required field in item [2]: 'externalId'",
-            "Unrecognized field in item [2]: 'type'.",
+            "Unrecognized field in item [2]: 'type'",
         ],
         id="Multiple issues in a list of timeseries",
     )

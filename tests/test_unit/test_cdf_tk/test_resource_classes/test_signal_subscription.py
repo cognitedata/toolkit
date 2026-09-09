@@ -95,7 +95,7 @@ def invalid_test_cases() -> Iterable:
             "filter": {"topic": "cognite_integrations"},
             "unknownField": "x",
         },
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="unknown-field",
     )
     yield pytest.param(

@@ -119,7 +119,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
         },
         {
             "Missing required fields in authentication: 'clientId', 'clientSecret' and 'tokenUrl'",
-            "Unrecognized fields in authentication: 'client_id' and 'token_url'.",
+            "Unrecognized fields in authentication: 'client_id' and 'token_url'",
         },
         id="RESTSource ClientCredentials missing client_secret",
     )

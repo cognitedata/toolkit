@@ -562,7 +562,7 @@ class TestDisplayInsightsOutput:
             [
                 ModelSyntaxWarning(
                     code="MODEL-SYNTAX-WARNING",
-                    message="Unknown field: 'Name'",
+                    message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
                     source_file="modules/my_module/data_modeling/my_space.Space.yaml",
                 )
@@ -573,7 +573,7 @@ class TestDisplayInsightsOutput:
 
         rendered = output.getvalue()
         assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
-        assert "Unknown field: 'Name'" in rendered
+        assert "Unrecognized field: 'Name'" in rendered
 
     def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
         console, output = self._console()
@@ -722,7 +722,9 @@ class TestReadResourceFile:
         assert [error.message for error in result.syntax_errors] == [
             "Invalid value for space: String should have at least 1 character"
         ]
-        assert [warning.message for warning in result.syntax_warnings] == ["Unknown fields: 'extra_one' and 'extra_two'"]
+        assert [warning.message for warning in result.syntax_warnings] == [
+            "Unrecognized fields: 'extra_one' and 'extra_two'"
+        ]
 
 
 class TestFindUnresolvedVariables:

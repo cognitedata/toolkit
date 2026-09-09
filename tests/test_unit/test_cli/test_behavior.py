@@ -1105,7 +1105,7 @@ capabilities:
     )
     syntax_warnings = [insight for insight in folder.all_insights if isinstance(insight, ModelSyntaxWarning)]
     assert len(syntax_warnings) == 1
-    assert syntax_warnings[0].message == "Unknown field: 'sourceIdd'"
+    assert syntax_warnings[0].message == "Unrecognized field: 'sourceIdd'"
 
     dependency_insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
     assert len(dependency_insights) == 1

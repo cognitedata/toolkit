@@ -821,9 +821,7 @@ class BuildV2Command(ToolkitCommand):
             except ValidationError as errors:
                 syntax_errors, syntax_warnings = self._create_syntax_insights(errors)
                 if not syntax_errors:
-                    toolkit_resource = self._validate_ignoring_unknown_fields(
-                        crud_class.yaml_cls, parsed_yaml, errors
-                    )
+                    toolkit_resource = self._validate_ignoring_unknown_fields(crud_class.yaml_cls, parsed_yaml, errors)
                 if toolkit_resource is not None:
                     identifier = toolkit_resource.as_id()
                 else:

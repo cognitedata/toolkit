@@ -32,7 +32,7 @@ def invalid_mapping_test_cases() -> Iterable:
             "Invalid value at viewId.version: Input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
         },
-        id="Unknown field: dataSetId and missing name",
+        id="Unrecognized field: dataSetId and missing name",
     )
 
 
