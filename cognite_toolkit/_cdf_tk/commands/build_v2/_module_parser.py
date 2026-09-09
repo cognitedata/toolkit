@@ -103,6 +103,7 @@ class ModuleParser:
             yaml_files: A list of yaml files to search for modules in. If None, all yaml files in the directory will be searched.
 
         Returns:
+            A tuple of a dictionary mapping module id to ModuleDirectory, and a list of orphan yaml files.
 
         """
         if yaml_files is None:
@@ -147,6 +148,7 @@ class ModuleParser:
 
     @staticmethod
     def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
+        """Return the module path and resource folder for a given resource file path."""
         for parent in resource_file.parents:
             if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
                 # We know that all keys in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,
