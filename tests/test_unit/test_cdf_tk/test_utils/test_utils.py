@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.utils import (
     flatten_dict,
     iterate_modules,
     load_yaml_inject_variables,
-    module_from_path,
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
 )
@@ -149,27 +148,6 @@ def auth_variables_validate_test_cases():
         },
         id="Happy path Client credentials login",
     )
-
-
-class TestModuleFromPath:
-    @pytest.mark.parametrize(
-        "path, expected",
-        [
-            pytest.param(Path("cognite_modules/a_module/data_models/my_model.datamodel.yaml"), "a_module"),
-            pytest.param(Path("cognite_modules/another_module/data_models/views/my_view.view.yaml"), "another_module"),
-            pytest.param(
-                Path("cognite_modules/parent_module/child_module/data_models/containers/my_container.container.yaml"),
-                "child_module",
-            ),
-            pytest.param(
-                Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
-            ),
-            pytest.param(Path("custom_modules/child_module/functions/functions.yaml"), "child_module"),
-            pytest.param(Path("custom_modules/parent_module/child_module/functions/functions.yaml"), "child_module"),
-        ],
-    )
-    def test_module_from_path(self, path: Path, expected: str):
-        assert module_from_path(path) == expected
 
 
 class TestIterateModules:

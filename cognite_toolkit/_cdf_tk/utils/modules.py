@@ -1,7 +1,6 @@
 import itertools
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.constants import (
     MODULE_PATH_SEP,
@@ -49,31 +48,6 @@ def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         yield from _iterate_modules(module_dir)
 
 
-@overload
-def module_from_path(path: Path, return_resource_folder: Literal[True]) -> tuple[str, str]: ...
-
-
-@overload
-def module_from_path(path: Path, return_resource_folder: Literal[False] = False) -> str: ...
-
-
-def module_from_path(path: Path, return_resource_folder: bool = False) -> str | tuple[str, str]:
-    """Get the module name from a path"""
-    # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
-
-    if len(path.parts) == 1:
-        raise ValueError("Path is not a module")
-    last_folder = path.parts[1]
-    for part in path.parts[1:]:
-        if part in CRUDS_BY_FOLDER_NAME:
-            if return_resource_folder:
-                return last_folder, part
-            return last_folder
-        last_folder = part
-    raise ValueError("Path is not part of a module")
-
-
 def module_directory_from_path(path: Path) -> Path:
     """Get the module directory from a path"""
     # local import to avoid circular import
@@ -98,23 +72,6 @@ def resource_folder_from_path(path: Path) -> str:
         if part in CRUDS_BY_FOLDER_NAME:
             return part
     raise ValueError("Path does not contain a resource folder")
-
-
-def is_module_path(path: Path) -> bool:
-    """Check if a path is a module path"""
-    # local import to avoid circular import
-    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
-
-    if not path.is_dir():
-        return False
-
-    return any(sub_folder.name in CRUDS_BY_FOLDER_NAME for sub_folder in path.iterdir() if sub_folder.is_dir())
-
-
-def module_path_display_name(org_path: Path, module_path: Path) -> str:
-    """Returns the module directory path relative to the organization path as a posix string."""
-    rel = module_path.relative_to(org_path)
-    return rel.as_posix()
 
 
 def find_directory_with_subdirectories(

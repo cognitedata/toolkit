@@ -126,6 +126,10 @@ def test_utils_module_independent() -> None:
     allowed_prefixes = (
         "cognite_toolkit._cdf_tk.utils",
         "cognite_toolkit._cdf_tk.client",
+        "cognite_toolkit._cdf_tk.tk_warnings",
+        "cognite_toolkit._cdf_tk.constants",
+        "cognite_toolkit._cdf_tk.exceptions",
+        "cognite_toolkit._cdf_tk.cdf_toml",
     )
     package_prefix = "cognite_toolkit._cdf_tk"
 
