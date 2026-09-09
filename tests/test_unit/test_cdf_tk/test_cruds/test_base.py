@@ -410,16 +410,16 @@ class TestResourceCRUDs:
 
 
 class TestLoaders:
-    def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
+    def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in CRUD_LIST]
+            [loader_cls.create_loader(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
         for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
+            duplicates.pop(loader.create_loader(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 

@@ -82,12 +82,12 @@ conflictMode: upsert
     def test_no_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         assert loaded.destination_nonce is None
@@ -96,7 +96,7 @@ conflictMode: upsert
     def test_oidc_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
@@ -112,7 +112,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(yaml.dump(resource))
         resource_id = resource["externalId"]
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         _ = loader.load_resource(raw_list[0], is_dry_run=False)
 
         read_credentials = loader._authentication_by_id_operation[(resource_id, "read")]
@@ -176,7 +176,7 @@ authentication:
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
@@ -184,7 +184,7 @@ authentication:
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 

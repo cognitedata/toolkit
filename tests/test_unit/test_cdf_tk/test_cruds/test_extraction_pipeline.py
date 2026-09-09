@@ -110,7 +110,7 @@ class TestExtractionPipelineLoader:
         },
     )
     def test_omit_environment_variables(
-        self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+        self, env_vars_with_client_cheap: EnvironmentVariables, monkeypatch: MonkeyPatch
     ) -> None:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """
@@ -123,8 +123,8 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client.get_client())
-        res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client.dump())
+        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client_cheap.get_client())
+        res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client_cheap.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
         assert res[1]["name"] == "this-is-not-a-secret"

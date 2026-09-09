@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
@@ -105,9 +104,7 @@ class TestExternalDataSourceIO:
         dumped = loader.dump_resource(_make_response(), local)
         assert dumped == {"externalId": "fabric-lakehouse-prod"}
 
-    def test_prepare_resources_create(
-        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
-    ) -> None:
+    def test_prepare_resources_create(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = _YAML
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)

@@ -29,11 +29,11 @@ def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFil
 class TestLocationFilterLoader:
     def test_load_minimum_location_filter(
         self,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
         raw_list = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client_cheap.dump()
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert isinstance(loaded, LocationFilterRequest)
@@ -70,10 +70,10 @@ class TestLocationFilterLoader:
     @pytest.mark.parametrize("subtree_field", ["assetSubtreeIds", "assetSubtreeExternalIds"])
     def test_load_asset_subtree_aliases(
         self,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         subtree_field: str,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
         loaded = loader.load_resource(
             {
                 "externalId": "my-location",
