@@ -22,12 +22,10 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    AppVersionIO,
     Loader,
-    SignalSubscriptionIO,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -282,9 +280,7 @@ def test_complete_org_is_complete() -> None:
     )
     for module in alpha_dir_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():
-            if FeatureFlag.is_enabled(Flags.CUSTOM_APPS) or FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
-                raise AssertionError("CUSTOM_APPS and CUSTOM_APPS flags are enabled and should not be skipped below")
-            if resource_folder in (SignalSubscriptionIO.folder_name, AppVersionIO.folder_name):
+            if resource_folder not in RESOURCE_CRUD_BY_FOLDER_NAME:
                 continue
             for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
