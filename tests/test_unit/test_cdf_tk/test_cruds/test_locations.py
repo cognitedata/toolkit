@@ -52,6 +52,9 @@ class TestLocationFilterLoader:
         assert isinstance(exhaustive_filter.instance_spaces, list)
         assert exhaustive_filter.instance_spaces[0] == "instance-space-main"
 
+    def test_load_filter_write_user_data_instance_space(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert exhaustive_filter.user_data_instance_space == "user-data-space-345"
+
     def test_load_filter_write_scene(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.scene, LocationFilterScene)
         assert exhaustive_filter.scene.external_id == "scene-id-012"

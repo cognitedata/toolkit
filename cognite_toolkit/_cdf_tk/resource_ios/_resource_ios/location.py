@@ -259,6 +259,8 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
                 )
         for space in item.get("instanceSpaces", []):
             yield SpaceCRUD, SpaceId(space=space)
+        if user_data_instance_space := item.get("userDataInstanceSpace"):
+            yield SpaceCRUD, SpaceId(space=user_data_instance_space)
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield (
@@ -293,6 +295,8 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version)
         for space in resource.instance_spaces or []:
             yield SpaceCRUD, SpaceId(space=space)
+        if resource.user_data_instance_space:
+            yield SpaceCRUD, SpaceId(space=resource.user_data_instance_space)
         for data_model in resource.data_models or []:
             yield (
                 DataModelIO,

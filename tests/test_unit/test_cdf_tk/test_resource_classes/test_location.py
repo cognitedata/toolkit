@@ -49,6 +49,14 @@ def location_yaml_cases() -> Iterable:
                 "instanceSpaces": ["space-1", "space-2"],
             }
         },
+        # With user data instance space
+        {
+            "UserDataInstanceSpaceCase": {
+                "externalId": "loc-005b",
+                "name": "Location with User Data Instance Space",
+                "userDataInstanceSpace": "user-data-space",
+            }
+        },
         # With views
         {
             "ViewsCase": {
@@ -110,6 +118,7 @@ def location_yaml_cases() -> Iterable:
                 "parentExternalId": "loc-001",
                 "dataModels": [{"externalId": "model-001", "space": "test-space", "version": "1.0"}],
                 "instanceSpaces": ["space-1", "space-2"],
+                "userDataInstanceSpace": "user-data-space",
                 "scene": {"externalId": "scene-001", "space": "test-space"},
                 "views": [
                     {"externalId": "view-001", "space": "test-space", "version": "1.0", "representsEntity": "ASSET"}
