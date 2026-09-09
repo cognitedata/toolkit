@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType, UnionType
 from typing import Any, ClassVar, Literal, cast, get_args
 
-from pydantic import ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import ModelWrapValidatorHandler, ValidationInfo, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -12,7 +12,7 @@ if sys.version_info < (3, 11):
 else:
     from typing import Self
 
-from .base import BaseModelResource
+from .base import BaseModelResource, validate_as
 
 
 class Scope(BaseModelResource):
@@ -20,7 +20,7 @@ class Scope(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_scope_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_scope_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo) -> Self:
         if isinstance(data, Scope):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -34,7 +34,7 @@ class Scope(BaseModelResource):
                 f"invalid scope name '{name}'. Expected one of {humanize_collection(_SCOPE_CLASS_BY_NAME.keys(), bind_word='or')}"
             )
         cls_ = _SCOPE_CLASS_BY_NAME[name]
-        return cast(Self, cls_.model_validate(content))
+        return cast(Self, validate_as(cls_, content, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_scope_name(self, handler: SerializerFunctionWrapHandler) -> dict:
@@ -145,7 +145,7 @@ class Capability(BaseModelResource):
 
     @field_validator("scope", mode="before")
     @classmethod
-    def find_scope_cls(cls, data: Any) -> Scope:
+    def find_scope_cls(cls, data: Any, info: ValidationInfo) -> Scope:
         annotation = cls.model_fields["scope"].annotation
         if isinstance(annotation, UnionType):
             valid_types = {s._scope_name for s in get_args(annotation)}
@@ -160,11 +160,11 @@ class Capability(BaseModelResource):
                 f"invalid scope name '{name}'. Expected {humanize_collection(valid_types, bind_word='or')}"
             )
 
-        return Scope.model_validate(data)
+        return validate_as(Scope, data, info)
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_capability_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_capability_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo) -> Self:
         if cls is not Capability:
             return handler(data)
         if not isinstance(data, dict):
@@ -173,7 +173,7 @@ class Capability(BaseModelResource):
         if name not in _CAPABILITY_CLASS_BY_NAME:
             raise ValueError(f"Invalid capability name '{name}'. Expected one of {_CAPABILITY_CLASS_BY_NAME.keys()}")
         cls_ = _CAPABILITY_CLASS_BY_NAME[name]
-        return cast(Self, cls_.model_validate(content))
+        return cast(Self, validate_as(cls_, content, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_capability_name(self, handler: SerializerFunctionWrapHandler) -> dict:

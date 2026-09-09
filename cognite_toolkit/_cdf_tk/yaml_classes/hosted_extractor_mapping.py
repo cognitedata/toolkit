@@ -2,13 +2,13 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .base import BaseModelResource, ToolkitResource
+from .base import BaseModelResource, ToolkitResource, validate_as
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -27,7 +27,9 @@ class MappingInput(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_type(cls, data: "dict[str, Any] | MappingInput", handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_type(
+        cls, data: "dict[str, Any] | MappingInput", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
+    ) -> Self:
         if isinstance(data, MappingInput):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -45,7 +47,7 @@ class MappingInput(BaseModelResource):
                 f"invalid type '{type_}'. Expected one of {humanize_collection(_MAPPING_INPUT_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _MAPPING_INPUT_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:

@@ -1,4 +1,3 @@
-import copy
 import os
 import re
 import shutil
@@ -9,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar, cast
+from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
@@ -85,6 +84,10 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error, humanize_validation_error_categorized
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import (
+    validate_ignoring_unknown_fields,
+    validate_list_ignoring_unknown_fields,
+)
 
 
 @dataclass
@@ -94,8 +97,6 @@ class ValidationStep:
 
 
 SelectionSource = Literal["modules", "config", "interactive"]
-
-T_JsonContainer = TypeVar("T_JsonContainer", dict[str, Any], list[Any])
 
 
 class BuildV2Command(ToolkitCommand):
@@ -821,7 +822,7 @@ class BuildV2Command(ToolkitCommand):
             except ValidationError as errors:
                 syntax_errors, syntax_warnings = self._create_syntax_insights(errors)
                 if not syntax_errors:
-                    toolkit_resource = self._validate_ignoring_unknown_fields(crud_class.yaml_cls, parsed_yaml, errors)
+                    toolkit_resource = self._validate_ignoring_unknown_fields(crud_class.yaml_cls, parsed_yaml)
                 if toolkit_resource is not None:
                     identifier = toolkit_resource.as_id()
                 else:
@@ -862,7 +863,7 @@ class BuildV2Command(ToolkitCommand):
         except ValidationError as errors:
             syntax_errors, syntax_warnings = self._create_syntax_insights(errors)
             if not syntax_errors:
-                toolkit_resources = self._validate_list_ignoring_unknown_fields(adapter, parsed_yaml, errors)
+                toolkit_resources = self._validate_list_ignoring_unknown_fields(adapter, parsed_yaml)
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
@@ -916,57 +917,31 @@ class BuildV2Command(ToolkitCommand):
             output.append(extra_file)
         return output
 
-    @classmethod
+    @staticmethod
     def _validate_ignoring_unknown_fields(
-        cls, yaml_cls: type[ToolkitResource], parsed_yaml: dict[str, Any], error: ValidationError
+        yaml_cls: type[ToolkitResource], parsed_yaml: dict[str, Any]
     ) -> ToolkitResource | None:
-        """Re-validate a resource that only failed on warning-level findings, with unknown fields removed.
+        """Re-validate a resource that only failed on warning-level findings, ignoring unknown fields.
 
         Without this, a single unrecognized field leaves the resource unvalidated, which silently disables
         all downstream validation of it (dependencies, data modeling, agents, ...) even though the finding
         is only a warning. The unknown field is still written to the build directory as-is.
         """
         try:
-            return yaml_cls.model_validate(cls._without_unknown_fields(parsed_yaml, error), extra="ignore")
+            return validate_ignoring_unknown_fields(yaml_cls, parsed_yaml)
         except ValidationError:
-            # Not all warning-level findings can be removed, e.g. an invalid enum value.
+            # Not all warning-level findings can be ignored, e.g. an invalid enum value.
             return None
 
-    @classmethod
+    @staticmethod
     def _validate_list_ignoring_unknown_fields(
-        cls, adapter: TypeAdapter[list[ToolkitResource]], parsed_yaml: list[Any], error: ValidationError
+        adapter: TypeAdapter[list[ToolkitResource]], parsed_yaml: list[Any]
     ) -> list[ToolkitResource]:
         """List equivalent of ``_validate_ignoring_unknown_fields``."""
         try:
-            return adapter.validate_python(cls._without_unknown_fields(parsed_yaml, error), extra="ignore")
+            return validate_list_ignoring_unknown_fields(adapter, parsed_yaml)
         except ValidationError:
             return []
-
-    @staticmethod
-    def _without_unknown_fields(parsed_yaml: T_JsonContainer, error: ValidationError) -> T_JsonContainer:
-        """Returns a copy of the content with the fields reported as unknown by ``error`` removed.
-
-        Passing ``extra="ignore"`` to the validation is not enough on its own: resource classes such as
-        ``GroupYAML`` dispatch to a subclass by calling ``model_validate`` themselves, which does not carry
-        the runtime override. Removing the fields up front works regardless of how validation is nested.
-        """
-        content = copy.deepcopy(parsed_yaml)
-        for item in error.errors(include_url=False):
-            if item["type"] != "extra_forbidden":
-                continue
-            parent: Any = content
-            for key in item["loc"][:-1]:
-                if isinstance(parent, dict) and isinstance(key, str):
-                    parent = parent.get(key)
-                elif isinstance(parent, list) and isinstance(key, int) and key < len(parent):
-                    parent = parent[key]
-                else:
-                    # The location may not be navigable, for instance when it contains a union tag.
-                    parent = None
-                    break
-            if isinstance(parent, dict):
-                parent.pop(item["loc"][-1], None)
-        return content
 
     def _create_syntax_insights(
         self, error: ValidationError

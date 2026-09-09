@@ -2,13 +2,13 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .base import ToolkitResource
+from .base import ToolkitResource, validate_as
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -26,7 +26,9 @@ class SignalSinkYAML(ToolkitResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_sink_type(cls, data: "dict[str, Any] | SignalSinkYAML", handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_sink_type(
+        cls, data: "dict[str, Any] | SignalSinkYAML", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
+    ) -> Self:
         if isinstance(data, SignalSinkYAML):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -44,7 +46,7 @@ class SignalSinkYAML(ToolkitResource):
                 f"Expected one of {humanize_collection(_SINK_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _SINK_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     def as_id(self) -> SignalSinkId:
         return SignalSinkId(type=cast(Any, self.type), external_id=self.external_id)

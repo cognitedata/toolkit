@@ -1,13 +1,13 @@
 import sys
 from typing import Any, Literal, cast
 
-from pydantic import ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
 
-from .base import ToolkitResource
+from .base import ToolkitResource, validate_as
 from .capabilities import Capability
 
 if sys.version_info < (3, 11):
@@ -27,13 +27,13 @@ class GroupYAML(ToolkitResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def select_group_type(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def select_group_type(cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo) -> Self:
         if cls is not GroupYAML:
             return handler(data)
         if "sourceId" in data:
-            return cast(Self, ExternalGroupYAML.model_validate(data))
+            return cast(Self, validate_as(ExternalGroupYAML, data, info))
         elif "members" in data:
-            return cast(Self, CDFGroupYAML.model_validate(data))
+            return cast(Self, validate_as(CDFGroupYAML, data, info))
         raise ValueError("Missing required field: Either 'sourceId' or 'members'")
 
     @model_serializer(mode="wrap")
