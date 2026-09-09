@@ -12,8 +12,9 @@ from packaging.version import parse as parse_version
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
-from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read, safe_write
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
 if sys.version_info >= (3, 11):
@@ -194,13 +195,14 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        changed = set()
-        for module, source_files in iterate_modules(self._organization_dir):
-            for resource_dir in module.iterdir():
-                if resource_dir.name == "timeseries_datapoints":
-                    (module / "timeseries").mkdir(exist_ok=True)
-                    for filepath in resource_dir.rglob("*"):
-                        target = module / "timeseries" / filepath.relative_to(resource_dir)
+        changed: set[Path] = set()
+        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        for module in scan.modules:
+            for resource_type, files in module.resource_files_by_folder.items():
+                if resource_type == "timeseries_datapoints":
+                    (module.path / "timeseries").mkdir(exist_ok=True)
+                    for filepath in files:
+                        target = module.path / "timeseries" / filepath.relative_to(resource_type)
                         target.parent.mkdir(exist_ok=True, parents=True)
                         if target.exists():
                             print(f'  [bold red]ERROR ([/][red] Cannot move file [/][bold red]{filepath}[/][red] to [/][bold red]{target}[/][red]): File already exists')
@@ -364,15 +366,16 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        changed = set()
-        for module, source_files in iterate_modules(self._organization_dir):
-            for resource_dir in module.iterdir():
-                if resource_dir.name == "labels":
+        changed:  set[Path] = set()
+        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        for module in scan.modules:
+            for resource_type, files in module.resource_files_by_folder.items():
+                if resource_type == "labels":
                     (module / "classic").mkdir(exist_ok=True)
-                    for files in resource_dir.rglob("*"):
-                        target = module / "classic" / files.relative_to(resource_dir)
+                    for file in files:
+                        target = module.path / "classic" / file.relative_to(module.path / resource_type)
                         target.parent.mkdir(exist_ok=True, parents=True)
-                        files.rename(target)
+                        file.rename(target)
                         changed.add(target)
         return changed
 
