@@ -15,7 +15,9 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -164,10 +166,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize(
         "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(
-        self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
-    ):
-        loader = Loader.create_loader(env_vars_with_client.get_client())
+    def test_loader_has_doc_url(self, Loader: type[Loader]):
+        mock_client = MagicMock(spec=ToolkitClient)
+        mock_client.console = MagicMock(spec=Console)
+        loader = Loader.create_loader(mock_client)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
 
 
