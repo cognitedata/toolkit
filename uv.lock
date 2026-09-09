@@ -413,7 +413,6 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "pytest-freezegun" },
     { name = "pytest-icdiff" },
     { name = "pytest-json-report" },
     { name = "pytest-regressions" },
@@ -464,7 +463,6 @@ dev = [
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
-    { name = "pytest-freezegun", specifier = ">=0.4.2" },
     { name = "pytest-icdiff" },
     { name = "pytest-json-report", specifier = ">=1.5.0" },
     { name = "pytest-regressions", specifier = ">=2.4.2" },
@@ -903,18 +901,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b5/fe/997687a931ab51049acce6fa1f23e8f01216374ea81374ddee763c493db5/filelock-3.29.0.tar.gz", hash = "sha256:69974355e960702e789734cb4871f884ea6fe50bd8404051a3530bc07809cf90", size = 57571, upload-time = "2026-04-19T15:39:10.068Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/47/dd9a212ef6e343a6857485ffe25bba537304f1913bdbed446a23f7f592e1/filelock-3.29.0-py3-none-any.whl", hash = "sha256:96f5f6344709aa1572bbf631c640e4ebeeb519e08da902c39a001882f30ac258", size = 39812, upload-time = "2026-04-19T15:39:08.752Z" },
-]
-
-[[package]]
-name = "freezegun"
-version = "1.5.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dateutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/95/dd/23e2f4e357f8fd3bdff613c1fe4466d21bfb00a6177f238079b17f7b1c84/freezegun-1.5.5.tar.gz", hash = "sha256:ac7742a6cc6c25a2c35e9292dfd554b897b517d2dec26891a2e8debf205cb94a", size = 35914, upload-time = "2025-08-09T10:39:08.338Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/2e/b41d8a1a917d6581fc27a35d05561037b048e47df50f27f8ac9c7e27a710/freezegun-1.5.5-py3-none-any.whl", hash = "sha256:cd557f4a75cf074e84bc374249b9dd491eaeacd61376b9eb3c423282211619d2", size = 19266, upload-time = "2025-08-09T10:39:06.636Z" },
 ]
 
 [[package]]
@@ -1970,19 +1956,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b4/46/db060b291999ca048edd06d6fa9ee95945d088edc38b1172c59eeb46ec45/pytest_datadir-1.8.0.tar.gz", hash = "sha256:7a15faed76cebe87cc91941dd1920a9a38eba56a09c11e9ddf1434d28a0f78eb", size = 11848, upload-time = "2025-07-30T13:52:12.518Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/7a/33895863aec26ac3bb5068a73583f935680d6ab6af2a9567d409430c3ee1/pytest_datadir-1.8.0-py3-none-any.whl", hash = "sha256:5c677bc097d907ac71ca418109adc3abe34cf0bddfe6cf78aecfbabd96a15cf0", size = 6512, upload-time = "2025-07-30T13:52:11.525Z" },
-]
-
-[[package]]
-name = "pytest-freezegun"
-version = "0.4.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "freezegun" },
-    { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/e3/c39d7c3d3afef5652f19323f3483267d7e6b0d9911c3867e10d6e2d3c9ae/pytest-freezegun-0.4.2.zip", hash = "sha256:19c82d5633751bf3ec92caa481fb5cffaac1787bd485f0df6436fd6242176949", size = 9059, upload-time = "2020-07-19T17:50:03.678Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/09/0bdd7d24b9d21453ad3364ae1efbd65082045bb6081b5fd5eade91a9b644/pytest_freezegun-0.4.2-py2.py3-none-any.whl", hash = "sha256:5318a6bfb8ba4b709c8471c94d0033113877b3ee02da5bfcd917c1889cde99a7", size = 4590, upload-time = "2020-07-19T17:50:02.191Z" },
 ]
 
 [[package]]
