@@ -17,7 +17,7 @@ data-products = true
 entity-matching = false
 custom-apps = true
 external-data-sources = true
-signals = true
+signals = false
 
 [plugins]
 run = true

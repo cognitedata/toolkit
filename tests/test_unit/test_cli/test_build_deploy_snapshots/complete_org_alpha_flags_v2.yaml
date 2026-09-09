@@ -339,40 +339,6 @@ RuleSetVersionResponse:
 
     '
   version: 1.0.0
-SignalSinkResponse:
-- externalId: sink-user-type
-  type: user
-- emailAddress: known-user@example.com
-  externalId: sink-with-known-email
-  type: email
-- emailAddress: nobody@nonexistent.invalid
-  externalId: sink-with-unknown-email
-  type: email
-SignalSubscriptionResponse:
-- externalId: hosted-extractors-sub
-  filter:
-    destinationExternalId: my-dest
-    severity: info
-    sourceExternalId: my-source
-    topic: cognite_hosted_extractors
-  sink:
-    type: current_user
-- externalId: integrations-sub
-  filter:
-    extractorExternalId: my-extractor
-    resource: my-integration
-    severity: warning
-    topic: cognite_integrations
-  sink:
-    externalId: my-email-sink
-    type: email
-- externalId: workflows-sub
-  filter:
-    severity: error
-    topic: cognite_workflows
-  sink:
-    externalId: my-user-sink
-    type: user
 SimulatorModelResponse:
 - dataSetId: 7982613576047462211
   description: This is an example simulator model for demonstration purposes.
