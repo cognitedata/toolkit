@@ -413,6 +413,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-durations" },
     { name = "pytest-icdiff" },
     { name = "pytest-json-report" },
     { name = "pytest-regressions" },
@@ -463,6 +464,7 @@ dev = [
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-durations", specifier = ">=1.9.0" },
     { name = "pytest-icdiff" },
     { name = "pytest-json-report", specifier = ">=1.5.0" },
     { name = "pytest-regressions", specifier = ">=2.4.2" },
@@ -1956,6 +1958,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b4/46/db060b291999ca048edd06d6fa9ee95945d088edc38b1172c59eeb46ec45/pytest_datadir-1.8.0.tar.gz", hash = "sha256:7a15faed76cebe87cc91941dd1920a9a38eba56a09c11e9ddf1434d28a0f78eb", size = 11848, upload-time = "2025-07-30T13:52:12.518Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/7a/33895863aec26ac3bb5068a73583f935680d6ab6af2a9567d409430c3ee1/pytest_datadir-1.8.0-py3-none-any.whl", hash = "sha256:5c677bc097d907ac71ca418109adc3abe34cf0bddfe6cf78aecfbabd96a15cf0", size = 6512, upload-time = "2025-07-30T13:52:11.525Z" },
+]
+
+[[package]]
+name = "pytest-durations"
+version = "1.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/7c/e8c05c44a0322f1580a2fca4de67fa521b6eae02746331fd33bd4f95ed41/pytest_durations-1.9.0.tar.gz", hash = "sha256:248ac89d9f926fc119508f20ce54c14a0622dbe496d128e18548db948edcdf93", size = 18251, upload-time = "2026-08-14T07:27:48.183Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/de/393d09e6038aaf96a17e14a01aca469e0395367a79b6608734c34be4ffc2/pytest_durations-1.9.0-py3-none-any.whl", hash = "sha256:9ec7c373635abf9747ab84872dd11795e05e7aa0e050e68c01166fc5b9afa0d1", size = 19425, upload-time = "2026-08-14T07:27:46.728Z" },
 ]
 
 [[package]]
