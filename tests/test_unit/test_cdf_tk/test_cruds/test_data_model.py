@@ -137,9 +137,7 @@ type GeneratingUnit {
         assert created[0].external_id == "GeneratingUnitModel"
         assert created[1].external_id == "WindTurbineModel"
 
-    def test_raise_cycle_error(
-        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
+    def test_raise_cycle_error(self, env_vars_with_client: EnvironmentVariables) -> None:
         loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(

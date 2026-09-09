@@ -128,10 +128,7 @@ conflictMode: upsert
         filepath.parent = Path("path")
         return filepath
 
-    def test_auth_unchanged_changed(
-        self,
-        toolkit_client_approval: ApprovalToolkitClient,
-    ) -> None:
+    def test_auth_unchanged_changed(self) -> None:
         local_content = """name: my-transformation
 externalId: my_transformation
 ignoreNullFields: true

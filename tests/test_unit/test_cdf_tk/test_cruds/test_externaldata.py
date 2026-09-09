@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
@@ -83,16 +84,14 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO(MagicMock(), None, None)
         assert list(loader.sensitive_strings(item)) == ["secret"]
 
-    def test_dump_resource_without_local_omits_client_secret(
-        self, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+    def test_dump_resource_without_local_omits_client_secret(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
         dumped = loader.dump_resource(_make_response())
         credentials = dumped.get("settings", {}).get("credentials", {})
         assert "clientSecret" not in credentials
 
-    def test_dump_resource_with_local_returns_identifier(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+    def test_dump_resource_with_local_returns_identifier(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
         local = {
             "externalId": "fabric-lakehouse-prod",
             "settings": {
@@ -230,12 +229,12 @@ class TestExternalDataSourceIO:
             client.tool.transformations.external_data_sources.list.return_value = [response]
             assert list(loader._iterate()) == [response]
 
-    def test_iterate_with_space_returns_nothing(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+    def test_iterate_with_space_returns_nothing(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
         assert list(loader._iterate(space="sp")) == []
 
-    def test_iterate_with_parent_ids_returns_nothing(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+    def test_iterate_with_parent_ids_returns_nothing(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
         assert list(loader._iterate(parent_ids=[ExternalId(external_id="parent")])) == []
 
     def test_iterate_filters_by_dataset(self) -> None:
