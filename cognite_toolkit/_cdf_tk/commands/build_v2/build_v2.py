@@ -664,7 +664,7 @@ class BuildV2Command(ToolkitCommand):
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if user_selected_modules:
-            selected, errors = cls._parse_user_selection(user_selected_modules, organization_dir)
+            selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
@@ -678,7 +678,7 @@ class BuildV2Command(ToolkitCommand):
                     f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not user_selected_modules and config.environment.selected:
-                selected, errors = cls._parse_user_selection(config.environment.selected, organization_dir)
+                selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                 if errors:
                     raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
             variables = config.variables or {}
@@ -699,7 +699,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _parse_user_selection(
+    def parse_user_selection(
         cls, user_selected_modules: list[str], organization_dir: Path
     ) -> tuple[set[RelativeDirPath | str], list[str]]:
         selected: set[RelativeDirPath | str] = set()
