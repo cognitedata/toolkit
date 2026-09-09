@@ -1,3 +1,4 @@
+import copy
 import os
 import re
 import shutil
@@ -8,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal, TypeVar, cast
 
 import questionary
 import yaml
@@ -93,6 +94,8 @@ class ValidationStep:
 
 
 SelectionSource = Literal["modules", "config", "interactive"]
+
+T_JsonContainer = TypeVar("T_JsonContainer", dict[str, Any], list[Any])
 
 
 class BuildV2Command(ToolkitCommand):
@@ -683,19 +686,19 @@ class BuildV2Command(ToolkitCommand):
                         resources=built_resources,
                         insights=insights,
                         syntax_errors_by_source={
-                            file.source_path: file.syntax_error
+                            file.source_path: file.syntax_errors
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_error is not None
+                            and file.syntax_errors
                             # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
                             # almost certainly caused by that and is already reported as its own insight.
                             and not file.unresolved_variables
                         },
                         syntax_warnings_by_source={
-                            file.source_path: file.syntax_warning
+                            file.source_path: file.syntax_warnings
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_warning is not None
+                            and file.syntax_warnings
                             and not file.unresolved_variables
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
@@ -810,30 +813,37 @@ class BuildV2Command(ToolkitCommand):
 
         if isinstance(parsed_yaml, dict):
             toolkit_resource: ToolkitResource | None = None
-            syntax_error: ModelSyntaxError | None = None
-            syntax_warning: ModelSyntaxWarning | None = None
+            syntax_errors: list[ModelSyntaxError] = []
+            syntax_warnings: list[ModelSyntaxWarning] = []
             try:
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
             except ValidationError as errors:
-                syntax_error, syntax_warning = self._create_syntax_warning(errors)
-                try:
-                    identifier = crud_class.get_id(parsed_yaml)
-                except KeyError:
-                    return SuccessfulReadYAMLFile(
-                        syntax_error=syntax_error,
-                        syntax_warning=syntax_warning,
-                        resources=[],
-                        **args,
+                syntax_errors, syntax_warnings = self._create_syntax_insights(errors)
+                if not syntax_errors:
+                    toolkit_resource = self._validate_ignoring_unknown_fields(
+                        crud_class.yaml_cls, parsed_yaml, errors
                     )
+                if toolkit_resource is not None:
+                    identifier = toolkit_resource.as_id()
+                else:
+                    try:
+                        identifier = crud_class.get_id(parsed_yaml)
+                    except KeyError:
+                        return SuccessfulReadYAMLFile(
+                            syntax_errors=syntax_errors,
+                            syntax_warnings=syntax_warnings,
+                            resources=[],
+                            **args,
+                        )
 
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
             )
 
             return SuccessfulReadYAMLFile(
-                syntax_error=syntax_error,
-                syntax_warning=syntax_warning,
+                syntax_errors=syntax_errors,
+                syntax_warnings=syntax_warnings,
                 resources=[
                     ReadResource(
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
@@ -847,12 +857,14 @@ class BuildV2Command(ToolkitCommand):
         # and thus not available to te static type checker.
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
-        syntax_error = None
-        syntax_warning = None
+        syntax_errors = []
+        syntax_warnings = []
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors)
+            syntax_errors, syntax_warnings = self._create_syntax_insights(errors)
+            if not syntax_errors:
+                toolkit_resources = self._validate_list_ignoring_unknown_fields(adapter, parsed_yaml, errors)
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
@@ -874,8 +886,8 @@ class BuildV2Command(ToolkitCommand):
                 )
             )
         return SuccessfulReadYAMLFile(
-            syntax_error=syntax_error,
-            syntax_warning=syntax_warning,
+            syntax_errors=syntax_errors,
+            syntax_warnings=syntax_warnings,
             resources=read_resources,
             **args,
             unresolved_variables=unresolved_variables,
@@ -906,31 +918,85 @@ class BuildV2Command(ToolkitCommand):
             output.append(extra_file)
         return output
 
-    def _create_syntax_warning(
+    @classmethod
+    def _validate_ignoring_unknown_fields(
+        cls, yaml_cls: type[ToolkitResource], parsed_yaml: dict[str, Any], error: ValidationError
+    ) -> ToolkitResource | None:
+        """Re-validate a resource that only failed on warning-level findings, with unknown fields removed.
+
+        Without this, a single unrecognized field leaves the resource unvalidated, which silently disables
+        all downstream validation of it (dependencies, data modeling, agents, ...) even though the finding
+        is only a warning. The unknown field is still written to the build directory as-is.
+        """
+        try:
+            return yaml_cls.model_validate(cls._without_unknown_fields(parsed_yaml, error), extra="ignore")
+        except ValidationError:
+            # Not all warning-level findings can be removed, e.g. an invalid enum value.
+            return None
+
+    @classmethod
+    def _validate_list_ignoring_unknown_fields(
+        cls, adapter: TypeAdapter[list[ToolkitResource]], parsed_yaml: list[Any], error: ValidationError
+    ) -> list[ToolkitResource]:
+        """List equivalent of ``_validate_ignoring_unknown_fields``."""
+        try:
+            return adapter.validate_python(cls._without_unknown_fields(parsed_yaml, error), extra="ignore")
+        except ValidationError:
+            return []
+
+    @staticmethod
+    def _without_unknown_fields(parsed_yaml: T_JsonContainer, error: ValidationError) -> T_JsonContainer:
+        """Returns a copy of the content with the fields reported as unknown by ``error`` removed.
+
+        Passing ``extra="ignore"`` to the validation is not enough on its own: resource classes such as
+        ``GroupYAML`` dispatch to a subclass by calling ``model_validate`` themselves, which does not carry
+        the runtime override. Removing the fields up front works regardless of how validation is nested.
+        """
+        content = copy.deepcopy(parsed_yaml)
+        for item in error.errors(include_url=False):
+            if item["type"] != "extra_forbidden":
+                continue
+            parent: Any = content
+            for key in item["loc"][:-1]:
+                if isinstance(parent, dict) and isinstance(key, str):
+                    parent = parent.get(key)
+                elif isinstance(parent, list) and isinstance(key, int) and key < len(parent):
+                    parent = parent[key]
+                else:
+                    # The location may not be navigable, for instance when it contains a union tag.
+                    parent = None
+                    break
+            if isinstance(parent, dict):
+                parent.pop(item["loc"][-1], None)
+        return content
+
+    def _create_syntax_insights(
         self, error: ValidationError
-    ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
+    ) -> tuple[list[ModelSyntaxError], list[ModelSyntaxWarning]]:
+        """Creates one insight per finding, so that unrelated findings in the same file stay countable
+        and individually displayable."""
         categorized_errors = humanize_validation_error_categorized(error) or [
             ("The YAML doesn't follow the required format.", "error")
         ]
-        warning_messages = [message for message, category in categorized_errors if category == "warning"]
-        error_messages = [message for message, category in categorized_errors if category == "error"]
-
-        syntax_error = None
-        if error_messages:
-            syntax_error = ModelSyntaxError(
+        syntax_errors = [
+            ModelSyntaxError(
                 code="MODEL-SYNTAX-ERROR",
-                message="\n".join(error_messages),
+                message=message,
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
             )
-
-        syntax_warning = None
-        if warning_messages:
-            syntax_warning = ModelSyntaxWarning(
+            for message, category in categorized_errors
+            if category == "error"
+        ]
+        syntax_warnings = [
+            ModelSyntaxWarning(
                 code="MODEL-SYNTAX-WARNING",
-                message="\n".join(warning_messages),
+                message=message,
                 fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
             )
-        return syntax_error, syntax_warning
+            for message, category in categorized_errors
+            if category == "warning"
+        ]
+        return syntax_errors, syntax_warnings
 
     def _export_resources(
         self,

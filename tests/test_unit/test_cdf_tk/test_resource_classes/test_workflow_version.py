@@ -27,11 +27,7 @@ def enable_data_products(monkeypatch: pytest.MonkeyPatch) -> None:
 def invalid_workflow_version_test_cases() -> Iterable:
     yield pytest.param(
         {},
-        {
-            "Missing required field: 'workflowExternalId'",
-            "Missing required field: 'version'",
-            "Missing required field: 'workflowDefinition'",
-        },
+        {"Missing required fields: 'version', 'workflowDefinition' and 'workflowExternalId'"},
         id="Missing all required top-level fields",
     )
     yield pytest.param(

@@ -151,7 +151,7 @@ def invalid_transformation_test_cases() -> Iterable:
                 "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
             },
         },
-        {"Unknown field: 'authentication.read'", "Unknown field: 'authentication.write'"},
+        {"Unknown fields: 'authentication.read' and 'authentication.write'"},
         id="Invalid authentication - base on real use case",
     )
     yield pytest.param(
@@ -194,7 +194,7 @@ def invalid_transformation_test_cases() -> Iterable:
         },
         {
             "Missing required fields in authentication: 'clientId' and 'clientSecret'",
-            "Unrecognized field in authentication: 'invalid_key'. ",
+            "Unrecognized field in authentication: 'invalid_key'.",
         },
         id="Invalid authentication type",
     )

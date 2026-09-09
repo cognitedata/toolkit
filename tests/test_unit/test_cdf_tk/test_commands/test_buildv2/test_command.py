@@ -608,7 +608,7 @@ def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) 
         "outcome": "success",
         "code": None,
         "resource_count": len(result.resources),
-        "has_syntax_warning": result.syntax_warning is not None,
+        "has_syntax_warning": bool(result.syntax_warnings),
     }
 
 
@@ -708,8 +708,21 @@ class TestReadResourceFile:
         result = cmd._read_resource_file(resource_file, crud_class, [])
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
-        assert has_syntax_error == (result.syntax_error is not None)
-        assert has_syntax_warning == (result.syntax_warning is not None)
+        assert has_syntax_error == bool(result.syntax_errors)
+        assert has_syntax_warning == bool(result.syntax_warnings)
+
+    def test_read_resource_file_creates_one_insight_per_finding(self, tmp_path: Path) -> None:
+        """Findings must stay separate insights instead of being concatenated into one message."""
+        resource_file = tmp_path / "resource.Space.yaml"
+        resource_file.write_text('space: ""\nextra_one: value\nextra_two: value\n')
+
+        result = BuildV2Command()._read_resource_file(resource_file, SpaceCRUD, [])
+
+        assert isinstance(result, SuccessfulReadYAMLFile)
+        assert [error.message for error in result.syntax_errors] == [
+            "Invalid value for space: String should have at least 1 character"
+        ]
+        assert [warning.message for warning in result.syntax_warnings] == ["Unknown fields: 'extra_one' and 'extra_two'"]
 
 
 class TestFindUnresolvedVariables:

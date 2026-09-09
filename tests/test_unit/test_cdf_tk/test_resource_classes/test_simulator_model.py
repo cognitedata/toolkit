@@ -12,12 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_simulator_model_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Model 1"},
-        {
-            "Missing required field: 'externalId'",
-            "Missing required field: 'simulatorExternalId'",
-            "Missing required field: 'dataSetExternalId'",
-            "Missing required field: 'type'",
-        },
+        {"Missing required fields: 'dataSetExternalId', 'externalId', 'simulatorExternalId' and 'type'"},
         id="Missing required fields",
     )
     yield pytest.param(

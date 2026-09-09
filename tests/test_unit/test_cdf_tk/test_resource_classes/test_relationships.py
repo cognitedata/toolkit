@@ -13,18 +13,12 @@ from tests.test_unit.utils import find_resources
 def invalid_relationship_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "myRelationship", "targetExternalId": "target", "sourceExternalId": "source"},
-        {"Missing required field: 'sourceType'", "Missing required field: 'targetType'"},
+        {"Missing required fields: 'sourceType' and 'targetType'"},
         id="Missing required fields",
     )
     yield pytest.param(
         {"externalId": "equipment:pump", "dataSetId": 123},
-        {
-            "Missing required field: 'sourceExternalId'",
-            "Missing required field: 'sourceType'",
-            "Missing required field: 'targetExternalId'",
-            "Missing required field: 'targetType'",
-            "Unknown field: 'dataSetId'",
-        },
+        {"Missing required fields: 'sourceExternalId', 'sourceType', 'targetExternalId' and 'targetType'", "Unknown field: 'dataSetId'"},
         id="Unknown field: dataSetId and missing name",
     )
 

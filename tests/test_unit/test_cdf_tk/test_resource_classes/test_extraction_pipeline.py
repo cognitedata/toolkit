@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_extraction_pipeline_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "myPipeline"},
-        {"Missing required field: 'name'", "Missing required field: 'dataSetExternalId'"},
+        {"Missing required fields: 'dataSetExternalId' and 'name'"},
         id="Missing required fields",
     )
     # Missing externalId

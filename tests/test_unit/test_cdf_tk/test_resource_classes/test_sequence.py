@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_sequence_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Sequence 1"},
-        {"Missing required field: 'externalId'", "Missing required field: 'columns'"},
+        {"Missing required fields: 'columns' and 'externalId'"},
         id="missing-required-fields",
     )
     yield pytest.param(
@@ -138,7 +138,7 @@ class TestSequenceYAML:
 def invalid_sequence_row_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "seq_row_1"},
-        {"Missing required field: 'columns'", "Missing required field: 'rows'"},
+        {"Missing required fields: 'columns' and 'rows'"},
         id="missing-required-fields",
     )
     yield pytest.param(

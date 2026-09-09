@@ -18,11 +18,7 @@ def invalid_test_cases() -> Iterable:
             "name": "toolkit-demo-skill",
             "description": "Skill without external id",
         },
-        [
-            "Missing required field: 'externalId'",
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
-        ],
+        ["Missing required field: 'externalId'", "Unknown fields: 'description' and 'name'"],
         id="missing-external-id",
     )
     yield pytest.param(
@@ -32,11 +28,7 @@ def invalid_test_cases() -> Iterable:
             "description": "Skill with invalid name pattern",
             "content": "not markdown frontmatter format",
         },
-        [
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
-            "Invalid value for content: String should match pattern",
-        ],
+        ["Unknown fields: 'description' and 'name'", "Invalid value for content: String should match pattern"],
         id="schema-allows-content-but-rejects-invalid-markdown-format",
     )
     yield pytest.param(
@@ -45,11 +37,7 @@ def invalid_test_cases() -> Iterable:
             "name": "",
             "description": "",
         },
-        [
-            "Invalid value for externalId: String should have at least 1 character",
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
-        ],
+        ["Invalid value for externalId: String should have at least 1 character", "Unknown fields: 'description' and 'name'"],
         id="empty-strings",
     )
 

@@ -54,7 +54,11 @@ from cognite_toolkit._cdf_tk.commands import (
     DumpResourceCommand,
     PullV2Command,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildParameters,
+    ConsistencyError,
+    ModelSyntaxWarning,
+)
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -1059,3 +1063,51 @@ capabilities:
     assert isinstance(insight, ConsistencyError)
     assert insight.message == "Unknown reference to spaces with id 'my_non_existent_space'"
     assert insight.source_file == "modules/my_module/auth/scoped_group.Group.yaml"
+
+
+def test_unknown_field_does_not_hide_missing_dependency(
+    default_config_dev_yaml: str,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    tmp_path: Path,
+) -> None:
+    """An unrecognized field is only a warning, so it must not disable the dependency validation
+    of the rest of the resource."""
+    group_yaml = """name: scoped_group
+sourceId: '1234567890123456789'
+sourceIdd: '1234567890123456789'
+metadata:
+  origin: cognite-toolkit
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - my_non_existent_space
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "scoped_group.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+
+    (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=my_org,
+            build_dir=tmp_path / "build",
+            config_yaml=my_org / "config.dev.yaml",
+        ),
+    )
+    syntax_warnings = [insight for insight in folder.all_insights if isinstance(insight, ModelSyntaxWarning)]
+    assert len(syntax_warnings) == 1
+    assert syntax_warnings[0].message == "Unknown field: 'sourceIdd'"
+
+    dependency_insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
+    assert len(dependency_insights) == 1
+    assert isinstance(dependency_insights[0], ConsistencyError)
+    assert dependency_insights[0].message == "Unknown reference to spaces with id 'my_non_existent_space'"
