@@ -93,7 +93,7 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definitions = library_definition.get("packages", {})
 
         scan_result, _ = BuildV2Command.read_filesystem_and_find_modules(
-            root_module_dir.parent,
+            root_module_dir.parent if (root_module_dir.parent / MODULES).exists() else root_module_dir,
             user_selected_modules=[f"{MODULES}/"],
         )
         module_by_relative_path: dict[Path, ModuleDirectory] = {}

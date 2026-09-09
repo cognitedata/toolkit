@@ -110,7 +110,7 @@ class TestModulesCommand:
     def test_config_external_modules(self, tmp_path: Path) -> None:
         target_path = tmp_path / "repo_root"
 
-        selected_packages = Packages.load(EXTERNAL_PACKAGE / MODULES)
+        selected_packages = Packages.load(EXTERNAL_PACKAGE)
         selected_packages_location = EXTERNAL_PACKAGE
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
