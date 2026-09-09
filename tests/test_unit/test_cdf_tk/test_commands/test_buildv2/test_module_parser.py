@@ -270,7 +270,7 @@ class TestGetModulePathFromResourceFilePath:
         expected_module_path: Path | None,
         expected_resource_folder: str | None,
     ) -> None:
-        module_path, resource_folder = ModuleParser._get_module_path_from_resource_file_path(resource_file)
+        module_path, resource_folder = ModuleParser.get_module_path_from_resource_file_path(resource_file)
         assert module_path == expected_module_path
         assert resource_folder == expected_resource_folder
 

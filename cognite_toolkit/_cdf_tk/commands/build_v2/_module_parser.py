@@ -114,7 +114,7 @@ class ModuleParser:
         for yaml_file in search_files:
             if yaml_file.name in EXCL_FILES:
                 continue
-            relative_module_path, resource_folder = cls._get_module_path_from_resource_file_path(yaml_file)
+            relative_module_path, resource_folder = cls.get_module_path_from_resource_file_path(yaml_file)
             if relative_module_path and resource_folder:
                 if cls._is_in_code_bundle_subdirectory(yaml_file, resource_folder):
                     continue
@@ -146,7 +146,7 @@ class ModuleParser:
         return False
 
     @staticmethod
-    def _get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
+    def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path, ResourceTypes] | tuple[None, None]:
         for parent in resource_file.parents:
             if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
                 # We know that all keys in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,
