@@ -6,6 +6,7 @@ import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -128,7 +129,7 @@ conflictMode: upsert
         filepath.parent = Path("path")
         return filepath
 
-    def test_auth_unchanged_changed(self) -> None:
+    def test_auth_unchanged_changed(self, toolkit_client_cheap: ToolkitClient) -> None:
         local_content = """name: my-transformation
 externalId: my_transformation
 ignoreNullFields: true
@@ -160,8 +161,7 @@ authentication:
             has_source_oidc_credentials=False,
             has_destination_oidc_credentials=False,
         )
-        with monkeypatch_toolkit_client() as client:
-            loader = TransformationIO(client, None, None)
+        loader = TransformationIO(toolkit_client_cheap, None, None)
 
         filepath = self._create_mock_file(local_content)
         local_dumped = loader.load_resource_file(filepath, {})[0]

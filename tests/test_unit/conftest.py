@@ -48,6 +48,11 @@ TMP_FOLDER.mkdir(exist_ok=True)
 
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
+    """Fixture that provides an ApprovalToolkitClient with a mocked ToolkitClient.
+
+    CAVEAT: This is an expensive fixture to initialize, so it should only be used in tests
+    that requires API calls. If you don't need to make any API calls, use the `toolkit_client_cheap` fixture instead.
+    """
     with monkeypatch_toolkit_client() as toolkit_client:
 
         def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
