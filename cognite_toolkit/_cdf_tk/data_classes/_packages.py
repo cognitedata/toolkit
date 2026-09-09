@@ -99,7 +99,9 @@ class Packages(dict, MutableMapping[str, Package]):
         module_by_relative_path: dict[Path, ModuleDirectory] = {}
         for module in scan_result.modules:
             if not module.path.is_relative_to(root_module_dir):
-                continue
+                raise ValueError(
+                    f"Bug in Toolkit: module {module.name} is not in the root module directory {root_module_dir}"
+                )
             relative_path = module.path.relative_to(root_module_dir)
             # The id in ModuleDirectory is relative to the organization directory,
             # while packages expect it to be relative to the module directory inside the
