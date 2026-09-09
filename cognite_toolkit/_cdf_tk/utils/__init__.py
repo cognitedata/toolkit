@@ -20,9 +20,6 @@ from .hashing import (
     calculate_hash,
     calculate_secure_hash,
 )
-from .modules import (
-    find_directory_with_subdirectories,
-)
 from .pip_validator import PipValidationResult, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
 
@@ -35,7 +32,6 @@ __all__ = [
     "calculate_hash",
     "calculate_secure_hash",
     "detect_coding_agent",
-    "find_directory_with_subdirectories",
     "flatten_dict",
     "get_cicd_environment",
     "get_invocation_info",
