@@ -108,9 +108,8 @@ def toolkit_client_with_lookup() -> ToolkitClient:
     return mock_client
 
 
-@pytest.fixture(scope="function")
-def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
-    env_vars = EnvironmentVariables(
+def _create_env_vars() -> EnvironmentVariables:
+    return EnvironmentVariables(
         CDF_CLUSTER="bluefield",
         CDF_PROJECT=CDF_PROJECT,
         LOGIN_FLOW="client_credentials",
@@ -119,7 +118,19 @@ def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> Envi
         IDP_CLIENT_SECRET="dummy-secret",
         IDP_TENANT_ID="dummy-domain",
     )
+
+
+@pytest.fixture(scope="function")
+def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
+    env_vars = _create_env_vars()
     env_vars._client = toolkit_client_approval.mock_client
+    return env_vars
+
+
+@pytest.fixture(scope="session")
+def env_vars_with_client_cheap(toolkit_client_cheap: ToolkitClient) -> EnvironmentVariables:
+    env_vars = _create_env_vars()
+    env_vars._client = toolkit_client_cheap
     return env_vars
 
 
