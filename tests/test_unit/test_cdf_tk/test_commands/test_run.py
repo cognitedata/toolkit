@@ -104,12 +104,12 @@ class TestRunFunction:
         },
     )
     def test_run_local_function(
-        self, env_vars_with_client: EnvironmentVariables, mock_function_venv: MagicMock
+        self, env_vars_with_client_cheap: EnvironmentVariables, mock_function_venv: MagicMock
     ) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            env_vars=env_vars_with_client,
+            env_vars=env_vars_with_client_cheap,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -129,12 +129,12 @@ class TestRunFunction:
         },
     )
     def test_run_local_function_with_workflow(
-        self, env_vars_with_client: EnvironmentVariables, mock_function_venv: MagicMock
+        self, env_vars_with_client_cheap: EnvironmentVariables, mock_function_venv: MagicMock
     ) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            env_vars=env_vars_with_client,
+            env_vars=env_vars_with_client_cheap,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",

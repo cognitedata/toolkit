@@ -77,7 +77,7 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: uv run pytest tests/test_unit -n auto --durations=20
+        run: uv run pytest tests/test_unit -n auto --dist=worksteal
   coverage:
     name: Create coverage report
     runs-on: ubuntu-latest
@@ -99,7 +99,7 @@ jobs:
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: uv run pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n auto --durations=20
+        run: uv run pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n auto --dist=worksteal
       - name: Push coverage report to PR
         uses: orgoro/coverage@71cf993a407154ad9d8dd027c88a374b0ed002a9 # v3.3
         with:

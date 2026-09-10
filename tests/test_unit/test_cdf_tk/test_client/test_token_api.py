@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes.capabilities import (
@@ -17,6 +18,8 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import ProjectSpec, TokenInspection
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.token import TokenAPI
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 
 
@@ -162,17 +165,17 @@ class TestTokenAPI:
         actions: list[Capability.Action],
         expected_scope: list[Capability.Scope] | None,
     ):
-        with monkeypatch_toolkit_client() as client:
-            client.iam.token.inspect.return_value = TokenInspection(
-                subject="test_subject",
-                projects=[ProjectSpec("https://example.com", groups=[123])],
-                capabilities=ProjectCapabilityList(
-                    [ProjectCapability(cap, ProjectsScope(["my_project"])) for cap in existing_capabilities]
-                ),
-            )
-
-            actual_scope = client.token.get_scope(actions)
-            assert actual_scope == expected_scope
+        token_inspection = TokenInspection(
+            subject="test_subject",
+            projects=[ProjectSpec("https://example.com", groups=[123])],
+            capabilities=ProjectCapabilityList(
+                [ProjectCapability(cap, ProjectsScope(["my_project"])) for cap in existing_capabilities]
+            ),
+        )
+        token = TokenAPI(MagicMock(spec=ToolkitClient))
+        token.token = token_inspection
+        actual_scope = token.get_scope(actions)
+        assert actual_scope == expected_scope
 
     @pytest.mark.parametrize(
         "actions, error_message",
