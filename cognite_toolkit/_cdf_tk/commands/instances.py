@@ -1,10 +1,10 @@
+import builtins
 from typing import Any
 
 from pydantic import JsonValue
 from rich.json import JSON
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceResponse
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -12,16 +12,16 @@ from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 
-class InstancesCommand(ToolkitCommand):
+class InstancesAPICommand(ToolkitCommand):
     """Commands for working with data modeling instances."""
 
     def list(
         self,
         client: ToolkitClient,
-        view: str | None = None,
+        view: str,
         filter: str | None = None,
         limit: int = 25,
-    ) -> list[InstanceResponse]:
+    ) -> builtins.list[InstanceResponse]:
         """List instances using the instances search endpoint.
 
         Args:
@@ -34,21 +34,15 @@ class InstancesCommand(ToolkitCommand):
         Returns:
             Matching instances from CDF.
         """
-        view_id = self._parse_view(view)
+        view_id = parse_view_str(view)
         parsed_filter = self._parse_filter(filter)
         instances = client.tool.instances.search(
-            view=view_id or ViewId(space="cdf_sdm", external_id="CogniteDescribable", version="v1"),
+            view=view_id,
             filter=parsed_filter,
             limit=limit,
         )
         client.console.print(JSON.from_data([instance.model_dump() for instance in instances]))
         return instances
-
-    @staticmethod
-    def _parse_view(view: str | None) -> ViewId | None:
-        if view is None:
-            return None
-        return parse_view_str(view)
 
     @staticmethod
     def _parse_filter(filter: str | None) -> dict[str, JsonValue] | None:
