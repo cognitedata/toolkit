@@ -1,10 +1,11 @@
+import builtins
 import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Generic, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
 
@@ -52,6 +53,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "retrieve": Endpoint(method="POST", path="/models/instances/byids", item_limit=1000),
     "delete": Endpoint(method="POST", path="/models/instances/delete", item_limit=1000),
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
+    "search": Endpoint(method="POST", path="/models/instances/search", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
 SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limit=1000)
@@ -229,6 +231,49 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
         ):
             yield response.items[response.root]
+
+    def search(
+        self,
+        view: ViewId,
+        query: str | None = None,
+        filter: dict[str, JsonValue] | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+        limit: int = 25,
+    ) -> builtins.list[InstanceResponse]:
+        """Search instances in CDF.
+
+        This uses the ``POST /models/instances/search`` endpoint. The service returns up to 1000
+        results ordered by relevance.
+
+        Args:
+            view: View to search in. Properties from this view are returned.
+            query: Optional query string that will be parsed and used for search.
+            filter: Optional DMS filter expression to restrict the search.
+            limit: Maximum number of instances to return. Default is 25, maximum is 1000.
+            instance_type: Optional instance type to search. Defaults to nodes when omitted.
+
+        Returns:
+            List of matching InstanceResponse objects.
+        """
+        search_endpoint = self._method_endpoint_map["search"]
+        if not 0 < limit <= search_endpoint.item_limit:
+            raise ValueError(f"Limit must be between 1 and {search_endpoint.item_limit}, got {limit}.")
+
+        body: dict[str, Any] = {"limit": limit, "view": view.dump(include_type=True)}
+        if query is not None:
+            body["query"] = query
+        if filter is not None:
+            body["filter"] = filter
+        if instance_type is not None:
+            body["instanceType"] = instance_type
+
+        request = RequestMessage(
+            endpoint_url=self._make_url(search_endpoint.path),
+            method=search_endpoint.method,
+            body_content=body,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return self._validate_page_response(response).items
 
     def list(
         self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"
