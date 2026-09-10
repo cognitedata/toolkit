@@ -18,7 +18,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client import CogniteClient
 from cognite.client._constants import MAX_VALID_INTERNAL_ID
 from cognite.client.data_classes import (
     Datapoints,
@@ -53,7 +52,6 @@ from cognite.client.data_classes.workflows import (
     WorkflowTaskParameters,
     WorkflowTriggerDataModelingQuery,
 )
-from cognite.client.testing import CogniteClientMock
 from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
@@ -180,14 +178,12 @@ class FakeCogniteResourceGenerator:
     def __init__(
         self,
         seed: int | None = None,
-        cognite_client: CogniteClientMock | CogniteClient | None = None,
         max_list_dict_items: int = 3,
         sample_from_string: str | None = None,
         min_string_length: int = 1,
         max_string_length: int = 100,
     ) -> None:
         self._random = random.Random(seed)
-        self._cognite_client = cognite_client or CogniteClientMock()
         self._max_list_dict_items = max_list_dict_items
         self._sample_from_string = sample_from_string
         self._min_string_length = min_string_length
@@ -199,6 +195,15 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        try:
+            # All the subsequent inspection calls (get_origin, get_args, etc.) are very expensive, so we
+            # first check if the class is a subclass of BaseModel, which is a common case and can be handled more efficiently.
+            # If `issubclass` raises a TypeError, we ignore it and continue with the other checks.
+            if issubclass(resource_cls, BaseModel):
+                return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
+        except TypeError:
+            ...
+
         if get_origin(resource_cls) is typing.Annotated:
             resource_cls = get_args(resource_cls)[0]
 
@@ -206,9 +211,6 @@ class FakeCogniteResourceGenerator:
             args = get_args(resource_cls)
             first_not_none = next(arg for arg in args if arg is not type(None))
             return self.create_instance(first_not_none, skip_defaulted_args)
-
-        if issubclass(resource_cls, BaseModel):
-            return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
 
         is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
         if is_abstract:
@@ -439,8 +441,8 @@ class FakeCogniteResourceGenerator:
             return date.fromtimestamp(self._random.randint(1, 1704067200))
         elif type_ is dict:
             return {self._random_string(10): self._random_string(10) for _ in range(self._random.randint(1, 3))}
-        elif type_ is CogniteClient:
-            return self._cognite_client
+        # elif type_ is CogniteClient:
+        #     return self._cognite_client
         elif inspect.isclass(type_) and any(base is abc.ABC for base in type_.__bases__):
             implementations = all_concrete_subclasses(type_)
             if type_ is Filter:

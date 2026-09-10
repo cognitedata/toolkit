@@ -16,6 +16,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -52,11 +53,11 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceIO], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(env_vars_with_client.get_client())
+        loader = Loader.create_loader(toolkit_client_cheap)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         if get_origin(loader.resource_write_cls) is typing.Annotated:
@@ -70,11 +71,11 @@ class TestFormatConsistency:
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -107,7 +108,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
@@ -115,11 +116,11 @@ class TestFormatConsistency:
     def test_loader_takes_list(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -158,16 +159,14 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
 
     @pytest.mark.parametrize(
         "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(
-        self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
-    ):
-        loader = Loader.create_loader(env_vars_with_client.get_client())
+    def test_loader_has_doc_url(self, Loader: type[Loader], toolkit_client_cheap: ToolkitClient):
+        loader = Loader.create_loader(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
 
 
