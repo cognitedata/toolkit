@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -11,6 +12,7 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
@@ -345,8 +347,6 @@ class TestModulesCommand:
         The test creates a mock module structure with the required resource directories
         (like 'data_models') that the module discovery logic recognizes.
         """
-        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
-
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Create a mock module structure in the temp download directory
@@ -364,20 +364,19 @@ class TestModulesCommand:
         sample_file.write_text("test content")
 
         # Now test that iterate_modules can find this module
-        modules_found = list(iterate_modules(cmd._temp_download_dir))
+        modules_found, _ = ModuleParser.find_modules(cmd._temp_download_dir)
 
         # Should find at least one module
         assert len(modules_found) > 0, f"Expected to find modules in {cmd._temp_download_dir}"
 
         # Verify the module structure
-        module_dir, files = modules_found[0]
-        assert module_dir == mock_module_dir
-        assert len(files) > 0
-        assert any(file.name == "sample.yaml" for file in files)
+        module_dir = modules_found[Path("test_module")]
+        assert module_dir.path == mock_module_dir
+        assert len(module_dir.resource_files_by_folder) > 0
+        assert "data_models" in module_dir.resource_files_by_folder
+        assert any(file.name == "sample.yaml" for file in module_dir.resource_files_by_folder["data_models"])
 
         # Clean up
-        import shutil
-
         shutil.rmtree(mock_module_dir)
 
     def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:

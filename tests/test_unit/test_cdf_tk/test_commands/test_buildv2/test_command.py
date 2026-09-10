@@ -463,7 +463,7 @@ class TestReadFileSystem:
         for path in paths:
             (organization_path / Path(path)).mkdir(parents=True, exist_ok=True)
 
-        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, organization_path)
+        actual_selection, actual_errors = BuildV2Command.parse_user_selection(user_selection, organization_path)
 
         assert actual_errors == errors
         assert actual_selection == selection

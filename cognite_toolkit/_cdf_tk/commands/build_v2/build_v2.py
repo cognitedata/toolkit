@@ -327,7 +327,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
-        source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
+        source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
         cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
@@ -473,7 +473,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
-        source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
+        source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
         if build.selected_modules is None:
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
@@ -664,7 +664,7 @@ class BuildV2Command(ToolkitCommand):
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if user_selected_modules:
-            selected, errors = cls._parse_user_selection(user_selected_modules, organization_dir)
+            selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
@@ -678,7 +678,7 @@ class BuildV2Command(ToolkitCommand):
                     f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not user_selected_modules and config.environment.selected:
-                selected, errors = cls._parse_user_selection(config.environment.selected, organization_dir)
+                selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                 if errors:
                     raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
             variables = config.variables or {}
@@ -699,7 +699,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _parse_user_selection(
+    def parse_user_selection(
         cls, user_selected_modules: list[str], organization_dir: Path
     ) -> tuple[set[RelativeDirPath | str], list[str]]:
         selected: set[RelativeDirPath | str] = set()

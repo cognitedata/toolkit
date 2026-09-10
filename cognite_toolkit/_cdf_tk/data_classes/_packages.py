@@ -2,6 +2,7 @@ import sys
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
@@ -16,6 +17,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as toml
     from typing_extensions import Self
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass
@@ -88,8 +91,7 @@ class Packages(dict, MutableMapping[str, Package]):
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        yaml_files = [yaml_file.relative_to(root_module_dir) for yaml_file in root_module_dir.rglob("*.y*ml")]
-        module_by_relative_path, _ = ModuleParser.find_modules(yaml_files, root_module_dir)
+        module_by_relative_path, _ = ModuleParser.find_modules(root_module_dir)
 
         packages_with_modules: dict[str, Package] = {}
 
