@@ -110,6 +110,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the api command family for calling CDF APIs",
     )
+    FUNCTION_APPS = FlagMetadata(
+        visible=False,
+        description="Enables local Function App development commands",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
