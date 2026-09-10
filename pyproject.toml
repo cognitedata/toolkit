@@ -83,6 +83,9 @@ sql = [
 v08 = [
     "cognite-neat >=1.0.43"
 ]
+serve = [
+    "cognite-function-apps[cli]>=0.14.0",
+]
 
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
