@@ -95,7 +95,7 @@ class Flags(Enum):
         description="Enables support for record-backed views (streamId on views)",
     )
     V09 = FlagMetadata(
-        visible=True,
+        visible=False,
         description="Enables persisted CogIdP auth session commands (login, logout, status)",
     )
     INFIELD_LOCATION_SPLIT = FlagMetadata(
