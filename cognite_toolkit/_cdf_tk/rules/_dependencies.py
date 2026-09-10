@@ -19,11 +19,9 @@ LocalResources = dict[Identifier, tuple[BuiltResource, dict[str, Any]]]
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
-    """Validates that resources reference each other correctly, and that local data modeling changes
-    can actually be applied by CDF.
-
-    Both checks are grouped under the same table row because they share the same shape: they require a
-    client to compare the local modules against the state already deployed in CDF.
+    """
+    Validates that resources reference each other correctly, and that local state changes
+    can actually be applied in CDF.
     """
 
     DISPLAY_NAME = "Dependency checks"
@@ -33,7 +31,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if self.client is None:
             message = "No client provided, will only validate dependencies between resources within the provided modules, but not validate against CDF."
         else:
-            message = "Will validate dependencies and data modeling changes against CDF."
+            message = "Will validate dependencies and state changes against CDF."
         return RuleSetStatus(code="ready", message=message)
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
