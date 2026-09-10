@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any
 
 import typer
@@ -8,6 +9,11 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_LIST_LIMIT = 25
+
+
+class InstanceTypeEnum(str, Enum):
+    node = "node"
+    edge = "edge"
 
 
 class APIApp(typer.Typer):
@@ -54,8 +60,15 @@ class InstancesApp(typer.Typer):
             help="Maximum number of instances to return.",
             max=1000,
         ),
+        instance_type: InstanceTypeEnum = typer.Option(
+            InstanceTypeEnum.node,
+            "--instance-type",
+            "-t",
+            help="Type of instances to list. Can be 'node' or 'edge'.",
+            case_sensitive=False,
+        ),
     ) -> None:
         """List instances in CDF"""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = InstancesAPICommand()
-        cmd.run(lambda: cmd.list(client, view=view, filter=filter, limit=limit))
+        cmd.run(lambda: cmd.list(client, view=view, filter=filter, limit=limit, instance_type=instance_type.value))

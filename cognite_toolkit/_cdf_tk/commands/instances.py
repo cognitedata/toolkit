@@ -1,5 +1,5 @@
 import builtins
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import JsonValue
 from rich.json import JSON
@@ -21,15 +21,16 @@ class InstancesAPICommand(ToolkitCommand):
         view: str,
         filter: str | None = None,
         limit: int = 25,
+        instance_type: Literal["node", "edge"] = "node",
     ) -> builtins.list[InstanceResponse]:
         """List instances using the instances search endpoint.
 
         Args:
             client: Toolkit client used to call CDF.
-            view: Optional view given as 'space:externalId/version'. When set, properties from this
-                view are returned; otherwise only instance properties are returned.
+            view: View given as 'space:externalId/version'. Properties from this view are returned.
             filter: Optional YAML/JSON filter expression.
             limit: Maximum number of instances to return.
+            instance_type: Whether to list nodes or edges. Defaults to nodes.
 
         Returns:
             Matching instances from CDF.
@@ -40,6 +41,7 @@ class InstancesAPICommand(ToolkitCommand):
             view=view_id,
             filter=parsed_filter,
             limit=limit,
+            instance_type=instance_type,
         )
         client.console.print(JSON.from_data([instance.model_dump() for instance in instances]))
         return instances
