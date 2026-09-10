@@ -1049,7 +1049,7 @@ class TestCDFResourceAPI:
         # Test search (POST /models/instances/search)
         search_url = config.create_api_url("/models/instances/search")
         respx_mock.post(search_url).mock(return_value=httpx.Response(status_code=200, json={"items": [example]}))
-        searched = api.search(limit=10)
+        searched = api.search(view=ViewId(space="my_space", external_id="Asset", version="v1"), limit=10)
         assert len(searched) == 1
         assert searched[0].dump() == example
 
@@ -1085,10 +1085,11 @@ class TestCDFResourceAPI:
 
     def test_instances_api_search_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
         api = InstancesAPI(HTTPClient(toolkit_config))
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
-            api.search(limit=0)
+            api.search(view=view, limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
-            api.search(limit=1001)
+            api.search(view=view, limit=1001)
 
     def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
