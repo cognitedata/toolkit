@@ -1,11 +1,10 @@
 from collections.abc import Hashable
-from pathlib import Path
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import respx
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -30,7 +29,6 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     ResourceIO,
-    ResourceWorker,
     SpaceCRUD,
     ViewIO,
 )
@@ -38,6 +36,7 @@ from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.utils import to_deploy_status
 
 
 @pytest.fixture
@@ -132,8 +131,6 @@ class TestViewLoader:
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
-        file = MagicMock(spec=Path)
-        file.read_text.return_value = raw_file
         cdf_view = ViewResponse(
             space="sp_space",
             external_id="my_view",
@@ -151,14 +148,7 @@ class TestViewLoader:
 
         toolkit_client_approval.append(ViewResponse, [cdf_view])
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([file])
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(raw_file, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -416,17 +406,17 @@ class TestRecordViewSupport:
         assert request.dump()["streamId"] == ["my_stream"]
 
     def test_dump_resource_preserves_stream_id(
-        self, toolkit_client_approval: ApprovalToolkitClient, enable_record_views: None
+        self, toolkit_client_cheap: ToolkitClient, enable_record_views: None
     ) -> None:
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert dumped["streamId"] == ["my_stream"]
 
     def test_dump_resource_strips_stream_id_without_alpha_flag(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: pytest.MonkeyPatch
+        self, toolkit_client_cheap: ToolkitClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert "streamId" not in dumped
 

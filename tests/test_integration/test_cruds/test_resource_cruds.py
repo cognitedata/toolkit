@@ -3,6 +3,7 @@ import os
 from asyncio import sleep
 from collections.abc import Iterable
 from contextlib import suppress
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -41,7 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     TextProperty,
     ViewId,
-    ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -60,12 +60,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     FunctionTaskParameters,
-    WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileCRUD,
@@ -77,7 +77,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     GroupIO,
     LabelIO,
     NodeCRUD,
-    ResourceWorker,
     RobotCapabilityIO,
     RoboticsDataPostProcessingIO,
     SkillIO,
@@ -89,6 +88,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import retry_on_deadlock
+from tests.utils import to_deploy_status
 
 
 class TestFunctionScheduleLoader:
@@ -195,17 +195,22 @@ authentication:
         filepath.read_text.return_value = schedule_yaml
 
         resource_dict = loader.load_resource_file(filepath, {})
-        resource = loader.load_resource(resource_dict[0])
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
         identifier = loader.get_id(resource)
         try:
-            loader.create([resource])
-            worker = ResourceWorker(loader, "deploy")
-            resources = worker.prepare_resources([filepath])
+            _ = loader.create([resource])
+            existing_list = loader.retrieve([identifier])
+            result = DeployV2Command.categorize_resources(
+                loader,
+                resource_by_id={identifier: ReadResource(resource, resource_dict[0], [filepath])},
+                cdf_by_id={identifier: existing_list[0]},
+            )
             assert {
-                "create": len(resources.to_create),
-                "change": len(resources.to_update),
-                "delete": len(resources.to_delete),
-                "unchanged": len(resources.unchanged),
+                "create": len(result.to_create),
+                "change": len(result.to_update),
+                "delete": len(result.to_delete),
+                "unchanged": len(result.unchanged),
             } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
         finally:
             loader.delete([identifier])
@@ -395,21 +400,7 @@ timeSeriesIds:
 """
         loader = DatapointSubscriptionIO.create_loader(toolkit_client)
 
-        filepath = self._create_mock_file(definition_yaml)
-        resource = self._load_subscription_from_yaml(filepath, loader)
-        assert isinstance(resource, DatapointSubscriptionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @staticmethod
     def _create_mock_file(yaml_content: str) -> Path:
@@ -906,25 +897,7 @@ workflowDefinition:
 """
         loader = WorkflowVersionIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, WorkflowVersionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestTransformationCRUD:
@@ -1070,26 +1043,7 @@ ignoreNullFields: true
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         crud = TransformationIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = transformation_yaml
-
-        resource_dict = crud.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = crud.load_resource(resource_dict[0])
-        external_id = crud.get_id(resource)
-        assert isinstance(resource, TransformationRequest)
-        if not crud.retrieve([external_id]):
-            _ = crud.create([resource])
-
-        worker = ResourceWorker(crud, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:
@@ -1162,25 +1116,7 @@ properties:
         """
         loader = ViewIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, ViewRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestFunctionLoader:
@@ -1217,20 +1153,7 @@ description: ""
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
         filepath.parent.name = FunctionIO.folder_name
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, FunctionRequest)
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
         self, toolkit_client: ToolkitClient, toolkit_space: Space, tmp_path: Path
@@ -1296,24 +1219,7 @@ createdBy: null
 """
         loader = ExtractionPipelineIO.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
-        if not loader.retrieve([resource.as_id()]):
-            _ = loader.create([resource])
-
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([filepath])
-
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 def _skill_content(*, name: str, description: str, body_suffix: str = "") -> str:
@@ -1329,6 +1235,8 @@ Used by toolkit integration tests{body_suffix}.
 
 
 class TestSkillIO:
+    # Skills upload can intermittently fail with "Files not uploaded" against live CDF.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["ToolkitAPIError"])
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = SkillIO(toolkit_client, None)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")

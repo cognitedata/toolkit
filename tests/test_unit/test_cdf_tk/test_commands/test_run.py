@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -54,6 +55,12 @@ def function_build_folder() -> BuildLineage:
     )
 
 
+@pytest.fixture
+def mock_function_venv() -> Iterator[MagicMock]:
+    with patch("cognite_toolkit._cdf_tk.commands._virtual_env.FunctionVirtualEnvironment") as mock_cls:
+        yield mock_cls.return_value
+
+
 class TestRunFunction:
     def test_run_function_live(
         self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
@@ -96,11 +103,13 @@ class TestRunFunction:
             "IDP_FUN_CLIENT_SECRET": "dummy",
         },
     )
-    def test_run_local_function(self, env_vars_with_client: EnvironmentVariables) -> None:
+    def test_run_local_function(
+        self, env_vars_with_client_cheap: EnvironmentVariables, mock_function_venv: MagicMock
+    ) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            env_vars=env_vars_with_client,
+            env_vars=env_vars_with_client_cheap,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -109,6 +118,9 @@ class TestRunFunction:
             virtual_env_folder_name="function_local_venvs_test_run_local_function",
         )
 
+        mock_function_venv.create.assert_called_once()
+        assert mock_function_venv.execute.call_count == 2
+
     @patch.dict(
         os.environ,
         {
@@ -116,11 +128,13 @@ class TestRunFunction:
             "IDP_WF_CLIENT_SECRET": "dummy",
         },
     )
-    def test_run_local_function_with_workflow(self, env_vars_with_client: EnvironmentVariables) -> None:
+    def test_run_local_function_with_workflow(
+        self, env_vars_with_client_cheap: EnvironmentVariables, mock_function_venv: MagicMock
+    ) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            env_vars=env_vars_with_client,
+            env_vars=env_vars_with_client_cheap,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -128,6 +142,9 @@ class TestRunFunction:
             rebuild_env=False,
             virtual_env_folder_name="function_local_venvs_test_run_local_function_workflow",
         )
+
+        mock_function_venv.create.assert_called_once()
+        assert mock_function_venv.execute.call_count == 2
 
     @pytest.mark.parametrize(
         "data_source, expected",

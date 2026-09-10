@@ -2,12 +2,13 @@ import sys
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
-
-from ._module_directories import ModuleDirectories, ModuleLocation
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -16,6 +17,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as toml
     from typing_extensions import Self
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass
@@ -34,7 +37,7 @@ class Package:
     description: str | None = None
     id: str | None = None
     can_cherry_pick: bool = True
-    modules: list[ModuleLocation] = field(default_factory=list)
+    modules: list[ModuleDirectory] = field(default_factory=list)
 
     @property
     def module_names(self) -> set[str]:
@@ -88,11 +91,7 @@ class Packages(dict, MutableMapping[str, Package]):
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        # Load all available modules
-        module_directories = ModuleDirectories.load(root_module_dir)
-
-        # Create lookup dictionaries for efficient module discovery
-        module_by_relative_path = {module.relative_path: module for module in module_directories}
+        module_by_relative_path, _ = ModuleParser.find_modules(root_module_dir)
 
         packages_with_modules: dict[str, Package] = {}
 
@@ -103,14 +102,14 @@ class Packages(dict, MutableMapping[str, Package]):
             if modules := package_definition.get("modules"):
                 if isinstance(modules, list) and modules:
                     for module_path in modules:
-                        if (module := module_by_relative_path.get(Path(module_path))) is None:
+                        if (module_or_none := module_by_relative_path.get(Path(module_path))) is None:
                             warnings.append(
                                 LowSeverityWarning(
                                     f"Unable to load module '{module_path}'. The path may be wrong or the module may require an alpha flag that is not set."
                                 )
                             )
                             continue
-                        packages_with_modules[package_name].modules.append(module)
+                        packages_with_modules[package_name].modules.append(module_or_none)
 
         return cls(packages_with_modules, warnings)
 

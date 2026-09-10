@@ -1,5 +1,6 @@
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
@@ -13,7 +14,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.location import LocationFilterIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
-from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 @pytest.fixture
@@ -29,12 +29,11 @@ def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFil
 class TestLocationFilterLoader:
     def test_load_minimum_location_filter(
         self,
-        env_vars_with_client: EnvironmentVariables,
-        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
         raw_list = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client_cheap.dump()
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert isinstance(loaded, LocationFilterRequest)
@@ -52,6 +51,9 @@ class TestLocationFilterLoader:
         assert isinstance(exhaustive_filter.instance_spaces, list)
         assert exhaustive_filter.instance_spaces[0] == "instance-space-main"
 
+    def test_load_filter_write_user_data_instance_space(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert exhaustive_filter.user_data_instance_space == "user-data-space-345"
+
     def test_load_filter_write_scene(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.scene, LocationFilterScene)
         assert exhaustive_filter.scene.external_id == "scene-id-012"
@@ -68,10 +70,10 @@ class TestLocationFilterLoader:
     @pytest.mark.parametrize("subtree_field", ["assetSubtreeIds", "assetSubtreeExternalIds"])
     def test_load_asset_subtree_aliases(
         self,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         subtree_field: str,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
         loaded = loader.load_resource(
             {
                 "externalId": "my-location",
@@ -147,9 +149,9 @@ class TestLocationFilterLoader:
 
     def test_dump_minimum(
         self,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_cheap: ToolkitClient,
     ) -> None:
-        crud = LocationFilterIO.create_loader(toolkit_client_approval.mock_client)
+        crud = LocationFilterIO.create_loader(toolkit_client_cheap)
         location_filter = LocationFilterResponse(
             external_id="springfield",
             name="Springfield Location",

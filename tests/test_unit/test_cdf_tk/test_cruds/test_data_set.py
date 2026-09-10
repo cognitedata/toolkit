@@ -1,5 +1,9 @@
+from copy import deepcopy
+
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceWorker
+from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -10,9 +14,8 @@ class TestDataSetsLoader:
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
         loader = DataSetsIO.create_loader(env_vars_with_client.get_client())
-        raw_list = loader.load_resource_file(
-            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", env_vars_with_client.dump()
-        )
+        filepath = LOAD_DATA / "data_sets" / "1.my_datasets.yaml"
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         assert len(raw_list) == 2
 
         # Set the properties that are set on the server side and load as DataSetResponse
@@ -21,12 +24,21 @@ class TestDataSetsLoader:
         # Simulate that the data set is already in CDF
         toolkit_client_approval.append(DataSetResponse, first)
 
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([LOAD_DATA / "data_sets" / "1.my_datasets.yaml"])
+        resource_by_id = {}
+        for resource_dict in raw_list:
+            resource = loader.load_resource(deepcopy(resource_dict))
+            resource_id = loader.get_id(resource)
+            resource_by_id[resource_id] = ReadResource(resource, resource_dict, [filepath])
+        existing_list = loader.retrieve(list(resource_by_id.keys()))
+        result = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id=resource_by_id,
+            cdf_by_id={loader.get_id(item): item for item in existing_list},
+        )
 
         assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
         } == {"create": 1, "change": 0, "delete": 0, "unchanged": 1}

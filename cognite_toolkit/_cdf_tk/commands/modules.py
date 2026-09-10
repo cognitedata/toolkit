@@ -37,8 +37,9 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     FileReadError,
@@ -60,7 +61,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
     InitConfigYAML,
-    ModuleLocation,
     Package,
     Packages,
 )
@@ -76,7 +76,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_write,
     yaml_safe_dump,
 )
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
@@ -160,7 +159,7 @@ class ModulesCommand(ToolkitCommand):
         module_locations = [module for package in item.values() for module in package.modules]
         data: dict[str, Any] = {}
         for module in module_locations:
-            parts = module.relative_path.parts
+            parts = module.id.parts
             current = data
             for part in parts:
                 if part not in current:
@@ -208,19 +207,19 @@ class ModulesCommand(ToolkitCommand):
                 if module.package_id:
                     self._additional_tracking_info.installed_package_ids.add(module.package_id)
 
-                if module.dir in seen_modules:
+                if module.path in seen_modules:
                     # A module can be part of multiple packages
                     continue
-                seen_modules.add(module.dir)
+                seen_modules.add(module.path)
                 # Add the module and its parent paths to the selected paths, use to load the default.config.yaml
                 # files
-                selected_paths.update(module.parent_relative_paths)
-                selected_paths.add(module.relative_path)
-                if module.definition:
-                    extra_resources.update(module.definition.extra_resources)
+                selected_paths.update(module.id.parents)
+                selected_paths.add(module.id)
+                if module.module_toml:
+                    extra_resources.update(module.module_toml.extra_resources)
 
                 print(f"{INDENT * 2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
-                target_dir = modules_target_root_dir / module.relative_path
+                target_dir = modules_target_root_dir / module.id
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
                         f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
@@ -233,10 +232,10 @@ class ModulesCommand(ToolkitCommand):
                 if package.name == "quickstart" and module.name != "cdf_ingestion":
                     ignore_patterns.extend(["workflows", "auth"])
 
-                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
+                shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
 
-                if module.definition is not None and download_data:
-                    for example_data in module.definition.data:
+                if module.module_toml is not None and download_data:
+                    for example_data in module.module_toml.data:
                         if example_data.repo not in downloader_by_repo:
                             try:
                                 downloader_cls = _FILE_DOWNLOADERS_BY_TYPE[example_data.repo_type]
@@ -255,7 +254,15 @@ class ModulesCommand(ToolkitCommand):
         if extra_resources:
             created_by_module: dict[Path, int] = Counter()
             for extra in extra_resources:
-                module_dir = module_directory_from_path(extra)
+                module_dir, _ = ModuleParser.get_module_path_from_resource_file_path(extra)
+                if module_dir is None:
+                    self.warn(
+                        LowSeverityWarning(
+                            f"Extra resource {extra} is not in a module directory, skipping. "
+                            "Please check the module.toml file for this resource."
+                        )
+                    )
+                    continue
                 extra_full_path = modules_source_path / extra
                 target_path = modules_target_root_dir / extra
                 if target_path.exists():
@@ -281,7 +288,7 @@ class ModulesCommand(ToolkitCommand):
         for environment in environments:
             if mode == "update":
                 config_init = InitConfigYAML.load_existing(
-                    safe_read(Path(organization_dir) / f"config.{environment}.yaml"), environment
+                    safe_read(Path(organization_dir) / f"config.{environment}.yaml"), organization_dir, environment
                 ).load_defaults(modules_source_path, selected_paths)
             else:
                 ignore_variable_patterns: list[tuple[str, ...]] | None = None
@@ -476,10 +483,12 @@ class ModulesCommand(ToolkitCommand):
             ).unsafe_ask()
         return download_data
 
-    def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
+    def _select_modules_in_package(self, package: Package) -> list[ModuleDirectory]:
         dependencies: set[str] = set()
         for module in package.modules:
-            for dependency in module.dependencies:
+            if not module.module_toml:
+                continue
+            for dependency in module.module_toml.dependencies:
                 dependencies.add(dependency)
 
         choices = sorted(
@@ -487,7 +496,8 @@ class ModulesCommand(ToolkitCommand):
                 questionary.Choice(
                     title=module.title or module.name,
                     value=module,
-                    checked=module.name in dependencies or module.is_selected_by_default,
+                    checked=(module.name in dependencies)
+                    or (module.module_toml.is_selected_by_default if module.module_toml else False),
                     disabled="required" if module.name in dependencies else None,
                 )
                 for module in package.modules
@@ -597,7 +607,7 @@ class ModulesCommand(ToolkitCommand):
         name_lower = module_name.casefold()
 
         by_package = {name.casefold(): pkg for name, pkg in packages.items()}
-        by_module: dict[str, list[tuple[Package, ModuleLocation]]] = {}
+        by_module: dict[str, list[tuple[Package, ModuleDirectory]]] = {}
         for pkg in packages.values():
             if pkg.can_cherry_pick:
                 for module in pkg.modules:
@@ -1210,8 +1220,8 @@ class ModulesCommand(ToolkitCommand):
         missing_paths = []
         for package in packages.values():
             for module in package.modules:
-                if not module.dir.exists():
-                    missing_paths.append(f"{module.name} ({module.dir})")
+                if not module.path.exists():
+                    missing_paths.append(f"{module.name} ({module.path})")
 
         if missing_paths:
             raise ToolkitError(

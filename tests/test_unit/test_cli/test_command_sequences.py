@@ -20,11 +20,15 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
-from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME, Loader
-from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
+from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    Loader,
+)
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -37,13 +41,14 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(BUILDABLE_PACKAGE):
-        if module.name == "references":  # this particular module should never be built or deployed
+    result, _ = ModuleParser.find_modules(BUILDABLE_PACKAGE)
+    for module_relative_path in result.keys():
+        if module_relative_path.name == "references":  # this particular module should never be built or deployed
             continue
-        elif module.name == "search":
+        elif module_relative_path.name == "search":
             # Not ready yet
             continue
-        yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
+        yield pytest.param(module_relative_path, id=f"{module_relative_path.parent.name}/{module_relative_path.name}")
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
@@ -259,17 +264,26 @@ def test_build_deploy_v2_complete_orgs(
 
 
 def test_complete_org_is_complete() -> None:
-    modules = ModuleDirectories.load(COMPLETE_ORG)
+    module_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+        organization_dir=COMPLETE_ORG,
+        config_yaml=COMPLETE_ORG / "config.dev.yaml",
+        user_selected_modules=[f"{MODULES}/"],
+    )
     used_loader_by_folder_name: dict[str, set[type[Loader]]] = defaultdict(set)
 
-    for module in modules:
-        for resource_folder, files in module.source_paths_by_resource_folder.items():
+    for module in module_scan.modules:
+        for resource_folder, files in module.resource_files_by_folder.items():
             for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
-    alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
-    for module in alpha_modules:
-        for resource_folder, files in module.source_paths_by_resource_folder.items():
+
+    alpha_dir_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+        COMPLETE_ORG_ALPHA_FLAGS, COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml", user_selected_modules=[f"{MODULES}/"]
+    )
+    for module in alpha_dir_scan.modules:
+        for resource_folder, files in module.resource_files_by_folder.items():
+            if resource_folder not in RESOURCE_CRUD_BY_FOLDER_NAME:
+                continue
             for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)

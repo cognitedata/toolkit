@@ -67,8 +67,8 @@ class Flags(Enum):
         description="Enables validation of function requirements.txt during build using pip dry-run",
     )
     DATA_PRODUCTS = FlagMetadata(
-        visible=False,
-        description="Enables support for data product resources",
+        visible=True,
+        description="Enables support for data product and rule set resources and workflow task lineage annotations",
     )
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,

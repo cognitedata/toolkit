@@ -13,16 +13,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryThrough,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
+from cognite_toolkit._cdf_tk.constants import (
+    LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT,
+    SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+)
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-LEGACY_360_IMAGE_SCHEMA_SPACE = "cdf_360_image_schema"
+LEGACY_360_IMAGE_SCHEMA_SPACE = LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT["space"]
 
 LEGACY_IMAGE360_SOURCE_VIEW = ViewId(space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360", version="v1")
-LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId(
-    space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Image360Collection", version="v1"
-)
+LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW = ViewId.model_validate(LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT)
 LEGACY_IMAGE360_STATION_SOURCE_VIEW = ViewId(
     space=LEGACY_360_IMAGE_SCHEMA_SPACE, external_id="Station360", version="v1"
 )

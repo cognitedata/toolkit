@@ -1,10 +1,11 @@
 import yaml
 from cognite.client.utils.useful_types import SequenceNotStr
+from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import TimeSeriesCRUD
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -23,9 +24,9 @@ description: PH 1stStgSuctCool Gas Out
 
     def test_load_skip_validation_with_preexisting_dataset(
         self,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_with_lookup: ToolkitClient,
     ) -> None:
-        loader = TimeSeriesCRUD(toolkit_client_approval.mock_client, None)
+        loader = TimeSeriesCRUD(toolkit_client_with_lookup, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
         data_set_external_id = ts_dict["dataSetExternalId"]
         expected_id = LookUpAPIMock.create_id(data_set_external_id)
@@ -36,15 +37,16 @@ description: PH 1stStgSuctCool Gas Out
 
     def test_load_skip_validation_no_preexisting_dataset(
         self,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_with_lookup: ToolkitClient,
+        monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TimeSeriesCRUD(toolkit_client_approval.mock_client, None)
+        loader = TimeSeriesCRUD(toolkit_client_with_lookup, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
 
         def id_missing(*args):
             return -1
 
-        toolkit_client_approval.mock_client.lookup.data_sets.id.side_effect = id_missing
+        monkeypatch.setattr(toolkit_client_with_lookup.lookup.data_sets.id, "side_effect", id_missing)
 
         loaded = loader.load_resource(ts_dict, is_dry_run=False)
 

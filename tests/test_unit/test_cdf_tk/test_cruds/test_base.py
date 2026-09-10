@@ -16,6 +16,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -42,7 +43,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowTriggerIO,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -52,11 +52,11 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceIO], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(env_vars_with_client.get_client())
+        loader = Loader.create_loader(toolkit_client_cheap)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         if get_origin(loader.resource_write_cls) is typing.Annotated:
@@ -70,11 +70,11 @@ class TestFormatConsistency:
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -107,7 +107,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
@@ -115,11 +115,11 @@ class TestFormatConsistency:
     def test_loader_takes_list(
         self,
         Loader: type[ResourceIO],
-        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_cheap: ToolkitClient,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -158,16 +158,14 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
+        loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
 
     @pytest.mark.parametrize(
         "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(
-        self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
-    ):
-        loader = Loader.create_loader(env_vars_with_client.get_client())
+    def test_loader_has_doc_url(self, Loader: type[Loader], toolkit_client_cheap: ToolkitClient):
+        loader = Loader.create_loader(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
 
 
@@ -391,13 +389,10 @@ class TestResourceCRUDs:
             if loader_cls not in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
         ],
     )
-    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceIO]) -> None:
-        with monkeypatch_toolkit_client() as toolkit_client:
-            # Since we are not loading the local resource, we must allow reverse lookup
-            # without first lookup.
-            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-
-        loader = loader_cls.create_loader(approval_client.mock_client)
+    def test_dump_resource_with_local_id(
+        self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
+    ) -> None:
+        loader = loader_cls.create_loader(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
@@ -415,16 +410,16 @@ class TestResourceCRUDs:
 
 
 class TestLoaders:
-    def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
+    def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in CRUD_LIST]
+            [loader_cls.create_loader(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
         for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
+            duplicates.pop(loader.create_loader(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 

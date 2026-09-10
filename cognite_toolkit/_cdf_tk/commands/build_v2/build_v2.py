@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ConfigYAML,
     InsightList,
     Module,
-    ModuleSource,
+    ModuleDirectory,
     RelativeDirPath,
     ResourceType,
     ValidationType,
@@ -92,7 +92,7 @@ class ValidationStep:
     rule: ToolkitGlobalRuleSet
 
 
-SelectionSource = Literal["modules", "config", "interactive"]
+SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 
 class BuildV2Command(ToolkitCommand):
@@ -117,18 +117,10 @@ class BuildV2Command(ToolkitCommand):
         build_start_time = datetime.now(timezone.utc)
 
         self.validate_build_parameters(parameters, console, sys.argv)
-        build_files = self._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+
+        module_scan_result, selection_source = self.read_filesystem_and_find_modules(
+            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules, parameters.operation
         )
-
-        if parameters.user_selected_modules:
-            selection_source: SelectionSource = "modules"
-        elif build_files.selected_modules is not None:
-            selection_source = "config"
-        else:
-            selection_source = "interactive"
-
-        module_scan_result = self._find_modules(build_files, parameters.operation)
 
         if display:
             self._display_module_sources(
@@ -163,6 +155,96 @@ class BuildV2Command(ToolkitCommand):
         self._write_results(insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
+
+    @classmethod
+    def read_filesystem_and_find_modules(
+        cls,
+        organization_dir: Path,
+        config_yaml: Path | None = None,
+        user_selected_modules: list[str] | None = None,
+        operation: str | None = None,
+    ) -> tuple[ModuleScanResult, SelectionSource]:
+        """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists,
+        and then finds the modules to build.
+
+        Returns:
+            A tuple containing the ModuleScanResult and the SelectionSource indicating how the modules were selected (from user input, config file, or interactive selection).
+        """
+        build_files = cls._read_file_system(organization_dir, config_yaml, user_selected_modules)
+
+        if user_selected_modules:
+            selection_source: SelectionSource = "cli-arg"
+        elif build_files.selected_modules is not None:
+            selection_source = "config"
+        else:
+            selection_source = "interactive"
+
+        module_scan_result = cls._find_modules(build_files, operation or "build")
+        return module_scan_result, selection_source
+
+    @classmethod
+    def select_module(
+        cls,
+        organization_dir: Path,
+        selected_module: str | None = None,
+        operation: str | None = None,
+        allow_creation: bool = False,
+        module_scan_result: ModuleScanResult | None = None,
+    ) -> ModuleDirectory:
+        if module_scan_result is None:
+            results, _ = cls.read_filesystem_and_find_modules(
+                organization_dir,
+                user_selected_modules=[selected_module] if selected_module else [f"{MODULES}/"],
+                operation=operation,
+            )
+        else:
+            results = module_scan_result
+        if errors := results.non_existing_module_names:
+            error = errors[0]
+            raise ToolkitValueError(
+                f"Module '{error.name}' does not exist in the organization directory '{organization_dir}'."
+                f"Did you mean one of these? {humanize_collection(error.closest_matches)}"
+            )
+        if results.modules and selected_module is not None:
+            return results.modules[0]
+
+        choices = [Choice(title=module.id.as_posix(), value=module) for module in results.modules]
+        if allow_creation:
+            choices.append(Choice(title="Create a new module", value="NEW"))
+        if not choices:
+            raise ToolkitValueError(
+                f"No modules found to {operation or 'build'} in the organization directory '{organization_dir}'."
+            )
+        selected = questionary.select(f"Select a module to {operation or 'build'}:", choices=choices).unsafe_ask()
+        if selected is None:
+            raise ToolkitValueError("Module selection cancelled by user.")
+        if selected == "NEW":
+
+            def _validate_new_module_path(u: str) -> bool | str:
+                if not u:
+                    return "Please enter a module path."
+                try:
+                    (organization_dir / MODULES / Path(u)).resolve().relative_to((organization_dir / MODULES).resolve())
+                except ValueError:
+                    return "Module path must be inside the modules directory."
+                relative = (Path(MODULES) / Path(u)).as_posix()
+                _, error = cls._validate_user_module(relative, organization_dir)
+                # A path that does not yet exist is expected here (we are creating it),
+                # so only surface non-existence-related errors.
+                if error and "does not exist" not in error:
+                    return error
+                return True
+
+            user_type_path = questionary.text(
+                f"Enter the relative path to the new module {organization_dir}/{MODULES}:",
+                validate=_validate_new_module_path,
+            ).unsafe_ask()
+            if not user_type_path:
+                raise ToolkitValueError("No module path provided.")
+            new_module_path = organization_dir / MODULES / Path(user_type_path)
+            new_module_path.mkdir(parents=True, exist_ok=True)
+            return ModuleDirectory(id=new_module_path.relative_to(organization_dir), path=new_module_path)
+        return selected
 
     def tmp_build(
         self, organization_dir: Path, config_yaml: Path | None = None, client: ToolkitClient | None = None
@@ -245,7 +327,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
-        source_by_module_id, _ = ModuleParser.find_modules(build_files.yaml_files, build_files.organization_dir)
+        source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
         cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
@@ -391,7 +473,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
-        source_by_module_id, orphan_files = ModuleParser.find_modules(build.yaml_files, build.organization_dir)
+        source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
         if build.selected_modules is None:
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
@@ -402,7 +484,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _ask_user_to_select_modules(
-        cls, available_modules: list[ModuleSource], operation: str
+        cls, available_modules: list[ModuleDirectory], operation: str
     ) -> set[RelativeDirPath | str]:
         choices = [
             Choice(
@@ -563,7 +645,7 @@ class BuildV2Command(ToolkitCommand):
 
     @staticmethod
     def _module_selection_message(selection_source: SelectionSource, config_file_name: str) -> str:
-        if selection_source == "modules":
+        if selection_source == "cli-arg":
             return "provided as arguments, overrides selection in config.env.yaml"
         if selection_source == "config":
             return f"specified in {config_file_name or 'config.env.yaml'}"
@@ -582,7 +664,7 @@ class BuildV2Command(ToolkitCommand):
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if user_selected_modules:
-            selected, errors = cls._parse_user_selection(user_selected_modules, organization_dir)
+            selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
@@ -596,7 +678,7 @@ class BuildV2Command(ToolkitCommand):
                     f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not user_selected_modules and config.environment.selected:
-                selected, errors = cls._parse_user_selection(config.environment.selected, organization_dir)
+                selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                 if errors:
                     raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
             variables = config.variables or {}
@@ -606,6 +688,7 @@ class BuildV2Command(ToolkitCommand):
         yaml_files = [
             yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
         ]
+
         return BuildInput(
             yaml_files=yaml_files,
             selected_modules=selected,
@@ -616,34 +699,40 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _parse_user_selection(
+    def parse_user_selection(
         cls, user_selected_modules: list[str], organization_dir: Path
     ) -> tuple[set[RelativeDirPath | str], list[str]]:
         selected: set[RelativeDirPath | str] = set()
         errors: list[str] = []
         for item in user_selected_modules:
-            if "/" not in item:
-                # Module name provided
-                selected.add(item)
-                continue
-
-            item_path = Path(item)
-            if item_path.is_absolute():
-                errors.append(
-                    f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"
-                )
-                continue
-            absolute_path = organization_dir / item_path
-            if not absolute_path.exists():
-                errors.append(
-                    f"Selected module path {item_path.as_posix()!r} does not exist under the organization directory"
-                )
-                continue
-            if not absolute_path.is_dir():
-                errors.append(f"Selected module path {item_path.as_posix()!r} is not a directory")
-                continue
-            selected.add(item_path)
+            item_path, error = cls._validate_user_module(item, organization_dir)
+            if error:
+                errors.append(error)
+            elif item_path is not None:
+                selected.add(item_path)
         return selected, errors
+
+    @classmethod
+    def _validate_user_module(cls, item: str, organization_dir: Path) -> tuple[RelativeDirPath | str | None, str]:
+        if "/" not in item:
+            # Module name provided
+            return item, ""
+
+        item_path = Path(item)
+        if item_path.is_absolute():
+            return (
+                None,
+                f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory",
+            )
+        absolute_path = organization_dir / item_path
+        if not absolute_path.exists():
+            return (
+                None,
+                f"Selected module path {item_path.as_posix()!r} does not exist under the organization directory",
+            )
+        if not absolute_path.is_dir():
+            return None, f"Selected module path {item_path.as_posix()!r} is not a directory"
+        return item_path, ""
 
     def _prepare_build_directory(self, build_dir: Path) -> None:
         """Ensures the build directory is clean before a build."""
@@ -653,7 +742,7 @@ class BuildV2Command(ToolkitCommand):
         return None
 
     def _build_modules(
-        self, module_sources: Sequence[ModuleSource], build_dir: Path, console: Console
+        self, module_sources: Sequence[ModuleDirectory], build_dir: Path, console: Console
     ) -> list[BuiltModule]:
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
@@ -715,7 +804,7 @@ class BuildV2Command(ToolkitCommand):
             progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
-    def _import_module(self, source: ModuleSource) -> Module:
+    def _import_module(self, source: ModuleDirectory) -> Module:
         resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():

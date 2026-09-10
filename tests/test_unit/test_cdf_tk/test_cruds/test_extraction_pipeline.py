@@ -20,10 +20,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawDatabaseCRUD,
     RawTableCRUD,
     ResourceIO,
-    ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.utils import to_deploy_status
 
 
 class TestExtractionPipelineDependencies:
@@ -52,18 +52,13 @@ class TestExtractionPipelineDependencies:
             ),
         )
 
-        local_file = MagicMock(spec=Path)
-        local_file.read_text.return_value = self.config_yaml
-
         loader = ExtractionPipelineConfigIO.create_loader(toolkit_client_approval.mock_client)
-        worker = ResourceWorker(loader, "deploy")
-        resources = worker.prepare_resources([local_file])
-        assert {
-            "create": len(resources.to_create),
-            "changed": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
+        assert to_deploy_status(self.config_yaml, loader) == {
+            "create": 1,
+            "change": 0,
+            "delete": 1,
+            "unchanged": 0,
+        }
 
 
 class TestExtractionPipelineLoader:
@@ -115,7 +110,7 @@ class TestExtractionPipelineLoader:
         },
     )
     def test_omit_environment_variables(
-        self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+        self, env_vars_with_client_cheap: EnvironmentVariables, monkeypatch: MonkeyPatch
     ) -> None:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """
@@ -128,8 +123,8 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client.get_client())
-        res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client.dump())
+        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client_cheap.get_client())
+        res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client_cheap.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
         assert res[1]["name"] == "this-is-not-a-secret"

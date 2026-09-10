@@ -206,3 +206,7 @@ STREAM_MUTABLE_TEMPLATE_NAME = frozenset(("BasicLiveData",))
 SUBSELECTION_LIMIT_QUERY_ENDPOINT = 1_000
 
 MISSING_NONCE = "<missingNonce>"
+
+LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT = dict(
+    space="cdf_360_image_schema", external_id="Image360Collection", version="v1"
+)

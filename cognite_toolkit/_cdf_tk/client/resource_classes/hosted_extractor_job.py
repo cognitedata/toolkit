@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator, ConfigDict, JsonValue, field_validator
 
@@ -177,6 +177,10 @@ class HostedExtractorJob(BaseModelObject):
 
 
 class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
+    # Event Hub / Service Bus jobs have no source-specific config. The update API
+    # does not support setting config to null.
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"config"})
+
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode=mode)
         exclude_unset = mode == "patch"

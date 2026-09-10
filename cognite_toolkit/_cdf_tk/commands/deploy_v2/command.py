@@ -731,7 +731,7 @@ class DeployV2Command(ToolkitCommand):
                         [read.request for read in resource_by_id.values()],
                         options.deployment_dir,
                     )
-                resources_to_deploy = cls._categorize_resources(
+                resources_to_deploy = cls.categorize_resources(
                     crud,
                     resource_by_id,
                     cdf_resource_by_id,
@@ -831,16 +831,17 @@ class DeployV2Command(ToolkitCommand):
         return bool(crud.client.tool.token.verify_acls(optional_acls))
 
     @classmethod
-    def _categorize_resources(
+    def categorize_resources(
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
-        console: Console,
-        options: DeployOptions,
-        is_delete: bool,
-        is_data_resource: bool,
+        console: Console | None = None,
+        options: DeployOptions | None = None,
+        is_delete: bool = False,
+        is_data_resource: bool = False,
     ) -> ResourceToDeploy:
+        options = options or DeployOptions("deploy", drop_data=False, force_update=False, verbose=False)
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, resource in resource_by_id.items():
             if len(resource.source_files) > 1:
@@ -904,6 +905,8 @@ class DeployV2Command(ToolkitCommand):
                     resources.to_delete.append(identifier)
                     resources.to_create.append(resource.request)
                 if options.verbose:
+                    if console is None:
+                        console = crud.client.console
                     diff_str = "\n".join(to_diff(cdf_dict, resource.raw_dict))
                     for sensitive in crud.sensitive_strings(resource.request):
                         diff_str = diff_str.replace(sensitive, "********")

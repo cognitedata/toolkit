@@ -5,6 +5,7 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -12,6 +13,7 @@ from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
@@ -36,6 +38,7 @@ from tests.data import (
     EXTRACTOR_VIEWS_YAML,
 )
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.approval_client.client import LookUpAPIMock
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -45,6 +48,11 @@ TMP_FOLDER.mkdir(exist_ok=True)
 
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
+    """Fixture that provides an ApprovalToolkitClient with a mocked ToolkitClient.
+
+    CAVEAT: This is an expensive fixture to initialize, so it should only be used in tests
+    that requires API calls. If you don't need to make any API calls, use the `toolkit_client_cheap` fixture instead.
+    """
     with monkeypatch_toolkit_client() as toolkit_client:
 
         def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
@@ -66,9 +74,42 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
         yield approval_client
 
 
-@pytest.fixture(scope="function")
-def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
-    env_vars = EnvironmentVariables(
+@pytest.fixture(scope="session")
+def toolkit_client_cheap() -> ToolkitClient:
+    """A bare minimum fast to initialize client. For tests that don't need to make any calls to the CDF API."""
+    mock_client = MagicMock(spec=ToolkitClient)
+    mock_client.console = MagicMock(spec=Console)
+    return mock_client
+
+
+@pytest.fixture(scope="session")
+def toolkit_client_with_lookup() -> ToolkitClient:
+    """Toolkit client with all lookup methods mocked. For tests that need to test lookup functionality.
+    This is much faster than using the ApprovalToolkitClient, which requires a lot of setup and is slower to initialize.
+    """
+    mock_client = MagicMock(spec=ToolkitClient)
+    mock_client.console = MagicMock(spec=Console)
+    mock_client.lookup = MagicMock()
+    # Setup mock for all lookup methods
+    for lookup_api in [
+        mock_client.lookup.data_sets,
+        mock_client.lookup.assets,
+        mock_client.lookup.time_series,
+        mock_client.lookup.files,
+        mock_client.lookup.events,
+        mock_client.lookup.security_categories,
+        mock_client.lookup.location_filters,
+        mock_client.lookup.extraction_pipelines,
+        mock_client.lookup.functions,
+    ]:
+        mock_lookup = LookUpAPIMock(allow_reverse_lookup=True)
+        lookup_api.id.side_effect = mock_lookup.id
+        lookup_api.external_id.side_effect = mock_lookup.external_id
+    return mock_client
+
+
+def _create_env_vars() -> EnvironmentVariables:
+    return EnvironmentVariables(
         CDF_CLUSTER="bluefield",
         CDF_PROJECT=CDF_PROJECT,
         LOGIN_FLOW="client_credentials",
@@ -77,7 +118,19 @@ def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> Envi
         IDP_CLIENT_SECRET="dummy-secret",
         IDP_TENANT_ID="dummy-domain",
     )
+
+
+@pytest.fixture(scope="function")
+def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
+    env_vars = _create_env_vars()
     env_vars._client = toolkit_client_approval.mock_client
+    return env_vars
+
+
+@pytest.fixture(scope="session")
+def env_vars_with_client_cheap(toolkit_client_cheap: ToolkitClient) -> EnvironmentVariables:
+    env_vars = _create_env_vars()
+    env_vars._client = toolkit_client_cheap
     return env_vars
 
 

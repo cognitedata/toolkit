@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
     MisplacedModule,
+    ModuleDirectory,
     ModuleId,
     ModuleScanResult,
     NonExistingModuleName,
@@ -33,6 +34,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
+from tests.test_unit.utils import MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
 
@@ -461,7 +463,7 @@ class TestReadFileSystem:
         for path in paths:
             (organization_path / Path(path)).mkdir(parents=True, exist_ok=True)
 
-        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, organization_path)
+        actual_selection, actual_errors = BuildV2Command.parse_user_selection(user_selection, organization_path)
 
         assert actual_errors == errors
         assert actual_selection == selection
@@ -915,3 +917,140 @@ variables:
         second_spaces = second_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
         assert second_spaces[0].variables
         assert second_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+
+
+class TestSelectModule:
+    @staticmethod
+    def _make_module(org: Path, name: str) -> ModuleDirectory:
+        module_dir = org / MODULES / name
+        module_dir.mkdir(parents=True, exist_ok=True)
+        return ModuleDirectory(id=Path(MODULES) / name, path=module_dir)
+
+    @staticmethod
+    def _org(tmp_path: Path) -> Path:
+        org = tmp_path / "org"
+        (org / MODULES).mkdir(parents=True, exist_ok=True)
+        return org
+
+    @pytest.mark.parametrize(
+        "selected_module, allow_creation, answers_template, expected",
+        [
+            pytest.param(
+                "existing_module",
+                False,
+                [],
+                "return_first",
+                id="explicit_selection_returns_first_module",
+            ),
+            pytest.param(
+                None,
+                False,
+                ["__MODULE__"],
+                "return_selected",
+                id="interactive_returns_selected_module",
+            ),
+            pytest.param(
+                None,
+                True,
+                ["__MODULE__"],
+                "return_selected",
+                id="interactive_with_allow_creation_returns_selected_module",
+            ),
+        ],
+    )
+    def test_select_module_returns_existing_module(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        selected_module: str | None,
+        allow_creation: bool,
+        answers_template: list[Any],
+        expected: str,
+    ) -> None:
+        org = self._org(tmp_path)
+        module = self._make_module(org, "existing_module")
+        scan = ModuleScanResult(module_dir=org / MODULES, modules=[module])
+
+        answers = [module if a == "__MODULE__" else a for a in answers_template]
+
+        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+            result = BuildV2Command.select_module(
+                organization_dir=org,
+                selected_module=selected_module,
+                module_scan_result=scan,
+                allow_creation=allow_creation,
+            )
+
+        assert result is module
+        if expected == "return_first":
+            assert result.name == "existing_module"
+
+    def test_select_module_creates_new_module_interactively(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        org = self._org(tmp_path)
+        scan = ModuleScanResult(module_dir=org / MODULES, modules=[])
+
+        with MockQuestionary(BuildV2Command.__module__, monkeypatch, ["NEW", "created_module"]):
+            result = BuildV2Command.select_module(
+                organization_dir=org,
+                selected_module=None,
+                operation="testing",
+                module_scan_result=scan,
+                allow_creation=True,
+            )
+
+        assert isinstance(result, ModuleDirectory)
+        assert (org / MODULES / "created_module").exists()
+        assert result.path == org / MODULES / "created_module"
+        assert result.id == Path(MODULES) / "created_module"
+
+    @pytest.mark.parametrize(
+        "scan_kwargs, selected_module, allow_creation, answers, match",
+        [
+            pytest.param(
+                {
+                    "modules": [],
+                    "non_existing_module_names": [
+                        NonExistingModuleName(name="missing_module", closest_matches=["existing_module"])
+                    ],
+                },
+                "missing_module",
+                False,
+                [],
+                "Module 'missing_module' does not exist",
+                id="non_existing_module_raises",
+            ),
+            pytest.param(
+                {"modules": []},
+                None,
+                True,
+                ["NEW", ""],
+                "No module path provided.",
+                id="empty_new_module_path_raises",
+            ),
+        ],
+    )
+    def test_select_module_raises(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        scan_kwargs: dict[str, Any],
+        selected_module: str | None,
+        allow_creation: bool,
+        answers: list[Any],
+        match: str,
+    ) -> None:
+        org = self._org(tmp_path)
+        scan = ModuleScanResult(module_dir=org / MODULES, **scan_kwargs)
+
+        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+            with pytest.raises(ToolkitValueError, match=match):
+                BuildV2Command.select_module(
+                    organization_dir=org,
+                    selected_module=selected_module,
+                    module_scan_result=scan,
+                    allow_creation=allow_creation,
+                )

@@ -1,8 +1,8 @@
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
@@ -14,8 +14,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.utils import to_deploy_status
 
 
 @pytest.fixture
@@ -61,27 +62,17 @@ properties:
 constraints: {}
 indexes: {}
 """
-        file = MagicMock(spec=Path)
-        file.read_text.return_value = raw_file
-
         toolkit_client_approval.append(ContainerResponse, [cdf_container])
 
-        worker = ResourceWorker(crud, "deploy")
-        resources = worker.prepare_resources([file])
-        assert {
-            "create": len(resources.to_create),
-            "change": len(resources.to_update),
-            "delete": len(resources.to_delete),
-            "unchanged": len(resources.unchanged),
-        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(raw_file, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
         dumped_no_local = crud.dump_resource(cdf_container)
         assert "usedFor" in dumped_no_local
 
     def test_dump_resource_normalizes_empty_constraints_and_indexes_to_local_shape(
-        self, toolkit_client_approval: ApprovalToolkitClient, cdf_container: ContainerResponse
+        self, toolkit_client_cheap: ToolkitClient, cdf_container: ContainerResponse
     ) -> None:
-        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+        crud = ContainerCRUD.create_loader(toolkit_client_cheap)
 
         local_with_null = {"constraints": None, "indexes": None}
         dumped = crud.dump_resource(cdf_container, local_with_null)
