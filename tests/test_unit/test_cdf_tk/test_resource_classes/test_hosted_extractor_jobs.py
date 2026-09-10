@@ -28,11 +28,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "externalId": "myJob",
         },
-        {
-            "Missing required field: 'destinationId'",
-            "Missing required field: 'sourceId'",
-            "Missing required field: 'format'",
-        },
+        {"Missing required fields: 'destinationId', 'format' and 'sourceId'"},
         id="Missing required fields",
     )
 
@@ -210,10 +206,10 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "Missing required field in config.KafkaConfig: 'topic'",
             "Unrecognized fields in config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
+            "'pagination' and 'path'",
             "Missing required field in config.MQTTConfig: 'topicFilter'",
             "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
+            "'pagination' and 'path'",
             "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
             "body, headerValue and queryParameter",
         },

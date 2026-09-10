@@ -29,9 +29,8 @@ def invalid_test_cases() -> Iterable:
             },
         },
         {
-            "Unrecognized field in featureToggles: 'invalidToggle'. ",
-            "Unknown field: 'anotherUnknownField'",
-            "Unknown field: 'unknownField'",
+            "Unrecognized field in featureToggles: 'invalidToggle'",
+            "Unrecognized fields: 'anotherUnknownField' and 'unknownField'",
         },
         id="Multiple extra fields at different levels",
     )

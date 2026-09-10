@@ -7,6 +7,7 @@ from pydantic import (
     Field,
     ModelWrapValidatorHandler,
     SecretStr,
+    ValidationInfo,
     field_serializer,
     field_validator,
     model_serializer,
@@ -18,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
-from .base import BaseModelResource, ToolkitResource
+from .base import BaseModelResource, ToolkitResource, validate_as
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -66,7 +67,7 @@ class Authentication(BaseModelResource):
     @model_validator(mode="wrap")
     @classmethod
     def find_source_type(
-        cls, data: "dict[str, Any] | Authentication", handler: ModelWrapValidatorHandler[Self]
+        cls, data: "dict[str, Any] | Authentication", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
     ) -> Self:
         if isinstance(data, Authentication):
             return cast(Self, data)
@@ -85,7 +86,7 @@ class Authentication(BaseModelResource):
                 f"invalid authentication type '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _AUTHENTICATION_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
@@ -191,7 +192,10 @@ class HostedExtractorSourceYAML(ToolkitResource):
     @model_validator(mode="wrap")
     @classmethod
     def find_source_type(
-        cls, data: "dict[str, Any] | HostedExtractorSourceYAML", handler: ModelWrapValidatorHandler[Self]
+        cls,
+        data: "dict[str, Any] | HostedExtractorSourceYAML",
+        handler: ModelWrapValidatorHandler[Self],
+        info: ValidationInfo,
     ) -> Self:
         if isinstance(data, HostedExtractorSourceYAML):
             return cast(Self, data)
@@ -210,7 +214,7 @@ class HostedExtractorSourceYAML(ToolkitResource):
                 f"Invalid hosted extractor source type='{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _SOURCE_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

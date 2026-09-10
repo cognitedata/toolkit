@@ -7,6 +7,8 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML
+from cognite_toolkit._cdf_tk.yaml_classes.base import validate_ignoring_unknown_fields
+from cognite_toolkit._cdf_tk.yaml_classes.groups import CDFGroupYAML
 from tests.test_unit.utils import find_resources
 
 
@@ -82,6 +84,21 @@ class TestTimeSeriesTK:
         loaded = GroupYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_unknown_field_in_capability_scope_is_ignored(self) -> None:
+        """The unknown field sits in a capability scope, two class selections below the group itself."""
+        data = {
+            "name": "my-group",
+            "members": ["my-user"],
+            "capabilities": [
+                {"timeSeriesAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["1"], "unknown": "x"}}}}
+            ],
+        }
+
+        loaded = validate_ignoring_unknown_fields(GroupYAML, data)
+
+        assert isinstance(loaded, CDFGroupYAML)
+        assert loaded.as_id().name == "my-group"
 
     @pytest.mark.parametrize("content, expected_errors", list(invalid_group_test_cases()))
     def test_invalid_group_error_messages(self, content: str, expected_errors: set[str]) -> None:

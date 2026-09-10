@@ -11,11 +11,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.migration import ResourceViewMappingYA
 def invalid_mapping_test_cases() -> Iterable:
     yield pytest.param(
         {"viewId": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"}},
-        {
-            "Missing required field: 'propertyMapping'",
-            "Missing required field: 'resourceType'",
-            "Missing required field: 'externalId'",
-        },
+        {"Missing required fields: 'externalId', 'propertyMapping' and 'resourceType'"},
         id="Missing required field: externalId",
     )
     yield pytest.param(
@@ -36,7 +32,7 @@ def invalid_mapping_test_cases() -> Iterable:
             "Invalid value at viewId.version: Input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
         },
-        id="Unknown field: dataSetId and missing name",
+        id="Unrecognized field: dataSetId and missing name",
     )
 
 

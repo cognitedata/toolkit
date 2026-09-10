@@ -252,8 +252,8 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     resource_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
-    syntax_error: ModelSyntaxError | None = None
-    syntax_warning: ModelSyntaxWarning | None = None
+    syntax_errors: list[ModelSyntaxError] = Field(default_factory=list)
+    syntax_warnings: list[ModelSyntaxWarning] = Field(default_factory=list)
     line_count: int
 
 

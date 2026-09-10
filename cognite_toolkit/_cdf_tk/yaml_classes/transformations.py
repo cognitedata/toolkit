@@ -1,12 +1,12 @@
 from typing import Any, Literal
 
-from pydantic import Field, field_validator, model_serializer
+from pydantic import Field, ValidationInfo, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .authentication import AuthenticationClientIdSecret, OIDCCredential
-from .base import ToolkitResource
+from .base import ToolkitResource, validate_as
 from .transformation_destination import Destination
 
 
@@ -61,15 +61,17 @@ class TransformationYAML(ToolkitResource):
 
     @field_validator("authentication", mode="before")
     @classmethod
-    def validate_serialization(cls, value: Any) -> Any:
+    def validate_serialization(cls, value: Any, info: ValidationInfo) -> Any:
         if not isinstance(value, dict):
             return value
         if "read" in value or "write" in value:
-            return {k: cls._validate_auth_value(v) if isinstance(v, dict) else v for k, v in value.items()}
-        return cls._validate_auth_value(value)
+            return {k: cls._validate_auth_value(v, info) if isinstance(v, dict) else v for k, v in value.items()}
+        return cls._validate_auth_value(value, info)
 
     @classmethod
-    def _validate_auth_value(cls, value: dict[str, Any]) -> AuthenticationClientIdSecret | OIDCCredential:
+    def _validate_auth_value(
+        cls, value: dict[str, Any], info: ValidationInfo
+    ) -> AuthenticationClientIdSecret | OIDCCredential:
         if "scopes" in value or "tokenUri" in value or "cdfProjectName" in value or "audience" in value:
-            return OIDCCredential.model_validate(value)
-        return AuthenticationClientIdSecret.model_validate(value)
+            return validate_as(OIDCCredential, value, info)
+        return validate_as(AuthenticationClientIdSecret, value, info)

@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client import identifiers
@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
-from .base import BaseModelResource
+from .base import BaseModelResource, validate_as
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -45,7 +45,9 @@ class ConstraintDefinition(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_constraint_definition_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_constraint_definition_cls(
+        cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
+    ) -> Self:
         if isinstance(data, ConstraintDefinition):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -67,7 +69,7 @@ class ConstraintDefinition(BaseModelResource):
         data_copy = dict(data)
         data_copy.pop("constraintType")
 
-        return cast(Self, cls_.model_validate(data_copy))
+        return cast(Self, validate_as(cls_, data_copy, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_constrain_definition(self, handler: SerializerFunctionWrapHandler) -> dict:
@@ -98,7 +100,9 @@ class IndexDefinition(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_index_definition_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_index_definition_cls(
+        cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
+    ) -> Self:
         if isinstance(data, IndexDefinition):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -119,7 +123,7 @@ class IndexDefinition(BaseModelResource):
         cls_ = _INDEX_DEFINITION_CLASS_BY_TYPE[index_type]
         data_copy = dict(data)
         data_copy.pop("indexType")
-        return cast(Self, cls_.model_validate(data_copy))
+        return cast(Self, validate_as(cls_, data_copy, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_index(self, handler: SerializerFunctionWrapHandler) -> dict:
@@ -150,7 +154,7 @@ class PropertyTypeDefinition(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_property_type_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_property_type_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo) -> Self:
         if isinstance(data, PropertyTypeDefinition):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -171,7 +175,7 @@ class PropertyTypeDefinition(BaseModelResource):
         cls_ = _PROPERTY_TYPE_CLASS_BY_TYPE[property_type]
         data_copy = dict(data)
         data_copy.pop("type")
-        return cast(Self, cls_.model_validate(data_copy))
+        return cast(Self, validate_as(cls_, data_copy, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_property_type(self, handler: SerializerFunctionWrapHandler) -> dict:

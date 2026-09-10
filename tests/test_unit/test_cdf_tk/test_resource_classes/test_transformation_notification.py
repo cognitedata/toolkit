@@ -37,7 +37,7 @@ class TestTransformationNotificationYAML:
                     "transformationId": 123,
                     "transformationExternalId": "ext-123",
                 },
-                {"Unknown field: 'transformationId'"},
+                {"Unrecognized field: 'transformationId'"},
                 id="Specifying transformationId",
             ),
         ],

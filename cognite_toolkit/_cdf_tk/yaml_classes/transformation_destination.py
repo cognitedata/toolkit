@@ -2,13 +2,13 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
-from .base import BaseModelResource
+from .base import BaseModelResource, validate_as
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -73,7 +73,7 @@ class Destination(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_destination_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_destination_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self], info: ValidationInfo) -> Self:
         if isinstance(data, Destination):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -90,7 +90,7 @@ class Destination(BaseModelResource):
                 f"invalid destination type '{dest_type}'. Expected one of {humanize_collection(_DESTINATION_CLASS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _DESTINATION_CLASS_BY_TYPE[dest_type]
-        return cast(Self, cls_.model_validate(data))
+        return cast(Self, validate_as(cls_, data, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_destination(self, handler: SerializerFunctionWrapHandler) -> dict:

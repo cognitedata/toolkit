@@ -2,14 +2,14 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, cast
 
-from pydantic import Field, JsonValue, ModelWrapValidatorHandler, model_serializer, model_validator
+from pydantic import Field, JsonValue, ModelWrapValidatorHandler, ValidationInfo, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .authentication import AuthenticationClientIdSecret
-from .base import BaseModelResource, ToolkitResource
+from .base import BaseModelResource, ToolkitResource, validate_as
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -23,7 +23,7 @@ class TriggerRuleYAML(BaseModelResource):
     @model_validator(mode="wrap")
     @classmethod
     def find_trigger_type(
-        cls, data: "dict[str, Any] | TriggerRuleYAML", handler: ModelWrapValidatorHandler[Self]
+        cls, data: "dict[str, Any] | TriggerRuleYAML", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
     ) -> Self:
         if isinstance(data, TriggerRuleYAML):
             return cast(Self, data)
@@ -42,7 +42,7 @@ class TriggerRuleYAML(BaseModelResource):
                 f"invalid trigger type '{trigger_type}'. Expected one of {humanize_collection(_TRIGGER_CLS_BY_NAME.keys(), bind_word='or')}"
             )
         cls_ = _TRIGGER_CLS_BY_NAME[trigger_type]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "triggerType"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "triggerType"}, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_trigger_type(self, handler: SerializerFunctionWrapHandler) -> dict:

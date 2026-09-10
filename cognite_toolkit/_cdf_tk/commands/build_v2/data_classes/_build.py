@@ -126,8 +126,8 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
-    syntax_errors_by_source: dict[Path, ModelSyntaxError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    syntax_errors_by_source: dict[Path, list[ModelSyntaxError]] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -157,10 +157,12 @@ class BuiltModule(BaseModel):
                         source_file=format_insight_source_file(resource.source_path),
                     )
                 )
-        for path, error in self.syntax_errors_by_source.items():
-            insights.append(error.model_copy(update={"source_file": format_insight_source_file(path)}))
-        for path, warning in self.syntax_warnings_by_source.items():
-            insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
+        for path, errors in self.syntax_errors_by_source.items():
+            for error in errors:
+                insights.append(error.model_copy(update={"source_file": format_insight_source_file(path)}))
+        for path, warnings in self.syntax_warnings_by_source.items():
+            for warning in warnings:
+                insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
         for path, variables in self.unresolved_variables_by_source.items():
             quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
             insights.append(

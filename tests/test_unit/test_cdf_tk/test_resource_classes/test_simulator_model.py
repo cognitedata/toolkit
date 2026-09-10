@@ -12,12 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_simulator_model_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Model 1"},
-        {
-            "Missing required field: 'externalId'",
-            "Missing required field: 'simulatorExternalId'",
-            "Missing required field: 'dataSetExternalId'",
-            "Missing required field: 'type'",
-        },
+        {"Missing required fields: 'dataSetExternalId', 'externalId', 'simulatorExternalId' and 'type'"},
         id="Missing required fields",
     )
     yield pytest.param(
@@ -39,8 +34,8 @@ def invalid_simulator_model_test_cases() -> Iterable:
             "type": "steady_state",
             "id": 123,
         },
-        {"Unknown field: 'id'"},
-        id="Unknown field: id",
+        {"Unrecognized field: 'id'"},
+        id="Unrecognized field: id",
     )
     yield pytest.param(
         {
@@ -51,8 +46,8 @@ def invalid_simulator_model_test_cases() -> Iterable:
             "type": "steady_state",
             "dataSetId": 123,
         },
-        {"Unknown field: 'dataSetId'"},
-        id="Unknown field: dataSetId (should use dataSetExternalId)",
+        {"Unrecognized field: 'dataSetId'"},
+        id="Unrecognized field: dataSetId (should use dataSetExternalId)",
     )
 
 

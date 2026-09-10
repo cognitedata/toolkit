@@ -3,7 +3,15 @@ from abc import ABC
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, JsonValue, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import (
+    Field,
+    JsonValue,
+    ModelWrapValidatorHandler,
+    ValidationInfo,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -11,7 +19,7 @@ from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
-from .base import BaseModelResource, ToolkitResource
+from .base import BaseModelResource, ToolkitResource, validate_as
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -31,7 +39,9 @@ class JobFormat(BaseModelResource, ABC):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_format(cls, data: "dict[str, Any] | JobFormat", handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_format(
+        cls, data: "dict[str, Any] | JobFormat", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
+    ) -> Self:
         if isinstance(data, JobFormat):
             return cast(Self, data)
         if not isinstance(data, dict):
@@ -49,7 +59,7 @@ class JobFormat(BaseModelResource, ABC):
                 f"invalid type '{type_}'. Expected one of {humanize_collection(_JOB_FORMAT_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _JOB_FORMAT_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
@@ -120,7 +130,7 @@ class IncrementalLoad(BaseModelResource, ABC):
     @model_validator(mode="wrap")
     @classmethod
     def find_incremental_load(
-        cls, data: "dict[str, Any] | IncrementalLoad", handler: ModelWrapValidatorHandler[Self]
+        cls, data: "dict[str, Any] | IncrementalLoad", handler: ModelWrapValidatorHandler[Self], info: ValidationInfo
     ) -> Self:
         if isinstance(data, IncrementalLoad):
             return cast(Self, data)
@@ -139,7 +149,7 @@ class IncrementalLoad(BaseModelResource, ABC):
                 f"invalid type '{type_}'. Expected one of {humanize_collection(_INCREMENTAL_LOAD_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _INCREMENTAL_LOAD_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+        return cast(Self, validate_as(cls_, {k: v for k, v in data.items() if k != "type"}, info))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
