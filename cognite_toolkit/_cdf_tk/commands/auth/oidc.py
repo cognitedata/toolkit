@@ -1,0 +1,407 @@
+import json
+import os
+import secrets
+import socket
+import threading
+import time
+import webbrowser
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import httpx
+from authlib.oauth2.rfc7636 import create_s256_code_challenge
+from rich import print
+
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .session_store import StoredSession, format_session_timestamp
+
+# OAuth public client IDs for @cognite/cli on Cognite IdP. These are not secrets.
+_PROD_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"
+_DEV_CLIENT_ID = "e26f94fb-bac4-4915-aa91-456668004185"
+
+_PROD_IDP_BASE_URL = "https://auth.cognite.com"
+_DEV_IDP_BASE_URL = "https://auth-dev.cognitedata-development.cognite.ai"
+_SESSION_SCOPES = "openid profile email offline_access"
+_DEFAULT_CALLBACK_PORT = 3000
+_CALLBACK_PORTS = (_DEFAULT_CALLBACK_PORT, *range(3100, 3111))
+_LOGIN_TIMEOUT_SECONDS = 5 * 60
+_DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60
+_REFRESH_TOKEN_IDLE_TTL_SECONDS = 25 * 60 * 60
+
+
+def _is_dev_org(org: str) -> bool:
+    return org.startswith("cog-dev-")
+
+
+def _resolve_idp_base_url(org: str) -> str:
+    if env_base_url := os.environ.get("COGNITE_IDP_BASE_URL", "").strip():
+        return env_base_url.rstrip("/")
+    return _DEV_IDP_BASE_URL if _is_dev_org(org) else _PROD_IDP_BASE_URL
+
+
+def _resolve_client_id(org: str) -> str:
+    return _DEV_CLIENT_ID if _is_dev_org(org) else _PROD_CLIENT_ID
+
+
+@dataclass(frozen=True)
+class OpenIdConfiguration:
+    authorization_endpoint: str
+    token_endpoint: str
+    revocation_endpoint: str | None
+
+
+@dataclass
+class _CallbackContext:
+    expected_state: str
+    code_verifier: str
+    client_id: str
+    token_endpoint: str
+    redirect_uri: str
+    result: dict[str, Any] | None = None
+
+
+def fetch_openid_configuration(idp_base_url: str) -> OpenIdConfiguration:
+    idp_base = idp_base_url.rstrip("/")
+    url = f"{idp_base}/.well-known/openid-configuration"
+    try:
+        response = httpx.get(url, timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
+        raise AuthenticationError(f"Failed to fetch OpenID configuration from {idp_base}") from exc
+    if not isinstance(data, dict):
+        raise AuthenticationError(f"Invalid OpenID configuration response from {idp_base}")
+    try:
+        return OpenIdConfiguration(
+            authorization_endpoint=data["authorization_endpoint"],
+            token_endpoint=data["token_endpoint"],
+            revocation_endpoint=data.get("revocation_endpoint"),
+        )
+    except KeyError as exc:
+        raise AuthenticationError(f"Invalid OpenID configuration response from {idp_base}") from exc
+
+
+def callback_redirect_uri(port: int) -> str:
+    return f"http://localhost:{port}/"
+
+
+def _token_ttl_seconds(value: Any, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | None = None) -> StoredSession:
+    now = now or datetime.now(timezone.utc)
+    access_token = tokens.get("access_token")
+    if not access_token:
+        raise AuthenticationError("Login succeeded but no access token was returned. Please try logging in again.")
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        raise AuthenticationError(
+            "Login succeeded but no refresh token was returned. "
+            "The identity provider may not support the `offline_access` scope."
+        )
+    access_ttl = _token_ttl_seconds(tokens.get("expires_in"), _DEFAULT_ACCESS_TOKEN_TTL_SECONDS)
+    refresh_ttl = _token_ttl_seconds(tokens.get("refresh_expires_in"), _REFRESH_TOKEN_IDLE_TTL_SECONDS)
+    return StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org=org,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        access_token_expires_at=format_session_timestamp(now + timedelta(seconds=access_ttl)),
+        refresh_token_expires_at=format_session_timestamp(now + timedelta(seconds=refresh_ttl)),
+    )
+
+
+def _generate_pkce_pair() -> tuple[str, str]:
+    verifier = secrets.token_urlsafe(64)
+    challenge = create_s256_code_challenge(verifier)
+    return verifier, challenge
+
+
+def _can_bind(host: str, port: int) -> bool:
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+    except OSError:
+        return False
+    return True
+
+
+def _callback_loopback_hosts(port: int) -> tuple[str, ...]:
+    if not _can_bind("127.0.0.1", port):
+        raise AuthenticationError(f"Port {port} is already in use — the login callback server cannot start.")
+    hosts: list[str] = ["127.0.0.1"]
+    if _can_bind("::1", port):
+        hosts.append("::1")
+    return tuple(hosts)
+
+
+_CALLBACK_FAILED = "Failed to sign in. Close this tab and check the terminal for details."
+_CALLBACK_INCOMPLETE = "Failed to sign in. Close this tab and try again."
+
+
+def _first_query_param(params: dict[str, list[str]], name: str) -> str:
+    return params.get(name, [""])[0]
+
+
+def _oauth_error_from_params(params: dict[str, list[str]]) -> AuthenticationError:
+    error = _first_query_param(params, "error")
+    description = _first_query_param(params, "error_description")
+    if description:
+        return AuthenticationError(description)
+    if error:
+        return AuthenticationError(error.replace("_", " "))
+    return AuthenticationError("Sign-in failed.")
+
+
+def _callback_error_message(error: AuthenticationError) -> str:
+    return f"{error}\n\nClose this tab and return to the terminal."
+
+
+def _send_plain_text_response(handler: BaseHTTPRequestHandler, message: str, *, status: int = 200) -> None:
+    body = message.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/plain; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Connection", "close")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _exchange_authorization_code(context: _CallbackContext, code: str) -> dict[str, Any]:
+    response = httpx.post(
+        context.token_endpoint,
+        data={
+            "grant_type": "authorization_code",
+            "client_id": context.client_id,
+            "code": code,
+            "redirect_uri": context.redirect_uri,
+            "code_verifier": context.code_verifier,
+        },
+        headers={"Accept": "application/json"},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    tokens = response.json()
+    if not isinstance(tokens, dict):
+        raise AuthenticationError("Token exchange returned an invalid response.")
+    return tokens
+
+
+def _make_callback_handler(context: _CallbackContext) -> type[BaseHTTPRequestHandler]:
+    class CallbackHandler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+        def do_GET(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path != "/":
+                _send_plain_text_response(self, "Not found.", status=404)
+                return
+
+            params = parse_qs(parsed.query)
+            if "error" in params:
+                auth_error = _oauth_error_from_params(params)
+                context.result = {"error": auth_error}
+                _send_plain_text_response(self, _callback_error_message(auth_error))
+                return
+
+            state = _first_query_param(params, "state")
+            code = _first_query_param(params, "code")
+            if not code or not secrets.compare_digest(state, context.expected_state):
+                context.result = {
+                    "error": AuthenticationError("Invalid OAuth callback state or missing authorization code.")
+                }
+                _send_plain_text_response(self, _CALLBACK_INCOMPLETE)
+                return
+
+            try:
+                tokens = _exchange_authorization_code(context, code)
+            except httpx.HTTPError as exc:
+                context.result = {"error": AuthenticationError(f"Token exchange failed: {exc}")}
+                _send_plain_text_response(self, _CALLBACK_FAILED)
+                return
+
+            context.result = {"tokens": tokens}
+            _send_plain_text_response(self, "Signed in. Close this tab and return to the terminal.")
+
+    return CallbackHandler
+
+
+def _create_loopback_server(host: str, port: int, handler: type[BaseHTTPRequestHandler]) -> ThreadingHTTPServer | None:
+    try:
+        if host == "::1":
+
+            class IPv6ThreadingHTTPServer(ThreadingHTTPServer):
+                address_family = socket.AF_INET6
+
+            server: ThreadingHTTPServer = IPv6ThreadingHTTPServer(("::1", port), handler)
+        else:
+            server = ThreadingHTTPServer((host, port), handler)
+        server.daemon_threads = True
+        return server
+    except OSError:
+        return None
+
+
+class _OAuthCallbackServer:
+    def __init__(self, port: int, context: _CallbackContext) -> None:
+        self._port = port
+        self._context = context
+        self._hosts = _callback_loopback_hosts(port)
+        handler = _make_callback_handler(context)
+        self._servers: list[ThreadingHTTPServer] = []
+        self._threads: list[threading.Thread] = []
+        for host in self._hosts:
+            server = _create_loopback_server(host, port, handler)
+            if server is not None:
+                self._servers.append(server)
+
+    def start(self) -> None:
+        if not self._servers:
+            raise AuthenticationError(f"Login callback server failed to start on port {self._port}.")
+        for server in self._servers:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self._threads.append(thread)
+        # Bind happens in server __init__; brief pause lets serve_forever threads enter accept().
+        time.sleep(0.1)
+
+    def wait_for_result(self, timeout_seconds: int) -> dict[str, Any] | None:
+        deadline = time.monotonic() + timeout_seconds
+        while self._context.result is None and time.monotonic() < deadline:
+            time.sleep(0.1)
+        return self._context.result
+
+    def stop(self) -> None:
+        for server in self._servers:
+            server.shutdown()
+            server.server_close()
+
+
+def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
+    idp_base_url = _resolve_idp_base_url(org)
+    client_id = _resolve_client_id(org)
+    oidc = fetch_openid_configuration(idp_base_url)
+
+    code_verifier, code_challenge = _generate_pkce_pair()
+    state = secrets.token_urlsafe(32)
+    redirect_uri = callback_redirect_uri(callback_port)
+
+    auth_params = {
+        "client_id": client_id,
+        "response_type": "code",
+        "scope": _SESSION_SCOPES,
+        "redirect_uri": redirect_uri,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+        "organization_hint": org,
+    }
+    auth_url = f"{oidc.authorization_endpoint}?{urlencode(auth_params)}"
+
+    context = _CallbackContext(
+        expected_state=state,
+        code_verifier=code_verifier,
+        client_id=client_id,
+        token_endpoint=oidc.token_endpoint,
+        redirect_uri=redirect_uri,
+    )
+    callback_server = _OAuthCallbackServer(callback_port, context)
+    callback_server.start()
+
+    print("Opening browser for authentication...")
+
+    browser_opened = False
+    try:
+        browser_opened = bool(webbrowser.open(auth_url))
+    except Exception:
+        browser_opened = False
+    if not browser_opened:
+        print(f"Could not open browser automatically. Open this URL manually:\n{auth_url}\n")
+
+    try:
+        result = callback_server.wait_for_result(_LOGIN_TIMEOUT_SECONDS)
+    finally:
+        callback_server.stop()
+
+    if result is None:
+        raise AuthenticationError("Login timed out. Please try again.")
+    if "error" in result:
+        raise result["error"]
+    return build_session_from_tokens(org, result["tokens"])
+
+
+def login_for_session(org: str, port: int | None = None) -> StoredSession:
+    if not org.strip():
+        raise AuthenticationError("Organization name is required.")
+    org = org.strip()
+
+    ports_to_try = [port] if port is not None else list(_CALLBACK_PORTS)
+    last_error: AuthenticationError | None = None
+    for callback_port in ports_to_try:
+        try:
+            return _login_for_session_at_port(org, callback_port)
+        except AuthenticationError as exc:
+            if "already in use" in str(exc):
+                last_error = exc
+                continue
+            raise
+    raise last_error or AuthenticationError("No available callback port for login.")
+
+
+def refresh_session_tokens(session: StoredSession) -> StoredSession:
+    idp_base_url = _resolve_idp_base_url(session.org)
+    client_id = _resolve_client_id(session.org)
+    oidc = fetch_openid_configuration(idp_base_url)
+    try:
+        response = httpx.post(
+            oidc.token_endpoint,
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": session.refresh_token,
+            },
+            headers={"Accept": "application/json"},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        body = exc.response.text
+        if "invalid_grant" in body:
+            raise AuthenticationError("Session expired. Run `cdf auth login` to sign in again.") from exc
+        raise AuthenticationError(f"Token refresh failed: {exc}") from exc
+    except httpx.HTTPError as exc:
+        raise AuthenticationError(f"Token refresh failed: {exc}") from exc
+
+    tokens = response.json()
+    if not tokens.get("refresh_token"):
+        tokens["refresh_token"] = session.refresh_token
+    return build_session_from_tokens(session.org, tokens)
+
+
+def revoke_refresh_token(refresh_token: str, org: str) -> None:
+    oidc = fetch_openid_configuration(_resolve_idp_base_url(org))
+    if not oidc.revocation_endpoint:
+        return
+    try:
+        response = httpx.post(
+            oidc.revocation_endpoint,
+            data={"token": refresh_token, "client_id": _resolve_client_id(org)},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError:
+        pass

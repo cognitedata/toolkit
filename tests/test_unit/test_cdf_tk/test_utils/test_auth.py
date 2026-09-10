@@ -174,11 +174,9 @@ CDF_CLIENT_MAX_WORKERS=5
 
 
 class TestPromptUserEnvironmentVariables:
-    def test_device_code_is_first_login_flow(self) -> None:
+    def test_session_is_first_login_flow_description(self) -> None:
         first_flow = next(iter(LOGIN_FLOW_DESCRIPTION))
-        assert first_flow == "device_code", (
-            "device_code should be the first login flow so new users see it as the default"
-        )
+        assert first_flow == "session"
 
     def test_new_user_defaults_to_device_code_entra_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Simulate a first-time user pressing Enter on every prompt:

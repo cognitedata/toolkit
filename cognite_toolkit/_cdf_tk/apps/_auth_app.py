@@ -3,7 +3,9 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.utils.auth import VALID_AUTH_LOGIN_FLOWS, AuthLoginFlowCli, EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -14,6 +16,10 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
+        if FeatureFlag.is_enabled(Flags.V09):
+            self.command()(self.login)
+            self.command()(self.logout)
+            self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -90,3 +96,67 @@ class AuthApp(typer.Typer):
                 no_prompt=no_prompt,
             )
         )
+
+    def login(
+        self,
+        flow: Annotated[
+            AuthLoginFlowCli,
+            typer.Option(
+                "--flow",
+                "-f",
+                help="Authentication flow to use.",
+                case_sensitive=False,
+            ),
+        ] = "session",
+        org: Annotated[
+            str | None,
+            typer.Option("--org", "-o", help="Organization to sign in to when using the session flow"),
+        ] = None,
+        force: Annotated[
+            bool,
+            typer.Option("--force", help="Replace an existing session without prompting"),
+        ] = False,
+        port: Annotated[
+            int | None,
+            typer.Option(
+                "--port",
+                "-p",
+                help="Local callback port for the OAuth redirect (default: 3000, session flow only)",
+            ),
+        ] = None,
+    ) -> None:
+        """Sign in and optionally write a .env file for subsequent Toolkit commands."""
+        if flow not in VALID_AUTH_LOGIN_FLOWS:
+            raise typer.BadParameter(f"Invalid flow {flow!r}. Choose one of: {', '.join(VALID_AUTH_LOGIN_FLOWS)}")
+
+        if flow != "session":
+            session_only_flags = [
+                flag
+                for flag, is_set in (("--org", org is not None), ("--force", force), ("--port", port is not None))
+                if is_set
+            ]
+            if session_only_flags:
+                raise typer.BadParameter(f"{', '.join(session_only_flags)} are only valid with --flow session")
+            org = None
+            force = False
+            port = None
+
+        cmd = AuthCommand()
+        cmd.run(
+            lambda: cmd.login(
+                flow=flow,
+                org=org,
+                force=force,
+                port=port,
+            )
+        )
+
+    def logout(self) -> None:
+        """Sign out and clear the persisted CogIdP session."""
+        cmd = AuthCommand()
+        cmd.run(AuthSessionCommand().logout)
+
+    def status(self) -> None:
+        """Show the current persisted CogIdP session."""
+        cmd = AuthCommand()
+        cmd.run(AuthSessionCommand().status)
