@@ -1,12 +1,15 @@
 import json
 import re
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeAlias, get_args
+from typing import Any, ClassVar, Generic, Literal, TypeAlias, get_args
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
@@ -15,6 +18,15 @@ from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResourc
 
 from ._insights import ModelSyntaxError, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+
+    import tomllib as toml
+else:
+    import tomli as toml
+    from typing_extensions import Self
+
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
@@ -150,7 +162,72 @@ class ModuleId(Identifier):
         return self.id.name
 
 
-class ModuleSource(BaseModel):
+class ExampleData(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    repo_type: str
+    repo: str
+    source: str
+    destination: Path
+
+
+class ModuleToml(BaseModel):
+    filename: ClassVar[str] = "module.toml"
+    title: str | None
+    id: str | None = None
+    dependencies: frozenset[str] = Field(default_factory=frozenset)
+    is_selected_by_default: bool = False
+    data: list[ExampleData] = Field(default_factory=list)
+    extra_resources: list[Path] = Field(default_factory=list)
+    package_id: str | None = None
+
+    @field_validator("extra_resources")
+    @classmethod
+    def validate_extra_resources(cls, v: list[Path]) -> list[Path]:
+        for extra in v:
+            if extra.is_absolute():
+                raise ValueError(f"Extra resource {extra} must be a relative path")
+        return v
+
+    @classmethod
+    def load(cls, data: dict[str, Any] | Path) -> Self:
+        if isinstance(data, Path):
+            return cls.load(toml.loads(data.read_text(encoding="utf-8")))
+
+        if "dependencies" in data:
+            dependencies = frozenset(data["dependencies"].get("modules", set()))
+        else:
+            dependencies = frozenset()
+
+        example_data: list[ExampleData] = []
+        if "data" in data and isinstance(data["data"], list):
+            example_data = [ExampleData.model_validate(d) for d in data["data"]]
+
+        extra_resources: list[Path] = []
+        if "extra_resources" in data and isinstance(data["extra_resources"], list):
+            extra_resources = [Path(item["location"]) for item in data["extra_resources"] if "location" in item]
+
+        title: str | None = None
+        id: str | None = None
+        is_selected_by_default: bool = False
+        package_id: str | None = None
+        if "module" in data:
+            title = data["module"].get("title")
+            id = data["module"].get("id")
+            is_selected_by_default = data["module"].get("is_selected_by_default", False)
+            package_id = data["module"].get("package_id")
+
+        return cls(
+            title=title,
+            id=id,
+            dependencies=dependencies,
+            is_selected_by_default=is_selected_by_default,
+            data=example_data,
+            extra_resources=extra_resources,
+            package_id=package_id,
+        )
+
+
+class ModuleDirectory(BaseModel):
     """Class used to describe source for module"""
 
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
@@ -169,6 +246,38 @@ class ModuleSource(BaseModel):
     @property
     def total_files(self) -> int:
         return sum(len(files) for files in self.resource_files_by_folder.values())
+
+    @cached_property
+    def module_toml(self) -> ModuleToml | None:
+        module_toml_path = self.path / ModuleToml.filename
+        if module_toml_path.exists():
+            return ModuleToml.load(module_toml_path)
+        return None
+
+    @property
+    def has_example_data(self) -> bool:
+        return bool(self.module_toml and self.module_toml.data)
+
+    @property
+    def title(self) -> str | None:
+        """The title of the module."""
+        if self.module_toml:
+            return self.module_toml.title
+        return None
+
+    @property
+    def module_id(self) -> str | None:
+        """The ID of the module."""
+        if self.module_toml:
+            return self.module_toml.id
+        return None
+
+    @property
+    def package_id(self) -> str | None:
+        """The ID of the package."""
+        if self.module_toml:
+            return self.module_toml.package_id
+        return None
 
 
 class AmbiguousSelection(BaseModel):
@@ -192,7 +301,7 @@ class ModuleScanResult(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     module_dir: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
-    modules: list[ModuleSource]
+    modules: list[ModuleDirectory]
 
     ambiguous_selection: list[AmbiguousSelection] = Field(default_factory=list)
     misplaced_modules: list[MisplacedModule] = Field(default_factory=list)

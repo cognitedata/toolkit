@@ -12,12 +12,12 @@ from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import ModuleLocation, Package, Packages
+from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
@@ -69,7 +69,7 @@ class TestModulesCommand:
         )
 
         assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "my_example_module").exists()
+        assert Path(target_path / MODULES / "my_example_module").exists()
 
     def test_modules_command_with_env(
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
@@ -449,17 +449,23 @@ class TestModulesCommand:
 
         assert captured == {"organization_dir": tmp_path, "config_yaml": config_yaml}
 
+    @staticmethod
+    def _module_directory(base: Path, *parts: str) -> ModuleDirectory:
+        path = base.joinpath(*parts)
+        path.mkdir(parents=True, exist_ok=True)
+        return ModuleDirectory(id=Path(*parts), path=path)
+
     @pytest.fixture
     def lookup_packages(self, tmp_path: Path) -> Packages:
         """Minimal Packages fixture for _find_and_select_module tests."""
         base = tmp_path
-        mod_a = ModuleLocation(dir=base / "mod_a", source_absolute_path=base, source_paths=[])
-        mod_b = ModuleLocation(dir=base / "mod_b", source_absolute_path=base, source_paths=[])
-        mod_locked = ModuleLocation(dir=base / "mod_locked", source_absolute_path=base, source_paths=[])
-        mod_only_fixed = ModuleLocation(dir=base / "mod_only_fixed", source_absolute_path=base, source_paths=[])
+        mod_a = self._module_directory(base, "mod_a")
+        mod_b = self._module_directory(base, "mod_b")
+        mod_locked = self._module_directory(base, "mod_locked")
+        mod_only_fixed = self._module_directory(base, "mod_only_fixed")
         # A second cherry-pickable package that also contains a module named "mod_b" (collision)
-        mod_b_alt = ModuleLocation(dir=base / "alt" / "mod_b", source_absolute_path=base, source_paths=[])
-        mod_c = ModuleLocation(dir=base / "mod_c", source_absolute_path=base, source_paths=[])
+        mod_b_alt = self._module_directory(base, "alt", "mod_b")
+        mod_c = self._module_directory(base, "mod_c")
         return Packages(
             {
                 "cherry_pkg": Package(
