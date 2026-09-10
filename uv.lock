@@ -329,6 +329,27 @@ wheels = [
 ]
 
 [[package]]
+name = "cognite-function-apps"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cognite-sdk" },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/ec/618c2b1da51030f7b04b572e4575a5df0a967c3b79ffe0966c29df6a8f2d/cognite_function_apps-0.14.0.tar.gz", hash = "sha256:af7ee763f718fd95af954108dc55e24e3c76346653632fec428b8fc4784674e1", size = 407851, upload-time = "2026-09-03T13:16:46.465Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/93/a60e8d6ee8760ce734d2f63866601f1e19e3a9e87c60eb7498d7e1f221a6/cognite_function_apps-0.14.0-py3-none-any.whl", hash = "sha256:72db9386284f0b6701281ad040f03e1aee0ec1745fa82444e9cfa47682cf4e7b", size = 113579, upload-time = "2026-09-03T13:16:45.24Z" },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "pydantic-settings" },
+    { name = "typer" },
+    { name = "uvicorn" },
+]
+
+[[package]]
 name = "cognite-neat"
 version = "1.0.61"
 source = { registry = "https://pypi.org/simple" }
@@ -394,6 +415,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+serve = [
+    { name = "cognite-function-apps", extra = ["cli"] },
+]
 sql = [
     { name = "sqlparse" },
 ]
@@ -432,6 +456,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cognite-function-apps", extras = ["cli"], marker = "extra == 'serve'", specifier = ">=0.14.0" },
     { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.43" },
     { name = "cognite-sdk", specifier = ">=8.6.0,<9.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
@@ -454,7 +479,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12.0,<1.0.0" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
 ]
-provides-extras = ["table", "sql", "v08"]
+provides-extras = ["table", "sql", "v08", "serve"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1903,6 +1928,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-settings"
+version = "2.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz", hash = "sha256:694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117", size = 261253, upload-time = "2026-08-07T09:24:57.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/a4/2bffa9f8e804325a09867f0e9d30795c80ea9f8d62560bd1b6ad6220eb2f/pydantic_settings-2.15.0-py3-none-any.whl", hash = "sha256:0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42", size = 69413, upload-time = "2026-08-07T09:24:55.839Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2517,6 +2556,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "uvicorn"
+version = "0.52.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "h11" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz", hash = "sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86", size = 100627, upload-time = "2026-08-19T06:27:41.821Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/79/4a20b54ab0491485ccd8c077db2d39187c7f12b3e15485d38a7be37c81b4/uvicorn-0.52.4-py3-none-any.whl", hash = "sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1", size = 79871, upload-time = "2026-08-19T06:27:40.36Z" },
 ]
 
 [[package]]
