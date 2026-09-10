@@ -3,10 +3,9 @@ from typing import Any
 
 import typer
 
+from cognite_toolkit._cdf_tk.apps._helpers import print_help_if_no_subcommand
 from cognite_toolkit._cdf_tk.commands import InstancesAPICommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-
-from cognite_toolkit._cdf_tk.apps._helpers import print_help_if_no_subcommand
 
 DEFAULT_LIST_LIMIT = 25
 
