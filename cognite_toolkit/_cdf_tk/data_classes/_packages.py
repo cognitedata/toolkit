@@ -17,8 +17,6 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as toml
     from typing_extensions import Self
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
