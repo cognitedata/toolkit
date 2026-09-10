@@ -1,0 +1,63 @@
+from typing import Any
+
+from pydantic import JsonValue
+from rich.json import JSON
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceResponse
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
+
+
+class InstancesCommand(ToolkitCommand):
+    """Commands for working with data modeling instances."""
+
+    def list(
+        self,
+        client: ToolkitClient,
+        view: str | None = None,
+        filter: str | None = None,
+        limit: int = 25,
+    ) -> list[InstanceResponse]:
+        """List instances using the instances search endpoint.
+
+        Args:
+            client: Toolkit client used to call CDF.
+            view: Optional view given as 'space:externalId/version'. When set, properties from this
+                view are returned; otherwise only instance properties are returned.
+            filter: Optional YAML/JSON filter expression.
+            limit: Maximum number of instances to return.
+
+        Returns:
+            Matching instances from CDF.
+        """
+        view_id = self._parse_view(view)
+        parsed_filter = self._parse_filter(filter)
+        instances = client.tool.instances.search(
+            view=view_id or ViewId(space="cdf_sdm", external_id="CogniteDescribable", version="v1"),
+            filter=parsed_filter,
+            limit=limit,
+        )
+        client.console.print(JSON.from_data([instance.model_dump() for instance in instances]))
+        return instances
+
+    @staticmethod
+    def _parse_view(view: str | None) -> ViewId | None:
+        if view is None:
+            return None
+        return parse_view_str(view)
+
+    @staticmethod
+    def _parse_filter(filter: str | None) -> dict[str, JsonValue] | None:
+        if filter is None:
+            return None
+        try:
+            parsed: Any = read_yaml_content(filter)
+        except Exception as e:
+            raise ToolkitValueError(f"Invalid filter expression: {e}") from e
+        if not isinstance(parsed, dict):
+            raise ToolkitValueError("Filter expression must be a YAML/JSON object.")
+        return parsed
