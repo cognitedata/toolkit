@@ -1,3 +1,4 @@
+from ._api_app import ApiApp
 from ._auth_app import AuthApp
 from ._core_app import CoreApp
 from ._data_app import DataApp
@@ -6,7 +7,7 @@ from ._download_app import DownloadApp
 from ._dump_app import DumpApp
 from ._entity_matching_app import EntityMatchingApp
 from ._import_app import ImportApp
-from ._landing_app import LandingApp
+from ._landing_app import InitApp, LandingApp
 from ._migrate_app import MigrateApp
 from ._modules_app import ModulesApp
 from ._purge import PurgeApp
@@ -15,6 +16,7 @@ from ._run import RunApp
 from ._upload_app import UploadApp
 
 __all__ = [
+    "ApiApp",
     "AuthApp",
     "CoreApp",
     "DataApp",
@@ -23,6 +25,7 @@ __all__ = [
     "DumpApp",
     "EntityMatchingApp",
     "ImportApp",
+    "InitApp",
     "LandingApp",
     "MigrateApp",
     "ModulesApp",

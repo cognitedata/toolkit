@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
     )
+    V09 = FlagMetadata(
+        visible=True,
+        description="Enables v0.9 CLI layout (init subcommands, auth status access audit, api functions activate)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

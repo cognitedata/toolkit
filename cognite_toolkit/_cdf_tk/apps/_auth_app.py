@@ -3,6 +3,8 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
@@ -14,6 +16,8 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
+        if Flags.V09.is_enabled():
+            self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -47,9 +51,31 @@ class AuthApp(typer.Typer):
         "projectsAcl": ["LIST", "READ"],
         "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
         """
+        if Flags.V09.is_enabled():
+            ToolkitDeprecationWarning(
+                feature="cdf auth init",
+                alternative="cdf init auth",
+                removal_version="1.0",
+            ).print_warning()
         # We do not pass in a client here as this is typically used to create the .env file needed for authentication.
         cmd = AuthCommand()
         cmd.run(lambda: cmd.init(reset=reset))
+
+    def status(
+        self,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Show project access status (read-only). To fix access issues, use cdf init access."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = AuthCommand(client=client)
+        cmd.run(lambda: cmd.audit_access(client, no_prompt=True))
 
     def verify(
         self,

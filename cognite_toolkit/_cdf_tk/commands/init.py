@@ -16,10 +16,11 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth import AuthCommand
+from cognite_toolkit._cdf_tk.commands.function_service import FunctionServiceCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class InitItemStatus(Enum):
@@ -93,12 +94,39 @@ class InitCommand(ToolkitCommand):
                 description="Modules",
                 function=lambda: self._init_modules(dry_run=dry_run),
             ),
+        ]
+        if Flags.V09.is_enabled():
+            checklist_items.extend(
+                [
+                    InitChecklistItem(
+                        name="checkAccess",
+                        description="Check access",
+                        function=lambda: self._check_access(),
+                    ),
+                    InitChecklistItem(
+                        name="provisionAccess",
+                        description="Provision access",
+                        function=lambda: self._provision_access(dry_run=dry_run),
+                    ),
+                    InitChecklistItem(
+                        name="activateFunctions",
+                        description="Activate Functions",
+                        function=lambda: self._activate_functions(dry_run=dry_run),
+                    ),
+                    InitChecklistItem(
+                        name="enablePlugins",
+                        description="Enable optional commands",
+                        function=lambda: self._enable_plugins(dry_run=dry_run),
+                    ),
+                ]
+            )
+        checklist_items.append(
             InitChecklistItem(
                 name="initRepo",
                 description="Git repository",
                 function=lambda: self._init_repo(dry_run=dry_run),
-            ),
-        ]
+            )
+        )
 
         if CDFToml.load().is_loaded_from_file:
             checklist_items[0].status = InitItemStatus.SUCCESSFUL
@@ -222,3 +250,30 @@ class InitCommand(ToolkitCommand):
     def _init_repo(self, dry_run: bool = False) -> None:
         repo_command = RepoCommand()
         repo_command.run(lambda: repo_command.init(cwd=Path.cwd(), host=None, verbose=False))
+
+    def _check_access(self) -> None:
+        client = self._client
+        if client is None:
+            raise ToolkitError("Authentication is required. Run the Authentication step first.")
+        auth_command = AuthCommand(client=client)
+        auth_command.run(lambda: auth_command.audit_access(client, no_prompt=True))
+
+    def _provision_access(self, dry_run: bool = False) -> None:
+        client = self._client
+        if client is None:
+            raise ToolkitError("Authentication is required. Run the Authentication step first.")
+        auth_command = AuthCommand(client=client)
+        auth_command.run(lambda: auth_command.provision_access(client, dry_run=dry_run, no_prompt=False))
+
+    def _activate_functions(self, dry_run: bool = False) -> None:
+        if dry_run:
+            print("Would run cdf api functions activate")
+            return
+        client = self._client
+        if client is None:
+            raise ToolkitError("Authentication is required. Run the Authentication step first.")
+        cmd = FunctionServiceCommand(client=client)
+        cmd.run(lambda: cmd.activate(client, dry_run=False))
+
+    def _enable_plugins(self, dry_run: bool = False) -> None:
+        pass

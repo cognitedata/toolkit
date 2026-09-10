@@ -60,12 +60,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ToolkitMissingValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AssetIO, RelationshipIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
     MissingCapabilityWarning,
+    ToolkitDeprecationWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables, prompt_user_environment_variables
@@ -77,6 +79,19 @@ from ._base import ToolkitCommand
 class VerifyAuthResult:
     toolkit_group_id: int | None = None
     function_status: str | None = None
+
+
+@dataclass
+class _AccessContext:
+    cdf_project: str
+    toolkit_group: GroupRequest
+    user_groups: list[GroupResponse]
+    all_groups: list[GroupResponse]
+    resource_names_by_acl_type: dict[type[AclType], list[str]]
+    data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
+    is_user_in_toolkit_group: bool
+    is_toolkit_group_existing: bool
+    cdf_toolkit_group: GroupResponse | None
 
 
 class AuthCommand(ToolkitCommand):
@@ -140,18 +155,270 @@ class AuthCommand(ToolkitCommand):
         no_prompt: bool = False,
         demo_principal: str | None = None,
     ) -> VerifyAuthResult:
-        """Authorization verification for the Toolkit.
+        """Authorization verification for the Toolkit."""
+        if Flags.V09.is_enabled():
+            ToolkitDeprecationWarning(
+                feature="cdf auth verify",
+                alternative=(
+                    "cdf auth status (read-only access audit), "
+                    "cdf init access (provision groups and capabilities), and "
+                    "cdf api functions activate (activate the CDF Function service)"
+                ),
+                removal_version="1.0",
+            ).print_warning()
+            self.audit_access(client, no_prompt=no_prompt, demo_principal=demo_principal)
+            result = self.provision_access(client, dry_run=dry_run, no_prompt=no_prompt, demo_principal=demo_principal)
+            function_status = self.activate_function_service(client, dry_run=dry_run)
+            return VerifyAuthResult(result.toolkit_group_id, function_status)
 
-        Args:
-            client: The Toolkit client.
-            dry_run: If the verification should be run in dry-run mode.
-            no_prompt: If the verification should be run without any prompts.
-            demo_principal: This is used for demo purposes. If passed, a different group name will be used
-                to create the Toolkit group. This is group is intended to be deleted after the demo.
+        return self._verify_legacy(client, dry_run, no_prompt=no_prompt, demo_principal=demo_principal)
 
-        Returns:
-            VerifyAuthResult: The result of the verification.
-        """
+    def audit_access(
+        self,
+        client: ToolkitClient,
+        no_prompt: bool = False,
+        demo_principal: str | None = None,
+    ) -> VerifyAuthResult:
+        """Read-only project access audit (groups, capabilities, function service status)."""
+        is_interactive = not no_prompt
+        is_demo = demo_principal is not None
+        context = self._prepare_access_context(client, demo_principal, is_interactive, is_demo)
+
+        print(f"Checking current client is member of the {context.toolkit_group.name!r} group...")
+        if context.is_user_in_toolkit_group:
+            print(f"  [bold green]OK[/] - The current client is member of the {context.toolkit_group.name!r} group.")
+            self._check_missing_capabilities(
+                context.cdf_toolkit_group,  # type: ignore[arg-type]
+                context.toolkit_group,
+                context.resource_names_by_acl_type,
+                context.cdf_project,
+                is_interactive,
+            )
+        elif context.is_toolkit_group_existing:
+            self.warn(
+                MediumSeverityWarning(f"The current client is not member of the {context.toolkit_group.name!r} group.")
+            )
+            print(f"Checking if the group {context.toolkit_group.name!r} has the required capabilities...")
+            self._check_missing_capabilities(
+                context.cdf_toolkit_group,  # type: ignore[arg-type]
+                context.toolkit_group,
+                context.resource_names_by_acl_type,
+                context.cdf_project,
+                is_interactive,
+            )
+        else:
+            print(f"Group {context.toolkit_group.name!r} does not exist in the CDF project.")
+
+        if context.cdf_toolkit_group is None:
+            return VerifyAuthResult()
+
+        if not is_demo and not context.is_user_in_toolkit_group:
+            print(
+                Panel(
+                    "To use the Toolkit, for example, 'cdf deploy', [red]you need[/red] to make sure to use a service "
+                    f"principal that is a member of the group with object id {context.cdf_toolkit_group.source_id!r}.",
+                    title="Service Principal group membership",
+                    expand=False,
+                )
+            )
+            return VerifyAuthResult(function_status=None, toolkit_group_id=context.cdf_toolkit_group.id)
+
+        if not is_demo:
+            self.check_count_group_memberships(context.user_groups)
+            self.check_source_id_usage(context.all_groups, context.cdf_toolkit_group)
+            self.check_duplicated_names(context.all_groups, context.cdf_toolkit_group)
+
+        function_status = self.check_function_service_status(
+            client, dry_run=True, has_added_capabilities=False, allow_activate=False
+        )
+        return VerifyAuthResult(context.cdf_toolkit_group.id, function_status)
+
+    def provision_access(
+        self,
+        client: ToolkitClient,
+        dry_run: bool,
+        no_prompt: bool = False,
+        demo_principal: str | None = None,
+    ) -> VerifyAuthResult:
+        """Create toolkit group, grant capabilities, and remove duplicate groups."""
+        is_interactive = not no_prompt
+        is_demo = demo_principal is not None
+        context = self._prepare_access_context(client, demo_principal, is_interactive, is_demo)
+
+        print(f"Checking current client is member of the {context.toolkit_group.name!r} group...")
+        cdf_toolkit_group = context.cdf_toolkit_group
+        if context.is_user_in_toolkit_group:
+            print(f"  [bold green]OK[/] - The current client is member of the {context.toolkit_group.name!r} group.")
+            cdf_toolkit_group = context.cdf_toolkit_group
+            missing_capabilities = self._check_missing_capabilities(
+                cdf_toolkit_group,  # type: ignore[arg-type]
+                context.toolkit_group,
+                context.resource_names_by_acl_type,
+                context.cdf_project,
+                is_interactive,
+            )
+            if (
+                is_interactive
+                and missing_capabilities
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
+            ) or is_demo:
+                self._update_missing_capabilities(
+                    client,
+                    cdf_toolkit_group,  # type: ignore[arg-type]
+                    missing_capabilities,
+                    dry_run,
+                    context.cdf_project,
+                    context.data_modeling_status,
+                )
+        elif context.is_toolkit_group_existing:
+            self.warn(
+                MediumSeverityWarning(f"The current client is not member of the {context.toolkit_group.name!r} group.")
+            )
+            print(f"Checking if the group {context.toolkit_group.name!r} has the required capabilities...")
+            cdf_toolkit_group = context.cdf_toolkit_group
+            missing_capabilities = self._check_missing_capabilities(
+                cdf_toolkit_group,  # type: ignore[arg-type]
+                context.toolkit_group,
+                context.resource_names_by_acl_type,
+                context.cdf_project,
+                is_interactive,
+            )
+            if (
+                is_interactive
+                and missing_capabilities
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
+            ):
+                self._update_missing_capabilities(
+                    client,
+                    cdf_toolkit_group,  # type: ignore[arg-type]
+                    missing_capabilities,
+                    dry_run,
+                    context.cdf_project,
+                    context.data_modeling_status,
+                )
+        elif is_demo:
+            cdf_toolkit_group = self._create_toolkit_group_in_cdf(client, context.toolkit_group)
+        else:
+            print(f"Group {context.toolkit_group.name!r} does not exist in the CDF project.")
+            cdf_toolkit_group = self._create_toolkit_group_in_cdf_interactive(
+                client, context.toolkit_group, context.all_groups, is_interactive, dry_run
+            )
+
+        if cdf_toolkit_group is None:
+            return VerifyAuthResult()
+
+        if not is_demo and not context.is_user_in_toolkit_group:
+            print(
+                Panel(
+                    "To use the Toolkit, for example, 'cdf deploy', [red]you need[/red] to make sure to use a service "
+                    f"principal that is a member of the group with object id {cdf_toolkit_group.source_id!r}.",
+                    title="Service Principal group membership",
+                    expand=False,
+                )
+            )
+            return VerifyAuthResult(function_status=None, toolkit_group_id=cdf_toolkit_group.id)
+
+        if not is_demo:
+            self.check_count_group_memberships(context.user_groups)
+            self.check_source_id_usage(context.all_groups, cdf_toolkit_group)
+            if extra := self.check_duplicated_names(context.all_groups, cdf_toolkit_group):
+                if (
+                    is_interactive
+                    and questionary.confirm("Do you want to delete the extra groups?", default=True).unsafe_ask()
+                ):
+                    try:
+                        client.tool.groups.delete([InternalId(id=g.id) for g in extra])
+                    except ToolkitAPIError as e:
+                        raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
+                    print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
+
+        return VerifyAuthResult(cdf_toolkit_group.id, None)
+
+    def activate_function_service(self, client: ToolkitClient, dry_run: bool = False) -> str | None:
+        """Activate the CDF Function service in the project."""
+        return self.check_function_service_status(
+            client, dry_run=dry_run, has_added_capabilities=False, allow_activate=True
+        )
+
+    def _prepare_access_context(
+        self,
+        client: ToolkitClient,
+        demo_principal: str | None,
+        is_interactive: bool,
+        is_demo: bool,
+    ) -> _AccessContext:
+        if client.config.project is None:
+            raise AuthorizationError("CDF_PROJECT is not set.")
+        cdf_project = client.config.project
+        inspect_response = self.check_has_any_access(client)
+
+        self.check_has_project_access(inspect_response, cdf_project)
+
+        print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
+
+        self.check_has_group_access(client)
+
+        self.check_identity_provider(client)
+
+        try:
+            user_groups = client.tool.groups.list(all_groups=False)
+        except ToolkitAPIError as e:
+            raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
+
+        if not user_groups:
+            raise AuthorizationError("The current user is not member of any groups in the CDF project.")
+
+        data_modeling_status = client.project.status().this_project.data_modeling_status
+        required_acls, resource_names_by_acl_type = self._get_required_acls(client, data_modeling_status)
+        toolkit_group = self._create_toolkit_group(required_acls, demo_principal)
+
+        if not is_demo:
+            print(
+                Panel(
+                    "The Cognite Toolkit expects the following:\n"
+                    " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
+                    "only ONE CDF Group.\n"
+                    f" - This group [red]must[/red] be named {toolkit_group.name!r}.\n"
+                    f" - The group {toolkit_group.name!r} [red]must[/red] have capabilities to "
+                    f"all resources the Toolkit is managing\n"
+                    " - All the capabilities [yellow]should[/yellow] be scoped to all resources.",
+                    title="Toolkit Access Group",
+                    expand=False,
+                )
+            )
+            if is_interactive:
+                Prompt.ask("Press enter key to continue...")
+
+        all_groups = client.tool.groups.list(all_groups=True)
+
+        is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
+        is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
+
+        cdf_toolkit_group: GroupResponse | None = None
+        if is_user_in_toolkit_group:
+            cdf_toolkit_group = next(group for group in user_groups if group.name == toolkit_group.name)
+        elif is_toolkit_group_existing:
+            cdf_toolkit_group = next(group for group in all_groups if group.name == toolkit_group.name)
+
+        return _AccessContext(
+            cdf_project=cdf_project,
+            toolkit_group=toolkit_group,
+            user_groups=user_groups,
+            all_groups=all_groups,
+            resource_names_by_acl_type=resource_names_by_acl_type,
+            data_modeling_status=data_modeling_status,
+            is_user_in_toolkit_group=is_user_in_toolkit_group,
+            is_toolkit_group_existing=is_toolkit_group_existing,
+            cdf_toolkit_group=cdf_toolkit_group,
+        )
+
+    def _verify_legacy(
+        self,
+        client: ToolkitClient,
+        dry_run: bool,
+        no_prompt: bool = False,
+        demo_principal: str | None = None,
+    ) -> VerifyAuthResult:
 
         is_interactive = not no_prompt
         is_demo = demo_principal is not None
@@ -609,7 +876,11 @@ class AuthCommand(ToolkitCommand):
         return extra
 
     def check_function_service_status(
-        self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool
+        self,
+        client: ToolkitClient,
+        dry_run: bool,
+        has_added_capabilities: bool,
+        allow_activate: bool = True,
     ) -> str | None:
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, ["READ"], has_added_capabilities)
@@ -624,6 +895,11 @@ class AuthCommand(ToolkitCommand):
 
         if function_status.status == "requested":
             print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
+        elif not allow_activate:
+            if function_status.status == "activated":
+                print("  [bold green]OK[/] - Function service has been activated.")
+            else:
+                print("  [bold yellow]INFO:[/] Function service has not been activated.")
         elif dry_run and function_status.status != "activated":
             print(
                 "  [bold yellow]INFO:[/] Function service has not been activated, "
