@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
@@ -1045,6 +1045,50 @@ class TestCDFResourceAPI:
         assert len(iterated) == 1
         assert len(iterated[0]) == 1
         assert iterated[0][0].dump() == example
+
+        # Test search (POST /models/instances/search)
+        search_url = config.create_api_url("/models/instances/search")
+        respx_mock.post(search_url).mock(return_value=httpx.Response(status_code=200, json={"items": [example]}))
+        searched = api.search(limit=10)
+        assert len(searched) == 1
+        assert searched[0].dump() == example
+
+    def test_instances_api_search_payload(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        example = get_example_minimum_responses(NodeResponse)
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+        search_url = config.create_api_url("/models/instances/search")
+        captured: dict[str, Any] = {}
+
+        def search_callback(request: httpx.Request) -> httpx.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            captured.update(json.loads(raw))
+            return httpx.Response(status_code=200, json={"items": [example]})
+
+        respx_mock.post(search_url).mock(side_effect=search_callback)
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
+        filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
+        result = api.search(view=view, query="pump", filter=filter_, limit=25, instance_type="node")
+
+        assert len(result) == 1
+        assert captured == {
+            "view": view.dump(include_type=True),
+            "query": "pump",
+            "filter": filter_,
+            "limit": 25,
+            "instanceType": "node",
+        }
+
+    def test_instances_api_search_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = InstancesAPI(HTTPClient(toolkit_config))
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.search(limit=1001)
 
     def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
