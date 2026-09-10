@@ -43,7 +43,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowTriggerIO,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -390,13 +389,10 @@ class TestResourceCRUDs:
             if loader_cls not in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
         ],
     )
-    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceIO]) -> None:
-        with monkeypatch_toolkit_client() as toolkit_client:
-            # Since we are not loading the local resource, we must allow reverse lookup
-            # without first lookup.
-            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-
-        loader = loader_cls.create_loader(approval_client.mock_client)
+    def test_dump_resource_with_local_id(
+        self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
+    ) -> None:
+        loader = loader_cls.create_loader(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
@@ -414,16 +410,16 @@ class TestResourceCRUDs:
 
 
 class TestLoaders:
-    def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
+    def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in CRUD_LIST]
+            [loader_cls.create_loader(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
         for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
+            duplicates.pop(loader.create_loader(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 

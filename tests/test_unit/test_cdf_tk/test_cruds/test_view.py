@@ -4,6 +4,7 @@ import httpx
 import pytest
 import respx
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -405,17 +406,17 @@ class TestRecordViewSupport:
         assert request.dump()["streamId"] == ["my_stream"]
 
     def test_dump_resource_preserves_stream_id(
-        self, toolkit_client_approval: ApprovalToolkitClient, enable_record_views: None
+        self, toolkit_client_cheap: ToolkitClient, enable_record_views: None
     ) -> None:
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert dumped["streamId"] == ["my_stream"]
 
     def test_dump_resource_strips_stream_id_without_alpha_flag(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: pytest.MonkeyPatch
+        self, toolkit_client_cheap: ToolkitClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_loader(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert "streamId" not in dumped
 
