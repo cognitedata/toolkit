@@ -200,7 +200,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 ["name"],
                 "Deployed description",
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
-                "differs from the deployed view",
+                "has drifted from the state of the deployed view version",
                 id="other-change-without-version-bump",
             ),
         ],
@@ -237,7 +237,7 @@ class TestDependencyRuleSetDataModelingChanges:
             pytest.param(
                 [("MyView", "v0")],
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
-                "changes the view version 'my_space:MyView' from 'v0' to 'v1'",
+                "has changed the view version of 'my_space:MyView' from 'v0' to 'v1'",
                 id="view-version-changed-without-data-model-bump",
             ),
         ],
@@ -270,4 +270,4 @@ class TestDependencyRuleSetDataModelingChanges:
     def test_get_status_mentions_data_modeling_changes_with_client(self) -> None:
         rule = DependencyRuleSet(modules=[], client=MagicMock())
         assert rule.get_status().code == "ready"
-        assert "data modeling changes" in (rule.get_status().message or "")
+        assert "state changes" in (rule.get_status().message or "")
