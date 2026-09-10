@@ -43,7 +43,7 @@ class InstancesAPICommand(ToolkitCommand):
             limit=limit,
             instance_type=instance_type,
         )
-        client.console.print(JSON.from_data([instance.model_dump() for instance in instances]))
+        client.console.print(JSON.from_data([instance.dump() for instance in instances]))
         return instances
 
     @staticmethod
