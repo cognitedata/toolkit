@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Iterable, MutableMapping, Sequence, Set
 from typing import Literal, TypeVar
 
-import httpx
+import httpx2
 from cognite.client import global_config
 from rich.console import Console
 
@@ -92,9 +92,9 @@ class HTTPClient:
         self.session.close()
         return False  # Do not suppress exceptions
 
-    def _create_thread_safe_session(self) -> httpx.Client:
-        return httpx.Client(
-            limits=httpx.Limits(
+    def _create_thread_safe_session(self) -> httpx2.Client:
+        return httpx2.Client(
+            limits=httpx2.Limits(
                 max_connections=self._pool_maxsize,
                 max_keepalive_connections=self._pool_connections,
             ),
@@ -110,7 +110,7 @@ class HTTPClient:
         disable_gzip: bool = False,
     ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
-        headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
+        headers["User-Agent"] = f"httpx2/{httpx2.__version__} {get_user_agent()}"
         auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
         headers["Content-Type"] = content_type
@@ -125,7 +125,7 @@ class HTTPClient:
         return headers
 
     @staticmethod
-    def _get_retry_after_in_header(response: httpx.Response) -> float | None:
+    def _get_retry_after_in_header(response: httpx2.Response) -> float | None:
         if "Retry-After" not in response.headers:
             return None
         try:
@@ -180,7 +180,7 @@ class HTTPClient:
             else:
                 raise TypeError(f"Unexpected result type: {type(result)}")
 
-    def _make_request(self, message: BaseRequestMessage) -> httpx.Response:
+    def _make_request(self, message: BaseRequestMessage) -> httpx2.Response:
         headers = self._create_headers(
             message.api_version,
             message.content_type,
@@ -198,7 +198,9 @@ class HTTPClient:
             follow_redirects=False,
         )
 
-    def _handle_response_single(self, response: httpx.Response, request: RequestMessage) -> RequestMessage | HTTPResult:
+    def _handle_response_single(
+        self, response: httpx2.Response, request: RequestMessage
+    ) -> RequestMessage | HTTPResult:
         if 200 <= response.status_code < 300:
             return SuccessResponse(
                 status_code=response.status_code,
@@ -217,7 +219,7 @@ class HTTPClient:
             )
 
     def _retry_request(
-        self, response: httpx.Response, request: _T_Request_Message, error_details: ErrorDetails
+        self, response: httpx2.Response, request: _T_Request_Message, error_details: ErrorDetails
     ) -> _T_Request_Message | None:
         retry_after = self._get_retry_after_in_header(response)
         if retry_after is not None and response.status_code == 429 and request.status_attempt < self._max_retries:
@@ -241,11 +243,11 @@ class HTTPClient:
         return None
 
     def _handle_error_single(self, e: Exception, request: RequestMessage) -> RequestMessage | HTTPResult:
-        if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
-        elif isinstance(e, ConnectionError | httpx.ConnectError | httpx.ConnectTimeout):
+        elif isinstance(e, ConnectionError | httpx2.ConnectError | httpx2.ConnectTimeout):
             error_type = "connect"
             request.connect_attempt += 1
             attempts = request.connect_attempt
@@ -304,11 +306,11 @@ class HTTPClient:
                     error=ErrorDetails.from_response(response),
                 )
             except (
-                httpx.ReadTimeout,
-                httpx.TimeoutException,
+                httpx2.ReadTimeout,
+                httpx2.TimeoutException,
                 ConnectionError,
-                httpx.ConnectError,
-                httpx.ConnectTimeout,
+                httpx2.ConnectError,
+                httpx2.ConnectTimeout,
             ) as e:
                 attempt += 1
                 if attempt <= max_retries:
@@ -355,14 +357,14 @@ class HTTPClient:
     ) -> SuccessResponse | FailedResponse:
         """POST multipart/form-data to a CDF endpoint with auth headers and retry logic.
 
-        Uses httpx's native multipart encoder — Content-Type (with boundary) and
+        Uses httpx2's native multipart encoder — Content-Type (with boundary) and
         Content-Length are set automatically. Unlike request_raw_retries, CDF auth
         headers are included because this method targets CDF endpoints, not signed URLs.
         """
         auth_name, auth_value = self.config.credentials.authorization_header()
-        # Content-Type is intentionally absent — httpx sets it from the multipart body (including boundary).
+        # Content-Type is intentionally absent — httpx2 sets it from the multipart body (including boundary).
         headers: dict[str, str] = {
-            "User-Agent": f"httpx/{httpx.__version__} {get_user_agent()}",
+            "User-Agent": f"httpx2/{httpx2.__version__} {get_user_agent()}",
             auth_name: auth_value,
             "accept": "application/json",
             "x-cdp-sdk": f"CogniteToolkit:{get_current_toolkit_version()}",
@@ -431,7 +433,7 @@ class HTTPClient:
         return final_responses
 
     def _handle_items_response(
-        self, response: httpx.Response, request: ItemsRequest
+        self, response: httpx2.Response, request: ItemsRequest
     ) -> Sequence[ItemsRequest | ItemsResultMessage]:
         if 200 <= response.status_code < 300:
             return [
@@ -476,11 +478,11 @@ class HTTPClient:
             ]
 
     def _handle_items_error(self, e: Exception, request: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
-        if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
-        elif isinstance(e, ConnectionError | httpx.ConnectError | httpx.ConnectTimeout):
+        elif isinstance(e, ConnectionError | httpx2.ConnectError | httpx2.ConnectTimeout):
             error_type = "connect"
             request.connect_attempt += 1
             attempts = request.connect_attempt

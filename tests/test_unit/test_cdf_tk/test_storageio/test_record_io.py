@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -69,17 +69,17 @@ class TestRecordIO:
         expected_url = toolkit_config.create_api_url("/streams/my_stream/records/upsert")
         stream_url = toolkit_config.create_api_url("/streams/my_stream")
 
-        def record_callback(request: httpx.Request) -> httpx.Response:
+        def record_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert len(items) == record_count
-            return httpx.Response(status_code=200, json={"items": items})
+            return httpx2.Response(status_code=200, json={"items": items})
 
         with HTTPClient(toolkit_config) as http_client:
             with respx.mock() as mock_router:
                 mock_router.get(stream_url).mock(
-                    return_value=httpx.Response(
+                    return_value=httpx2.Response(
                         status_code=200,
                         json={
                             "externalId": "my_stream",
@@ -105,11 +105,11 @@ class TestRecordIO:
         with respx.mock() as mock_router:
             route = mock_router.post(sync_url)
             route.side_effect = [
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json=_make_sync_response(3, has_next=True, next_cursor="cursor_page2", start_index=0),
                 ),
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json=_make_sync_response(2, has_next=False, next_cursor="cursor_page3", start_index=3),
                 ),
@@ -142,7 +142,7 @@ class TestRecordIO:
 
         with respx.mock() as mock_router:
             mock_router.post(sync_url).mock(
-                return_value=httpx.Response(status_code=200, json=_make_sync_response(0, has_next=False))
+                return_value=httpx2.Response(status_code=200, json=_make_sync_response(0, has_next=False))
             )
             io = RecordIO(client)
             pages = list(io.stream_data(selector, limit=100))
@@ -160,7 +160,7 @@ class TestRecordIO:
         )
         sync_url = toolkit_config.create_api_url("/streams/my_stream/records/sync")
 
-        def sync_callback(request: httpx.Request) -> httpx.Response:
+        def sync_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             record_filter = payload["filter"]
             assert "and" in record_filter
@@ -170,7 +170,7 @@ class TestRecordIO:
                 "in" in part and part["in"]["property"] == ["space"] and part["in"]["values"] == ["filtered_space"]
                 for part in filter_parts
             )
-            return httpx.Response(status_code=200, json=_make_sync_response(1, has_next=False))
+            return httpx2.Response(status_code=200, json=_make_sync_response(1, has_next=False))
 
         with respx.mock() as mock_router:
             mock_router.post(sync_url).mock(side_effect=sync_callback)
@@ -192,7 +192,7 @@ class TestRecordIO:
         with respx.mock() as mock_router:
             route = mock_router.post(sync_url)
             route.side_effect = [
-                httpx.Response(status_code=200, json=_make_sync_response(5, has_next=True)),
+                httpx2.Response(status_code=200, json=_make_sync_response(5, has_next=True)),
             ]
             pages = list(io.stream_data(selector, limit=None))
 
@@ -219,14 +219,14 @@ class TestRecordIO:
         record_count = 10
         sync_response_data = _make_sync_response(record_count, has_next=False)
 
-        def record_upload_callback(request: httpx.Request) -> httpx.Response:
+        def record_upload_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
             assert len(items) == record_count
             assert {item["externalId"] for item in items} == {f"record_{i}" for i in range(record_count)}
-            return httpx.Response(status_code=200, json={"items": items})
+            return httpx2.Response(status_code=200, json={"items": items})
 
         stream_url = config.create_api_url("/streams/my_stream")
         aggregate_url = config.create_api_url("/streams/my_stream/records/aggregate")

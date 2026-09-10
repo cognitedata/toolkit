@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import respx
 from cognite.client import global_config
-from httpx import Response
+from httpx2 import Response
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
