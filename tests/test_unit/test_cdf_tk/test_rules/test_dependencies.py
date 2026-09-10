@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
-from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingChangeRuleSet
+from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
 VIEW_ID = ViewId(space="my_space", external_id="MyView", version="v1")
@@ -148,25 +148,26 @@ def _built_module(yaml_file: Path, crud_cls: type[ResourceIO], identifier: Ident
     )
 
 
-class TestDataModelingChangeRuleSet:
-    @pytest.mark.parametrize(
-        "with_client, expected_code",
-        [
-            pytest.param(False, "skip", id="no-client"),
-            pytest.param(True, "ready", id="with-client"),
-        ],
-    )
-    def test_get_status(self, with_client: bool, expected_code: str) -> None:
-        rule = DataModelingChangeRuleSet(modules=[], client=MagicMock() if with_client else None)
-        assert rule.get_status().code == expected_code
+def _client_stub(
+    container: list[ContainerResponse] | None = None,
+    view: list[ViewResponse] | None = None,
+    data_model: list[DataModelResponse] | None = None,
+) -> MagicMock:
+    client = MagicMock()
+    client.tool.containers.retrieve.return_value = container or []
+    client.tool.views.retrieve.return_value = view or []
+    client.tool.data_models.retrieve.return_value = data_model or []
+    return client
 
+
+class TestDependencyRuleSetDataModelingChanges:
     @pytest.mark.parametrize(
         "cdf_property_identifiers, expected_codes",
         [
             pytest.param(["name"], [], id="no-change"),
             pytest.param(
                 ["name", "description"],
-                [DataModelingChangeRuleSet.INVALID_OPERATION_CODE],
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
                 id="property-removed-locally",
             ),
         ],
@@ -177,11 +178,8 @@ class TestDataModelingChangeRuleSet:
         yaml_file = tmp_path / "MyContainer.container.yaml"
         yaml_file.write_text(CONTAINER_YAML)
 
-        client = MagicMock()
-        client.tool.containers.retrieve.return_value = [_cdf_container(cdf_property_identifiers)]
-        client.tool.views.retrieve.return_value = []
-        client.tool.data_models.retrieve.return_value = []
-        rule = DataModelingChangeRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)], client=client)
+        client = _client_stub(container=[_cdf_container(cdf_property_identifiers)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)], client=client)
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
@@ -194,14 +192,14 @@ class TestDataModelingChangeRuleSet:
             pytest.param(
                 ["name", "description"],
                 None,
-                [DataModelingChangeRuleSet.INVALID_OPERATION_CODE],
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "is missing properties 'description'",
                 id="property-removed-locally",
             ),
             pytest.param(
                 ["name"],
                 "Deployed description",
-                [DataModelingChangeRuleSet.INVALID_OPERATION_CODE],
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "differs from the deployed view",
                 id="other-change-without-version-bump",
             ),
@@ -218,11 +216,8 @@ class TestDataModelingChangeRuleSet:
         yaml_file = tmp_path / "MyView.view.yaml"
         yaml_file.write_text(VIEW_YAML)
 
-        client = MagicMock()
-        client.tool.containers.retrieve.return_value = []
-        client.tool.views.retrieve.return_value = [_cdf_view(cdf_property_identifiers, cdf_description)]
-        client.tool.data_models.retrieve.return_value = []
-        rule = DataModelingChangeRuleSet(modules=[_built_module(yaml_file, ViewIO, VIEW_ID)], client=client)
+        client = _client_stub(view=[_cdf_view(cdf_property_identifiers, cdf_description)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ViewIO, VIEW_ID)], client=client)
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
@@ -235,13 +230,13 @@ class TestDataModelingChangeRuleSet:
             pytest.param([("MyView", "v1")], [], None, id="no-change"),
             pytest.param(
                 [("MyView", "v1"), ("OtherView", "v1")],
-                [DataModelingChangeRuleSet.INVALID_OPERATION_CODE],
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "is missing views",
                 id="view-removed-locally",
             ),
             pytest.param(
                 [("MyView", "v0")],
-                [DataModelingChangeRuleSet.INVALID_OPERATION_CODE],
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "changes the view version 'my_space:MyView' from 'v0' to 'v1'",
                 id="view-version-changed-without-data-model-bump",
             ),
@@ -257,11 +252,8 @@ class TestDataModelingChangeRuleSet:
         yaml_file = tmp_path / "MyModel.datamodel.yaml"
         yaml_file.write_text(DATA_MODEL_YAML)
 
-        client = MagicMock()
-        client.tool.containers.retrieve.return_value = []
-        client.tool.views.retrieve.return_value = []
-        client.tool.data_models.retrieve.return_value = [_cdf_data_model(cdf_views)]
-        rule = DataModelingChangeRuleSet(modules=[_built_module(yaml_file, DataModelIO, DATA_MODEL_ID)], client=client)
+        client = _client_stub(data_model=[_cdf_data_model(cdf_views)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, DataModelIO, DATA_MODEL_ID)], client=client)
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
@@ -272,5 +264,10 @@ class TestDataModelingChangeRuleSet:
         yaml_file = tmp_path / "MyContainer.container.yaml"
         yaml_file.write_text(CONTAINER_YAML)
 
-        rule = DataModelingChangeRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)])
         assert list(rule.validate()) == []
+
+    def test_get_status_mentions_data_modeling_changes_with_client(self) -> None:
+        rule = DependencyRuleSet(modules=[], client=MagicMock())
+        assert rule.get_status().code == "ready"
+        assert "data modeling changes" in (rule.get_status().message or "")
