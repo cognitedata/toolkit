@@ -4,21 +4,21 @@ from datetime import datetime, timezone
 import questionary
 from rich import print
 
-from cognite_toolkit._cdf_tk.auth.cogidp import SessionProject, fetch_session_user_info
-from cognite_toolkit._cdf_tk.auth.oidc import login_for_session, revoke_refresh_token
-from cognite_toolkit._cdf_tk.auth.session_keyring import read_session_token
-from cognite_toolkit._cdf_tk.auth.session_refresh import SessionExpiredError, ensure_fresh_session
-from cognite_toolkit._cdf_tk.auth.session_store import (
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from cognite_toolkit._cdf_tk.utils.auth import LoginFlow, read_env_login_flow
+
+from .cogidp import SessionProject, fetch_session_user_info
+from .oidc import login_for_session, revoke_refresh_token
+from .session_keyring import read_session_token
+from .session_refresh import SessionExpiredError, ensure_fresh_session
+from .session_store import (
     clear_org_tokens,
     clear_session,
     read_session_metadata,
     token_state,
     write_session,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
-from cognite_toolkit._cdf_tk.utils.auth import LoginFlow, read_env_login_flow
-
-from ._base import ToolkitCommand
 
 
 def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:

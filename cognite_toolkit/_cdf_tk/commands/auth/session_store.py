@@ -5,17 +5,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
-from cognite_toolkit._cdf_tk.auth.home import get_cli_home, session_file_path
-from cognite_toolkit._cdf_tk.auth.session_keyring import (
-    delete_session_token,
-    read_session_token,
-    store_session_token,
-)
 from cognite_toolkit._cdf_tk.constants import (
     COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
     COGNITE_CLI_SESSION_VERSION,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .home import get_cli_home, session_file_path
+from .session_keyring import (
+    delete_session_token,
+    read_session_token,
+    store_session_token,
+)
 
 SessionTokenState = Literal["VALID", "EXPIRING", "EXPIRED"]
 

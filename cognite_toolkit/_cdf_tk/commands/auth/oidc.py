@@ -15,9 +15,10 @@ import httpx
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from rich import print
 
-from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, format_session_timestamp
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .session_store import StoredSession, format_session_timestamp
 
 # OAuth public client IDs for @cognite/cli on Cognite IdP. These are not secrets.
 _PROD_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"

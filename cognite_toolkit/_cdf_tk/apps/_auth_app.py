@@ -3,7 +3,7 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.commands.auth_session import AuthSessionCommand
+from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import VALID_AUTH_LOGIN_FLOWS, AuthLoginFlowCli, EnvironmentVariables
 

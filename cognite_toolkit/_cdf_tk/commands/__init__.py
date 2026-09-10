@@ -7,7 +7,7 @@ from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
 from .about import AboutCommand
-from .auth import AuthCommand
+from .auth.command import AuthCommand
 from .build_v2.build_v2 import BuildV2Command
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand

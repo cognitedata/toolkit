@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.auth.session_keyring import configure_sample_store, reset_store
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import configure_sample_store, reset_store
 
 
 @pytest.fixture

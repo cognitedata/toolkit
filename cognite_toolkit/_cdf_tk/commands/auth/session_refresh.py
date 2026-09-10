@@ -1,14 +1,15 @@
 from filelock import FileLock, Timeout
 
-from cognite_toolkit._cdf_tk.auth.home import session_file_path
-from cognite_toolkit._cdf_tk.auth.oidc import refresh_session_tokens
-from cognite_toolkit._cdf_tk.auth.session_store import (
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .home import session_file_path
+from .oidc import refresh_session_tokens
+from .session_store import (
     StoredSession,
     read_session,
     token_state,
     write_session,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
 class SessionExpiredError(AuthenticationError):

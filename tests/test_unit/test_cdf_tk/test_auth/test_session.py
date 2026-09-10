@@ -5,14 +5,14 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from cognite_toolkit._cdf_tk.auth.oidc import (
+from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     OpenIdConfiguration,
     _callback_loopback_hosts,
     build_session_from_tokens,
     refresh_session_tokens,
 )
-from cognite_toolkit._cdf_tk.auth.session_refresh import ensure_fresh_session
-from cognite_toolkit._cdf_tk.auth.session_store import (
+from cognite_toolkit._cdf_tk.commands.auth.session_refresh import ensure_fresh_session
+from cognite_toolkit._cdf_tk.commands.auth.session_store import (
     SessionMetadata,
     StoredSession,
     read_session,
@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
 def test_resolve_client_id_matches_cognite_cli() -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import (
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import (
         _DEV_CLIENT_ID,
         _PROD_CLIENT_ID,
         _resolve_client_id,
@@ -36,7 +36,7 @@ def test_resolve_client_id_matches_cognite_cli() -> None:
 
 
 def test_resolve_idp_base_url_matches_cognite_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import (
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import (
         _DEV_IDP_BASE_URL,
         _PROD_IDP_BASE_URL,
         _resolve_idp_base_url,
@@ -51,19 +51,19 @@ def test_resolve_idp_base_url_matches_cognite_cli(monkeypatch: pytest.MonkeyPatc
 
 
 def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import _login_for_session_at_port
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import _login_for_session_at_port
 
     with (
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
             return_value=OpenIdConfiguration(
                 "https://auth.example.com/authorize",
                 "https://auth.example.com/token",
                 None,
             ),
         ),
-        patch("cognite_toolkit._cdf_tk.auth.oidc.webbrowser.open", return_value=False),
-        patch("cognite_toolkit._cdf_tk.auth.oidc._OAuthCallbackServer") as server_cls,
+        patch("cognite_toolkit._cdf_tk.commands.auth.oidc.webbrowser.open", return_value=False),
+        patch("cognite_toolkit._cdf_tk.commands.auth.oidc._OAuthCallbackServer") as server_cls,
     ):
         server_cls.return_value.wait_for_result.return_value = {
             "tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}
@@ -76,19 +76,19 @@ def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
 
 
 def test_login_prints_manual_url_when_browser_open_raises(capsys) -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import _login_for_session_at_port
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import _login_for_session_at_port
 
     with (
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
             return_value=OpenIdConfiguration(
                 "https://auth.example.com/authorize",
                 "https://auth.example.com/token",
                 None,
             ),
         ),
-        patch("cognite_toolkit._cdf_tk.auth.oidc.webbrowser.open", side_effect=OSError("no browser")),
-        patch("cognite_toolkit._cdf_tk.auth.oidc._OAuthCallbackServer") as server_cls,
+        patch("cognite_toolkit._cdf_tk.commands.auth.oidc.webbrowser.open", side_effect=OSError("no browser")),
+        patch("cognite_toolkit._cdf_tk.commands.auth.oidc._OAuthCallbackServer") as server_cls,
     ):
         server_cls.return_value.wait_for_result.return_value = {
             "tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}
@@ -142,20 +142,20 @@ def test_token_state_expired_when_refresh_past() -> None:
 
 
 def test_callback_loopback_hosts_includes_ipv6_when_available() -> None:
-    with patch("cognite_toolkit._cdf_tk.auth.oidc._can_bind", side_effect=lambda host, port: True):
+    with patch("cognite_toolkit._cdf_tk.commands.auth.oidc._can_bind", side_effect=lambda host, port: True):
         assert _callback_loopback_hosts(3000) == ("127.0.0.1", "::1")
 
 
 def test_callback_loopback_hosts_ipv4_only_when_ipv6_unavailable() -> None:
     with patch(
-        "cognite_toolkit._cdf_tk.auth.oidc._can_bind",
+        "cognite_toolkit._cdf_tk.commands.auth.oidc._can_bind",
         side_effect=lambda host, port: host == "127.0.0.1",
     ):
         assert _callback_loopback_hosts(3000) == ("127.0.0.1",)
 
 
 def test_callback_server_returns_oauth_error_from_url() -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import _CallbackContext, _OAuthCallbackServer
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -191,7 +191,7 @@ def test_callback_server_returns_oauth_error_from_url() -> None:
 
 
 def test_callback_server_returns_plain_text_on_success() -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import _CallbackContext, _OAuthCallbackServer
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -209,7 +209,7 @@ def test_callback_server_returns_plain_text_on_success() -> None:
     try:
         with (
             patch(
-                "cognite_toolkit._cdf_tk.auth.oidc.httpx.post",
+                "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
                 return_value=httpx.Response(
                     200,
                     request=request,
@@ -229,7 +229,7 @@ def test_callback_server_returns_plain_text_on_success() -> None:
 
 
 def test_callback_server_accepts_localhost_connection() -> None:
-    from cognite_toolkit._cdf_tk.auth.oidc import _CallbackContext, _OAuthCallbackServer
+    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -277,7 +277,7 @@ def test_read_session_clears_metadata_when_tokens_missing(
             refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
         )
     )
-    from cognite_toolkit._cdf_tk.auth.session_keyring import delete_session_token
+    from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token
 
     delete_session_token("my-org/accessToken")
     delete_session_token("my-org/refreshToken")
@@ -298,11 +298,11 @@ def test_refresh_session_tokens_invalid_grant() -> None:
 
     with (
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
             return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
         ),
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.httpx.post",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
             return_value=httpx.Response(400, request=request, text='{"error":"invalid_grant"}'),
         ),
     ):
@@ -324,11 +324,11 @@ def test_refresh_session_tokens_keeps_refresh_token_when_omitted() -> None:
 
     with (
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
             return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
         ),
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.httpx.post",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
             return_value=httpx.Response(
                 200,
                 request=request,
@@ -361,11 +361,11 @@ def test_ensure_fresh_session_refreshes_expiring_token(
 
     with (
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.fetch_openid_configuration",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
             return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
         ),
         patch(
-            "cognite_toolkit._cdf_tk.auth.oidc.httpx.post",
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
             return_value=httpx.Response(
                 200,
                 request=request,

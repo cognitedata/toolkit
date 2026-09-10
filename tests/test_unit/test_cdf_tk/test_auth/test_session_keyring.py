@@ -2,12 +2,17 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.auth.session_keyring import (
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (
     delete_session_token,
     read_session_token,
     store_session_token,
 )
-from cognite_toolkit._cdf_tk.auth.session_store import StoredSession, clear_session, read_session, write_session
+from cognite_toolkit._cdf_tk.commands.auth.session_store import (
+    StoredSession,
+    clear_session,
+    read_session,
+    write_session,
+)
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 
 
@@ -20,7 +25,7 @@ def test_session_token_roundtrip(sample_keyring: Path) -> None:
 
 def test_session_token_chunking(monkeypatch: pytest.MonkeyPatch, sample_keyring: Path) -> None:
     monkeypatch.setattr(
-        "cognite_toolkit._cdf_tk.auth.session_keyring._effective_chunk_size",
+        "cognite_toolkit._cdf_tk.commands.auth.session_keyring._effective_chunk_size",
         lambda: 10,
     )
     token = "abcdefghijklmnopqrstuvwxyz"

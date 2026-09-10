@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     TOOLKIT_DEMO_GROUP_NAME,
@@ -75,8 +76,7 @@ from cognite_toolkit._cdf_tk.utils.auth import (
     prompt_user_environment_variables,
 )
 
-from ._base import ToolkitCommand
-from .auth_session import AuthSessionCommand, confirm_login_flow_overrides_env
+from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
 
 
 @dataclass
