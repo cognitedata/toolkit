@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model i
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import BASE_URL, CDF_PROJECT, REPO_ROOT
 from tests.data import (
     BUILDABLE_PACKAGE,

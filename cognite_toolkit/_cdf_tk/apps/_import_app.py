@@ -5,7 +5,7 @@ import typer
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._import_cmd import ImportTransformationCLI
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 

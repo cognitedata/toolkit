@@ -1,14 +1,18 @@
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.auth import parse_login_flow_input
 from cognite_toolkit._cdf_tk.commands.auth.session_command import confirm_login_flow_overrides_env
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
-from cognite_toolkit._cdf_tk.utils.auth import parse_auth_login_flow
 
 
-def test_parse_auth_login_flow_maps_cli_values() -> None:
-    assert parse_auth_login_flow("session") == "session"
-    assert parse_auth_login_flow("device-code") == "device_code"
-    assert parse_auth_login_flow("client-credentials") == "client_credentials"
+def test_parse_login_flow_input_accepts_login_flow_and_cli_aliases() -> None:
+    assert parse_login_flow_input("session") == "session"
+    assert parse_login_flow_input("device_code") == "device_code"
+    assert parse_login_flow_input("device-code") == "device_code"
+    assert parse_login_flow_input("devicecode") == "device_code"
+    assert parse_login_flow_input("client_credentials") == "client_credentials"
+    assert parse_login_flow_input("client-credentials") == "client_credentials"
+    assert parse_login_flow_input("clientcredentials") == "client_credentials"
 
 
 def test_login_clears_corrupted_session_metadata(monkeypatch: pytest.MonkeyPatch) -> None:

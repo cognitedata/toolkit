@@ -7,6 +7,7 @@ import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceFileSelector,
     InstanceSelector,
@@ -15,7 +16,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,

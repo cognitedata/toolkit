@@ -9,9 +9,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
     LocationFilterScene,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.location import LocationFilterIO
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client.client import ApprovalToolkitClient
 

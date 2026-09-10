@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 

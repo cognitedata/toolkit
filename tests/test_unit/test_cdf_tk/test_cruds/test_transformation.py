@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
@@ -33,7 +34,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

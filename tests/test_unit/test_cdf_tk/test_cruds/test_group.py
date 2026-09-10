@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupResponse,
 )
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -30,7 +31,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

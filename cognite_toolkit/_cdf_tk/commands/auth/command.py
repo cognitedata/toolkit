@@ -69,13 +69,9 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingCapabilityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.auth import (
-    AuthLoginFlowCli,
-    EnvironmentVariables,
-    parse_auth_login_flow,
-    prompt_user_environment_variables,
-)
 
+from .data_classes import EnvironmentVariables
+from .utils import parse_login_flow_input, prompt_user_environment_variables
 from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
 
 
@@ -118,12 +114,12 @@ class AuthCommand(ToolkitCommand):
 
     def login(
         self,
-        flow: AuthLoginFlowCli = "session",
+        flow: str = "session",
         org: str | None = None,
         force: bool = False,
         port: int | None = None,
     ) -> None:
-        login_flow = parse_auth_login_flow(flow)
+        login_flow = parse_login_flow_input(flow)
         if not confirm_login_flow_overrides_env(login_flow):
             print("[yellow]Aborted.[/yellow]")
             return

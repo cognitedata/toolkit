@@ -75,10 +75,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatu
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
 from cognite_toolkit._cdf_tk.dataio import FileMetadataDataIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
-from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 from tests.constants import CDF_PROJECT
 
 from .config import API_RESOURCES

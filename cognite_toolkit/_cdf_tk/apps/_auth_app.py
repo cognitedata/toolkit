@@ -3,9 +3,10 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables, parse_login_flow_input
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import VALID_LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.utils.auth import VALID_AUTH_LOGIN_FLOWS, AuthLoginFlowCli, EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -100,11 +101,11 @@ class AuthApp(typer.Typer):
     def login(
         self,
         flow: Annotated[
-            AuthLoginFlowCli,
+            str,
             typer.Option(
                 "--flow",
                 "-f",
-                help="Authentication flow to use.",
+                help=f"Authentication flow to use: {', '.join(VALID_LOGIN_FLOWS)}.",
                 case_sensitive=False,
             ),
         ] = "session",
@@ -126,10 +127,9 @@ class AuthApp(typer.Typer):
         ] = None,
     ) -> None:
         """Sign in and optionally write a .env file for subsequent Toolkit commands."""
-        if flow not in VALID_AUTH_LOGIN_FLOWS:
-            raise typer.BadParameter(f"Invalid flow {flow!r}. Choose one of: {', '.join(VALID_AUTH_LOGIN_FLOWS)}")
+        login_flow = parse_login_flow_input(flow)
 
-        if flow != "session":
+        if login_flow != "session":
             session_only_flags = [
                 flag
                 for flag, is_set in (("--org", org is not None), ("--force", force), ("--port", port is not None))

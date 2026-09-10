@@ -5,7 +5,7 @@ import typer
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import InitCommand
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
 
 class LandingApp(typer.Typer):

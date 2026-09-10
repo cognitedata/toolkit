@@ -4,12 +4,10 @@ from unittest import mock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOW_DESCRIPTION
+from cognite_toolkit._cdf_tk.commands.auth.utils import prompt_user_environment_variables
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
-from cognite_toolkit._cdf_tk.utils.auth import (
-    LOGIN_FLOW_DESCRIPTION,
-    EnvironmentVariables,
-    prompt_user_environment_variables,
-)
 from tests.test_unit.utils import MockQuestionary
 
 PROJECT_AND_CLUSTER = {
@@ -17,7 +15,7 @@ PROJECT_AND_CLUSTER = {
     "CDF_PROJECT": "the-toolkit-project",
 }
 
-AUTH_MODULE = "cognite_toolkit._cdf_tk.utils.auth"
+AUTH_MODULE = "cognite_toolkit._cdf_tk.commands.auth.utils"
 
 
 class TestEnvironmentVariables:
