@@ -229,6 +229,21 @@ query: >-
 
         assert replace == "('X', 'Y', 'Z')"
 
+    def test_get_pattern_replace_pair_md_list(self) -> None:
+        variable = BuildVariable(id=Path("modules/my_list"), value=["X", "Y", "Z"], is_selected=True)
+
+        _, replace = variable.get_pattern_replace_pair(".md")
+
+        assert replace == "X, Y, Z"
+
+    def test_substitute_md(self) -> None:
+        source_md = "# Pipeline for {{ location }}\n"
+        variables = _create_variables({"location": "Hamburg"})
+
+        result = BuildVariable.substitute(source_md, variables, ".md")
+
+        assert result == "# Pipeline for Hamburg\n"
+
     def test_get_pattern_replace_pair_unsupported_suffix(self) -> None:
         """Test that unsupported file suffixes raise NotImplementedError."""
         variable = BuildVariable(id=Path("modules/my_var"), value="test", is_selected=True)

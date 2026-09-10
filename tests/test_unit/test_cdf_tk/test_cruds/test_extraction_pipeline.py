@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from rich.console import Console
 
@@ -13,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     ExtractionPipelineConfigIO,
@@ -21,6 +23,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawTableCRUD,
     ResourceIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
@@ -128,6 +131,137 @@ class TestExtractionPipelineLoader:
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
         assert res[1]["name"] == "this-is-not-a-secret"
+
+
+_PIPELINE_YAML = {
+    "externalId": "ep_src_asset",
+    "name": "Hamburg SAP",
+    "dataSetExternalId": "ds_my_dataset",
+}
+
+
+def _write_pipeline_yaml(directory: Path, data: dict, filename: str = "ep_src_asset.ExtractionPipeline.yaml") -> Path:
+    yaml_path = directory / filename
+    yaml_path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    return yaml_path
+
+
+class TestExtractionPipelineDocumentationFile:
+    def test_load_documentation_from_documentation_file(self, tmp_path: Path) -> None:
+        markdown = "# Hamburg SAP\n\nExtractor documentation.\n"
+        (tmp_path / "docs.md").write_text(markdown, encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentationFile": "docs.md"})
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        loaded = loader.load_resource_file(yaml_path)
+
+        assert loaded == [{**_PIPELINE_YAML, "documentation": markdown}]
+
+    def test_load_documentation_from_adjacent_md(self, tmp_path: Path) -> None:
+        markdown = "# Adjacent docs\n"
+        (tmp_path / "ep_src_asset.md").write_text(markdown, encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(tmp_path, _PIPELINE_YAML)
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        loaded = loader.load_resource_file(yaml_path)
+
+        assert loaded[0]["documentation"] == markdown
+
+    def test_load_inline_documentation(self, tmp_path: Path) -> None:
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentation": "Inline docs"})
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        loaded = loader.load_resource_file(yaml_path)
+
+        assert loaded[0]["documentation"] == "Inline docs"
+
+    def test_load_ambiguous_documentation_raises(self, tmp_path: Path) -> None:
+        (tmp_path / "docs.md").write_text("# Docs\n", encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(
+            tmp_path, {**_PIPELINE_YAML, "documentation": "Inline", "documentationFile": "docs.md"}
+        )
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        with pytest.raises(ToolkitYAMLFormatError, match="ambiguously defined"):
+            loader.load_resource_file(yaml_path)
+
+    def test_load_missing_documentation_file_raises(self, tmp_path: Path) -> None:
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentationFile": "missing.md"})
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        with pytest.raises(ToolkitFileNotFoundError, match=r"missing.md"):
+            loader.load_resource_file(yaml_path)
+
+    def test_load_documentation_file_falls_back_to_adjacent_after_build_rename(self, tmp_path: Path) -> None:
+        markdown = "# Built docs\n"
+        (tmp_path / "1-ep_src_asset-ep_src_asset.md").write_text(markdown, encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(
+            tmp_path,
+            {**_PIPELINE_YAML, "documentationFile": "original.md"},
+            filename="1-ep_src_asset-ep_src_asset.ExtractionPipeline.yaml",
+        )
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+
+        loaded = loader.load_resource_file(yaml_path)
+
+        assert loaded[0]["documentation"] == markdown
+
+    def test_get_extra_files_from_documentation_file(self, tmp_path: Path) -> None:
+        markdown = "# Extra docs\n"
+        docs_path = tmp_path / "docs.md"
+        docs_path.write_text(markdown, encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentationFile": "docs.md"})
+
+        extras = list(
+            ExtractionPipelineIO.get_extra_files(
+                yaml_path, ExternalId(external_id="ep_src_asset"), {"documentationFile": "docs.md"}
+            )
+        )
+
+        assert len(extras) == 1
+        extra = extras[0]
+        assert isinstance(extra, SuccessExtra)
+        assert extra.source_path == docs_path
+        assert extra.suffix == ".md"
+        assert extra.content == markdown
+        assert extra.description == "extraction pipeline documentation"
+
+    def test_get_extra_files_missing_explicit_file(self, tmp_path: Path) -> None:
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentationFile": "missing.md"})
+
+        extras = list(
+            ExtractionPipelineIO.get_extra_files(
+                yaml_path, ExternalId(external_id="ep_src_asset"), {"documentationFile": "missing.md"}
+            )
+        )
+
+        assert len(extras) == 1
+        extra = extras[0]
+        assert isinstance(extra, FailedReadExtra)
+        assert extra.code == "MISSING"
+
+    def test_get_extra_files_inline_documentation_has_no_extra(self, tmp_path: Path) -> None:
+        yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentation": "Inline"})
+
+        extras = list(
+            ExtractionPipelineIO.get_extra_files(
+                yaml_path, ExternalId(external_id="ep_src_asset"), {"documentation": "Inline"}
+            )
+        )
+
+        assert extras == []
+
+    def test_split_resource_writes_markdown(self, tmp_path: Path) -> None:
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+        base = tmp_path / "ep_src_asset.ExtractionPipeline.yaml"
+        resource = {**_PIPELINE_YAML, "documentation": "# Docs\n"}
+
+        out = list(loader.split_resource(base, resource))
+
+        assert out == [
+            (base.with_suffix(".md"), "# Docs\n"),
+            (base, _PIPELINE_YAML),
+        ]
 
 
 class TestExtractionPipelineConfigCRUD:
