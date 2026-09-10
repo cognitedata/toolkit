@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawTableCRUD,
     ResourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import SuccessExtra
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
@@ -157,15 +157,14 @@ class TestExtractionPipelineDocumentationFile:
 
         assert loaded == [{**_PIPELINE_YAML, "documentation": markdown}]
 
-    def test_load_documentation_from_adjacent_md(self, tmp_path: Path) -> None:
-        markdown = "# Adjacent docs\n"
-        (tmp_path / "ep_src_asset.md").write_text(markdown, encoding="utf-8")
+    def test_load_ignores_adjacent_md_without_documentation_file(self, tmp_path: Path) -> None:
+        (tmp_path / "ep_src_asset.md").write_text("# Adjacent docs\n", encoding="utf-8")
         yaml_path = _write_pipeline_yaml(tmp_path, _PIPELINE_YAML)
         loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
 
         loaded = loader.load_resource_file(yaml_path)
 
-        assert loaded[0]["documentation"] == markdown
+        assert "documentation" not in loaded[0]
 
     def test_load_inline_documentation(self, tmp_path: Path) -> None:
         yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentation": "Inline docs"})
@@ -191,20 +190,6 @@ class TestExtractionPipelineDocumentationFile:
 
         with pytest.raises(ToolkitFileNotFoundError, match=r"missing.md"):
             loader.load_resource_file(yaml_path)
-
-    def test_load_documentation_file_falls_back_to_adjacent_after_build_rename(self, tmp_path: Path) -> None:
-        markdown = "# Built docs\n"
-        (tmp_path / "1-ep_src_asset-ep_src_asset.md").write_text(markdown, encoding="utf-8")
-        yaml_path = _write_pipeline_yaml(
-            tmp_path,
-            {**_PIPELINE_YAML, "documentationFile": "original.md"},
-            filename="1-ep_src_asset-ep_src_asset.ExtractionPipeline.yaml",
-        )
-        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
-
-        loaded = loader.load_resource_file(yaml_path)
-
-        assert loaded[0]["documentation"] == markdown
 
     def test_get_extra_files_from_documentation_file(self, tmp_path: Path) -> None:
         markdown = "# Extra docs\n"
@@ -235,10 +220,7 @@ class TestExtractionPipelineDocumentationFile:
             )
         )
 
-        assert len(extras) == 1
-        extra = extras[0]
-        assert isinstance(extra, FailedReadExtra)
-        assert extra.code == "MISSING"
+        assert extras == []
 
     def test_get_extra_files_inline_documentation_has_no_extra(self, tmp_path: Path) -> None:
         yaml_path = _write_pipeline_yaml(tmp_path, {**_PIPELINE_YAML, "documentation": "Inline"})
@@ -246,6 +228,18 @@ class TestExtractionPipelineDocumentationFile:
         extras = list(
             ExtractionPipelineIO.get_extra_files(
                 yaml_path, ExternalId(external_id="ep_src_asset"), {"documentation": "Inline"}
+            )
+        )
+
+        assert extras == []
+
+    def test_get_extra_files_ignores_adjacent_md_without_documentation_file(self, tmp_path: Path) -> None:
+        (tmp_path / "ep_src_asset.md").write_text("# Adjacent docs\n", encoding="utf-8")
+        yaml_path = _write_pipeline_yaml(tmp_path, _PIPELINE_YAML)
+
+        extras = list(
+            ExtractionPipelineIO.get_extra_files(
+                yaml_path, ExternalId(external_id="ep_src_asset"), dict(_PIPELINE_YAML)
             )
         )
 
@@ -260,7 +254,7 @@ class TestExtractionPipelineDocumentationFile:
 
         assert out == [
             (base.with_suffix(".md"), "# Docs\n"),
-            (base, _PIPELINE_YAML),
+            (base, {**_PIPELINE_YAML, "documentationFile": "ep_src_asset.ExtractionPipeline.md"}),
         ]
 
 

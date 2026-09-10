@@ -7,4 +7,4 @@ rawTables:
 - dbName: db_complete_org
   tableName: asset
 source: doctrino
-documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
+documentationFile: docs.md

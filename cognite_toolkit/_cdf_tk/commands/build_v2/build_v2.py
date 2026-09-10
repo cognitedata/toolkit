@@ -1050,6 +1050,11 @@ class BuildV2Command(ToolkitCommand):
                     and "dml" in resource.raw
                 ):
                     resource.raw["dml"] = f"{filestem}.graphql"
+                if (
+                    any(isinstance(ef, SuccessExtra) and ef.suffix == ".md" for ef in resource.extra_files)
+                    and "documentationFile" in resource.raw
+                ):
+                    resource.raw["documentationFile"] = f"{filestem}.md"
                 safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
                 for extra_file in resource.extra_files:
                     if not isinstance(extra_file, SuccessExtra):

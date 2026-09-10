@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -153,23 +153,14 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         """Get extra files for an ExtractionPipeline resource.
 
-        This includes an optional .md file with the documentation.
+        This includes an optional .md file referenced by documentationFile.
         """
-        documentation_file: Path | None
-        if "documentationFile" in item:
-            documentation_file = filepath.parent / Path(item["documentationFile"])
-            if not documentation_file.exists():
-                yield FailedReadExtra(
-                    source_path=documentation_file,
-                    code="MISSING",
-                    error=f"Documentation file {documentation_file.as_posix()} not found",
-                )
-                return
-        else:
-            documentation_file = cls._try_get_adjacent_md_file_implicitly(filepath, identifier)
+        if "documentationFile" not in item:
+            return
 
-        if documentation_file is None or not documentation_file.exists():
-            # No external markdown file - documentation might be inline, which is valid
+        documentation_file = filepath.parent / Path(item["documentationFile"])
+        if not documentation_file.exists():
+            # Documentation is optional; a missing sidecar is treated as no extra file.
             return
 
         content = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
@@ -181,23 +172,6 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
             content=content,
             description="extraction pipeline documentation",
         )
-
-    @classmethod
-    def _try_get_adjacent_md_file_implicitly(cls, filepath: Path, identifier: ExternalId) -> Path | None:
-        """You can either define a .md file explicitly with the 'documentationFile' argument, or this
-        implicit method will be used."""
-        filestem = filepath.stem[: -len(cls.kind)].removesuffix(".")
-
-        md_candidates = []
-        if filestem:
-            md_candidates.append(filepath.parent / f"{filestem}.md")
-        md_candidates.extend(
-            [
-                filepath.parent / f"{filepath.stem}.md",
-                filepath.parent / f"{identifier.external_id}.md",
-            ]
-        )
-        return next((p for p in md_candidates if p.exists()), None)
 
     @classmethod
     def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
@@ -262,31 +236,20 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
 
         raw_list = resources if isinstance(resources, list) else [resources]
         for item in raw_list:
-            identifier = self.get_id(item)
-            documentation_file: Path | None
-            if "documentationFile" in item:
-                specified_file = filepath.parent / Path(item.pop("documentationFile"))
-                # After build, extra files are renamed to {filestem}.md. Fall back to the adjacent
-                # markdown file when the original documentationFile path is not present.
-                if specified_file.exists():
-                    documentation_file = specified_file
-                else:
-                    documentation_file = self._try_get_adjacent_md_file_implicitly(filepath, identifier)
-                    if documentation_file is None:
-                        raise ToolkitFileNotFoundError(
-                            f"Documentation file {specified_file.as_posix()} not found", filepath
-                        )
-            else:
-                documentation_file = self._try_get_adjacent_md_file_implicitly(filepath, identifier)
-
-            if documentation_file and "documentation" in item:
+            if "documentationFile" not in item:
+                continue
+            documentation_file = filepath.parent / Path(item.pop("documentationFile"))
+            if not documentation_file.exists():
+                raise ToolkitFileNotFoundError(
+                    f"Documentation file {documentation_file.as_posix()} not found", filepath
+                )
+            if "documentation" in item:
                 raise ToolkitYAMLFormatError(
                     f"documentation property is ambiguously defined in both the yaml file and a separate file named {documentation_file}\n"
                     f"Please remove one of the definitions, either the documentation property in {filepath} or the file {documentation_file}",
                     filepath,
                 )
-            elif documentation_file:
-                item["documentation"] = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
+            item["documentation"] = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
@@ -314,7 +277,9 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
         self, base_filepath: Path, resource: dict[str, Any]
     ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
         if documentation := resource.pop("documentation", None):
-            yield base_filepath.with_suffix(".md"), cast(str, documentation)
+            md_path = base_filepath.with_suffix(".md")
+            resource["documentationFile"] = md_path.name
+            yield md_path, cast(str, documentation)
 
         yield base_filepath, resource
 
