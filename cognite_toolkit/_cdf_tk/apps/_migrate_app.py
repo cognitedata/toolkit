@@ -106,7 +106,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     SelectedView,
     ThreeDModelIdSelector,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValidationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -131,6 +131,39 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 from ._helpers import print_help_if_no_subcommand
 
 TODAY = date.today()
+
+CdfProjectOption = Annotated[
+    str | None,
+    typer.Option(
+        "--cdf-project",
+        help="The CDF Project you are migrating to. This is used to verify against the credentials you have set. "
+        "If it is not passed, you will be prompted for it.",
+    ),
+]
+
+
+def _validate_cdf_project(cli_cdf_project: str | None, client_cdf_project: str) -> None:
+    """Validates that the user is migrating to the CDF project they intended."""
+    if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
+        raise ToolkitValidationError(
+            f"The CDF project in your command argument does not match your credentials, "
+            f"{cli_cdf_project!r}≠{client_cdf_project!r}."
+        )
+    if cli_cdf_project is None:
+        typed_project = questionary.text(
+            f"Enter the name of CDF project you are migrating. This must match the "
+            f"CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
+        ).unsafe_ask()
+        if typed_project != client_cdf_project:
+            raise ToolkitValidationError(
+                f"The CDF project you typed does not match your credentials, {typed_project!r}≠{client_cdf_project!r}."
+            )
+
+
+def _get_client(cdf_project: str | None) -> ToolkitClient:
+    client = EnvironmentVariables.create_from_environment().get_client()
+    _validate_cdf_project(cdf_project, client.config.project)
+    return client
 
 
 class MigrateApp(typer.Typer):
@@ -164,6 +197,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def prepare(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -189,7 +223,7 @@ class MigrateApp(typer.Typer):
         This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
         depend on the primary resources 3D and annotations.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
@@ -202,6 +236,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def data_sets(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         data_set: Annotated[
             list[str] | None,
             typer.Argument(
@@ -245,7 +280,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Creates Instance Spaces for all selected data sets."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         if data_set is None:
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
@@ -285,6 +320,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def source_systems(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         data_set: Annotated[
             str | None,
             typer.Argument(
@@ -327,7 +363,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Creates source systems from the 'source' property of classic resources (assets, events, files)."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         if data_set is None and instance_space is None:
             # Interactive model
             ds_selector = AssetInteractiveSelect(client, "migrate")
@@ -363,6 +399,7 @@ class MigrateApp(typer.Typer):
     def assets(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -443,7 +480,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Assets to CogniteAssets."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
@@ -554,6 +591,7 @@ class MigrateApp(typer.Typer):
     def events(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -634,7 +672,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Events to CogniteActivity instances."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
@@ -679,6 +717,7 @@ class MigrateApp(typer.Typer):
                 "(each mapping must contain: externalId, containerId and propertyMapping). ",
             ),
         ],
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -742,7 +781,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Events to records (Streams API)."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         migration_config = RecordMigrationConfig.load_yaml(config_file.read_text())
         streams = client.streams.retrieve(
             [ExternalId(external_id=migration_config.stream_external_id)],
@@ -809,6 +848,7 @@ class MigrateApp(typer.Typer):
     def timeseries(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -897,7 +937,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
@@ -935,6 +975,7 @@ class MigrateApp(typer.Typer):
     def files(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -1023,7 +1064,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
@@ -1062,6 +1103,7 @@ class MigrateApp(typer.Typer):
     def annotations(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         mapping_file: Annotated[
             Path | None,
             typer.Option(
@@ -1136,7 +1178,7 @@ class MigrateApp(typer.Typer):
         Annotations are diagram annotations that link assets or files to other resources. This command
         migrates them to edges in the data modeling space, preserving the relationships and metadata.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -1203,6 +1245,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def canvas(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         external_id: Annotated[
             list[str] | None,
             typer.Argument(
@@ -1251,7 +1294,7 @@ class MigrateApp(typer.Typer):
         This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         if external_id is None:
             interactive = InteractiveCanvasSelect(client)
             external_id = interactive.select_external_ids()
@@ -1280,6 +1323,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def charts(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         external_id: Annotated[
             list[str] | None,
             typer.Argument(
@@ -1319,7 +1363,7 @@ class MigrateApp(typer.Typer):
         This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
         is populated with the mapping from time series to the new data modeling resources.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         selected_external_ids: list[str]
         if external_id:
@@ -1343,6 +1387,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def three_d(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         id: Annotated[
             list[int] | None,
             typer.Argument(
@@ -1382,7 +1427,7 @@ class MigrateApp(typer.Typer):
         This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if id:
@@ -1407,6 +1452,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def three_d_asset_mapping(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         model_id: Annotated[
             list[int] | None,
             typer.Argument(
@@ -1459,7 +1505,7 @@ class MigrateApp(typer.Typer):
 
         This command expects that the selected 3D model has already been migrated to data modeling.
         """
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         verify_threed_dm_migration_enabled(client)
         selected_ids: list[int]
         if model_id is not None:
@@ -1505,6 +1551,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def infield_configs(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         external_id: Annotated[
             list[str] | None,
             typer.Argument(
@@ -1531,7 +1578,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Creates Infield CDM configurations from existing APM Configurations in CDF."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         cmd = MigrationCommand(client=client)
         if external_id is None:
@@ -1567,6 +1614,7 @@ class MigrateApp(typer.Typer):
     def infield_data(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         source_space: Annotated[
             str | None,
             typer.Option(
@@ -1619,7 +1667,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         cmd = MigrationCommand(client=client)
         apm_configs = client.infield.apm_config.list(limit=None)
@@ -1785,6 +1833,7 @@ class MigrateApp(typer.Typer):
     def infield_source_data(
         cls,
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         source_space: Annotated[
             str | None,
             typer.Option(
@@ -1829,7 +1878,7 @@ class MigrateApp(typer.Typer):
         """Migrates APM_SourceData (work orders, operations, notifications) used by Infield from the legacy
         APM_SourceData data model to the cdf_idm CogniteMaintenanceOrder/CogniteOperation/CogniteNotification views
         used by InFieldOnCDM."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
 
         cmd = MigrationCommand(client=client)
         apm_configs = client.infield.apm_config.list(limit=None)
@@ -1983,6 +2032,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_nodes(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         instance_space: Annotated[
             str | None,
             typer.Option(
@@ -2028,7 +2078,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         if client.project.status().this_project.data_modeling_status != "DATA_MODELING_ONLY":
             verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
@@ -2086,6 +2136,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def image_360_annotations(
         ctx: typer.Context,
+        cdf_project: CdfProjectOption = None,
         collection_instance_space: Annotated[
             str | None,
             typer.Option(
@@ -2150,7 +2201,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = _get_client(cdf_project)
         verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 

@@ -5,6 +5,7 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -12,6 +13,7 @@ from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
@@ -64,6 +66,14 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
         approval_client.mock_client.__class__ = type("ToolkitClientMock", (original_class, ToolkitClient), {})
 
         yield approval_client
+
+
+@pytest.fixture(scope="session")
+def toolkit_client_cheap() -> ToolkitClient:
+    """A bare minimum fast to initialize client. For tests that don't need to make any calls to the CDF API."""
+    mock_client = MagicMock(spec=ToolkitClient)
+    mock_client.console = MagicMock(spec=Console)
+    return mock_client
 
 
 @pytest.fixture(scope="function")

@@ -120,6 +120,7 @@ class TestMigrateChart:
 
         MigrateApp.charts(
             ctx=MagicMock(),
+            cdf_project=toolkit_client.config.project,
             external_id=[legacy_chart.external_id],
             log_dir=tmp_path,
             dry_run=False,
