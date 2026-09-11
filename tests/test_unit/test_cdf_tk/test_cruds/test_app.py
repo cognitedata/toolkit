@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -84,20 +84,6 @@ class TestAppIODumpResource:
 
         assert dumped["name"] == "Local Name"
         assert dumped["description"] == "Local desc"
-
-
-class TestAppVersionIODependencies:
-    def test_get_dependent_items_yields_app_io(self):
-        item = {"appExternalId": "my-app", "version": "1.0.0"}
-        deps = list(AppVersionIO.get_dependent_items(item))
-
-        assert len(deps) == 1
-        assert deps[0][0] is AppIO
-        assert deps[0][1] == ExternalId(external_id="my-app")
-
-    def test_get_dependent_items_returns_empty_without_app_external_id(self):
-        deps = list(AppVersionIO.get_dependent_items({"version": "1.0.0"}))
-        assert deps == []
 
 
 class TestAppVersionIODeploy:

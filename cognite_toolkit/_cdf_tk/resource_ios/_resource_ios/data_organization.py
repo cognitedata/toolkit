@@ -202,16 +202,6 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse]):
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)

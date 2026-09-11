@@ -1,4 +1,3 @@
-from collections.abc import Hashable
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -6,8 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
@@ -19,16 +16,8 @@ from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
-    DataProductIO,
-    DataSetsIO,
-    ExtractionPipelineIO,
     GroupAllScopedCRUD,
-    GroupIO,
     GroupResourceScopedCRUD,
-    RawDatabaseCRUD,
-    RawTableCRUD,
-    ResourceIO,
-    SpaceCRUD,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -173,72 +162,6 @@ class TestGroupLoader:
             "delete": len(result.to_delete),
             "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 1, "delete": 0, "unchanged": 0}
-
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {"capabilities": [{"dataModelsAcl": {"scope": {"spaceIdScope": {"spaceIds": ["space1", "space2"]}}}}]},
-                [(SpaceCRUD, SpaceId(space="space1")), (SpaceCRUD, SpaceId(space="space2"))],
-                id="SpaceId scope",
-            ),
-            pytest.param(
-                {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
-                [
-                    (DataSetsIO, ExternalId(external_id="ds_dataset1")),
-                ],
-                id="Dataset scope",
-            ),
-            pytest.param(
-                {
-                    "capabilities": [
-                        {"extractionRunsAcl": {"scope": {"extractionPipelineScope": {"ids": ["ex_my_extraction"]}}}}
-                    ]
-                },
-                [
-                    (ExtractionPipelineIO, ExternalId(external_id="ex_my_extraction")),
-                ],
-                id="Extraction pipeline scope",
-            ),
-            pytest.param(
-                {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
-                [
-                    (RawDatabaseCRUD, RawDatabaseId(name="my_db")),
-                    (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
-                ],
-                id="Table scope",
-            ),
-            pytest.param(
-                {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
-                [
-                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
-                ],
-                id="ID scope dataset",
-            ),
-            pytest.param(
-                {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
-                [
-                    (ExtractionPipelineIO, ExternalId(external_id="ex_my_extraction")),
-                ],
-                id="ID scope extractionpipline ",
-            ),
-            pytest.param(
-                {
-                    "capabilities": [
-                        {"dataProductsAcl": {"scope": {"dataProductScope": {"externalIds": ["my-data-product"]}}}}
-                    ]
-                },
-                [
-                    (DataProductIO, ExternalId(external_id="my-data-product")),
-                ],
-                id="Data product scope",
-            ),
-        ],
-    )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
-        actual_dependent_items = GroupIO.get_dependent_items(item)
-
-        assert list(actual_dependent_items) == expected
 
     def test_unchanged_new_group_without_metadata(
         self,

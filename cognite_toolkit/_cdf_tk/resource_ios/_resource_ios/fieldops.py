@@ -117,42 +117,6 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse]):
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceCRUD, SpaceId(space=app_data_space_id)
-        if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceCRUD, SpaceId(space=customer_data_space_id)
-        for config in cls._get_root_location_configurations(item) or []:
-            if isinstance(asset_external_id := config.get("assetExternalId"), str):
-                yield AssetIO, ExternalId(external_id=asset_external_id)
-            if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
-                yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-            if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceId(space=app_data_instance_space)
-            if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceId(space=source_data_instance_space)
-            for key in cls._group_keys:
-                for group in config.get(key, []):
-                    if isinstance(group, str):
-                        yield GroupResourceScopedCRUD, NameId(name=group)
-            data_filters = config.get("dataFilters")
-            if not isinstance(data_filters, dict):
-                continue
-            for key in cls._root_location_filters:
-                filter_ = data_filters.get(key)
-                if not isinstance(filter_, dict):
-                    continue
-                for data_set_external_id in filter_.get("dataSetExternalIds", []):
-                    if isinstance(data_set_external_id, str):
-                        yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-                for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
-                    if isinstance(asset_external_id, str):
-                        yield AssetIO, ExternalId(external_id=asset_external_id)
-                if app_data_instance_space := filter_.get("appDataInstanceSpace"):
-                    if isinstance(app_data_instance_space, str):
-                        yield SpaceCRUD, SpaceId(space=app_data_instance_space)
-
-    @classmethod
     def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.app_data_space_id:
             yield SpaceCRUD, SpaceId(space=resource.app_data_space_id)
@@ -350,13 +314,12 @@ class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, I
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
-        if json_path == ("accessManagement", "templateAdmins"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("accessManagement", "checklistAdmins"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("dataFilters", "general", "spaces"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
+        if (
+            json_path == ("accessManagement", "templateAdmins")
+            or json_path == ("accessManagement", "checklistAdmins")
+            or json_path == ("dataFilters", "general", "spaces")
+            or json_path == ("dataExplorationConfig", "documents", "supportedFormats")
+        ):
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
@@ -426,45 +389,6 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
                 yield (SpaceCRUD, SpaceId(space=resource.data_storage.root_location.space))
             if resource.data_storage.app_instance_space is not None:
                 yield (SpaceCRUD, SpaceId(space=resource.data_storage.app_instance_space))
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if isinstance(space := item.get("space"), str):
-            yield (SpaceCRUD, SpaceId(space=space))
-        data_exploration_config = item.get("dataExplorationConfig")
-        if isinstance(data_exploration_config, dict):
-            for value in data_exploration_config.values():
-                if isinstance(value, dict):
-                    yield from cls._view_dependent_items(value)
-        view_mappings = item.get("viewMappings")
-        if isinstance(view_mappings, dict):
-            for key, value in view_mappings.items():
-                if key == "observation" and isinstance(value, list):
-                    for obs_config in value:
-                        if not isinstance(obs_config, dict):
-                            continue
-                        view = obs_config.get("view")
-                        if isinstance(view, dict):
-                            yield from cls._view_dependent_items(view)
-                elif isinstance(value, dict):
-                    yield from cls._view_dependent_items(value)
-        data_filters = item.get("dataFilters")
-        if isinstance(data_filters, dict):
-            for data_filter in data_filters.values():
-                if not isinstance(data_filter, dict):
-                    continue
-                instance_spaces = data_filter.get("instanceSpaces")
-                if isinstance(instance_spaces, list):
-                    for instance_space in instance_spaces:
-                        if isinstance(instance_space, str):
-                            yield (SpaceCRUD, SpaceId(space=instance_space))
-        data_storage = item.get("dataStorage")
-        if isinstance(data_storage, dict):
-            root_location = data_storage.get("rootLocation")
-            if isinstance(root_location, dict) and isinstance(root_location.get("space"), str):
-                yield (SpaceCRUD, SpaceId(space=root_location["space"]))
-            if isinstance(app_instance_space := data_storage.get("appInstanceSpace"), str):
-                yield (SpaceCRUD, SpaceId(space=app_instance_space))
 
     @staticmethod
     def _view_dependent_items(candidate: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
@@ -545,9 +469,7 @@ class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequ
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
-        if json_path == ("accessManagement", "templateAdmins"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("accessManagement", "checklistAdmins"):
+        if json_path == ("accessManagement", "templateAdmins") or json_path == ("accessManagement", "checklistAdmins"):
             return diff_list_hashable(local, cdf)
         elif json_path == ("disciplines",):
             return diff_list_identifiable(local, cdf, get_identifier=hash_dict)

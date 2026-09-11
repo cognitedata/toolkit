@@ -136,11 +136,6 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
         return sanitize_filename(id.external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -277,9 +272,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
                 if file.is_dir():
                     to_search.append(file)
                     continue
-                elif file.is_file() and file.suffix == ".pyc":
-                    continue
-                elif file.is_file() and file.name == ".DS_Store":
+                elif (file.is_file() and file.suffix == ".pyc") or (file.is_file() and file.name == ".DS_Store"):
                     continue
                 file_hash = calculate_hash(file, shorten=True)
                 new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
@@ -678,7 +671,7 @@ class FunctionScheduleIO(ResourceIO[FunctionScheduleId, FunctionScheduleRequest,
     @classmethod
     def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | dict) -> FunctionScheduleId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
+            if missing := tuple(k for k in ("functionExternalId", "name") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return FunctionScheduleId(function_external_id=item["functionExternalId"], name=item["name"])
@@ -690,11 +683,6 @@ class FunctionScheduleIO(ResourceIO[FunctionScheduleId, FunctionScheduleRequest,
     @classmethod
     def as_str(cls, id: FunctionScheduleId) -> str:
         return sanitize_filename(f"{id.function_external_id}-{id.name}")
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "functionExternalId" in item:
-            yield FunctionIO, ExternalId(external_id=item["functionExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

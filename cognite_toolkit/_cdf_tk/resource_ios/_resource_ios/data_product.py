@@ -43,11 +43,6 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return {"externalId": id.external_id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "schemaSpace" in item:
-            yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
-
-    @classmethod
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
             yield SpaceCRUD, SpaceId(space=resource.schema_space)

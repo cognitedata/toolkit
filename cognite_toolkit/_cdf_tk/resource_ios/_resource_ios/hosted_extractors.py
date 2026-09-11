@@ -281,11 +281,6 @@ class HostedExtractorDestinationIO(
         if resource.target_data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.target_data_set_external_id)
 
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "targetDataSetId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["targetDataSetId"])
-
     def sensitive_strings(self, item: HostedExtractorDestinationRequest) -> Iterable[str]:
         if item.credentials:
             yield item.credentials.nonce
@@ -371,13 +366,6 @@ class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, Hos
             yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
         if resource.destination_id:
             yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "sourceId" in item:
-            yield HostedExtractorSourceIO, ExternalId(external_id=item["sourceId"])
-        if "destinationId" in item:
-            yield HostedExtractorDestinationIO, ExternalId(external_id=item["destinationId"])
 
 
 @final
