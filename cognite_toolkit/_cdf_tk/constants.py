@@ -61,7 +61,7 @@ EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # YAML files in those subdirectories are code artifacts, not CDF resource definitions.
 RESOURCE_FOLDERS_WITH_CODE_BUNDLES = frozenset({"functions", "apps", "streamlit"})
 # Files to search for variables.
-SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
+SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv", ".md"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])

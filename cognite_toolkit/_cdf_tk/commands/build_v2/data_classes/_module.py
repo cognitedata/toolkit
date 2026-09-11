@@ -28,7 +28,7 @@ else:
     from typing_extensions import Self
 
 
-FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json"]
+FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
 
 
@@ -68,6 +68,9 @@ class BuildVariable(BaseModel):
         elif file_suffix == ".sql":
             if isinstance(substitution, list):
                 substitution = self._format_list_as_sql_tuple(substitution)
+        elif file_suffix == ".md":
+            if isinstance(substitution, list):
+                substitution = ", ".join(str(item) for item in substitution)
         else:
             raise NotImplementedError(f"{file_suffix!r} is not supported for variable replacement")
         return pattern, str(substitution)

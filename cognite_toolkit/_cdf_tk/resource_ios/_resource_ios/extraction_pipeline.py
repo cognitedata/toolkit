@@ -13,9 +13,10 @@
 # limitations under the License.
 
 
+import re
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Literal, final
+from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 import yaml
 
@@ -47,13 +48,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitRequiredValueError,
+    ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     load_yaml_inject_variables,
     read_yaml_content,
     safe_read,
@@ -67,6 +71,9 @@ from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
 
 @final
 class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
@@ -76,6 +83,7 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
+    extra_content_property = "documentation"
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @property
@@ -141,6 +149,109 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
             if entry.db_name and entry.table_name:
                 yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for an ExtractionPipeline resource.
+
+        This includes an optional .md file referenced by documentationFile.
+        """
+        if "documentationFile" not in item:
+            return
+
+        documentation_file = filepath.parent / Path(item["documentationFile"])
+        if not documentation_file.exists():
+            # Documentation is optional; a missing sidecar is treated as no extra file.
+            return
+
+        content = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=documentation_file,
+            source_hash=source_hash,
+            suffix=".md",
+            content=content,
+            description="extraction pipeline documentation",
+        )
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Overwritten to handle the documentation field that needs .md style substitution."""
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import FileSuffix
+
+        for variable in variables:
+            file_suffix: FileSuffix = ".md" if cls._is_in_documentation_field(content, variable.name) else ".yaml"
+            pattern, replace = variable.get_pattern_replace_pair(file_suffix)
+            content = re.sub(pattern, replace, content)
+        return content
+
+    @staticmethod
+    def _is_in_documentation_field(content: str, variable_key: str) -> bool:
+        """Check if a variable is within a documentation field in YAML.
+
+        Assumes documentation is a top-level property. This detects various YAML formats:
+        - documentation: >-
+        - documentation: |
+        - documentation: "..."
+        - documentation: ...
+        """
+        lines = content.split("\n")
+        variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
+        in_documentation_field = False
+
+        for line in lines:
+            documentation_match = re.match(r"^documentation\s*:\s*(.*)$", line)
+            if documentation_match:
+                in_documentation_field = True
+                documentation_content_start = documentation_match.group(1).strip()
+
+                if re.search(variable_pattern, line):
+                    return True
+
+                if (
+                    documentation_content_start
+                    and not documentation_content_start.startswith(("|", ">", "|-", ">-", "|+", ">+"))
+                    and re.search(variable_pattern, documentation_content_start)
+                ):
+                    return True
+                continue
+
+            if in_documentation_field:
+                if re.match(r"^\w+\s*:", line):
+                    in_documentation_field = False
+                    continue
+
+                if re.search(variable_pattern, line):
+                    return True
+
+        return False
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = load_yaml_inject_variables(
+            self.safe_read(filepath),
+            environment_variables or {},
+            original_filepath=filepath,
+        )
+
+        raw_list = resources if isinstance(resources, list) else [resources]
+        for item in raw_list:
+            if "documentationFile" not in item:
+                continue
+            documentation_file = filepath.parent / Path(item.pop("documentationFile"))
+            if not documentation_file.exists():
+                raise ToolkitFileNotFoundError(
+                    f"Documentation file {documentation_file.as_posix()} not found", filepath
+                )
+            if "documentation" in item:
+                raise ToolkitYAMLFormatError(
+                    f"documentation property is ambiguously defined in both the yaml file and a separate file named {documentation_file}\n"
+                    f"Please remove one of the definitions, either the documentation property in {filepath} or the file {documentation_file}",
+                    filepath,
+                )
+            item["documentation"] = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
+        return raw_list
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -161,6 +272,16 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
         elif dumped.get("createdBy") == "unknown" and "createdBy" in local and local["createdBy"] is None:
             dumped["createdBy"] = None
         return dumped
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if documentation := resource.pop("documentation", None):
+            md_path = base_filepath.with_suffix(".md")
+            resource["documentationFile"] = md_path.name
+            yield md_path, cast(str, documentation)
+
+        yield base_filepath, resource
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

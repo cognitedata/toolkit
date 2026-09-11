@@ -48,6 +48,10 @@ class ExtractionPipelineYAML(ToolkitResource):
     documentation: str | None = Field(
         None, description="Documentation text field, supports Markdown for text formatting.", max_length=10000
     )
+    documentationFile: str | None = Field(
+        default=None,
+        description="Used by Toolkit: Path to the Markdown file containing the documentation for the extraction pipeline.",
+    )
     notification_config: NotificationConfig | None = Field(
         None, description="Notification configuration for the extraction pipeline."
     )
