@@ -83,6 +83,10 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
         return RawDatabaseId(name=item.name)
 
     @classmethod
+    def get_dependencies(cls, resource: DatabaseYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
+    @classmethod
     def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
         return {"dbName": id.name}
 

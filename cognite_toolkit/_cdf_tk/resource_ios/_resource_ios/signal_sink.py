@@ -1,6 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -47,6 +48,10 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: SignalSinkYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
         return self.client.tool.signal_sinks.create(list(items))
