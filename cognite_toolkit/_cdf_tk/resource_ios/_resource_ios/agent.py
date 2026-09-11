@@ -59,15 +59,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
         return sanitize_filename(id.external_id)
 
     @staticmethod
-    def _data_model_dependencies(data_models: list[dict[str, Any]]) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
-        for data_model in data_models:
-            space = data_model.get("space")
-            external_id = data_model.get("externalId")
-            version = data_model.get("version")
-            if space and external_id and version:
-                yield DataModelIO, DataModelId(space=space, external_id=external_id, version=str(version))
-
-    @staticmethod
     def _yaml_data_model_dependencies(
         data_models: list[AgentDataModel],
     ) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
@@ -96,36 +87,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
         dm_scope = tool.configuration.data_models
         if dm_scope.type == "manual" and isinstance(dm_scope, ManualQueryDataModels):
             yield from AgentIO._yaml_data_model_dependencies(dm_scope.data_models)
-
-    @classmethod
-    def _query_tool_manual_data_models(cls, configuration: dict[str, Any]) -> list[dict[str, Any]]:
-        data_models_scope = configuration.get("dataModels")
-        if not isinstance(data_models_scope, dict) or data_models_scope.get("type") != "manual":
-            return []
-        data_models = data_models_scope.get("dataModels")
-        if not isinstance(data_models, list):
-            return []
-        return data_models
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        for subagent in item.get("subagents") or []:
-            if isinstance(subagent, dict) and (agent_external_id := subagent.get("agentExternalId")):
-                yield AgentIO, ExternalId(external_id=agent_external_id)
-        for tool in item.get("tools", []):
-            if tool.get("type") == "callFunction":
-                if ext_id := tool.get("configuration", {}).get("externalId"):
-                    yield FunctionIO, ExternalId(external_id=ext_id)
-            elif tool.get("type") == "queryKnowledgeGraph":
-                yield from cls._data_model_dependencies(tool.get("configuration", {}).get("dataModels", []))
-            elif tool.get("type") == "query":
-                yield from cls._data_model_dependencies(
-                    cls._query_tool_manual_data_models(tool.get("configuration", {}))
-                )
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-            for skill_external_id in item.get("skills") or []:
-                if isinstance(skill_external_id, str):
-                    yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

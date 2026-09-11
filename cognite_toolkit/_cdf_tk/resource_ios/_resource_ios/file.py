@@ -56,7 +56,6 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
-    in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import (
     as_instance_acl_actions,
@@ -130,22 +129,6 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if "securityCategoryNames" in item:
-            for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryIO, NameId(name=security_category)
-        if "labels" in item:
-            for label in item["labels"]:
-                if isinstance(label, dict):
-                    yield LabelIO, ExternalId(external_id=label["externalId"])
-                elif isinstance(label, str):
-                    yield LabelIO, ExternalId(external_id=label)
-        for asset_external_id in item.get("assetExternalIds", []):
-            yield AssetIO, ExternalId(external_id=asset_external_id)
 
     @classmethod
     def get_dependencies(cls, resource: FileMetadataYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -391,7 +374,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
     @classmethod
     def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return NodeId(space=item["space"], external_id=item["externalId"])
@@ -532,23 +515,6 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
         retrieved = self.retrieve(ids)
         self.delete(ids)
         return len(self.create([file.as_request_resource() for file in retrieved]))
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        for key in ["source", "category", "type"]:
-            if key in item and in_dict(("space", "externalId"), item[key]):
-                yield NodeCRUD, NodeId(space=item[key]["space"], external_id=item[key]["externalId"])
-        if "assets" in item:
-            for asset in item["assets"]:
-                if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
-                    yield NodeCRUD, NodeId(space=asset["space"], external_id=asset["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

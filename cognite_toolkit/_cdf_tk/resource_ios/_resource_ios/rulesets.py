@@ -163,11 +163,6 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         yield from ()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "ruleSetExternalId" in item:
-            yield RuleSetIO, ExternalId(external_id=item["ruleSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield RuleSetIO, ExternalId(external_id=resource.rule_set_external_id)
 

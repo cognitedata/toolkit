@@ -1,25 +1,18 @@
 import os
-from collections.abc import Hashable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
-    DataSetsIO,
     ExtractionPipelineConfigIO,
     ExtractionPipelineIO,
-    RawDatabaseCRUD,
-    RawTableCRUD,
-    ResourceIO,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -62,32 +55,6 @@ class TestExtractionPipelineDependencies:
 
 
 class TestExtractionPipelineLoader:
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {
-                    "dataSetExternalId": "ds_my_dataset",
-                    "rawTables": [
-                        {"dbName": "my_db", "tableName": "my_table"},
-                        {"dbName": "my_db", "tableName": "my_table2"},
-                    ],
-                },
-                [
-                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
-                    (RawDatabaseCRUD, RawDatabaseId(name="my_db")),
-                    (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
-                    (RawTableCRUD, RawTableId(db_name="my_db", name="my_table2")),
-                ],
-                id="Extraction pipeline to Table",
-            ),
-        ],
-    )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
-        actual = ExtractionPipelineIO.get_dependent_items(item)
-
-        assert list(actual) == expected
-
     def test_diff_list_contacts_does_not_raise(self, monkeypatch: MonkeyPatch) -> None:
         loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
         local = [{"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True}]

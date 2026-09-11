@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
@@ -229,46 +229,6 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
     ) -> Iterable[LocationFilterResponse]:
         for chunk in self.client.tool.location_filters.iterate(flat=True):
             yield from chunk
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "assetCentric" in item:
-            asset_centric = item["assetCentric"]
-            for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
-                yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-            for asset in [*asset_centric.get("assetSubtreeIds", []), *asset_centric.get("assetSubtreeExternalIds", [])]:
-                if "externalId" in asset:
-                    yield AssetIO, ExternalId(external_id=asset["externalId"])
-            for subfilter_name in cls.subfilter_names:
-                subfilter = asset_centric.get(subfilter_name, {})
-                for data_set_external_id in subfilter.get("dataSetExternalIds", []):
-                    yield DataSetsIO, ExternalId(external_id=data_set_external_id)
-                for asset in [*subfilter.get("assetSubtreeIds", []), *subfilter.get("assetSubtreeExternalIds", [])]:
-                    if "externalId" in asset:
-                        yield AssetIO, ExternalId(external_id=asset["externalId"])
-        for view in item.get("views", []):
-            if in_dict(["space", "externalId", "version"], view):
-                yield (
-                    ViewIO,
-                    ViewId(space=view["space"], external_id=view["externalId"], version=view["version"]),
-                )
-        for space in item.get("instanceSpaces", []):
-            yield SpaceCRUD, SpaceId(space=space)
-        if user_data_instance_space := item.get("userDataInstanceSpace"):
-            yield SpaceCRUD, SpaceId(space=user_data_instance_space)
-        for data_model in item.get("dataModels", []):
-            if in_dict(["space", "externalId", "version"], data_model):
-                yield (
-                    DataModelIO,
-                    DataModelId(
-                        space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
-                    ),
-                )
 
     @classmethod
     def _asset_centric_deps(cls, fields: AssetCentricFields) -> Iterable[tuple[type[ResourceIO], Identifier]]:

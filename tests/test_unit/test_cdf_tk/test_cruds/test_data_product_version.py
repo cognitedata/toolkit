@@ -1,11 +1,8 @@
 """Unit tests for DataProductVersionIO."""
 
-from collections.abc import Hashable
 from typing import ClassVar
 
-import pytest
-
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionQuality,
     DataProductVersionRequest,
@@ -13,11 +10,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionView,
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ViewIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetVersionIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 
@@ -47,49 +42,6 @@ class TestDataProductVersionIODependencies:
             (DataProductIO, ExternalId(external_id="my-product")),
             (ViewIO, ViewId(space="my-space", external_id="MyView", version="1")),
         ]
-
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {
-                    "dataProductExternalId": "my-product",
-                    "version": "1.0.0",
-                    "views": [
-                        {
-                            "space": "my-space",
-                            "externalId": "MyView",
-                            "version": "1",
-                        }
-                    ],
-                },
-                [
-                    (DataProductIO, ExternalId(external_id="my-product")),
-                    (ViewIO, ViewId(space="my-space", external_id="MyView", version="1")),
-                ],
-                id="view reference yields ViewIO dependency",
-            ),
-            pytest.param(
-                {
-                    "dataProductExternalId": "my-product",
-                    "version": "1.0.0",
-                    "quality": {"rules": [{"externalId": "my-ruleset", "version": "1.0.0"}]},
-                },
-                [
-                    (DataProductIO, ExternalId(external_id="my-product")),
-                    (
-                        RuleSetVersionIO,
-                        RuleSetVersionId(rule_set_external_id="my-ruleset", version="1.0.0"),
-                    ),
-                ],
-                id="quality rule yields RuleSetVersionIO dependency",
-            ),
-        ],
-    )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
-        actual = list(DataProductVersionIO.get_dependent_items(item))
-
-        assert actual == expected
 
 
 class TestDataProductVersionIODumpResource:

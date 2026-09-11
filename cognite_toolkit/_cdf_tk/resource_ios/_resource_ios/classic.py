@@ -107,23 +107,6 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
             yield from assets
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        for label in item.get("labels", []):
-            if isinstance(label, dict):
-                yield LabelIO, ExternalId(external_id=label["externalId"])
-            elif isinstance(label, str):
-                yield LabelIO, ExternalId(external_id=label)
-        if "parentExternalId" in item:
-            yield cls, item["parentExternalId"]
-
-    @classmethod
     def get_dependencies(cls, resource: AssetYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -284,13 +267,6 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse]):
             yield from sequences
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if "assetExternalId" in item:
-            yield AssetIO, ExternalId(external_id=item["assetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: SequenceYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -396,15 +372,6 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
             yield from responses
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        yield SequenceIO, ExternalId(external_id=item["externalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: SequenceRowYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SequenceIO, ExternalId(external_id=resource.external_id)
 
@@ -506,19 +473,6 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse]):
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for events in self.client.tool.events.iterate(filter=filter_, limit=None):
             yield from events
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        for asset_id in item.get("assetExternalIds", []):
-            if isinstance(asset_id, str):
-                yield AssetIO, ExternalId(external_id=asset_id)
 
     @classmethod
     def get_dependencies(cls, resource: EventYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

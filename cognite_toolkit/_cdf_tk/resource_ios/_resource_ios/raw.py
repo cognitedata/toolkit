@@ -205,11 +205,6 @@ class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResp
         return {"dbName": id.db_name, "tableName": id.name}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dbName" in item:
-            yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
-
-    @classmethod
     def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield RawDatabaseCRUD, RawDatabaseId(name=resource.db_name)
 
