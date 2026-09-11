@@ -61,16 +61,16 @@ views:
 """
 
 
-def _container_property() -> ContainerPropertyDefinition:
+def _container_property(nullable: bool = True) -> ContainerPropertyDefinition:
     return ContainerPropertyDefinition(
         type=TextProperty(list=False, collation="ucs_basic"),
         immutable=False,
-        nullable=True,
+        nullable=nullable,
         auto_increment=False,
     )
 
 
-def _cdf_container(property_identifiers: list[str]) -> ContainerResponse:
+def _cdf_container(properties: dict[str, ContainerPropertyDefinition]) -> ContainerResponse:
     return ContainerResponse(
         space=CONTAINER_ID.space,
         external_id=CONTAINER_ID.external_id,
@@ -80,13 +80,25 @@ def _cdf_container(property_identifiers: list[str]) -> ContainerResponse:
         name=None,
         used_for="node",
         is_global=False,
-        properties={identifier: _container_property() for identifier in property_identifiers},
+        properties=properties,
         indexes={},
         constraints={},
     )
 
 
-def _cdf_view(property_identifiers: list[str], description: str | None = None) -> ViewResponse:
+def _view_property(nullable: bool = True) -> ViewCorePropertyResponse:
+    return ViewCorePropertyResponse(
+        container=CONTAINER_ID,
+        container_property_identifier="name",
+        type=TextProperty(),
+        nullable=nullable,
+        auto_increment=False,
+        immutable=False,
+        constraint_state=ConstraintOrIndexState(),
+    )
+
+
+def _cdf_view(properties: dict[str, ViewCorePropertyResponse], description: str | None = None) -> ViewResponse:
     # The API omits unset fields, and dumps use exclude_unset, so only pass description when set.
     optional_fields = {"description": description} if description is not None else {}
     return ViewResponse(
@@ -101,18 +113,7 @@ def _cdf_view(property_identifiers: list[str], description: str | None = None) -
         used_for="node",
         is_global=False,
         mapped_containers=[CONTAINER_ID],
-        properties={
-            identifier: ViewCorePropertyResponse(
-                container=CONTAINER_ID,
-                container_property_identifier=identifier,
-                type=TextProperty(),
-                nullable=True,
-                auto_increment=False,
-                immutable=False,
-                constraint_state=ConstraintOrIndexState(),
-            )
-            for identifier in property_identifiers
-        },
+        properties=properties,
     )
 
 
@@ -162,42 +163,75 @@ def _client_stub(
 
 class TestDependencyRuleSetDataModelingChanges:
     @pytest.mark.parametrize(
-        "cdf_property_identifiers, expected_codes",
+        "cdf_properties, expected_codes, expected_message_fragment",
         [
-            pytest.param(["name"], [], id="no-change"),
+            pytest.param({"name": _container_property()}, [], None, id="no-change"),
             pytest.param(
-                ["name", "description"],
+                {"name": _container_property(), "description": _container_property()},
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
+                "is missing properties 'description'",
                 id="property-removed-locally",
+            ),
+            pytest.param(
+                {"name": _container_property(nullable=False)},
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                "has changed properties 'name'",
+                id="property-changed-locally",
+            ),
+            pytest.param(
+                {"name": _container_property(nullable=False), "description": _container_property()},
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                "has changed properties 'description', 'name'",
+                id="property-changed-and-removed-locally-reports-as-changed",
             ),
         ],
     )
     def test_validate_container(
-        self, tmp_path: Path, cdf_property_identifiers: list[str], expected_codes: list[str]
+        self,
+        tmp_path: Path,
+        cdf_properties: dict[str, ContainerPropertyDefinition],
+        expected_codes: list[str],
+        expected_message_fragment: str | None,
     ) -> None:
         yaml_file = tmp_path / "MyContainer.container.yaml"
         yaml_file.write_text(CONTAINER_YAML)
 
-        client = _client_stub(container=[_cdf_container(cdf_property_identifiers)])
+        client = _client_stub(container=[_cdf_container(cdf_properties)])
         rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)], client=client)
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
         assert all(isinstance(insight, ConsistencyError) for insight in insights)
+        if expected_message_fragment is not None:
+            assert expected_message_fragment in insights[0].message
 
     @pytest.mark.parametrize(
-        "cdf_property_identifiers, cdf_description, expected_codes, expected_message_fragment",
+        "cdf_properties, cdf_description, expected_codes, expected_message_fragment",
         [
-            pytest.param(["name"], None, [], None, id="no-change"),
+            pytest.param({"name": _view_property()}, None, [], None, id="no-change"),
             pytest.param(
-                ["name", "description"],
+                {"name": _view_property(), "description": _view_property()},
                 None,
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "is missing properties 'description'",
                 id="property-removed-locally",
             ),
             pytest.param(
-                ["name"],
+                {"name": _view_property(nullable=False)},
+                None,
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                "has changed properties 'name'",
+                id="property-changed-locally",
+            ),
+            pytest.param(
+                {"name": _view_property(nullable=False), "description": _view_property()},
+                None,
+                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                "has changed properties 'description', 'name'",
+                id="property-changed-and-removed-locally-reports-as-changed",
+            ),
+            pytest.param(
+                {"name": _view_property()},
                 "Deployed description",
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
                 "has drifted from the state of the deployed view version",
@@ -208,7 +242,7 @@ class TestDependencyRuleSetDataModelingChanges:
     def test_validate_view(
         self,
         tmp_path: Path,
-        cdf_property_identifiers: list[str],
+        cdf_properties: dict[str, ViewCorePropertyResponse],
         cdf_description: str | None,
         expected_codes: list[str],
         expected_message_fragment: str | None,
@@ -216,7 +250,7 @@ class TestDependencyRuleSetDataModelingChanges:
         yaml_file = tmp_path / "MyView.view.yaml"
         yaml_file.write_text(VIEW_YAML)
 
-        client = _client_stub(view=[_cdf_view(cdf_property_identifiers, cdf_description)])
+        client = _client_stub(view=[_cdf_view(cdf_properties, cdf_description)])
         rule = DependencyRuleSet(modules=[_built_module(yaml_file, ViewIO, VIEW_ID)], client=client)
 
         insights = list(rule.validate())
