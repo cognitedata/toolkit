@@ -1050,7 +1050,7 @@ class TestCDFResourceAPI:
 
         # Test search (POST /models/instances/search)
         search_url = config.create_api_url("/models/instances/search")
-        respx_mock.post(search_url).mock(return_value=httpx.Response(status_code=200, json={"items": [example]}))
+        respx_mock.post(search_url).mock(return_value=httpx2.Response(status_code=200, json={"items": [example]}))
         searched = api.search(view=ViewId(space="my_space", external_id="Asset", version="v1"), limit=10)
         assert len(searched) == 1
         assert searched[0].dump() == example
@@ -1064,12 +1064,12 @@ class TestCDFResourceAPI:
         search_url = config.create_api_url("/models/instances/search")
         captured: dict[str, Any] = {}
 
-        def search_callback(request: httpx.Request) -> httpx.Response:
+        def search_callback(request: httpx2.Request) -> httpx2.Response:
             raw = request.content
             if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
                 raw = gzip.decompress(raw)
             captured.update(json.loads(raw))
-            return httpx.Response(status_code=200, json={"items": [example]})
+            return httpx2.Response(status_code=200, json={"items": [example]})
 
         respx_mock.post(search_url).mock(side_effect=search_callback)
         view = ViewId(space="my_space", external_id="Asset", version="v1")
