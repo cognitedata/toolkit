@@ -309,6 +309,17 @@ class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, I
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
+    @classmethod
+    def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        if resource.access_management:
+            for group_name in resource.access_management.checklist_admins or []:
+                yield GroupResourceScopedCRUD, NameId(name=group_name)
+            for group_name in resource.access_management.template_admins or []:
+                yield GroupAllScopedCRUD, NameId(name=group_name)
+        if resource.app_instance_space:
+            yield SpaceCRUD, SpaceId(space=resource.app_instance_space)
+
+
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
