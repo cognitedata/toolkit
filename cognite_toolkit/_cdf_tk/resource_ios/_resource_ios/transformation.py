@@ -147,7 +147,7 @@ def _strip_default_auto_create(cdf_destination: dict[str, Any], local_destinatio
 
 
 @final
-class TransformationIO(ResourceIO[ExternalId, TransformationRequest, TransformationResponse]):
+class TransformationIO(ResourceIO[ExternalId, TransformationRequest, TransformationResponse, TransformationYAML]):
     folder_name = "transformations"
     resource_cls = TransformationResponse
     resource_write_cls = TransformationRequest
@@ -727,6 +727,7 @@ class TransformationScheduleIO(
         ExternalId,
         TransformationScheduleRequest,
         TransformationScheduleResponse,
+        TransformationScheduleYAML,
     ]
 ):
     folder_name = "transformations"
@@ -823,6 +824,7 @@ class TransformationNotificationIO(
         TransformationNotificationId,
         TransformationNotificationRequest,
         TransformationNotificationResponse,
+        TransformationNotificationYAML,
     ]
 ):
     folder_name = "transformations"

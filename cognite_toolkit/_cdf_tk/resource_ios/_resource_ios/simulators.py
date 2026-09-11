@@ -53,7 +53,7 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorModelResponse]):
+class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorModelResponse, SimulatorModelYAML]):
     folder_name = "simulators"
     resource_cls = SimulatorModelResponse
     resource_write_cls = SimulatorModelRequest
@@ -171,7 +171,14 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
 
 
 @final
-class SimulatorModelRevisionIO(ResourceIO[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]):
+class SimulatorModelRevisionIO(
+    ResourceIO[
+        ExternalId,
+        SimulatorModelRevisionRequest,
+        SimulatorModelRevisionResponse,
+        SimulatorModelRevisionYAML,
+    ]
+):
     folder_name = "simulators"
     resource_cls = SimulatorModelRevisionResponse
     resource_write_cls = SimulatorModelRevisionRequest
@@ -299,7 +306,9 @@ class SimulatorModelRevisionIO(ResourceIO[ExternalId, SimulatorModelRevisionRequ
 
 
 @final
-class SimulatorRoutineIO(ResourceIO[ExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
+class SimulatorRoutineIO(
+    ResourceIO[ExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse, SimulatorRoutineYAML]
+):
     folder_name = "simulators"
     resource_cls = SimulatorRoutineResponse
     resource_write_cls = SimulatorRoutineRequest
@@ -393,7 +402,12 @@ class SimulatorRoutineIO(ResourceIO[ExternalId, SimulatorRoutineRequest, Simulat
 
 @final
 class SimulatorRoutineRevisionIO(
-    ResourceIO[ExternalId, SimulatorRoutineRevisionRequest, SimulatorRoutineRevisionResponse]
+    ResourceIO[
+        ExternalId,
+        SimulatorRoutineRevisionRequest,
+        SimulatorRoutineRevisionResponse,
+        SimulatorRoutineRevisionYAML,
+    ]
 ):
     folder_name = "simulators"
     resource_cls = SimulatorRoutineRevisionResponse

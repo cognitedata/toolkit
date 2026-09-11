@@ -27,7 +27,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
+class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     support_drop = True
     support_update = False
     folder_name = "apps"
@@ -116,7 +116,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
 
 
 @final
-class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
+class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse, AppVersionYAML]):
     support_drop = True
     support_update = True
     folder_name = "apps"

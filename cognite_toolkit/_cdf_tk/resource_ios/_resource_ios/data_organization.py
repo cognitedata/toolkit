@@ -43,7 +43,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
+class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSetYAML]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSetResponse
@@ -133,7 +133,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
 
 
 @final
-class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse]):
+class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     folder_name = "classic"
     resource_cls = LabelResponse
     resource_write_cls = LabelRequest

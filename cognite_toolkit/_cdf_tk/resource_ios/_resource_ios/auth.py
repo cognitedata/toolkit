@@ -73,7 +73,7 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse]):
+class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
     folder_name = "auth"
     kind = "Group"
     resource_cls = GroupResponse
@@ -525,7 +525,7 @@ class GroupAllScopedCRUD(GroupIO):
 
 
 @final
-class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCategoryResponse]):
+class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCategoryResponse, SecurityCategoriesYAML]):
     resource_cls = SecurityCategoryResponse
     resource_write_cls = SecurityCategoryRequest
     kind = "SecurityCategory"

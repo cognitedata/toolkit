@@ -18,7 +18,9 @@ from .rulesets import RuleSetVersionIO
 
 
 @final
-class DataProductVersionIO(ResourceIO[DataProductVersionId, DataProductVersionRequest, DataProductVersionResponse]):
+class DataProductVersionIO(
+    ResourceIO[DataProductVersionId, DataProductVersionRequest, DataProductVersionResponse, DataProductVersionYAML]
+):
     folder_name = "data_products"
     resource_cls = DataProductVersionResponse
     resource_write_cls = DataProductVersionRequest

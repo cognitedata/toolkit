@@ -77,7 +77,7 @@ from .transformation import TransformationIO
 
 
 @final
-class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse]):
+class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, WorkflowYAML]):
     folder_name = "workflows"
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
@@ -187,7 +187,9 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse]):
 
 
 @final
-class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
+class WorkflowVersionIO(
+    ResourceIO[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse, WorkflowVersionYAML]
+):
     folder_name = "workflows"
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
@@ -482,7 +484,7 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
 
 
 @final
-class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
+class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse, WorkflowTriggerYAML]):
     folder_name = "workflows"
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import SignalSinkYAML
 
 
 @final
-class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkResponse]):
+class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkResponse, SignalSinkYAML]):
     folder_name = "signals"
     resource_cls = SignalSinkResponse
     resource_write_cls = SignalSinkRequest

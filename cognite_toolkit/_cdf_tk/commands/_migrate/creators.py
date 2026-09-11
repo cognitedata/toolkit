@@ -75,7 +75,7 @@ class CreatedResource(Generic[T_RequestResource]):
 @dataclass
 class ToCreateResources(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     resources: Sequence[CreatedResource[T_RequestResource]]
-    crud_cls: type[ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource]]
+    crud_cls: type[ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any]]
     display_name: str
     store_linage: Callable[[], int] | None = None
 

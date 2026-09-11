@@ -49,7 +49,7 @@ from .datamodel import NodeCRUD
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse]):
+class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse, TimeSeriesYAML]):
     item_name = "datapoints"
     folder_name = "timeseries"
     resource_cls = TimeSeriesResponse
@@ -191,6 +191,7 @@ class DatapointSubscriptionIO(
         ExternalId,
         DatapointSubscriptionRequest,
         DatapointSubscriptionResponse,
+        DatapointSubscriptionYAML,
     ]
 ):
     folder_name = "timeseries"
