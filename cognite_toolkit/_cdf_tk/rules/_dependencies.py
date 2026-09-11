@@ -25,7 +25,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependency checks"
-    INVALID_OPERATION_CODE: ClassVar[str] = "DMS-INVALID-OPERATION"
+    INVALID_OPERATION_CODE: ClassVar[str] = "INVALID-OPERATION"
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -277,12 +277,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for container {container_id} has modified usedFor ({local_dict.get('usedFor')}) compared to the deployed "
-                    f"container in CDF ({cdf_dict.get('usedFor')}). CDF does not support changing the usedFor of an existing container, so deploying the current "
+                    f"Local config for container {container_id} has modified usedFor ('{local_dict.get('usedFor')}') compared to the deployed "
+                    f"container in CDF ('{cdf_dict.get('usedFor')}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
                     f"local YAML config will not apply this change to the container in CDF."
                 ),
                 fix=(
-                    f"Revert usedFor back to {cdf_dict.get('usedFor')}, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Revert usedFor back to '{cdf_dict.get('usedFor')}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
