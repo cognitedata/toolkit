@@ -188,6 +188,10 @@ class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse]):
     def as_str(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
+    @classmethod
+    def get_dependencies(cls, resource: SpaceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def dump_resource(self, resource: SpaceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         has_local = local is not None
