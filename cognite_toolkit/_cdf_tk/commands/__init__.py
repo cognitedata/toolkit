@@ -14,6 +14,7 @@ from .dump_resource import DumpResourceCommand
 from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
+from .instances import InstancesAPICommand
 from .modules import ModulesCommand
 from .pull import PullV2Command
 from .repo import RepoCommand
@@ -32,6 +33,7 @@ __all__ = [
     "EntityMatchingCommand",
     "FunctionsCommand",
     "InitCommand",
+    "InstancesAPICommand",
     "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
