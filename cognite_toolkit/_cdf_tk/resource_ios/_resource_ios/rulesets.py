@@ -32,7 +32,7 @@ _DOCS_ROOT = "https://api-docs.cognite.com/20230101/"
 
 
 @final
-class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
+class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetYAML]):
     folder_name = "rulesets"
     resource_cls = RuleSetResponse
     resource_write_cls = RuleSetRequest
@@ -106,7 +106,7 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
 
 
 @final
-class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse]):
+class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse, RuleSetVersionYAML]):
     folder_name = "rulesets"
     resource_cls = RuleSetVersionResponse
     resource_write_cls = RuleSetVersionRequest

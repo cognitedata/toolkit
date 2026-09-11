@@ -173,7 +173,7 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 
     def get_ids(
         self,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         action: Literal["create", "delete", "update", "upsert"],
     ) -> list[T_Identifier]:
         if action == "create":
@@ -583,7 +583,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
                 continue
-            crud = cast(ResourceContainerIO[Any, Any, Any], step.crud_cls.create_loader(client))
+            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_loader(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -765,7 +765,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _read_resource_files(
         cls,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         filepaths: list[Path],
         options: DeployOptions,
     ) -> dict[T_Identifier, ReadResource[T_RequestResource]]:
@@ -811,7 +811,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _validate_access(
         cls,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
         is_dry_run: bool,
     ) -> bool:
@@ -833,7 +833,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def categorize_resources(
         cls,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console | None = None,
@@ -922,7 +922,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_dry_run(
         cls,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         is_missing_write_acl: bool,
         options: DeployOptions,
@@ -954,7 +954,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def deploy_resources(
         cls,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
@@ -1003,7 +1003,7 @@ class DeployV2Command(ToolkitCommand):
         cls,
         error: ToolkitAPIError,
         action: Literal["create", "delete", "update", "upsert"] | None,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
@@ -1041,7 +1041,7 @@ class DeployV2Command(ToolkitCommand):
         cls,
         error: ValidationError,
         action: Literal["retrieve", "create", "delete", "update", "upsert"] | None,
-        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource],
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: Sequence[T_RequestResource],
         deploy_dir: Path | None = None,
     ) -> None:

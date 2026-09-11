@@ -39,7 +39,7 @@ _DEPRECATION_WARNING_ISSUED = False
 
 
 @final
-class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
+class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
     folder_name = "classic"
     resource_cls = AssetResponse
     resource_write_cls = AssetRequest
@@ -181,7 +181,7 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse]):
 
 
 @final
-class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse]):
+class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, SequenceYAML]):
     folder_name = "classic"
     resource_cls = SequenceResponse
     resource_write_cls = SequenceRequest
@@ -299,7 +299,7 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse]):
 
 
 @final
-class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResponse]):
+class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResponse, SequenceRowYAML]):
     folder_name = "classic"
     resource_cls = SequenceRowsResponse
     resource_write_cls = SequenceRowsRequest
@@ -440,7 +440,7 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
 
 
 @final
-class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse]):
+class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
     folder_name = "classic"
     resource_cls = EventResponse
     resource_write_cls = EventRequest

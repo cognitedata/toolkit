@@ -64,7 +64,7 @@ CDF_TOML: CDFToml = CDFToml.load()
 
 
 @final
-class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
+class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, FunctionsYAML]):
     support_drop = True
     folder_name = "functions"
     resource_cls = FunctionResponse
@@ -640,7 +640,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse]):
 
 
 @final
-class FunctionScheduleIO(ResourceIO[FunctionScheduleId, FunctionScheduleRequest, FunctionScheduleResponse]):
+class FunctionScheduleIO(
+    ResourceIO[FunctionScheduleId, FunctionScheduleRequest, FunctionScheduleResponse, FunctionScheduleYAML]
+):
     folder_name = "functions"
     resource_cls = FunctionScheduleResponse
     resource_write_cls = FunctionScheduleRequest

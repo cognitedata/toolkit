@@ -29,7 +29,7 @@ _SKILL_MD_SUFFIX = ".Skill.md"
 
 
 @final
-class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
+class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     folder_name = "agents"
     resource_cls = SkillResponse
     resource_write_cls = SkillRequest

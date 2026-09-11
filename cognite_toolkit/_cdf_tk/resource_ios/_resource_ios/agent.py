@@ -32,7 +32,7 @@ T_Agent = TypeVar("T_Agent", bound=Agent)
 
 
 @final
-class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse]):
+class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     folder_name = "agents"
     resource_cls = AgentResponse
     resource_write_cls = AgentRequest

@@ -69,7 +69,9 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
+class ExtractionPipelineIO(
+    ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse, ExtractionPipelineYAML]
+):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
@@ -205,6 +207,7 @@ class ExtractionPipelineConfigIO(
         ExternalId,
         ExtractionPipelineConfigRequest,
         ExtractionPipelineConfigResponse,
+        ExtractionPipelineConfigYAML,
     ]
 ):
     folder_name = "extraction_pipelines"

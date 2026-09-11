@@ -26,7 +26,7 @@ _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
 
 @final
-class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse]):
+class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, StreamYAML]):
     item_name = "records"
     folder_name = "streams"
     resource_cls = StreamResponse

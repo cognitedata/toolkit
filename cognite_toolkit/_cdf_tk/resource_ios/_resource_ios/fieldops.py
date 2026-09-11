@@ -49,7 +49,7 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse]):
+class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, InfieldV1YAML]):
     folder_name = "cdf_applications"
     resource_cls = APMConfigResponse
     resource_write_cls = APMConfigRequest
@@ -274,7 +274,9 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse]):
 
 
 @final
-class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
+class InFieldLocationConfigIO(
+    ResourceIO[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse, InfieldLocationConfigYAML]
+):
     folder_name = "cdf_applications"
     resource_cls = InFieldLocationConfigResponse
     resource_write_cls = InFieldLocationConfigRequest
@@ -362,7 +364,14 @@ class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, I
 
 
 @final
-class InFieldCDMLocationConfigIO(ResourceIO[NodeId, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]):
+class InFieldCDMLocationConfigIO(
+    ResourceIO[
+        NodeId,
+        InFieldCDMLocationConfigRequest,
+        InFieldCDMLocationConfigResponse,
+        InFieldCDMLocationConfigYAML,
+    ]
+):
     folder_name = "cdf_applications"
     resource_cls = InFieldCDMLocationConfigResponse
     resource_write_cls = InFieldCDMLocationConfigRequest

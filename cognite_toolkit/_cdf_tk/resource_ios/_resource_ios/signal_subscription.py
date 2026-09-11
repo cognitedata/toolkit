@@ -31,7 +31,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
 
 
 @final
-class SignalSubscriptionIO(ResourceIO[ExternalId, SignalSubscriptionRequest, SignalSubscriptionResponse]):
+class SignalSubscriptionIO(
+    ResourceIO[ExternalId, SignalSubscriptionRequest, SignalSubscriptionResponse, SignalSubscriptionYAML]
+):
     folder_name = "signals"
     resource_cls = SignalSubscriptionResponse
     resource_write_cls = SignalSubscriptionRequest

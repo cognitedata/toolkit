@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 
 
 @final
-class RoboticFrameIO(ResourceIO[ExternalId, RobotFrameRequest, RobotFrameResponse]):
+class RoboticFrameIO(ResourceIO[ExternalId, RobotFrameRequest, RobotFrameResponse, RobotFrameYAML]):
     folder_name = "robotics"
     resource_cls = RobotFrameResponse
     resource_write_cls = RobotFrameRequest
@@ -100,7 +100,7 @@ class RoboticFrameIO(ResourceIO[ExternalId, RobotFrameRequest, RobotFrameRespons
 
 
 @final
-class RoboticLocationIO(ResourceIO[ExternalId, RobotLocationRequest, RobotLocationResponse]):
+class RoboticLocationIO(ResourceIO[ExternalId, RobotLocationRequest, RobotLocationResponse, RobotLocationYAML]):
     folder_name = "robotics"
     resource_cls = RobotLocationResponse
     resource_write_cls = RobotLocationRequest
@@ -164,7 +164,12 @@ class RoboticLocationIO(ResourceIO[ExternalId, RobotLocationRequest, RobotLocati
 
 @final
 class RoboticsDataPostProcessingIO(
-    ResourceIO[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
+    ResourceIO[
+        ExternalId,
+        RobotDataPostProcessingRequest,
+        RobotDataPostProcessingResponse,
+        RobotDataPostProcessingYAML,
+    ]
 ):
     folder_name = "robotics"
     resource_cls = RobotDataPostProcessingResponse
@@ -241,7 +246,7 @@ class RoboticsDataPostProcessingIO(
 
 
 @final
-class RobotCapabilityIO(ResourceIO[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
+class RobotCapabilityIO(ResourceIO[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse, RobotCapabilityYAML]):
     folder_name = "robotics"
     resource_cls = RobotCapabilityResponse
     resource_write_cls = RobotCapabilityRequest
@@ -320,7 +325,7 @@ class RobotCapabilityIO(ResourceIO[ExternalId, RobotCapabilityRequest, RobotCapa
 
 
 @final
-class RoboticMapIO(ResourceIO[ExternalId, RobotMapRequest, RobotMapResponse]):
+class RoboticMapIO(ResourceIO[ExternalId, RobotMapRequest, RobotMapResponse, RobotMapYAML]):
     folder_name = "robotics"
     resource_cls = RobotMapResponse
     resource_write_cls = RobotMapRequest
