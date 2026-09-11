@@ -80,6 +80,10 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
                 scope=scope,
             )
 
+    @classmethod
+    def get_dependencies(cls, resource: RuleSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.create(list(items))
 

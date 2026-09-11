@@ -48,6 +48,10 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
         if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
+    @classmethod
+    def get_dependencies(cls, resource: SignalSinkYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
         return self.client.tool.signal_sinks.create(list(items))
 

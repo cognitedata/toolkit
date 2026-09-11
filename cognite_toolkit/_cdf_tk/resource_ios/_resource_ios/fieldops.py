@@ -319,7 +319,6 @@ class InFieldLocationConfigIO(ResourceIO[NodeId, InFieldLocationConfigRequest, I
         if resource.app_instance_space:
             yield SpaceCRUD, SpaceId(space=resource.app_instance_space)
 
-
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
