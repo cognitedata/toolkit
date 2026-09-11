@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -158,13 +158,13 @@ class TestAssetsMappingsDM:
         url_model_37 = config.create_api_url("/3d/models/37/revisions/42/mappings")
         url_model_38 = config.create_api_url("/3d/models/38/revisions/42/mappings")
 
-        def callback(request: httpx.Request) -> httpx.Response:
+        def callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content.decode("utf-8"))
             items = payload.get("items", [])
             for item in items:
                 item["treeIndex"] = 1
                 item["subtreeSize"] = 10
-            return httpx.Response(status_code=200, json={"items": items})
+            return httpx2.Response(status_code=200, json={"items": items})
 
         respx_mock.post(url_model_37).mock(side_effect=callback)
         respx_mock.post(url_model_38).mock(side_effect=callback)

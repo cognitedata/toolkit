@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -16,7 +16,7 @@ def lookup_client(
 ) -> tuple[ToolkitClient, respx.MockRouter]:
     config = toolkit_config
     respx_mock.post(config.create_api_url("/models/instances/query")).mock(
-        return_value=httpx.Response(status_code=200, json=TestMigrationLookup.QUERY_RESPONSE),
+        return_value=httpx2.Response(status_code=200, json=TestMigrationLookup.QUERY_RESPONSE),
     )
     return ToolkitClient(config=config), respx_mock
 
