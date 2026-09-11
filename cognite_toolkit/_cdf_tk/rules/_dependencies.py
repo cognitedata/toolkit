@@ -162,19 +162,75 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         elif isinstance(item_id, DataModelId):
             yield from self._data_model_insights(item_id, resource, local_dict, cdf_dict)
 
+    # A view's base (container-mapped) property may have its name, description, container and
+    # containerPropertyIdentifier changed freely without a version bump; remapping a property to a new
+    # container/identifier is how consumers are pointed at new data without forcing a version change.
+    _VIEW_PROPERTY_METADATA_FIELDS: ClassVar[frozenset[str]] = frozenset({"name", "description"})
+    _VIEW_BASE_PROPERTY_ALLOWED_FIELDS: ClassVar[frozenset[str]] = _VIEW_PROPERTY_METADATA_FIELDS | frozenset(
+        {"container", "containerPropertyIdentifier"}
+    )
+
     @staticmethod
-    def _removed_and_changed_properties(
-        local_properties: dict[str, Any], cdf_properties: dict[str, Any]
-    ) -> tuple[list[str], list[str]]:
-        """Splits the properties only present in CDF into ones removed locally and ones that still exist
-        locally but with different content."""
-        removed = sorted(set(cdf_properties) - set(local_properties))
-        changed = sorted(
-            name
-            for name in set(cdf_properties) & set(local_properties)
-            if cdf_properties[name] != local_properties[name]
+    def _is_disallowed_view_property_change(local_property: dict[str, Any], cdf_property: dict[str, Any]) -> bool:
+        """Whether changing a view property from its currently deployed definition to the local definition
+        is an operation CDF will not apply without bumping the view version.
+
+        A base property mapped to a container may have its metadata and container mapping changed freely.
+        Connection properties (edge and reverse direct relation) only allow changing name and description;
+        any other field (source, type, direction, through, or switching single/multi) is a breaking change
+        per CDF's view update rules.
+        """
+        allowed_fields = (
+            DependencyRuleSet._VIEW_BASE_PROPERTY_ALLOWED_FIELDS
+            if "container" in local_property or "container" in cdf_property
+            else DependencyRuleSet._VIEW_PROPERTY_METADATA_FIELDS
         )
-        return removed, changed
+        changed_fields = {
+            key for key in set(local_property) | set(cdf_property) if local_property.get(key) != cdf_property.get(key)
+        }
+        return not changed_fields.issubset(allowed_fields)
+
+    @staticmethod
+    def _is_disallowed_container_property_change(local_property: dict[str, Any], cdf_property: dict[str, Any]) -> bool:
+        """Whether changing a container property from its currently deployed definition to the local
+        definition is an operation CDF will reject.
+
+        Per CDF's container property update rules: the type (including list state, collation and, for
+        direct relations, the target container), and autoIncrement can never change. A property can go
+        from nullable to non-nullable, but not the other way around. Everything else (name, description,
+        defaultValue) is metadata and can always change.
+        """
+        if local_property.get("type") != cdf_property.get("type"):
+            return True
+        if local_property.get("autoIncrement") != cdf_property.get("autoIncrement"):
+            return True
+        if cdf_property.get("nullable") is False and local_property.get("nullable") is True:
+            return True
+        return False
+
+    def _missing_field_insight(
+        self,
+        container_id: ContainerId,
+        source_file: str,
+        field_name: str,
+        missing_names: list[str],
+    ) -> ConsistencyError:
+        """A container is missing entries (properties, constraints or indexes) that are still deployed to CDF.
+
+        CDF does not support removing these, so deploying the local YAML config as-is will not remove them.
+        """
+        return ConsistencyError(
+            code=self.INVALID_OPERATION_CODE,
+            message=(
+                f"Local config for container {container_id} is missing {field_name} "
+                f"{humanize_collection([f'{name!r}' for name in missing_names])} that have previously been deployed to CDF. "
+                f"Deploying the current local YAML config will not remove them from the container in CDF, since this is not a supported operation."
+            ),
+            fix=(
+                f"Add the {field_name} back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+            ),
+            source_file=source_file,
+        )
 
     def _container_insights(
         self,
@@ -184,69 +240,49 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         cdf_dict: dict[str, Any],
     ) -> Iterable[ConsistencyError]:
         source_file = format_insight_source_file(resource.source_path)
-        has_specific_issue = False
+        local_properties = local_dict.get("properties") or {}
+        cdf_properties = cdf_dict.get("properties") or {}
 
-        removed, changed = self._removed_and_changed_properties(
-            local_dict.get("properties") or {}, cdf_dict.get("properties") or {}
+        changed = sorted(
+            name
+            for name in set(cdf_properties) & set(local_properties)
+            if self._is_disallowed_container_property_change(local_properties[name], cdf_properties[name])
         )
+
         if changed:
-            has_specific_issue = True
+            removed = sorted(set(cdf_properties) - set(local_properties))
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for container {container_id} has some properties {affected} that have been modified compared to the "
-                    f"version already deployed to CDF. CDF does not support updating existing container property "
-                    f"definitions, so deploying the current local YAML config will not apply these changes to the "
-                    f"container in CDF."
+                    f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
+                    f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
                 ),
                 fix=(
                     f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
-        elif removed:
-            has_specific_issue = True
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for container {container_id} is missing properties "
-                    f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF. "
-                    f"CDF does not support removing them, so deploying the current local YAML config will not remove them from the container in CDF."
-                ),
-                fix=(
-                    f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_file=source_file,
-            )
 
-        for field_name in ("constraints", "indexes"):
-            only_in_cdf = sorted(set(cdf_dict.get(field_name) or {}) - set(local_dict.get(field_name) or {}))
-            if not only_in_cdf:
-                continue
-            has_specific_issue = True
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for container {container_id} is missing {field_name} "
-                    f"{humanize_collection([f'{name!r}' for name in only_in_cdf])} that have previously been deployed to CDF. "
-                    f"CDF does not support removing them, so deploying the current local YAML config will not remove them from the container in CDF."
-                ),
-                fix=(
-                    f"Add the {field_name} back to your local YAML config, or use 'cdf modules pull' to sync your local container config. See {URL.dm_changes_docs}."
-                ),
-                source_file=source_file,
-            )
+        for field_name in ("properties", "constraints", "indexes"):
+            if field_name == "properties" and changed:
+                continue  # Already reported above as a "changed" insight.
+            missing = sorted(set(cdf_dict.get(field_name) or {}) - set(local_dict.get(field_name) or {}))
+            if missing:
+                yield self._missing_field_insight(container_id, source_file, field_name, missing)
 
-        if not has_specific_issue:
+        if local_dict.get("usedFor") != cdf_dict.get("usedFor"):
+            # usedFor cannot change once set; every other top-level container field (name, description)
+            # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for container {container_id} has drifted from the state of the deployed container in CDF. Containers only "
-                    f"support a limited set of changes once deployed, so CDF will not reflect all the changes currently made to the local YAML config."
+                    f"Local config for container {container_id} has modified usedFor ({local_dict.get('usedFor')}) compared to the deployed "
+                    f"container in CDF ({cdf_dict.get('usedFor')}). CDF does not support changing the usedFor of an existing container, so deploying the current "
+                    f"local YAML config will not apply this change to the container in CDF."
                 ),
                 fix=(
-                    f"Use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Revert usedFor back to {cdf_dict.get('usedFor')}, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -259,17 +295,23 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         cdf_dict: dict[str, Any],
     ) -> Iterable[ConsistencyError]:
         source_file = format_insight_source_file(resource.source_path)
-        removed, changed = self._removed_and_changed_properties(
-            local_dict.get("properties") or {}, cdf_dict.get("properties") or {}
+        local_properties = local_dict.get("properties") or {}
+        cdf_properties = cdf_dict.get("properties") or {}
+
+        removed = sorted(set(cdf_properties) - set(local_properties))
+        changed = sorted(
+            name
+            for name in set(cdf_properties) & set(local_properties)
+            if self._is_disallowed_view_property_change(local_properties[name], cdf_properties[name])
         )
         if changed:
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for view {view_id} has some properties {affected} that have been modified compared to the version "
-                    f"already deployed to CDF in the same version. Deploying the current local YAML config will "
-                    f"not apply these changes to the view in CDF unless you update the view version."
+                    f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
+                    f"does not support without a version bump. Deploying the current local YAML config will not apply "
+                    f"these changes to the view in CDF unless you update the view version."
                 ),
                 fix=(
                     f"Update the view version, revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
@@ -289,15 +331,17 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ),
                 source_file=source_file,
             )
-        else:
+        if local_dict.get("implements") != cdf_dict.get("implements"):
+            # implements can break clients relying on inherited properties, so it requires a version bump.
+            # name, description and filter are metadata/query-only and can always change.
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for view {view_id} has drifted from the state of the same deployed view version in CDF. "
-                    f"Views only support a limited set of changes without updating the view version, and CDF will not reflect all the changes currently made to the local YAML config."
+                    f"Local config for view {view_id} has changed implements compared to the version already deployed to "
+                    f"CDF. Deploying the current local YAML config will not apply this change to the view in CDF unless you update the view version."
                 ),
                 fix=(
-                    f"Update the view version, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Update the view version, revert implements to match the deployed version, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
