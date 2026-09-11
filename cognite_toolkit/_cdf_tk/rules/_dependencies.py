@@ -314,7 +314,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     f"these changes to the view in CDF unless you update the view version."
                 ),
                 fix=(
-                    f"Update the view version, revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -327,7 +327,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     f"same view version. Deploying the current local YAML config will not remove them from the view in CDF unless you update the view version."
                 ),
                 fix=(
-                    f"Update the view version, add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local view config. See {URL.dm_changes_docs}."
+                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -337,11 +337,10 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for view {view_id} has changed implements compared to the version already deployed to "
-                    f"CDF. Deploying the current local YAML config will not apply this change to the view in CDF unless you update the view version."
+                    f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
                 ),
                 fix=(
-                    f"Update the view version, revert implements to match the deployed version, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -377,11 +376,11 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the deployed data model in CDF. "
-                    "View versions will only be updated in the data model if you also update the data model version, and deploying the current local YAML config will not apply the change."
+                    f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
+                    "View version used by a data model can only be updated if you also update the data model version."
                 ),
                 fix=(
-                    f"Update the data model version, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -390,12 +389,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for data model {data_model_id} is missing views "
-                    f"{humanize_collection([f'{view_id!s}' for view_id in removed])} that have previously been deployed to CDF in the "
-                    f"same version. Deploying the current local YAML config will not remove them from the data model in CDF unless you update the data model version."
+                    f"Local config for data model {data_model_id} is missing the view(s) "
+                    f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "
+                    f"Deploying the current local YAML config will not remove them from the data model in CDF unless you update the data model version."
                 ),
                 fix=(
-                    f"Update the data model version, add the views back to your local YAML config, or use 'cdf modules pull' to sync your local data model config. See {URL.dm_changes_docs}."
+                    f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )

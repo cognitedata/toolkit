@@ -440,7 +440,7 @@ class TestDependencyRuleSetDataModelingChanges:
             pytest.param(
                 [("MyView", "v1"), ("OtherView", "v1")],
                 [DependencyRuleSet.INVALID_OPERATION_CODE],
-                "is missing views",
+                "is missing the view(s)",
                 id="view-removed-locally",
             ),
             pytest.param(
