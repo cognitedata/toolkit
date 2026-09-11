@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import respx
-from httpx import Response
+from httpx2 import Response
 
 from tests_smoke.check_smoke_results import Context, SlackMessage, check_smoke_tests_results
 

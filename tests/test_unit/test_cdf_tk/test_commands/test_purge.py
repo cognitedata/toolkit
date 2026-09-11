@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 import respx
 from cognite.client import data_modeling as dm
@@ -225,47 +225,47 @@ class TestPurgeInstances:
         )
         instance_dumps = [instance.dump() for instance in instances]
         respx_mock.post(config.create_api_url("/models/instances/query")).side_effect = [
-            httpx.Response(
+            httpx2.Response(
                 status_code=200,
                 json={"items": {"root": instance_dumps[:1000]}, "nextCursor": {"root": "next"}},
             ),
-            httpx.Response(
+            httpx2.Response(
                 status_code=200,
                 json={"items": {"root": instance_dumps[1000:]}, "nextCursor": {"root": None}},
             ),
         ]
         if unlink:
 
-            def ts_byids_callback(request: httpx.Request) -> httpx.Response:
+            def ts_byids_callback(request: httpx2.Request) -> httpx2.Response:
                 body = json.loads(request.content.decode("utf-8"))
                 requested_ids = {
                     dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
                     for item in body.get("items", [])
                 }
                 filtered = [v for k, v in timeseries_by_node_id.items() if k in requested_ids]
-                return httpx.Response(status_code=200, json={"items": filtered})
+                return httpx2.Response(status_code=200, json={"items": filtered})
 
-            def files_byids_callback(request: httpx.Request) -> httpx.Response:
+            def files_byids_callback(request: httpx2.Request) -> httpx2.Response:
                 body = json.loads(request.content.decode("utf-8"))
                 requested_ids = {
                     dm.NodeId(space=item["instanceId"]["space"], external_id=item["instanceId"]["externalId"])
                     for item in body.get("items", [])
                 }
                 filtered = [v for k, v in files_by_node_id.items() if k in requested_ids]
-                return httpx.Response(status_code=200, json={"items": filtered})
+                return httpx2.Response(status_code=200, json={"items": filtered})
 
             respx_mock.post(config.create_api_url("/timeseries/byids")).mock(side_effect=ts_byids_callback)
             respx_mock.post(config.create_api_url("/files/byids")).mock(side_effect=files_byids_callback)
         if unlink and not dry_run and instance_type == "timeseries":
             respx_mock.post(config.create_api_url("/timeseries/unlink-instance-ids")).mock(
-                return_value=httpx.Response(
+                return_value=httpx2.Response(
                     status_code=200,
                     json={"items": list(timeseries_by_node_id.values())},
                 )
             )
         if unlink and not dry_run and instance_type == "files":
             respx_mock.post(config.create_api_url("/files/unlink-instance-ids")).mock(
-                return_value=httpx.Response(
+                return_value=httpx2.Response(
                     status_code=200,
                     json={"items": list(files_by_node_id.values())},
                 )
@@ -274,7 +274,7 @@ class TestPurgeInstances:
             respx_mock.post(
                 config.create_api_url("/models/instances/delete"),
             ).mock(
-                return_value=httpx.Response(
+                return_value=httpx2.Response(
                     status_code=200,
                     json={"items": [instance.as_id().dump() for instance in instances]},
                 )
@@ -361,8 +361,8 @@ class TestPurgeSpace:
                 json=project_statistics_response,
             )
 
-        def delete_callback(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, content=request.content)
+        def delete_callback(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(200, content=request.content)
 
         gen = FakeCogniteResourceGenerator(seed=42)
         # The cross-reference safety check runs in both dry-run and real mode and lists/inspects all
@@ -413,11 +413,11 @@ class TestPurgeSpace:
             edge_items = [gen.create_instance(EdgeResponse) for _ in range(edge_count)]
             node_items = [gen.create_instance(NodeResponse) for _ in range(node_count)]
 
-            def list_instances_query_callback(request: httpx.Request) -> httpx.Response:
+            def list_instances_query_callback(request: httpx2.Request) -> httpx2.Response:
                 body = json.loads(request.content.decode("utf-8"))
                 root_expr = body.get("with", {}).get("root", {})
                 items = edge_items if "edges" in root_expr else node_items
-                return httpx.Response(
+                return httpx2.Response(
                     200,
                     json={"items": {"root": [item.dump() for item in items]}, "nextCursor": {"root": None}},
                 )

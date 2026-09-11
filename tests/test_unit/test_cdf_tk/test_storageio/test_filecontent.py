@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -37,19 +37,19 @@ class TestFileContent:
         client = ToolkitClient(config)
         file_upload_url = "https://upload.url/for/testing/{externalId}"
 
-        def create_callback(request: httpx.Request) -> httpx.Response:
+        def create_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "name" in payload
             assert "externalId" in payload
             payload["uploadUrl"] = file_upload_url.format(externalId=payload["externalId"])
-            return httpx.Response(status_code=200, json=payload, headers={})
+            return httpx2.Response(status_code=200, json=payload, headers={})
 
         respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
         upload_endpoints: list[str] = []
         for filepath in file_folder.iterdir():
             if filepath.is_file():
                 upload_endpoint = file_upload_url.format(externalId=f"my_file_{filepath.name}")
-                respx_mock.put(upload_endpoint).mock(return_value=httpx.Response(status_code=200))
+                respx_mock.put(upload_endpoint).mock(return_value=httpx2.Response(status_code=200))
                 upload_endpoints.append(upload_endpoint)
 
         selector = FileMetadataTemplateSelector(
@@ -85,13 +85,13 @@ class TestFileContent:
         file_dir.mkdir()
         (file_dir / "my_report.json").write_text('{"data": "test"}', encoding="utf-8")
 
-        not_found = httpx.Response(400, json={"error": {"code": 400, "message": "not found", "missing": [{}]}})
-        upload_url = httpx.Response(200, json={"items": [{"uploadUrl": "https://upload.test/file"}]})
+        not_found = httpx2.Response(400, json={"error": {"code": 400, "message": "not found", "missing": [{}]}})
+        upload_url = httpx2.Response(200, json={"items": [{"uploadUrl": "https://upload.test/file"}]})
         respx_mock.post(config.create_api_url("/files/uploadlink")).mock(side_effect=[not_found, upload_url])
         respx_mock.post(config.create_api_url("/models/instances")).mock(
-            return_value=httpx.Response(200, json={"items": []})
+            return_value=httpx2.Response(200, json={"items": []})
         )
-        respx_mock.put("https://upload.test/file").mock(return_value=httpx.Response(200))
+        respx_mock.put("https://upload.test/file").mock(return_value=httpx2.Response(200))
         view_id = SelectedView(space="my_custom_space", external_id="MyFileView", version="v2")
         selector = FileDataModelingTemplateSelector(
             file_directory=file_dir,

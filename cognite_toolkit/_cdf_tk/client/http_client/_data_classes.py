@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Set
 from typing import TYPE_CHECKING, Any, Literal
 
-import httpx
+import httpx2
 from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
@@ -108,8 +108,8 @@ class ErrorDetails(HTTPBaseModel):
         return " | ".join(parts)
 
     @classmethod
-    def from_response(cls, response: httpx.Response) -> "ErrorDetails":
-        """Populate the error details from a httpx response."""
+    def from_response(cls, response: httpx2.Response) -> "ErrorDetails":
+        """Populate the error details from a httpx2 response."""
         x_request_id = response.headers.get("x-request-id")
         try:
             res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)

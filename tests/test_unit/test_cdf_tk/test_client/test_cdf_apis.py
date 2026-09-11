@@ -3,7 +3,7 @@ import json
 from typing import Any
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 import respx
 from pydantic import JsonValue
@@ -116,7 +116,7 @@ class TestCDFResourceAPI:
                 # Path-parameter retrieve (e.g. GET /dataproducts/{externalId}) returns a single object.
                 resolved_path = retrieve_endpoint.path.format_map(resource.resource_id.dump())
                 respx_mock.request(retrieve_endpoint.method, api._make_url(resolved_path)).mock(
-                    return_value=httpx.Response(status_code=200, json=resource.example_data)
+                    return_value=httpx2.Response(status_code=200, json=resource.example_data)
                 )
             elif retrieve_endpoint:
                 self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
@@ -175,7 +175,7 @@ class TestCDFResourceAPI:
         endpoint = api._method_endpoint_map[api_method]
         url = api._make_url(endpoint.path)
 
-        respx_mock.request(endpoint.method, url).mock(return_value=httpx.Response(status_code=200, json=json))
+        respx_mock.request(endpoint.method, url).mock(return_value=httpx2.Response(status_code=200, json=json))
 
     #### These are tests for APIs that cannot use the generic test above
     # This is typically due to custom endpoints or request object cannot be made from response object
@@ -190,7 +190,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/dataproducts")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request])
         assert len(created) == 1
@@ -198,7 +198,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         retrieved = api.retrieve([request.as_id()])
         assert len(retrieved) == 1
@@ -206,7 +206,7 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.post(config.create_api_url("/dataproducts/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request])
         assert len(updated) == 1
@@ -214,14 +214,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/dataproducts/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([request.as_id()])
         assert len(respx_mock.calls) >= 1
 
         # Test list/paginate/iterate
         respx_mock.get(config.create_api_url("/dataproducts")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -250,7 +250,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request])
         assert len(created) == 1
@@ -258,13 +258,13 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([request.as_id()])
 
         # Test retrieve list
         respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(db_name=instance.db_name, limit=10)
         assert len(listed) == 1
@@ -272,7 +272,7 @@ class TestCDFResourceAPI:
 
         # Test iterate
         respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
@@ -287,7 +287,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/files")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         created = api.create([request_item], overwrite=False)
         assert len(created) == 1
@@ -295,7 +295,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/files/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
@@ -303,20 +303,20 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.post(config.create_api_url("/files/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request_item])
         assert len(updated) == 1
         assert updated[0].dump() == resource
 
         # Test delete
-        respx_mock.post(config.create_api_url("/files/delete")).mock(return_value=httpx.Response(status_code=200))
+        respx_mock.post(config.create_api_url("/files/delete")).mock(return_value=httpx2.Response(status_code=200))
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_api_url("/files/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
 
         listed = api.list(limit=10)
@@ -345,25 +345,25 @@ class TestCDFResourceAPI:
         aggregate_url = config.create_api_url(endpoints["aggregate"].path)
 
         respx_mock.post(list_url).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [doc_json], "nextCursor": None})
+            return_value=httpx2.Response(status_code=200, json={"items": [doc_json], "nextCursor": None})
         )
         respx_mock.post(search_url).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={"items": [{"item": doc_json, "highlight": None}], "nextCursor": None},
             )
         )
 
-        def aggregate_response(request: httpx.Request) -> httpx.Response:
+        def aggregate_response(request: httpx2.Request) -> httpx2.Response:
             raw = request.content
             if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
                 raw = gzip.decompress(raw)
             payload = json.loads(raw)
             agg = payload["aggregate"]
             if agg in ("count", "cardinalityValues", "cardinalityProperties"):
-                return httpx.Response(status_code=200, json={"items": [{"count": 11}]})
+                return httpx2.Response(status_code=200, json={"items": [{"count": 11}]})
             if agg in ("uniqueValues", "uniqueProperties"):
-                return httpx.Response(status_code=200, json={"items": [{"count": 2, "values": ["a"]}]})
+                return httpx2.Response(status_code=200, json={"items": [{"count": 2, "values": ["a"]}]})
             raise AssertionError(f"unexpected aggregate {agg!r}")
 
         respx_mock.post(aggregate_url).mock(side_effect=aggregate_response)
@@ -422,7 +422,7 @@ class TestCDFResourceAPI:
 
         # Test create/update (same endpoint)
         respx_mock.post(config.create_api_url("/workflows")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -434,20 +434,20 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.get(config.create_api_url(f"/workflows/{instance.external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == resource
 
         # Test delete
-        respx_mock.post(config.create_api_url("/workflows/delete")).mock(return_value=httpx.Response(status_code=200))
+        respx_mock.post(config.create_api_url("/workflows/delete")).mock(return_value=httpx2.Response(status_code=200))
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list
         respx_mock.get(config.create_api_url("/workflows")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -468,7 +468,7 @@ class TestCDFResourceAPI:
 
         # Test create/update (same endpoint)
         respx_mock.post(config.create_api_url("/workflows/versions")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -481,21 +481,21 @@ class TestCDFResourceAPI:
         # Test retrieve
         respx_mock.get(
             config.create_api_url(f"/workflows/{instance.workflow_external_id}/versions/{instance.version}")
-        ).mock(return_value=httpx.Response(status_code=200, json=resource))
+        ).mock(return_value=httpx2.Response(status_code=200, json=resource))
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == resource
 
         # Test delete
         respx_mock.post(config.create_api_url("/workflows/versions/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list
         respx_mock.post(config.create_api_url("/workflows/versions/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -518,7 +518,7 @@ class TestCDFResourceAPI:
 
         # Test create/update (same endpoint)
         respx_mock.post(config.create_api_url("/workflows/triggers")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -530,14 +530,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/workflows/triggers/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list
         respx_mock.get(config.create_api_url("/workflows/triggers")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -559,7 +559,7 @@ class TestCDFResourceAPI:
         )
         # Test create
         respx_mock.post(config.create_api_url("/functions/schedules")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -567,7 +567,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/functions/schedules/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request_item.as_id()])
         assert len(retrieved) == 1
@@ -575,14 +575,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/functions/schedules/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([request_item.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_api_url("/functions/schedules/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -610,7 +610,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/annotations")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -618,7 +618,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/annotations/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
@@ -626,20 +626,22 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.post(config.create_api_url("/annotations/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request_item], mode="replace")
         assert len(updated) == 1
         assert updated[0].dump() == resource
 
         # Test delete
-        respx_mock.post(config.create_api_url("/annotations/delete")).mock(return_value=httpx.Response(status_code=200))
+        respx_mock.post(config.create_api_url("/annotations/delete")).mock(
+            return_value=httpx2.Response(status_code=200)
+        )
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_api_url("/annotations/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10, filter=filter)
         assert len(listed) == 1
@@ -664,7 +666,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/streams")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -672,20 +674,20 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.get(config.create_api_url(f"/streams/{instance.external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         retrieved = api.retrieve([request_item.as_id()])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == resource
 
         # Test delete
-        respx_mock.post(config.create_api_url("/streams/delete")).mock(return_value=httpx.Response(status_code=200))
+        respx_mock.post(config.create_api_url("/streams/delete")).mock(return_value=httpx2.Response(status_code=200))
         api.delete([request_item.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test list
         respx_mock.get(config.create_api_url("/streams")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -702,7 +704,7 @@ class TestCDFResourceAPI:
 
         # Test create/update (same endpoint)
         respx_mock.post(config.create_api_url("/dml/graphql")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200, json={"data": {"upsertGraphQlDmlVersion": {"result": resource}}}
             )
         )
@@ -712,7 +714,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/models/datamodels/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request_item.as_id()], inline_views=False)
         assert len(retrieved) == 1
@@ -720,14 +722,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/models/datamodels/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([request_item.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
         # Test iterate/list/paginate
         respx_mock.get(config.create_api_url("/models/datamodels")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -752,7 +754,7 @@ class TestCDFResourceAPI:
 
         # Test create/update
         respx_mock.post(config.create_app_url("/storage/config/apps/search/views/upsert")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -764,7 +766,7 @@ class TestCDFResourceAPI:
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_app_url("/storage/config/apps/search/views/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -789,7 +791,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_app_url("/storage/config/locationfilters")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -797,7 +799,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_app_url("/storage/config/locationfilters/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request_item.as_id()])
         assert len(retrieved) == 1
@@ -805,7 +807,7 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.put(config.create_app_url(f"/storage/config/locationfilters/{instance.id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         updated = api.update([request_item])
         assert len(updated) == 1
@@ -813,7 +815,7 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.delete(config.create_app_url(f"/storage/config/locationfilters/{instance.id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         deleted = api.delete([request_item.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
@@ -822,7 +824,7 @@ class TestCDFResourceAPI:
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_app_url("/storage/config/locationfilters/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -847,7 +849,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/3d/models")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request])
         assert len(created) == 1
@@ -855,22 +857,22 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url(f"/3d/models/{instance.id}")).mock(
-            return_value=httpx.Response(status_code=200, json=resource)
+            return_value=httpx2.Response(status_code=200, json=resource)
         )
         # Test update
         respx_mock.post(config.create_api_url("/3d/models/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request])
         assert len(updated) == 1
 
         # Test delete
-        respx_mock.post(config.create_api_url("/3d/models/delete")).mock(return_value=httpx.Response(status_code=200))
+        respx_mock.post(config.create_api_url("/3d/models/delete")).mock(return_value=httpx2.Response(status_code=200))
         api.delete([request.as_id()])
 
         # Test iterate/list/paginate
         respx_mock.get(config.create_api_url("/3d/models")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -898,7 +900,7 @@ class TestCDFResourceAPI:
 
         # Test me (service account)
         respx_mock.get(config.create_auth_url("/principals/me")).mock(
-            return_value=httpx.Response(status_code=200, json=sa_resource)
+            return_value=httpx2.Response(status_code=200, json=sa_resource)
         )
         me = api.me()
         assert isinstance(me, ServiceAccountPrincipal)
@@ -906,7 +908,7 @@ class TestCDFResourceAPI:
 
         # Test me (user principal)
         respx_mock.get(config.create_auth_url("/principals/me")).mock(
-            return_value=httpx.Response(status_code=200, json=user_resource)
+            return_value=httpx2.Response(status_code=200, json=user_resource)
         )
         me_user = api.me()
         assert isinstance(me_user, UserPrincipal)
@@ -914,7 +916,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_auth_url(f"/orgs/{org_id}/principals/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [sa_resource]})
         )
         retrieved = api.retrieve([PrincipalId(id=sa_resource["id"])])
         assert len(retrieved) == 1
@@ -922,7 +924,7 @@ class TestCDFResourceAPI:
 
         # Test list
         respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [sa_resource, user_resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [sa_resource, user_resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 2
@@ -950,7 +952,7 @@ class TestCDFResourceAPI:
         api = PrincipalsAPI(client, project_api)
 
         respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [sa_resource]})
         )
         listed = api.list(types=["SERVICE_ACCOUNT"], limit=10)
         assert len(listed) == 1
@@ -971,7 +973,7 @@ class TestCDFResourceAPI:
 
         # Test list
         respx_mock.get(sessions_url).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [session_resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [session_resource]})
         )
         listed = api.list(principal_id=principal_id, limit=10)
         assert len(listed) == 1
@@ -1006,14 +1008,14 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/models/instances")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [{**example, "wasModified": False}]})
+            return_value=httpx2.Response(status_code=200, json={"items": [{**example, "wasModified": False}]})
         )
         created = api.create([request])
         assert len(created) == 1
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/models/instances/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [example]})
+            return_value=httpx2.Response(status_code=200, json={"items": [example]})
         )
         retrieved = api.retrieve([request.as_id()])
         assert len(retrieved) == 1
@@ -1021,7 +1023,7 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/models/instances/delete")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [request.as_id().dump()]})
+            return_value=httpx2.Response(status_code=200, json={"items": [request.as_id().dump()]})
         )
         deleted = api.delete([request.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
@@ -1030,7 +1032,7 @@ class TestCDFResourceAPI:
         # Test list/paginate/iterate (via POST /models/instances/query)
         query_url = config.create_api_url("/models/instances/query")
         query_page = {"items": {"root": [example]}, "nextCursor": {"root": None}}
-        respx_mock.post(query_url).mock(return_value=httpx.Response(status_code=200, json=query_page))
+        respx_mock.post(query_url).mock(return_value=httpx2.Response(status_code=200, json=query_page))
         listed = api.list(limit=10)
         assert len(listed) == 1
         assert listed[0].dump() == example
@@ -1101,7 +1103,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/streams/my_stream/records/filter")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [record]})
+            return_value=httpx2.Response(status_code=200, json={"items": [record]})
         )
         retrieved = api.retrieve("my_stream", [RecordId(space="my_space", external_id="rec_1")])
         assert len(retrieved) == 1
@@ -1109,7 +1111,9 @@ class TestCDFResourceAPI:
 
         # Test sync
         respx_mock.post(config.create_api_url("/streams/my_stream/records/sync")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [record], "nextCursor": "abc", "hasNext": True})
+            return_value=httpx2.Response(
+                status_code=200, json={"items": [record], "nextCursor": "abc", "hasNext": True}
+            )
         )
         sources = [
             {"source": {"type": "container", "space": "my_space", "externalId": "my_container"}, "properties": ["*"]}
@@ -1130,7 +1134,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/monitoringtasks")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -1138,7 +1142,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/monitoringtasks/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
@@ -1146,7 +1150,7 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.post(config.create_api_url("/monitoringtasks/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request_item])
         assert len(updated) == 1
@@ -1154,7 +1158,7 @@ class TestCDFResourceAPI:
 
         # Test upsert
         respx_mock.post(config.create_api_url("/monitoringtasks/upsert")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         upserted = api.upsert([request_item])
         assert len(upserted) == 1
@@ -1162,14 +1166,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/monitoringtasks/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1
 
         # Test list
         respx_mock.post(config.create_api_url("/monitoringtasks/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list(limit=10)
         assert len(listed) == 1
@@ -1191,7 +1195,7 @@ class TestCDFResourceAPI:
 
         # Test create
         respx_mock.post(config.create_api_url("/calculations/schedules")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         created = api.create([request_item])
         assert len(created) == 1
@@ -1199,7 +1203,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/calculations/schedules/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
@@ -1207,7 +1211,7 @@ class TestCDFResourceAPI:
 
         # Test update
         respx_mock.post(config.create_api_url("/calculations/schedules/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         updated = api.update([request_item])
         assert len(updated) == 1
@@ -1215,14 +1219,14 @@ class TestCDFResourceAPI:
 
         # Test delete
         respx_mock.post(config.create_api_url("/calculations/schedules/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1
 
         # Test list
         respx_mock.get(config.create_api_url("/calculations/schedules")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [list_item]})
+            return_value=httpx2.Response(status_code=200, json={"items": [list_item]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -1239,7 +1243,7 @@ class TestCDFResourceAPI:
         api = ChartScheduledCalculationsAPI(HTTPClient(config))
 
         respx_mock.post(config.create_api_url("/calculations/schedules/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([ExternalId(external_id=resource["externalId"])])
         assert len(retrieved) == 1
@@ -1256,7 +1260,7 @@ class TestCDFResourceAPI:
 
         # Test list
         respx_mock.post(config.create_api_url("/alerts/channels/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
         assert len(listed) == 1
@@ -1269,7 +1273,7 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppsAPI(HTTPClient(config))
         respx_mock.get(config.create_api_url("/apphosting/apps/missing-app")).mock(
-            return_value=httpx.Response(status_code=400)
+            return_value=httpx2.Response(status_code=400)
         )
         assert api.retrieve([ExternalId(external_id="missing-app")], ignore_unknown_ids=True) == []
 
@@ -1277,7 +1281,7 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions")).mock(
-            return_value=httpx.Response(status_code=201)
+            return_value=httpx2.Response(status_code=201)
         )
         api.upload("my-app", "1.0.0", "index.html", b"fake-zip")
 
@@ -1285,7 +1289,7 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/update")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": []})
+            return_value=httpx2.Response(status_code=200, json={"items": []})
         )
         api.update("my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}})
 
@@ -1299,7 +1303,7 @@ class TestCDFResourceAPI:
             "entrypoint": "index.html",
         }
         respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
-            return_value=httpx.Response(status_code=200, json=version_json)
+            return_value=httpx2.Response(status_code=200, json=version_json)
         )
         retrieved = api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")])
 
@@ -1315,7 +1319,7 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.get(config.create_api_url("/apphosting/apps/my-app/versions/1.0.0")).mock(
-            return_value=httpx.Response(status_code=400)
+            return_value=httpx2.Response(status_code=400)
         )
         assert api.retrieve([AppVersionId(app_external_id="my-app", version="1.0.0")], ignore_unknown_ids=True) == []
 
@@ -1329,7 +1333,7 @@ class TestCDFResourceAPI:
             "entrypoint": "index.html",
         }
         respx_mock.post(config.create_api_url("/apphosting/versions/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [version_json]})
+            return_value=httpx2.Response(status_code=200, json={"items": [version_json]})
         )
         batches = list(api.iterate(limit=10))
 
@@ -1340,7 +1344,7 @@ class TestCDFResourceAPI:
         config = toolkit_config
         api = AppVersionsAPI(HTTPClient(config))
         respx_mock.post(config.create_api_url("/apphosting/apps/my-app/versions/delete")).mock(
-            return_value=httpx.Response(status_code=200)
+            return_value=httpx2.Response(status_code=200)
         )
         api.delete([AppVersionId(app_external_id="my-app", version="1.0.0")])
 
@@ -1364,9 +1368,9 @@ description: Smoke test skill
         )
         upload_route = respx_mock.post(
             config.create_api_url("/ai/skills/upload?externalId=smoke-test-skill&overwrite=true")
-        ).mock(return_value=httpx.Response(status_code=200, json={}))
+        ).mock(return_value=httpx2.Response(status_code=200, json={}))
         retrieve_route = respx_mock.post(config.create_api_url("/ai/skills/byids")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [

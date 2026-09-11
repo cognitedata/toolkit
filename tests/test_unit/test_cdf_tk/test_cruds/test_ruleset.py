@@ -5,7 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 import respx
 import yaml
@@ -205,7 +205,7 @@ class TestRuleSetsAPIRetrieve:
         api = RuleSetsAPI(HTTPClient(toolkit_config))
         rule_set = {"externalId": "my_rules", "name": "My Rules", "createdTime": 1000}
         respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [rule_set]})
+            return_value=httpx2.Response(status_code=200, json={"items": [rule_set]})
         )
 
         api.retrieve([ExternalId(external_id="my_rules")])
@@ -227,12 +227,12 @@ class TestRuleSetsAPIRetrieve:
         rule_set = {"externalId": "exists", "name": "Exists", "createdTime": 1000}
         error_body = {"error": {"code": 400, "message": "IDs not found"}}
 
-        def side_effect(request: httpx.Request) -> httpx.Response:
+        def side_effect(request: httpx2.Request) -> httpx2.Response:
             body = json.loads(gzip.decompress(request.content))
             items = body.get("items", [])
             if any(i.get("externalId") == "missing_one" for i in items):
-                return httpx.Response(status_code=400, json=error_body)
-            return httpx.Response(status_code=200, json={"items": [rule_set]})
+                return httpx2.Response(status_code=400, json=error_body)
+            return httpx2.Response(status_code=200, json={"items": [rule_set]})
 
         respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(side_effect=side_effect)
 

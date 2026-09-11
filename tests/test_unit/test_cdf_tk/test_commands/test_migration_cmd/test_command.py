@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 import respx
 from cognite.client import data_modeling as dm
@@ -318,7 +318,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/models/spaces/byids"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
@@ -330,7 +330,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/assets/byids"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={"items": [asset.dump() for asset in assets]},
             )
@@ -340,7 +340,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/models/instances"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -452,7 +452,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/models/spaces/byids"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
@@ -464,7 +464,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/assets/byids"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={"items": [asset.dump() for asset in assets]},
             )
@@ -474,7 +474,7 @@ class TestMigrationCommand:
         respx_mock.post(
             config.create_api_url("/models/instances"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -590,9 +590,9 @@ class TestMigrationCommand:
                 f"{2001},{space},annotation_{2001},{FILE_ANNOTATIONS_ID}",
             )
         )
-        # Annotation retrieve ids (toolkit API uses httpx)
+        # Annotation retrieve ids (toolkit API uses httpx2)
         respx_mock.post(config.create_api_url("/annotations/byids")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={"items": [annotation.dump() for annotation in annotations]},
             )
@@ -600,7 +600,7 @@ class TestMigrationCommand:
         # None of the referenced files carry a native instanceId, so resolution falls back to the
         # InstanceSource lookup below.
         respx_mock.post(config.create_api_url("/files/byids")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -623,7 +623,7 @@ class TestMigrationCommand:
             [("file", 5000), ("file", 3000), ("file", 3001)],
         ]:
             query_responses.append(
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -659,7 +659,7 @@ class TestMigrationCommand:
         respx.post(
             config.create_api_url("/models/instances"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -851,9 +851,9 @@ class TestMigrationCommand:
                 "nextCursor": None,
             },
         )
-        # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
+        # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx2)
         respx_mock.post(config.create_api_url("/models/instances/query")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": {
@@ -895,7 +895,7 @@ class TestMigrationCommand:
         # Chart update (existing chart goes through per-chart update endpoint)
         respx.put(
             config.create_app_url("/storage/charts/charts/my_chart"),
-        ).mock(return_value=httpx.Response(status_code=200, json={"items": [charts[0].dump()]}))
+        ).mock(return_value=httpx2.Response(status_code=200, json={"items": [charts[0].dump()]}))
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
@@ -1078,12 +1078,12 @@ class TestMigrationCommand:
         empty_query_data = {"items": {"canvas": []}, "nextCursor": {}}
         canvas_query_done = False
 
-        def _query_side_effect(request: httpx.Request) -> httpx.Response:
+        def _query_side_effect(request: httpx2.Request) -> httpx2.Response:
             nonlocal canvas_query_done
             body = json.loads(request.content)
             with_keys = set(body.get("with", {}).keys())
             if "instanceSource" in with_keys:
-                return httpx.Response(
+                return httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -1107,14 +1107,14 @@ class TestMigrationCommand:
                 )
             if not canvas_query_done:
                 canvas_query_done = True
-                return httpx.Response(status_code=200, json=canvas_query_data)
-            return httpx.Response(status_code=200, json=empty_query_data)
+                return httpx2.Response(status_code=200, json=canvas_query_data)
+            return httpx2.Response(status_code=200, json=empty_query_data)
 
         respx_mock.post(config.create_api_url("/models/instances/query")).mock(
             side_effect=_query_side_effect,
         )
 
-        def _echo_upsert_items(request: httpx.Request) -> httpx.Response:
+        def _echo_upsert_items(request: httpx2.Request) -> httpx2.Response:
             body = json.loads(request.content)
             items = [
                 {
@@ -1128,7 +1128,7 @@ class TestMigrationCommand:
                 }
                 for item in body.get("items", [])
             ]
-            return httpx.Response(status_code=200, json={"items": items})
+            return httpx2.Response(status_code=200, json={"items": items})
 
         respx_mock.post(config.create_api_url("/models/instances")).mock(
             side_effect=_echo_upsert_items,
@@ -1408,7 +1408,7 @@ class TestMigrationCommand:
 
         # Space validation
         respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=False).dump()]
@@ -1424,7 +1424,7 @@ class TestMigrationCommand:
         )
         # Event retrieve
         respx_mock.post(config.create_api_url("/events/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [e.dump() for e in events]})
+            return_value=httpx2.Response(status_code=200, json={"items": [e.dump() for e in events]})
         )
         # Container retrieve for mapper.prepare()
         container = ContainerResponse(
@@ -1441,12 +1441,12 @@ class TestMigrationCommand:
             is_global=False,
         )
         respx_mock.post(config.create_api_url("/models/containers/byids")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [container.dump()]})
+            return_value=httpx2.Response(status_code=200, json={"items": [container.dump()]})
         )
         # Records upload — capture the request. Endpoint depends on stream mutability.
         ingest_records = respx_mock.post(
             config.create_api_url(expected_endpoint.format(stream=stream_external_id))
-        ).mock(return_value=httpx.Response(status_code=200, json={}))
+        ).mock(return_value=httpx2.Response(status_code=200, json={}))
 
         csv_file = tmp_path / "events.csv"
         csv_file.write_text(
