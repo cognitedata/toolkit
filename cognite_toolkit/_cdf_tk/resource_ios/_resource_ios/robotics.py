@@ -2,6 +2,7 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -65,6 +66,11 @@ class RoboticFrameIO(ResourceIO[ExternalId, RobotFrameRequest, RobotFrameRespons
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: RobotFrameYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        if resource.transform and resource.transform.parent_frame_external_id:
+            yield RoboticFrameIO, ExternalId(external_id=resource.transform.parent_frame_external_id)
 
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -131,6 +137,10 @@ class RoboticLocationIO(ResourceIO[ExternalId, RobotLocationRequest, RobotLocati
         if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
+    @classmethod
+    def get_dependencies(cls, resource: RobotLocationYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
 
@@ -195,6 +205,10 @@ class RoboticsDataPostProcessingIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: RobotDataPostProcessingYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
@@ -271,6 +285,10 @@ class RobotCapabilityIO(ResourceIO[ExternalId, RobotCapabilityRequest, RobotCapa
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: RobotCapabilityYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
@@ -351,6 +369,13 @@ class RoboticMapIO(ResourceIO[ExternalId, RobotMapRequest, RobotMapResponse]):
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: RobotMapYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        if resource.frame_external_id:
+            yield RoboticFrameIO, ExternalId(external_id=resource.frame_external_id)
+        if resource.location_external_id:
+            yield RoboticLocationIO, ExternalId(external_id=resource.location_external_id)
 
     def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_request_resource().dump()

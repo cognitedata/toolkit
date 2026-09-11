@@ -1,6 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
