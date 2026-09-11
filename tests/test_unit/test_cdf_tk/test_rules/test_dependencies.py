@@ -31,8 +31,6 @@ DATA_MODEL_ID = DataModelId(space="my_space", external_id="MyModel", version="v1
 
 
 class TestIsDisallowedContainerPropertyChange:
-    """Unit tests for the pure predicate, avoiding the need to build full YAML/CDF fixtures per case."""
-
     @pytest.mark.parametrize(
         "local_property, cdf_property, expected",
         [
@@ -51,8 +49,6 @@ class TestIsDisallowedContainerPropertyChange:
 
 
 class TestIsDisallowedViewPropertyChange:
-    """Unit tests for the pure predicate, avoiding the need to build full YAML/CDF fixtures per case."""
-
     @pytest.mark.parametrize(
         "local_property, cdf_property, expected",
         [
