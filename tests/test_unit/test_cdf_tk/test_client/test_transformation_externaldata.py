@@ -1,4 +1,4 @@
-import httpx
+import httpx2
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -54,7 +54,7 @@ class TestTransformationExternalDataSourcesAPI:
 
         create_url = toolkit_config.create_api_url("/transformations/externaldata")
         respx_mock.post(create_url).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]})
+            return_value=httpx2.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]})
         )
         created = api.create([request])
         assert len(created) == 1
@@ -62,14 +62,16 @@ class TestTransformationExternalDataSourcesAPI:
         assert respx_mock.calls[-1].request.headers["cdf-version"] == "beta"
 
         list_url = toolkit_config.create_api_url("/transformations/externaldata")
-        respx_mock.get(list_url).mock(return_value=httpx.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]}))
+        respx_mock.get(list_url).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]})
+        )
         listed = api.list(limit=10)
         assert len(listed) == 1
         batches = list(api.iterate(limit=10))
         assert batches[0][0].external_id == "fabric-lakehouse-prod"
 
         delete_url = toolkit_config.create_api_url("/transformations/externaldata/delete")
-        respx_mock.post(delete_url).mock(return_value=httpx.Response(status_code=200, json={}))
+        respx_mock.post(delete_url).mock(return_value=httpx2.Response(status_code=200, json={}))
         api.delete([ExternalId(external_id="fabric-lakehouse-prod")])
         assert respx_mock.calls[-1].request.url.path.endswith("/transformations/externaldata/delete")
 
@@ -78,7 +80,7 @@ class TestTransformationExternalDataSourcesAPI:
         api = TransformationExternalDataSourcesAPI(client)
         usability_url = toolkit_config.create_api_url("/transformations/externaldata/usability")
         respx_mock.post(usability_url).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={"externalId": "fabric-lakehouse-prod", "usableVersion": "00000000-0000-0000-0000-000000000001"},
             )

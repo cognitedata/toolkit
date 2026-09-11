@@ -1,6 +1,6 @@
 from collections.abc import Hashable
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -432,7 +432,7 @@ class TestRecordViewSupport:
         )
         upsert_url = toolkit_config.create_api_url("/models/views")
         respx_mock.post(upsert_url).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -471,7 +471,7 @@ class TestRecordViewSupport:
         )
         upsert_url = toolkit_config.create_api_url("/models/datamodels")
         respx_mock.post(upsert_url).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [

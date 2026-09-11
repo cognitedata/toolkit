@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import IO, Any, Literal
 
-import httpx
+import httpx2
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -30,9 +30,9 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 class _LimitedFileReader(Iterable[bytes]):
     """A file-like wrapper that limits the number of bytes read from a file stream.
 
-    This allows httpx to stream content directly from disk in smaller chunks,
+    This allows httpx2 to stream content directly from disk in smaller chunks,
     without loading the entire part into memory at once. Implements Iterable[bytes]
-    for compatibility with httpx's content parameter.
+    for compatibility with httpx2's content parameter.
     """
 
     _CHUNK_SIZE = 64 * 1024  # 64 KB chunks
@@ -369,7 +369,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                     current_part_size = part_size
 
                 # Use a stream wrapper that limits reads to the part size,
-                # allowing httpx to stream directly from disk without loading the entire chunk into memory.
+                # allowing httpx2 to stream directly from disk without loading the entire chunk into memory.
                 chunk_stream = _LimitedFileReader(file_stream, current_part_size)
 
                 # Build headers with explicit Content-Length to avoid chunked transfer encoding.
@@ -474,7 +474,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             download_url: The URL to download the file from.
             destination: The local path to save the downloaded file to.
         """
-        with httpx.stream("GET", download_url) as response:
+        with httpx2.stream("GET", download_url) as response:
             if response.status_code != 200:
                 raise ToolkitAPIError(
                     message=f"Download failed with status code {response.status_code}: {response.text}",
