@@ -3,7 +3,10 @@ name: Lint and test
 on:
   pull_request:
     types:
-      - ready_for_review
+      - opened            # Triggers if the PR is opened directly as "Ready for Review"
+      - reopened          # Triggers if a closed PR is reopened
+      - synchronize       # Triggers on new commits pushed to an already open PR
+      - ready_for_review  # Triggers when a draft PR is changed to "Ready for Review"
 
 env:
   PYTHON_VERSION: '3.14'
@@ -12,6 +15,7 @@ env:
 jobs:
   lint:
     name: Run linters
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -32,6 +36,7 @@ jobs:
         run: uv run pre-commit run --show-diff-on-failure --color=always --all-files
   test-no-alpha:
     name: Run tests without alpha features
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -52,6 +57,7 @@ jobs:
   test:
     # Running on past pytest versions
     name: Run tests
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     env:
       CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
@@ -82,6 +88,7 @@ jobs:
         run: uv run pytest tests/test_unit -n auto --dist=worksteal
   coverage:
     name: Create coverage report
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     env:
       CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
@@ -115,6 +122,7 @@ jobs:
 
   dry-run-demo:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     env:
         CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
         CDF_PROJECT: ${{ vars.CDF_PROJECT }}
@@ -153,6 +161,7 @@ jobs:
 
   Build-image:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - id: version
@@ -186,6 +195,7 @@ jobs:
 
   validate-description:
     name: Validate PR description
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
