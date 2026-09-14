@@ -54,7 +54,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleScanResult,
     ReadResource,
     ReadYAMLFile,
-    SuccessfulReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
@@ -64,6 +63,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceIO,
@@ -1047,11 +1047,14 @@ class BuildV2Command(ToolkitCommand):
                 )
                 destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
 
-                self._write_to_build_dir_v08(resource, destination_path, filestem, folder)
+                if FeatureFlag.is_enabled(Flags.V09):
+                    self._write_to_build_dir(resource, destination_path, filestem, folder)
+                else:
+                    self._write_to_build_dir_v08(resource, destination_path, filestem, folder)
 
                 dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = set()
                 if resource.validated:
-                    dependencies = set( file.resource_type.crud_cls.get_dependencies(resource.validated))
+                    dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
 
                 built_resources.append(
                     BuiltResource(
@@ -1099,6 +1102,33 @@ class BuildV2Command(ToolkitCommand):
                 extra_path.write_bytes(extra_file.byte_content)
             else:
                 shutil.copy2(extra_file.source_path, extra_path)
+
+    @classmethod
+    def _write_to_build_dir(
+        cls, resource: ReadResource[ToolkitResource], destination_path: Path, filestem: str, folder: Path
+    ) -> None:
+        extra_by_field: dict[str | None, list[SuccessExtra]] = defaultdict(list)
+        for extra_file in resource.extra_files:
+            if isinstance(extra_file, SuccessExtra):
+                extra_by_field[extra_file.resource_field].append(extra_file)
+
+        to_write = dict(resource.raw)
+        for field, extra_files in extra_by_field.items():
+            if field is None:
+                for extra_file in extra_files:
+                    extra_path = folder / f"{filestem}{extra_file.suffix}"
+                    if extra_file.content:
+                        safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
+                    elif extra_file.byte_content:
+                        extra_path.write_bytes(extra_file.byte_content)
+                    else:
+                        shutil.copy2(extra_file.source_path, extra_path)
+            elif extra_files[0].is_list:
+                to_write[field] = [ef.content for ef in extra_files if ef.content is not None]
+            else:
+                to_write[field] = extra_files[0].content
+
+        safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
 
     def _create_validation_plan(
         self, built_modules: list[BuiltModule], client: ToolkitClient | None

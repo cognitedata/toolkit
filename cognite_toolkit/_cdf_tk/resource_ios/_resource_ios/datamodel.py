@@ -1389,6 +1389,7 @@ class GraphQLCRUD(
             suffix=".graphql",
             content=content,
             description="GraphQL schema",
+            resource_field="graphQlDml",
         )
 
     @classmethod

@@ -335,6 +335,7 @@ def _iter_file_content_read_extras(
         source_hash=calculate_hash(source, shorten=True),
         suffix=source.suffix if source.suffix else ".bin",
         description="file contents",
+        resource_field=None,
     )
 
 

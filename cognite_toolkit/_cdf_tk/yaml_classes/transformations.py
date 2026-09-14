@@ -1,5 +1,4 @@
-from collections.abc import Mapping
-from typing import Any, ClassVar, Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
@@ -12,7 +11,6 @@ from .transformation_destination import Destination
 
 
 class TransformationYAML(ToolkitResource):
-    externalFileMapping: ClassVar[Mapping[str, str]] = {"queryFile": "query"}
     external_id: str = Field(description="The external ID provided by the client.")
     name: str = Field(description="Name of the transformation.")
     ignore_null_fields: bool = Field(
