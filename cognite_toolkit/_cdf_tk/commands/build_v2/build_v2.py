@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ModuleDirectory,
     RelativeDirPath,
     ResourceType,
+    SuccessfulReadYAMLFile,
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
@@ -1038,36 +1039,19 @@ class BuildV2Command(ToolkitCommand):
             folder = build_dir / file.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
             for resource in file.resources:
+                # Count the number of resources of this type to create a unique filename for each resource.
                 resource_counter.update([file.resource_type])
-                index = resource_counter[file.resource_type]
-                source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
-                identifier_filename = resource.identifier.as_filename(include_type=False)
-                filestem = f"{index}-{source_stem}-{identifier_filename}"
-                filename = f"{filestem}.{file.resource_type.kind}.yaml"
-                destination_path = folder / filename
-                # The build renames extra files (e.g. .graphql) with a long prefix; update
-                # the dml field so deploy can locate the renamed file instead of the original.
-                if (
-                    any(isinstance(ef, SuccessExtra) and ef.suffix == ".graphql" for ef in resource.extra_files)
-                    and "dml" in resource.raw
-                ):
-                    resource.raw["dml"] = f"{filestem}.graphql"
-                safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
-                for extra_file in resource.extra_files:
-                    if not isinstance(extra_file, SuccessExtra):
-                        continue
-                    extra_path = folder / f"{filestem}{extra_file.suffix}"
-                    if extra_file.content:
-                        safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
-                    elif extra_file.byte_content:
-                        extra_path.write_bytes(extra_file.byte_content)
-                    else:
-                        shutil.copy2(extra_file.source_path, extra_path)
 
-                crud_cls = file.resource_type.crud_cls
+                filestem = self._create_filestem(
+                    resource.identifier, file.source_path, index=resource_counter[file.resource_type]
+                )
+                destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
+
+                self._write_to_build_dir_v08(resource, destination_path, filestem, folder)
+
                 dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = set()
                 if resource.validated:
-                    dependencies = set(crud_cls.get_dependencies(resource.validated))
+                    dependencies = set( file.resource_type.crud_cls.get_dependencies(resource.validated))
 
                 built_resources.append(
                     BuiltResource(
@@ -1086,6 +1070,35 @@ class BuildV2Command(ToolkitCommand):
                     )
                 )
         return built_resources
+
+    @classmethod
+    def _create_filestem(cls, resource_id: Identifier, source_path: Path, index: int) -> str:
+        source_stem = source_path.stem.rsplit(".", maxsplit=1)[0]
+        identifier_filename = resource_id.as_filename(include_type=False)
+        return f"{index}-{source_stem}-{identifier_filename}"
+
+    @classmethod
+    def _write_to_build_dir_v08(
+        cls, resource: ReadResource[ToolkitResource], destination_path: Path, filestem: str, folder: Path
+    ) -> None:
+        # The build renames extra files (e.g. .graphql) with a long prefix; update
+        # the dml field so deploy can locate the renamed file instead of the original.
+        if (
+            any(isinstance(ef, SuccessExtra) and ef.suffix == ".graphql" for ef in resource.extra_files)
+            and "dml" in resource.raw
+        ):
+            resource.raw["dml"] = f"{filestem}.graphql"
+        safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
+        for extra_file in resource.extra_files:
+            if not isinstance(extra_file, SuccessExtra):
+                continue
+            extra_path = folder / f"{filestem}{extra_file.suffix}"
+            if extra_file.content:
+                safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
+            elif extra_file.byte_content:
+                extra_path.write_bytes(extra_file.byte_content)
+            else:
+                shutil.copy2(extra_file.source_path, extra_path)
 
     def _create_validation_plan(
         self, built_modules: list[BuiltModule], client: ToolkitClient | None
