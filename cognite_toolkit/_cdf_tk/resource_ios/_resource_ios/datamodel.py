@@ -99,7 +99,12 @@ from cognite_toolkit._cdf_tk.constants import (
     URL,
     VIEW_UPSERT_BATCH_LIMIT,
 )
-from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import (
+    GraphQLParseError,
+    ToolkitCycleError,
+    ToolkitFileNotFoundError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
@@ -1283,13 +1288,11 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
         batches, oversized_sccs = pack_into_batches(
             dependencies_by_id, nodes_by_id, INSTANCE_UPSERT_ENDPOINT.item_limit
         )
-        for scc in oversized_sccs:
-            sample = humanize_collection(sorted(str(node_id) for node_id in scc)[:5])
-            MediumSeverityWarning(
-                f"Found a strongly interdependent set of {len(scc)} nodes connected via container-constrained "
-                f"direct relations, including {sample}. This might indicate a data model design issue, and the "
-                "deployment might fail due to API batch size limits."
-            ).print_warning(console=self.console)
+        if oversized_sccs:
+            raise ToolkitValueError(
+                f"Found {len(oversized_sccs[0])} nodes that are interdependent through container-constrained direct relations "
+                f"relations in a way that exceeds the instances API's limit of {INSTANCE_UPSERT_ENDPOINT.item_limit} items per request."
+            )
         return batches
 
     def _lookup_constrained_properties(self, sources: Iterable[ViewId | ContainerId]) -> None:

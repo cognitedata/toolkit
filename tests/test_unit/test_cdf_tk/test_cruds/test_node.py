@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import NodeCRUD
 
 
@@ -176,18 +177,32 @@ class TestNodeCRUDComputeDeployBatches:
         for referrer in referrers:
             assert flat_ids.index("target_node") < flat_ids.index(referrer.external_id)
 
-    def test_cycle_of_mutually_referring_nodes_stays_in_one_batch(self) -> None:
+    def test_oversized_scc_raises_since_instance_api_limit_has_no_headroom(self) -> None:
+        # Fringe edge case: A hub referring to every satellite (via a list-valued relation)
+        # and each satellite referring back to the hub, whic puts all of them in one giant SCC.
+
+        # Unlike the container/view batch limits, INSTANCE_UPSERT_ENDPOINT.item_limit is the instances
+        # API's actual hard limit, so a set of nodes exceeding it on its own can never be deployed and
+        # must raise rather than just warn.
         referrer_container_id = ContainerId(space="sp", external_id="Referrer")
-        node_a = _node("sp", "node_a", referrer_container_id, {"ref": {"space": "sp", "externalId": "node_b"}})
-        node_b = _node("sp", "node_b", referrer_container_id, {"ref": {"space": "sp", "externalId": "node_a"}})
+        node_count = INSTANCE_UPSERT_ENDPOINT.item_limit + 25
+        satellite_ids = [f"satellite_{i}" for i in range(node_count - 1)]
+        hub = _node(
+            "sp",
+            "hub_node",
+            referrer_container_id,
+            {"ref": [{"space": "sp", "externalId": satellite_id} for satellite_id in satellite_ids]},
+        )
+        satellites = [
+            _node("sp", satellite_id, referrer_container_id, {"ref": {"space": "sp", "externalId": "hub_node"}})
+            for satellite_id in satellite_ids
+        ]
 
         with monkeypatch_toolkit_client() as client:
             loader = NodeCRUD(client, Path("build_dir"), None)
             loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
-            batches = loader._compute_deploy_batches([node_a, node_b])
-
-        assert len(batches) == 1, "A cycle of mutually referring nodes must stay in a single batch"
-        assert {node.external_id for node in batches[0]} == {"node_a", "node_b"}
+            with pytest.raises(ToolkitValueError):
+                loader._compute_deploy_batches([hub, *satellites])
 
     def test_direct_relation_loaded_from_raw_dict_is_picked_up(self) -> None:
         referrer_container_id = ContainerId(space="sp", external_id="Referrer")
