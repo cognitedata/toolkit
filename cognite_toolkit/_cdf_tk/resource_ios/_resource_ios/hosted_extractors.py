@@ -94,6 +94,10 @@ class HostedExtractorSourceIO(
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorSourceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
 
@@ -418,6 +422,10 @@ class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorMappingYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))
