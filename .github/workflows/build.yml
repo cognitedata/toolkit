@@ -2,6 +2,8 @@
 name: Lint and test
 on:
   pull_request:
+    types:
+      - ready_for_review
 
 env:
   PYTHON_VERSION: '3.14'
