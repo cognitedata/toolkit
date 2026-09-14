@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -145,7 +145,11 @@ class ExtractionPipelineIO(
 
         documentation_file = filepath.parent / Path(item["documentationFile"])
         if not documentation_file.exists():
-            # Documentation is optional; a missing sidecar is treated as no extra file.
+            yield FailedReadExtra(
+                source_path=documentation_file,
+                code="MISSING",
+                error=f"Documentation file {documentation_file.as_posix()} not found",
+            )
             return
 
         content = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
