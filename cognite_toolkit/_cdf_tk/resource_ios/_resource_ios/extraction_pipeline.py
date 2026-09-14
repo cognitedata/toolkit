@@ -143,12 +143,14 @@ class ExtractionPipelineIO(
         if "documentationFile" not in item:
             return
 
+        if not item.get("documentationFile"):
+            return
         documentation_file = filepath.parent / Path(item["documentationFile"])
-        if not documentation_file.exists():
+        if not documentation_file.is_file():
             yield FailedReadExtra(
                 source_path=documentation_file,
                 code="MISSING",
-                error=f"Documentation file {documentation_file.as_posix()} not found",
+                error=f"Documentation file {documentation_file.as_posix()} not found or is not a file",
             )
             return
 
