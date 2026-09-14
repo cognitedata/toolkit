@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final
-class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductResponse]):
+class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductResponse, DataProductYAML]):
     folder_name = "data_products"
     resource_cls = DataProductResponse
     resource_write_cls = DataProductRequest

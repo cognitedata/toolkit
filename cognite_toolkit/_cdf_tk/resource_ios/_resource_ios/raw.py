@@ -48,7 +48,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse, DatabaseYAML]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RAWDatabaseResponse
@@ -152,7 +152,7 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
 
 
 @final
-class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse]):
+class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse, TableYAML]):
     item_name = "raw rows"
     folder_name = "raw"
     resource_cls = RAWTableResponse

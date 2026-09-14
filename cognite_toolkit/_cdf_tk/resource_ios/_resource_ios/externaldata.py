@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 
 @final
 class ExternalDataSourceIO(
-    ResourceIO[ExternalId, ExternalDataSourceRequest, ExternalDataSourceResponse],
+    ResourceIO[ExternalId, ExternalDataSourceRequest, ExternalDataSourceResponse, ExternalDataSourceYAML],
 ):
     folder_name = "transformations"
     resource_cls = ExternalDataSourceResponse

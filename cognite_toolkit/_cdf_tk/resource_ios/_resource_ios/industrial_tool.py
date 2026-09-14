@@ -47,7 +47,7 @@ from .file import FileMetadataCRUD
 
 
 @final
-class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
+class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, StreamlitYAML]):
     folder_name = "streamlit"
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest

@@ -36,7 +36,7 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFilterResponse]):
+class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFilterResponse, LocationYAML]):
     folder_name = "locations"
     resource_cls = LocationFilterResponse
     resource_write_cls = LocationFilterRequest

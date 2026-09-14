@@ -145,7 +145,7 @@ class BuiltModule(BaseModel):
         return self.files_built
 
     def load_local_resources(
-        self, crud: ResourceIO[Any, T_RequestResource, Any]
+        self, crud: ResourceIO[Any, T_RequestResource, Any, Any]
     ) -> dict[Identifier, tuple[BuiltResource, T_RequestResource]]:
         """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
 

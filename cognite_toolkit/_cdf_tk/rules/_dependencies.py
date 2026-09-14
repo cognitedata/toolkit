@@ -109,7 +109,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         Today this is only discovered during (or after) ``cdf deploy``. This surfaces the same findings
         during ``cdf build``.
         """
-        cruds: tuple[ResourceIO[Any, Any, Any], ...] = (
+        cruds: tuple[ResourceIO[Any, Any, Any, Any], ...] = (
             ContainerCRUD(client, None, None),
             ViewIO(client, None, None),
             DataModelIO(client, None, None),

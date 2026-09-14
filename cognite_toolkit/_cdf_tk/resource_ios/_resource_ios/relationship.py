@@ -24,7 +24,7 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipResponse]):
+class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipResponse, RelationshipYAML]):
     folder_name = "classic"
     resource_cls = RelationshipResponse
     resource_write_cls = RelationshipRequest

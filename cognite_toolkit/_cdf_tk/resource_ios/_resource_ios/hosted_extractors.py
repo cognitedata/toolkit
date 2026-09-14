@@ -56,7 +56,12 @@ from .data_organization import DataSetsIO
 
 @final
 class HostedExtractorSourceIO(
-    ResourceIO[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
+    ResourceIO[
+        ExternalId,
+        HostedExtractorSourceRequestUnion,
+        HostedExtractorSourceResponseUnion,
+        HostedExtractorSourceYAML,
+    ]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorSourceResponseUnion  # type: ignore[assignment]
@@ -184,7 +189,12 @@ class HostedExtractorSourceIO(
 
 @final
 class HostedExtractorDestinationIO(
-    ResourceIO[ExternalId, HostedExtractorDestinationRequest, HostedExtractorDestinationResponse]
+    ResourceIO[
+        ExternalId,
+        HostedExtractorDestinationRequest,
+        HostedExtractorDestinationResponse,
+        HostedExtractorDestinationYAML,
+    ]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorDestinationResponse
@@ -294,7 +304,9 @@ class HostedExtractorDestinationIO(
 
 
 @final
-class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
+class HostedExtractorJobIO(
+    ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse, HostedExtractorJobYAML]
+):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorJobResponse
     resource_write_cls = HostedExtractorJobRequest
@@ -373,7 +385,14 @@ class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, Hos
 
 
 @final
-class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequest, HostedExtractorMappingResponse]):
+class HostedExtractorMappingIO(
+    ResourceIO[
+        ExternalId,
+        HostedExtractorMappingRequest,
+        HostedExtractorMappingResponse,
+        HostedExtractorMappingYAML,
+    ]
+):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorMappingResponse
     resource_write_cls = HostedExtractorMappingRequest

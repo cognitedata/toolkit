@@ -28,7 +28,9 @@ from .data_organization import DataSetsIO
 
 
 @final
-class ThreeDModelCRUD(ResourceContainerIO[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
+class ThreeDModelCRUD(
+    ResourceContainerIO[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse, ThreeDModelYAML]
+):
     folder_name = "3dmodels"
     resource_cls = ThreeDModelClassicResponse
     resource_write_cls = ThreeDModelClassicRequest

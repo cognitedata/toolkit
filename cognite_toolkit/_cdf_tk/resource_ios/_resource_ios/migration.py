@@ -28,7 +28,9 @@ from .datamodel import SpaceCRUD, ViewIO
 
 
 @final
-class ResourceViewMappingIO(ResourceIO[ExternalId, ResourceViewMappingRequest, ResourceViewMappingResponse]):
+class ResourceViewMappingIO(
+    ResourceIO[ExternalId, ResourceViewMappingRequest, ResourceViewMappingResponse, ResourceViewMappingYAML]
+):
     folder_name = "migration"
     resource_cls = ResourceViewMappingResponse
     resource_write_cls = ResourceViewMappingRequest

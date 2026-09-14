@@ -145,7 +145,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse]):
+class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAML]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = SpaceResponse
@@ -279,7 +279,7 @@ class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse]):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
-class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, ContainerResponse]):
+class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, ContainerResponse, ContainerYAML]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = ContainerResponse
@@ -644,7 +644,7 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
+class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     folder_name = "data_modeling"
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
@@ -1024,7 +1024,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
 
 
 @final
-class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
+class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, DataModelYAML]):
     folder_name = "data_modeling"
     resource_cls = DataModelResponse
     resource_write_cls = DataModelRequest
@@ -1157,7 +1157,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
 
 
 @final
-class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
+class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = NodeResponse
@@ -1309,7 +1309,9 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse]):
+class GraphQLCRUD(
+    ResourceContainerIO[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse, GraphQLDataModelYAML]
+):
     folder_name = "data_modeling"
     resource_cls = GraphQLDataModelResponse
     resource_write_cls = GraphQLDataModelRequest
@@ -1558,7 +1560,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
 
 
 @final
-class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
+class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = EdgeResponse
