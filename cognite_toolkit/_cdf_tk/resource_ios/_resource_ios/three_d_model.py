@@ -28,7 +28,9 @@ from .data_organization import DataSetsIO
 
 
 @final
-class ThreeDModelCRUD(ResourceContainerIO[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
+class ThreeDModelCRUD(
+    ResourceContainerIO[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse, ThreeDModelYAML]
+):
     folder_name = "3dmodels"
     resource_cls = ThreeDModelClassicResponse
     resource_write_cls = ThreeDModelClassicRequest
@@ -132,16 +134,6 @@ class ThreeDModelCRUD(ResourceContainerIO[NameId, ThreeDModelClassicRequest, Thr
             for revisions in self.client.tool.three_d.revisions_classic.iterate(model_id=model.id, limit=None):
                 count += len(revisions)
         return count
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: ThreeDModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

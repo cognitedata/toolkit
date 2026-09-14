@@ -27,7 +27,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
+class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     support_drop = True
     support_update = False
     folder_name = "apps"
@@ -72,10 +72,6 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
         return str(identifier)
 
     @classmethod
-    def get_dependent_items(cls, item: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        return []
-
-    @classmethod
     def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         return []
 
@@ -116,7 +112,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse]):
 
 
 @final
-class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse]):
+class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionResponse, AppVersionYAML]):
     support_drop = True
     support_update = True
     folder_name = "apps"
@@ -147,7 +143,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     @classmethod
     def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"appExternalId", "version"} if k not in item):
+            if missing := tuple(k for k in ("appExternalId", "version") if k not in item):
                 raise KeyError(*missing)
             return AppVersionId(app_external_id=item["appExternalId"], version=item["version"])
         if isinstance(item, AppVersionRequest):
@@ -161,11 +157,6 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     @classmethod
     def as_str(cls, identifier: AppVersionId) -> str:
         return str(identifier)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if app_external_id := item.get("appExternalId"):
-            yield AppIO, ExternalId(external_id=app_external_id)
 
     @classmethod
     def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

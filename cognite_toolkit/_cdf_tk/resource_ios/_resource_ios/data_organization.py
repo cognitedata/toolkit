@@ -43,7 +43,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
+class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSetYAML]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSetResponse
@@ -81,6 +81,10 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: DataSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetRequest:
         if resource.get("metadata"):
@@ -133,7 +137,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
 
 
 @final
-class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse]):
+class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     folder_name = "classic"
     resource_cls = LabelResponse
     resource_write_cls = LabelRequest
@@ -200,16 +204,6 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse]):
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
         for items in self.client.tool.labels.iterate(filter=filter, limit=None):
             yield from items
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

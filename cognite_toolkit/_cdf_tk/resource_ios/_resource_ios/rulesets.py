@@ -32,7 +32,7 @@ _DOCS_ROOT = "https://api-docs.cognite.com/20230101/"
 
 
 @final
-class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
+class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetYAML]):
     folder_name = "rulesets"
     resource_cls = RuleSetResponse
     resource_write_cls = RuleSetRequest
@@ -80,6 +80,10 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
                 scope=scope,
             )
 
+    @classmethod
+    def get_dependencies(cls, resource: RuleSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.create(list(items))
 
@@ -106,7 +110,7 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse]):
 
 
 @final
-class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse]):
+class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleSetVersionResponse, RuleSetVersionYAML]):
     folder_name = "rulesets"
     resource_cls = RuleSetVersionResponse
     resource_write_cls = RuleSetVersionRequest
@@ -161,11 +165,6 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "ruleSetExternalId" in item:
-            yield RuleSetIO, ExternalId(external_id=item["ruleSetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

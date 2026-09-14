@@ -47,7 +47,7 @@ from .file import FileMetadataCRUD
 
 
 @final
-class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
+class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, StreamlitYAML]):
     folder_name = "streamlit"
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
@@ -103,11 +103,6 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return id.external_id
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

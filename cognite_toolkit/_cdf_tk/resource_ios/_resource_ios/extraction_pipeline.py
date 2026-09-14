@@ -69,7 +69,9 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]):
+class ExtractionPipelineIO(
+    ResourceIO[ExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse, ExtractionPipelineYAML]
+):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
@@ -114,20 +116,6 @@ class ExtractionPipelineIO(ResourceIO[ExternalId, ExtractionPipelineRequest, Ext
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        seen_databases: set[str] = set()
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if "rawTables" in item:
-            for entry in item["rawTables"]:
-                if db := entry.get("dbName"):
-                    if db not in seen_databases:
-                        seen_databases.add(db)
-                        yield RawDatabaseCRUD, RawDatabaseId(name=db)
-                    if "tableName" in entry:
-                        yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
 
     @classmethod
     def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -205,6 +193,7 @@ class ExtractionPipelineConfigIO(
         ExternalId,
         ExtractionPipelineConfigRequest,
         ExtractionPipelineConfigResponse,
+        ExtractionPipelineConfigYAML,
     ]
 ):
     folder_name = "extraction_pipelines"
@@ -246,11 +235,6 @@ class ExtractionPipelineConfigIO(
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "externalId" in item:
-            yield ExtractionPipelineIO, ExternalId(external_id=item["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: ExtractionPipelineConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

@@ -77,7 +77,7 @@ from .transformation import TransformationIO
 
 
 @final
-class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse]):
+class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, WorkflowYAML]):
     folder_name = "workflows"
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
@@ -171,23 +171,15 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse]):
                     yield workflow
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
 
 
 @final
-class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
+class WorkflowVersionIO(
+    ResourceIO[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse, WorkflowVersionYAML]
+):
     folder_name = "workflows"
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
@@ -216,7 +208,7 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
     @classmethod
     def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | dict) -> WorkflowVersionId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"workflowExternalId", "version"} if k not in item):
+            if missing := tuple(k for k in ("workflowExternalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["version"])
@@ -341,9 +333,9 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
-        if json_path == ("workflowDefinition", "tasks"):
-            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
-        elif len(json_path) == 4 and json_path[:2] == ("workflowDefinition", "tasks") and json_path[3] == "dependsOn":
+        if json_path == ("workflowDefinition", "tasks") or (
+            len(json_path) == 4 and json_path[:2] == ("workflowDefinition", "tasks") and json_path[3] == "dependsOn"
+        ):
             return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
         elif (
             len(json_path) == 5
@@ -356,11 +348,6 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
             # Assume all other arrays in the tasks are hashable
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "workflowExternalId" in item:
-            yield WorkflowIO, ExternalId(external_id=item["workflowExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -482,7 +469,7 @@ class WorkflowVersionIO(ResourceIO[WorkflowVersionId, WorkflowVersionRequest, Wo
 
 
 @final
-class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
+class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse, WorkflowTriggerYAML]):
     folder_name = "workflows"
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
@@ -582,18 +569,6 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
             }
             return (trigger for trigger in triggers if trigger.workflow_external_id in workflow_ids)
         return triggers
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires."""
-        if "workflowExternalId" in item:
-            yield WorkflowIO, ExternalId(external_id=item["workflowExternalId"])
-
-            if "workflowVersion" in item:
-                yield (
-                    WorkflowVersionIO,
-                    WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["workflowVersion"]),
-                )
 
     @classmethod
     def get_dependencies(cls, resource: WorkflowTriggerYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

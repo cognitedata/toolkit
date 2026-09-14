@@ -49,7 +49,7 @@ from .datamodel import NodeCRUD
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse]):
+class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse, TimeSeriesYAML]):
     item_name = "datapoints"
     folder_name = "timeseries"
     resource_cls = TimeSeriesResponse
@@ -89,16 +89,6 @@ class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeri
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if "securityCategoryNames" in item:
-            for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryIO, NameId(name=security_category)
-        if "assetExternalId" in item:
-            yield AssetIO, ExternalId(external_id=item["assetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -191,6 +181,7 @@ class DatapointSubscriptionIO(
         ExternalId,
         DatapointSubscriptionRequest,
         DatapointSubscriptionResponse,
+        DatapointSubscriptionYAML,
     ]
 ):
     folder_name = "timeseries"
@@ -222,16 +213,6 @@ class DatapointSubscriptionIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        for timeseries_id in item.get("timeSeriesIds", []):
-            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
-        for instance_id in item.get("instanceIds", []):
-            if isinstance(instance_id, dict) and "space" in instance_id and "externalId" in instance_id:
-                yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

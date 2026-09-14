@@ -70,8 +70,8 @@ indexes: {}
         dumped_no_local = crud.dump_resource(cdf_container)
         assert "usedFor" in dumped_no_local
 
-    def test_only_in_cdf_properties_listed(self, toolkit_client_cheap: ToolkitClient) -> None:
-        crud = ContainerCRUD.create_loader(toolkit_client_cheap)
+    def test_only_in_cdf_properties_listed(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
         item_id = ContainerId(space="my_space", external_id="MyContainer")
 
         local_dict = {"properties": {"name": {"type": {"type": "text"}}}}

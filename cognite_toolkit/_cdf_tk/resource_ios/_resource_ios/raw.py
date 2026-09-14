@@ -48,7 +48,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse, DatabaseYAML]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RAWDatabaseResponse
@@ -81,6 +81,10 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
         if isinstance(item, dict):
             return RawDatabaseId.model_validate(item)
         return RawDatabaseId(name=item.name)
+
+    @classmethod
+    def get_dependencies(cls, resource: DatabaseYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     @classmethod
     def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
@@ -148,7 +152,7 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
 
 
 @final
-class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse]):
+class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse, TableYAML]):
     item_name = "raw rows"
     folder_name = "raw"
     resource_cls = RAWTableResponse
@@ -203,11 +207,6 @@ class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResp
     @classmethod
     def dump_id(cls, id: RawTableId) -> dict[str, Any]:
         return {"dbName": id.db_name, "tableName": id.name}
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dbName" in item:
-            yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
 
     @classmethod
     def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

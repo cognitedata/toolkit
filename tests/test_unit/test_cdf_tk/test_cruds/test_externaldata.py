@@ -130,14 +130,6 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
         assert to_deploy_status(_YAML, loader) == {"create": 1, "change": 0, "delete": 1, "unchanged": 0}
 
-    def test_get_dependent_items_dataset(self) -> None:
-        deps = list(
-            ExternalDataSourceIO.get_dependent_items(
-                {"externalId": "fabric-lakehouse-prod", "dataSetExternalId": "my_dataset"}
-            )
-        )
-        assert deps == [(DataSetsIO, ExternalId(external_id="my_dataset"))]
-
     def test_get_dependencies_dataset(self) -> None:
         resource = ExternalDataSourceYAML.model_validate(
             {

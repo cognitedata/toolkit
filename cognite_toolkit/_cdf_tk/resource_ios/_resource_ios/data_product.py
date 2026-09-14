@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final
-class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductResponse]):
+class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductResponse, DataProductYAML]):
     folder_name = "data_products"
     resource_cls = DataProductResponse
     resource_write_cls = DataProductRequest
@@ -41,11 +41,6 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return {"externalId": id.external_id}
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "schemaSpace" in item:
-            yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
 
     @classmethod
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
