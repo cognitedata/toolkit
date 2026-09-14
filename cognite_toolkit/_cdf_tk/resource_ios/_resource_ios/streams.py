@@ -5,6 +5,7 @@ from typing import Any, Literal, final
 
 from pydantic import TypeAdapter
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
 )
+from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
@@ -71,6 +73,10 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse]):
             if "WRITE" in actions:
                 acl_actions.extend(["CREATE", "DELETE"])
             yield StreamsAcl(actions=acl_actions, scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: StreamYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

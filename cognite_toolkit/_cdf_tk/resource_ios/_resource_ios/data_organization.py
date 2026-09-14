@@ -82,6 +82,10 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse]):
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
+    @classmethod
+    def get_dependencies(cls, resource: DataSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetRequest:
         if resource.get("metadata"):
             for key, value in list(resource["metadata"].items()):
