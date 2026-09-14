@@ -5,6 +5,17 @@ from typing import Any, ClassVar
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerRequest,
+    ContainerResponse,
+    DataModelRequest,
+    DataModelResponse,
+    ViewCorePropertyRequest,
+    ViewRequest,
+    ViewRequestProperty,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.constants import URL
@@ -123,36 +134,37 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 if item_id not in local_by_id:
                     continue
                 resource, request = local_by_id[item_id]
-                local_dict = request.dump()
-                cdf_dict = crud.dump_resource(cdf_item, local_dict)
-                if cdf_dict == local_dict:
-                    continue
-                yield from self._as_data_modeling_insights(item_id, resource, local_dict, cdf_dict)
+                yield from self._as_data_modeling_insights(item_id, resource, request, cdf_item)
 
     def _as_data_modeling_insights(
         self,
         item_id: Identifier,
         resource: BuiltResource,
-        local_dict: dict[str, Any],
-        cdf_dict: dict[str, Any],
+        request: Any,
+        cdf_item: Any,
     ) -> Iterable[ConsistencyError]:
         if isinstance(item_id, ContainerId):
-            yield from self._container_insights(item_id, resource, local_dict, cdf_dict)
+            assert isinstance(request, ContainerRequest) and isinstance(cdf_item, ContainerResponse)
+            yield from self._container_insights(item_id, resource, request, cdf_item)
         elif isinstance(item_id, ViewId):
-            yield from self._view_insights(item_id, resource, local_dict, cdf_dict)
+            assert isinstance(request, ViewRequest) and isinstance(cdf_item, ViewResponse)
+            yield from self._view_insights(item_id, resource, request, cdf_item)
         elif isinstance(item_id, DataModelId):
-            yield from self._data_model_insights(item_id, resource, local_dict, cdf_dict)
+            assert isinstance(request, DataModelRequest) and isinstance(cdf_item, DataModelResponse)
+            yield from self._data_model_insights(item_id, resource, request, cdf_item)
 
     # A view's base (container-mapped) property may have its name, description, container and
     # containerPropertyIdentifier changed freely without a version bump; remapping a property to a new
     # container/identifier is how consumers are pointed at new data without forcing a version change.
     _VIEW_PROPERTY_METADATA_FIELDS: ClassVar[frozenset[str]] = frozenset({"name", "description"})
     _VIEW_BASE_PROPERTY_ALLOWED_FIELDS: ClassVar[frozenset[str]] = _VIEW_PROPERTY_METADATA_FIELDS | frozenset(
-        {"container", "containerPropertyIdentifier"}
+        {"container", "container_property_identifier"}
     )
 
     @staticmethod
-    def _is_disallowed_view_property_change(local_property: dict[str, Any], cdf_property: dict[str, Any]) -> bool:
+    def _is_disallowed_view_property_change(
+        local_property: ViewRequestProperty, cdf_property: ViewRequestProperty
+    ) -> bool:
         """Whether changing a view property from its currently deployed definition to the local definition
         is an operation CDF will not apply without bumping the view version.
 
@@ -161,18 +173,25 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         any other field (source, type, direction, through, or switching single/multi) is a breaking change
         per CDF's view update rules.
         """
+        if type(local_property) is not type(cdf_property):
+            return True
         allowed_fields = (
             DependencyRuleSet._VIEW_BASE_PROPERTY_ALLOWED_FIELDS
-            if "container" in local_property or "container" in cdf_property
+            if isinstance(local_property, ViewCorePropertyRequest)
             else DependencyRuleSet._VIEW_PROPERTY_METADATA_FIELDS
         )
         changed_fields = {
-            key for key in set(local_property) | set(cdf_property) if local_property.get(key) != cdf_property.get(key)
+            field_name
+            for field_name in type(local_property).model_fields
+            if field_name != "connection_type"
+            and getattr(local_property, field_name) != getattr(cdf_property, field_name)
         }
         return not changed_fields.issubset(allowed_fields)
 
     @staticmethod
-    def _is_disallowed_container_property_change(local_property: dict[str, Any], cdf_property: dict[str, Any]) -> bool:
+    def _is_disallowed_container_property_change(
+        local_property: ContainerPropertyDefinition, cdf_property: ContainerPropertyDefinition
+    ) -> bool:
         """Whether changing a container property from its currently deployed definition to the local
         definition is an operation CDF will reject.
 
@@ -180,12 +199,22 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         direct relations, the target container), and autoIncrement can never change. A property can go
         from nullable to non-nullable, but not the other way around. Everything else (name, description,
         defaultValue) is metadata and can always change.
+
+        Fields left unset locally (list, collation, ...) fall back to CDF's own defaults, so an omitted
+        field is never treated as a change: only fields the local YAML actually set are compared.
         """
-        if local_property.get("type") != cdf_property.get("type"):
+        local_type, cdf_type = local_property.type, cdf_property.type
+        if type(local_type) is not type(cdf_type) or any(
+            field_name != "type" and getattr(local_type, field_name) != getattr(cdf_type, field_name)
+            for field_name in local_type.model_fields_set
+        ):
             return True
-        if local_property.get("autoIncrement") != cdf_property.get("autoIncrement"):
+        if (
+            "auto_increment" in local_property.model_fields_set
+            and local_property.auto_increment != cdf_property.auto_increment
+        ):
             return True
-        if cdf_property.get("nullable") is False and local_property.get("nullable") is True:
+        if cdf_property.nullable is False and local_property.nullable is True:
             return True
         return False
 
@@ -193,12 +222,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         self,
         container_id: ContainerId,
         resource: BuiltResource,
-        local_dict: dict[str, Any],
-        cdf_dict: dict[str, Any],
+        local_request: ContainerRequest,
+        cdf_response: ContainerResponse,
     ) -> Iterable[ConsistencyError]:
         source_file = format_insight_source_file(resource.source_path)
-        local_properties = local_dict.get("properties") or {}
-        cdf_properties = cdf_dict.get("properties") or {}
+        local_properties = local_request.properties
+        cdf_properties = cdf_response.properties
 
         changed = sorted(
             name
@@ -220,7 +249,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ),
                 source_file=source_file,
             )
-        missing = sorted(set(cdf_dict.get("properties") or {}) - set(local_dict.get("properties") or {}))
+        missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
@@ -235,18 +264,21 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 source_file=source_file,
             )
 
-        if local_dict.get("usedFor") != cdf_dict.get("usedFor"):
+        # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is
+        # treated as an explicit "node" request rather than "no change requested".
+        local_used_for = local_request.used_for or "node"
+        if local_used_for != cdf_response.used_for:
             # usedFor cannot change once set; every other top-level container field (name, description)
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
-                    f"Local config for container {container_id} has modified usedFor ('{local_dict.get('usedFor')}') compared to the deployed "
-                    f"container in CDF ('{cdf_dict.get('usedFor')}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
+                    f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
+                    f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
                     f"local YAML config will not apply this change to the container in CDF."
                 ),
                 fix=(
-                    f"Revert usedFor back to '{cdf_dict.get('usedFor')}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
                 source_file=source_file,
             )
@@ -255,12 +287,13 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         self,
         view_id: ViewId,
         resource: BuiltResource,
-        local_dict: dict[str, Any],
-        cdf_dict: dict[str, Any],
+        local_request: ViewRequest,
+        cdf_response: ViewResponse,
     ) -> Iterable[ConsistencyError]:
         source_file = format_insight_source_file(resource.source_path)
-        local_properties = local_dict.get("properties") or {}
-        cdf_properties = cdf_dict.get("properties") or {}
+        cdf_as_request = cdf_response.as_request_resource()
+        local_properties = local_request.properties or {}
+        cdf_properties = cdf_as_request.properties or {}
 
         removed = sorted(set(cdf_properties) - set(local_properties))
         changed = sorted(
@@ -295,7 +328,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ),
                 source_file=source_file,
             )
-        if local_dict.get("implements") != cdf_dict.get("implements"):
+        if local_request.implements != cdf_as_request.implements:
             # implements can break clients relying on inherited properties, so it requires a version bump.
             # name, description and filter are metadata/query-only and can always change.
             yield ConsistencyError(
@@ -313,12 +346,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         self,
         data_model_id: DataModelId,
         resource: BuiltResource,
-        local_dict: dict[str, Any],
-        cdf_dict: dict[str, Any],
+        local_request: DataModelRequest,
+        cdf_response: DataModelResponse,
     ) -> Iterable[ConsistencyError]:
         source_file = format_insight_source_file(resource.source_path)
-        local_views = {ViewId._load(view) for view in local_dict.get("views") or []}
-        cdf_views = {ViewId._load(view) for view in cdf_dict.get("views") or []}
+        local_views = set(local_request.views or [])
+        cdf_views = set(cdf_response.views or [])
         local_version_by_view = {(view_id.space, view_id.external_id): view_id.version for view_id in local_views}
 
         removed: list[ViewId] = []

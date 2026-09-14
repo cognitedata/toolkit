@@ -10,8 +10,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerResponse,
     DataModelResponse,
+    Int32Property,
     TextProperty,
+    ViewCorePropertyRequest,
     ViewCorePropertyResponse,
+    ViewRequestProperty,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
@@ -34,17 +37,53 @@ class TestIsDisallowedContainerPropertyChange:
     @pytest.mark.parametrize(
         "local_property, cdf_property, expected",
         [
-            pytest.param({"nullable": True}, {"nullable": True}, False, id="no-change"),
-            pytest.param({"nullable": True}, {"nullable": False}, True, id="non-nullable-to-nullable-is-disallowed"),
-            pytest.param({"nullable": False}, {"nullable": True}, False, id="nullable-to-non-nullable-is-allowed"),
-            pytest.param({"type": {"type": "text"}}, {"type": {"type": "int32"}}, True, id="type-change-is-disallowed"),
             pytest.param(
-                {"autoIncrement": True}, {"autoIncrement": False}, True, id="auto-increment-change-is-disallowed"
+                ContainerPropertyDefinition(type=TextProperty(), nullable=True),
+                ContainerPropertyDefinition(type=TextProperty(), nullable=True),
+                False,
+                id="no-change",
             ),
-            pytest.param({"name": "a"}, {"name": "b"}, False, id="metadata-change-is-allowed"),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty(), nullable=True),
+                ContainerPropertyDefinition(type=TextProperty(), nullable=False),
+                True,
+                id="non-nullable-to-nullable-is-disallowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty(), nullable=False),
+                ContainerPropertyDefinition(type=TextProperty(), nullable=True),
+                False,
+                id="nullable-to-non-nullable-is-allowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty()),
+                ContainerPropertyDefinition(type=Int32Property()),
+                True,
+                id="type-change-is-disallowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty(), auto_increment=True),
+                ContainerPropertyDefinition(type=TextProperty(), auto_increment=False),
+                True,
+                id="auto-increment-change-is-disallowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty(), name="a"),
+                ContainerPropertyDefinition(type=TextProperty(), name="b"),
+                False,
+                id="metadata-change-is-allowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=TextProperty()),
+                ContainerPropertyDefinition(type=TextProperty(list=True, collation="en")),
+                False,
+                id="type-fields-left-unset-locally-are-not-flagged",
+            ),
         ],
     )
-    def test_is_disallowed(self, local_property: dict[str, Any], cdf_property: dict[str, Any], expected: bool) -> None:
+    def test_is_disallowed(
+        self, local_property: ContainerPropertyDefinition, cdf_property: ContainerPropertyDefinition, expected: bool
+    ) -> None:
         assert DependencyRuleSet._is_disallowed_container_property_change(local_property, cdf_property) is expected
 
 
@@ -53,34 +92,59 @@ class TestIsDisallowedViewPropertyChange:
         "local_property, cdf_property, expected",
         [
             pytest.param(
-                {"container": "c", "containerPropertyIdentifier": "name"},
-                {"container": "c", "containerPropertyIdentifier": "name"},
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name"),
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name"),
                 False,
                 id="no-change",
             ),
             pytest.param(
-                {"container": "c", "containerPropertyIdentifier": "name"},
-                {"container": "c", "containerPropertyIdentifier": "other"},
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name"),
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="other"),
                 False,
                 id="base-property-container-mapping-change-is-allowed",
             ),
             pytest.param(
-                {"container": "c", "name": "a"},
-                {"container": "c", "name": "b"},
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name", name="a"),
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name", name="b"),
                 False,
                 id="base-property-metadata-change-is-allowed",
             ),
-            pytest.param({"name": "a"}, {"name": "b"}, False, id="connection-property-metadata-change-is-allowed"),
             pytest.param(
-                {"direction": "outwards"},
-                {"direction": "inwards"},
+                SingleEdgeProperty(source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType"), name="a"),
+                SingleEdgeProperty(source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType"), name="b"),
+                False,
+                id="connection-property-metadata-change-is-allowed",
+            ),
+            pytest.param(
+                SingleEdgeProperty(
+                    source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType"), direction="outwards"
+                ),
+                SingleEdgeProperty(
+                    source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType"), direction="inwards"
+                ),
                 True,
                 id="connection-property-direction-change-is-disallowed",
             ),
-            pytest.param({"source": "a"}, {"source": "b"}, True, id="connection-property-source-change-is-disallowed"),
+            pytest.param(
+                SingleEdgeProperty(source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType")),
+                SingleEdgeProperty(
+                    source=ViewId(space="my_space", external_id="OtherView", version="v1"),
+                    type=NodeId(space="my_space", external_id="myEdgeType"),
+                ),
+                True,
+                id="connection-property-source-change-is-disallowed",
+            ),
+            pytest.param(
+                ViewCorePropertyRequest(container=CONTAINER_ID, container_property_identifier="name"),
+                SingleEdgeProperty(source=VIEW_ID, type=NodeId(space="my_space", external_id="myEdgeType")),
+                True,
+                id="property-kind-change-is-disallowed",
+            ),
         ],
     )
-    def test_is_disallowed(self, local_property: dict[str, Any], cdf_property: dict[str, Any], expected: bool) -> None:
+    def test_is_disallowed(
+        self, local_property: ViewRequestProperty, cdf_property: ViewRequestProperty, expected: bool
+    ) -> None:
         assert DependencyRuleSet._is_disallowed_view_property_change(local_property, cdf_property) is expected
 
 
