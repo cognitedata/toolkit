@@ -20,20 +20,11 @@ from .hashing import (
     calculate_hash,
     calculate_secure_hash,
 )
-from .module_resolver import ModuleResolver
-from .modules import (
-    find_directory_with_subdirectories,
-    iterate_modules,
-    module_from_path,
-    module_path_display_name,
-    resource_folder_from_path,
-)
 from .pip_validator import PipValidationResult, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
 
 __all__ = [
     "GraphQLParser",
-    "ModuleResolver",
     "PipValidationResult",
     "YAMLComment",
     "YAMLWithComments",
@@ -41,20 +32,15 @@ __all__ = [
     "calculate_hash",
     "calculate_secure_hash",
     "detect_coding_agent",
-    "find_directory_with_subdirectories",
     "flatten_dict",
     "get_cicd_environment",
     "get_invocation_info",
     "humanize_collection",
     "in_dict",
-    "iterate_modules",
     "load_yaml_inject_variables",
-    "module_from_path",
-    "module_path_display_name",
     "quote_int_value_by_key_in_yaml",
     "read_yaml_content",
     "read_yaml_file",
-    "resource_folder_from_path",
     "safe_read",
     "safe_read",
     "safe_write",

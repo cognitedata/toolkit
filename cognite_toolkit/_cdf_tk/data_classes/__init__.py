@@ -10,7 +10,6 @@ from ._deploy_results import (
     DeployResults,
     ResourceDeployResult,
 )
-from ._module_directories import ModuleDirectories, ModuleLocation
 from ._packages import Package, Packages
 from ._tracking_info import CommandTracking, DeploymentTracking, TrackingEvent
 from ._yaml_comments import YAMLComments
@@ -25,8 +24,6 @@ __all__ = [
     "DeploymentTracking",
     "Environment",
     "InitConfigYAML",
-    "ModuleDirectories",
-    "ModuleLocation",
     "Package",
     "Packages",
     "ResourceDeployResult",

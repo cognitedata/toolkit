@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -583,7 +583,7 @@ class TestDeployResourcesValidationError:
 
         with respx.mock() as mock_router:
             mock_router.post(spaces_url).mock(
-                return_value=httpx.Response(
+                return_value=httpx2.Response(
                     status_code=200,
                     # Missing space
                     json={"items": [{"createdTime": 0, "lastUpdatedTime": 1, "isGlobal": False}]},

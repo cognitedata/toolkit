@@ -8,13 +8,13 @@ import typer
 from questionary import Choice
 from rich import print
 
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 # Scaffold variants keyed by CRUD kind (casefold). Each entry is a list of
 # ScaffoldDef variants the user can choose from after the YAML is created.
@@ -246,17 +246,19 @@ class ResourcesCommand(ToolkitCommand):
             prefix: The prefix for the resource file.
             verbose: Whether to print verbose output.
         """
-        module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name, verbose)
+        module_source = BuildV2Command.select_module(
+            organization_dir, module_name, operation="create into", allow_creation=True
+        )
 
         for crud in self._resolve_kinds(kind):
             variants = _ALL_SCAFFOLDS.get(crud.kind.casefold())
             scaffold = self._pick_scaffold(variants) if variants else None
             external_id = self._create_resource_yaml_file(
                 crud,
-                module_path,
+                module_source.path,
                 prefix,
                 verbose,
                 prompt_external_id=scaffold is not None,
             )
             if scaffold:
-                scaffold.run(module_path, external_id, self)
+                scaffold.run(module_source.path, external_id, self)

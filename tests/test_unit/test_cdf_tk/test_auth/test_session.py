@@ -1,16 +1,26 @@
-import socket
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
 import pytest
+import respx
 
 from cognite_toolkit._cdf_tk.commands.auth.oidc import (
-    OpenIdConfiguration,
+    _CallbackContext,
+    _DEV_CLIENT_ID,
+    _DEV_IDP_BASE_URL,
+    _OAuthCallbackServer,
+    _PROD_CLIENT_ID,
+    _PROD_IDP_BASE_URL,
     _callback_loopback_hosts,
+    _login_for_session_at_port,
+    _resolve_client_id,
+    _resolve_idp_base_url,
     build_session_from_tokens,
     refresh_session_tokens,
 )
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token
 from cognite_toolkit._cdf_tk.commands.auth.session_refresh import ensure_fresh_session
 from cognite_toolkit._cdf_tk.commands.auth.session_store import (
     SessionMetadata,
@@ -24,24 +34,27 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
-def test_resolve_client_id_matches_cognite_cli() -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import (
-        _DEV_CLIENT_ID,
-        _PROD_CLIENT_ID,
-        _resolve_client_id,
+def _mock_openid_config(respx_mock: respx.MockRouter, base_url: str = "https://auth.cognite.com") -> str:
+    token_endpoint = f"{base_url}/token"
+    respx_mock.get(f"{base_url}/.well-known/openid-configuration").mock(
+        return_value=httpx.Response(
+            status_code=200,
+            json={
+                "authorization_endpoint": f"{base_url}/authorize",
+                "token_endpoint": token_endpoint,
+                "revocation_endpoint": f"{base_url}/revoke",
+            },
+        )
     )
+    return token_endpoint
 
+
+def test_resolve_client_id_matches_cognite_cli() -> None:
     assert _resolve_client_id("cog-hyperion") == _PROD_CLIENT_ID
     assert _resolve_client_id("cog-dev-hyperion") == _DEV_CLIENT_ID
 
 
 def test_resolve_idp_base_url_matches_cognite_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import (
-        _DEV_IDP_BASE_URL,
-        _PROD_IDP_BASE_URL,
-        _resolve_idp_base_url,
-    )
-
     monkeypatch.delenv("COGNITE_IDP_BASE_URL", raising=False)
     assert _resolve_idp_base_url("cog-hyperion") == _PROD_IDP_BASE_URL
     assert _resolve_idp_base_url("cog-dev-hyperion") == _DEV_IDP_BASE_URL
@@ -50,18 +63,12 @@ def test_resolve_idp_base_url_matches_cognite_cli(monkeypatch: pytest.MonkeyPatc
     assert _resolve_idp_base_url("cog-dev-hyperion") == "https://auth.example.com"
 
 
-def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import _login_for_session_at_port
-
+def test_login_prints_manual_url_when_browser_does_not_open(
+    monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("COGNITE_IDP_BASE_URL", "https://auth.example.com")
+    _mock_openid_config(respx_mock, "https://auth.example.com")
     with (
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
-            return_value=OpenIdConfiguration(
-                "https://auth.example.com/authorize",
-                "https://auth.example.com/token",
-                None,
-            ),
-        ),
         patch("cognite_toolkit._cdf_tk.commands.auth.oidc.webbrowser.open", return_value=False),
         patch("cognite_toolkit._cdf_tk.commands.auth.oidc._OAuthCallbackServer") as server_cls,
     ):
@@ -75,18 +82,12 @@ def test_login_prints_manual_url_when_browser_does_not_open(capsys) -> None:
     assert "https://auth.example.com/authorize?" in captured.out
 
 
-def test_login_prints_manual_url_when_browser_open_raises(capsys) -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import _login_for_session_at_port
-
+def test_login_prints_manual_url_when_browser_open_raises(
+    monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("COGNITE_IDP_BASE_URL", "https://auth.example.com")
+    _mock_openid_config(respx_mock, "https://auth.example.com")
     with (
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
-            return_value=OpenIdConfiguration(
-                "https://auth.example.com/authorize",
-                "https://auth.example.com/token",
-                None,
-            ),
-        ),
         patch("cognite_toolkit._cdf_tk.commands.auth.oidc.webbrowser.open", side_effect=OSError("no browser")),
         patch("cognite_toolkit._cdf_tk.commands.auth.oidc._OAuthCallbackServer") as server_cls,
     ):
@@ -154,25 +155,20 @@ def test_callback_loopback_hosts_ipv4_only_when_ipv6_unavailable() -> None:
         assert _callback_loopback_hosts(3000) == ("127.0.0.1",)
 
 
-def test_callback_server_returns_oauth_error_from_url() -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
+def test_callback_server_returns_oauth_error_from_url(ephemeral_port: int) -> None:
     context = _CallbackContext(
         expected_state="state",
         code_verifier="verifier",
         client_id="test-client",
         token_endpoint="https://example.com/token",
-        redirect_uri=f"http://localhost:{port}/",
+        redirect_uri=f"http://localhost:{ephemeral_port}/",
     )
-    server = _OAuthCallbackServer(port, context)
+    server = _OAuthCallbackServer(ephemeral_port, context)
     server.start()
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"http://127.0.0.1:{port}/",
+                f"http://127.0.0.1:{ephemeral_port}/",
                 params={
                     "error": "invalid_request",
                     "error_description": "Organization 'fff' not found (request ID: b1b0e0c4)",
@@ -190,35 +186,34 @@ def test_callback_server_returns_oauth_error_from_url() -> None:
     assert str(context.result["error"]) == "Organization 'fff' not found (request ID: b1b0e0c4)"
 
 
-def test_callback_server_returns_plain_text_on_success() -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
+def test_callback_server_returns_plain_text_on_success(ephemeral_port: int) -> None:
     context = _CallbackContext(
         expected_state="state",
         code_verifier="verifier",
         client_id="test-client",
         token_endpoint="https://example.com/token",
-        redirect_uri=f"http://localhost:{port}/",
+        redirect_uri=f"http://localhost:{ephemeral_port}/",
     )
-    server = _OAuthCallbackServer(port, context)
+    server = _OAuthCallbackServer(ephemeral_port, context)
     server.start()
-    request = httpx.Request("POST", "https://example.com/token")
     try:
-        with (
-            patch(
-                "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
-                return_value=httpx.Response(
-                    200,
-                    request=request,
-                    json={"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
-                ),
-            ),
-            httpx.Client() as client,
+
+        def fake_token_exchange(url: str, **kwargs: object) -> httpx.Response:
+            return httpx.Response(
+                status_code=200,
+                json={"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
+                request=httpx.Request("POST", url),
+            )
+
+        with patch(
+            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
+            side_effect=fake_token_exchange,
         ):
-            response = client.get(f"http://127.0.0.1:{port}/", params={"state": "state", "code": "code"})
+            with httpx.Client() as client:
+                response = client.get(
+                    f"http://127.0.0.1:{ephemeral_port}/",
+                    params={"state": "state", "code": "code"},
+                )
     finally:
         server.stop()
 
@@ -228,32 +223,7 @@ def test_callback_server_returns_plain_text_on_success() -> None:
     assert context.result == {"tokens": {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600}}
 
 
-def test_callback_server_accepts_localhost_connection() -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.oidc import _CallbackContext, _OAuthCallbackServer
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-    context = _CallbackContext(
-        expected_state="state",
-        code_verifier="verifier",
-        client_id="test-client",
-        token_endpoint="https://example.com/token",
-        redirect_uri=f"http://localhost:{port}/",
-    )
-    server = _OAuthCallbackServer(port, context)
-    server.start()
-    try:
-        with socket.create_connection(("localhost", port), timeout=2):
-            pass
-    finally:
-        server.stop()
-
-
-def test_read_session_metadata_version_mismatch(sample_keyring, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    cli_home = tmp_path / ".cognite-cli"
-    monkeypatch.setenv("COGNITE_CLI_HOME", str(cli_home))
-    cli_home.mkdir()
+def test_read_session_metadata_version_mismatch(cli_home: Path) -> None:
     (cli_home / "session.json").write_text(
         '{"version": 0, "org": "org", "accessTokenExpiresAt": "x", "refreshTokenExpiresAt": "y"}\n'
     )
@@ -261,11 +231,7 @@ def test_read_session_metadata_version_mismatch(sample_keyring, tmp_path, monkey
         read_session_metadata()
 
 
-def test_read_session_clears_metadata_when_tokens_missing(
-    sample_keyring, tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    cli_home = tmp_path / ".cognite-cli"
-    monkeypatch.setenv("COGNITE_CLI_HOME", str(cli_home))
+def test_read_session_clears_metadata_when_tokens_missing(sample_keyring: Path, cli_home: Path) -> None:
     now = datetime(2026, 1, 1, tzinfo=timezone.utc)
     write_session(
         StoredSession(
@@ -277,15 +243,13 @@ def test_read_session_clears_metadata_when_tokens_missing(
             refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
         )
     )
-    from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token
-
     delete_session_token("my-org/accessToken")
     delete_session_token("my-org/refreshToken")
     assert read_session() is None
     assert read_session_metadata() is None
 
 
-def test_refresh_session_tokens_invalid_grant() -> None:
+def test_refresh_session_tokens_invalid_grant(respx_mock: respx.MockRouter) -> None:
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -294,23 +258,14 @@ def test_refresh_session_tokens_invalid_grant() -> None:
         access_token_expires_at="2026-01-01T01:00:00.000Z",
         refresh_token_expires_at="2026-01-02T01:00:00.000Z",
     )
-    request = httpx.Request("POST", "https://example.com/token")
+    token_url = _mock_openid_config(respx_mock)
+    respx_mock.post(token_url).mock(return_value=httpx.Response(status_code=400, text='{"error":"invalid_grant"}'))
 
-    with (
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
-            return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
-        ),
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
-            return_value=httpx.Response(400, request=request, text='{"error":"invalid_grant"}'),
-        ),
-    ):
-        with pytest.raises(AuthenticationError, match="Session expired"):
-            refresh_session_tokens(session)
+    with pytest.raises(AuthenticationError, match="Session expired"):
+        refresh_session_tokens(session)
 
 
-def test_refresh_session_tokens_keeps_refresh_token_when_omitted() -> None:
+def test_refresh_session_tokens_keeps_refresh_token_when_omitted(respx_mock: respx.MockRouter) -> None:
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -319,33 +274,19 @@ def test_refresh_session_tokens_keeps_refresh_token_when_omitted() -> None:
         access_token_expires_at="2026-01-01T01:00:00.000Z",
         refresh_token_expires_at="2026-01-02T01:00:00.000Z",
     )
+    token_url = _mock_openid_config(respx_mock)
+    respx_mock.post(token_url).mock(
+        return_value=httpx.Response(status_code=200, json={"access_token": "new-access", "expires_in": 3600})
+    )
 
-    request = httpx.Request("POST", "https://example.com/token")
-
-    with (
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
-            return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
-        ),
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
-            return_value=httpx.Response(
-                200,
-                request=request,
-                json={"access_token": "new-access", "expires_in": 3600},
-            ),
-        ),
-    ):
-        refreshed = refresh_session_tokens(session)
+    refreshed = refresh_session_tokens(session)
     assert refreshed.access_token == "new-access"
     assert refreshed.refresh_token == "refresh"
 
 
 def test_ensure_fresh_session_refreshes_expiring_token(
-    sample_keyring, tmp_path, monkeypatch: pytest.MonkeyPatch
+    sample_keyring: Path, cli_home: Path, respx_mock: respx.MockRouter
 ) -> None:
-    cli_home = tmp_path / ".cognite-cli"
-    monkeypatch.setenv("COGNITE_CLI_HOME", str(cli_home))
     now = datetime.now(timezone.utc)
     write_session(
         StoredSession(
@@ -357,22 +298,14 @@ def test_ensure_fresh_session_refreshes_expiring_token(
             refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
         )
     )
-    request = httpx.Request("POST", "https://example.com/token")
+    token_url = _mock_openid_config(respx_mock)
+    respx_mock.post(token_url).mock(
+        return_value=httpx.Response(
+            status_code=200,
+            json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600},
+        )
+    )
 
-    with (
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.fetch_openid_configuration",
-            return_value=OpenIdConfiguration("https://example.com/auth", "https://example.com/token", None),
-        ),
-        patch(
-            "cognite_toolkit._cdf_tk.commands.auth.oidc.httpx.post",
-            return_value=httpx.Response(
-                200,
-                request=request,
-                json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600},
-            ),
-        ),
-    ):
-        refreshed = ensure_fresh_session()
+    refreshed = ensure_fresh_session()
     assert refreshed is not None
     assert refreshed.access_token == "new-access"

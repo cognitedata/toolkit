@@ -304,6 +304,7 @@ class TestMigrateInfield:
 
         MigrateApp.infield_data(
             ctx=MagicMock(),
+            cdf_project=toolkit_client.config.project,
             source_space=source_space.space,
             target_space=target_space.space,
             log_dir=tmp_path,

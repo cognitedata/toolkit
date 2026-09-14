@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx
+import httpx2 as httpx
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from rich import print
 

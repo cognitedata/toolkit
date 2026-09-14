@@ -14,15 +14,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     flatten_dict,
-    iterate_modules,
     load_yaml_inject_variables,
-    module_from_path,
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
-from tests.data import CALC_HASH_DATA, PROJECT_FOR_TEST
+from tests.data import CALC_HASH_DATA
 
 
 class TestLoadYamlInjectVariables:
@@ -149,40 +146,6 @@ def auth_variables_validate_test_cases():
         },
         id="Happy path Client credentials login",
     )
-
-
-class TestModuleFromPath:
-    @pytest.mark.parametrize(
-        "path, expected",
-        [
-            pytest.param(Path("cognite_modules/a_module/data_models/my_model.datamodel.yaml"), "a_module"),
-            pytest.param(Path("cognite_modules/another_module/data_models/views/my_view.view.yaml"), "another_module"),
-            pytest.param(
-                Path("cognite_modules/parent_module/child_module/data_models/containers/my_container.container.yaml"),
-                "child_module",
-            ),
-            pytest.param(
-                Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
-            ),
-            pytest.param(Path("custom_modules/child_module/functions/functions.yaml"), "child_module"),
-            pytest.param(Path("custom_modules/parent_module/child_module/functions/functions.yaml"), "child_module"),
-        ],
-    )
-    def test_module_from_path(self, path: Path, expected: str):
-        assert module_from_path(path) == expected
-
-
-class TestIterateModules:
-    def test_modules_project_for_tests(self):
-        expected_modules = {
-            PROJECT_FOR_TEST / "modules" / "a_module",
-            PROJECT_FOR_TEST / "modules" / "another_module",
-            PROJECT_FOR_TEST / "modules" / "parent_module" / "child_module",
-        }
-
-        actual_modules = {module for module, _ in iterate_modules(PROJECT_FOR_TEST)}
-
-        assert actual_modules == expected_modules
 
 
 @pytest.mark.parametrize(
@@ -349,16 +312,3 @@ class TestQuoteKeyInYAML:
         actual = stringify_value_by_key_in_yaml(raw, key="config")
         assert actual == expected
         assert yaml.safe_load(actual) == yaml.safe_load(expected)
-
-
-class TestModules:
-    @pytest.mark.parametrize(
-        "path, expected",
-        [
-            (Path("cdf_common/data_sets/demo.DataSet.yaml"), Path("cdf_common")),
-            (Path("cdf_common/functions/contextualization_connection_writer"), Path("cdf_common")),
-            (Path("sourcesystem/cdf_pi/auth/workflow.Group.yaml"), Path("sourcesystem/cdf_pi")),
-        ],
-    )
-    def test_valid_module_directory_from_path(self, path: Path, expected: Path) -> None:
-        assert module_directory_from_path(path) == expected

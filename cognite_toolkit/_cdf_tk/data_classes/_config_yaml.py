@@ -28,10 +28,10 @@ from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
     flatten_dict,
+    humanize_collection,
     read_yaml_content,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 
 from ._base import ConfigCore
 
@@ -54,7 +54,9 @@ class Environment:
         return self.validation_type.casefold() != "dev"
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_name: str) -> "Environment":
+    def load(cls, data: dict[str, Any], build_name: str, organization_dir: Path) -> "Environment":
+        from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+
         _deprecation_selected(data)
         if "name" not in data:
             data["name"] = build_name
@@ -63,11 +65,22 @@ class Environment:
             raise ToolkitEnvError(
                 f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML.get_filename(build_name)!s}"
             )
+        user_selected = data.get("selected")
+        if not isinstance(user_selected, list):
+            raise ToolkitEnvError(
+                f"Environment section 'selected' field must be a list in {BuildConfigYAML.get_filename(build_name)!s}"
+            )
+        selected, errors = BuildV2Command.parse_user_selection([str(v) for v in user_selected], organization_dir)
+        if errors:
+            raise ToolkitEnvError(
+                f"Environment section 'selected' field has invalid values: {humanize_collection(errors)} in {BuildConfigYAML.get_filename(build_name)!s}"
+            )
+
         return Environment(
             name=build_name,
             project=data["project"],
             validation_type=data["validation-type"],
-            selected=parse_user_selected_modules(data.get("selected")),
+            selected=list(selected),
         )
 
     def dump(self) -> dict[str, Any]:
@@ -107,7 +120,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         if "environment" not in data:
             err_msg = f"Expected 'environment' section in {filepath!s}."
             raise ToolkitEnvError(err_msg)
-        environment = Environment.load(data["environment"], build_env_name)
+        environment = Environment.load(data["environment"], build_env_name, filepath.parent)
 
         if "modules" in data and "variables" not in data:
             err_msg = (
@@ -335,7 +348,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self
 
     @classmethod
-    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> Self:
+    def load_existing(cls, existing_config_yaml: str, organization_dir: Path, build_env_name: str = "dev") -> Self:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
@@ -352,7 +365,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         comments = cls._extract_comments(raw_file)
         config = cast(dict, read_yaml_content(raw_file))
         if cls._environment in config:
-            environment = Environment.load(config[cls._environment], build_env_name)
+            environment = Environment.load(config[cls._environment], build_env_name, organization_dir)
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
@@ -532,18 +545,12 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         super().__init__(entries or {})
 
     @classmethod
-    def load_default_environments(cls, default: dict[str, Any]) -> Self:
-        instance = cls()
-        for environment_name, environment_config in default.items():
-            environment = Environment.load(environment_config, environment_name)
-            instance[environment.name] = InitConfigYAML(environment)
-        return instance
-
-    @classmethod
     def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> Self:
         instance = cls()
         for config_yaml in existing_config_yamls:
-            config = InitConfigYAML.load_existing(safe_read(config_yaml), config_yaml.name.split(".")[0])
+            config = InitConfigYAML.load_existing(
+                safe_read(config_yaml), config_yaml.parent, config_yaml.name.split(".")[0]
+            )
             instance[config.environment.name] = config
         return instance
 

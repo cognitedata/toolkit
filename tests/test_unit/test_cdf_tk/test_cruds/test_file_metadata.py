@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -71,10 +71,10 @@ class TestLoadResources:
         yaml_content: str,
         files: list[str],
         expected: list[FileMetadataRequest],
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_with_lookup: ToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        fileio = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
+        fileio = FileMetadataCRUD(toolkit_client_with_lookup, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
@@ -91,7 +91,7 @@ class TestLoadResources:
         return path
 
     def test_dump_file_metadata_without_dataset(
-        self, monkeypatch: MonkeyPatch, toolkit_client_approval: ApprovalToolkitClient
+        self, monkeypatch: MonkeyPatch, toolkit_client_cheap: ToolkitClient
     ) -> None:
         metadata = FileMetadataResponse(
             external_id="my_file",
@@ -102,7 +102,7 @@ class TestLoadResources:
             last_updated_time=0,
             uploaded=True,
         )
-        loader = FileMetadataCRUD.create_loader(toolkit_client_approval.mock_client)
+        loader = FileMetadataCRUD.create_loader(toolkit_client_cheap)
 
         dumped = loader.dump_resource(metadata)
 

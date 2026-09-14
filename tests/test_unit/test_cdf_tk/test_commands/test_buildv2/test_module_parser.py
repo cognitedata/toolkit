@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
+from tests.data import PROJECT_FOR_TEST
 
 
 class TestModuleSourceParser:
@@ -79,7 +82,7 @@ class TestModuleSourceParser:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.touch()
 
-        found_modules, orphans = ModuleParser.find_modules([Path(yaml_file) for yaml_file in yaml_files], org)
+        found_modules, orphans = ModuleParser.find_modules(org, [Path(yaml_file) for yaml_file in yaml_files])
         actual_modules = {
             module.as_posix(): {
                 resource_folder: [file.relative_to(org).as_posix() for file in files]
@@ -267,7 +270,7 @@ class TestGetModulePathFromResourceFilePath:
         expected_module_path: Path | None,
         expected_resource_folder: str | None,
     ) -> None:
-        module_path, resource_folder = ModuleParser._get_module_path_from_resource_file_path(resource_file)
+        module_path, resource_folder = ModuleParser.get_module_path_from_resource_file_path(resource_file)
         assert module_path == expected_module_path
         assert resource_folder == expected_resource_folder
 
@@ -546,3 +549,29 @@ class TestAsModuleVariables:
         actual: dict[int | None, list[BuildVariable]],
     ) -> None:
         assert ModuleParser._as_module_variables(variables, module) == actual
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            Path("modules") / "a_module",
+            Path("modules") / "another_module",
+            Path("modules") / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in ModuleParser.find_modules(PROJECT_FOR_TEST)[0].items()}
+
+        assert actual_modules == expected_modules
+
+
+class TestModules:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            (Path("cdf_common/data_sets/demo.DataSet.yaml"), Path("cdf_common")),
+            (Path("cdf_common/functions/contextualization_connection_writer"), Path("cdf_common")),
+            (Path("sourcesystem/cdf_pi/auth/workflow.Group.yaml"), Path("sourcesystem/cdf_pi")),
+        ],
+    )
+    def test_valid_module_directory_from_path(self, path: Path, expected: Path) -> None:
+        assert ModuleParser.get_module_path_from_resource_file_path(path)[0] == expected

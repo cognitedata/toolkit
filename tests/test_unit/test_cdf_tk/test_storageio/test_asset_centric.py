@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 import respx
 from cognite.client.data_classes import (
@@ -276,12 +276,12 @@ class TestAssetCentricIO:
             resource.external_id: resource for resource in resources if resource.external_id is not None
         }
 
-        def create_callback(request: httpx.Request) -> httpx.Response:
+        def create_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
-            return httpx.Response(
+            return httpx2.Response(
                 status_code=200,
                 json={
                     "items": [
@@ -320,14 +320,14 @@ class TestAssetIO:
         monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
         monkeypatch.setenv("CDF_PROJECT", config.project)
 
-        def asset_create_callback(request: httpx.Request) -> httpx.Response:
+        def asset_create_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
             assert len(items) == len(some_asset_data)
             assert {item["externalId"] for item in items} == {asset.external_id for asset in some_asset_data}
-            return httpx.Response(status_code=200, json={"items": [asset.dump() for asset in some_asset_data]})
+            return httpx2.Response(status_code=200, json={"items": [asset.dump() for asset in some_asset_data]})
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 

@@ -860,7 +860,6 @@ dataModelingType: DATA_MODELING_ONLY
 
 
 def test_build_project_with_only_identifiers(
-    toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     """In the cdf modules pull command, we have to be able to build a project that only has identifiers
@@ -1020,7 +1019,6 @@ runtimeVersion: "1.3.0"
 
 def test_warning_missing_dependency(
     default_config_dev_yaml: str,
-    toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
     tmp_path: Path,
 ) -> None:

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 import pytest
 import respx
-from httpx import Response
+from httpx2 import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId, NodeId

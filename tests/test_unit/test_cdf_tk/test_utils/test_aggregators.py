@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.mark import ParameterSet
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     EventAggregator,
@@ -14,7 +15,6 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import label_count, metadata_key_counts
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -104,9 +104,9 @@ class TestAggregators:
         data_sets: str | list[str] | None,
         hierarchy_ids: list[int] | None,
         data_set_ids: list[int] | None,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_with_lookup: ToolkitClient,
     ) -> None:
-        aggregator = AssetAggregator(toolkit_client_approval.mock_client)
+        aggregator = AssetAggregator(toolkit_client_with_lookup)
 
         metadata_key_counts_mock = MagicMock(spec=metadata_key_counts)
         metadata_key_counts_mock.return_value = [("key1", 10), ("key2", 5), ("key3", 15)]
@@ -116,7 +116,7 @@ class TestAggregators:
 
         assert result == 3
         metadata_key_counts_mock.assert_called_once_with(
-            toolkit_client_approval.mock_client, "assets", hierarchies=hierarchy_ids, data_sets=data_set_ids
+            toolkit_client_with_lookup, "assets", hierarchies=hierarchy_ids, data_sets=data_set_ids
         )
 
     @pytest.mark.parametrize("hierarchy, data_sets, hierarchy_ids, data_set_ids", hierarchy_dataset_combinations)
@@ -126,9 +126,9 @@ class TestAggregators:
         data_sets: str | list[str] | None,
         hierarchy_ids: list[int] | None,
         data_set_ids: list[int] | None,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_with_lookup: ToolkitClient,
     ) -> None:
-        aggregator = AssetAggregator(toolkit_client_approval.mock_client)
+        aggregator = AssetAggregator(toolkit_client_with_lookup)
 
         label_count_mock = MagicMock(spec=label_count)
         label_count_mock.return_value = [("label1", 42), ("label2", 10)]
@@ -138,5 +138,5 @@ class TestAggregators:
 
         assert result == 2
         label_count_mock.assert_called_once_with(
-            toolkit_client_approval.mock_client, "assets", hierarchies=hierarchy_ids, data_sets=data_set_ids
+            toolkit_client_with_lookup, "assets", hierarchies=hierarchy_ids, data_sets=data_set_ids
         )

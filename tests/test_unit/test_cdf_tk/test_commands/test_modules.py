@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -11,13 +12,14 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import ModuleLocation, Package, Packages
+from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
@@ -69,7 +71,7 @@ class TestModulesCommand:
         )
 
         assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "my_example_module").exists()
+        assert Path(target_path / MODULES / "my_example_module").exists()
 
     def test_modules_command_with_env(
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
@@ -345,8 +347,6 @@ class TestModulesCommand:
         The test creates a mock module structure with the required resource directories
         (like 'data_models') that the module discovery logic recognizes.
         """
-        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
-
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Create a mock module structure in the temp download directory
@@ -364,20 +364,19 @@ class TestModulesCommand:
         sample_file.write_text("test content")
 
         # Now test that iterate_modules can find this module
-        modules_found = list(iterate_modules(cmd._temp_download_dir))
+        modules_found, _ = ModuleParser.find_modules(cmd._temp_download_dir)
 
         # Should find at least one module
         assert len(modules_found) > 0, f"Expected to find modules in {cmd._temp_download_dir}"
 
         # Verify the module structure
-        module_dir, files = modules_found[0]
-        assert module_dir == mock_module_dir
-        assert len(files) > 0
-        assert any(file.name == "sample.yaml" for file in files)
+        module_dir = modules_found[Path("test_module")]
+        assert module_dir.path == mock_module_dir
+        assert len(module_dir.resource_files_by_folder) > 0
+        assert "data_models" in module_dir.resource_files_by_folder
+        assert any(file.name == "sample.yaml" for file in module_dir.resource_files_by_folder["data_models"])
 
         # Clean up
-        import shutil
-
         shutil.rmtree(mock_module_dir)
 
     def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
@@ -449,17 +448,23 @@ class TestModulesCommand:
 
         assert captured == {"organization_dir": tmp_path, "config_yaml": config_yaml}
 
+    @staticmethod
+    def _module_directory(base: Path, *parts: str) -> ModuleDirectory:
+        path = base.joinpath(*parts)
+        path.mkdir(parents=True, exist_ok=True)
+        return ModuleDirectory(id=Path(*parts), path=path)
+
     @pytest.fixture
     def lookup_packages(self, tmp_path: Path) -> Packages:
         """Minimal Packages fixture for _find_and_select_module tests."""
         base = tmp_path
-        mod_a = ModuleLocation(dir=base / "mod_a", source_absolute_path=base, source_paths=[])
-        mod_b = ModuleLocation(dir=base / "mod_b", source_absolute_path=base, source_paths=[])
-        mod_locked = ModuleLocation(dir=base / "mod_locked", source_absolute_path=base, source_paths=[])
-        mod_only_fixed = ModuleLocation(dir=base / "mod_only_fixed", source_absolute_path=base, source_paths=[])
+        mod_a = self._module_directory(base, "mod_a")
+        mod_b = self._module_directory(base, "mod_b")
+        mod_locked = self._module_directory(base, "mod_locked")
+        mod_only_fixed = self._module_directory(base, "mod_only_fixed")
         # A second cherry-pickable package that also contains a module named "mod_b" (collision)
-        mod_b_alt = ModuleLocation(dir=base / "alt" / "mod_b", source_absolute_path=base, source_paths=[])
-        mod_c = ModuleLocation(dir=base / "mod_c", source_absolute_path=base, source_paths=[])
+        mod_b_alt = self._module_directory(base, "alt", "mod_b")
+        mod_c = self._module_directory(base, "mod_c")
         return Packages(
             {
                 "cherry_pkg": Package(

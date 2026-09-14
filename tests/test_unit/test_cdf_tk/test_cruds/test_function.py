@@ -36,11 +36,11 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestFunctionLoader:
-    def test_load_functions(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+    def test_load_functions(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
+        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), LOAD_DATA)
 
         raw_list = loader.load_resource_file(
-            LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client.dump()
+            LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client_cheap.dump()
         )
 
         assert len(raw_list) == 2
@@ -246,8 +246,8 @@ secrets:
 
         assert dumped["runtime"] == "py311"
 
-    def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
+    def test_get_function_required_capabilities(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
+        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
 
         # Mock data
@@ -275,13 +275,15 @@ secrets:
         assert isinstance(write_capabilities[1].scope, FilesAcl.Scope.DataSet)
         assert sorted(write_capabilities[1].scope.ids) == [123, 456]
 
-    def test_get_function_required_capabilities_empty(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
+    def test_get_function_required_capabilities_empty(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
+        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
         capabilities = loader.get_function_required_capabilities([], read_only=False)
         assert capabilities == []
 
-    def test_get_function_required_capabilities_no_datasets(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), None)
+    def test_get_function_required_capabilities_no_datasets(
+        self, env_vars_with_client_cheap: EnvironmentVariables
+    ) -> None:
+        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
         items = [
             FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
             FunctionWrite(external_id="function2", name="Function 2", file_id=1002),

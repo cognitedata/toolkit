@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-import httpx
+import httpx2
 from pydantic import BaseModel, JsonValue
 from rich import print
 
@@ -172,9 +172,9 @@ def _notify_slack(messages: list[SlackMessage], context: Context) -> None:
     for message in messages:
         if context.send_messages:
             try:
-                response = httpx.post(context.slack_webhook_url, content=message.model_dump_json())
+                response = httpx2.post(context.slack_webhook_url, content=message.model_dump_json())
                 response.raise_for_status()
-            except httpx.HTTPError as e:
+            except httpx2.HTTPError as e:
                 print(f"[red]Failed to send message to Slack: {e}[/red]")
         else:
             print(f"[yellow]Dry run: would send message to Slack:[/yellow] {message.model_dump_json()}")

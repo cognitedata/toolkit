@@ -1,3 +1,4 @@
+import keyring
 from pathlib import Path
 
 import pytest
@@ -7,13 +8,7 @@ from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (
     read_session_token,
     store_session_token,
 )
-from cognite_toolkit._cdf_tk.commands.auth.session_store import (
-    StoredSession,
-    clear_session,
-    read_session,
-    write_session,
-)
-from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_KEYRING_SERVICE
 
 
 def test_session_token_roundtrip(sample_keyring: Path) -> None:
@@ -29,24 +24,9 @@ def test_session_token_chunking(monkeypatch: pytest.MonkeyPatch, sample_keyring:
         lambda: 10,
     )
     token = "abcdefghijklmnopqrstuvwxyz"
-    store_session_token("my-org/refreshToken", token)
-    assert read_session_token("my-org/refreshToken") == token
+    account = "my-org/refreshToken"
+    store_session_token(account, token)
 
-
-def test_write_and_read_session(sample_keyring: Path, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    cli_home = tmp_path / ".cognite-cli"
-    monkeypatch.setenv("COGNITE_CLI_HOME", str(cli_home))
-
-    session = StoredSession(
-        version=COGNITE_CLI_SESSION_VERSION,
-        org="my-org",
-        access_token="access",
-        refresh_token="refresh",
-        access_token_expires_at="2026-01-01T01:00:00+00:00",
-        refresh_token_expires_at="2026-01-02T01:00:00+00:00",
-    )
-    write_session(session)
-    loaded = read_session()
-    assert loaded == session
-    clear_session()
-    assert read_session() is None
+    assert read_session_token(account) == token
+    assert keyring.get_password(COGNITE_CLI_KEYRING_SERVICE, account) == "cognite-session/chunks=3"
+    assert keyring.get_password(COGNITE_CLI_KEYRING_SERVICE, f"{account}/chunk/0") == "abcdefghij"

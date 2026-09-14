@@ -1,7 +1,12 @@
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.auth import parse_login_flow_input
-from cognite_toolkit._cdf_tk.commands.auth.session_command import confirm_login_flow_overrides_env
+from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand, confirm_login_flow_overrides_env
+from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession, read_session_metadata
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 
@@ -15,40 +20,34 @@ def test_parse_login_flow_input_accepts_login_flow_and_cli_aliases() -> None:
     assert parse_login_flow_input("clientcredentials") == "client_credentials"
 
 
-def test_login_clears_corrupted_session_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
-    from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
-
-    cleared: list[bool] = []
-
-    def fake_clear_session() -> None:
-        cleared.append(True)
-
-    def raise_auth_error() -> None:
-        raise AuthenticationError("Unsupported session version")
-
-    monkeypatch.setattr(
-        "cognite_toolkit._cdf_tk.commands.auth.session_command.read_session_metadata",
-        raise_auth_error,
+def test_login_clears_corrupted_session_metadata(
+    sample_keyring: Path, cli_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (cli_home / "session.json").write_text(
+        '{"version": 0, "org": "org", "accessTokenExpiresAt": "x", "refreshTokenExpiresAt": "y"}\n'
     )
-    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.session_command.clear_session", fake_clear_session)
+    logged_in_org: list[str] = []
+
+    def fake_login(org: str, port: int | None = None) -> StoredSession:
+        assert read_session_metadata() is None
+        logged_in_org.append(org)
+        return StoredSession(
+            version=COGNITE_CLI_SESSION_VERSION,
+            org=org,
+            access_token="access",
+            refresh_token="refresh",
+            access_token_expires_at="2026-01-01T01:00:00.000Z",
+            refresh_token_expires_at="2026-01-02T01:00:00.000Z",
+        )
+
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.commands.auth.session_command.login_for_session",
-        lambda org, port=None: type(
-            "Session",
-            (),
-            {"org": org, "access_token": "a", "refresh_token": "r"},
-        )(),
+        fake_login,
     )
-    monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.session_command.write_session", lambda session: None)
-    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
-    monkeypatch.setattr(
-        "cognite_toolkit._cdf_tk.commands.auth.session_command.questionary.text",
-        lambda *args, **kwargs: type("Answer", (), {"unsafe_ask": lambda self: "my-org"})(),
-    )
+    with patch("cognite_toolkit._cdf_tk.commands.auth.session_command.write_session"):
+        AuthSessionCommand().login(org="my-org", force=False, port=None)
 
-    AuthSessionCommand().login(org=None, force=False, port=None)
-
-    assert cleared == [True]
+    assert logged_in_org == ["my-org"]
 
 
 def test_confirm_login_flow_overrides_env_skips_without_env(monkeypatch: pytest.MonkeyPatch) -> None:

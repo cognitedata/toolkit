@@ -85,7 +85,9 @@ variable4: "value with #in it" # But a comment after
     def test_persist_variable_with_comment(self, project_for_test_config_dev_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = InitConfigYAML.load_existing(project_for_test_config_dev_yaml).load_defaults(PROJECT_FOR_TEST)
+        config = InitConfigYAML.load_existing(project_for_test_config_dev_yaml, PROJECT_FOR_TEST).load_defaults(
+            PROJECT_FOR_TEST
+        )
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
@@ -99,7 +101,9 @@ variable4: "value with #in it" # But a comment after
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["variables"]["modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = InitConfigYAML.load_existing(yaml_safe_dump(existing_config_yaml)).load_defaults(PROJECT_FOR_TEST)
+        config = InitConfigYAML.load_existing(yaml_safe_dump(existing_config_yaml), PROJECT_FOR_TEST).load_defaults(
+            PROJECT_FOR_TEST
+        )
 
         removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file
@@ -144,7 +148,9 @@ variable4: "value with #in it" # But a comment after
         assert ("variables", "modules", "infield", "cdf_infield_common", "shared_variable") not in config.keys()
 
     def test_trailing_slash_in_selected(self, project_for_test_config_dev_yaml: str) -> None:
-        existing_config = InitConfigYAML.load_existing(project_for_test_config_dev_yaml).load_defaults(PROJECT_FOR_TEST)
+        existing_config = InitConfigYAML.load_existing(
+            project_for_test_config_dev_yaml, PROJECT_FOR_TEST
+        ).load_defaults(PROJECT_FOR_TEST)
         dumped_config = existing_config.dump_yaml_with_comments()
 
         dumped_config_dict = yaml.safe_load(dumped_config)

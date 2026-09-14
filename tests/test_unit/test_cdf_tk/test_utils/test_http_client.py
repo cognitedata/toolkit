@@ -3,7 +3,7 @@ from collections import Counter
 from collections.abc import Iterator
 from unittest.mock import patch
 
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -108,8 +108,8 @@ class TestHTTPClient2:
         url = "https://example.com/api/resource"
         rsps.get(url).mock(
             side_effect=[
-                httpx.Response(409, json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": True}}),
-                httpx.Response(200, json={"key": "value"}),
+                httpx2.Response(409, json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": True}}),
+                httpx2.Response(200, json={"key": "value"}),
             ]
         )
         with patch("time.sleep"):
@@ -131,7 +131,7 @@ class TestHTTPClient2:
     def test_connection_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         http_client = http_client_one_retry
         rsps.get("http://nonexistent.domain/api/resource").mock(
-            side_effect=httpx.ConnectError("Simulated connection error")
+            side_effect=httpx2.ConnectError("Simulated connection error")
         )
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
@@ -143,7 +143,7 @@ class TestHTTPClient2:
 
     def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         http_client = http_client_one_retry
-        rsps.get("https://example.com/api/resource").mock(side_effect=httpx.ReadTimeout("Simulated read timeout"))
+        rsps.get("https://example.com/api/resource").mock(side_effect=httpx2.ReadTimeout("Simulated read timeout"))
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
             response = http_client.request_single_retries(
@@ -237,15 +237,15 @@ class TestHTTPClientItemRequests2:
             {"externalId": "success", "data": 123},
         ]
 
-        def server_callback(request: httpx.Request) -> httpx.Response:
+        def server_callback(request: httpx2.Request) -> httpx2.Response:
             # Check request body content
             body_content = request.content.decode() if request.content else ""
             if "fail" in body_content:
-                return httpx.Response(400, json={"error": {"message": "Item failed", "code": 400}})
+                return httpx2.Response(400, json={"error": {"message": "Item failed", "code": 400}})
             elif "success" in body_content:
-                return httpx.Response(200, json={"items": response_items})
+                return httpx2.Response(200, json={"items": response_items})
             else:
-                return httpx.Response(200, json={"items": []})
+                return httpx2.Response(200, json={"items": []})
 
         rsps.post("https://example.com/api/resource").mock(side_effect=server_callback)
 
@@ -321,7 +321,7 @@ class TestHTTPClientItemRequests2:
 
     def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         client = http_client_one_retry
-        rsps.post("https://example.com/api/resource").mock(side_effect=httpx.ReadTimeout("Simulated timeout error"))
+        rsps.post("https://example.com/api/resource").mock(side_effect=httpx2.ReadTimeout("Simulated timeout error"))
         with patch("time.sleep"):
             results = client.request_items_retries(
                 ItemsRequest(
@@ -426,21 +426,21 @@ class TestHTTPClientItemRequests2:
     def test_failing_3_items(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         client = http_client_one_retry
 
-        def dislike_942_112_and_547(request: httpx.Request) -> httpx.Response:
+        def dislike_942_112_and_547(request: httpx2.Request) -> httpx2.Response:
             # Check request body content
             body_content = request.content.decode() if request.content else ""
             for no in ["942", "112", "547"]:
                 if no in body_content:
-                    return httpx.Response(400, json={"error": {"message": f"Item {no} is not allowed", "code": 400}})
+                    return httpx2.Response(400, json={"error": {"message": f"Item {no} is not allowed", "code": 400}})
 
             # Parse the request body to create response items
             try:
                 body_data = json.loads(body_content)
                 items = body_data.get("items", [])
                 response_items = [{"id": item["id"], "status": "ok"} for item in items]
-                return httpx.Response(200, json={"items": response_items})
+                return httpx2.Response(200, json={"items": response_items})
             except (json.JSONDecodeError, KeyError):
-                return httpx.Response(200, json={"items": []})
+                return httpx2.Response(200, json={"items": []})
 
         rsps.post("https://example.com/api/resource").mock(side_effect=dislike_942_112_and_547)
         with patch("time.sleep"):

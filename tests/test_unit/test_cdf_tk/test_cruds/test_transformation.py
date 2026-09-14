@@ -6,6 +6,7 @@ import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -81,12 +82,12 @@ conflictMode: upsert
     def test_no_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         assert loaded.destination_nonce is None
@@ -95,7 +96,7 @@ conflictMode: upsert
     def test_oidc_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
@@ -111,7 +112,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(yaml.dump(resource))
         resource_id = resource["externalId"]
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         _ = loader.load_resource(raw_list[0], is_dry_run=False)
 
         read_credentials = loader._authentication_by_id_operation[(resource_id, "read")]
@@ -128,10 +129,7 @@ conflictMode: upsert
         filepath.parent = Path("path")
         return filepath
 
-    def test_auth_unchanged_changed(
-        self,
-        toolkit_client_approval: ApprovalToolkitClient,
-    ) -> None:
+    def test_auth_unchanged_changed(self, toolkit_client_cheap: ToolkitClient) -> None:
         local_content = """name: my-transformation
 externalId: my_transformation
 ignoreNullFields: true
@@ -163,8 +161,7 @@ authentication:
             has_source_oidc_credentials=False,
             has_destination_oidc_credentials=False,
         )
-        with monkeypatch_toolkit_client() as client:
-            loader = TransformationIO(client, None, None)
+        loader = TransformationIO(toolkit_client_cheap, None, None)
 
         filepath = self._create_mock_file(local_content)
         local_dumped = loader.load_resource_file(filepath, {})[0]
@@ -179,7 +176,7 @@ authentication:
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
+        env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationIO(toolkit_client_approval.mock_client, None)
@@ -187,7 +184,7 @@ authentication:
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 

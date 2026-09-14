@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
+
 import pytest
 
 from cognite_toolkit import _cdf
 from cognite_toolkit._cdf_tk import cdf_toml
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import configure_sample_store, reset_store
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
+
+
+@pytest.fixture
+def sample_keyring(tmp_path: Path) -> Iterator[Path]:
+    backing_file = tmp_path / "keyring.ron"
+    configure_sample_store(str(backing_file))
+    yield backing_file
+    reset_store()
+
+
+@pytest.fixture
+def cli_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / ".cognite-cli"
+    home.mkdir()
+    monkeypatch.setenv("COGNITE_CLI_HOME", str(home))
+    return home
 
 
 @pytest.fixture

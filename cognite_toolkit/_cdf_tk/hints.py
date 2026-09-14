@@ -1,7 +1,6 @@
 import sys
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any
 
 from rich import print
 from rich.panel import Panel
@@ -12,7 +11,6 @@ from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES,
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .resource_ios import CRUDS_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
-from .utils import find_directory_with_subdirectories
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -24,10 +22,6 @@ class Hint:
     @classmethod
     @abstractmethod
     def _short(cls) -> str: ...
-
-    @classmethod
-    @abstractmethod
-    def long(cls, *args: Any, **kwargs: Any) -> list[str]: ...
 
     @classmethod
     def short(cls) -> str:
@@ -48,24 +42,6 @@ class ModuleDefinition(Hint):
         return (
             f"Available resource directories are {sorted(CRUDS_BY_FOLDER_NAME)}. {cls.link(URL.configs)} to learn more."
         )
-
-    @classmethod
-    def long(cls, missing_modules: set[str | Path] | None = None, organization_dir: Path | None = None) -> str:  # type: ignore[override]
-        lines = [
-            "A module is a directory with one or more resource directories in it.",
-            f"Available resource directories are {sorted(CRUDS_BY_FOLDER_NAME)}",
-            f"{cls.link(URL.configs)} to learn more",
-        ]
-        if missing_modules and organization_dir:
-            found_directory, subdirectories = find_directory_with_subdirectories(
-                next((m for m in missing_modules if isinstance(m, str)), None), organization_dir
-            )
-            if found_directory:
-                lines += [
-                    f"For example, the directory {found_directory.as_posix()!r} is not a module, as none of its",
-                    f"subdirectories are resource directories. The subdirectories found are: {subdirectories}",
-                ]
-        return cls._to_hint(lines)
 
 
 def verify_module_directory(organization_dir: Path, build_env_name: str | None) -> None:

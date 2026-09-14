@@ -8,6 +8,7 @@ dataModels:
     version: v1-0-0
 instanceSpaces:
   - instance-space-main
+userDataInstanceSpace: user-data-space-345
 scene:
   externalId: scene-id-012
   space: scene-space-primary

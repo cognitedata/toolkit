@@ -6,10 +6,12 @@ import typer
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from pydantic import Field
+from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.commands import ResourcesCommand
+from cognite_toolkit._cdf_tk.commands import BuildV2Command, ResourcesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import SpaceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 from tests.test_unit.utils import MockQuestionary
@@ -34,14 +36,28 @@ class _StubCRUD(MagicMock):
         return "https://example.com/api"
 
 
+def _make_org_module(tmp_path: Path, name: str = "test_module") -> tuple[Path, Path]:
+    """Create an organization with a module that `BuildV2Command.select_module` can discover.
+
+    Modules are found by scanning YAML resource files, so an empty directory is not enough.
+    """
+    organization_dir = tmp_path / "my_org"
+    module_dir = organization_dir / MODULES / name
+    seed = module_dir / SpaceCRUD.folder_name / f"seed.{SpaceCRUD.kind}.yaml"
+    seed.parent.mkdir(parents=True, exist_ok=True)
+    seed.write_text("space: seed\nname: seed\n")
+    return organization_dir, module_dir
+
+
+def _select_existing_module(choices: list[Choice]) -> object:
+    return next(choice.value for choice in choices if choice.value != "NEW")
+
+
 class TestResourcesCreateCommand:
-    def test_create_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_create_success(self, tmp_path: Path) -> None:
         """Test create method with multiple kinds."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, modules_dir = _make_org_module(tmp_path)
 
         cmd.create(
             organization_dir=organization_dir,
@@ -53,13 +69,10 @@ class TestResourcesCreateCommand:
         assert (modules_dir / "data_modeling" / "my.Space.yaml").exists()
         assert (modules_dir / "data_modeling" / "containers" / "my.Container.yaml").exists()
 
-    def test_create_fuzzy_match_fails_gracefully(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_create_fuzzy_match_fails_gracefully(self, tmp_path: Path) -> None:
         """Test create method with fuzzy matching for kind suggests and exits."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with pytest.raises(typer.Exit):
             cmd.create(
@@ -69,13 +82,10 @@ class TestResourcesCreateCommand:
                 verbose=False,
             )
 
-    def test_create_unknown_kind_no_match(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_create_unknown_kind_no_match(self, tmp_path: Path) -> None:
         """Test create method with unknown kind and no close match."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with pytest.raises(typer.Exit):
             cmd.create(
@@ -85,28 +95,13 @@ class TestResourcesCreateCommand:
                 verbose=False,
             )
 
-    def test_create_module_not_found_create_new(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """Test create method when module doesn't exist and user creates new."""
+    def test_create_module_not_found_raises(self, tmp_path: Path) -> None:
+        """Named modules that select_module cannot discover raise ToolkitValueError."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         organization_dir = tmp_path / "my_org"
+        (organization_dir / MODULES).mkdir(parents=True)
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [True]):
-            cmd.create(
-                organization_dir=organization_dir,
-                module_name="new_module",
-                kind=["Space"],
-                verbose=False,
-            )
-
-        modules_dir = organization_dir / MODULES / "new_module"
-        assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
-
-    def test_create_module_not_found_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """Test create method when module doesn't exist and user aborts."""
-        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-
-        with pytest.raises(typer.Exit), MockQuestionary(ResourcesCommand.__module__, monkeypatch, [False]):
+        with pytest.raises(ToolkitValueError, match="does not exist"):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name="non_existent",
@@ -115,14 +110,11 @@ class TestResourcesCreateCommand:
             )
 
     def test_create_interactive_module_selection(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """Test interactive module selection."""
+        """Test interactive module selection via BuildV2Command.select_module."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "existing_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, modules_dir = _make_org_module(tmp_path, "existing_module")
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [modules_dir]):
+        with MockQuestionary(BuildV2Command.__module__, monkeypatch, [_select_existing_module]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name=None,
@@ -135,9 +127,9 @@ class TestResourcesCreateCommand:
         """Test interactive selection -> Create new module."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         organization_dir = tmp_path / "my_org"
-        organization_dir.mkdir(parents=True, exist_ok=True)
+        (organization_dir / MODULES).mkdir(parents=True)
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, ["NEW", "created_module"]):
+        with MockQuestionary(BuildV2Command.__module__, monkeypatch, ["NEW", "created_module"]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name=None,
@@ -151,12 +143,9 @@ class TestResourcesCreateCommand:
     def test_create_interactive_kind_selection(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, modules_dir = _make_org_module(tmp_path)
 
-        def return_space_crud(*args):
+        def return_space_crud(*args: object) -> type[SpaceCRUD]:
             return SpaceCRUD
 
         with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [return_space_crud]):
@@ -198,10 +187,7 @@ class TestResourcesCreateCommand:
     def test_create_interactive_kind_selection_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided and user aborts."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with pytest.raises(typer.Exit), MockQuestionary(ResourcesCommand.__module__, monkeypatch, [None]):
             cmd.create(
@@ -214,10 +200,7 @@ class TestResourcesCreateCommand:
     def test_create_with_qualified_name(self, tmp_path: Path) -> None:
         """Test that qualified names like 'functions.Schedule' resolve correctly."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "functions").mkdir(parents=True, exist_ok=True)
+        organization_dir, modules_dir = _make_org_module(tmp_path)
 
         cmd.create(
             organization_dir=organization_dir,
@@ -231,10 +214,7 @@ class TestResourcesCreateCommand:
     def test_create_ambiguous_kind_exits(self, tmp_path: Path) -> None:
         """Test that ambiguous kind names like 'Schedule' exit with a helpful message."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with pytest.raises(typer.Exit):
             cmd.create(
@@ -248,15 +228,12 @@ class TestResourcesCreateCommand:
         """Test that interactive selection shows folder_name.kind format."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        def capture_and_select(choices):
+        def capture_and_select(choices: list[Choice]) -> type[SpaceCRUD]:
             titles = [c.title for c in choices]
             assert all("." in t for t in titles), f"Expected qualified names, got: {titles}"
             return SpaceCRUD
 
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
             cmd.create(
@@ -270,15 +247,12 @@ class TestResourcesCreateCommand:
         """Test that interactive selection contains no duplicate entries."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        def capture_and_select(choices):
+        def capture_and_select(choices: list[Choice]) -> type[SpaceCRUD]:
             titles = [c.title for c in choices]
             assert len(titles) == len(set(titles)), f"Duplicate choices found: {titles}"
             return SpaceCRUD
 
-        organization_dir = tmp_path / "my_org"
-        modules_dir = organization_dir / MODULES / "test_module"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+        organization_dir, _ = _make_org_module(tmp_path)
 
         with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
             cmd.create(

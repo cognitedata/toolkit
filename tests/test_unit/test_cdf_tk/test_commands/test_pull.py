@@ -5,13 +5,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 from cognite_toolkit._cdf_tk.commands.pull import PullV2Command
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
-from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 def _built_resource(identifier: Identifier, variables: list[BuildVariable] | None = None) -> MagicMock:
@@ -192,7 +192,7 @@ class TestPullV2Command:
         expected: str,
         loader_type: type,
         source_file: Path,
-        toolkit_client_approval: ApprovalToolkitClient,
+        toolkit_client_cheap: ToolkitClient,
     ) -> None:
         cmd = PullV2Command(silent=True, skip_tracking=True)
 
@@ -201,7 +201,7 @@ class TestPullV2Command:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            resource_io=loader_type.create_loader(toolkit_client_approval.mock_client),
+            resource_io=loader_type.create_loader(toolkit_client_cheap),
             source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"

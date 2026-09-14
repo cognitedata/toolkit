@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
-import httpx
+import httpx2
 from cognite.client import data_modeling as dm
 from pydantic import JsonValue
 
@@ -115,7 +115,7 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
                 if download_url is None:
                     continue
                 filepath.parent.mkdir(parents=True, exist_ok=True)
-                with httpx.stream("GET", download_url) as response:
+                with httpx2.stream("GET", download_url) as response:
                     if response.status_code != 200:
                         continue
                     with filepath.open(mode="wb") as file_stream:

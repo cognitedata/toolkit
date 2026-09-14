@@ -3,8 +3,8 @@ from pathlib import Path
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.utils.module_resolver import ModuleResolver
 
 # ---------------------------------------------------------------------------
 # Static mock YAML templates
@@ -88,9 +88,11 @@ class EntityMatchingCommand(ToolkitCommand):
         if not input_yaml.exists():
             raise FileNotFoundError(f"Input file not found: {input_yaml}")
 
-        module_path = ModuleResolver.get_or_prompt_module_path(organization_dir, module_name)
+        module_source = BuildV2Command.select_module(
+            organization_dir, module_name, "add workflow into", allow_creation=True
+        )
 
-        output_dir = module_path / "workflows"
+        output_dir = module_source.path / "workflows"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         stem = input_yaml.stem

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from urllib.parse import quote, urlparse
 
-import httpx
+import httpx2 as httpx
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_IDP_BASE_URL
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
