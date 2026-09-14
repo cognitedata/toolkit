@@ -1390,6 +1390,7 @@ class GraphQLCRUD(
             content=content,
             description="GraphQL schema",
             resource_field="graphQlDml",
+            remove_fields=["graphqlFile"],
         )
 
     @classmethod

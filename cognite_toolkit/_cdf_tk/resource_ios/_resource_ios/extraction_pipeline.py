@@ -163,6 +163,7 @@ class ExtractionPipelineIO(
             content=content,
             description="extraction pipeline documentation",
             resource_field="documentation",
+            remove_fields=["documentationFile"],
         )
 
     @classmethod
