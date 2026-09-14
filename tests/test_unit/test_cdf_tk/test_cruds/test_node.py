@@ -1,12 +1,9 @@
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
-from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -21,13 +18,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import NodeCRUD
-
-
-def _loader() -> NodeCRUD:
-    # None of the tests below need real API access: either the schema cache is populated directly
-    # (testing _compute_deploy_batches in isolation), or the client is mocked with
-    # monkeypatch_toolkit_client (testing _lookup_constrained_properties itself).
-    return NodeCRUD(MagicMock(spec=ToolkitClient), Path("build_dir"), MagicMock(spec=Console))
 
 
 def _container(
@@ -98,8 +88,8 @@ def _node(space: str, external_id: str, source: ContainerId | ViewId, properties
 class TestNodeCRUDComputeDeployBatches:
     """Tests for the node ordering/batching logic, given an already-resolved schema.
 
-    The schema cache (loader._constrained_properties_by_source) is populated directly, so these tests
-    do not need a real or mocked client: resolving the schema itself is tested separately in
+    The schema cache (loader._constrained_properties_by_source) is populated directly, so the client
+    is never called to resolve it: resolving the schema itself is tested separately in
     TestNodeCRUDLookupConstrainedProperties.
     """
 
@@ -122,9 +112,10 @@ class TestNodeCRUDComputeDeployBatches:
         referrer = _node("sp", "referrer_node", referrer_container_id, {"ref": ref_value})
         targets = [_node("sp", target_id, target_container_id, {}) for target_id in target_ids]
 
-        loader = _loader()
-        loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
-        batches = loader._compute_deploy_batches([referrer, *targets])
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
+            batches = loader._compute_deploy_batches([referrer, *targets])
 
         flat_ids = [node.external_id for batch in batches for node in batch]
         for target_id in target_ids:
@@ -137,13 +128,14 @@ class TestNodeCRUDComputeDeployBatches:
         )
         target = _node("sp", "target_node", referrer_container_id, {})
 
-        loader = _loader()
-        # An empty set of constrained properties: whether that is because the relation is genuinely
-        # unconstrained, or because the source could not be resolved at all, neither forces an
-        # ordering (see TestNodeCRUDLookupConstrainedProperties for how each case populates the cache).
-        # The referrer is listed first; with no ordering edge, insertion order is preserved.
-        loader._constrained_properties_by_source = {referrer_container_id: set()}
-        batches = loader._compute_deploy_batches([referrer, target])
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            # An empty set of constrained properties: whether that is because the relation is genuinely
+            # unconstrained, or because the source could not be resolved at all, neither forces an
+            # ordering (see TestNodeCRUDLookupConstrainedProperties for how each case populates the cache).
+            # The referrer is listed first; with no ordering edge, insertion order is preserved.
+            loader._constrained_properties_by_source = {referrer_container_id: set()}
+            batches = loader._compute_deploy_batches([referrer, target])
 
         flat_ids = [node.external_id for batch in batches for node in batch]
         assert flat_ids.index("referrer_node") < flat_ids.index("target_node")
@@ -155,9 +147,10 @@ class TestNodeCRUDComputeDeployBatches:
             "sp", "child_node", category_container_id, {"parent": {"space": "sp", "externalId": "parent_node"}}
         )
 
-        loader = _loader()
-        loader._constrained_properties_by_source = {category_container_id: {"parent"}}
-        batches = loader._compute_deploy_batches([child_node, parent_node])
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            loader._constrained_properties_by_source = {category_container_id: {"parent"}}
+            batches = loader._compute_deploy_batches([child_node, parent_node])
 
         flat_ids = [node.external_id for batch in batches for node in batch]
         assert flat_ids.index("parent_node") < flat_ids.index("child_node")
@@ -172,9 +165,10 @@ class TestNodeCRUDComputeDeployBatches:
         ]
         target = _node("sp", "target_node", target_container_id, {})
 
-        loader = _loader()
-        loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
-        batches = loader._compute_deploy_batches([*referrers, target])
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
+            batches = loader._compute_deploy_batches([*referrers, target])
 
         assert len(batches) > 1, "Should split into multiple batches given the item limit"
         assert batches[0][0].external_id == "target_node", "Node being depended on must be sent first"
@@ -187,9 +181,10 @@ class TestNodeCRUDComputeDeployBatches:
         node_a = _node("sp", "node_a", referrer_container_id, {"ref": {"space": "sp", "externalId": "node_b"}})
         node_b = _node("sp", "node_b", referrer_container_id, {"ref": {"space": "sp", "externalId": "node_a"}})
 
-        loader = _loader()
-        loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
-        batches = loader._compute_deploy_batches([node_a, node_b])
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
+            batches = loader._compute_deploy_batches([node_a, node_b])
 
         assert len(batches) == 1, "A cycle of mutually referring nodes must stay in a single batch"
         assert {node.external_id for node in batches[0]} == {"node_a", "node_b"}
@@ -197,23 +192,24 @@ class TestNodeCRUDComputeDeployBatches:
     def test_direct_relation_loaded_from_raw_dict_is_picked_up(self) -> None:
         referrer_container_id = ContainerId(space="sp", external_id="Referrer")
 
-        loader = _loader()
-        referrer = loader.load_resource(
-            {
-                "space": "sp",
-                "externalId": "referrer_node",
-                "sources": [
-                    {
-                        "source": {"type": "container", "space": "sp", "externalId": "Referrer"},
-                        "properties": {"ref": {"space": "sp", "externalId": "target_node"}},
-                    }
-                ],
-            }
-        )
-        target = loader.load_resource({"space": "sp", "externalId": "target_node"})
-        loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
+        with monkeypatch_toolkit_client() as client:
+            loader = NodeCRUD(client, Path("build_dir"), None)
+            referrer = loader.load_resource(
+                {
+                    "space": "sp",
+                    "externalId": "referrer_node",
+                    "sources": [
+                        {
+                            "source": {"type": "container", "space": "sp", "externalId": "Referrer"},
+                            "properties": {"ref": {"space": "sp", "externalId": "target_node"}},
+                        }
+                    ],
+                }
+            )
+            target = loader.load_resource({"space": "sp", "externalId": "target_node"})
+            loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
 
-        batches = loader._compute_deploy_batches([referrer, target])
+            batches = loader._compute_deploy_batches([referrer, target])
 
         # Pin down the shape a YAML-loaded direct relation value takes under pydantic's smart union,
         # rather than assuming it: this is what NodeCRUD._as_node_ids must be able to read.
