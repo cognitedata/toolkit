@@ -279,6 +279,7 @@ class ResourceIO(
         return None
 
     @classmethod
+    @abstractmethod
     def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         """Returns dependencies for a given resource.
         This is used to determine the order of deployment and to check for missing dependencies.
@@ -287,10 +288,7 @@ class ResourceIO(
             resource: The resource to get dependencies for.
 
         """
-        # TODO: Temporary set to return empty dict until all resource CRUDs have implemented this method.
-        # Once all resource CRUDs have implemented this method,
-        # we can remove the default implementation that returns an empty dict.
-        return {}
+        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":

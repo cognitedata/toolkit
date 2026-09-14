@@ -188,6 +188,10 @@ class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceY
     def as_str(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
+    @classmethod
+    def get_dependencies(cls, resource: SpaceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def dump_resource(self, resource: SpaceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         has_local = local is not None
@@ -505,9 +509,7 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         self.console.print(
             f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
         )
-        self.console.print(
-            f"{HINT_LEAD_TEXT}For more details on allowed container changes, see: {URL.container_changes_docs}"
-        )
+        self.console.print(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
 
         is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
         if is_verbose:
