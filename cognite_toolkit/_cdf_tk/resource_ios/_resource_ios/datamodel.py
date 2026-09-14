@@ -1496,11 +1496,14 @@ class GraphQLCRUD(
         created_list: list[GraphQLDataModelResponse] = []
         for item in creation_order:
             item_id = item.as_id()
-            graphql_file_content = self._get_graphql_content(item_id)
-            if "--verbose" in sys.argv:
-                print(f"Deploying GraphQL schema {item_id}")
+            if item.graph_ql_dml is None:
+                graphql_file_content = self._get_graphql_content(item_id)
+                if "--verbose" in sys.argv:
+                    print(f"Deploying GraphQL schema {item_id}")
 
-            item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
+                item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
+            else:
+                item_with_dml = item
             created = self.client.tool.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list
