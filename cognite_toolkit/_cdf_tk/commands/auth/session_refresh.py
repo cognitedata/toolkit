@@ -1,6 +1,6 @@
 from filelock import FileLock, Timeout
 
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError
 
 from .home import session_file_path
 from .oidc import refresh_session_tokens
@@ -10,10 +10,6 @@ from .session_store import (
     token_state,
     write_session,
 )
-
-
-class SessionExpiredError(AuthenticationError):
-    """Raised when the persisted session can no longer be refreshed."""
 
 
 def ensure_fresh_session() -> StoredSession | None:

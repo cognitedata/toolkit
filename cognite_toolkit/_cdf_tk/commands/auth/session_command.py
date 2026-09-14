@@ -5,13 +5,13 @@ import questionary
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError
 
 from .cogidp import SessionProject, fetch_session_user_info
 from .data_classes import EnvironmentVariables, LoginFlow
 from .oidc import login_for_session, revoke_refresh_token
 from .session_keyring import read_session_token
-from .session_refresh import SessionExpiredError, ensure_fresh_session
+from .session_refresh import ensure_fresh_session
 from .session_store import (
     clear_org_tokens,
     clear_session,
