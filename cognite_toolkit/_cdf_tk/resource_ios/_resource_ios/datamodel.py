@@ -127,6 +127,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import pack_into_batches
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -1276,11 +1277,13 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
         into batches up to the instances API's limit, such that a node is always sent in the same or an
         earlier batch than nodes referring to it through a constrained direct relation.
         """
-        nodes_by_id = {self.get_id(item): item for item in items}
-
-        all_sources = {source.source for node in nodes_by_id.values() for source in node.sources or []}
+        all_sources = {source.source for item in items for source in item.sources or []}
         self._lookup_constrained_properties(all_sources)
+        if not any(self._constrained_properties_by_source.get(source) for source in all_sources):
+            # Without constrained properties, we don't need to compute dependencies.
+            return list(chunker(items, INSTANCE_UPSERT_ENDPOINT.item_limit))
 
+        nodes_by_id = {self.get_id(item): item for item in items}
         dependencies_by_id: dict[NodeId, set[NodeId]] = defaultdict(set)
         for node_id, node in nodes_by_id.items():
             dependencies_by_id[node_id].update(
