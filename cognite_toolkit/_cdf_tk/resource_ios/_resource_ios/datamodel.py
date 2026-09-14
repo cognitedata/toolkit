@@ -1488,6 +1488,8 @@ class GraphQLCRUD(
         description = resource.description or ""
         if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
             dumped["graphqlFile"] = match.group(3)
+            if "graphQLDml" in local:
+                dumped["graphqlDml"] = local["graphQLDml"]
         return dumped
 
     def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
