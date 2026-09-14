@@ -261,6 +261,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             suffix=".zip",
             byte_content=zip_bytes,
             description="app bundle",
+            resource_field=None,
         )
 
     def load_resource_file(

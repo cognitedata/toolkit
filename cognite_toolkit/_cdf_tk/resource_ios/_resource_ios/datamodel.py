@@ -1389,6 +1389,7 @@ class GraphQLCRUD(
             suffix=".graphql",
             content=content,
             description="GraphQL schema",
+            resource_field="graphQlDml",
         )
 
     @classmethod
@@ -1428,16 +1429,22 @@ class GraphQLCRUD(
 
         for item in raw_list:
             model_id = self.get_id(item)
-            # Find the GraphQL files adjacent to the DML files.
-            # The 'dml' key in the YAML may point to a custom graphql file name.
-            graphql_file = self._get_graphql_file(filepath, dml=item.get("dml"))
-            if not graphql_file.is_file():
-                raise ToolkitFileNotFoundError(
-                    f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
-                )
+            graphql_content = item.get("graphQlDml")
+            if isinstance(graphql_content, str):
+                # The GraphQL DML is already inlined, so we don't need to read the file.
+                graphql_source = "inlined"
+            else:
+                # Find the GraphQL files adjacent to the DML files.
+                # The 'dml' key in the YAML may point to a custom graphql file name.
+                graphql_file = self._get_graphql_file(filepath, dml=item.get("dml"))
+                if not graphql_file.is_file():
+                    raise ToolkitFileNotFoundError(
+                        f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
+                    )
 
-            self._graphql_filepath_cache[model_id] = graphql_file
-            graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
+                self._graphql_filepath_cache[model_id] = graphql_file
+                graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
+                graphql_source = graphql_file.as_posix()
 
             sdk_model_id = dm.DataModelId(
                 space=model_id.space, external_id=model_id.external_id, version=model_id.version
@@ -1456,7 +1463,7 @@ class GraphQLCRUD(
                 self._dependencies_by_datamodel_id[model_id] = deps
             except Exception as e:
                 # We catch a broad exception here to give a more user-friendly error message.
-                raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
+                raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_source}: {e}") from e
 
             # Add hash to description
             description = item.get("description", "")
@@ -1481,6 +1488,8 @@ class GraphQLCRUD(
         description = resource.description or ""
         if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
             dumped["graphqlFile"] = match.group(3)
+            if "graphQlDml" in local:
+                dumped["graphQlDml"] = local["graphQlDml"]
         return dumped
 
     def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
@@ -1489,11 +1498,14 @@ class GraphQLCRUD(
         created_list: list[GraphQLDataModelResponse] = []
         for item in creation_order:
             item_id = item.as_id()
-            graphql_file_content = self._get_graphql_content(item_id)
-            if "--verbose" in sys.argv:
-                print(f"Deploying GraphQL schema {item_id}")
+            if item.graph_ql_dml is None:
+                graphql_file_content = self._get_graphql_content(item_id)
+                if "--verbose" in sys.argv:
+                    print(f"Deploying GraphQL schema {item_id}")
 
-            item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
+                item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
+            else:
+                item_with_dml = item
             created = self.client.tool.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list
