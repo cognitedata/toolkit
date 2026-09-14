@@ -32,6 +32,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
@@ -1255,6 +1256,7 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
         super().__init__(client, build_dir, console)
         # View ID is used to retrieve nodes with properties.
         self.view_id = view_id
+        self._constrained_properties_by_source: dict[ViewId | ContainerId, set[str]] = {}
 
     @property
     def display_name(self) -> str:
@@ -1351,7 +1353,101 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
         return dumped
 
     def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+        created: list[InstanceSlimDefinition] = []
+        for batch in self._compute_deploy_batches(items):
+            created.extend(self.client.tool.instances.create(batch))
+        return created
+
+    def _compute_deploy_batches(self, items: Sequence[NodeRequest]) -> list[list[NodeRequest]]:
+        """Sorts nodes into batches based on container-constrained direct relations between them.
+
+        DMS requires the target of a container-constrained direct relation to already have data in the
+        target container, either by existing in CDF already or by being included in the same request.
+        Computes the strongly connected components in topological order, then packs consecutive SCCs
+        into batches up to the instances API's limit, such that a node is always sent in the same or an
+        earlier batch than nodes referring to it through a constrained direct relation.
+        """
+        nodes_by_id = {self.get_id(item): item for item in items}
+
+        all_sources = {source.source for node in nodes_by_id.values() for source in node.sources or []}
+        self._lookup_constrained_properties(all_sources)
+
+        dependencies_by_id: dict[NodeId, set[NodeId]] = defaultdict(set)
+        for node_id, node in nodes_by_id.items():
+            dependencies_by_id[node_id].update(
+                dependency for dependency in self._constrained_relation_references(node) if dependency in nodes_by_id
+            )
+
+        batches, oversized_sccs = pack_into_batches(
+            dependencies_by_id, nodes_by_id, INSTANCE_UPSERT_ENDPOINT.item_limit
+        )
+        for scc in oversized_sccs:
+            sample = humanize_collection(sorted(str(node_id) for node_id in scc)[:5])
+            MediumSeverityWarning(
+                f"Found a strongly interdependent set of {len(scc)} nodes connected via container-constrained "
+                f"direct relations, including {sample}. This might indicate a data model design issue, and the "
+                "deployment might fail due to API batch size limits."
+            ).print_warning(console=self.console)
+        return batches
+
+    def _lookup_constrained_properties(self, sources: Iterable[ViewId | ContainerId]) -> None:
+        """Resolves, per source, the set of property names that are container-constrained direct relations.
+
+        Populates self._constrained_properties_by_source for every source not yet cached. A source that
+        cannot be resolved (not found, or missing schema read access) is left uncached.
+        """
+        to_resolve = {source for source in sources if source not in self._constrained_properties_by_source}
+        if not to_resolve:
+            return
+
+        container_refs = [ref for ref in to_resolve if isinstance(ref, ContainerId)]
+        if container_refs:
+            for container in self.client.tool.containers.retrieve(container_refs):
+                self._constrained_properties_by_source[container.as_id()] = self._constrained_property_names(
+                    container.properties
+                )
+
+        view_refs = [ref for ref in to_resolve if isinstance(ref, ViewId)]
+        if view_refs:
+            for view in self.client.tool.views.retrieve(view_refs, include_inherited_properties=True):
+                self._constrained_properties_by_source[view.as_id()] = self._constrained_property_names(view.properties)
+
+    @staticmethod
+    def _constrained_property_names(properties: Mapping[str, Any]) -> set[str]:
+        """Returns the names of properties whose type is a direct relation with a container constraint.
+
+        Works for both container properties (always carrying a `type`) and view properties, where
+        connection properties (EdgeProperty, ReverseDirectRelationProperty) either have no `type` or a
+        `type` that is not a direct relation, and are therefore excluded.
+        """
+        return {
+            name
+            for name, prop in properties.items()
+            if isinstance(getattr(prop, "type", None), ClientDirectNodeRelation) and prop.type.container is not None
+        }
+
+    def _constrained_relation_references(self, node: NodeRequest) -> Iterable[NodeId]:
+        """Yields the node ids referenced through this node's container-constrained direct relation properties."""
+        for source in node.sources or []:
+            constrained = self._constrained_properties_by_source.get(source.source, set())
+            for prop_name, value in (source.properties or {}).items():
+                if prop_name not in constrained:
+                    continue
+                yield from self._as_node_ids(value)
+
+    @staticmethod
+    def _as_node_ids(value: Any) -> Iterable[NodeId]:
+        """Yields the node ids in a direct relation property value.
+
+        The value may be a single id, or a list of ids for a listable direct relation. A value loaded
+        from YAML stays a plain {"space": ..., "externalId": ...} dict, while a programmatically
+        constructed value stays a NodeId, so both shapes are handled here.
+        """
+        for entry in value if isinstance(value, list) else [value]:
+            if isinstance(entry, NodeId):
+                yield entry
+            elif isinstance(entry, dict) and entry.keys() == {"space", "externalId"}:
+                yield NodeId(space=entry["space"], external_id=entry["externalId"])
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[NodeResponse]:
         source_ref = (
@@ -1363,7 +1459,7 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
         return [r for r in results if isinstance(r, NodeResponse)]
 
     def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+        return self.create(items)
 
     def delete(self, ids: Sequence[NodeId]) -> int:
         try:
