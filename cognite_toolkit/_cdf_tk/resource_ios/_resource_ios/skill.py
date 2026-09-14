@@ -4,6 +4,7 @@ from typing import Any, Literal, final
 
 from pydantic import ValidationError
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -133,6 +134,10 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse]):
             content=content,
             description="skill instructions",
         )
+
+    @classmethod
+    def get_dependencies(cls, resource: SkillYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

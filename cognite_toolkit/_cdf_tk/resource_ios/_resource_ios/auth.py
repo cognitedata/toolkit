@@ -563,6 +563,10 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
                 acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
             yield SecurityCategoriesAcl(actions=acl_actions, scope=scope)
 
+    @classmethod
+    def get_dependencies(cls, resource: SecurityCategoriesYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
+
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)
 
