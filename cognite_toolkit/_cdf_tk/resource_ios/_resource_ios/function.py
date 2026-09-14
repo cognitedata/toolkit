@@ -209,6 +209,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         yield SuccessExtra(
             source_path=function_rootdir,
             source_hash=source_hash,
+            resource_field=None,
             suffix=".zip",
             byte_content=create_zip_in_memory(function_rootdir),
             description="function code",
@@ -236,6 +237,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
+                resource_field=None,
             )
         elif space := item.get("space"):
             yield SuccessExtra(
@@ -251,6 +253,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
+                resource_field=None,
             )
         else:
             yield FailedReadExtra(

@@ -4,7 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -144,6 +144,12 @@ class FailedReadExtra(ReadExtra):
 
 class SuccessExtra(ReadExtra):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    is_list: bool = Field(False, description="Whether the extra content is a list of items or a single item.")
+    resource_field: str | None = Field(
+        description="Name of the resource field where the "
+        "extra content should be placed in the resource. For example, in transformations this is 'query'."
+        "If None, the extra content needs to be written to a separate file."
+    )
     source_hash: str
     suffix: str
     content: str | None = None
