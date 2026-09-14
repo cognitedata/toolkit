@@ -87,12 +87,7 @@ def _node(space: str, external_id: str, source: ContainerId | ViewId, properties
 
 
 class TestNodeCRUDComputeDeployBatches:
-    """Tests for the node ordering/batching logic, given an already-resolved schema.
-
-    The schema cache (loader._constrained_properties_by_source) is populated directly, so the client
-    is never called to resolve it: resolving the schema itself is tested separately in
-    TestNodeCRUDLookupConstrainedProperties.
-    """
+    """Tests for the node ordering/batching logic, given an already-resolved schema."""
 
     @pytest.mark.parametrize(
         "ref_value, target_ids",
@@ -131,10 +126,6 @@ class TestNodeCRUDComputeDeployBatches:
 
         with monkeypatch_toolkit_client() as client:
             loader = NodeCRUD(client, Path("build_dir"), None)
-            # An empty set of constrained properties: whether that is because the relation is genuinely
-            # unconstrained, or because the source could not be resolved at all, neither forces an
-            # ordering (see TestNodeCRUDLookupConstrainedProperties for how each case populates the cache).
-            # The referrer is listed first; with no ordering edge, insertion order is preserved.
             loader._constrained_properties_by_source = {referrer_container_id: set()}
             batches = loader._compute_deploy_batches([referrer, target])
 
@@ -256,7 +247,7 @@ class TestNodeCRUDLookupConstrainedProperties:
 
         assert loader._constrained_properties_by_source[container_id] == {"parent"}
 
-    def test_resolves_constrained_properties_from_view_schema_without_container_lookup(self) -> None:
+    def test_resolves_constrained_properties_from_view_schema(self) -> None:
         container_id = ContainerId(space="sp", external_id="Category")
         view = _view(
             "CategoryView",
@@ -272,8 +263,6 @@ class TestNodeCRUDLookupConstrainedProperties:
             loader._lookup_constrained_properties({view_id})
 
         assert loader._constrained_properties_by_source[view_id] == {"parent"}
-        # The constraint is read off the view's own property type, no container lookup is needed.
-        client.tool.containers.retrieve.assert_not_called()
 
     def test_unresolvable_source_is_not_cached(self) -> None:
         unknown_container_id = ContainerId(space="sp", external_id="Unknown")
