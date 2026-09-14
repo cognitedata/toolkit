@@ -123,6 +123,7 @@ class TestExtractionPipelineDocumentationFile:
             "resource_field": "documentation",
             "source_hash": "87f4f774",
             "description": "extraction pipeline documentation",
+            "removeFields": ["documentationFile"],
         }
 
     _PIPELINE_YAML: ClassVar[Mapping] = {
