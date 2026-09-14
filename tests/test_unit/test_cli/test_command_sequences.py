@@ -209,7 +209,10 @@ def test_init_build_clean(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
 
 
-TEST_CASES = [COMPLETE_ORG]
+TEST_CASES = []
+if Flags.V09.is_enabled():
+    # The extractor pipeline in external file is only supported in v0.9.
+    TEST_CASES.append(COMPLETE_ORG)
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
