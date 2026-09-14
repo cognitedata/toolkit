@@ -1,19 +1,12 @@
-from collections.abc import Hashable
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelId,
-    SpaceId,
-    ViewId,
-)
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     AutoCreateOptions,
     NonceCredentials,
@@ -23,15 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    DataModelIO,
-    DataSetsIO,
     ExternalDataSourceIO,
-    RawDatabaseCRUD,
-    RawTableCRUD,
-    ResourceIO,
-    SpaceCRUD,
     TransformationIO,
-    ViewIO,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -187,68 +173,6 @@ authentication:
         raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
-
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {
-                    "dataSetExternalId": "ds_my_dataset",
-                    "destination": {
-                        "type": "instances",
-                        "dataModel": {
-                            "space": "sp_model_space",
-                            "externalId": "my_model",
-                            "version": "v1",
-                            "destinationType": "assets",
-                        },
-                        "instanceSpace": "sp_data_space",
-                    },
-                },
-                [
-                    (DataSetsIO, ExternalId(external_id="ds_my_dataset")),
-                    (SpaceCRUD, SpaceId(space="sp_data_space")),
-                    (DataModelIO, DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
-                ],
-                id="Transformation to data model",
-            ),
-            pytest.param(
-                {
-                    "destination": {
-                        "type": "nodes",
-                        "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
-                        "instanceSpace": "sp_data_space",
-                    }
-                },
-                [
-                    (SpaceCRUD, SpaceId(space="sp_data_space")),
-                    (ViewIO, ViewId(space="sp_space", external_id="my_view", version="v1")),
-                ],
-                id="Transformation to nodes ",
-            ),
-            pytest.param(
-                {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
-                [
-                    (RawDatabaseCRUD, RawDatabaseId(name="my_db")),
-                    (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
-                ],
-                id="Transformation to RAW table",
-            ),
-            pytest.param(
-                {"query": "select * from ext_onelake('fabric-prod', 'assets')"},
-                [(ExternalDataSourceIO, ExternalId(external_id="fabric-prod"))],
-                id="Transformation with ext_onelake source",
-            ),
-        ],
-    )
-    def test_get_dependent_items(
-        self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]], monkeypatch: MonkeyPatch
-    ) -> None:
-        if any(loader is ExternalDataSourceIO for loader, _ in expected):
-            _enable_external_data_sources(monkeypatch)
-        actual = TransformationIO.get_dependent_items(item)
-
-        assert list(actual) == expected
 
     def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
         _enable_external_data_sources(monkeypatch)

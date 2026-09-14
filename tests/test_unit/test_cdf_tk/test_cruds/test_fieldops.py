@@ -4,76 +4,20 @@ import pytest
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
-    ResourceFilters,
     RootLocationConfiguration,
-    RootLocationDataFilters,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    AssetIO,
-    DataSetsIO,
-    GroupResourceScopedCRUD,
     InFieldCDMLocationConfigIO,
-    InfieldV1IO,
     SpaceCRUD,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
-
-
-class TestInfieldV1Loader:
-    @pytest.mark.skipif(not Flags.INFIELD.is_enabled(), reason="Alpha feature is not enabled")
-    def test_dependent_items(self) -> None:
-        item = APMConfigRequest(
-            external_id="my_config",
-            app_data_space_id="my_app_data_space",
-            customer_data_space_id="my_customer_data_space",
-            feature_configuration=FeatureConfiguration(
-                root_location_configurations=[
-                    RootLocationConfiguration(
-                        asset_external_id="my_root_asset",
-                        template_admins=["my_admin_group1", "my_admin_group2"],
-                        checklist_admins=["my_admin_group3"],
-                        source_data_instance_space="my_source_data_space",
-                        data_filters=RootLocationDataFilters(
-                            assets=ResourceFilters(
-                                asset_subtree_external_ids=["my_asset_subtree"],
-                            ),
-                        ),
-                    )
-                ]
-            ),
-        )
-        dumped = item.dump(context="toolkit")
-        dumped["featureConfiguration"]["rootLocationConfigurations"][0]["dataSetExternalId"] = "my_dataset"
-        dumped["featureConfiguration"]["rootLocationConfigurations"][0]["dataFilters"]["assets"][
-            "dataSetExternalIds"
-        ] = ["my_other_dataset"]
-
-        actual = {
-            (loader_cls.__name__, identifier) for loader_cls, identifier in InfieldV1IO.get_dependent_items(dumped)
-        }
-
-        assert actual == {
-            (AssetIO.__name__, ExternalId(external_id="my_root_asset")),
-            (DataSetsIO.__name__, ExternalId(external_id="my_dataset")),
-            (SpaceCRUD.__name__, SpaceId(space="my_app_data_space")),
-            (SpaceCRUD.__name__, SpaceId(space="my_customer_data_space")),
-            (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
-            (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group1")),
-            (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group2")),
-            (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group3")),
-            (DataSetsIO.__name__, ExternalId(external_id="my_other_dataset")),
-            (AssetIO.__name__, ExternalId(external_id="my_asset_subtree")),
-            (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
-        }
 
 
 class TestInFieldCDMLocationConfigCRUD:
@@ -200,129 +144,6 @@ class TestInFieldCDMLocationConfigCRUD:
         actual = {
             (loader_cls.__name__, identifier)
             for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependencies(config)
-        }
-        assert actual == expected
-
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {
-                    "space": "sp_instance",
-                    "externalId": "my_location_config",
-                    "dataExplorationConfig": {
-                        "assetActivitiesCardView": {
-                            "space": "customer_idm_extention",
-                            "version": "v2",
-                            "externalId": "ActivitiesCard",
-                        },
-                        "assetNotificationsCardView": {
-                            "space": "customer_idm_extention",
-                            "version": "v2",
-                            "externalId": "NotificationsCard",
-                        },
-                    },
-                },
-                {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
-                    (
-                        ViewIO.__name__,
-                        ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
-                    ),
-                    (
-                        ViewIO.__name__,
-                        ViewId(space="customer_idm_extention", external_id="NotificationsCard", version="v2"),
-                    ),
-                },
-                id="data-exploration-view-mappings",
-            ),
-            pytest.param(
-                {
-                    "space": "sp_instance",
-                    "externalId": "my_location_config",
-                    "viewMappings": {
-                        "observation": [
-                            {
-                                "view": {
-                                    "space": "customer_idm_extention",
-                                    "version": "v2",
-                                    "externalId": "ObservationView",
-                                },
-                            },
-                        ],
-                    },
-                },
-                {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
-                    (
-                        ViewIO.__name__,
-                        ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
-                    ),
-                },
-                id="observation-view",
-            ),
-            pytest.param(
-                {
-                    "space": "sp_instance",
-                    "externalId": "my_location_config",
-                    "viewMappings": {
-                        "observation": [
-                            "not-a-dict",
-                            {"view": "not-a-dict"},
-                            {
-                                "view": {
-                                    "space": "customer_idm_extention",
-                                    "version": "v2",
-                                },
-                            },
-                            {
-                                "view": {
-                                    "space": "customer_idm_extention",
-                                    "version": "v2",
-                                    "externalId": "ObservationView",
-                                },
-                            },
-                        ],
-                    },
-                },
-                {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
-                    (
-                        ViewIO.__name__,
-                        ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
-                    ),
-                },
-                id="skips-malformed-observation-entries",
-            ),
-            pytest.param(
-                {
-                    "space": "sp_instance",
-                    "externalId": "my_location_config",
-                    "viewMappings": {
-                        "asset": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
-                    },
-                    "dataFilters": {
-                        "assets": {"instanceSpaces": ["migrated_assets"]},
-                    },
-                    "dataStorage": {
-                        "rootLocation": {"space": "migrated_assets", "externalId": "wefwef"},
-                        "appInstanceSpace": "app_data_instance_space_LOR_NORWAY_cdm",
-                    },
-                },
-                {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
-                    (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
-                    (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
-                    (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
-                },
-                id="direct-view-mappings-and-spaces",
-            ),
-        ],
-    )
-    def test_get_dependent_items(self, item: dict, expected: set) -> None:
-        actual = {
-            (loader_cls.__name__, identifier)
-            for loader_cls, identifier in InFieldCDMLocationConfigIO.get_dependent_items(item)
         }
         assert actual == expected
 

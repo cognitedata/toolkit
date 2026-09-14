@@ -291,16 +291,6 @@ class ResourceIO(
         raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        return
-        yield
-
-    @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
         """Check the item for any issues.
 
