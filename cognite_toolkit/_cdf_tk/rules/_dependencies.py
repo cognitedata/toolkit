@@ -1,11 +1,10 @@
 from collections import defaultdict
 from collections.abc import Iterable
-from pathlib import Path
 from typing import Any, ClassVar
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.constants import URL
@@ -14,8 +13,6 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_if_possible
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
-
-LocalResources = dict[Identifier, tuple[BuiltResource, dict[str, Any]]]
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
@@ -37,7 +34,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._validate_dependencies()
         if self.client is not None:
-            yield from self._validate_data_modeling_changes()
+            yield from self._validate_data_modeling_changes(self.client)
 
     def _validate_dependencies(self) -> Iterable[Insight]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
@@ -92,22 +89,25 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             for resource in expected_resources
         )
 
-    def _validate_data_modeling_changes(self) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def _validate_data_modeling_changes(
+        self, client: ToolkitClient
+    ) -> Iterable[ConsistencyError | InternalValidatorException]:
         """Reports local container, view and data model changes that CDF will silently drop on deploy.
 
         Containers cannot have properties removed, and views and data models are immutable per version.
         Today this is only discovered during (or after) ``cdf deploy``. This surfaces the same findings
         during ``cdf build``.
         """
-        assert self.client is not None
         cruds: tuple[ResourceIO[Any, Any, Any], ...] = (
-            ContainerCRUD(self.client, None, None),
-            ViewIO(self.client, None, None),
-            DataModelIO(self.client, None, None),
+            ContainerCRUD(client, None, None),
+            ViewIO(client, None, None),
+            DataModelIO(client, None, None),
         )
         for crud in cruds:
             try:
-                local_by_id = self._load_local_resources(crud)
+                local_by_id: dict[Identifier, tuple[BuiltResource, Any]] = {}
+                for module in self.modules:
+                    local_by_id.update(module.load_local_resources(crud))
                 if not local_by_id:
                     continue
                 cdf_items = crud.retrieve(list(local_by_id.keys()))
@@ -122,31 +122,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 item_id = crud.get_id(cdf_item)
                 if item_id not in local_by_id:
                     continue
-                resource, local_dict = local_by_id[item_id]
+                resource, request = local_by_id[item_id]
+                local_dict = request.dump()
                 cdf_dict = crud.dump_resource(cdf_item, local_dict)
                 if cdf_dict == local_dict:
                     continue
                 yield from self._as_data_modeling_insights(item_id, resource, local_dict, cdf_dict)
-
-    def _load_local_resources(self, crud: ResourceIO[Any, Any, Any]) -> LocalResources:
-        """Reload the built resources for the given CRUD so they can be compared against CDF the same
-        way ``cdf deploy`` does."""
-        resource_type = ResourceType(resource_folder=crud.folder_name, kind=crud.kind)
-        resources_by_build_path: dict[Path, list[BuiltResource]] = {}
-        for module in self.modules:
-            for resource in module.resources:
-                if resource.type == resource_type and resource.can_verify:
-                    resources_by_build_path.setdefault(resource.build_path, []).append(resource)
-
-        local_by_id: LocalResources = {}
-        for build_path, resources in resources_by_build_path.items():
-            resource_by_id = {resource.identifier: resource for resource in resources}
-            for raw in crud.load_resource_file(build_path):
-                request = crud.load_resource(raw)
-                item_id = crud.get_id(request)
-                if item_id in resource_by_id:
-                    local_by_id[item_id] = (resource_by_id[item_id], request.dump())
-        return local_by_id
 
     def _as_data_modeling_insights(
         self,

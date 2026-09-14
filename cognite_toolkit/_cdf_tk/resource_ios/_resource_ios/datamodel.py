@@ -505,7 +505,10 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         self.console.print(
             f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
         )
-        self.console.print(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see: {URL.dm_changes_docs}")
+        self.console.print(
+            f"{HINT_LEAD_TEXT}For more details on allowed container changes, see: {URL.dm_changes_docs}. See {URL.dm_changes_docs} for more details on allowed container changes."
+        )
+
         is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
         if is_verbose:
             self.console.print(
