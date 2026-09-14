@@ -1,6 +1,6 @@
-import keyring
 from pathlib import Path
 
+import keyring
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (

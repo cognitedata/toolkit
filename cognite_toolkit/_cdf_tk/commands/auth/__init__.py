@@ -5,8 +5,8 @@ from .data_classes import CLIENT_NAME, EnvironmentVariables
 from .utils import parse_login_flow_input
 
 __all__ = [
-    "AuthCommand",
     "CLIENT_NAME",
+    "AuthCommand",
     "EnvironmentVariables",
     "parse_login_flow_input",
 ]

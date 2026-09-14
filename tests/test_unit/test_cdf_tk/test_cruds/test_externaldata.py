@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, Data
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import TransformationsExternalDataSourcesAcl
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
-from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO

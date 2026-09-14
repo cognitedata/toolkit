@@ -43,7 +43,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TransformationIO,
     WorkflowTriggerIO,
 )
-from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 

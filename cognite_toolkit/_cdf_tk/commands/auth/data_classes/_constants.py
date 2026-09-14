@@ -1,7 +1,7 @@
 from typing import get_args
 
-from cognite_toolkit._version import __version__
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._version import __version__
 
 from ._types import LoginFlow, Provider
 
@@ -25,6 +25,7 @@ def parse_login_flow(flow: str) -> LoginFlow:
         raise ValueError(
             f"Invalid login flow: {flow!r}. Choose one of: {humanize_collection(VALID_LOGIN_FLOWS)}"
         ) from None
+
 
 CLIENT_NAME = f"CDF-Toolkit:{__version__}"
 

@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.commands.auth.session_store import (
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
-
 from tests.test_unit.test_cdf_tk.auth_test_helpers import browser_opener
 
 

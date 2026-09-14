@@ -71,8 +71,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_classes import EnvironmentVariables
-from .utils import parse_login_flow_input, prompt_user_environment_variables
 from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
+from .utils import parse_login_flow_input, prompt_user_environment_variables
 
 
 @dataclass

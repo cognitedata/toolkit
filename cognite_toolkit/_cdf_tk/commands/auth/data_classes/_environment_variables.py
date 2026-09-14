@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
+from ._constants import CLIENT_NAME, VALID_PROVIDERS, parse_login_flow
 from ._env_options import ALL_CASES, EnvOptions, all_providers
-from ._constants import CLIENT_NAME, VALID_LOGIN_FLOWS, VALID_PROVIDERS, parse_login_flow
 from ._types import LoginFlow, Provider
 
 
