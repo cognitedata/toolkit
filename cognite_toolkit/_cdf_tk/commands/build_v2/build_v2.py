@@ -1,4 +1,3 @@
-import builtins
 import os
 import re
 import shutil
@@ -1052,7 +1051,7 @@ class BuildV2Command(ToolkitCommand):
                 else:
                     self._write_to_build_dir_v08(resource, destination_path, filestem, folder)
 
-                dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = set()
+                dependencies: set[tuple[type[ResourceIO], Identifier]] = set()
                 if resource.validated:
                     dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
 
