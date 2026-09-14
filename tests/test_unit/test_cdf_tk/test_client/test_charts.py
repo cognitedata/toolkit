@@ -1,7 +1,7 @@
 import json
 from collections.abc import Iterator
 
-import httpx
+import httpx2
 import pytest
 import respx
 import yaml
@@ -91,11 +91,11 @@ class TestChartAPI:
 
         respx_mock.post(url).mock(
             side_effect=[
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={"items": [page_one.dump()], "nextCursor": "cursor_1"},
                 ),
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={"items": [page_two.dump()], "nextCursor": None},
                 ),

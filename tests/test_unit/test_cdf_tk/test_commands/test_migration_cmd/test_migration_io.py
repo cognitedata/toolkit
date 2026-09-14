@@ -1,10 +1,10 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 import respx
-from httpx import Response
+from httpx2 import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -59,7 +59,7 @@ class TestAssetCentricMigrationIOAdapter:
         respx.post(
             config.create_api_url("/models/spaces/byids"),
         ).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 status_code=200,
                 json={
                     "items": [

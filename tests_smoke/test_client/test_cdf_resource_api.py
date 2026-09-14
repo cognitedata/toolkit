@@ -1316,7 +1316,7 @@ class TestCDFResourceAPI:
             client.tool.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True)
             client.tool.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
 
-    def test_instances_crudl(self, toolkit_client: ToolkitClient) -> None:
+    def test_instances_crudl(self, toolkit_client: ToolkitClient, smoke_view: ViewResponse) -> None:
         client = toolkit_client
 
         node_example = get_examples_minimum_requests(NodeResponse)[0]
@@ -1365,6 +1365,13 @@ class TestCDFResourceAPI:
             listed = list(client.tool.instances.list(limit=2))
             if len(listed) <= 1:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 2 listed instances, got 0")
+
+            # Search instances
+            search_endpoint = client.tool.instances._method_endpoint_map["search"]
+            try:
+                _ = client.tool.instances.search(view=smoke_view.as_id(), limit=2)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(search_endpoint.path, f"Searching instances failed: {e!s}") from e
 
         finally:
             # Clean up

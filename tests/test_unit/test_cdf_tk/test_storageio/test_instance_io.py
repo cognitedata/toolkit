@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 import respx
 from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
@@ -65,21 +65,21 @@ class TestInstanceIO:
 
         respx_mock.post(url).mock(
             side_effect=[
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {"root": [_node_dict(i) for i in range(1000)]},
                         "nextCursor": {"root": "cursor_1"},
                     },
                 ),
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
                         "nextCursor": {"root": "cursor_2"},
                     },
                 ),
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {"root": [_node_dict(i) for i in range(2000, N)]},
@@ -122,11 +122,11 @@ class TestInstanceIO:
                 items=[DataItem(tracking_id=instance.external_id, item=instance) for instance in instances],
             )
 
-            def hate_edges(request: httpx.Request) -> httpx.Response:
+            def hate_edges(request: httpx2.Request) -> httpx2.Response:
                 # Check request body content
                 body_content = request.content.decode() if request.content else ""
                 if "edge" in body_content:
-                    return httpx.Response(
+                    return httpx2.Response(
                         400, json={"error": {"code": "InvalidArgument", "message": "I do not like edges!"}}
                     )
                 else:
@@ -144,7 +144,7 @@ class TestInstanceIO:
                             for item in items
                         ]
                     }
-                    return httpx.Response(200, json=response_data)
+                    return httpx2.Response(200, json=response_data)
 
             url = toolkit_config.create_api_url("/models/instances")
 
@@ -185,14 +185,14 @@ class TestInstanceIO:
             for i in range(100)
         ]
 
-        def instance_create_callback(request: httpx.Request) -> httpx.Response:
+        def instance_create_callback(request: httpx2.Request) -> httpx2.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
             assert len(items) == len(some_instance_data)
             assert {item["externalId"] for item in items} == {inst.external_id for inst in some_instance_data}
-            return httpx.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
+            return httpx2.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
 
         # Download count
         respx_mock.post(config.create_api_url("/models/instances/aggregate")).respond(
@@ -438,7 +438,7 @@ class TestInstanceIO:
         respx_mock.post(query_url).mock(
             side_effect=[
                 # Call 1: first node batch + first edge batch (edge cursor present)
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -451,7 +451,7 @@ class TestInstanceIO:
                     },
                 ),
                 # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -462,7 +462,7 @@ class TestInstanceIO:
                     },
                 ),
                 # Call 3: second node batch (no more cursors → done)
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -524,7 +524,7 @@ class TestInstanceIO:
         respx_mock.post(query_url).mock(
             side_effect=[
                 # Call 1: image360 has a cursor, so pagination continues even though image360station doesn't.
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {
@@ -535,7 +535,7 @@ class TestInstanceIO:
                     },
                 ),
                 # Call 2: no more cursors → done.
-                httpx.Response(
+                httpx2.Response(
                     status_code=200,
                     json={
                         "items": {

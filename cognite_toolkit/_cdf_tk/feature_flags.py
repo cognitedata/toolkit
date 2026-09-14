@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
     )
+    API = FlagMetadata(
+        visible=True,
+        description="Enables the api command family for calling CDF APIs",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

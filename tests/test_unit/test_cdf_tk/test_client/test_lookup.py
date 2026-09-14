@@ -1,7 +1,7 @@
 import json
 from collections.abc import Iterator, Sequence
 
-import httpx
+import httpx2
 import pytest
 import respx
 from _pytest.mark import ParameterSet
@@ -148,7 +148,7 @@ class TestLookup:
         resource_by_id = {resource.id: resource for resource in resources}
         resource_by_external_id = {resource.external_id: resource for resource in resources}
 
-        def retrieve_multiple_callback(request: httpx.Request) -> httpx.Response:
+        def retrieve_multiple_callback(request: httpx2.Request) -> httpx2.Response:
             items = json.loads(request.content)["items"]
             response_items = []
             for item in items:
@@ -156,7 +156,7 @@ class TestLookup:
                     response_items.append(resource.dump(camel_case=True))
                 elif "externalId" in item and (resource := resource_by_external_id.get(item["externalId"])) is not None:
                     response_items.append(resource.dump(camel_case=True))
-            return httpx.Response(200, json={"items": response_items})
+            return httpx2.Response(200, json={"items": response_items})
 
         rsps.post(config.create_api_url(f"{endpoint}/byids")).mock(side_effect=retrieve_multiple_callback)
         client = ToolkitClient(config)

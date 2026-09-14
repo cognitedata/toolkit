@@ -1,4 +1,4 @@
-import httpx
+import httpx2
 import pytest
 import respx
 
@@ -13,7 +13,7 @@ class TestAnnotationIO:
         config = toolkit_config
         client = ToolkitClient(config)
         respx_mock.post(config.create_api_url("/files/list")).mock(
-            return_value=httpx.Response(
+            return_value=httpx2.Response(
                 200,
                 json={
                     "items": [
@@ -101,8 +101,8 @@ class TestAnnotationIO:
         }
         respx_mock.post(config.create_api_url("/annotations/list")).mock(
             side_effect=[
-                httpx.Response(200, json={"items": [file_link_annotation]}),
-                httpx.Response(200, json={"items": [asset_link_annotation]}),
+                httpx2.Response(200, json={"items": [file_link_annotation]}),
+                httpx2.Response(200, json={"items": [asset_link_annotation]}),
             ]
         )
 
