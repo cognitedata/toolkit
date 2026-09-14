@@ -1,3 +1,4 @@
+import builtins
 import os
 import re
 import shutil
@@ -20,6 +21,7 @@ from rich.text import Text
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -1063,10 +1065,9 @@ class BuildV2Command(ToolkitCommand):
                         shutil.copy2(extra_file.source_path, extra_path)
 
                 crud_cls = file.resource_type.crud_cls
+                dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = set()
                 if resource.validated:
                     dependencies = set(crud_cls.get_dependencies(resource.validated))
-                else:
-                    dependencies = set()
 
                 built_resources.append(
                     BuiltResource(
