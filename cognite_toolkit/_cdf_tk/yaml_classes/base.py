@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import TypeVar
+from collections.abc import Mapping
+from typing import ClassVar, TypeVar
 
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
@@ -11,6 +12,8 @@ class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid"): ..
 
 
 class ToolkitResource(BaseModelResource):
+    externalFileMapping: ClassVar[Mapping[str, str]] = {}
+
     @abstractmethod
     def as_id(self) -> Identifier:
         """Return an identifier for this resource."""
