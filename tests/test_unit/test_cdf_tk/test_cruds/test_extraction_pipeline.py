@@ -1,8 +1,9 @@
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
-import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from rich.console import Console
 
@@ -99,19 +100,6 @@ class TestExtractionPipelineLoader:
         assert res[1]["name"] == "this-is-not-a-secret"
 
 
-_PIPELINE_YAML = {
-    "externalId": "ep_src_asset",
-    "name": "Hamburg SAP",
-    "dataSetExternalId": "ds_my_dataset",
-}
-
-
-def _write_pipeline_yaml(directory: Path, data: dict, filename: str = "ep_src_asset.ExtractionPipeline.yaml") -> Path:
-    yaml_path = directory / filename
-    yaml_path.write_text(yaml.safe_dump(data), encoding="utf-8")
-    return yaml_path
-
-
 class TestExtractionPipelineDocumentationFile:
     def test_get_extra_files_from_documentation_file(self, tmp_path: Path) -> None:
         markdown = "# Extra docs\n"
@@ -137,16 +125,22 @@ class TestExtractionPipelineDocumentationFile:
             "description": "extraction pipeline documentation",
         }
 
+    _PIPELINE_YAML: ClassVar[Mapping] = {
+        "externalId": "ep_src_asset",
+        "name": "Hamburg SAP",
+        "dataSetExternalId": "ds_my_dataset",
+    }
+
     def test_split_resource_writes_markdown(self, tmp_path: Path) -> None:
         loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
         base = tmp_path / "ep_src_asset.ExtractionPipeline.yaml"
-        resource = {**_PIPELINE_YAML, "documentation": "# Docs\n"}
+        resource = {**self._PIPELINE_YAML, "documentation": "# Docs\n"}
 
         out = list(loader.split_resource(base, resource))
 
         assert out == [
             (base.with_suffix(".md"), "# Docs\n"),
-            (base, {**_PIPELINE_YAML, "documentationFile": "ep_src_asset.ExtractionPipeline.md"}),
+            (base, {**self._PIPELINE_YAML, "documentationFile": "ep_src_asset.ExtractionPipeline.md"}),
         ]
 
 
