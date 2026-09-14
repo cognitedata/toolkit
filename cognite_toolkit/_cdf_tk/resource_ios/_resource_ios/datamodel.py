@@ -25,6 +25,7 @@ from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import filters
+from pydantic import JsonValue
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
@@ -40,6 +41,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     EdgeId,
     ExternalId,
     NodeId,
+    NodeUntypedId,
     SpaceId,
     ViewId,
     ViewNoVersionId,
@@ -1341,7 +1343,7 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
                 yield from self._as_node_ids(value)
 
     @staticmethod
-    def _as_node_ids(value: Any) -> Iterable[NodeId]:
+    def _as_node_ids(value: JsonValue | NodeUntypedId | list[NodeUntypedId]) -> Iterable[NodeId]:
         """Yields the node ids in a direct relation property value.
 
         The value may be a single id, or a list of ids for a listable direct relation. A value loaded
@@ -1352,7 +1354,9 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
             if isinstance(entry, NodeId):
                 yield entry
             elif isinstance(entry, dict) and entry.keys() == {"space", "externalId"}:
-                yield NodeId(space=entry["space"], external_id=entry["externalId"])
+                space, external_id = entry["space"], entry["externalId"]
+                if isinstance(space, str) and isinstance(external_id, str):
+                    yield NodeId(space=space, external_id=external_id)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[NodeResponse]:
         source_ref = (
