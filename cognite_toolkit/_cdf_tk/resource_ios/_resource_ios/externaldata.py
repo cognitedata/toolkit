@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 
 @final
 class ExternalDataSourceIO(
-    ResourceIO[ExternalId, ExternalDataSourceRequest, ExternalDataSourceResponse],
+    ResourceIO[ExternalId, ExternalDataSourceRequest, ExternalDataSourceResponse, ExternalDataSourceYAML],
 ):
     folder_name = "transformations"
     resource_cls = ExternalDataSourceResponse
@@ -73,11 +73,6 @@ class ExternalDataSourceIO(
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
 
     @classmethod
     def get_dependencies(cls, resource: ExternalDataSourceYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

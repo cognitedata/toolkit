@@ -56,7 +56,12 @@ from .data_organization import DataSetsIO
 
 @final
 class HostedExtractorSourceIO(
-    ResourceIO[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
+    ResourceIO[
+        ExternalId,
+        HostedExtractorSourceRequestUnion,
+        HostedExtractorSourceResponseUnion,
+        HostedExtractorSourceYAML,
+    ]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorSourceResponseUnion  # type: ignore[assignment]
@@ -93,6 +98,10 @@ class HostedExtractorSourceIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorSourceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
@@ -180,7 +189,12 @@ class HostedExtractorSourceIO(
 
 @final
 class HostedExtractorDestinationIO(
-    ResourceIO[ExternalId, HostedExtractorDestinationRequest, HostedExtractorDestinationResponse]
+    ResourceIO[
+        ExternalId,
+        HostedExtractorDestinationRequest,
+        HostedExtractorDestinationResponse,
+        HostedExtractorDestinationYAML,
+    ]
 ):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorDestinationResponse
@@ -281,11 +295,6 @@ class HostedExtractorDestinationIO(
         if resource.target_data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.target_data_set_external_id)
 
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "targetDataSetId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["targetDataSetId"])
-
     def sensitive_strings(self, item: HostedExtractorDestinationRequest) -> Iterable[str]:
         if item.credentials:
             yield item.credentials.nonce
@@ -295,7 +304,9 @@ class HostedExtractorDestinationIO(
 
 
 @final
-class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
+class HostedExtractorJobIO(
+    ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse, HostedExtractorJobYAML]
+):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorJobResponse
     resource_write_cls = HostedExtractorJobRequest
@@ -372,16 +383,16 @@ class HostedExtractorJobIO(ResourceIO[ExternalId, HostedExtractorJobRequest, Hos
         if resource.destination_id:
             yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
 
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "sourceId" in item:
-            yield HostedExtractorSourceIO, ExternalId(external_id=item["sourceId"])
-        if "destinationId" in item:
-            yield HostedExtractorDestinationIO, ExternalId(external_id=item["destinationId"])
-
 
 @final
-class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequest, HostedExtractorMappingResponse]):
+class HostedExtractorMappingIO(
+    ResourceIO[
+        ExternalId,
+        HostedExtractorMappingRequest,
+        HostedExtractorMappingResponse,
+        HostedExtractorMappingYAML,
+    ]
+):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorMappingResponse
     resource_write_cls = HostedExtractorMappingRequest
@@ -418,6 +429,10 @@ class HostedExtractorMappingIO(ResourceIO[ExternalId, HostedExtractorMappingRequ
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorMappingYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        return []
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))

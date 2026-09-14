@@ -24,7 +24,7 @@ from .datamodel import ViewIO
 
 
 @final
-class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConfigResponse]):
+class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConfigResponse, SearchConfigYAML]):
     support_drop = False
     folder_name = "cdf_applications"
     resource_cls = SearchConfigResponse

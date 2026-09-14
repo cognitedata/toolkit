@@ -1,11 +1,11 @@
 import builtins
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -143,6 +143,32 @@ class BuiltModule(BaseModel):
     def is_success(self) -> bool:
         """Determines if the module build was successful based on the presence of built file and validation errors."""
         return self.files_built
+
+    def load_local_resources(
+        self, crud: ResourceIO[Any, T_RequestResource, Any, Any]
+    ) -> dict[Identifier, tuple[BuiltResource, T_RequestResource]]:
+        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
+
+        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
+        """
+        resource_type = ResourceType(resource_folder=crud.folder_name, kind=crud.kind)
+        resource_by_id = {
+            resource.identifier: resource
+            for resource in self.resources
+            if resource.type == resource_type and resource.can_verify
+        }
+        if not resource_by_id:
+            return {}
+
+        build_paths = {resource.build_path for resource in resource_by_id.values()}
+        local_by_id: dict[Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+        for build_path in build_paths:
+            for raw in crud.load_resource_file(build_path):
+                request = crud.load_resource(raw)
+                item_id = crud.get_id(request)
+                if item_id in resource_by_id:
+                    local_by_id[item_id] = (resource_by_id[item_id], request)
+        return local_by_id
 
     @property
     def all_insights(self) -> InsightList:

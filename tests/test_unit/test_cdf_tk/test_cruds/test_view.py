@@ -1,5 +1,3 @@
-from collections.abc import Hashable
-
 import httpx2
 import pytest
 import respx
@@ -28,7 +26,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model i
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
-    ResourceIO,
     SpaceCRUD,
     ViewIO,
 )
@@ -149,62 +146,6 @@ class TestViewLoader:
         toolkit_client_approval.append(ViewResponse, [cdf_view])
 
         assert to_deploy_status(raw_file, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
-
-    @pytest.mark.parametrize(
-        "item, expected",
-        [
-            pytest.param(
-                {
-                    "space": "sp_my_space",
-                    "properties": {
-                        "name": {
-                            "container": {
-                                "type": "container",
-                                "space": "my_container_space",
-                                "externalId": "my_container",
-                            }
-                        }
-                    },
-                },
-                [
-                    (SpaceCRUD, SpaceId(space="sp_my_space")),
-                    (ContainerCRUD, ContainerId(space="my_container_space", external_id="my_container")),
-                ],
-                id="View with one container property",
-            ),
-            pytest.param(
-                {
-                    "space": "sp_my_space",
-                    "properties": {
-                        "toEdge": {
-                            "source": {
-                                "type": "view",
-                                "space": "my_view_space",
-                                "externalId": "my_view",
-                                "version": "1",
-                            },
-                            "edgeSource": {
-                                "type": "view",
-                                "space": "my_other_view_space",
-                                "externalId": "my_edge_view",
-                                "version": "42",
-                            },
-                        }
-                    },
-                },
-                [
-                    (SpaceCRUD, SpaceId(space="sp_my_space")),
-                    (ViewIO, ViewId(space="my_view_space", external_id="my_view", version="1")),
-                    (ViewIO, ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
-                ],
-                id="View with one container property",
-            ),
-        ],
-    )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceIO], Hashable]]) -> None:
-        actual = ViewIO.get_dependent_items(item)
-
-        assert list(actual) == expected
 
     @pytest.mark.parametrize(
         "view_ids,ordering_constraints,test_description",
