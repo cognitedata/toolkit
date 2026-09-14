@@ -208,30 +208,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             return True
         return False
 
-    def _missing_field_insight(
-        self,
-        container_id: ContainerId,
-        source_file: str,
-        field_name: str,
-        missing_names: list[str],
-    ) -> ConsistencyError:
-        """A container is missing entries (properties, constraints or indexes) that are still deployed to CDF.
-
-        CDF does not support removing these, so deploying the local YAML config as-is will not remove them.
-        """
-        return ConsistencyError(
-            code=self.INVALID_OPERATION_CODE,
-            message=(
-                f"Local config for container {container_id} is missing {field_name} "
-                f"{humanize_collection([f'{name!r}' for name in missing_names])} that have previously been deployed to CDF. "
-                f"Deploying the current local YAML config will not remove them from the container in CDF, since this is not a supported operation."
-            ),
-            fix=(
-                f"Add the {field_name} back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
-            ),
-            source_file=source_file,
-        )
-
     def _container_insights(
         self,
         container_id: ContainerId,
@@ -263,13 +239,20 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ),
                 source_file=source_file,
             )
-
-        for field_name in ("properties", "constraints", "indexes"):
-            if field_name == "properties" and changed:
-                continue  # Already reported above as a "changed" insight.
-            missing = sorted(set(cdf_dict.get(field_name) or {}) - set(local_dict.get(field_name) or {}))
-            if missing:
-                yield self._missing_field_insight(container_id, source_file, field_name, missing)
+        missing = sorted(set(cdf_dict.get("properties") or {}) - set(local_dict.get("properties") or {}))
+        if missing:
+            yield ConsistencyError(
+                code=self.INVALID_OPERATION_CODE,
+                message=(
+                    f"Local config for container {container_id} is missing properties "
+                    f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
+                    f"Deploying the current local YAML config will not remove them from the container in CDF, since this is not a supported operation."
+                ),
+                fix=(
+                    f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                ),
+                source_file=source_file,
+            )
 
         if local_dict.get("usedFor") != cdf_dict.get("usedFor"):
             # usedFor cannot change once set; every other top-level container field (name, description)
