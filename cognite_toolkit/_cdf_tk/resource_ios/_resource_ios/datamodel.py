@@ -112,7 +112,6 @@ from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
     humanize_collection,
-    in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
@@ -317,7 +316,7 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
     @classmethod
     def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return ContainerId(space=item["space"], external_id=item["externalId"])
@@ -326,25 +325,6 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
     @classmethod
     def dump_id(cls, id: ContainerId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        # Note that we are very careful in the code below to not raise an exception if the
-        # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
-        for prop in item.get("properties", {}).values():
-            if not isinstance(prop, dict):
-                continue
-            prop_type = prop.get("type", {})
-            if isinstance(prop_type, dict) and prop_type.get("type") == "direct":
-                if isinstance(prop_type.get("container"), dict):
-                    container = prop_type["container"]
-                    if "space" in container and "externalId" in container and container.get("type") == "container":
-                        yield (
-                            ContainerCRUD,
-                            ContainerId(space=container["space"], external_id=container["externalId"]),
-                        )
 
     @classmethod
     def get_dependencies(cls, resource: ContainerYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -701,7 +681,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
     @classmethod
     def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return ViewId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
@@ -744,49 +724,6 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                             (ViewIO if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
                             prop.through.source.as_id(),
                         )
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        from .streams import StreamIO  # local import avoids circular import with streams.py
-
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
-            for stream_id in item.get("streamId") or []:
-                yield StreamIO, ExternalId(external_id=stream_id)
-        if isinstance(implements := item.get("implements", []), list):
-            for parent in implements:
-                if not isinstance(parent, dict):
-                    continue
-                if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
-                    yield (
-                        ViewIO,
-                        ViewId(
-                            space=parent["space"],
-                            external_id=parent["externalId"],
-                            version=str(v) if (v := parent.get("version")) else "",
-                        ),
-                    )
-        for prop in item.get("properties", {}).values():
-            if (container := prop.get("container", {})) and container.get("type") == "container":
-                if in_dict(("space", "externalId"), container):
-                    yield (
-                        ContainerCRUD,
-                        ContainerId(space=container["space"], external_id=container["externalId"]),
-                    )
-            for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
-                if source := dct_.get(key, {}):
-                    if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
-                        yield (
-                            ViewIO,
-                            ViewId(
-                                space=source["space"],
-                                external_id=source["externalId"],
-                                version=str(v) if (v := source.get("version")) else "",
-                            ),
-                        )
-                    elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
-                        yield ContainerCRUD, ContainerId(space=source["space"], external_id=source["externalId"])
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
@@ -932,12 +869,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse]):
                 return nr_of_deleted
             sleep(2)
             to_delete = existing
+        msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
+        if self.console:
+            self.console.print(msg)
         else:
-            msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
-            if self.console:
-                self.console.print(msg)
-            else:
-                print(msg)
+            print(msg)
         return nr_of_deleted
 
     def _iterate(
@@ -1113,7 +1049,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
     @classmethod
     def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
@@ -1135,21 +1071,6 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse]):
 
         for view in resource.views or []:
             yield ViewIO, view.as_id()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        for view in item.get("views", []):
-            if in_dict(("space", "externalId"), view):
-                yield (
-                    ViewIO,
-                    ViewId(
-                        space=view["space"],
-                        external_id=view["externalId"],
-                        version=str(v) if (v := view.get("version")) else "",
-                    ),
-                )
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
@@ -1274,7 +1195,7 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
     @classmethod
     def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return NodeId(space=item["space"], external_id=item["externalId"])
@@ -1300,27 +1221,6 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse]):
 
         if resource.type:
             yield NodeCRUD, resource.type.as_id()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        for source in item.get("sources", []):
-            if (identifier := source.get("source")) and isinstance(identifier, dict):
-                if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
-                    yield (
-                        ViewIO,
-                        ViewId(
-                            space=identifier["space"],
-                            external_id=identifier["externalId"],
-                            version=str(v) if (v := identifier.get("version")) else "",
-                        ),
-                    )
-                elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield (
-                        ContainerCRUD,
-                        ContainerId(space=identifier["space"], external_id=identifier["externalId"]),
-                    )
 
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
@@ -1435,7 +1335,7 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
     @classmethod
     def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
@@ -1462,11 +1362,6 @@ class GraphQLCRUD(ResourceContainerIO[DataModelId, GraphQLDataModelRequest, Grap
         - Space dependency
         """
         yield SpaceCRUD, SpaceId(space=resource.space)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: DataModelId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -1689,7 +1584,7 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+            if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return EdgeId(space=item["space"], external_id=item["externalId"])
@@ -1721,32 +1616,6 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse]):
         yield NodeCRUD, resource.start_node.as_id()
         yield NodeCRUD, resource.end_node.as_id()
         yield NodeCRUD, resource.type.as_id()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "space" in item:
-            yield SpaceCRUD, SpaceId(space=item["space"])
-        for source in item.get("sources", []):
-            if (identifier := source.get("source")) and isinstance(identifier, dict):
-                if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
-                    yield (
-                        ViewIO,
-                        ViewId(
-                            space=identifier["space"],
-                            external_id=identifier["externalId"],
-                            version=str(v) if (v := identifier.get("version")) else "",
-                        ),
-                    )
-                elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield (
-                        ContainerCRUD,
-                        ContainerId(space=identifier["space"], external_id=identifier["externalId"]),
-                    )
-
-        for key in ["startNode", "endNode", "type"]:
-            if node_ref := item.get(key):
-                if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
-                    yield NodeCRUD, NodeId(space=node_ref["space"], external_id=node_ref["externalId"])
 
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup

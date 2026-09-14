@@ -91,16 +91,6 @@ class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeri
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if "securityCategoryNames" in item:
-            for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryIO, NameId(name=security_category)
-        if "assetExternalId" in item:
-            yield AssetIO, ExternalId(external_id=item["assetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -222,16 +212,6 @@ class DatapointSubscriptionIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        for timeseries_id in item.get("timeSeriesIds", []):
-            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
-        for instance_id in item.get("instanceIds", []):
-            if isinstance(instance_id, dict) and "space" in instance_id and "externalId" in instance_id:
-                yield NodeCRUD, NodeId(space=instance_id["space"], external_id=instance_id["externalId"])
 
     @classmethod
     def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

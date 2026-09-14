@@ -98,7 +98,6 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     calculate_secure_hash,
     humanize_collection,
-    in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
@@ -219,33 +218,6 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and (query := item.get("query")):
-            for source_id in get_ext_onelake_source_ids(query):
-                yield ExternalDataSourceIO, ExternalId(external_id=source_id)
-        if destination := item.get("destination", {}):
-            if not isinstance(destination, dict):
-                return
-            if destination.get("type") == "raw" and in_dict(("database", "table"), destination):
-                yield RawDatabaseCRUD, RawDatabaseId(name=destination["database"])
-                yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
-            elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
-                if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceId(space=space)
-                if in_dict(("space", "externalId", "version"), view):
-                    view["version"] = str(view["version"])
-                    yield ViewIO, ViewId.model_validate(view)
-            elif destination.get("type") == "instances":
-                if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceId(space=space)
-                if data_model := destination.get("dataModel"):
-                    if in_dict(("space", "externalId", "version"), data_model):
-                        data_model["version"] = str(data_model["version"])
-                        yield DataModelIO, DataModelId.model_validate(data_model)
 
     @classmethod
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -767,11 +739,6 @@ class TransformationScheduleIO(
         return sanitize_filename(id.external_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "externalId" in item:
-            yield TransformationIO, ExternalId(external_id=item["externalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: TransformationScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield TransformationIO, ExternalId(external_id=resource.external_id)
 
@@ -845,7 +812,7 @@ class TransformationNotificationIO(
         cls, item: TransformationNotificationResponse | TransformationNotificationRequest | dict
     ) -> TransformationNotificationId:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
+            if missing := tuple(k for k in ("transformationExternalId", "destination") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
             return TransformationNotificationId(
@@ -927,16 +894,6 @@ class TransformationNotificationIO(
                             # This is not set by the API.
                             notification.transformation_external_id = parent_id.external_id
                             yield notification
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "transformationExternalId" in item:
-            yield TransformationIO, ExternalId(external_id=item["transformationExternalId"])
 
     @classmethod
     def get_dependencies(

@@ -5,7 +5,7 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
@@ -98,27 +98,6 @@ class ResourceViewMappingIO(ResourceIO[ExternalId, ResourceViewMappingRequest, R
             return self.client.migration.resource_view_mapping.list(limit=None)
         else:
             return []
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":
-        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
-        view_id = RESOURCE_MAPPING_VIEW_ID
-        yield (
-            ViewIO,
-            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-        )
-
-        if "viewId" in item:
-            view_id_dict = item["viewId"]
-            if isinstance(view_id_dict, dict) and in_dict(("space", "externalId", "version"), view_id_dict):
-                yield (
-                    ViewIO,
-                    ViewId(
-                        space=view_id_dict["space"],
-                        external_id=view_id_dict["externalId"],
-                        version=view_id_dict["version"],
-                    ),
-                )
 
     @classmethod
     def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

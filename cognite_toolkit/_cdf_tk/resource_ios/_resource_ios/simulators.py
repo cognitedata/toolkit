@@ -144,16 +144,6 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
             cursor = page.next_cursor
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a SimulatorModel requires a DataSet, so this method would return the
-        DataSetsCRUD and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -272,13 +262,6 @@ class SimulatorModelRevisionIO(ResourceIO[ExternalId, SimulatorModelRevisionRequ
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "modelExternalId" in item:
-            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
-        if "fileExternalId" in item:
-            yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
         if resource.file_external_id:
@@ -376,11 +359,6 @@ class SimulatorRoutineIO(ResourceIO[ExternalId, SimulatorRoutineRequest, Simulat
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "modelExternalId" in item:
-            yield SimulatorModelIO, ExternalId(external_id=item["modelExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
 
@@ -469,28 +447,6 @@ class SimulatorRoutineRevisionIO(
             filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids), limit=None
         ):
             yield from items
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "routineExternalId" in item:
-            yield SimulatorRoutineIO, ExternalId(external_id=item["routineExternalId"])
-        config = item.get("configuration", {})
-        if not isinstance(config, dict):
-            return
-        for key in ["logicalCheck", "steadyStateDetection"]:
-            if isinstance(values := config.get(key), list):
-                for value in values:
-                    if isinstance(value, dict) and isinstance(external_id := value.get("timeseriesExternalId"), str):
-                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
-        for key in ["inputs", "outputs"]:
-            if isinstance(io_list := config.get(key), list):
-                for io_item in io_list:
-                    if not isinstance(io_item, dict):
-                        continue
-                    if isinstance(external_id := io_item.get("saveTimeseriesExternalId"), str):
-                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
-                    if isinstance(external_id := io_item.get("sourceExternalId"), str):
-                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
 
     @classmethod
     def get_dependencies(cls, resource: SimulatorRoutineRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

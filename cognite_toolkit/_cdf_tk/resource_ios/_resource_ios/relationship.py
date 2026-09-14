@@ -95,39 +95,6 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
             yield from items
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-        for label in item.get("labels", []):
-            if isinstance(label, dict):
-                yield LabelIO, ExternalId(external_id=label["externalId"])
-            elif isinstance(label, str):
-                yield LabelIO, ExternalId(external_id=label)
-        for connection in ["source", "target"]:
-            type_key = f"{connection}Type"
-            id_key = f"{connection}ExternalId"
-            if type_key in item and id_key in item:
-                type_value = item[type_key]
-                id_value = item[id_key]
-                if isinstance(id_value, str) and isinstance(type_value, str):
-                    type_value = type_value.strip().casefold()
-                    if type_value == "asset":
-                        yield AssetIO, ExternalId(external_id=id_value)
-                    elif type_value == "sequence":
-                        yield SequenceIO, ExternalId(external_id=id_value)
-                    elif type_value == "timeseries":
-                        yield TimeSeriesCRUD, ExternalId(external_id=id_value)
-                    elif type_value == "file":
-                        yield FileMetadataCRUD, ExternalId(external_id=id_value)
-                    elif type_value == "event":
-                        yield EventIO, ExternalId(external_id=id_value)
-
-    @classmethod
     def get_dependencies(cls, resource: RelationshipYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
