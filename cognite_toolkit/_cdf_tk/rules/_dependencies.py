@@ -240,7 +240,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 source_file=source_file,
             )
         missing = sorted(set(cdf_dict.get("properties") or {}) - set(local_dict.get("properties") or {}))
-        if missing:
+        if missing and not changed:
             yield ConsistencyError(
                 code=self.INVALID_OPERATION_CODE,
                 message=(
