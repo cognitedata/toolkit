@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import re
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, final
@@ -48,9 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitRequiredValueError,
-    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -159,86 +156,16 @@ class ExtractionPipelineIO(
             suffix=".md",
             content=content,
             description="extraction pipeline documentation",
+            resource_field="documentation",
         )
 
     @classmethod
     def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
         """Overwritten to handle the documentation field that needs .md style substitution."""
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import FileSuffix
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
-        for variable in variables:
-            file_suffix: FileSuffix = ".md" if cls._is_in_documentation_field(content, variable.name) else ".yaml"
-            pattern, replace = variable.get_pattern_replace_pair(file_suffix)
-            content = re.sub(pattern, replace, content)
-        return content
-
-    @staticmethod
-    def _is_in_documentation_field(content: str, variable_key: str) -> bool:
-        """Check if a variable is within a documentation field in YAML.
-
-        Assumes documentation is a top-level property. This detects various YAML formats:
-        - documentation: >-
-        - documentation: |
-        - documentation: "..."
-        - documentation: ...
-        """
-        lines = content.split("\n")
-        variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
-        in_documentation_field = False
-
-        for line in lines:
-            documentation_match = re.match(r"^documentation\s*:\s*(.*)$", line)
-            if documentation_match:
-                in_documentation_field = True
-                documentation_content_start = documentation_match.group(1).strip()
-
-                if re.search(variable_pattern, line):
-                    return True
-
-                if (
-                    documentation_content_start
-                    and not documentation_content_start.startswith(("|", ">", "|-", ">-", "|+", ">+"))
-                    and re.search(variable_pattern, documentation_content_start)
-                ):
-                    return True
-                continue
-
-            if in_documentation_field:
-                if re.match(r"^\w+\s*:", line):
-                    in_documentation_field = False
-                    continue
-
-                if re.search(variable_pattern, line):
-                    return True
-
-        return False
-
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        resources = load_yaml_inject_variables(
-            self.safe_read(filepath),
-            environment_variables or {},
-            original_filepath=filepath,
-        )
-
-        raw_list = resources if isinstance(resources, list) else [resources]
-        for item in raw_list:
-            if "documentationFile" not in item:
-                continue
-            documentation_file = filepath.parent / Path(item.pop("documentationFile"))
-            if not documentation_file.exists():
-                raise ToolkitFileNotFoundError(
-                    f"Documentation file {documentation_file.as_posix()} not found", filepath
-                )
-            if "documentation" in item:
-                raise ToolkitYAMLFormatError(
-                    f"documentation property is ambiguously defined in both the yaml file and a separate file named {documentation_file}\n"
-                    f"Please remove one of the definitions, either the documentation property in {filepath} or the file {documentation_file}",
-                    filepath,
-                )
-            item["documentation"] = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
-        return raw_list
+        return BuildVariable.substitute(content, variables, ".md")
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
