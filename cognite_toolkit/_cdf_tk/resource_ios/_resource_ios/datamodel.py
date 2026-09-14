@@ -1300,11 +1300,13 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
     def _lookup_constrained_properties(self, sources: Iterable[ViewId | ContainerId]) -> None:
         """Resolves, per source, the set of property names that are container-constrained direct relations.
 
-        Populates self._constrained_properties_by_source for every source not yet cached. A source that
-        cannot be resolved (not found, or missing schema read access) is left uncached.
+        Populates self._constrained_properties_by_source for every source not yet cached.
         """
         to_resolve = {source for source in sources if source not in self._constrained_properties_by_source}
         if not to_resolve:
+            # A source that cannot be resolved (not found, or missing schema read access) is left uncached. s
+            # Since writing to that resource will fail later anyway if the target node is not already in CDF,
+            # there is no point in caching it.
             return
 
         container_refs = [ref for ref in to_resolve if isinstance(ref, ContainerId)]
