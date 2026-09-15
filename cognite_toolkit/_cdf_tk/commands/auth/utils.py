@@ -29,8 +29,7 @@ def _cluster_from_session_project(project: SessionProject) -> str:
     if project.cluster and project.cluster.strip():
         return project.cluster.strip()
     raise AuthenticationError(
-        f"CogIdP did not return a cluster for project {project.name!r}. "
-        "Contact your organization administrator."
+        f"CogIdP did not return a cluster for project {project.name!r}. Contact your organization administrator."
     )
 
 
@@ -105,10 +104,13 @@ def resolve_session_cdf_target(
             raise AuthenticationError(
                 "CDF project is required. Pass --project when running without an interactive terminal."
             )
-        default_name = fallback_project or next(
-            (item for item in projects if item.is_default),
-            projects[0],
-        ).name
+        default_name = (
+            fallback_project
+            or next(
+                (item for item in projects if item.is_default),
+                projects[0],
+            ).name
+        )
         selected = _select_project_from_list(projects, default_name=default_name)
         return selected.name, _cluster_from_session_project(selected)
 

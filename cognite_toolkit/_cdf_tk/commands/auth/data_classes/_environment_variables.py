@@ -131,9 +131,7 @@ class EnvironmentVariables:
         except ValueError as exc:
             raise AuthenticationError(str(exc)) from exc
         if self.PROVIDER not in PROVIDERS:
-            raise AuthenticationError(
-                f"Invalid provider: {self.PROVIDER}. Valid options are {tuple(PROVIDERS)}"
-            )
+            raise AuthenticationError(f"Invalid provider: {self.PROVIDER}. Valid options are {tuple(PROVIDERS)}")
 
     @classmethod
     def login_flow_from_environment(cls) -> LoginFlow | None:

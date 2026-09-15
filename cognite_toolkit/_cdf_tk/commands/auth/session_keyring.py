@@ -75,7 +75,6 @@ def _delete_entry(account: str) -> None:
 
 
 def store_session_token(account: str, value: str) -> None:
-
     # On Windows, _effective_chunk_size() is 1280 bytes — a practical limit for Windows Credential Manager and older credential APIs.
     # If a token fits in one piece, it is stored directly on the account key.
 
