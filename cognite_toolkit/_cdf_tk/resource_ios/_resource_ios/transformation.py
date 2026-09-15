@@ -280,6 +280,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             suffix=".sql",
             content=content,
             description="transformation query",
+            resource_field="query",
         )
 
     @classmethod
