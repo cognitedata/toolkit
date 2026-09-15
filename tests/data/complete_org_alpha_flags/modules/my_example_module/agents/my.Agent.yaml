@@ -4,5 +4,6 @@ description: Agent with instructions and tools loaded from sidecar files
 model: azure/gpt-4o
 instructionsFile: instructions.md
 toolsFiles:
-- tools.yaml
+- tools/query_timeseries_datapoints.yaml
+- tools/run_python_code.yaml
 runtimeVersion: 0.9.9

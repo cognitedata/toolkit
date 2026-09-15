@@ -228,6 +228,18 @@ class TestIsInCodeBundleSubdirectory:
                 True,
                 id="yaml in app code folder",
             ),
+            pytest.param(
+                Path("modules/moduleA/agents/tools/run_python_code.yaml"),
+                "agents",
+                True,
+                id="yaml in agent tools folder",
+            ),
+            pytest.param(
+                Path("modules/moduleA/agents/my.Agent.yaml"),
+                "agents",
+                False,
+                id="agent resource definition",
+            ),
         ],
     )
     def test_is_in_code_bundle_subdirectory(self, yaml_file: Path, resource_folder: str, expected: bool) -> None:

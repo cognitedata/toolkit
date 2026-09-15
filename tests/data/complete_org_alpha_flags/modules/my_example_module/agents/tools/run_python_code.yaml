@@ -1,0 +1,5 @@
+name: Run Python code
+description: Run Python code to analyze time series data.
+type: runPythonCode
+configuration:
+  pythonCodeFile: run_code.py

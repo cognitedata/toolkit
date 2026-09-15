@@ -249,17 +249,19 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                     if stem.lower().endswith(self.kind.lower()):
                         stem = stem[: -len(self.kind)].removesuffix(".")
 
-                    tools_path = base_filepath.parent / f"{stem}.{tool_filename}.yaml"
+                    tools_dir = base_filepath.parent
                     if tool.get("type") == "runPythonCode":
+                        tools_dir = base_filepath.parent / "tools"
                         config = tool.get("configuration")
                         if isinstance(config, dict):
                             python_code = config.pop("pythonCode", None)
                             if python_code and isinstance(python_code, str):
-                                py_path = tools_path.with_suffix(".py")
+                                py_path = tools_dir / f"{stem}.{tool_filename}.py"
                                 config["pythonCodeFile"] = py_path.name
                                 yield py_path, python_code
+                    tools_path = tools_dir / f"{stem}.{tool_filename}.yaml"
 
-                    tool_paths.append(tools_path.name)
+                    tool_paths.append(tools_path.relative_to(base_filepath.parent).as_posix())
                     yield tools_path, yaml_safe_dump(tool)
 
                 resource["toolsFiles"] = tool_paths

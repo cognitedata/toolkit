@@ -275,12 +275,14 @@ class TestAgentIOExtraFiles:
         docs_path = tmp_path / "instructions.md"
         docs_path.write_text(markdown, encoding="utf-8")
 
-        tools_yaml = yaml_safe_dump([self._TOOL])
+        tools_yaml = yaml_safe_dump(self._TOOL)
         tools_path = tmp_path / "tools.yaml"
         tools_path.write_text(tools_yaml, encoding="utf-8")
 
         python_code = "print('hello')\n"
-        code_path = tmp_path / "run_code.py"
+        tools_dir = tmp_path / "tools"
+        tools_dir.mkdir()
+        code_path = tools_dir / "run_code.py"
         code_path.write_text(python_code, encoding="utf-8")
 
         python_tool_yaml = yaml_safe_dump(
@@ -291,7 +293,7 @@ class TestAgentIOExtraFiles:
                 "configuration": {"pythonCodeFile": "run_code.py"},
             }
         )
-        python_tools_path = tmp_path / "python_tool.yaml"
+        python_tools_path = tools_dir / "python_tool.yaml"
         python_tools_path.write_text(python_tool_yaml, encoding="utf-8")
 
         yaml_path = MagicMock(spec=Path)
@@ -301,7 +303,7 @@ class TestAgentIOExtraFiles:
             AgentIO.get_extra_files(
                 yaml_path,
                 ExternalId(external_id="my_agent"),
-                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml", "python_tool.yaml"]},
+                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml", "tools/python_tool.yaml"]},
             )
         )
 
@@ -386,9 +388,9 @@ class TestAgentIOExtraFiles:
         assert out == [
             (base.with_suffix(".md"), "Be helpful.\n"),
             (tmp_path / "my_agent.Ask_Document.yaml", yaml_safe_dump(self._TOOL)),
-            (tmp_path / "my_agent.run_code.py", python_code),
+            (tmp_path / "tools" / "my_agent.run_code.py", python_code),
             (
-                tmp_path / "my_agent.run_code.yaml",
+                tmp_path / "tools" / "my_agent.run_code.yaml",
                 yaml_safe_dump({**_python_tool, "configuration": {"pythonCodeFile": "my_agent.run_code.py"}}),
             ),
             (
@@ -396,7 +398,7 @@ class TestAgentIOExtraFiles:
                 {
                     **self._AGENT_YAML,
                     "instructionsFile": "my_agent.Agent.md",
-                    "toolsFiles": ["my_agent.Ask_Document.yaml", "my_agent.run_code.yaml"],
+                    "toolsFiles": ["my_agent.Ask_Document.yaml", "tools/my_agent.run_code.yaml"],
                 },
             ),
         ]
