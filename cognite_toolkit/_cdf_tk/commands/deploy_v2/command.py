@@ -197,6 +197,7 @@ class DeploymentResult:
     updated_count: int
     unchanged_count: int
     is_missing_write_acl: bool
+    is_missing_read_acl: bool = False
     skipped: list[Skipped] = field(default_factory=list)
 
     @property
@@ -716,7 +717,34 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_write = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
+                is_missing_read, is_missing_write = cls._validate_access(
+                    crud, request_resources, is_dry_run=options.dry_run
+                )
+                if is_missing_read:
+                    progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
+                    results.append(
+                        DeploymentResult(
+                            resource_name=resource_name,
+                            is_dry_run=options.dry_run,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=is_missing_write,
+                            is_missing_read_acl=is_missing_read,
+                            skipped=[
+                                Skipped(
+                                    id=crud.get_id(resource.request),
+                                    code="missing_read_acl",
+                                    source_file=resource.source_files[0],
+                                    reason=f"Missing READ access for {resource_name}",
+                                )
+                                for resource in resource_by_id.values()
+                            ],
+                        )
+                    )
+                    progress.update(task_id, advance=len(step.files))
+                    continue
 
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
                 try:
@@ -814,21 +842,28 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
         is_dry_run: bool,
-    ) -> bool:
+    ) -> tuple[bool, bool]:
+        """Validate that the user has access to the resources they are deploying.
+
+        Note if not in dry-run mode, this will raise an error if the user is missing any required ACLs.
+
+        Returns:
+            A tuple of two booleans: (is_missing_read_acl, is_missing_write_acl)
+        """
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            return False
+            return False, False
+
         if is_dry_run:
-            required_acls = list(crud.create_acl({"READ"}, minimum_scope))
-            optional_acls = list(crud.create_acl({"WRITE"}, minimum_scope))
-        else:
-            required_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
-            optional_acls = []
-
-        if missing := crud.client.tool.token.verify_acls(required_acls):
+            read_acl = list(crud.create_acl({"READ"}, minimum_scope))
+            write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
+                crud.client.tool.token.verify_acls(write_acl)
+            )
+        # Is not dry run
+        elif missing := crud.client.tool.token.verify_acls(list(crud.create_acl({"READ", "WRITE"}, minimum_scope))):
             raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-
-        return bool(crud.client.tool.token.verify_acls(optional_acls))
+        return False, False
 
     @classmethod
     def categorize_resources(
