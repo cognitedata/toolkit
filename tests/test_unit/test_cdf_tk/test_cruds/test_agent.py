@@ -291,27 +291,28 @@ class TestAgentIOExtraFiles:
         )
 
         assert len(extras) == 2
-        extra = extras[0]
-        assert extra.model_dump(exclude_unset=True) == {
-            "source_path": docs_path,
-            "suffix": ".md",
-            "content": markdown,
-            "resource_field": "instructions",
-            "source_hash": calculate_hash(markdown, shorten=True),
-            "description": "agent instructions",
-            "remove_fields": ["instructionsFile"],
-        }
-        extra2 = extras[1]
-        assert extra2.model_dump(exclude_unset=True) == {
-            "source_path": tools_path,
-            "suffix": ".yaml",
-            "content": tools_yaml,
-            "resource_field": "tools",
-            "is_list": True,
-            "source_hash": calculate_hash(tools_yaml, shorten=True),
-            "description": "agent tools",
-            "remove_fields": ["toolsFiles"],
-        }
+        dumped = [e.model_dump(exclude_unset=True) for e in extras]
+        assert dumped == [
+            {
+                "source_path": docs_path,
+                "suffix": ".md",
+                "content": markdown,
+                "resource_field": "instructions",
+                "source_hash": calculate_hash(markdown, shorten=True),
+                "description": "agent instructions",
+                "remove_fields": ["instructionsFile"],
+            },
+            {
+                "source_path": tools_path,
+                "suffix": ".yaml",
+                "content": tools_yaml,
+                "resource_field": "tools",
+                "is_list": True,
+                "source_hash": calculate_hash(tools_yaml, shorten=True),
+                "description": "agent tools",
+                "remove_fields": ["toolsFiles"],
+            },
+        ]
 
     def test_get_extra_files_missing_instructions_file(self, tmp_path: Path) -> None:
         yaml_path = MagicMock(spec=Path)
