@@ -487,10 +487,10 @@ def three_agents() -> list[AgentResponse]:
 class TestDumpAgents:
     def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.agents.retrieve.return_value = three_agents[1:]
+            client.tool.agents.retrieve.return_value = three_agents[1:2]
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
-                AgentFinder(client, tuple([agent.external_id for agent in three_agents[1:]])),
+                AgentFinder(client, tuple([agent.external_id for agent in three_agents[1:2]])),
                 output_dir=tmp_path,
                 clean=False,
                 verbose=False,
@@ -498,9 +498,13 @@ class TestDumpAgents:
             loader = AgentIO(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
-        assert len(filepaths) == 2
+        assert len(filepaths) == 1
         items = [read_yaml_file(filepath) for filepath in filepaths]
-        assert items == [loader.dump_resource(agent) for agent in three_agents[1:]]
+        expected_dump = list(loader.split_resource(filepaths[0], loader.dump_resource(three_agents[1])))
+        # Tool + Agent
+        assert len(expected_dump) == 2
+        agent_dumped = expected_dump[-1][1]
+        assert items == [agent_dumped]
 
     def test_interactive_select_agents(self, three_agents: list[AgentResponse], monkeypatch: MonkeyPatch) -> None:
         def select_agents(choices: list[Choice]) -> list[str]:
