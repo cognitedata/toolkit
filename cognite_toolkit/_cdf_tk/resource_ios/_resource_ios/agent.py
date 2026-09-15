@@ -261,7 +261,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             else:
                 tool_paths: list[str] = []
                 for tool_no, tool in enumerate(tools, start=1):
-                    tool_name = str(tool.get("name")) or f"{tool.get('type', '')}{tool_no!s}"
+                    tool_name = tool.get("name") or f"{tool.get('type', '')}{tool_no!s}"
                     tool_filename = sanitize_filename(tool_name)
                     stem = base_filepath.stem
                     if stem.lower().endswith(f".{self.kind.lower()}"):
