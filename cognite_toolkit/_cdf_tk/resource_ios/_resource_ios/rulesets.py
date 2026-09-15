@@ -216,6 +216,8 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
             suffix=".ttl",
             content=content,
             description="rule set rules",
+            is_list=True,
+            resource_field="rules",
         )
 
     def load_resource_file(

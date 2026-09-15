@@ -133,6 +133,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
             suffix=_SKILL_MD_SUFFIX,
             content=content,
             description="skill instructions",
+            resource_field="content",
         )
 
     @classmethod
