@@ -434,6 +434,15 @@ class TestDependencyRuleSetDataModelingChanges:
             pytest.param(VIEW_YAML, {"name": _view_property()}, None, None, [], None, id="no-change"),
             pytest.param(
                 VIEW_YAML,
+                {"name": _view_property()},
+                None,
+                [],
+                [],
+                None,
+                id="implements-empty-in-cdf-and-omitted-locally-is-no-change",
+            ),
+            pytest.param(
+                VIEW_YAML,
                 {"name": _view_property(), "description": _view_property()},
                 None,
                 None,
