@@ -3,3 +3,7 @@ description: Run Python code to analyze time series data.
 type: runPythonCode
 configuration:
   pythonCodeFile: run_code.py
+  schema:
+    type: object
+    properties: {}
+    required: []
