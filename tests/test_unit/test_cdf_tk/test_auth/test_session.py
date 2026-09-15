@@ -194,7 +194,7 @@ def test_refresh_session_keeps_refresh_token_when_idp_omits_it(respx_mock: respx
 
 
 def test_ensure_fresh_session_refreshes_expiring_access_token(
-    sample_keyring: Path, cli_home: Path, respx_mock: respx.MockRouter, cogidp_http
+    sample_keyring: Path, cli_home: Path, cogidp_http
 ) -> None:
     cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
     now = datetime.now(timezone.utc)
