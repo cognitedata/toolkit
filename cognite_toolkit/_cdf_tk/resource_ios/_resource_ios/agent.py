@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import Function
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
+    read_yaml_content,
     safe_read,
     sanitize_filename,
 )
@@ -100,11 +101,13 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         """Get extra files for an Agent resource.
 
-        This includes an optional .md file referenced by instructionsFile and optional YAML files
-        referenced by toolsFiles.
+        This includes an optional .md file referenced by instructionsFile, optional YAML files
+        referenced by toolsFiles, and optional .py files referenced by pythonCodeFile on
+        runPythonCode tools.
         """
         yield from cls._get_instructions_extra_file(filepath, item)
         yield from cls._get_tools_extra_files(filepath, item)
+        yield from cls._get_python_code_extra_files(filepath, item.get("tools"))
 
     @classmethod
     def _get_instructions_extra_file(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -144,7 +147,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             return
 
         for tools_file_name in tools_files:
-            if not tools_file_name:
+            if not isinstance(tools_file_name, str) or not tools_file_name:
                 continue
             tools_file = filepath.parent / Path(tools_file_name)
             if not tools_file.is_file():
@@ -156,6 +159,12 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 continue
 
             content = safe_read(tools_file, encoding=BUILD_FOLDER_ENCODING)
+            parsed_tools = cls._try_parse_yaml(content)
+            if parsed_tools is not None:
+                python_extras = list(cls._get_python_code_extra_files(filepath, parsed_tools))
+                yield from python_extras
+                if python_extras:
+                    content = yaml_safe_dump(parsed_tools)
             source_hash = calculate_hash(content, shorten=True)
             suffix = tools_file.suffix if tools_file.suffix else ".yaml"
             yield SuccessExtra(
@@ -169,6 +178,59 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 remove_fields=["toolsFiles"],
             )
 
+    @staticmethod
+    def _try_parse_yaml(content: str) -> list[Any] | dict[str, Any] | None:
+        try:
+            parsed = read_yaml_content(content)
+        except Exception:
+            return None
+        if isinstance(parsed, list | dict):
+            return parsed
+        return None
+
+    @classmethod
+    def _get_python_code_extra_files(cls, filepath: Path, tools: Any) -> Iterable[ReadExtra]:
+        for config in cls._iter_run_python_configs(tools):
+            extra = cls._read_and_inline_python_code(filepath, config)
+            if extra is not None:
+                yield extra
+
+    @staticmethod
+    def _iter_run_python_configs(tools: Any) -> Iterable[dict[str, Any]]:
+        tool_list = tools if isinstance(tools, list) else [tools] if isinstance(tools, dict) else []
+        for tool in tool_list:
+            if not isinstance(tool, dict) or tool.get("type") != "runPythonCode":
+                continue
+            config = tool.get("configuration")
+            if isinstance(config, dict):
+                yield config
+
+    @classmethod
+    def _read_and_inline_python_code(cls, filepath: Path, config: dict[str, Any]) -> ReadExtra | None:
+        code_file_name = config.get("pythonCodeFile")
+        if not code_file_name:
+            return None
+        code_file = filepath.parent / Path(code_file_name)
+        if not code_file.is_file():
+            return FailedReadExtra(
+                source_path=code_file,
+                code="MISSING",
+                error=f"Python code file {code_file.as_posix()} not found or is not a file",
+            )
+        content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)
+        config["pythonCode"] = content
+        config.pop("pythonCodeFile", None)
+        source_hash = calculate_hash(content, shorten=True)
+        suffix = code_file.suffix if code_file.suffix else ".py"
+        return SuccessExtra(
+            source_path=code_file,
+            source_hash=source_hash,
+            suffix=suffix,
+            content=content,
+            description="agent python code",
+            resource_field=None,
+        )
+
     def split_resource(
         self, base_filepath: Path, resource: dict[str, Any]
     ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
@@ -178,12 +240,31 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             yield md_path, cast(str, instructions)
 
         if tools := resource.pop("tools", None):
-            stem = base_filepath.stem
-            if stem.lower().endswith(self.kind.lower()):
-                stem = stem[: -len(self.kind)].removesuffix(".")
-            tools_path = base_filepath.parent / f"{stem}.yaml"
-            resource["toolsFiles"] = [tools_path.name]
-            yield tools_path, yaml_safe_dump(tools)
+            if not isinstance(tools, list):
+                resource["tools"] = tools
+            else:
+                tool_paths: list[str] = []
+                for tool_no, tool in enumerate(tools, start=1):
+                    tool_name = str(tool.get("name")) or f"{tool.get('type', '')}{tool_no!s}"
+                    tool_filename = sanitize_filename(tool_name)
+                    stem = base_filepath.stem
+                    if stem.lower().endswith(self.kind.lower()):
+                        stem = stem[: -len(self.kind)].removesuffix(".")
+
+                    tools_path = base_filepath.parent / f"{stem}.{tool_filename}.yaml"
+                    if tool.get("type") == "runPythonCode":
+                        config = tool.get("configuration")
+                        if isinstance(config, dict):
+                            python_code = config.pop("pythonCode", None)
+                            if python_code and isinstance(python_code, str):
+                                py_path = tools_path.with_suffix(".py")
+                                config["pythonCodeFile"] = py_path.name
+                                yield py_path, python_code
+
+                    tool_paths.append(tools_path.name)
+                    yield tools_path, yaml_safe_dump(tool)
+
+                resource["toolsFiles"] = tool_paths
 
         yield base_filepath, resource
 

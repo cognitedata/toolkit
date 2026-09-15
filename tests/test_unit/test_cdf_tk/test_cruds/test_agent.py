@@ -270,7 +270,7 @@ class TestAgentIOExtraFiles:
         "description": "Ask questions about documents in CDF.",
     }
 
-    def test_get_extra_files_from_instructions_file(self, tmp_path: Path) -> None:
+    def test_get_extra_files(self, tmp_path: Path) -> None:
         markdown = "You are a helpful assistant.\n"
         docs_path = tmp_path / "instructions.md"
         docs_path.write_text(markdown, encoding="utf-8")
@@ -279,6 +279,21 @@ class TestAgentIOExtraFiles:
         tools_path = tmp_path / "tools.yaml"
         tools_path.write_text(tools_yaml, encoding="utf-8")
 
+        python_code = "print('hello')\n"
+        code_path = tmp_path / "run_code.py"
+        code_path.write_text(python_code, encoding="utf-8")
+
+        python_tool_yaml = yaml_safe_dump(
+            {
+                "type": "runPythonCode",
+                "name": "run_code",
+                "description": "A valid tool description for testing",
+                "configuration": {"pythonCodeFile": "run_code.py"},
+            }
+        )
+        python_tools_path = tmp_path / "python_tool.yaml"
+        python_tools_path.write_text(python_tool_yaml, encoding="utf-8")
+
         yaml_path = MagicMock(spec=Path)
         yaml_path.parent = tmp_path
 
@@ -286,11 +301,10 @@ class TestAgentIOExtraFiles:
             AgentIO.get_extra_files(
                 yaml_path,
                 ExternalId(external_id="my_agent"),
-                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml"]},
+                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml", "python_tool.yaml"]},
             )
         )
 
-        assert len(extras) == 2
         dumped = [e.model_dump(exclude_unset=True) for e in extras]
         assert dumped == [
             {
@@ -309,6 +323,25 @@ class TestAgentIOExtraFiles:
                 "resource_field": "tools",
                 "is_list": True,
                 "source_hash": calculate_hash(tools_yaml, shorten=True),
+                "description": "agent tools",
+                "remove_fields": ["toolsFiles"],
+            },
+            {
+                "source_path": code_path,
+                "suffix": ".py",
+                "content": python_code,
+                "source_hash": calculate_hash(python_code, shorten=True),
+                "description": "agent python code",
+                "resource_field": "pythonCode",
+                "remove_fields": ["pythonCodeFile"],
+            },
+            {
+                "source_path": python_tools_path,
+                "suffix": ".yaml",
+                "content": python_tool_yaml,
+                "resource_field": "tools",
+                "is_list": True,
+                "source_hash": calculate_hash(python_tool_yaml, shorten=True),
                 "description": "agent tools",
                 "remove_fields": ["toolsFiles"],
             },
@@ -331,12 +364,40 @@ class TestAgentIOExtraFiles:
     ) -> None:
         io = AgentIO(toolkit_client_cheap, None, None)
         base = tmp_path / "my_agent.Agent.yaml"
-        resource = {**self._AGENT_YAML, "instructions": "Be helpful.\n", "tools": [self._TOOL]}
+        python_code = "print('hello')\n"
+        _python_tool = {
+            "type": "runPythonCode",
+            "name": "run_code",
+            "description": "A valid tool description for testing",
+        }
+        resource = {
+            **self._AGENT_YAML,
+            "instructions": "Be helpful.\n",
+            "tools": [
+                self._TOOL,
+                {
+                    **_python_tool,
+                    "configuration": {"pythonCode": python_code},
+                },
+            ],
+        }
 
         out = list(io.split_resource(base, resource))
 
         assert out == [
             (base.with_suffix(".md"), "Be helpful.\n"),
-            (tmp_path / "my_agent.yaml", yaml_safe_dump([self._TOOL])),
-            (base, {**self._AGENT_YAML, "instructionsFile": "my_agent.Agent.md", "toolsFiles": ["my_agent.yaml"]}),
+            (tmp_path / "my_agent.Ask_Document.yaml", yaml_safe_dump(self._TOOL)),
+            (tmp_path / "my_agent.run_code.py", python_code),
+            (
+                tmp_path / "my_agent.run_code.yaml",
+                yaml_safe_dump({**_python_tool, "configuration": {"pythonCodeFile": "my_agent.run_code.py"}}),
+            ),
+            (
+                base,
+                {
+                    **self._AGENT_YAML,
+                    "instructionsFile": "my_agent.Agent.md",
+                    "toolsFiles": ["my_agent.Ask_Document.yaml", "my_agent.run_code.yaml"],
+                },
+            ),
         ]
