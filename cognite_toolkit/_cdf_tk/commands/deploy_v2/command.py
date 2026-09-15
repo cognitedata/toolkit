@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_no_out_of_scope_view_references,
     validate_soft_delete_capacity,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
@@ -45,6 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ContainerCRUD,
@@ -71,7 +73,6 @@ from cognite_toolkit._cdf_tk.ui import (
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -197,6 +198,7 @@ class DeploymentResult:
     updated_count: int
     unchanged_count: int
     is_missing_write_acl: bool
+    is_missing_read_acl: bool = False
     skipped: list[Skipped] = field(default_factory=list)
 
     @property
@@ -213,6 +215,7 @@ class DeploymentResult:
         self.updated_count += other.updated_count
         self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
+        self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.skipped.extend(other.skipped)
         return self
 
@@ -716,7 +719,34 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_write = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
+                is_missing_read, is_missing_write = cls._validate_access(
+                    crud, request_resources, is_dry_run=options.dry_run
+                )
+                if is_missing_read:
+                    progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
+                    results.append(
+                        DeploymentResult(
+                            resource_name=resource_name,
+                            is_dry_run=options.dry_run,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=is_missing_write,
+                            is_missing_read_acl=is_missing_read,
+                            skipped=[
+                                Skipped(
+                                    id=crud.get_id(resource.request),
+                                    code="MISSING-READ-ACCESS",
+                                    source_file=resource.source_files[0],
+                                    reason=f"Missing READ access for {resource_name}",
+                                )
+                                for resource in resource_by_id.values()
+                            ],
+                        )
+                    )
+                    progress.update(task_id, advance=len(step.files))
+                    continue
 
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
                 try:
@@ -814,21 +844,30 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
         is_dry_run: bool,
-    ) -> bool:
+    ) -> tuple[bool, bool]:
+        """Validate that the user has access to the resources they are deploying.
+
+        Note if not in dry-run mode, this will raise an error if the user is missing any required ACLs.
+
+        Returns:
+            A tuple of two booleans: (is_missing_read_acl, is_missing_write_acl)
+        """
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            return False
+            return False, False
+
         if is_dry_run:
-            required_acls = list(crud.create_acl({"READ"}, minimum_scope))
-            optional_acls = list(crud.create_acl({"WRITE"}, minimum_scope))
-        else:
-            required_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
-            optional_acls = []
-
-        if missing := crud.client.tool.token.verify_acls(required_acls):
+            read_acl = list(crud.create_acl({"READ"}, minimum_scope))
+            write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
+                raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
+            return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
+                crud.client.tool.token.verify_acls(write_acl)
+            )
+        # Is not dry run
+        elif missing := crud.client.tool.token.verify_acls(list(crud.create_acl({"READ", "WRITE"}, minimum_scope))):
             raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-
-        return bool(crud.client.tool.token.verify_acls(optional_acls))
+        return False, False
 
     @classmethod
     def categorize_resources(
@@ -1147,8 +1186,12 @@ class DeployV2Command(ToolkitCommand):
             is_missing_write_acl=False,
         )
         for result in results:
+            if result.is_missing_read_acl:
+                resource_name = f"[red]{result.resource_name}[/]"
+            else:
+                resource_name = result.resource_name
             row = [
-                result.resource_name,
+                resource_name,
                 str(result.created_count),
                 str(result.updated_count),
                 str(result.deleted_count),

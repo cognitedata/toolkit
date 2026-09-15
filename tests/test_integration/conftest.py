@@ -68,8 +68,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamTemplate,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
 from tests.data import THREE_D_He2_FBX_ZIP

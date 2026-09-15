@@ -6,13 +6,34 @@ import typer
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
+
+
+def _validate_cdf_project(cli_cdf_project: str | None, client_cdf_project: str) -> None:
+    """Validates that the user is uploading to the CDF project they intended."""
+    if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
+        raise ToolkitValidationError(
+            f"The CDF project in your command argument does not match your credentials, "
+            f"{cli_cdf_project!r}≠{client_cdf_project!r}."
+        )
+    if cli_cdf_project is None:
+        typed_project = questionary.text(
+            f"Enter the name of the CDF project you are uploading to. This must match the "
+            f"CDF_PROJECT={client_cdf_project!r} in your environment variables.\n",
+        ).unsafe_ask()
+        if typed_project is None:
+            raise typer.Abort()
+        if typed_project != client_cdf_project:
+            raise ToolkitValidationError(
+                f"The CDF project you typed does not match your credentials, {typed_project!r}≠{client_cdf_project!r}."
+            )
 
 
 class UploadApp(typer.Typer):
@@ -60,8 +81,18 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--skip-verify-cdf-project",
                 help="If set, the command will skip the verification step that checks if the CDF project in the environment variables matches the one provided by the user.",
+                hidden=Flags.V09.is_enabled(),
             ),
         ] = False,
+        cdf_project: Annotated[
+            str | None,
+            typer.Option(
+                "--cdf-project",
+                help="The CDF Project you are uploading to. This is used to verify against the credentials you have set. "
+                "If it is not passed, you will be prompted for it.",
+                hidden=not Flags.V09.is_enabled(),
+            ),
+        ] = None,
         skip_strict_mode: Annotated[
             bool,
             typer.Option(
@@ -90,7 +121,9 @@ class UploadApp(typer.Typer):
         """Commands to upload data to CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
-        if not skip_verify_cdf_project:
+        if Flags.V09.is_enabled():
+            _validate_cdf_project(cdf_project, client.config.project)
+        elif not skip_verify_cdf_project:
             client.console.print(
                 f"You are about to upload data to the CDF project [bold]{client.config.project}[/bold], as set in your environment variables."
             )

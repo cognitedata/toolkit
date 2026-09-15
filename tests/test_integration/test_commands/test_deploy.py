@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
@@ -24,7 +25,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetIO, RuleSetVersionIO
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 
 

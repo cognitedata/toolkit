@@ -8,8 +8,8 @@ import typer
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullV2Command
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 from ._helpers import print_help_if_no_subcommand
@@ -197,9 +197,22 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
+                hidden=Flags.V09.is_enabled(),
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env or "dev",
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                hidden=not Flags.V09.is_enabled(),
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -224,10 +237,11 @@ class ModulesApp(typer.Typer):
             lambda: cmd.pull(
                 user_selected_modules=[module_name_or_path] if isinstance(module_name_or_path, str) else None,
                 organization_dir=organization_dir,
-                config_yaml=organization_dir / f"config.{build_env}.yaml",
+                config_yaml=config_yaml,
                 dry_run=dry_run,
                 verbose=verbose,
                 env_vars=env_vars,
+                build_env_name=build_env,
             )
         )
 
@@ -246,8 +260,21 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 help="Build environment to use.",
+                hidden=Flags.V09.is_enabled(),
             ),
         ] = CDF_TOML.cdf.default_env,
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                hidden=not Flags.V09.is_enabled(),
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         output_format: Annotated[
             ModulesListFormats,
             typer.Option(
@@ -279,5 +306,6 @@ class ModulesApp(typer.Typer):
                 organization_dir=organization_dir,
                 build_env_name=build_env,
                 output_format=output_format.value,
+                config_yaml=config_yaml,
             )
         )

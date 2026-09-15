@@ -10,7 +10,8 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -96,9 +97,22 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
+                hidden=Flags.V09.is_enabled(),
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                hidden=not Flags.V09.is_enabled(),
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         wait: Annotated[
             bool,
             typer.Option(
@@ -119,7 +133,11 @@ class RunApp(typer.Typer):
         """This command will run the specified workflow."""
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunWorkflowCommand(client=env_vars.get_client())
-        cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
+        cmd.run(
+            lambda: cmd.run_workflow(
+                env_vars, organization_dir, env_name, external_id, version, wait, config_yaml=config_yaml
+            )
+        )
 
 
 class RunFunctionApp(typer.Typer):
@@ -156,9 +174,22 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
+                hidden=Flags.V09.is_enabled(),
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                hidden=not Flags.V09.is_enabled(),
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         schedule: Annotated[
             str | None,
             typer.Option(
@@ -196,6 +227,7 @@ class RunFunctionApp(typer.Typer):
                 external_id,
                 schedule,
                 rebuild_env,
+                config_yaml=config_yaml,
             )
         )
 
@@ -222,9 +254,22 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
+                hidden=Flags.V09.is_enabled(),
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        config_yaml: Annotated[
+            Path | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                hidden=not Flags.V09.is_enabled(),
+                file_okay=True,
+                dir_okay=False,
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+            ),
+        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         schedule: Annotated[
             str | None,
             typer.Option(
@@ -253,4 +298,8 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function (assuming it is deployed) in CDF."""
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
-        cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))
+        cmd.run(
+            lambda: cmd.run_cdf(
+                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml
+            )
+        )

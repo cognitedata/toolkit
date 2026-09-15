@@ -19,9 +19,9 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -93,6 +93,7 @@ class TestRunFunction:
             external_id="fn_test3",
             data_source="daily-8pm-utc",
             wait=False,
+            config_yaml=RUN_DATA / "config.dev.yaml",
         )
         assert toolkit_client_approval.mock_client.functions.call.called
 
@@ -115,6 +116,7 @@ class TestRunFunction:
             external_id="fn_test3",
             data_source="daily-8pm-utc",
             rebuild_env=False,
+            config_yaml=RUN_DATA / "config.dev.yaml",
             virtual_env_folder_name="function_local_venvs_test_run_local_function",
         )
 
@@ -140,6 +142,7 @@ class TestRunFunction:
             external_id="fn_test3",
             data_source="workflow",
             rebuild_env=False,
+            config_yaml=RUN_DATA / "config.dev.yaml",
             virtual_env_folder_name="function_local_venvs_test_run_local_function_workflow",
         )
 
@@ -219,6 +222,7 @@ class TestRunWorkflow:
                 external_id="workflow",
                 version="v1",
                 wait=False,
+                config_yaml=RUN_DATA / "config.dev.yaml",
             )
             is True
         )
@@ -277,6 +281,7 @@ class TestRunWorkflow:
                 external_id="workflow",
                 version="v1",
                 wait=True,
+                config_yaml=RUN_DATA / "config.dev.yaml",
             )
             is True
         )
@@ -315,6 +320,7 @@ class TestRunWorkflow:
             external_id="workflow",
             version="v1",
             wait=True,
+            config_yaml=RUN_DATA / "config.dev.yaml",
         )
 
         retrieve_mock.assert_called_once()

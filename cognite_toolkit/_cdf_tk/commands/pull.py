@@ -11,6 +11,7 @@ from rich.console import Console, Group, RenderableType
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, ResponseResource
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
     ResourceIO,
@@ -38,7 +40,6 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 from ._base import ToolkitCommand
@@ -86,6 +87,7 @@ class PullV2Command(ToolkitCommand):
         config_yaml: Path | None = None,
         dry_run: bool = False,
         verbose: bool = False,
+        build_env_name: str | None = None,
     ) -> None:
         """Pulls resources from CDF and updates local configuration files.
 
@@ -96,15 +98,22 @@ class PullV2Command(ToolkitCommand):
             config_yaml: Optional path to a specific configuration YAML file to pull.
             dry_run: If True, no files will be modified; only a summary of changes will be displayed.
             verbose: If True, detailed output will be printed during execution.
+            build_env_name: Name of the build environment to use when v09 is disabled.
         """
         client = env_vars.get_client(is_strict_validation=False)
         console = client.console
         build_dir = Path(tempfile.mkdtemp())
         try:
+            if Flags.V09.is_enabled():
+                config_yaml_input = config_yaml
+            else:
+                config_yaml_input = (
+                    organization_dir / f"config.{build_env_name}.yaml" if build_env_name else config_yaml
+                )
             parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                config_yaml=config_yaml,
+                config_yaml=config_yaml_input,
                 user_selected_modules=user_selected_modules,
                 verbose=False,
                 write_insights=False,

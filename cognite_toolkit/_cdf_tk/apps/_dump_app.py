@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
@@ -30,7 +31,6 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._helpers import print_help_if_no_subcommand
 
