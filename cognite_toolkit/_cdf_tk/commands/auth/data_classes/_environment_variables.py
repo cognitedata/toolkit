@@ -291,6 +291,8 @@ class EnvironmentVariables:
     def _get_session(self) -> Token:
         session = self._require_fresh_session()
 
+        # Token calls this factory while holding its own threading.Lock, so the
+        # nonlocal session read/refresh below is already serialized across threads.
         def token_factory() -> str:
             nonlocal session
             if session.token_state() != "VALID":
