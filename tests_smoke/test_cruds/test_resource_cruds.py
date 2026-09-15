@@ -29,6 +29,16 @@ def _simulator_on_orangefield(exc: ToolkitAPIError, config: ToolkitClientConfig)
     return False
 
 
+def _resource_io_generic_args(resource_io_cls: type[ResourceIO]) -> tuple[type, ...]:
+    """Return ResourceIO type parameters, walking unparameterized subclasses."""
+    for cls in resource_io_cls.__mro__:
+        for base in getattr(cls, "__orig_bases__", ()):
+            args = get_args(base)
+            if args:
+                return args
+    return ()
+
+
 class TestResourceCRUD:
     @pytest.mark.parametrize("resource_io_cls", RESOURCE_CRUD_LIST)
     def test_retrieve_non_existing_works(
@@ -36,10 +46,9 @@ class TestResourceCRUD:
     ) -> None:
         """Test that retrieving a non-existing resource does not raise an error."""
         # Get the identifier class from the generic parameters of the resource_io class
-        base_cls = next((base for base in resource_io_cls.__orig_bases__), None)  # type: ignore[attr-defined]
-        assert base_cls is not None, f"{resource_io_cls} does not have __orig_bases__"
-        classes = get_args(base_cls)
-        assert len(classes) == 3, f"{resource_io_cls} should have 3 generic parameters, but has {len(classes)}"
+        classes = _resource_io_generic_args(resource_io_cls)
+        assert classes, f"{resource_io_cls} does not have ResourceIO generic parameters"
+        assert len(classes) == 4, f"{resource_io_cls} should have 4 generic parameters, but has {len(classes)}"
         identifier_cls: type[Identifier] = classes[0]
 
         non_existing_id = FakeCogniteResourceGenerator(
