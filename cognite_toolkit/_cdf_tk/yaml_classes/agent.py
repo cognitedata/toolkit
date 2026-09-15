@@ -305,7 +305,7 @@ class AgentYAML(ToolkitResource):
         None, description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.")
-    toolsFiles: list[str] | None = Field(
+    toolFiles: list[str] | None = Field(
         default=None,
         description="Used by Toolkit: Paths to YAML files containing the tools for the agent.",
     )

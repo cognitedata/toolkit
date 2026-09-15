@@ -104,7 +104,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         """Get extra files for an Agent resource.
 
         This includes an optional .md file referenced by instructionsFile, optional YAML files
-        referenced by toolsFiles, and optional .py files referenced by pythonCodeFile on
+        referenced by toolFiles, and optional .py files referenced by pythonCodeFile on
         runPythonCode tools.
         """
         yield from cls._get_instructions_extra_file(filepath, item)
@@ -113,12 +113,10 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
 
     @classmethod
     def _get_instructions_extra_file(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        if "instructionsFile" not in item:
+        instructions_file_name = item.get("instructionsFile")
+        if not instructions_file_name or not isinstance(instructions_file_name, str):
             return
-
-        if not item.get("instructionsFile"):
-            return
-        instructions_file = filepath.parent / Path(item["instructionsFile"])
+        instructions_file = filepath.parent / Path(instructions_file_name)
         if not instructions_file.is_file():
             yield FailedReadExtra(
                 source_path=instructions_file,
@@ -141,11 +139,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
 
     @classmethod
     def _get_tools_extra_files(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        if "toolsFiles" not in item:
-            return
-
-        tools_files = item.get("toolsFiles") or []
-        if not isinstance(tools_files, list):
+        if not isinstance(tools_files := item.get("toolFiles"), list):
             return
 
         for tools_file_name in tools_files:
@@ -180,7 +174,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 description="agent tools",
                 resource_field="tools",
                 is_list=True,
-                remove_fields=["toolsFiles"],
+                remove_fields=["toolFiles"],
             )
 
     @classmethod
@@ -281,7 +275,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                     tool_paths.append(tools_path.relative_to(base_filepath.parent).as_posix())
                     yield tools_path, yaml_safe_dump(tool)
 
-                resource["toolsFiles"] = tool_paths
+                resource["toolFiles"] = tool_paths
 
         yield base_filepath, resource
 
