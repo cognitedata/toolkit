@@ -184,7 +184,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             )
 
     @classmethod
-    @classmethod
     def _try_parse(cls, content: str) -> Any | None:
         try:
             parsed = read_yaml_content(content)
