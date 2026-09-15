@@ -22,6 +22,34 @@ APMConfigResponse:
       type: view
       version: '1'
   space: APM_Config
+AgentResponse:
+- description: Agent with instructions and tools loaded from sidecar files
+  externalId: agent_external_files
+  instructions: '# Instructions
+
+
+    You are a helpful assistant that answers questions about time series data in CDF.
+
+    Use the available tools when you need datapoints, and keep answers concise.
+
+    '
+  model: azure/gpt-4o
+  name: My Agent
+  runtimeVersion: 0.9.9
+  tools:
+  - description: This tool allows you to perform operations on query time series datapoints.
+    name: Operations on datapoints tool
+    type: queryTimeSeriesDatapoints
+  - configuration:
+      pythonCode: "def analyze(datapoints: list[float]) -> float:\n    if not datapoints:\n\
+        \        return 0.0\n    return sum(datapoints) / len(datapoints)\n"
+      schema:
+        properties: {}
+        required: []
+        type: object
+    description: Run Python code to analyze time series data.
+    name: Run Python code
+    type: runPythonCode
 AssetResponse:
 - dataSetId: 9434864499692429728
   description: This is the root asset on Drammen
