@@ -176,7 +176,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 source_path=tools_file,
                 source_hash=source_hash,
                 suffix=suffix,
-                parsed_content=parsed_content,
+                content_parsed=parsed_content,
                 description="agent tools",
                 resource_field="tools",
                 is_list=True,

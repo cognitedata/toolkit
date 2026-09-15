@@ -321,7 +321,7 @@ class TestAgentIOExtraFiles:
             {
                 "source_path": tools_path,
                 "suffix": ".yaml",
-                "content": tools_yaml,
+                "content_parsed": self._TOOL,
                 "resource_field": "tools",
                 "is_list": True,
                 "source_hash": calculate_hash(tools_yaml, shorten=True),
@@ -335,11 +335,17 @@ class TestAgentIOExtraFiles:
                 "source_hash": calculate_hash(python_code, shorten=True),
                 "description": "agent python code",
                 "resource_field": None,
+                "write_to_build": False,
             },
             {
                 "source_path": python_tools_path,
                 "suffix": ".yaml",
-                "content": python_tool_yaml,
+                "content_parsed": {
+                    "configuration": {"pythonCode": python_code},
+                    "description": "A valid tool description for testing",
+                    "name": "run_code",
+                    "type": "runPythonCode",
+                },
                 "resource_field": "tools",
                 "is_list": True,
                 "source_hash": calculate_hash(python_tool_yaml, shorten=True),
