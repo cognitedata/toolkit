@@ -1,11 +1,14 @@
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 from _pytest.monkeypatch import MonkeyPatch
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
@@ -95,6 +98,51 @@ class TestExtractionPipelineLoader:
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
         assert res[1]["name"] == "this-is-not-a-secret"
+
+
+class TestExtractionPipelineDocumentationFile:
+    def test_get_extra_files_from_documentation_file(self, tmp_path: Path) -> None:
+        markdown = "# Extra docs\n"
+        docs_path = tmp_path / "docs.md"
+        docs_path.write_text(markdown, encoding="utf-8")
+        yaml_path = MagicMock(spec=Path)
+        yaml_path.parent = tmp_path
+
+        extras = list(
+            ExtractionPipelineIO.get_extra_files(
+                yaml_path, ExternalId(external_id="ep_src_asset"), {"documentationFile": "docs.md"}
+            )
+        )
+
+        assert len(extras) == 1
+        extra = extras[0]
+        assert extra.model_dump(exclude_unset=True) == {
+            "source_path": docs_path,
+            "suffix": ".md",
+            "content": markdown,
+            "resource_field": "documentation",
+            "source_hash": "87f4f774",
+            "description": "extraction pipeline documentation",
+            "remove_fields": ["documentationFile"],
+        }
+
+    _PIPELINE_YAML: ClassVar[Mapping] = {
+        "externalId": "ep_src_asset",
+        "name": "Hamburg SAP",
+        "dataSetExternalId": "ds_my_dataset",
+    }
+
+    def test_split_resource_writes_markdown(self, tmp_path: Path) -> None:
+        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+        base = tmp_path / "ep_src_asset.ExtractionPipeline.yaml"
+        resource = {**self._PIPELINE_YAML, "documentation": "# Docs\n"}
+
+        out = list(loader.split_resource(base, resource))
+
+        assert out == [
+            (base.with_suffix(".md"), "# Docs\n"),
+            (base, {**self._PIPELINE_YAML, "documentationFile": "ep_src_asset.ExtractionPipeline.md"}),
+        ]
 
 
 class TestExtractionPipelineConfigCRUD:

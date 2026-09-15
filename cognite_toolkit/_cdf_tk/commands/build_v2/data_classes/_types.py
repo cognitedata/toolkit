@@ -3,7 +3,7 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import AfterValidator
 
-KNOWN_FILE_EXTENSIONS = {".json", ".yaml", ".yml", ".py", ".sql"}
+KNOWN_FILE_EXTENSIONS = {".json", ".yaml", ".yml", ".py", ".sql", ".md"}
 
 
 def _is_likely_dir(p: Path) -> bool:

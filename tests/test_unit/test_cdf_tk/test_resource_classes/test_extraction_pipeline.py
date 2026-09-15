@@ -56,6 +56,12 @@ class TestExtractionPipelineYAML:
                 "contacts": [{"name": "John Doe", "role": "Owner", "sendNotification": True}],
                 "notificationConfig": {"allowedNotSeenRangeInMinutes": 10},
             },
+            {
+                "externalId": "pipeline7",
+                "name": "Pipeline 7",
+                "dataSetExternalId": "ds7",
+                "documentationFile": "pipeline7.md",
+            },
         ],
     )
     def test_load_valid_extraction_pipeline(self, data: dict[str, object]) -> None:

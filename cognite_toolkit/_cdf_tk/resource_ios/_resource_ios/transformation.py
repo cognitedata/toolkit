@@ -281,6 +281,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             content=content,
             description="transformation query",
             resource_field="query",
+            remove_fields=["queryFile"],
         )
 
     @classmethod
