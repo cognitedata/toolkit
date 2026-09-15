@@ -215,6 +215,7 @@ class DeploymentResult:
         self.updated_count += other.updated_count
         self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
+        self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.skipped.extend(other.skipped)
         return self
 
