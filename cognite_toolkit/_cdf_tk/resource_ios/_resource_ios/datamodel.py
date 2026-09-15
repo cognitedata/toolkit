@@ -127,7 +127,6 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import pack_into_batches
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -1280,8 +1279,9 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
         all_sources = {source.source for item in items for source in item.sources or []}
         self._lookup_constrained_properties(all_sources)
         if not any(self._constrained_properties_by_source.get(source) for source in all_sources):
-            # Without constrained properties, we don't need to compute dependencies.
-            return list(chunker(items, INSTANCE_UPSERT_ENDPOINT.item_limit))
+            # Without constrained properties, we don't need to compute dependencies. The create call
+            # chunks on the item limit.
+            return [list(items)]
 
         nodes_by_id = {self.get_id(item): item for item in items}
         dependencies_by_id: dict[NodeId, set[NodeId]] = defaultdict(set)
