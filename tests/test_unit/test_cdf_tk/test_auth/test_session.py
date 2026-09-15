@@ -176,7 +176,7 @@ def test_refresh_session_raises_when_idp_rejects_refresh_token(cogidp_http) -> N
         refresh_session_tokens(session)
 
 
-def test_refresh_session_keeps_refresh_token_when_idp_omits_it(respx_mock: respx.MockRouter, cogidp_http) -> None:
+def test_refresh_session_keeps_refresh_token_when_idp_omits_it(cogidp_http) -> None:
     cogidp_http(token_json={"access_token": "new-access", "expires_in": 3600})
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
