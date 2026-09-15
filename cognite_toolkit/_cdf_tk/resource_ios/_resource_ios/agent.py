@@ -264,8 +264,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                     tool_name = str(tool.get("name")) or f"{tool.get('type', '')}{tool_no!s}"
                     tool_filename = sanitize_filename(tool_name)
                     stem = base_filepath.stem
-                    if stem.lower().endswith(self.kind.lower()):
-                        stem = stem[: -len(self.kind)].removesuffix(".")
+                    if stem.lower().endswith(f".{self.kind.lower()}"):
+                        stem = stem[: -(len(self.kind) + 1)]
 
                     tools_dir = base_filepath.parent
                     if tool.get("type") == "runPythonCode":
