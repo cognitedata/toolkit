@@ -161,14 +161,22 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 continue
 
             content = safe_read(tools_file, encoding=BUILD_FOLDER_ENCODING)
-            yield from cls._get_python_code_extra_files(tools_file, content)
+            parsed_content = cls._try_parse(content)
+            if parsed_content is None:
+                yield FailedReadExtra(
+                    source_path=tools_file,
+                    code="SYNTAX-ERROR",
+                    error=f"Tools file {tools_file.as_posix()} is not valid YAML",
+                )
+                continue
+            yield from cls._get_python_code_extra_files(tools_file, parsed_content)
             source_hash = calculate_hash(content, shorten=True)
             suffix = tools_file.suffix if tools_file.suffix else ".yaml"
             yield SuccessExtra(
                 source_path=tools_file,
                 source_hash=source_hash,
                 suffix=suffix,
-                content=content,
+                parsed_content=parsed_content,
                 description="agent tools",
                 resource_field="tools",
                 is_list=True,
@@ -176,17 +184,19 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             )
 
     @classmethod
+    def _try_parse(cls, content: str) -> Any | None:
+        try:
+            parsed = read_yaml_content(content)
+        except (YAMLError, ValueError, TypeError):
+            # This is handled when validating the Agent resource, so we can ignore it here.
+            return None
+        return parsed
+
+    @classmethod
     def _get_python_code_extra_files(cls, filepath: Path, tools: Any) -> Iterable[ReadExtra]:
         tool_list: list[Any] = []
         if isinstance(tools, list):
             tool_list.extend(tools)
-        elif isinstance(tools, str):
-            try:
-                parsed = read_yaml_content(tools)
-            except (YAMLError, ValueError, TypeError):
-                # This is handled when validating the Agent resource, so we can ignore it here.
-                return
-            yield from cls._get_python_code_extra_files(filepath, parsed)
         elif isinstance(tools, dict):
             tool_list.append(tools)
         else:
@@ -227,6 +237,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             content=content,
             description="agent python code",
             resource_field=None,
+            write_to_build=False,
         )
 
     def split_resource(

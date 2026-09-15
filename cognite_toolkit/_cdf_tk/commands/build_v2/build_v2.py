@@ -1117,6 +1117,8 @@ class BuildV2Command(ToolkitCommand):
                 # These extra files are not a specific resource field, it is typically another resource. For
                 # example in Functions, the code directory is a zip file.
                 for extra_file in extra_files:
+                    if not extra_file.write_to_build:
+                        continue
                     extra_path = folder / f"{filestem}{extra_file.suffix}"
                     if extra_file.content:
                         safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
@@ -1125,9 +1127,11 @@ class BuildV2Command(ToolkitCommand):
                     else:
                         shutil.copy2(extra_file.source_path, extra_path)
             elif extra_files[0].is_list:
-                to_write[field] = [ef.content for ef in extra_files if ef.content is not None]
+                to_write[field] = [
+                    ef.parsed_content or ef.content for ef in extra_files if ef.parsed_content or ef.content
+                ]
             else:
-                to_write[field] = extra_files[0].content
+                to_write[field] = extra_files[0].parsed_content or extra_files[0].content
 
             for remove_field in extra_files[0].remove_fields:
                 to_write.pop(remove_field, None)

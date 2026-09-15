@@ -213,6 +213,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             suffix=".zip",
             byte_content=create_zip_in_memory(function_rootdir),
             description="function code",
+            write_to_build=True,
         )
         name = item.get("name")
         if not isinstance(name, str):
@@ -238,6 +239,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                 ),
                 description="metadata for function code",
                 resource_field=None,
+                write_to_build=True,
             )
         elif space := item.get("space"):
             yield SuccessExtra(
@@ -254,6 +256,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                 ),
                 description="metadata for function code",
                 resource_field=None,
+                write_to_build=True,
             )
         else:
             yield FailedReadExtra(
