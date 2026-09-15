@@ -336,6 +336,7 @@ def _iter_file_content_read_extras(
         suffix=source.suffix if source.suffix else ".bin",
         description="file contents",
         resource_field=None,
+        write_to_build=True,
     )
 
 

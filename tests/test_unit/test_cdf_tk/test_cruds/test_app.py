@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.app import AppIO, AppVersionIO
 
 
@@ -239,9 +239,10 @@ class TestAppVersionIOGetExtraFiles:
 
         assert len(extras) == 1
         extra = extras[0]
+        assert isinstance(extra, SuccessExtra)
         assert extra.suffix == ".zip"
-        assert extra.byte_content is not None
-        with zipfile.ZipFile(io.BytesIO(extra.byte_content)) as zf:
+        assert extra.content_byte is not None
+        with zipfile.ZipFile(io.BytesIO(extra.content_byte)) as zf:
             names = zf.namelist()
         assert any("index.html" in n for n in names)
         assert any("bundle.js" in n for n in names)

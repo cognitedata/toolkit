@@ -1,5 +1,11 @@
+from collections.abc import Mapping
+from pathlib import Path
+from typing import ClassVar
+from unittest.mock import MagicMock
+
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -7,6 +13,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, SkillIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
+from cognite_toolkit._cdf_tk.utils import calculate_hash
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 
 
@@ -248,4 +256,156 @@ class TestAgentIODelete:
         assert deleted_ids == [
             ExternalId(external_id="supervisor"),
             ExternalId(external_id="weather-specialist"),
+        ]
+
+
+class TestAgentIOExtraFiles:
+    _AGENT_YAML: ClassVar[Mapping[str, str]] = {
+        "externalId": "my_agent",
+        "name": "My Agent",
+    }
+    _TOOL: ClassVar[Mapping[str, str]] = {
+        "type": "askDocument",
+        "name": "Ask Document",
+        "description": "Ask questions about documents in CDF.",
+    }
+
+    def test_get_extra_files(self, tmp_path: Path) -> None:
+        markdown = "You are a helpful assistant.\n"
+        docs_path = tmp_path / "instructions.md"
+        docs_path.write_text(markdown, encoding="utf-8")
+
+        tools_yaml = yaml_safe_dump(self._TOOL)
+        tools_path = tmp_path / "tools.yaml"
+        tools_path.write_text(tools_yaml, encoding="utf-8")
+
+        python_code = "print('hello')\n"
+        tools_dir = tmp_path / "tools"
+        tools_dir.mkdir()
+        code_path = tools_dir / "run_code.py"
+        code_path.write_text(python_code, encoding="utf-8")
+
+        python_tool_yaml = yaml_safe_dump(
+            {
+                "type": "runPythonCode",
+                "name": "run_code",
+                "description": "A valid tool description for testing",
+                "configuration": {"pythonCodeFile": "run_code.py"},
+            }
+        )
+        python_tools_path = tools_dir / "python_tool.yaml"
+        python_tools_path.write_text(python_tool_yaml, encoding="utf-8")
+
+        yaml_path = MagicMock(spec=Path)
+        yaml_path.parent = tmp_path
+
+        extras = list(
+            AgentIO.get_extra_files(
+                yaml_path,
+                ExternalId(external_id="my_agent"),
+                {"instructionsFile": "instructions.md", "toolFiles": ["tools.yaml", "tools/python_tool.yaml"]},
+            )
+        )
+
+        dumped = [e.model_dump(exclude_unset=True) for e in extras]
+        assert dumped == [
+            {
+                "source_path": docs_path,
+                "suffix": ".md",
+                "content": markdown,
+                "resource_field": "instructions",
+                "source_hash": calculate_hash(markdown, shorten=True),
+                "description": "agent instructions",
+                "remove_fields": ["instructionsFile"],
+            },
+            {
+                "source_path": tools_path,
+                "suffix": ".yaml",
+                "content_parsed": self._TOOL,
+                "resource_field": "tools",
+                "is_list": True,
+                "source_hash": calculate_hash(tools_yaml, shorten=True),
+                "description": "agent tools",
+                "remove_fields": ["toolFiles"],
+            },
+            {
+                "source_path": code_path,
+                "suffix": ".py",
+                "content": python_code,
+                "source_hash": calculate_hash(python_code, shorten=True),
+                "description": "agent python code",
+                "resource_field": None,
+                "write_to_build": False,
+            },
+            {
+                "source_path": python_tools_path,
+                "suffix": ".yaml",
+                "content_parsed": {
+                    "configuration": {"pythonCode": python_code},
+                    "description": "A valid tool description for testing",
+                    "name": "run_code",
+                    "type": "runPythonCode",
+                },
+                "resource_field": "tools",
+                "is_list": True,
+                "source_hash": calculate_hash(python_tool_yaml, shorten=True),
+                "description": "agent tools",
+                "remove_fields": ["toolFiles"],
+            },
+        ]
+
+    def test_get_extra_files_missing_instructions_file(self, tmp_path: Path) -> None:
+        yaml_path = MagicMock(spec=Path)
+        yaml_path.parent = tmp_path
+
+        extras = list(
+            AgentIO.get_extra_files(yaml_path, ExternalId(external_id="my_agent"), {"instructionsFile": "missing.md"})
+        )
+
+        assert len(extras) == 1
+        extra = extras[0]
+        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING"
+
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
+    def test_split_resource_writes_markdown_and_tools(
+        self, tmp_path: Path, toolkit_client_cheap: ToolkitClient
+    ) -> None:
+        io = AgentIO(toolkit_client_cheap, None, None)
+        base = tmp_path / "my_agent.Agent.yaml"
+        python_code = "print('hello')\n"
+        _python_tool = {
+            "type": "runPythonCode",
+            "name": "run_code",
+            "description": "A valid tool description for testing",
+        }
+        resource = {
+            **self._AGENT_YAML,
+            "instructions": "Be helpful.\n",
+            "tools": [
+                self._TOOL,
+                {
+                    **_python_tool,
+                    "configuration": {"pythonCode": python_code},
+                },
+            ],
+        }
+
+        out = list(io.split_resource(base, resource))
+
+        assert out == [
+            (base.with_suffix(".md"), "Be helpful.\n"),
+            (tmp_path / "my_agent.Ask_Document.yaml", yaml_safe_dump(self._TOOL)),
+            (tmp_path / "tools" / "my_agent.run_code.py", python_code),
+            (
+                tmp_path / "tools" / "my_agent.run_code.yaml",
+                yaml_safe_dump({**_python_tool, "configuration": {"pythonCodeFile": "my_agent.run_code.py"}}),
+            ),
+            (
+                base,
+                {
+                    **self._AGENT_YAML,
+                    "instructionsFile": "my_agent.Agent.md",
+                    "toolFiles": ["my_agent.Ask_Document.yaml", "tools/my_agent.run_code.yaml"],
+                },
+            ),
         ]
