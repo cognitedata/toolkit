@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotSupported,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowTriggerIO
@@ -140,18 +141,24 @@ if __name__ == "__main__":
         external_id: str | None = None,
         data_source: str | WorkflowVersionId | None = None,
         wait: bool = False,
+        config_yaml: Path | None = None,
     ) -> bool:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
 
         client = env_vars.get_client()
+        if Flags.V09.is_enabled():
+            config_yaml_input = config_yaml
+        else:
+            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+
         build_folder = BuildV2Command(
             print_warning=False,
             silent=True,
         ).tmp_build(
             organization_dir,
-            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            config_yaml_input,
             client,
         )
         is_interactive = external_id is None
@@ -427,6 +434,7 @@ if __name__ == "__main__":
         external_id: str | None = None,
         data_source: str | WorkflowVersionId | None = None,
         rebuild_env: bool = False,
+        config_yaml: Path | None = None,
         virtual_env_folder_name: str = virtual_env_folder,
     ) -> None:
         try:
@@ -440,12 +448,17 @@ if __name__ == "__main__":
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
 
+        if Flags.V09.is_enabled():
+            config_yaml_input = config_yaml
+        else:
+            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+
         build_folder = BuildV2Command(
             print_warning=False,
             silent=True,
         ).tmp_build(
             organization_dir,
-            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            config_yaml_input,
             env_vars.get_client(),
         )
         function_build = self._get_function(external_id, build_folder)
@@ -714,15 +727,21 @@ class RunWorkflowCommand(ToolkitCommand):
         external_id: str | None,
         version: str | None,
         wait: bool,
+        config_yaml: Path | None = None,
     ) -> bool:
         """Run a workflow in CDF"""
         client = env_vars.get_client()
+        if Flags.V09.is_enabled():
+            config_yaml_input = config_yaml
+        else:
+            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+
         build_folder = BuildV2Command(
             print_warning=False,
             silent=True,
         ).tmp_build(
             organization_dir,
-            organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None,
+            config_yaml_input,
             client,
         )
         is_interactive = external_id is None

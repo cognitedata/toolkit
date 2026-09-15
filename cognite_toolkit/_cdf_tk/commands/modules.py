@@ -65,6 +65,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, ToolkitPanel, ToolkitPanelSection, ToolkitTable
@@ -902,20 +903,24 @@ class ModulesCommand(ToolkitCommand):
         organization_dir: Path,
         build_env_name: str | None,
         output_format: Literal["table", "json"] = "table",
+        config_yaml: Path | None = None,
     ) -> None:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
         verify_module_directory(organization_dir, effective_build_env)
 
-        config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
-        config_yaml = config_path if config_path.is_file() else None
+        if Flags.V09.is_enabled():
+            config_yaml_input = config_yaml
+        else:
+            config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
+            config_yaml_input = config_path if config_path.is_file() else None
         lineage = BuildV2Command(
             print_warning=self.print_warning,
             skip_tracking=True,
             silent=self.silent,
             client=self._client,
-        ).tmp_build(organization_dir, config_yaml=config_yaml, client=self._client)
+        ).tmp_build(organization_dir, config_yaml=config_yaml_input, client=self._client)
 
         if output_format == "json":
             output = {
