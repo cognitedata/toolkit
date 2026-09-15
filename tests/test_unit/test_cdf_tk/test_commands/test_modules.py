@@ -444,7 +444,7 @@ class TestModulesCommand:
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.BuildV2Command.tmp_build", fake_tmp_build)
 
         cmd = ModulesCommand(print_warning=False, skip_tracking=True)
-        cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="json")
+        cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="json", config_yaml=config_yaml)
 
         assert captured == {"organization_dir": tmp_path, "config_yaml": config_yaml}
 
