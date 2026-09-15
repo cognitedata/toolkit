@@ -200,9 +200,9 @@ class TestAuthCommand:
             client.tool.groups.create.return_value = [updated_group]
             client.tool.groups.delete.return_value = None
 
-            monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.Prompt.ask", lambda *a, **k: None)
+            monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.command.Prompt.ask", lambda *a, **k: None)
             with MockQuestionary(
-                "cognite_toolkit._cdf_tk.commands.auth",
+                "cognite_toolkit._cdf_tk.commands.auth.command",
                 monkeypatch,
                 answers=[True],
             ):
