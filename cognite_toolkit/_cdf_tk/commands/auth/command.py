@@ -72,7 +72,8 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_classes import EnvironmentVariables
 from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
-from .utils import parse_login_flow_input, prompt_user_environment_variables, resolve_session_cdf_target
+from .data_classes._constants import parse_login_flow
+from .utils import prompt_user_environment_variables, resolve_session_cdf_target
 
 
 @dataclass
@@ -120,7 +121,7 @@ class AuthCommand(ToolkitCommand):
         port: int | None = None,
         project: str | None = None,
     ) -> None:
-        login_flow = parse_login_flow_input(flow)
+        login_flow = parse_login_flow(flow)
         if not confirm_login_flow_overrides_env(login_flow):
             print("[yellow]Aborted.[/yellow]")
             return

@@ -5,7 +5,8 @@ from unittest import mock
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOW_DESCRIPTION
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
+from cognite_toolkit._cdf_tk.commands.auth.data_classes._constants import parse_login_flow
 from cognite_toolkit._cdf_tk.commands.auth.utils import prompt_user_environment_variables
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
 from tests.test_unit.utils import MockQuestionary
@@ -173,7 +174,7 @@ CDF_CLIENT_MAX_WORKERS=5
 
 class TestPromptUserEnvironmentVariables:
     def test_session_is_first_login_flow_description(self) -> None:
-        first_flow = next(iter(LOGIN_FLOW_DESCRIPTION))
+        first_flow = next(iter(LOGIN_FLOWS))
         assert first_flow == "session"
 
     def test_new_user_defaults_to_device_code_entra_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -200,3 +201,17 @@ class TestPromptUserEnvironmentVariables:
         assert env.CDF_PROJECT == "my-project"
         assert env.IDP_TENANT_ID == "my-tenant.onmicrosoft.com"
         assert not env.get_missing_vars()
+
+
+class TestParseLoginFlow:
+    def test_accepts_canonical_snake_case(self) -> None:
+        assert parse_login_flow("device_code") == "device_code"
+        assert parse_login_flow("  session  ") == "session"
+
+    def test_suggests_close_match(self) -> None:
+        with pytest.raises(ValueError, match=r"Did you mean 'device_code'"):
+            parse_login_flow("device-code")
+
+    def test_lists_valid_flows_when_no_match(self) -> None:
+        with pytest.raises(ValueError, match="Choose one of"):
+            parse_login_flow("not-a-flow")

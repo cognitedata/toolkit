@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
-from ._constants import VALID_LOGIN_FLOWS, VALID_PROVIDERS
+from ._constants import LOGIN_FLOWS, PROVIDERS
 from ._types import LoginFlow, Provider
 
 
@@ -24,7 +24,7 @@ class EnvOptions(Mapping):
         return len(self.__dict__)
 
 
-ALL_CASES = [(None, flow) for flow in VALID_LOGIN_FLOWS]
+ALL_CASES = [(None, flow) for flow in LOGIN_FLOWS]
 
 
 def all_providers(
@@ -34,4 +34,4 @@ def all_providers(
         exclude = {exclude}
     elif exclude is not None:
         exclude = set(exclude)
-    return frozenset((prov, flow) for prov in VALID_PROVIDERS if exclude is None or prov not in exclude)
+    return frozenset((prov, flow) for prov in PROVIDERS if exclude is None or prov not in exclude)

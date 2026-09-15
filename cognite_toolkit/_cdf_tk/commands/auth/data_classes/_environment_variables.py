@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from ._constants import CLIENT_NAME, VALID_PROVIDERS, parse_login_flow
+from ._constants import CLIENT_NAME, PROVIDERS, parse_login_flow
 from ._env_options import ALL_CASES, EnvOptions, all_providers
 from ._types import LoginFlow, Provider
 
@@ -130,8 +130,10 @@ class EnvironmentVariables:
             self.LOGIN_FLOW = parse_login_flow(self.LOGIN_FLOW)
         except ValueError as exc:
             raise AuthenticationError(str(exc)) from exc
-        if self.PROVIDER not in VALID_PROVIDERS:
-            raise AuthenticationError(f"Invalid provider: {self.PROVIDER}. Valid options are {VALID_PROVIDERS}")
+        if self.PROVIDER not in PROVIDERS:
+            raise AuthenticationError(
+                f"Invalid provider: {self.PROVIDER}. Valid options are {tuple(PROVIDERS)}"
+            )
 
     @classmethod
     def login_flow_from_environment(cls) -> LoginFlow | None:

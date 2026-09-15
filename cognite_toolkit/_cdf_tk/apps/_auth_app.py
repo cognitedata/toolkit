@@ -3,8 +3,8 @@ from typing import Annotated, Any
 import typer
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables, parse_login_flow_input
-from cognite_toolkit._cdf_tk.commands.auth.data_classes import VALID_LOGIN_FLOWS
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables, parse_login_flow
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
@@ -105,7 +105,7 @@ class AuthApp(typer.Typer):
             typer.Option(
                 "--flow",
                 "-f",
-                help=f"Authentication flow to use: {', '.join(VALID_LOGIN_FLOWS)}.",
+                help=f"Authentication flow to use: {', '.join(LOGIN_FLOWS)}.",
                 case_sensitive=False,
             ),
         ] = "session",
@@ -130,7 +130,7 @@ class AuthApp(typer.Typer):
         ] = None,
     ) -> None:
         """Sign in and optionally write a .env file for subsequent Toolkit commands."""
-        login_flow = parse_login_flow_input(flow)
+        login_flow = parse_login_flow(flow)
 
         if login_flow != "session":
             session_only_flags = [

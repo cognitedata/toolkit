@@ -12,19 +12,13 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 from .cogidp import SessionProject, fetch_session_user_info
 from .data_classes import (
-    LOGIN_FLOW_DESCRIPTION,
-    PROVIDER_DESCRIPTION,
-    VALID_LOGIN_FLOWS,
+    LOGIN_FLOWS,
+    PROVIDERS,
     EnvironmentVariables,
     LoginFlow,
     Provider,
 )
-from .data_classes._constants import parse_login_flow
 from .session_store import StoredSession
-
-
-def parse_login_flow_input(flow: str) -> LoginFlow:
-    return parse_login_flow(flow)
 
 
 def _available_project_names(projects: list[SessionProject]) -> str:
@@ -154,17 +148,17 @@ def prompt_user_environment_variables(
         "Choose the provider (Who authenticates you?)",
         choices=[
             Choice(title=f"{provider}: {description}", value=provider)
-            for provider, description in PROVIDER_DESCRIPTION.items()
+            for provider, description in PROVIDERS.items()
             if provider != "cdf"
         ],
         default=current.PROVIDER if current else "entra_id",
     ).unsafe_ask()
     exclude = set()
     if provider == "cdf":
-        exclude = set(VALID_LOGIN_FLOWS) - {"client_credentials"}
+        exclude = set(LOGIN_FLOWS) - {"client_credentials"}
     choices = [
         Choice(title=f"{flow}: {description}", value=flow)
-        for flow, description in LOGIN_FLOW_DESCRIPTION.items()
+        for flow, description in LOGIN_FLOWS.items()
         if flow not in exclude and flow != "session"
     ]
     if login_flow is None:
