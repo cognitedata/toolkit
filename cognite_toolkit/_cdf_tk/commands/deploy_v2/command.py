@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ContainerCRUD,
@@ -857,6 +858,8 @@ class DeployV2Command(ToolkitCommand):
         if is_dry_run:
             read_acl = list(crud.create_acl({"READ"}, minimum_scope))
             write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
+                raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
             return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
                 crud.client.tool.token.verify_acls(write_acl)
             )
@@ -1183,11 +1186,7 @@ class DeployV2Command(ToolkitCommand):
         )
         for result in results:
             if result.is_missing_read_acl:
-                # Render the name with a strikethrough. We use the Unicode combining long
-                # stroke overlay (U+0336) instead of Rich's [strike] markup because many
-                # terminals ignore the ANSI strikethrough code (SGR 9).
-                struck_name = "".join(f"{char}\u0336" for char in result.resource_name)
-                resource_name = f"[red]{escape(struck_name)}[/]"
+                resource_name = f"[red]{result.resource_name}[/]"
             else:
                 resource_name = result.resource_name
             row = [
