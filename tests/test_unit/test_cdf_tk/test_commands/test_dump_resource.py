@@ -485,6 +485,10 @@ def three_agents() -> list[AgentResponse]:
 
 
 class TestDumpAgents:
+    @pytest.mark.skipif(
+        not Flags.V09.is_enabled(),
+        reason="This test requires v0.9 as it splits the agent dump into two files: tool and agent",
+    )
     def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.agents.retrieve.return_value = three_agents[1:2]
