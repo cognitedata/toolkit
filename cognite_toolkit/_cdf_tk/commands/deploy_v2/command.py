@@ -735,7 +735,7 @@ class DeployV2Command(ToolkitCommand):
                             skipped=[
                                 Skipped(
                                     id=crud.get_id(resource.request),
-                                    code="missing_read_acl",
+                                    code="MISSING-READ-ACCESS",
                                     source_file=resource.source_files[0],
                                     reason=f"Missing READ access for {resource_name}",
                                 )
@@ -1182,8 +1182,16 @@ class DeployV2Command(ToolkitCommand):
             is_missing_write_acl=False,
         )
         for result in results:
+            if result.is_missing_read_acl:
+                # Render the name with a strikethrough. We use the Unicode combining long
+                # stroke overlay (U+0336) instead of Rich's [strike] markup because many
+                # terminals ignore the ANSI strikethrough code (SGR 9).
+                struck_name = "".join(f"{char}\u0336" for char in result.resource_name)
+                resource_name = f"[red]{escape(struck_name)}[/]"
+            else:
+                resource_name = result.resource_name
             row = [
-                result.resource_name,
+                resource_name,
                 str(result.created_count),
                 str(result.updated_count),
                 str(result.deleted_count),
