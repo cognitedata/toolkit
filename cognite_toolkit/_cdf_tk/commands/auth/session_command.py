@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime, timezone
 
@@ -13,6 +14,7 @@ from .oidc import login_for_session, revoke_refresh_token
 from .session_keyring import read_session_token
 from .session_refresh import ensure_fresh_session
 from .session_store import (
+    StoredSession,
     clear_org_tokens,
     clear_session,
     read_session_metadata,
@@ -41,7 +43,7 @@ def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
 
 
 class AuthSessionCommand(ToolkitCommand):
-    def login(self, org: str | None, force: bool, port: int | None) -> None:
+    def login(self, org: str | None, force: bool, port: int | None) -> StoredSession | None:
         try:
             existing = read_session_metadata()
         except AuthenticationError:
@@ -57,7 +59,7 @@ class AuthSessionCommand(ToolkitCommand):
                 ).unsafe_ask()
                 if not replace:
                     print("[yellow]Aborted.[/yellow]")
-                    return
+                    return None
 
         if not org:
             if not sys.stdin.isatty():
@@ -75,6 +77,7 @@ class AuthSessionCommand(ToolkitCommand):
             clear_org_tokens(existing.org)
         write_session(session)
         print("[green]Signed in.[/green]")
+        return session
 
     def logout(self) -> None:
         try:
@@ -127,9 +130,16 @@ class AuthSessionCommand(ToolkitCommand):
             cluster = project.cluster or "(unknown cluster)"
             by_cluster.setdefault(cluster, []).append(project)
 
+        current_project = os.environ.get("CDF_PROJECT", "").strip()
+
         print(f"\n[bold]Projects ({len(user_info.projects)}):[/bold]")
         for cluster, projects in sorted(by_cluster.items()):
             print(f"  [dim]{cluster}[/dim]")
             for project in projects:
-                marker = " [green][default][/green]" if project.is_default else ""
-                print(f"    {project.name}{marker}")
+                markers: list[str] = []
+                if project.is_default:
+                    markers.append("[green][default][/green]")
+                if current_project and project.name == current_project:
+                    markers.append("[green](current)[/green]")
+                suffix = f" {' '.join(markers)}" if markers else ""
+                print(f"    {project.name}{suffix}")

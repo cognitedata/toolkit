@@ -121,9 +121,12 @@ class AuthApp(typer.Typer):
             int | None,
             typer.Option(
                 "--port",
-                "-p",
                 help="Local callback port for the OAuth redirect (default: 3000, session flow only)",
             ),
+        ] = None,
+        project: Annotated[
+            str | None,
+            typer.Option("--project", "-p", help="CDF project to use after session login"),
         ] = None,
     ) -> None:
         """Sign in and optionally write a .env file for subsequent Toolkit commands."""
@@ -132,7 +135,12 @@ class AuthApp(typer.Typer):
         if login_flow != "session":
             session_only_flags = [
                 flag
-                for flag, is_set in (("--org", org is not None), ("--force", force), ("--port", port is not None))
+                for flag, is_set in (
+                    ("--org", org is not None),
+                    ("--force", force),
+                    ("--port", port is not None),
+                    ("--project", project is not None),
+                )
                 if is_set
             ]
             if session_only_flags:
@@ -140,6 +148,7 @@ class AuthApp(typer.Typer):
             org = None
             force = False
             port = None
+            project = None
 
         cmd = AuthCommand()
         cmd.run(
@@ -148,6 +157,7 @@ class AuthApp(typer.Typer):
                 org=org,
                 force=force,
                 port=port,
+                project=project,
             )
         )
 

@@ -72,7 +72,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_classes import EnvironmentVariables
 from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
-from .utils import parse_login_flow_input, prompt_user_environment_variables
+from .utils import parse_login_flow_input, prompt_user_environment_variables, resolve_session_cdf_target
 
 
 @dataclass
@@ -118,6 +118,7 @@ class AuthCommand(ToolkitCommand):
         org: str | None = None,
         force: bool = False,
         port: int | None = None,
+        project: str | None = None,
     ) -> None:
         login_flow = parse_login_flow_input(flow)
         if not confirm_login_flow_overrides_env(login_flow):
@@ -125,11 +126,14 @@ class AuthCommand(ToolkitCommand):
             return
 
         if login_flow == "session":
-            AuthSessionCommand().login(org=org, force=force, port=port)
+            session = AuthSessionCommand().login(org=org, force=force, port=port)
+            if session is None:
+                return
+            cdf_project, cdf_cluster = resolve_session_cdf_target(session, project=project)
             self._store_dotenv(
                 EnvironmentVariables(
-                    CDF_CLUSTER="",
-                    CDF_PROJECT="",
+                    CDF_CLUSTER=cdf_cluster,
+                    CDF_PROJECT=cdf_project,
                     PROVIDER="cdf",
                     LOGIN_FLOW="session",
                 )

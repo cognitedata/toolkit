@@ -1,3 +1,5 @@
+import os
+import sys
 from dataclasses import Field
 from typing import Any
 
@@ -6,6 +8,9 @@ import typer
 from questionary import Choice
 from rich import print
 
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .cogidp import SessionProject, fetch_session_user_info
 from .data_classes import (
     LOGIN_FLOW_DESCRIPTION,
     PROVIDER_DESCRIPTION,
@@ -15,10 +20,129 @@ from .data_classes import (
     Provider,
 )
 from .data_classes._constants import parse_login_flow
+from .session_store import StoredSession
 
 
 def parse_login_flow_input(flow: str) -> LoginFlow:
     return parse_login_flow(flow)
+
+
+def _available_project_names(projects: list[SessionProject]) -> str:
+    return ", ".join(sorted(project.name for project in projects))
+
+
+def _cluster_from_session_project(project: SessionProject) -> str:
+    if project.cluster and project.cluster.strip():
+        return project.cluster.strip()
+    raise AuthenticationError(
+        f"CogIdP did not return a cluster for project {project.name!r}. "
+        "Contact your organization administrator."
+    )
+
+
+def _resolve_named_project(
+    project_name: str,
+    projects: list[SessionProject],
+    *,
+    org: str,
+) -> tuple[str, str]:
+    matched = next((item for item in projects if item.name == project_name), None)
+    if matched is None:
+        raise AuthenticationError(
+            f"Project {project_name!r} is not available for organization {org!r}. "
+            f"Available projects: {_available_project_names(projects)}"
+        )
+    return project_name, _cluster_from_session_project(matched)
+
+
+def _project_choice_title(project: SessionProject) -> str:
+    cluster = project.cluster or "(unknown cluster)"
+    title = f"{project.name} — {cluster}"
+    if project.is_default:
+        title += " [default]"
+    return title
+
+
+def _select_project_from_list(
+    projects: list[SessionProject],
+    *,
+    default_name: str,
+) -> SessionProject:
+    sorted_projects = sorted(projects, key=lambda item: (item.cluster or "", item.name))
+    default_project = next(
+        (item for item in sorted_projects if item.name == default_name),
+        next((item for item in sorted_projects if item.is_default), sorted_projects[0]),
+    )
+    selected_name: str = questionary.select(
+        "Select the CDF project to use with the toolkit",
+        choices=[Choice(title=_project_choice_title(item), value=item.name) for item in sorted_projects],
+        default=default_project.name,
+    ).unsafe_ask()
+    if selected_name is None:
+        raise typer.Exit(0)
+    return next(item for item in projects if item.name == selected_name)
+
+
+def resolve_session_cdf_target(
+    session: StoredSession,
+    *,
+    project: str | None = None,
+) -> tuple[str, str]:
+    """Resolve CDF project and cluster after a CogIdP session login."""
+    fallback_project = os.environ.get("CDF_PROJECT", "").strip()
+    user_info = fetch_session_user_info(session.org, session.access_token)
+    projects = user_info.projects
+
+    if project and project.strip():
+        project_name = project.strip()
+        if not projects:
+            raise AuthenticationError(
+                "CogIdP returned no projects; cannot resolve cluster for --project. "
+                "Run login interactively or check your organization access."
+            )
+        return _resolve_named_project(project_name, projects, org=session.org)
+
+    if len(projects) == 1:
+        only = projects[0]
+        return only.name, _cluster_from_session_project(only)
+
+    if len(projects) > 1:
+        if not sys.stdin.isatty():
+            raise AuthenticationError(
+                "CDF project is required. Pass --project when running without an interactive terminal."
+            )
+        default_name = fallback_project or next(
+            (item for item in projects if item.is_default),
+            projects[0],
+        ).name
+        selected = _select_project_from_list(projects, default_name=default_name)
+        return selected.name, _cluster_from_session_project(selected)
+
+    return _prompt_cdf_project_and_cluster(fallback_project=fallback_project)
+
+
+def _prompt_cdf_project_and_cluster(
+    *,
+    fallback_project: str,
+) -> tuple[str, str]:
+    if not sys.stdin.isatty():
+        raise AuthenticationError(
+            "CDF project is required. Pass --project when running without an interactive terminal."
+        )
+    print("[dim]No projects returned from CogIdP; enter project details manually.[/dim]")
+    cdf_project = questionary.text(
+        "Enter the CDF project",
+        default=fallback_project,
+        validate=lambda value: bool(value.strip()) or "CDF project cannot be empty",
+    ).unsafe_ask()
+    cdf_project = cdf_project.strip()
+    fallback_cluster = os.environ.get("CDF_CLUSTER", "").strip()
+    cdf_cluster = questionary.text(
+        "Enter the CDF cluster (e.g. westeurope-1)",
+        default=fallback_cluster,
+        validate=lambda value: bool(value.strip()) or "CDF cluster cannot be empty",
+    ).unsafe_ask()
+    return cdf_project, cdf_cluster.strip()
 
 
 def prompt_user_environment_variables(
