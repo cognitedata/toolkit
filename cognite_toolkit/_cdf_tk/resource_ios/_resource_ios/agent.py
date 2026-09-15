@@ -3,6 +3,8 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, TypeVar, cast, final
 
+from yaml.error import YAMLError
+
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import Agent, AgentRequest, AgentResponse
@@ -159,12 +161,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 continue
 
             content = safe_read(tools_file, encoding=BUILD_FOLDER_ENCODING)
-            parsed_tools = cls._try_parse_yaml(content)
-            if parsed_tools is not None:
-                python_extras = list(cls._get_python_code_extra_files(filepath, parsed_tools))
-                yield from python_extras
-                if python_extras:
-                    content = yaml_safe_dump(parsed_tools)
+            yield from cls._get_python_code_extra_files(tools_file, content)
             source_hash = calculate_hash(content, shorten=True)
             suffix = tools_file.suffix if tools_file.suffix else ".yaml"
             yield SuccessExtra(
@@ -178,37 +175,37 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 remove_fields=["toolsFiles"],
             )
 
-    @staticmethod
-    def _try_parse_yaml(content: str) -> list[Any] | dict[str, Any] | None:
-        try:
-            parsed = read_yaml_content(content)
-        except Exception:
-            return None
-        if isinstance(parsed, list | dict):
-            return parsed
-        return None
-
     @classmethod
     def _get_python_code_extra_files(cls, filepath: Path, tools: Any) -> Iterable[ReadExtra]:
-        for config in cls._iter_run_python_configs(tools):
-            extra = cls._read_and_inline_python_code(filepath, config)
-            if extra is not None:
-                yield extra
+        tool_list: list[Any] = []
+        if isinstance(tools, list):
+            tool_list.extend(tools)
+        elif isinstance(tools, str):
+            try:
+                parsed = read_yaml_content(tools)
+            except (YAMLError, ValueError, TypeError):
+                # This is handled when validating the Agent resource, so we can ignore it here.
+                return
+            yield from cls._get_python_code_extra_files(filepath, parsed)
+        elif isinstance(tools, dict):
+            tool_list.append(tools)
+        else:
+            return
 
-    @staticmethod
-    def _iter_run_python_configs(tools: Any) -> Iterable[dict[str, Any]]:
-        tool_list = tools if isinstance(tools, list) else [tools] if isinstance(tools, dict) else []
-        for tool in tool_list:
+        for tool in tool_list or []:
             if not isinstance(tool, dict) or tool.get("type") != "runPythonCode":
                 continue
             config = tool.get("configuration")
-            if isinstance(config, dict):
-                yield config
+            if not isinstance(config, dict):
+                continue
+            extra = cls._read_and_inline_python_code_python_tool(filepath, config)
+            if extra is not None:
+                yield extra
 
     @classmethod
-    def _read_and_inline_python_code(cls, filepath: Path, config: dict[str, Any]) -> ReadExtra | None:
+    def _read_and_inline_python_code_python_tool(cls, filepath: Path, config: dict[str, Any]) -> ReadExtra | None:
         code_file_name = config.get("pythonCodeFile")
-        if not code_file_name:
+        if not code_file_name or not isinstance(code_file_name, str):
             return None
         code_file = filepath.parent / Path(code_file_name)
         if not code_file.is_file():
@@ -219,6 +216,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             )
         content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)
         config["pythonCode"] = content
+        # Mutating the config dict to remove the pythonCodeFile key, so that it is not included in the final resource.
         config.pop("pythonCodeFile", None)
         source_hash = calculate_hash(content, shorten=True)
         suffix = code_file.suffix if code_file.suffix else ".py"

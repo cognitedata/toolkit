@@ -332,8 +332,7 @@ class TestAgentIOExtraFiles:
                 "content": python_code,
                 "source_hash": calculate_hash(python_code, shorten=True),
                 "description": "agent python code",
-                "resource_field": "pythonCode",
-                "remove_fields": ["pythonCodeFile"],
+                "resource_field": None,
             },
             {
                 "source_path": python_tools_path,
