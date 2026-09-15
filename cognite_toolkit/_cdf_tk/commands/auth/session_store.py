@@ -1,22 +1,24 @@
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
-from cognite_toolkit._cdf_tk.constants import (
-    COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
-    COGNITE_CLI_SESSION_VERSION,
-)
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from filelock import FileLock, Timeout
 
-from .home import get_cli_home, session_file_path
-from .session_keyring import (
+from cognite_toolkit._cdf_tk.commands.auth.home import get_cli_home, session_file_path
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (
     delete_session_token,
     read_session_token,
     store_session_token,
 )
+from cognite_toolkit._cdf_tk.constants import (
+    COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
+    COGNITE_CLI_SESSION_VERSION,
+)
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError
 
 SessionTokenState = Literal["VALID", "EXPIRING", "EXPIRED"]
 
@@ -28,11 +30,119 @@ class SessionMetadata:
     access_token_expires_at: str
     refresh_token_expires_at: str
 
+    def token_state(
+        self,
+        now: datetime | None = None,
+        leeway_seconds: int = COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
+    ) -> SessionTokenState:
+        now = now or datetime.now(timezone.utc)
+        refresh_expires = _parse_iso_timestamp(self.refresh_token_expires_at)
+        if now >= refresh_expires:
+            return "EXPIRED"
+        access_expires = _parse_iso_timestamp(self.access_token_expires_at)
+        if now >= access_expires - timedelta(seconds=leeway_seconds):
+            return "EXPIRING"
+        return "VALID"
+
 
 @dataclass
 class StoredSession(SessionMetadata):
     access_token: str
     refresh_token: str
+
+    @classmethod
+    def load_metadata(cls) -> SessionMetadata | None:
+        return _read_metadata_file()
+
+    @classmethod
+    def load(cls) -> "StoredSession | None":
+        metadata = cls.load_metadata()
+        if metadata is None:
+            return None
+        access_token = read_session_token(_access_token_account(metadata.org))
+        refresh_token = read_session_token(_refresh_token_account(metadata.org))
+        if not access_token or not refresh_token:
+            cls.clear()
+            return None
+        return cls(
+            version=metadata.version,
+            org=metadata.org,
+            access_token_expires_at=metadata.access_token_expires_at,
+            refresh_token_expires_at=metadata.refresh_token_expires_at,
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+
+    def save(self) -> None:
+        try:
+            existing = self.load_metadata()
+        except AuthenticationError:
+            existing = None
+
+        if existing is not None and existing.org != self.org:
+            self._clear_org_tokens(existing.org)
+
+        access_account = _access_token_account(self.org)
+        refresh_account = _refresh_token_account(self.org)
+        try:
+            store_session_token(access_account, self.access_token)
+            store_session_token(refresh_account, self.refresh_token)
+            _write_metadata_file(self)
+        except Exception:
+            delete_session_token(access_account)
+            delete_session_token(refresh_account)
+            raise
+
+    @classmethod
+    def clear(cls) -> None:
+        try:
+            metadata = cls.load_metadata()
+        except AuthenticationError:
+            metadata = None
+        if metadata is not None:
+            cls._clear_org_tokens(metadata.org)
+        path = session_file_path()
+        if path.is_file():
+            path.unlink()
+
+    @staticmethod
+    def _clear_org_tokens(org: str) -> None:
+        delete_session_token(_access_token_account(org))
+        delete_session_token(_refresh_token_account(org))
+
+    @classmethod
+    def ensure_fresh(cls, refresh: Callable[["StoredSession"], "StoredSession"]) -> "StoredSession | None":
+        session = cls.load()
+        if session is None:
+            return None
+
+        state = session.token_state()
+        if state == "EXPIRED":
+            raise SessionExpiredError("Session expired. Run `cdf auth login` to sign in again.")
+        if state == "VALID":
+            return session
+
+        lock_path = session_file_path().with_suffix(".lock")
+        try:
+            with FileLock(lock_path, timeout=30):
+                latest = cls.load()
+                if latest is None:
+                    return None
+                latest_state = latest.token_state()
+                if latest_state == "EXPIRED":
+                    raise SessionExpiredError("Session expired. Run `cdf auth login` to sign in again.")
+                if latest_state == "VALID":
+                    return latest
+                try:
+                    refreshed = refresh(latest)
+                except AuthenticationError:
+                    raise SessionExpiredError("Session expired. Run `cdf auth login` to sign in again.") from None
+                refreshed.save()
+                return refreshed
+        except Timeout as exc:
+            raise AuthenticationError(
+                "Timed out waiting for session lock. Another process might be refreshing the session."
+            ) from exc
 
 
 def _access_token_account(org: str) -> str:
@@ -56,21 +166,6 @@ def _parse_iso_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
-
-
-def token_state(
-    metadata: SessionMetadata,
-    now: datetime | None = None,
-    leeway_seconds: int = COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
-) -> SessionTokenState:
-    now = now or datetime.now(timezone.utc)
-    refresh_expires = _parse_iso_timestamp(metadata.refresh_token_expires_at)
-    if now >= refresh_expires:
-        return "EXPIRED"
-    access_expires = _parse_iso_timestamp(metadata.access_token_expires_at)
-    if now >= access_expires - timedelta(seconds=leeway_seconds):
-        return "EXPIRING"
-    return "VALID"
 
 
 def _ensure_cli_home() -> Path:
@@ -119,56 +214,3 @@ def _read_metadata_file() -> SessionMetadata | None:
         raise AuthenticationError(
             f"Session file is corrupted or invalid: {exc}. Run `cdf auth login --force` to sign in again."
         ) from exc
-
-
-def clear_org_tokens(org: str) -> None:
-    delete_session_token(_access_token_account(org))
-    delete_session_token(_refresh_token_account(org))
-
-
-def write_session(session: StoredSession) -> None:
-    access_account = _access_token_account(session.org)
-    refresh_account = _refresh_token_account(session.org)
-    try:
-        store_session_token(access_account, session.access_token)
-        store_session_token(refresh_account, session.refresh_token)
-        _write_metadata_file(session)
-    except Exception:
-        delete_session_token(access_account)
-        delete_session_token(refresh_account)
-        raise
-
-
-def read_session_metadata() -> SessionMetadata | None:
-    return _read_metadata_file()
-
-
-def read_session() -> StoredSession | None:
-    metadata = _read_metadata_file()
-    if metadata is None:
-        return None
-    access_token = read_session_token(_access_token_account(metadata.org))
-    refresh_token = read_session_token(_refresh_token_account(metadata.org))
-    if not access_token or not refresh_token:
-        clear_session()
-        return None
-    return StoredSession(
-        version=metadata.version,
-        org=metadata.org,
-        access_token_expires_at=metadata.access_token_expires_at,
-        refresh_token_expires_at=metadata.refresh_token_expires_at,
-        access_token=access_token,
-        refresh_token=refresh_token,
-    )
-
-
-def clear_session() -> None:
-    try:
-        metadata = _read_metadata_file()
-    except AuthenticationError:
-        metadata = None
-    if metadata is not None:
-        clear_org_tokens(metadata.org)
-    path = session_file_path()
-    if path.is_file():
-        path.unlink()
