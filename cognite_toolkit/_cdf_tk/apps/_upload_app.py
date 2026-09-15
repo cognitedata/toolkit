@@ -25,9 +25,11 @@ def _validate_cdf_project(cli_cdf_project: str | None, client_cdf_project: str) 
         )
     if cli_cdf_project is None:
         typed_project = questionary.text(
-            f"Enter the name of CDF project you are uploading to. This must match the "
-            f"CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
+            f"Enter the name of the CDF project you are uploading to. This must match the "
+            f"CDF_PROJECT={client_cdf_project!r} in your environment variables.\n",
         ).unsafe_ask()
+        if typed_project is None:
+            raise typer.Abort()
         if typed_project != client_cdf_project:
             raise ToolkitValidationError(
                 f"The CDF project you typed does not match your credentials, {typed_project!r}≠{client_cdf_project!r}."
