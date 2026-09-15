@@ -328,7 +328,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ),
                 source_file=source_file,
             )
-        if local_request.implements != cdf_as_request.implements:
+        if (local_request.implements or []) != (cdf_as_request.implements or []):
             # implements can break clients relying on inherited properties, so it requires a version bump.
             # name, description and filter are metadata/query-only and can always change.
             yield ConsistencyError(
