@@ -286,10 +286,18 @@ class AgentYAML(ToolkitResource):
         "the agent's goals and how to achieve them.",
         max_length=32000,
     )
+    instructionsFile: str | None = Field(
+        default=None,
+        description="Used by Toolkit: Path to the Markdown file containing the instructions for the agent.",
+    )
     model: str | None = Field(
         None, description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.")
+    toolsFiles: list[str] | None = Field(
+        default=None,
+        description="Used by Toolkit: Paths to YAML files containing the tools for the agent.",
+    )
     subagents: list[SubagentConfig] | None = Field(
         None,
         description="List of agents to expose as subagents on this agent.",

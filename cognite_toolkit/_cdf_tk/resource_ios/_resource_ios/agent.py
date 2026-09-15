@@ -1,6 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
-from typing import Any, Literal, TypeVar, final
+from pathlib import Path
+from typing import Any, Literal, TypeVar, cast, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
@@ -11,14 +12,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
+    safe_read,
+    sanitize_filename,
+)
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     AgentDataModel,
@@ -38,6 +45,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
+    extra_content_property = "instructions"
     dependencies = frozenset(
         {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
     )
@@ -87,6 +95,97 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         dm_scope = tool.configuration.data_models
         if dm_scope.type == "manual" and isinstance(dm_scope, ManualQueryDataModels):
             yield from AgentIO._yaml_data_model_dependencies(dm_scope.data_models)
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for an Agent resource.
+
+        This includes an optional .md file referenced by instructionsFile and optional YAML files
+        referenced by toolsFiles.
+        """
+        yield from cls._get_instructions_extra_file(filepath, item)
+        yield from cls._get_tools_extra_files(filepath, item)
+
+    @classmethod
+    def _get_instructions_extra_file(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        if "instructionsFile" not in item:
+            return
+
+        if not item.get("instructionsFile"):
+            return
+        instructions_file = filepath.parent / Path(item["instructionsFile"])
+        if not instructions_file.is_file():
+            yield FailedReadExtra(
+                source_path=instructions_file,
+                code="MISSING",
+                error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
+            )
+            return
+
+        content = safe_read(instructions_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=instructions_file,
+            source_hash=source_hash,
+            suffix=".md",
+            content=content,
+            description="agent instructions",
+            resource_field="instructions",
+            remove_fields=["instructionsFile"],
+        )
+
+    @classmethod
+    def _get_tools_extra_files(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        if "toolsFiles" not in item:
+            return
+
+        tools_files = item.get("toolsFiles") or []
+        if not isinstance(tools_files, list):
+            return
+
+        for tools_file_name in tools_files:
+            if not tools_file_name:
+                continue
+            tools_file = filepath.parent / Path(tools_file_name)
+            if not tools_file.is_file():
+                yield FailedReadExtra(
+                    source_path=tools_file,
+                    code="MISSING",
+                    error=f"Tools file {tools_file.as_posix()} not found or is not a file",
+                )
+                continue
+
+            content = safe_read(tools_file, encoding=BUILD_FOLDER_ENCODING)
+            source_hash = calculate_hash(content, shorten=True)
+            suffix = tools_file.suffix if tools_file.suffix else ".yaml"
+            yield SuccessExtra(
+                source_path=tools_file,
+                source_hash=source_hash,
+                suffix=suffix,
+                content=content,
+                description="agent tools",
+                resource_field="tools",
+                is_list=True,
+                remove_fields=["toolsFiles"],
+            )
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if instructions := resource.pop("instructions", None):
+            md_path = base_filepath.with_suffix(".md")
+            resource["instructionsFile"] = md_path.name
+            yield md_path, cast(str, instructions)
+
+        if tools := resource.pop("tools", None):
+            stem = base_filepath.stem
+            if stem.lower().endswith(self.kind.lower()):
+                stem = stem[: -len(self.kind)].removesuffix(".")
+            tools_path = base_filepath.parent / f"{stem}.yaml"
+            resource["toolsFiles"] = [tools_path.name]
+            yield tools_path, yaml_safe_dump(tools)
+
+        yield base_filepath, resource
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
