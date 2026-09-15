@@ -303,7 +303,7 @@ class TestAgentIOExtraFiles:
             AgentIO.get_extra_files(
                 yaml_path,
                 ExternalId(external_id="my_agent"),
-                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml", "tools/python_tool.yaml"]},
+                {"instructionsFile": "instructions.md", "toolFiles": ["tools.yaml", "tools/python_tool.yaml"]},
             )
         )
 
@@ -326,7 +326,7 @@ class TestAgentIOExtraFiles:
                 "is_list": True,
                 "source_hash": calculate_hash(tools_yaml, shorten=True),
                 "description": "agent tools",
-                "remove_fields": ["toolsFiles"],
+                "remove_fields": ["toolFiles"],
             },
             {
                 "source_path": code_path,
@@ -350,7 +350,7 @@ class TestAgentIOExtraFiles:
                 "is_list": True,
                 "source_hash": calculate_hash(python_tool_yaml, shorten=True),
                 "description": "agent tools",
-                "remove_fields": ["toolsFiles"],
+                "remove_fields": ["toolFiles"],
             },
         ]
 
@@ -405,7 +405,7 @@ class TestAgentIOExtraFiles:
                 {
                     **self._AGENT_YAML,
                     "instructionsFile": "my_agent.Agent.md",
-                    "toolsFiles": ["my_agent.Ask_Document.yaml", "tools/my_agent.run_code.yaml"],
+                    "toolFiles": ["my_agent.Ask_Document.yaml", "tools/my_agent.run_code.yaml"],
                 },
             ),
         ]
