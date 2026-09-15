@@ -4,6 +4,10 @@ from urllib.parse import urljoin
 from cognite.client import ClientConfig
 from cognite.client.credentials import CredentialProvider
 
+COGIDP_PROD_API_BASE = "https://auth.cognite.com/api/v1"
+COGIDP_DEV_API_BASE = "https://auth-dev.cognitedata-development.cognite.ai/api/v1"
+_DEV_CLUSTER_MARKER = "-dev"
+
 
 class ToolkitClientConfig(ClientConfig):
     def __init__(
@@ -119,12 +123,21 @@ class ToolkitClientConfig(ClientConfig):
         base_path = f"/apps/v1/projects/{self.project}{endpoint}"
         return urljoin(self.base_url, base_path)
 
+    @property
+    def _is_dev_cluster(self) -> bool:
+        cluster = self.cdf_cluster or ""
+        return _DEV_CLUSTER_MARKER in cluster.lower()
+
     def create_auth_url(self, endpoint: str) -> str:
         """Create a full Auth URL for the given endpoint.
+
+        Routes to the CogIdP dev instance for dev clusters (cluster names containing '-dev'),
+        e.g. az-arn-dev-002, aws-dub-dev, gc-bru-dev-003.
 
         Args:
             endpoint (str): The Auth endpoint to append to the base URL.
         """
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        return f"https://auth.cognite.com/api/v1{endpoint}"
+        base = COGIDP_DEV_API_BASE if self._is_dev_cluster else COGIDP_PROD_API_BASE
+        return f"{base}{endpoint}"
