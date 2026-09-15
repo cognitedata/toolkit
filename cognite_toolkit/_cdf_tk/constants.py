@@ -63,11 +63,11 @@ DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 DEFAULT_ENV = "dev"
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
-# Resource folders that ship code in subdirectories (e.g. functions/<externalId>/handler.py,
-# agents/tools/*.py). YAML files in those subdirectories are code artifacts, not CDF resource definitions.
-RESOURCE_FOLDERS_WITH_CODE_BUNDLES = frozenset({"functions", "apps", "streamlit", "agents"})
+# Resource folders that ship code in subdirectories (e.g. functions/<externalId>/handler.py)
+# . YAML files in those subdirectories are code artifacts, not CDF resource definitions.
+RESOURCE_FOLDERS_WITH_CODE_BUNDLES = frozenset({"functions", "apps", "streamlit"})
 # Files to search for variables.
-SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv", ".md", ".py"])
+SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv", ".md"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])

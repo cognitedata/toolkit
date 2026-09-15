@@ -28,7 +28,7 @@ else:
     from typing_extensions import Self
 
 
-FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".py"]
+FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
 
 
