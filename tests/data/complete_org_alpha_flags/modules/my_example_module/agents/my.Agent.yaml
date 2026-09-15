@@ -1,0 +1,8 @@
+externalId: agent_external_files
+name: My Agent
+description: Agent with instructions and tools loaded from sidecar files
+model: azure/gpt-4o
+instructionsFile: instructions.md
+toolsFiles:
+- tools.yaml
+runtimeVersion: 0.9.9

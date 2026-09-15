@@ -1,0 +1,3 @@
+- name: Operations on datapoints tool
+  description: This tool allows you to perform operations on query time series datapoints.
+  type: queryTimeSeriesDatapoints
