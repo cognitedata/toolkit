@@ -1114,6 +1114,8 @@ class BuildV2Command(ToolkitCommand):
         to_write = dict(resource.raw)
         for field, extra_files in extra_by_field.items():
             if field is None:
+                # These extra files are not a specific resource field, it is typically another resource. For
+                # example in Functions, the code directory is a zip file.
                 for extra_file in extra_files:
                     extra_path = folder / f"{filestem}{extra_file.suffix}"
                     if extra_file.content:
@@ -1126,6 +1128,9 @@ class BuildV2Command(ToolkitCommand):
                 to_write[field] = [ef.content for ef in extra_files if ef.content is not None]
             else:
                 to_write[field] = extra_files[0].content
+
+            for remove_field in extra_files[0].remove_fields:
+                to_write.pop(remove_field, None)
 
         safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
 

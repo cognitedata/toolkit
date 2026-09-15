@@ -15,7 +15,7 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Literal, final
+from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 import yaml
 
@@ -49,11 +49,12 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     load_yaml_inject_variables,
     read_yaml_content,
     safe_read,
@@ -67,6 +68,9 @@ from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsIO
 from .raw import RawDatabaseCRUD, RawTableCRUD
 
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
 
 @final
 class ExtractionPipelineIO(
@@ -78,6 +82,7 @@ class ExtractionPipelineIO(
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
+    extra_content_property = "documentation"
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @property
@@ -129,6 +134,46 @@ class ExtractionPipelineIO(
             if entry.db_name and entry.table_name:
                 yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for an ExtractionPipeline resource.
+
+        This includes an optional .md file referenced by documentationFile.
+        """
+        if "documentationFile" not in item:
+            return
+
+        if not item.get("documentationFile"):
+            return
+        documentation_file = filepath.parent / Path(item["documentationFile"])
+        if not documentation_file.is_file():
+            yield FailedReadExtra(
+                source_path=documentation_file,
+                code="MISSING",
+                error=f"Documentation file {documentation_file.as_posix()} not found or is not a file",
+            )
+            return
+
+        content = safe_read(documentation_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=documentation_file,
+            source_hash=source_hash,
+            suffix=".md",
+            content=content,
+            description="extraction pipeline documentation",
+            resource_field="documentation",
+            remove_fields=["documentationFile"],
+        )
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Overwritten to handle the documentation field that needs .md style substitution."""
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
+        return BuildVariable.substitute(content, variables, ".md")
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -149,6 +194,16 @@ class ExtractionPipelineIO(
         elif dumped.get("createdBy") == "unknown" and "createdBy" in local and local["createdBy"] is None:
             dumped["createdBy"] = None
         return dumped
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if documentation := resource.pop("documentation", None):
+            md_path = base_filepath.with_suffix(".md")
+            resource["documentationFile"] = md_path.name
+            yield md_path, cast(str, documentation)
+
+        yield base_filepath, resource
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
