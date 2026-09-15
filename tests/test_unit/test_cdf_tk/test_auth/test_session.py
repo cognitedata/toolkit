@@ -181,6 +181,22 @@ def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: P
     assert StoredSession.load() == new_session
 
 
+def test_saving_session_overwrites_corrupted_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
+    (cli_home / "session.json").write_text("{corrupted json\n")
+    now = datetime.now(timezone.utc)
+    session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="my-org",
+        access_token="access",
+        refresh_token="refresh",
+        access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+    )
+    session.save()
+
+    assert StoredSession.load() == session
+
+
 def test_refresh_session_raises_when_idp_rejects_refresh_token(cogidp_http) -> None:
     cogidp_http(token_status=400)
     session = StoredSession(
