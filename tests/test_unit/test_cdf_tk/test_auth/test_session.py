@@ -161,7 +161,7 @@ def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Pa
     assert read_session_metadata() is None
 
 
-def test_refresh_session_raises_when_idp_rejects_refresh_token(respx_mock: respx.MockRouter, cogidp_http) -> None:
+def test_refresh_session_raises_when_idp_rejects_refresh_token(cogidp_http) -> None:
     cogidp_http(token_status=400)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
