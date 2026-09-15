@@ -185,9 +185,20 @@ class QueryTimeSeriesDatapoints(AgentToolDefinition):
     type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
 
 
+class RunPythonCodeConfig(AgentToolModelResource):
+    pythonCode: str | None = Field(
+        default=None,
+        description="The Python code for the Run Python Code tool.",
+    )
+    pythonCodeFile: str | None = Field(
+        default=None,
+        description="Used by Toolkit: Path to the Python file containing the code for the tool.",
+    )
+
+
 class RunPythonCode(AgentToolDefinition):
     type: Literal["runPythonCode"] = "runPythonCode"
-    configuration: dict[str, Any] | None = Field(
+    configuration: RunPythonCodeConfig | None = Field(
         default=None,
         description="Configuration for the Run Python Code tool.",
     )
