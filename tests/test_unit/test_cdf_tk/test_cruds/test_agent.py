@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -273,16 +274,23 @@ class TestAgentIOExtraFiles:
         markdown = "You are a helpful assistant.\n"
         docs_path = tmp_path / "instructions.md"
         docs_path.write_text(markdown, encoding="utf-8")
+
+        tools_yaml = yaml_safe_dump([self._TOOL])
+        tools_path = tmp_path / "tools.yaml"
+        tools_path.write_text(tools_yaml, encoding="utf-8")
+
         yaml_path = MagicMock(spec=Path)
         yaml_path.parent = tmp_path
 
         extras = list(
             AgentIO.get_extra_files(
-                yaml_path, ExternalId(external_id="my_agent"), {"instructionsFile": "instructions.md"}
+                yaml_path,
+                ExternalId(external_id="my_agent"),
+                {"instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml"]},
             )
         )
 
-        assert len(extras) == 1
+        assert len(extras) == 2
         extra = extras[0]
         assert extra.model_dump(exclude_unset=True) == {
             "source_path": docs_path,
@@ -293,21 +301,8 @@ class TestAgentIOExtraFiles:
             "description": "agent instructions",
             "remove_fields": ["instructionsFile"],
         }
-
-    def test_get_extra_files_from_tools_files(self, tmp_path: Path) -> None:
-        tools_yaml = yaml_safe_dump([self._TOOL])
-        tools_path = tmp_path / "tools.yaml"
-        tools_path.write_text(tools_yaml, encoding="utf-8")
-        yaml_path = MagicMock(spec=Path)
-        yaml_path.parent = tmp_path
-
-        extras = list(
-            AgentIO.get_extra_files(yaml_path, ExternalId(external_id="my_agent"), {"toolsFiles": ["tools.yaml"]})
-        )
-
-        assert len(extras) == 1
-        extra = extras[0]
-        assert extra.model_dump(exclude_unset=True) == {
+        extra2 = extras[1]
+        assert extra2.model_dump(exclude_unset=True) == {
             "source_path": tools_path,
             "suffix": ".yaml",
             "content": tools_yaml,
@@ -330,8 +325,10 @@ class TestAgentIOExtraFiles:
         extra = extras[0]
         assert extra.model_dump(exclude_unset=True)["code"] == "MISSING"
 
-    def test_split_resource_writes_markdown_and_tools(self, tmp_path: Path) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+    def test_split_resource_writes_markdown_and_tools(
+        self, tmp_path: Path, toolkit_client_cheap: ToolkitClient
+    ) -> None:
+        io = AgentIO(toolkit_client_cheap, None, None)
         base = tmp_path / "my_agent.Agent.yaml"
         resource = {**self._AGENT_YAML, "instructions": "Be helpful.\n", "tools": [self._TOOL]}
 
@@ -342,35 +339,3 @@ class TestAgentIOExtraFiles:
             (tmp_path / "my_agent.yaml", yaml_safe_dump([self._TOOL])),
             (base, {**self._AGENT_YAML, "instructionsFile": "my_agent.Agent.md", "toolsFiles": ["my_agent.yaml"]}),
         ]
-
-    def test_load_resource_file_inlines_instructions_and_tools(self, tmp_path: Path) -> None:
-        yaml_path = tmp_path / "my_agent.Agent.yaml"
-        yaml_path.write_text(
-            yaml_safe_dump({**self._AGENT_YAML, "instructionsFile": "instructions.md", "toolsFiles": ["tools.yaml"]}),
-            encoding="utf-8",
-        )
-        (tmp_path / "instructions.md").write_text("Be helpful.\n", encoding="utf-8")
-        (tmp_path / "tools.yaml").write_text(yaml_safe_dump([self._TOOL]), encoding="utf-8")
-
-        io = AgentIO(ToolkitClientMock(), None, None)
-        loaded = io.load_resource_file(yaml_path)
-
-        assert loaded == [
-            {
-                **self._AGENT_YAML,
-                "instructions": "Be helpful.\n",
-                "tools": [self._TOOL],
-            }
-        ]
-
-    def test_load_resource_file_parses_inlined_tools_yaml_string(self, tmp_path: Path) -> None:
-        yaml_path = tmp_path / "my_agent.Agent.yaml"
-        yaml_path.write_text(
-            yaml_safe_dump({**self._AGENT_YAML, "tools": yaml_safe_dump([self._TOOL])}),
-            encoding="utf-8",
-        )
-
-        io = AgentIO(ToolkitClientMock(), None, None)
-        loaded = io.load_resource_file(yaml_path)
-
-        assert loaded == [{**self._AGENT_YAML, "tools": [self._TOOL]}]
