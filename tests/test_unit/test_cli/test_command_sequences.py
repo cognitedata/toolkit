@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployOptions,
     DeployV2Command,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -29,7 +30,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     Loader,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

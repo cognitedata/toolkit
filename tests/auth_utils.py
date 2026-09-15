@@ -10,7 +10,7 @@ from cognite.client.credentials import CredentialProvider, OAuthClientCredential
 from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
+from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
 
 _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token"]
 _VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)

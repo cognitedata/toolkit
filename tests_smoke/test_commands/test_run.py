@@ -2,9 +2,9 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class TestRunFunctionLocal:

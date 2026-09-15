@@ -209,6 +209,10 @@ class AuthenticationError(ToolkitError):
     pass
 
 
+class SessionExpiredError(AuthenticationError):
+    """Raised when the persisted session can no longer be refreshed."""
+
+
 class AuthorizationError(ToolkitError):
     pass
 

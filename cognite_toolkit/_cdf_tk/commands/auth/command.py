@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     TOOLKIT_DEMO_GROUP_NAME,
@@ -68,9 +69,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingCapabilityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables, prompt_user_environment_variables
 
-from ._base import ToolkitCommand
+from .data_classes import EnvironmentVariables
+from .data_classes._constants import parse_login_flow
+from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
+from .utils import prompt_user_environment_variables, resolve_session_cdf_target
 
 
 @dataclass
@@ -110,12 +113,52 @@ class AuthCommand(ToolkitCommand):
 
         print("[green]The credentials are valid.[/green]")
 
+    def login(
+        self,
+        flow: str = "session",
+        org: str | None = None,
+        force: bool = False,
+        port: int | None = None,
+        project: str | None = None,
+    ) -> None:
+        login_flow = parse_login_flow(flow)
+        if not confirm_login_flow_overrides_env(login_flow):
+            print("[yellow]Aborted.[/yellow]")
+            return
+
+        if login_flow == "session":
+            session = AuthSessionCommand().login(org=org, force=force, port=port)
+            if session is None:
+                return
+            cdf_project, cdf_cluster = resolve_session_cdf_target(session, project=project)
+            self._store_dotenv(
+                EnvironmentVariables(
+                    CDF_CLUSTER=cdf_cluster,
+                    CDF_PROJECT=cdf_project,
+                    PROVIDER="cdf",
+                    LOGIN_FLOW="session",
+                )
+            )
+            return
+
+        try:
+            current = EnvironmentVariables.create_from_environment()
+        except ToolkitMissingValueError:
+            current = None
+        env_vars = prompt_user_environment_variables(current=current, login_flow=login_flow)
+        client = env_vars.get_client()
+        try:
+            client.tool.token.inspect()
+        except ToolkitAPIError as exc:
+            raise AuthenticationError(f"Unable to verify the credentials.\n{exc}") from exc
+        print("[green]The credentials are valid.[/green]")
+        self._store_dotenv(env_vars)
+
     def _store_dotenv(self, env_vars: EnvironmentVariables, force_overwrite: bool = False) -> None:
         new_env_file = env_vars.create_dotenv_file()
         if Path(".env").exists():
             existing = Path(".env").read_text(encoding="utf-8")
             if existing == new_env_file:
-                print("Identical '.env' file already exist.")
                 return None
             self.warn(MediumSeverityWarning("'.env' file already exists"))
             filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())

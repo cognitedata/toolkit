@@ -9,6 +9,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.dataio import (
     AssetDataIO,
@@ -53,7 +54,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors._records import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricInteractiveSelect,
     AssetInteractiveSelect,

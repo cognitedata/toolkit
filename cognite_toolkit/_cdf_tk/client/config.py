@@ -24,7 +24,7 @@ class ToolkitClientConfig(ClientConfig):
             client_name=client_name,
             project=project,
             credentials=credentials,
-            api_subversion=api_subversion,
+            api_subversion=api_subversion if api_subversion is not None else "20230101",
             base_url=base_url,
             cluster=cluster,
             headers=headers,

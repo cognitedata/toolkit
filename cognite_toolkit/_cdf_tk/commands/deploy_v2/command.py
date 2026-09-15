@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_no_out_of_scope_view_references,
     validate_soft_delete_capacity,
 )
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
@@ -71,7 +72,6 @@ from cognite_toolkit._cdf_tk.ui import (
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]

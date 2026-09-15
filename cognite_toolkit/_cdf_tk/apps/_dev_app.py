@@ -7,8 +7,8 @@ import typer
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._entity_matching_app import EntityMatchingApp
 from ._helpers import print_help_if_no_subcommand
