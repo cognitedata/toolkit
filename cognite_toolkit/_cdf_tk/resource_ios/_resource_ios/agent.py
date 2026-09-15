@@ -243,6 +243,10 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     def split_resource(
         self, base_filepath: Path, resource: dict[str, Any]
     ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if not Flags.V09.is_enabled():
+            yield from super().split_resource(base_filepath, resource)
+            return
+
         if instructions := resource.pop("instructions", None):
             md_path = base_filepath.with_suffix(".md")
             resource["instructionsFile"] = md_path.name
