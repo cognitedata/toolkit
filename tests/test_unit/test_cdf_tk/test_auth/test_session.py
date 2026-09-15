@@ -3,7 +3,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-import respx
 
 from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     _CallbackContext,
