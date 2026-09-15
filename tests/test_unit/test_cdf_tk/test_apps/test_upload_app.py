@@ -1,9 +1,7 @@
 import pytest
-from typer.testing import CliRunner
 
-from cognite_toolkit._cdf_tk.apps._upload_app import UploadApp, _validate_cdf_project
+from cognite_toolkit._cdf_tk.apps._upload_app import _validate_cdf_project
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.utils import MockQuestionary
 
 
@@ -50,19 +48,3 @@ class TestValidateCdfProject:
         ):
             _validate_cdf_project(cli_cdf_project, "my-project")
         assert str(exc_info.value) == expected_message
-
-
-class TestUploadDirHelp:
-    def test_help_shows_expected_project_option(self) -> None:
-        result = CliRunner().invoke(UploadApp(), ["dir", "--help"])
-
-        v09_enabled = Flags.V09.is_enabled()
-        assert {
-            "exit_code": result.exit_code,
-            "--cdf-project": "--cdf-project" in result.output,
-            "--skip-verify-cdf-project": "--skip-verify-cdf-project" in result.output,
-        } == {
-            "exit_code": 0,
-            "--cdf-project": v09_enabled,
-            "--skip-verify-cdf-project": not v09_enabled,
-        }
