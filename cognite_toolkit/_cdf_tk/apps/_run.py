@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
     RunWorkflowCommand,
-    ServeFunctionCommand,
+    RunFunctionAppCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
@@ -154,8 +154,8 @@ class RunApp(typer.Typer):
         log_level: Annotated[str, typer.Option("--log-level", help="Log level for the server")] = "info",
     ) -> None:
         """Start a local development server for a Function App handler."""
-        command = ServeFunctionCommand(client=None, skip_tracking=True)
-        command.run(lambda: command.serve(path, host, port, reload, log_level))
+        command = RunFunctionAppCommand(client=None, skip_tracking=True)
+        command.run(lambda: command.run_function_app(path, host, port, reload, log_level))
 
 
 class RunFunctionApp(typer.Typer):

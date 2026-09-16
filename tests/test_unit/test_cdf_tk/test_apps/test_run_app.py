@@ -63,7 +63,7 @@ class TestRunAppFunctionApp:
         command.run.side_effect = lambda callback: callback()
 
         with patch(
-            "cognite_toolkit._cdf_tk.apps._run.ServeFunctionCommand",
+            "cognite_toolkit._cdf_tk.apps._run.RunFunctionAppCommand",
             return_value=command,
         ):
             result = CliRunner().invoke(
@@ -83,4 +83,4 @@ class TestRunAppFunctionApp:
             )
 
         assert result.exit_code == 0
-        command.serve.assert_called_once_with(tmp_path, "0.0.0.0", 8080, False, "debug")
+        command.run_function_app.assert_called_once_with(tmp_path, "0.0.0.0", 8080, False, "debug")
