@@ -36,6 +36,19 @@ def test_function_app_load_resource_normalizes_null_metadata(tmp_path: Path) -> 
     assert list(loader.sensitive_strings(loader.load_resource(loaded[0]))) == ["secret"]
 
 
+def test_function_app_build_normalizes_null_metadata(tmp_path: Path) -> None:
+    resource_file = tmp_path / "app.FunctionApp.yaml"
+    code_directory = tmp_path / "app"
+    code_directory.mkdir()
+    (code_directory / "handler.py").write_text("pass\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset", "metadata": None}
+
+    extras = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
+
+    assert len(extras) == 2
+    assert item["metadata"]["cognite-toolkit-hash"]
+
+
 @pytest.mark.parametrize("external_id", ["../secret", "/tmp/secret", "nested/secret", "nested\\secret"])
 def test_function_app_rejects_unsafe_code_paths(tmp_path: Path, external_id: str) -> None:
     resource_file = tmp_path / "app.FunctionApp.yaml"
