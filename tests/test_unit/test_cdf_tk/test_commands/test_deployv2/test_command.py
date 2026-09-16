@@ -11,6 +11,7 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
@@ -23,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
     DeploymentStep,
     ReadBuildDirectory,
+    ReadResource,
     ResourceDirectory,
     ResourceToDeploy,
     Skipped,
@@ -633,3 +635,28 @@ class TestDetectKeyColumn:
         txt_file = tmp_path / "my_table.txt"
         txt_file.write_text("key,name\n1,foo\n", encoding="utf-8")
         assert DeployV2Command._detect_key_column(txt_file) is None
+
+
+class TestCategorizeResources:
+    def test_dropping_resource_not_supporting_delete(self, toolkit_client_cheap: ToolkitClient) -> None:
+        dataset_raw = {"externalId": "my_dataset", "name": "My DataSet"}
+        request = DataSetRequest.model_validate(dataset_raw)
+        result = DeployV2Command.categorize_resources(
+            DataSetsIO.create_loader(toolkit_client_cheap),
+            resource_by_id={
+                request.as_id(): ReadResource(request, dataset_raw, [MagicMock()]),
+            },
+            cdf_by_id={
+                request.as_id(): DataSetResponse.model_validate(
+                    {"id": 1, "lastUpdatedTime": 1, "createdTime": 1, **dataset_raw}
+                )
+            },
+            is_delete=True,
+        )
+        assert {
+            "create": len(result.to_create),
+            "change": len(result.to_update),
+            "delete": len(result.to_delete),
+            "unchanged": len(result.unchanged),
+            "skipped": len(result.skipped),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 0, "skipped": 1}
