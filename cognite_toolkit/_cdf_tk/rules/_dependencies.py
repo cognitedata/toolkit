@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -145,13 +146,13 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[ConsistencyError]:
         if isinstance(item_id, ContainerId):
             assert isinstance(request, ContainerRequest) and isinstance(cdf_item, ContainerResponse)
-            yield from self._container_insights(item_id, resource, request, cdf_item)
+            yield from self._container_insights(item_id, resource.source_path, request, cdf_item)
         elif isinstance(item_id, ViewId):
             assert isinstance(request, ViewRequest) and isinstance(cdf_item, ViewResponse)
-            yield from self._view_insights(item_id, resource, request, cdf_item)
+            yield from self._view_insights(item_id, resource.source_path, request, cdf_item)
         elif isinstance(item_id, DataModelId):
             assert isinstance(request, DataModelRequest) and isinstance(cdf_item, DataModelResponse)
-            yield from self._data_model_insights(item_id, resource, request, cdf_item)
+            yield from self._data_model_insights(item_id, resource.source_path, request, cdf_item)
 
     # A view's base (container-mapped) property may have its name, description, container and
     # containerPropertyIdentifier changed freely without a version bump; remapping a property to a new
@@ -221,11 +222,10 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     def _container_insights(
         self,
         container_id: ContainerId,
-        resource: BuiltResource,
+        source_path: AbsoluteFilePath,
         local_request: ContainerRequest,
         cdf_response: ContainerResponse,
     ) -> Iterable[ConsistencyError]:
-        source_file = format_insight_source_file(resource.source_path)
         local_properties = local_request.properties
         cdf_properties = cdf_response.properties
 
@@ -247,7 +247,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
@@ -261,7 +261,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
 
         # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is
@@ -280,17 +280,16 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
 
     def _view_insights(
         self,
         view_id: ViewId,
-        resource: BuiltResource,
+        source_path: AbsoluteFilePath,
         local_request: ViewRequest,
         cdf_response: ViewResponse,
     ) -> Iterable[ConsistencyError]:
-        source_file = format_insight_source_file(resource.source_path)
         cdf_as_request = cdf_response.as_request_resource()
         local_properties = local_request.properties or {}
         cdf_properties = cdf_as_request.properties or {}
@@ -313,7 +312,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
         elif removed:
             yield ConsistencyError(
@@ -326,7 +325,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
         if (local_request.implements or []) != (cdf_as_request.implements or []):
             # implements can break clients relying on inherited properties, so it requires a version bump.
@@ -339,17 +338,16 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
 
     def _data_model_insights(
         self,
         data_model_id: DataModelId,
-        resource: BuiltResource,
+        source_path: AbsoluteFilePath,
         local_request: DataModelRequest,
         cdf_response: DataModelResponse,
     ) -> Iterable[ConsistencyError]:
-        source_file = format_insight_source_file(resource.source_path)
         local_views = set(local_request.views or [])
         cdf_views = set(cdf_response.views or [])
         local_version_by_view = {(view_id.space, view_id.external_id): view_id.version for view_id in local_views}
@@ -379,7 +377,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )
 
         if removed:
@@ -393,5 +391,5 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_file,
+                source_file=source_path,
             )

@@ -7,6 +7,7 @@ from typing import ClassVar, TypeAlias
 from pydantic import BaseModel, field_validator
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
 class InsightDefinition(BaseModel):
@@ -165,7 +166,7 @@ class InsightList(UserList[Insight]):
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(insight.source_file or ""),
+                    "source_file": _normalize_csv_cell(format_insight_source_file(insight.source_file)),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
@@ -180,7 +181,7 @@ class InsightList(UserList[Insight]):
             {
                 "insightType": insight.insight_type(),
                 "code": insight.code,
-                "sourceFile": insight.source_file,
+                "sourceFile": format_insight_source_file(insight.source_file),
                 "message": insight.message,
                 "fix": insight.fix,
             }
