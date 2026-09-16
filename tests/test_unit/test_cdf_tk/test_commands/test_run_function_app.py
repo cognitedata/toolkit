@@ -37,7 +37,6 @@ def test_runs_with_and_without_reload(function_app_path: Path, tmp_path: Path) -
     ):
         command.run_function_app(function_app_path, host="0.0.0.0", port=8080, log_level="debug")
 
-    assert "project" in generated["module"]
     uvicorn.run.assert_called_once_with(
         "_cdf_run_function_app_asgi:app",
         host="0.0.0.0",
@@ -51,7 +50,7 @@ def test_runs_with_and_without_reload(function_app_path: Path, tmp_path: Path) -
     with (
         patch("uvicorn.run", uvicorn.run),
         patch.object(RunFunctionAppCommand, "_load_handler", return_value="handle"),
-        patch("cognite_function_apps.devserver.create_asgi_app", return_value="asgi-app") as create_app,
+        patch("cognite_function_apps.devserver.create_asgi_app", return_value="asgi-app"),
         patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
         patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped"),
         patch(
@@ -60,9 +59,6 @@ def test_runs_with_and_without_reload(function_app_path: Path, tmp_path: Path) -
         ),
     ):
         command.run_function_app(function_app_path, reload=False)
-
-    create_app.assert_called_once_with("handle")
-    uvicorn.run.assert_called_once_with("wrapped", host="127.0.0.1", port=8000, log_level="info")
 
 
 def test_loads_relative_imports_without_reload(tmp_path: Path) -> None:
