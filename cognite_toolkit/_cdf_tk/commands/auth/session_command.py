@@ -7,27 +7,29 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth.cogidp import SessionProject, fetch_session_user_info
-from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables, LoginFlow
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import LoginFlow
+from cognite_toolkit._cdf_tk.commands.auth.dotenv_path import describe_configured_login_flow
 from cognite_toolkit._cdf_tk.commands.auth.oidc import login_for_session, refresh_session_tokens, revoke_refresh_token
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError
 
 
 def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
-    """Warn and confirm when login uses a different mode than .env."""
-    env_flow = EnvironmentVariables.login_flow_from_environment()
+    """Warn and confirm when login uses a different mode than the configured LOGIN_FLOW."""
+    env_flow, login_flow_source = describe_configured_login_flow()
     if env_flow is None or env_flow == selected_flow:
         return True
 
+    source_label = login_flow_source or "the environment"
     print(
-        "[yellow]Your .env configures "
-        f"LOGIN_FLOW={env_flow!r}, but you selected {selected_flow!r}. "
-        "Continuing will switch the toolkit to the new authentication mode.[/yellow]"
+        "[yellow]The toolkit is already using "
+        f"LOGIN_FLOW={env_flow!r} (from {source_label}), but you selected {selected_flow!r}. "
+        "Continuing will switch the toolkit to the new authentication mode when you save a .env file.[/yellow]"
     )
     if not sys.stdin.isatty():
         raise AuthenticationError(
-            f".env uses LOGIN_FLOW={env_flow!r}, but login was requested with {selected_flow!r}. "
-            "Update .env or run in an interactive terminal."
+            f"LOGIN_FLOW={env_flow!r} (from {source_label}), but login was requested with {selected_flow!r}. "
+            "Update the .env file or LOGIN_FLOW, or run in an interactive terminal."
         )
     return questionary.confirm("Do you want to continue?", default=False).unsafe_ask()
 

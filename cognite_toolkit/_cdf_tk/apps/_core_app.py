@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.commands.auth.dotenv_path import find_dotenv_path
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
@@ -121,12 +122,8 @@ class CoreApp(typer.Typer):
             return
 
         if env_path is None:
-            candidates = [Path.cwd() / ".env", Path.cwd().parent / ".env"]
-            for candidate in candidates:
-                if candidate.is_file():
-                    env_path = candidate
-                    break
-            else:
+            env_path = find_dotenv_path()
+            if env_path is None:
                 # Did not find .env file
                 try:
                     env_vars = EnvironmentVariables.create_from_environment()
