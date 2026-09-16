@@ -571,7 +571,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command()._display_insights(insights, set(), tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
@@ -591,11 +591,31 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command()._display_insights(insights, set(), tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert pattern in rendered
         assert "^({0,98})?$" not in rendered
+
+    def test_display_ignore_rules(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        insights = InsightList(
+            [
+                ModelSyntaxWarning(
+                    code="MODEL-SYNTAX-WARNING",
+                    message="Unknown field: 'Name'",
+                    fix="Make sure the resource YAML content is valid and follows the expected structure.",
+                    source_file="modules/my_module/data_modeling/my_space.Space.yaml",
+                )
+            ]
+        )
+        ignore_rules = {"MODEL-SYNTAX-WARNING"}
+
+        BuildV2Command()._display_insights(
+            insights, ignore_rules, tmp_path / "build" / "insights.csv", console, verbose=False
+        )
+        rendered = output.getvalue()
+        assert "MODEL-SYNTAX-WARNING" not in rendered
 
 
 def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
